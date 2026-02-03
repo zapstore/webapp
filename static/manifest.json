@@ -1,0 +1,16 @@
+{
+	"name": "Zapstore",
+	"short_name": "Zapstore",
+	"description": "Discover apps on the Nostr network",
+	"start_url": "/",
+	"display": "standalone",
+	"background_color": "#0a0a0a",
+	"theme_color": "#7c3aed",
+	"icons": [
+		{
+			"src": "/favicon.png",
+			"sizes": "192x192",
+			"type": "image/png"
+		}
+	]
+}

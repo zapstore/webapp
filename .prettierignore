@@ -1,0 +1,10 @@
+# Package managers
+node_modules
+pnpm-lock.yaml
+
+# Build output
+build
+.svelte-kit
+
+# Generated files
+*.min.*
