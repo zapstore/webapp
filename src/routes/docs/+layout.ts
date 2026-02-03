@@ -38,40 +38,42 @@ function buildNavigation(): NavNode[] {
 				children: [],
 				weight
 			});
-		} else if (parts.length === 2 && isIndex) {
-			const folder = parts[0];
-			if (!folders[folder]) {
-				folders[folder] = {
-					id: `/docs/${folder}`,
-					title,
-					href: `/docs/${folder}`,
-					children: [],
-					weight
-				};
-			} else {
-				folders[folder].title = title;
-				folders[folder].href = `/docs/${folder}`;
-				folders[folder].weight = weight;
-			}
-		} else if (parts.length === 2 && !isIndex) {
-			const folder = parts[0];
-			if (!folders[folder]) {
-				folders[folder] = {
-					id: `/docs/${folder}`,
-					title: formatTitle(folder),
-					href: null,
-					children: [],
-					weight: 999
-				};
-			}
-			folders[folder].children.push({
-				id: `/docs/${rel}`,
+	} else if (parts.length === 2 && isIndex) {
+		const folder = parts[0];
+		if (!folder) continue;
+		if (!folders[folder]) {
+			folders[folder] = {
+				id: `/docs/${folder}`,
 				title,
-				href: `/docs/${rel}`,
+				href: `/docs/${folder}`,
 				children: [],
 				weight
-			});
+			};
+		} else {
+			folders[folder].title = title;
+			folders[folder].href = `/docs/${folder}`;
+			folders[folder].weight = weight;
 		}
+	} else if (parts.length === 2 && !isIndex) {
+		const folder = parts[0];
+		if (!folder) continue;
+		if (!folders[folder]) {
+			folders[folder] = {
+				id: `/docs/${folder}`,
+				title: formatTitle(folder),
+				href: null,
+				children: [],
+				weight: 999
+			};
+		}
+		folders[folder].children.push({
+			id: `/docs/${rel}`,
+			title,
+			href: `/docs/${rel}`,
+			children: [],
+			weight
+		});
+	}
 	}
 
 	for (const folder of Object.values(folders)) {
