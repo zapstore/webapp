@@ -35,6 +35,9 @@ let loadingMore = $state(false);
 /** Refreshing from relays in background */
 let refreshing = $state(false);
 
+/** Whether store has been initialized with prerendered data */
+let initialized = $state(false);
+
 /** Set of seen app keys for deduplication */
 const seenApps = new Set<string>();
 
@@ -58,6 +61,10 @@ export function isRefreshing(): boolean {
 	return refreshing;
 }
 
+export function isStoreInitialized(): boolean {
+	return initialized;
+}
+
 // ============================================================================
 // Actions
 // ============================================================================
@@ -76,6 +83,9 @@ export function initWithPrerenderedData(prerenderedApps: App[], nextCursor: numb
 	for (const app of prerenderedApps) {
 		seenApps.add(`${app.pubkey}:${app.dTag}`);
 	}
+	
+	// Mark store as initialized (client now owns the data)
+	initialized = true;
 }
 
 /**
@@ -199,5 +209,6 @@ export function resetStore(): void {
 	hasMore = true;
 	loadingMore = false;
 	refreshing = false;
+	initialized = false;
 	seenApps.clear();
 }

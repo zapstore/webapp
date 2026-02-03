@@ -9,6 +9,7 @@
 		getHasMore,
 		isRefreshing,
 		isLoadingMore,
+		isStoreInitialized,
 		initWithPrerenderedData,
 		scheduleRefresh,
 		loadMore
@@ -44,13 +45,17 @@
 	});
 
 	// Reactive getters from store
-	const apps = $derived(getApps());
+	const storeApps = $derived(getApps());
+	const storeInitialized = $derived(isStoreInitialized());
 	const hasMore = $derived(getHasMore());
 	const refreshing = $derived(isRefreshing());
 	const loadingMore = $derived(isLoadingMore());
 
-	// Use prerendered data if store is empty
-	const displayApps = $derived(apps.length > 0 ? apps : data.apps);
+	// SSR-safe display logic:
+	// - Before store initialized: always use prerendered data.apps (instant content)
+	// - After store initialized: use store data (which was initialized from data.apps)
+	// This ensures prerendered HTML matches initial client render (no hydration mismatch)
+	const displayApps = $derived(storeInitialized ? storeApps : data.apps);
 
 	// Infinite scroll: check if near bottom
 	function shouldLoadMore(): boolean {
