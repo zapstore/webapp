@@ -12,15 +12,20 @@ export type { NostrEvent, Filter };
 export interface App {
 	id: string;
 	pubkey: string;
+	npub?: string;
 	dTag: string;
 	name: string;
 	description: string;
+	descriptionHtml?: string;
 	icon?: string;
 	images: string[];
+	platform?: string;
 	repository?: string;
 	license?: string;
+	url?: string;
 	createdAt: number;
 	seenOn: string[];
+	rawEvent?: unknown;
 }
 
 // Parsed release (kind 30063)
@@ -31,9 +36,12 @@ export interface Release {
 	appId: string; // Reference to app d-tag
 	version: string;
 	releaseNotes?: string;
+	notes?: string; // Alias for releaseNotes
+	notesHtml?: string;
 	artifacts: string[]; // Event IDs of file metadata
 	createdAt: number;
 	seenOn: string[];
+	url?: string;
 }
 
 // Parsed file metadata (kind 1063)

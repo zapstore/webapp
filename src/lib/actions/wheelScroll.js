@@ -4,6 +4,10 @@
  * When the user's cursor is inside a horizontally scrollable element
  * and they use the mouse wheel, it scrolls horizontally instead of vertically.
  * 
+ * IMPORTANT: This action ALWAYS prevents vertical page scrolling when the
+ * cursor is inside the horizontal scroll zone. This is intentional for
+ * infinite scroll scenarios where more content may be loading at the edges.
+ * 
  * Only activates when:
  * - Screen width is >= 768px (desktop only)
  * - The scroll starts within the element (cursor is inside)
@@ -41,12 +45,10 @@ export function wheelScroll(node) {
     // Only handle if cursor is inside the element
     if (!isHovering) return;
     
-    // Check if the element can scroll horizontally
-    const canScrollLeft = node.scrollLeft > 0;
-    const canScrollRight = node.scrollLeft < node.scrollWidth - node.clientWidth;
-    const canScroll = canScrollLeft || canScrollRight;
+    // Check if the element has any horizontal overflow at all
+    const hasHorizontalOverflow = node.scrollWidth > node.clientWidth;
     
-    if (!canScroll) return;
+    if (!hasHorizontalOverflow) return;
     
     // Get the scroll delta (handle both deltaY and deltaX)
     // deltaY is vertical wheel, deltaX is horizontal wheel/trackpad
@@ -54,18 +56,16 @@ export function wheelScroll(node) {
     
     if (delta === 0) return;
     
-    // Check if we're at the scroll boundary
-    const atLeftEdge = node.scrollLeft <= 0 && delta < 0;
-    const atRightEdge = node.scrollLeft >= node.scrollWidth - node.clientWidth - 1 && delta > 0;
-    
-    // If at boundary, let the page scroll normally
-    if (atLeftEdge || atRightEdge) return;
-    
-    // Prevent the default vertical scroll
+    // ALWAYS prevent vertical page scroll when inside horizontal scroll zone
+    // This is crucial for infinite scroll - more content may be loading at edges
     e.preventDefault();
     
-    // Scroll horizontally
-    node.scrollLeft += delta;
+    // Calculate new scroll position, clamped to valid range
+    const maxScroll = node.scrollWidth - node.clientWidth;
+    const newScrollLeft = Math.max(0, Math.min(maxScroll, node.scrollLeft + delta));
+    
+    // Apply the horizontal scroll
+    node.scrollLeft = newScrollLeft;
   }
 
   node.addEventListener('mouseenter', onMouseEnter);

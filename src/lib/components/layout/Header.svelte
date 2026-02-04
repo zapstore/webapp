@@ -5,9 +5,12 @@
   import { Menu, Cross } from "$lib/components/icons";
   import { cn } from "$lib/utils";
   import { onMount } from "svelte";
+  import { nip19 } from "nostr-tools";
   import { getCurrentPubkey, getIsConnecting, connect, signOut } from "$lib/stores/auth.svelte";
   import ProfilePic from "$lib/components/common/ProfilePic.svelte";
   import SearchModal from "$lib/components/common/SearchModal.svelte";
+  import GetStartedModal from "$lib/components/modals/GetStartedModal.svelte";
+  import SpinKeyModal from "$lib/components/modals/SpinKeyModal.svelte";
 
   interface Props {
     variant?: "landing" | "browse";
@@ -22,6 +25,9 @@
   let searchOpen = $state(false);
   let searchQuery = $state("");
   let menuContainer = $state<HTMLElement | null>(null);
+  let getStartedModalOpen = $state(false);
+  let spinKeyModalOpen = $state(false);
+  let onboardingProfileName = $state("");
 
   // Categories and platforms for search
   const categories = ["Productivity", "Social", "Entertainment", "Utilities", "Developer Tools", "Games"];
@@ -29,6 +35,7 @@
 
   // Reactive auth state
   const pubkey = $derived(getCurrentPubkey());
+  const profileHref = $derived(pubkey ? "/profile/" + nip19.npubEncode(pubkey) : "#");
   const isConnecting = $derived(getIsConnecting());
   const isConnected = $derived(pubkey !== null);
 
@@ -86,12 +93,30 @@
     };
   });
 
-  async function handleSignIn() {
-    try {
-      await connect();
-    } catch (err) {
-      console.error("Sign in failed:", err);
-    }
+  function openGetStartedModal() {
+    menuOpen = false;
+    getStartedModalOpen = true;
+  }
+
+  function handleGetStartedStart(event: { profileName: string }) {
+    onboardingProfileName = event.profileName;
+    spinKeyModalOpen = true;
+    setTimeout(() => {
+      getStartedModalOpen = false;
+    }, 80);
+  }
+
+  function handleGetStartedConnected() {
+    getStartedModalOpen = false;
+  }
+
+  function handleSpinComplete(_event: { nsec: string; secretKeyHex: string; pubkey: string; profileName: string }) {
+    spinKeyModalOpen = false;
+  }
+
+  function handleUseExistingKey() {
+    spinKeyModalOpen = false;
+    getStartedModalOpen = true;
   }
 
   function handleSignOut() {
@@ -168,7 +193,7 @@
                     <span class="menu-logo-text">Zapstore</span>
                   </a>
                   {#if isConnected}
-                    <a href="/p/{pubkey}" class="menu-user-pic-btn" onclick={closeMenu}>
+                    <a href={profileHref} class="menu-user-pic-btn" onclick={closeMenu}>
                       <ProfilePic pubkey={pubkey} size="md" />
                     </a>
                   {/if}
@@ -194,7 +219,7 @@
                 {#if !isConnected}
                   <div class="menu-divider"></div>
                   <div class="menu-cta-wrapper">
-                    <button type="button" class="btn-primary w-full" onclick={handleSignIn}>
+                    <button type="button" class="btn-primary w-full" onclick={openGetStartedModal}>
                       Get Started
                     </button>
                   </div>
@@ -261,7 +286,7 @@
                     <span class="menu-logo-text">Zapstore</span>
                   </a>
                   {#if isConnected}
-                    <a href="/p/{pubkey}" class="menu-user-pic" onclick={closeMenu}>
+                    <a href={profileHref} class="menu-user-pic" onclick={closeMenu}>
                       <ProfilePic pubkey={pubkey} size="md" />
                     </a>
                   {/if}
@@ -287,7 +312,7 @@
                 {#if !isConnected}
                   <div class="menu-divider"></div>
                   <div class="menu-cta-wrapper">
-                    <button type="button" class="btn-primary w-full" onclick={handleSignIn}>
+                    <button type="button" class="btn-primary w-full" onclick={openGetStartedModal}>
                       Get Started
                     </button>
                   </div>
@@ -328,7 +353,7 @@
 
             {#if dropdownOpen}
               <div class="absolute right-0 mt-2 w-48 rounded-lg overlay-surface shadow-lg py-1 z-50" style="top: 100%;">
-                <a href="/p/{pubkey}" class="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-white/5 transition-colors" onclick={() => (dropdownOpen = false)}>
+                <a href={profileHref} class="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-white/5 transition-colors" onclick={() => (dropdownOpen = false)}>
                   <User class="h-4 w-4" />
                   View my profile
                 </a>
@@ -342,7 +367,7 @@
           </div>
         {:else}
           <!-- Get Started Button -->
-          <button type="button" onclick={handleSignIn} class="btn-primary-small h-10 px-4">
+          <button type="button" onclick={openGetStartedModal} class="btn-primary-small h-10 px-4">
             <span class="sm:hidden">Start</span>
             <span class="hidden sm:inline">Get Started</span>
           </button>
@@ -354,6 +379,21 @@
 
 <!-- Search Modal -->
 <SearchModal bind:open={searchOpen} bind:searchQuery {categories} {platforms} />
+
+<!-- Onboarding Modals -->
+<GetStartedModal
+  bind:open={getStartedModalOpen}
+  onstart={handleGetStartedStart}
+  onconnected={handleGetStartedConnected}
+/>
+
+<SpinKeyModal
+  bind:open={spinKeyModalOpen}
+  profileName={onboardingProfileName}
+  zIndex={55}
+  onspinComplete={handleSpinComplete}
+  onuseExistingKey={handleUseExistingKey}
+/>
 
 <style>
   .header {

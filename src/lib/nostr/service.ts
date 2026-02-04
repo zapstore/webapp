@@ -18,7 +18,8 @@ import { EventStore, Helpers } from 'applesauce-core';
 import { RelayPool } from 'applesauce-relay';
 import { openDB, type IDBPDatabase } from 'idb';
 import type { NostrEvent, Filter } from 'nostr-tools';
-import { IDB_NAME, IDB_VERSION } from '$lib/config';
+import type { EventTemplate } from 'nostr-tools/pure';
+import { IDB_NAME, IDB_VERSION, DEFAULT_CATALOG_RELAYS } from '$lib/config';
 
 const { persistEventsToCache } = Helpers;
 
@@ -276,23 +277,22 @@ export async function fetchEvents(
 
 	if (signal?.aborted) return [];
 
-	// Step 1: Check EventStore (memory)
+	if (typeof window === 'undefined') {
+		return queryStore(filter);
+	}
+
+	await initNostrService();
+
+	// Step 1: If EventStore empty, load from IndexedDB into store (queryCache does store.add)
 	let results = queryStore(filter);
-	if (results.length > 0) {
-		return results;
+	if (results.length === 0) {
+		await queryCache(filter);
+		results = queryStore(filter);
 	}
 
-	// Step 2: Check IndexedDB (cache)
-	if (typeof window !== 'undefined') {
-		await initNostrService();
-		results = await queryCache(filter);
-		if (results.length > 0) {
-			return results;
-		}
-	}
-
-	// Step 3: Fetch from relays (network)
-	if (relays.length > 0 && typeof window !== 'undefined' && navigator.onLine) {
+	// Step 2: Always fetch from relays when online so we get complete, consistent data.
+	// (Early return on "any store result" caused partial/stale counts across reloads and browsers.)
+	if (relays.length > 0 && navigator.onLine) {
 		await fetchFromRelays([...relays], filter, { timeout, signal });
 		results = queryStore(filter);
 	}
@@ -669,6 +669,566 @@ export async function fetchAppStacks(
 
 	return { stacks, nextCursor };
 }
+
+/**
+ * Fetch a single app by pubkey and identifier (client-side).
+ * Uses local-first pattern: EventStore → IndexedDB → Catalog Relays
+ * 
+ * @param pubkey - App publisher pubkey
+ * @param identifier - App d-tag identifier
+ * @param options - Fetch options
+ * @returns Parsed App or null
+ */
+export async function fetchApp(
+	pubkey: string,
+	identifier: string,
+	options: { timeout?: number; signal?: AbortSignal } = {}
+): Promise<import('./models').App | null> {
+	const { timeout = 5000, signal } = options;
+
+	if (signal?.aborted) {
+		return null;
+	}
+
+	const filter: Filter = {
+		kinds: [32267], // EVENT_KINDS.APP
+		authors: [pubkey],
+		'#d': [identifier],
+		limit: 1
+	};
+
+	console.log(`[NostrService] Fetching app: ${pubkey}:${identifier}`);
+	
+	// Use fetchEvent for single event lookup
+	const event = await fetchEvent(filter, { relays: DEFAULT_CATALOG_RELAYS, timeout, signal });
+
+	if (!event) {
+		console.log(`[NostrService] App not found: ${pubkey}:${identifier}`);
+		return null;
+	}
+
+	const { parseApp } = await import('./models');
+	return parseApp(event as any);
+}
+
+/**
+ * Fetch app stacks with parsing (client-side convenience wrapper).
+ * 
+ * @param options - Filter options
+ * @returns Array of parsed AppStack objects
+ */
+export async function fetchAppStacksParsed(options: {
+	authors?: string[];
+	limit?: number;
+	until?: number;
+	timeout?: number;
+	signal?: AbortSignal;
+} = {}): Promise<import('./models').AppStack[]> {
+	const { authors, limit = 20, until, timeout = 5000, signal } = options;
+
+	if (signal?.aborted) {
+		return [];
+	}
+
+	const filter: Filter = {
+		kinds: [30267], // EVENT_KINDS.APP_STACK
+		limit
+	};
+
+	if (authors && authors.length > 0) {
+		filter.authors = authors;
+	}
+
+	if (until !== undefined) {
+		filter.until = until;
+	}
+
+	console.log(`[NostrService] Fetching app stacks (limit: ${limit}, authors: ${authors?.length || 'all'})...`);
+	
+	// Fetch from relays
+	const events = await fetchFromRelays(DEFAULT_CATALOG_RELAYS, filter, { timeout, signal });
+
+	if (signal?.aborted) {
+		return [];
+	}
+
+	console.log(`[NostrService] Fetched ${events.length} app stacks`);
+
+	// Parse events to AppStack objects
+	const { parseAppStack } = await import('./models');
+	const stacks = events.map((event) => parseAppStack(event as any));
+
+	// Sort by created_at descending
+	stacks.sort((a, b) => b.createdAt - a.createdAt);
+
+	return stacks;
+}
+
+/**
+ * Fetch a profile by pubkey.
+ * Uses local-first pattern: EventStore → IndexedDB → Social Relays
+ */
+export async function fetchProfile(
+	pubkey: string,
+	options: { timeout?: number; signal?: AbortSignal } = {}
+): Promise<NostrEvent | null> {
+	const { timeout = 5000, signal } = options;
+	
+	if (signal?.aborted || !pubkey) {
+		return null;
+	}
+
+	const filter: Filter = {
+		kinds: [0], // EVENT_KINDS.PROFILE
+		authors: [pubkey],
+		limit: 1
+	};
+
+	// Use social relays for profiles
+	const socialRelays = [
+		'wss://relay.damus.io',
+		'wss://nos.lol', 
+		'wss://relay.nostr.band'
+	];
+
+	console.log(`[NostrService] Fetching profile for: ${pubkey.slice(0, 8)}...`);
+	
+	const events = await fetchEvents(filter, { 
+		relays: socialRelays, 
+		timeout, 
+		signal 
+	});
+
+	if (events.length > 0) {
+		console.log(`[NostrService] Found profile for: ${pubkey.slice(0, 8)}...`);
+		return events[0]!;
+	}
+
+	console.log(`[NostrService] No profile found for: ${pubkey.slice(0, 8)}...`);
+	return null;
+}
+
+/**
+ * Fetch multiple profiles in batch.
+ * Uses local-first pattern with parallel fetching.
+ */
+export async function fetchProfilesBatch(
+	pubkeys: string[],
+	options: { timeout?: number; signal?: AbortSignal } = {}
+): Promise<Map<string, NostrEvent>> {
+	const { timeout = 5000, signal } = options;
+	const results = new Map<string, NostrEvent>();
+
+	if (!pubkeys || pubkeys.length === 0 || signal?.aborted) {
+		return results;
+	}
+
+	// Deduplicate pubkeys
+	const uniquePubkeys = [...new Set(pubkeys)];
+
+	console.log(`[NostrService] Fetching ${uniquePubkeys.length} profiles in batch...`);
+
+	// Fetch all profiles in parallel
+	const fetchPromises = uniquePubkeys.map(async (pubkey) => {
+		const event = await fetchProfile(pubkey, { timeout, signal });
+		if (event) {
+			results.set(pubkey, event);
+		}
+	});
+
+	await Promise.all(fetchPromises);
+
+	console.log(`[NostrService] Fetched ${results.size} profiles`);
+	return results;
+}
+
+// ============================================================================
+// Social Features: Comments and Zaps
+// ============================================================================
+
+// Social relays for comments, zaps, and other social interactions
+const SOCIAL_RELAYS = [
+	'wss://relay.damus.io',
+	'wss://nos.lol',
+	'wss://relay.nostr.band',
+	'wss://relay.zapstore.dev'
+];
+
+/**
+ * Build NIP-22 comment filter.
+ * Comments reference the target via 'a' tag: kind:pubkey:identifier (app 32267, stack 30267).
+ */
+function buildCommentFilter(
+	pubkey: string,
+	identifier: string,
+	aTagKind: number = 32267
+): Filter {
+	const aTagValue = `${aTagKind}:${pubkey}:${identifier}`;
+	return {
+		kinds: [1111], // NIP-22 Comment
+		'#a': [aTagValue]
+	};
+}
+
+/**
+ * Query comment events from EventStore only (sync, local-first).
+ * Uses #a/#A for subject, then includes any kind 1111 that has #e/#E pointing at
+ * a comment we already have (replies cached from a previous fetchComments).
+ * Use for immediate paint; then run fetchComments() for full cascade (IndexedDB → Relays).
+ */
+export function queryCommentsFromStore(
+	pubkey: string,
+	identifier: string,
+	aTagKind: number = 32267
+): NostrEvent[] {
+	if (!pubkey || !identifier) return [];
+	const aTagValue = `${aTagKind}:${pubkey}:${identifier}`;
+	const filterLower = { kinds: [1111] as number[], '#a': [aTagValue], limit: 100 };
+	const filterUpper = { kinds: [1111] as number[], '#A': [aTagValue], limit: 100 };
+	const lower = queryStore(filterLower);
+	const upper = queryStore(filterUpper);
+	const byId = new Map<string, NostrEvent>();
+	for (const e of [...lower, ...upper]) {
+		if (!byId.has(e.id)) byId.set(e.id, e);
+	}
+	// Include replies: events whose #e/#E points at a comment we have (may be cached from last fetch)
+	const commentIds = Array.from(byId.keys());
+	if (commentIds.length > 0) {
+		const allKind1111 = queryStore({ kinds: [1111] as number[], limit: 500 });
+		for (const e of allKind1111) {
+			if (byId.has(e.id)) continue;
+			const eTag = e.tags.find((t) => (t[0] === 'e' || t[0] === 'E') && t[1])?.[1];
+			if (eTag && commentIds.includes(eTag)) byId.set(e.id, e);
+		}
+	}
+	return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+}
+
+/**
+ * Fetch comments for an app.
+ * Uses NIP-22 (kind 1111). Two-phase fetch so replies from other clients show up:
+ * 1) Fetch by #a and #A (app/stack coordinate) — gets roots and replies that include the subject tag.
+ * 2) Fetch by #e (parent event id) for every comment id from (1) — gets replies that only reference
+ *    the parent comment (e.g. from other Nostr apps that don't always include #a on replies).
+ * See zapstore-mobile: comment.replies.query() does the equivalent #e follow-up.
+ *
+ * @param pubkey - App publisher's pubkey
+ * @param identifier - App's d-tag identifier
+ * @param options - Fetch options
+ * @returns Array of comment events (root and replies)
+ */
+export async function fetchComments(
+	pubkey: string,
+	identifier: string,
+	options: { timeout?: number; signal?: AbortSignal; relays?: string[]; aTagKind?: number } = {}
+): Promise<NostrEvent[]> {
+	const { timeout = 5000, signal, relays = SOCIAL_RELAYS, aTagKind = 32267 } = options;
+
+	if (signal?.aborted || !pubkey || !identifier) {
+		return [];
+	}
+
+	const aTagValue = `${aTagKind}:${pubkey}:${identifier}`;
+	const filterLower = { kinds: [1111] as number[], '#a': [aTagValue], limit: 100 };
+	const filterUpper = { kinds: [1111] as number[], '#A': [aTagValue], limit: 100 };
+
+	console.log(`[NostrService] Fetching comments for app: ${pubkey.slice(0, 8)}:${identifier}...`);
+
+	const [eventsLower, eventsUpper] = await Promise.all([
+		fetchEvents(filterLower, { relays, timeout, signal }),
+		fetchEvents(filterUpper, { relays, timeout, signal })
+	]);
+
+	const byId = new Map<string, NostrEvent>();
+	for (const e of [...eventsLower, ...eventsUpper]) {
+		if (!byId.has(e.id)) byId.set(e.id, e);
+	}
+
+	// Phase 2: fetch replies that reference our comments via #e (some clients omit #a on replies)
+	const commentIds = Array.from(byId.keys());
+	if (commentIds.length > 0 && !signal?.aborted) {
+		const batchSize = 50;
+		for (let i = 0; i < commentIds.length; i += batchSize) {
+			const ids = commentIds.slice(i, i + batchSize);
+			const filterE = { kinds: [1111] as number[], '#e': ids, limit: 100 };
+			const filterEUpper = { kinds: [1111] as number[], '#E': ids, limit: 100 };
+			const [byELower, byEUpper] = await Promise.all([
+				fetchEvents(filterE, { relays, timeout, signal }),
+				fetchEvents(filterEUpper, { relays, timeout, signal })
+			]);
+			for (const e of [...byELower, ...byEUpper]) {
+				if (!byId.has(e.id)) byId.set(e.id, e);
+			}
+		}
+	}
+
+	const events = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+	console.log(`[NostrService] Found ${events.length} comments`);
+	return events;
+}
+
+/**
+ * Watch comments for an app with background updates.
+ * Sync: returns comments from EventStore (both #a and #A).
+ * Background: runs fetchComments (dual #a/#A, full cascade) and calls onUpdate.
+ */
+export function watchComments(
+	pubkey: string,
+	identifier: string,
+	options: { timeout?: number; relays?: string[]; aTagKind?: number } = {},
+	onUpdate?: (comments: NostrEvent[]) => void
+): NostrEvent[] {
+	if (!pubkey || !identifier) return [];
+
+	const initial = queryCommentsFromStore(pubkey, identifier, options.aTagKind ?? 32267);
+
+	if (typeof window === 'undefined') return initial;
+
+	(async () => {
+		try {
+			await initNostrService();
+			const { timeout = 5000, relays = SOCIAL_RELAYS, aTagKind = 32267 } = options;
+			const events = await fetchComments(pubkey, identifier, { timeout, relays, aTagKind });
+			onUpdate?.(events);
+		} catch (err) {
+			console.error('[watchComments] Background fetch failed:', err);
+		}
+	})();
+
+	return initial;
+}
+
+/**
+ * Build zap receipt filter for an app.
+ * Zap receipts reference the zapped content via 'a' tag.
+ */
+function buildZapFilter(pubkey: string, identifier: string): Filter {
+	const aTagValue = `32267:${pubkey}:${identifier}`;
+	return {
+		kinds: [9735], // Zap Receipt
+		'#a': [aTagValue]
+	};
+}
+
+/**
+ * Fetch zaps for an app.
+ * Uses kind 9735 (zap receipt) referencing the app via 'a' tag.
+ *
+ * @param pubkey - App publisher's pubkey
+ * @param identifier - App's d-tag identifier
+ * @param options - Fetch options
+ * @returns Array of zap receipt events
+ */
+export async function fetchZaps(
+	pubkey: string,
+	identifier: string,
+	options: { timeout?: number; signal?: AbortSignal; relays?: string[] } = {}
+): Promise<NostrEvent[]> {
+	const { timeout = 5000, signal, relays = SOCIAL_RELAYS } = options;
+
+	if (signal?.aborted || !pubkey || !identifier) {
+		return [];
+	}
+
+	const filter = { ...buildZapFilter(pubkey, identifier), limit: 100 };
+
+	console.log(`[NostrService] Fetching zaps for app: ${pubkey.slice(0, 8)}:${identifier}...`);
+	
+	const events = await fetchEvents(filter, { relays, timeout, signal });
+	
+	console.log(`[NostrService] Found ${events.length} zaps`);
+	return events;
+}
+
+/**
+ * Watch zaps for an app with background updates.
+ *
+ * @param pubkey - App publisher's pubkey
+ * @param identifier - App's d-tag identifier
+ * @param options - Watch options
+ * @param onUpdate - Callback when new zaps arrive
+ * @returns Initial zaps from EventStore
+ */
+export function watchZaps(
+	pubkey: string,
+	identifier: string,
+	options: { timeout?: number; relays?: string[] } = {},
+	onUpdate?: (zaps: NostrEvent[]) => void
+): NostrEvent[] {
+	const { timeout = 5000, relays = SOCIAL_RELAYS } = options;
+
+	if (!pubkey || !identifier) {
+		return [];
+	}
+
+	const filter = { ...buildZapFilter(pubkey, identifier), limit: 100 };
+
+	return watchEvents(filter, { relays, timeout }, onUpdate);
+}
+
+/**
+ * Parse a zap receipt to extract sender, amount, and comment.
+ */
+export function parseZapReceipt(event: NostrEvent): {
+	senderPubkey: string | null;
+	recipientPubkey: string | null;
+	amountSats: number;
+	comment: string;
+	createdAt: number;
+} {
+	const result = {
+		senderPubkey: null as string | null,
+		recipientPubkey: null as string | null,
+		amountSats: 0,
+		comment: '',
+		createdAt: event.created_at
+	};
+
+	// Get recipient pubkey from 'p' tag
+	const pTag = event.tags.find(t => t[0] === 'p');
+	if (pTag && pTag[1]) {
+		result.recipientPubkey = pTag[1];
+	}
+
+	// Parse the bolt11 invoice from the 'bolt11' tag to get amount
+	const bolt11Tag = event.tags.find(t => t[0] === 'bolt11');
+	if (bolt11Tag && bolt11Tag[1]) {
+		// Simple extraction of amount from bolt11 - look for 'lnbc' prefix and amount
+		const bolt11 = bolt11Tag[1].toLowerCase();
+		const amountMatch = bolt11.match(/^lnbc(\d+)([munp]?)/);
+		if (amountMatch) {
+			const num = parseInt(amountMatch[1]!, 10);
+			const unit = amountMatch[2] || '';
+			// Convert to satoshis based on unit
+			switch (unit) {
+				case 'm': result.amountSats = num * 100000; break; // milli-bitcoin
+				case 'u': result.amountSats = num * 100; break; // micro-bitcoin
+				case 'n': result.amountSats = Math.round(num / 10); break; // nano-bitcoin
+				case 'p': result.amountSats = Math.round(num / 10000); break; // pico-bitcoin
+				default: result.amountSats = num * 100000000; break; // bitcoin
+			}
+		}
+	}
+
+	// Parse the description tag which contains the original zap request
+	const descTag = event.tags.find(t => t[0] === 'description');
+	if (descTag && descTag[1]) {
+		try {
+			const zapRequest = JSON.parse(descTag[1]) as NostrEvent;
+			result.senderPubkey = zapRequest.pubkey;
+			result.comment = zapRequest.content || '';
+		} catch {
+			// Failed to parse zap request, leave sender as null
+		}
+	}
+
+	return result;
+}
+
+/**
+ * Publish a NIP-22 comment (kind 1111).
+ * Local-first: adds to EventStore (and persist) then publishes to relays.
+ * NIP-30 emoji tags are added when emojiTags are provided.
+ *
+ * @param content - Plain text comment content
+ * @param target - App or stack being commented on (contentType + pubkey + identifier)
+ * @param signEvent - Auth signer (e.g. from auth store)
+ * @param emojiTags - Optional custom emoji shortcode/url for NIP-30 tags
+ * @returns The signed event (already in store and sent to relays)
+ */
+export async function publishComment(
+	content: string,
+	target: { contentType: 'app' | 'stack'; pubkey: string; identifier: string },
+	signEvent: (template: EventTemplate) => Promise<NostrEvent>,
+	emojiTags?: { shortcode: string; url: string }[]
+): Promise<NostrEvent> {
+	if (!content?.trim() || !target.pubkey || !target.identifier) {
+		throw new Error('Comment content and target (pubkey, identifier) are required');
+	}
+
+	const kind = 32267; // app
+	const stackKind = 30267; // stack
+	const aTagValue =
+		target.contentType === 'app'
+			? `${kind}:${target.pubkey}:${target.identifier}`
+			: `${stackKind}:${target.pubkey}:${target.identifier}`;
+
+	const tags: [string, string, ...string[]][] = [['a', aTagValue]];
+	const emojiList = emojiTags ?? [];
+	if (emojiList.length > 0) {
+		const seen = new Set<string>();
+		for (const { shortcode, url } of emojiList) {
+			if (shortcode && url && !seen.has(shortcode)) {
+				seen.add(shortcode);
+				tags.push(['emoji', shortcode, url]);
+			}
+		}
+	}
+
+	const template: EventTemplate = {
+		kind: 1111,
+		content: content.trim(),
+		tags,
+		created_at: Math.floor(Date.now() / 1000)
+	};
+
+	const signed = (await signEvent(template)) as NostrEvent;
+	const store = getEventStore();
+	store.add(signed);
+
+	await initNostrService();
+	const p = getPool();
+	await p.publish([...SOCIAL_RELAYS], signed, { timeout: 10000 });
+	return signed;
+}
+
+/**
+ * Parse a comment event to extract useful fields.
+ * Includes NIP-30 emoji tags when present for use with ShortTextRenderer.
+ * Threading: use 'e' tag for parent id whenever present so replies nest correctly
+ * even when clients omit the 'k' tag. UI should treat as root only when parentId
+ * is null or parent is not in the comment set (e.g. reply-to-app).
+ */
+export function parseComment(event: NostrEvent): {
+	id: string;
+	pubkey: string;
+	content: string;
+	contentHtml: string;
+	emojiTags: { shortcode: string; url: string }[];
+	createdAt: number;
+	parentId: string | null;
+	isReply: boolean;
+} {
+	const eTag = event.tags.find(t => (t[0] === 'e' || t[0] === 'E') && t[1]);
+	const parentId = eTag?.[1] ? (eTag[1] as string) : null;
+
+	// NIP-30 emoji tags for custom emoji in content
+	const emojiTags: { shortcode: string; url: string }[] = [];
+	for (const tag of event.tags) {
+		if (tag[0] === 'emoji' && tag[1] && tag[2]) {
+			emojiTags.push({ shortcode: tag[1], url: tag[2] });
+		}
+	}
+
+	// Simple content to HTML conversion (escape HTML, convert newlines) for fallback
+	const contentHtml = event.content
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/\n/g, '<br>');
+
+	return {
+		id: event.id,
+		pubkey: event.pubkey,
+		content: event.content,
+		contentHtml: `<p>${contentHtml}</p>`,
+		emojiTags,
+		createdAt: event.created_at,
+		parentId,
+		isReply: parentId !== null
+	};
+}
+
 
 /**
  * Close all connections and cleanup

@@ -102,15 +102,10 @@ export function initWithPrerenderedStacks(prerenderedStacks: AppStack[], nextCur
  * Refresh stacks from relays (background, non-blocking).
  */
 export async function refreshStacksFromRelays(): Promise<void> {
-	console.log('[StacksStore] refreshStacksFromRelays called, refreshing:', refreshing);
 	if (refreshing) return;
-	if (typeof window === 'undefined' || !navigator.onLine) {
-		console.log('[StacksStore] Skipping - offline or SSR');
-		return;
-	}
+	if (typeof window === 'undefined' || !navigator.onLine) return;
 
 	refreshing = true;
-	console.log('[StacksStore] Starting refresh...');
 
 	try {
 		await initNostrService();
@@ -119,8 +114,6 @@ export async function refreshStacksFromRelays(): Promise<void> {
 			[...DEFAULT_CATALOG_RELAYS],
 			PAGE_SIZE
 		);
-
-		console.log('[StacksStore] Fetched fresh stacks:', freshStacks.length);
 
 		if (freshStacks.length > 0) {
 			const parsed: AppStack[] = [];

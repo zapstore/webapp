@@ -5,6 +5,7 @@
   import { initCatalogs } from '$lib/stores/catalogs.svelte';
   import { initOnlineStatus, isOnline } from '$lib/stores/online.svelte';
   import { initNostrService } from '$lib/nostr';
+  import { startProfileSearchBackground } from '$lib/services/profile-search';
   import Header from '$lib/components/layout/Header.svelte';
   import Footer from '$lib/components/layout/Footer.svelte';
   import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
@@ -27,7 +28,7 @@
   let isDetailPage = $derived(
     /^\/apps\/[^/]+$/.test($page.url.pathname) ||
     /^\/stacks\/[^/]+$/.test($page.url.pathname) ||
-    /^\/p\/[^/]+$/.test($page.url.pathname)
+    /^\/profile\/[^/]+$/.test($page.url.pathname)
   );
   
   // Determine page title for browse variant
@@ -45,6 +46,8 @@
       initOnlineStatus();
       // Initialize Nostr service (cache, store, persistence)
       await initNostrService();
+      // Start background load of default profiles for @ mention suggestions (local-first)
+      startProfileSearchBackground();
       // Initialize catalog preferences from localStorage
       initCatalogs();
     }

@@ -1,5 +1,6 @@
 <script>
   import { goto } from "$app/navigation";
+  import { nip19 } from "nostr-tools";
   import AppPic from "../common/AppPic.svelte";
   import ProfilePic from "../common/ProfilePic.svelte";
 
@@ -77,8 +78,9 @@
 
   function handleCreatorClick(e) {
     e.stopPropagation();
-    const creatorHref = `/p/${stack.creator?.npub || stack.creator?.pubkey}`;
-    goto(creatorHref);
+    const npub = stack.creator?.npub || (stack.creator?.pubkey ? nip19.npubEncode(stack.creator.pubkey) : "");
+    const creatorHref = npub ? `/profile/${npub}` : "#";
+    if (creatorHref !== "#") goto(creatorHref);
   }
 </script>
 
@@ -163,6 +165,7 @@
     display: flex;
     align-items: stretch;
     gap: 16px;
+    padding: 8px 0;
     text-decoration: none;
     color: inherit;
     cursor: pointer;
@@ -250,7 +253,7 @@
   }
 
   .stack-name {
-    font-size: 0.875rem;
+    font-size: 1rem;
     font-weight: 600;
     color: hsl(var(--foreground));
     line-height: 1.3;
@@ -265,10 +268,9 @@
     font-size: 0.75rem;
     color: hsl(var(--white66));
     line-height: 1.4;
-    height: 2.8em; /* Fixed height for 2 lines */
     display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
@@ -280,7 +282,8 @@
 
     .stack-description {
       font-size: 0.875rem;
-      height: 2.8em; /* Fixed height for 2 lines */
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
     }
   }
 

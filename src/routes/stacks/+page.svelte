@@ -12,6 +12,7 @@
     loadMoreStacks,
     resolveStackApps
   } from '$lib/stores/stacks.svelte';
+  import { nip19 } from 'nostr-tools';
   import { fetchEvents } from '$lib/nostr/service';
   import { DEFAULT_CATALOG_RELAYS, EVENT_KINDS } from '$lib/config';
   import { parseProfile, encodeStackNaddr, type App } from '$lib/nostr/models';
@@ -60,7 +61,7 @@
                   name: profile.displayName || profile.name,
                   picture: profile.picture,
                   pubkey: stack.pubkey,
-                  npub: stack.pubkey
+                  npub: nip19.npubEncode(stack.pubkey)
                 };
               }
             } catch (e) {
@@ -212,6 +213,7 @@
     display: flex;
     align-items: center;
     gap: 16px;
+    padding: 8px 0;
   }
 
   .skeleton-stack-grid {
@@ -239,7 +241,7 @@
 
   .skeleton-stack-desc {
     width: 140px;
-    height: 12px;
+    height: 10px;
     border-radius: 4px;
     background-color: hsl(var(--gray33));
   }

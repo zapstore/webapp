@@ -154,6 +154,12 @@ For SEO and first-visit performance:
 2. HTML generated with full content
 3. Static files deployed to CDN
 
+## URLs and routing
+
+- **Profile pages:** `/profile/[npub]` — human-readable, stable URLs (see INVARIANTS: “URLs must be stable and human-readable”). Use **npub** in the path (not hex pubkey).
+- **Apps:** `/apps/[naddr]` (naddr encodes kind 32267, pubkey, identifier).
+- **Stacks:** `/stacks/[naddr]` (naddr encodes kind 30267, pubkey, identifier).
+
 ## Catalog System
 
 Catalogs are Nostr relays that hold app events.

@@ -26,10 +26,10 @@
     getResolvedStacks,
     setResolvedStacks
   } from '$lib/stores/stacks.svelte';
+  import { nip19 } from 'nostr-tools';
   import { encodeAppNaddr, encodeStackNaddr, type App, type AppStack } from '$lib/nostr/models';
-  import { fetchEvents } from '$lib/nostr/service';
-  import { DEFAULT_CATALOG_RELAYS, EVENT_KINDS } from '$lib/config';
-  import { parseProfile, parseApp } from '$lib/nostr/models';
+  import { fetchProfile } from '$lib/nostr/service';
+  import { parseProfile } from '$lib/nostr/models';
   import type { PageData } from './$types';
 
   // Server-provided data
@@ -167,21 +167,18 @@
           // Resolve apps for the stack
           const stackApps = await resolveStackApps(stack);
 
-          // Fetch creator profile
+          // Fetch creator profile from social relays
           let creator = undefined;
           if (stack.pubkey) {
             try {
-              const profileEvents = await fetchEvents(
-                { kinds: [EVENT_KINDS.PROFILE], authors: [stack.pubkey] },
-                { relays: [...DEFAULT_CATALOG_RELAYS] }
-              );
-              if (profileEvents.length > 0) {
-                const profile = parseProfile(profileEvents[0]!);
+              const profileEvent = await fetchProfile(stack.pubkey);
+              if (profileEvent) {
+                const profile = parseProfile(profileEvent);
                 creator = {
                   name: profile.displayName || profile.name,
                   picture: profile.picture,
                   pubkey: stack.pubkey,
-                  npub: stack.pubkey
+                  npub: nip19.npubEncode(stack.pubkey)
                 };
               }
             } catch (e) {
@@ -210,9 +207,7 @@
 
   // Load stacks when they become available (only if not already cached)
   $effect(() => {
-    console.log('[Discover] Stack effect - stacks:', stacks.length, 'cached:', cachedResolvedStacks.length, 'loading:', stacksLoading);
     if (stacks.length > 0 && cachedResolvedStacks.length === 0 && !stacksLoading) {
-      console.log('[Discover] Loading resolved stacks...');
       loadResolvedStacks();
     }
   });
@@ -566,7 +561,7 @@
       height: 20px;
     }
     .skeleton-desc {
-      height: 16px;
+      height: 12px;
     }
     .skeleton-desc-1 {
       width: 220px;
@@ -598,7 +593,7 @@
   }
   
   .skeleton-desc {
-    height: 14px;
+    height: 10px;
     border-radius: 12px;
     background: hsl(var(--gray33));
   }
@@ -626,6 +621,7 @@
     display: flex;
     align-items: stretch;
     gap: 16px;
+    padding: 8px 0;
     width: 100%;
   }
 
@@ -666,7 +662,7 @@
   }
 
   .skeleton-stack-desc {
-    height: 14px;
+    height: 10px;
     border-radius: 12px;
     background-color: hsl(var(--gray33));
   }
@@ -714,7 +710,7 @@
       height: 20px;
     }
     .skeleton-stack-desc {
-      height: 16px;
+      height: 12px;
     }
     .skeleton-stack-desc-1 {
       width: 200px;

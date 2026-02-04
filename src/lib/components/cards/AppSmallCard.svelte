@@ -116,9 +116,9 @@
     padding-top: 6px;
   }
 
-  /* Mobile: smaller text, 1 line description */
+  /* Mobile: 1 line description */
   .app-name {
-    font-size: 0.875rem;
+    font-size: 1rem;
     font-weight: 600;
     color: hsl(var(--foreground));
     line-height: 1.3;
