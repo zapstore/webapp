@@ -1,0 +1,3 @@
+<script> import BaseIcon from "./BaseIcon.svelte"; export let variant = "fill"; export let strokeWidth = 1.4; export let color = "hsl(var(--foreground))"; export let size = 24; export let className = "";
+</script> <BaseIcon {variant} {strokeWidth} {color} {size} {className}> <svg width={size} height={size} viewBox="0 0 18 12" fill={variant === "fill" ? color : "none"} stroke={variant === "outline" ? color : "none"} stroke-width={variant === "outline" ? strokeWidth : 0} stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"> <path d="M6.2002 11.1992L0.700195 5.69922L6.2002 10.9492L16.7002 0.699219L6.2002 11.1992Z" stroke- stroke-linecap="round" stroke-linejoin="round"/> </svg>
+</BaseIcon>

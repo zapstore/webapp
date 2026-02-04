@@ -14,7 +14,7 @@ import { initNostrService, fetchAppsByReleases } from '$lib/nostr/service';
 import { parseApp, type App } from '$lib/nostr/models';
 import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 24; // Fetch extra to account for duplicates, ensures ~16+ unique apps
 
 // ============================================================================
 // Reactive State

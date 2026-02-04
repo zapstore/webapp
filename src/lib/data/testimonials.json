@@ -1,0 +1,110 @@
+[
+  {
+    "id": "57e3be4f64c8d0bbf0d4da1f2cccf943614daa9f9ed85a2674d1e5f50acb1b55",
+    "pubkey": "81c8228c58a71b0e8ef74728ff6a9125616cad000a52a5455a17ba3819a7f373",
+    "content": "Yeah, grapheneOS, zapstore rocks!\n#grapheneos #zapstore",
+    "created_at": 1755933127
+  },
+  {
+    "id": "d2b979c8e1b1eee392c537df5805fa5ddbb76d931d25ec481160f253fb69c5b4",
+    "pubkey": "bf75fb15a742c2caab7d17cb3edf9e77032dc925244875b245410adc29f95ed7",
+    "content": "Just published my first android app to the @Zapstore what a pleasant experience. This is the way all App stores should be. Thank you @franzap ",
+    "created_at": 1765237860
+  },
+  {
+    "id": "211acb13a90119db53b8f0aa5a31331ba4eaf0caebeb4ae5228ece47ea82278d",
+    "pubkey": "d986b8a48cef4950fc62f7dc2e0d277ca505757b5aa73f0959b20659e71f7cac",
+    "content": "Zapstore is awesome. Take care of yourself. 💜",
+    "created_at": 1761858608
+  },
+  {
+    "id": "8b3146e3f25be0b4c7720861d4f193a0569474fbb18573ea518b6ae310daced2",
+    "pubkey": "dfaf081183885a0069c793af2f4bcb817829a44b3c46d107cafeee06724a44d0",
+    "content": "I also recently discovered Zapstore. The UX is great, I didn't even try out Obtainium.",
+    "created_at": 1757181529
+  },
+  {
+    "id": "f23cd7e30eb73fe7cc134d65dcc2e848b597ee5e6689e6483ade87f6cc3a2f1c",
+    "pubkey": "fa731a9006ccce46aac574ea7ed62a42cc04e743f960d5cd41d1a352c32840b3",
+    "content": "I'm enjoying Zapstore! Well done 🙌",
+    "created_at": 1762330196
+  },
+  {
+    "id": "a078f9a9a377eaddf03af98e76455af1bd507ff4d4d636086223c965b423c1b9",
+    "pubkey": "f9acb0b034c4c1177e985f14639f317ef0fedee7657c060b146ee790024317ec",
+    "content": "Hyperbitcoinization will happen when all devs will publish to Zapstore",
+    "created_at": 1761410018
+  },
+  {
+    "id": "92883d21ccecda050003cc796ec2529816095333a2df6f581fd8445307d2f004",
+    "pubkey": "bb1c5151439e9abb680c15b191c1606b03333db3acc35a713091d9913751c3b3",
+    "content": "Zaps sent via Zapstore ⚡ thanks for publishing, Play Store is too fiat!",
+    "created_at": 1762205848
+  },
+  {
+    "id": "5c882b4a2cbdad238747dfd9a9fb16037d9dfb5f971e0b1aea3ba5391ffe283e",
+    "pubkey": "17798ce73873b40524a167485674d698eb995605d41651987c4fa02ec0e8bd7b",
+    "content": "I published NeoComment on Zapstore. It was as easy as breathing. Thanks guys.",
+    "created_at": 1763917276
+  },
+  {
+    "id": "ade3236c49d9648a0cc2ee06d61b27fa92dbf6d05afbc8f2481c0dabc4b31d0b",
+    "pubkey": "04f4e607604cc3f89a1cf148c4e10190abd13539a256a53e6096dc0429514b3a",
+    "content": "NosCall is now live on Zapstore! You can publish without any approval — true freedom tech ⚡️",
+    "created_at": 1761188867
+  },
+  {
+    "id": "3617fc099c5cd9b453a32c38b0dec91e8b401946a670cca20ad21bbe82995c10",
+    "pubkey": "800e0fe3d8638ce3f75a56ed865df9d96fc9d9cd2f75550df0d7f5c1d8468b0b",
+    "content": "Zapstore apps are authenticated by the developer and source verifiable. Google's process is less secure because apps are not independently verifiable.",
+    "created_at": 1763003867
+  },
+  {
+    "id": "0022b280242b6d14fca7b8cf327d35eab9e1b71a40da0da8d43c3632cc3a8892",
+    "pubkey": "4f6728209e922fcf363fa5d20f17b1c16cb2d0a6d44eda02f2de730c907e3054",
+    "content": "Zapstore refused to install since hashes don't match (which is great!). You can be confident what you're downloading is legitimate.",
+    "created_at": 1764237930
+  },
+  {
+    "id": "37f679373881a2f8031c207c9dfe561aae7a6f4420fb7e02de4559465231fe94",
+    "pubkey": "6538925ebfb661f418d8c7d074bee2e8afd778701dd89070c2da936d571e55c3",
+    "content": "1.3.10 now on Zapstore and we will publish each subsequent release there too.",
+    "created_at": 1762165941
+  },
+  {
+    "id": "dfb6e0f7e7ca7e40fd50f5213d9871648b394477e16237d79234dde03b5f5d9c",
+    "pubkey": "b7274d28e3e983bf720db4b4a12a31f5c7ef262320d05c25ec90489ac99628cb",
+    "content": "All apps on Zapstore are signed with Nostr keys. This allows you to be very confident that what you are downloading is the legitimate app.",
+    "created_at": 1762416530
+  },
+  {
+    "id": "667b35f5cab2b61ae4d05c5c8410246b3746d4925d4dda84ca6bc2eb5013f987",
+    "pubkey": "06830f6cb5925bd82cca59bda848f0056666dff046c5382963a997a234da40c5",
+    "content": "You can zap ⚡️ the devs releases in Zapstore. hint hint 🫆",
+    "created_at": 1764821856
+  },
+  {
+    "id": "07cc0f41dc04e56be1e95560597b7951b930886bd59472b8e7aaae4728223947",
+    "pubkey": "aa1f96f685d0ac3e28a52feb87a20399a91afb3ac3137afeb7698dfcc99bc454",
+    "content": "Shout out to the devs for signing their apps on Zapstore.",
+    "created_at": 1762166385
+  },
+  {
+    "id": "601f918b745fefc86f12a79b3c27918189ceef4e7865673ca36f0aebff290590",
+    "pubkey": "b7ed68b062de6b4a12e51fd5285c1e1e0ed0e5128cda93ab11b4150b55ed32fc",
+    "content": "One of the underrated features of Zapstore is that regular users can sign and recommend the application of another developer.",
+    "created_at": 1757846692
+  },
+  {
+    "id": "f70238038f7bb5f482648b24807cf7cf097ab16b584ffd293e46dbef53c46df5",
+    "pubkey": "b7274d28e3e983bf720db4b4a12a31f5c7ef262320d05c25ec90489ac99628cb",
+    "content": "Play Store doesn't use Nostr private keys for signing, while Zapstore does.",
+    "created_at": 1762390304
+  },
+  {
+    "id": "da7854150beb9b78ad7f82fecfba141ae4efc4809949b902dc6fd1b3c7ef2995",
+    "pubkey": "bb1c5151439e9abb680c15b191c1606b03333db3acc35a713091d9913751c3b3",
+    "content": "Graphene with Zapstore only way to go — on-boarded another pleb today 💪",
+    "created_at": 1762743594
+  }
+]

@@ -1,116 +1,2179 @@
-@import 'tailwindcss';
-@plugin "@tailwindcss/typography";
+@import "tailwindcss";
+
+/* ========================================
+   FONT FACE DECLARATIONS
+   ======================================== */
+
+/* Inter - Body Font */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('/fonts/inter-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url('/fonts/inter-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url('/fonts/inter-latin-600-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url('/fonts/inter-latin-700-normal.woff2') format('woff2');
+}
+
+/* JetBrains Mono - Code Font */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('/fonts/jetbrains-mono-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url('/fonts/jetbrains-mono-700-normal.woff2') format('woff2');
+}
+
+/* ========================================
+   CSS CUSTOM PROPERTIES - DESIGN TOKENS
+   ======================================== */
 
 :root {
-  --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f9fafb;
-  --color-text-primary: #111827;
-  --color-text-secondary: #4b5563;
-  --color-text-tertiary: #9ca3af;
-  --color-border: #e5e7eb;
-  --color-accent: #8b5cf6;
-  --color-accent-hover: #7c3aed;
-  --color-info-bg: #dbeafe;
-  --color-info-text: #1e40af;
-  --color-success: #10b981;
-  --color-error: #ef4444;
+  /* ========================================
+     BASE COLORS – GRAY MODE (LabColorsData.gray) - DEFAULT
+     Edit these HSL values to change colors.
+     ======================================== */
+
+  /* White variants - opacity baked into color definition */
+  --white: 0 0% 100%;
+  --white66: 0 0% 100% / 0.66;
+  --white33: 0 0% 100% / 0.33;
+  --white16: 0 0% 100% / 0.16;
+  --white11: 0 0% 100% / 0.11;
+  --white8: 0 0% 100% / 0.08;
+  --white4: 0 0% 100% / 0.04;
+  --whiteEnforced: 0 0% 100%;
+
+  /* Black variants - opacity baked into color definition */
+  --black: 0 0% 7%;                /* #111111 */
+  --black66: 0 0% 7% / 0.66;
+  --black33: 0 0% 0% / 0.33;
+  --black16: 0 0% 0% / 0.16;
+  --black8: 0 0% 0% / 0.08;
+
+  /* Gray variants - opacity baked into color definition */
+  --gray: 0 0% 14%;               /* #232323 */
+  --gray66: 0 0% 20% / 0.66;      /* #333333 at 66% opacity */
+  --gray44: 0 0% 20% / 0.44;      /* #333333 at 44% opacity */
+  --gray33: 0 0% 20% / 0.33;      /* #333333 at 33% opacity */
+
+  /* Blurple color variants - opacity baked into color definition */
+  --blurpleLightColor: 252 100% 72%;  /* #8483FE */
+  --blurpleLightColor66: 252 100% 72% / 0.66;
+  --blurpleColor: 241 99% 67%;        /* #5C5AFE */
+  --blurpleColor66: 241 99% 67% / 0.66;
+  --blurpleColor33: 241 99% 67% / 0.33;
+
+  /* Gold color variants - opacity baked into color definition */
+  --goldColor: 37 100% 61%;           /* #FFB237 */
+  --goldColor66: 37 100% 61% / 0.66;
+  --goldColor33: 37 100% 61% / 0.33;
+
+  /* ========================================
+     FONT FAMILIES
+     ======================================== */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  /* ========================================
+     SEMANTIC MAPPING (for Tailwind compatibility)
+     These reference the base colors above.
+     ======================================== */
+
+  /* Background & foreground */
+  --background: var(--black);
+  --foreground: var(--white);
+  
+  /* Card surfaces */
+  --card: var(--gray66);              /* gray66 for cards */
+  --card-foreground: var(--white);
+  --card-elevated: var(--gray);
+  
+  /* Popover/dropdown surfaces */
+  --popover: var(--gray);
+  --popover-foreground: var(--white);
+  
+  /* Header surface */
+  --header: var(--black);
+  --header-foreground: var(--white);
+  
+  /* Primary accent (blurple) */
+  --primary: var(--blurpleColor);
+  --primary-hover: 241 100% 62%;
+  --primary-foreground: var(--white);
+  
+  /* Secondary accent (gold) */
+  --secondary: var(--goldColor);
+  --secondary-foreground: var(--black);
+  
+  /* Accent – lighter blurple */
+  --accent: var(--blurpleLightColor);
+  --accent-foreground: var(--white);
+  
+  /* Destructive (rouge) */
+  --destructive: 344 100% 64%;
+  --destructive-foreground: var(--white);
+  
+  /* Neutrals */
+  --muted: var(--gray);
+  --muted-foreground: var(--white66);
+  
+  /* Borders and inputs - almost always white16 (white at 16% opacity) */
+  --border: 0 0% 100% / 0.16;      /* white16 */
+  --border-subtle: 0 0% 100% / 0.08; /* white8 */
+  --input: 0 0% 100% / 0.16;       /* white16 */
+  --ring: var(--blurpleColor);
+  
+  /* Corner radii */
+  --radius-4: 4px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+  --radius-24: 24px;
+  --radius-32: 32px;
+  /* Default radius token (used by Tailwind lg) */
+  --radius: var(--radius-16);
+
+  /* Standardized border widths */
+  --border-thick: 2.8px;   /* For prominent borders */
+  --border-base: 1.4px;    /* For standard borders (replaces most 1px) */
+  --border-subtle: 0.33px; /* For very subtle borders */
+
+  /* Overlay backdrop color (for modals, dialogs, etc.) */
+  --overlay: 0 0% 7% / 0.80;  /* #111111 */
+
+  /* Standardized backdrop blur values */
+  --blur-sm: 6px;
+  --blur-lg: 16px;
+
+  /* ========================================
+     GRADIENT DEFINITIONS
+     All gradients use radial from top-left corner.
+     ======================================== */
+
+  /* Blurple gradient (primary) */
+  --gradient-blurple: radial-gradient(
+    circle at top left,
+    #5C5FFF 0%,
+    #4542FF 100%
+  );
+  --gradient-blurple-hover: radial-gradient(
+    circle at top left,
+    #4245FF 0%,
+    #2C29FF 100%
+  );
+  --gradient-blurple66: radial-gradient(
+    circle at top left,
+    rgba(92, 95, 255, 0.66) 0%,
+    rgba(69, 66, 255, 0.66) 100%
+  );
+  --gradient-blurple33: radial-gradient(
+    circle at top left,
+    rgba(92, 95, 255, 0.33) 0%,
+    rgba(69, 66, 255, 0.33) 100%
+  );
+
+  /* Gold gradient (secondary) - #FFC736 to #FFA037 */
+  --gradient-gold: radial-gradient(
+    circle at top left,
+    #FFC736 0%,
+    #FFA037 100%
+  );
+  --gradient-gold-hover: radial-gradient(
+    circle at top left,
+    #FFD24D 0%,
+    #FFB050 100%
+  );
+  --gradient-gold66: radial-gradient(
+    circle at top left,
+    rgba(255, 199, 54, 0.66) 0%,
+    rgba(255, 160, 55, 0.66) 100%
+  );
+  --gradient-gold33: radial-gradient(
+    circle at top left,
+    rgba(255, 199, 54, 0.33) 0%,
+    rgba(255, 160, 55, 0.33) 100%
+  );
+  --gradient-gold16: radial-gradient(
+    circle at top left,
+    rgba(255, 199, 54, 0.16) 0%,
+    rgba(255, 160, 55, 0.16) 100%
+  );
+
+  /* Rouge gradient (destructive) */
+  --gradient-rouge: radial-gradient(
+    circle at top left,
+    #FF4778 0%,
+    #FF005E 100%
+  );
+  --gradient-rouge-hover: radial-gradient(
+    circle at top left,
+    #FF618B 0%,
+    #FF1A6E 100%
+  );
+
+  /* White-to-color gradients for headers */
+  --gradient-white-blurple: radial-gradient(
+    circle at top left,
+    #FFFFFF 0%,        /* White */
+    #8280FE 100%       /* Blurple */
+  );
+  --gradient-white-green: radial-gradient(
+    circle at top left,
+    #FFFFFF 0%,        /* White */
+    #12CC81 100%       /* Green */
+  );
+  --gradient-white-gold: radial-gradient(
+    circle at top left,
+    #FFFFFF 0%,        /* White */
+    #FFB237 100%       /* Gold */
+  );
+  --gradient-white-rouge: radial-gradient(
+    circle at top left,
+    #FFFFFF 0%,        /* White */
+    #FF4778 100%       /* Rouge */
+  );
+
+  /* Blurple-tinted light gradient */
+  --gradient-blurple-light: radial-gradient(
+    circle at top left,
+    #CDCCFF 0%,        /* Light blurple */
+    #5C5FFF 100%       /* Blurple */
+  );
+
+  /* Green gradient */
+  --gradient-green: radial-gradient(
+    circle at top left,
+    #19DD75 0%,
+    #0BBB8C 100%
+  );
+  --gradient-green-hover: radial-gradient(
+    circle at top left,
+    #19DD75 0%,
+    #0BBB8C 100%
+  );
+  --gradient-green66: radial-gradient(
+    circle at top left,
+    rgba(25, 221, 117, 0.66) 0%,
+    rgba(11, 187, 140, 0.66) 100%
+  );
+  --gradient-green33: radial-gradient(
+    circle at top left,
+    rgba(25, 221, 117, 0.33) 0%,
+    rgba(11, 187, 140, 0.33) 100%
+  );
+
+  /* Graydient (gray gradient) - for fancy gradient cards */
+  --gradient-gray: radial-gradient(
+    circle at top left,
+    #FFFFFF 0%,
+    #DBDBFF 100%
+  );
+  --gradient-gray-hover: radial-gradient(
+    circle at top left,
+    #FFFFFF 0%,
+    #C2C2FF 100%
+  );
+  /* Graydient opacity variants */
+  --gradient-gray66: radial-gradient(
+    circle at top left,
+    rgb(255 255 255 / 0.66) 0%,
+    rgb(219 219 255 / 0.66) 100%
+  );
+  --gradient-gray33: radial-gradient(
+    circle at top left,
+    rgb(255 255 255 / 0.33) 0%,
+    rgb(219 219 255 / 0.33) 100%
+  );
+  --gradient-gray16: radial-gradient(
+    circle at top left,
+    rgb(255 255 255 / 0.16) 0%,
+    rgb(219 219 255 / 0.16) 100%
+  );
+
+  /* ========================================
+     BUTTON GRADIENTS (USED BY BUTTONS)
+     These reference the base gradients above.
+     ======================================== */
+
+  --button-primary-bg: var(--gradient-blurple);
+  --button-primary-bg-hover: var(--gradient-blurple-hover);
+  --button-primary-border: hsl(var(--primary));
+
+  --button-secondary-bg: var(--gradient-gold);
+  --button-secondary-bg-hover: var(--gradient-gold-hover);
+  --button-secondary-border: hsl(var(--border));
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg-primary: #111827;
-    --color-bg-secondary: #1f2937;
-    --color-text-primary: #f9fafb;
-    --color-text-secondary: #d1d5db;
-    --color-text-tertiary: #6b7280;
-    --color-border: #374151;
-    --color-info-bg: #1e3a5f;
-    --color-info-text: #93c5fd;
-  }
+/* ========================================
+   THEME VARIANTS (DARK / GRAY / LIGHT)
+   Override the SAME tokens as above.
+   Toggle via [data-theme="dark" | "gray" | "light"].
+   ======================================== */
+
+[data-theme="dark"] {
+  /* ========================================
+     BASE COLORS – DARK MODE (LabColorsData.dark)
+     ======================================== */
+
+  /* White variants - opacity baked into color definition */
+  --white: 0 0% 100%;
+  --white66: 0 0% 100% / 0.66;
+  --white33: 0 0% 100% / 0.33;
+  --white16: 0 0% 100% / 0.16;
+  --white8: 0 0% 100% / 0.08;
+  --white4: 0 0% 100% / 0.04;
+  --whiteEnforced: 0 0% 100%;
+
+  /* Black variants - opacity baked into color definition */
+  --black: 0 0% 0%;                /* Pure black */
+  --black66: 0 0% 0% / 0.66;
+  --black33: 0 0% 0% / 0.33;
+  --black16: 0 0% 0% / 0.16;
+  --black8: 0 0% 0% / 0.08;
+
+  /* Gray variants - opacity baked into color definition */
+  --gray: 0 0% 14%;               /* #232323 */
+  --gray66: 0 0% 20% / 0.66;      /* #333333 at 66% opacity */
+  --gray44: 0 0% 20% / 0.44;      /* #333333 at 44% opacity */
+  --gray33: 0 0% 20% / 0.33;      /* #333333 at 33% opacity */
+
+  /* Overlay backdrop color */
+  --overlay: 0 0% 0% / 0.85;  /* #000000 (pure black) at 85% opacity */
+
+  /* Blurple color variants - opacity baked into color definition */
+  --blurpleLightColor: 252 100% 72%;  /* #8483FE */
+  --blurpleLightColor66: 252 100% 72% / 0.66;
+  --blurpleColor: 241 99% 67%;        /* #5C5AFE */
+  --blurpleColor66: 241 99% 67% / 0.66;
+  --blurpleColor33: 241 99% 67% / 0.33;
+
+  /* Gold color variants - same across all themes */
+  --goldColor: 37 100% 61%;           /* #FFB237 */
+  --goldColor66: 37 100% 61% / 0.66;
+  --goldColor33: 37 100% 61% / 0.33;
+
+  /* Semantic mapping */
+  --background: var(--black);
+  --foreground: var(--white);
+  --card: var(--gray66);
+  --card-foreground: var(--white);
+  --card-elevated: var(--gray);
+  --popover: var(--gray);
+  --popover-foreground: var(--white);
+  --header: var(--black);
+  --header-foreground: var(--white);
+  --primary: var(--blurpleColor);
+  --primary-hover: 241 100% 62%;
+  --primary-foreground: var(--white);
+  --secondary: var(--goldColor);
+  --secondary-foreground: var(--black);
+  --accent: var(--blurpleLightColor);
+  --accent-foreground: var(--white);
+  --destructive: 344 100% 64%;
+  --destructive-foreground: var(--white);
+  --muted: var(--gray);
+  --muted-foreground: var(--white66);
+  --border: 0 0% 100% / 0.16;      /* white16 */
+  --border-subtle: 0 0% 100% / 0.08; /* white8 */
+  --input: 0 0% 100% / 0.16;       /* white16 */
+  --ring: var(--blurpleColor);
 }
+
+/* [data-theme="gray"] - Uses :root values (gray is default) */
+
+[data-theme="light"] {
+  /* ========================================
+     BASE COLORS – LIGHT MODE (LabColorsData.light)
+     ======================================== */
+
+  /* White variants - opacity baked into color definition */
+  --white: 35 40% 10%;            /* #1A1201 */
+  --white66: 35 40% 10% / 0.66;
+  --white33: 35 40% 10% / 0.33;
+  --white16: 35 40% 10% / 0.16;
+  --white8: 35 40% 10% / 0.08;
+  --white4: 35 40% 10% / 0.04;
+  --whiteEnforced: 35 35% 93%;    /* #EDE4D7 */
+
+  /* Black variants - opacity baked into color definition */
+  --black: 35 42% 92%;            /* #EDE4D7 */
+  --black66: 35 35% 91% / 0.66;   /* #E9E9E9 at 66% opacity */
+  --black33: 35 35% 91% / 0.33;
+  --black16: 35 35% 91% / 0.16;
+  --black8: 35 35% 91% / 0.08;
+
+  /* Gray variants - opacity baked into color definition */
+  --gray: 35 18% 72%;             /* #BBB5A8 */
+  --gray66: 35 20% 68% / 0.66;    /* #AEA798 at 66% opacity */
+  --gray33: 35 20% 68% / 0.33;
+
+  /* Overlay backdrop color */
+  --overlay: 0 0% 0% / 0.33;  /* #000000 at 33% opacity */
+
+  /* Blurple color variants - opacity baked into color definition */
+  --blurpleLightColor: 240 50% 50%;  /* #4B4BCD */
+  --blurpleLightColor66: 240 50% 50% / 0.66;
+  --blurpleColor: 241 99% 67%;        /* #5C5AFE */
+  --blurpleColor66: 241 99% 67% / 0.66;
+  --blurpleColor33: 241 99% 67% / 0.33;
+
+  /* Gold color variants - same across all themes */
+  --goldColor: 37 100% 61%;           /* #FFB237 */
+  --goldColor66: 37 100% 61% / 0.66;
+  --goldColor33: 37 100% 61% / 0.33;
+
+  /* Semantic mapping */
+  --background: var(--black);
+  --foreground: var(--white);
+  --card: var(--gray66);
+  --card-foreground: var(--white);
+  --card-elevated: var(--black66);
+  --popover: var(--black66);
+  --popover-foreground: var(--white);
+  --header: var(--black);
+  --header-foreground: var(--white);
+  --primary: var(--blurpleColor);
+  --primary-hover: 241 100% 62%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: var(--goldColor);
+  --secondary-foreground: var(--white);
+  --accent: var(--blurpleLightColor);
+  --accent-foreground: 0 0% 100%;
+  --destructive: 344 100% 64%;
+  --destructive-foreground: 0 0% 100%;
+  --muted: var(--gray);
+  --muted-foreground: var(--gray66);
+  --border: 35 40% 10% / 0.16;     /* white16 (dark text at 16% opacity) */
+  --border-subtle: 35 40% 10% / 0.08; /* white8 */
+  --input: 35 40% 10% / 0.16;      /* white16 */
+  --ring: var(--blurpleColor);
+
+  /* Graydient for light mode (darker grays) */
+  --gradient-gray: radial-gradient(
+    circle at top left,
+    #575775 0%,
+    #242424 100%
+  );
+  --gradient-gray-hover: radial-gradient(
+    circle at top left,
+    #4C4C67 0%,
+    #1F1F1F 100%
+  );
+  --gradient-gray66: radial-gradient(
+    circle at top left,
+    rgb(87 87 117 / 0.66) 0%,
+    rgb(36 36 36 / 0.66) 100%
+  );
+  --gradient-gray33: radial-gradient(
+    circle at top left,
+    rgb(87 87 117 / 0.33) 0%,
+    rgb(36 36 36 / 0.33) 100%
+  );
+  --gradient-gray16: radial-gradient(
+    circle at top left,
+    rgb(87 87 117 / 0.20) 0%,
+    rgb(36 36 36 / 0.20) 100%
+  );
+}
+
+/* ========================================
+   BASE STYLES
+   ======================================== */
 
 * {
-  box-sizing: border-box;
+  border-color: hsl(var(--border));
 }
 
 html {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  color-scheme: dark;
+  overflow-x: hidden;
 }
 
 body {
-  margin: 0;
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 1.125rem;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+  overflow-x: hidden;
 }
 
-a {
-  color: inherit;
+/* ========================================
+   TYPOGRAPHY UTILITIES
+   ======================================== */
+
+.font-sans { font-family: var(--font-sans); }
+.font-display { font-family: var(--font-sans); }
+.font-mono { font-family: var(--font-mono); }
+
+/* Base heading styles - all h1-h6 use Inter */
+h1, h2, h3, h4 {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-weight: 650; /* Bold for large headings */
+  letter-spacing: -0.03em; /* Tighter letter spacing for headers */
+}
+h5, h6 {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-weight: 600; /* Semibold for smaller headings */
+  letter-spacing: -0.02em; /* Tighter letter spacing for smaller headers */
 }
 
-img {
-  max-width: 100%;
+/* Eyebrow label / section label text */
+.eyebrow-label {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: hsl(var(--white66));
+}
+
+/* Display headings with Inter */
+.text-display {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-weight: 650; /* Bold for display text */
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.text-display-lg {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-weight: 650; /* Bold for large display text */
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+/* ========================================
+   COLOR UTILITIES
+   ======================================== */
+
+.bg-background { background-color: hsl(var(--background)); }
+.bg-foreground { background-color: hsl(var(--foreground)); }
+.bg-card { background-color: hsl(var(--card)); }
+.bg-card-elevated { background-color: hsl(var(--card-elevated)); }
+.bg-popover { background-color: hsl(var(--popover)); }
+.bg-primary { background-color: hsl(var(--primary)); }
+.bg-secondary { background-color: hsl(var(--secondary)); }
+.bg-muted { background-color: hsl(var(--muted)); }
+.bg-accent { background-color: hsl(var(--accent)); }
+.bg-destructive { background-color: hsl(var(--destructive)); }
+.bg-header { background-color: hsl(var(--header)); }
+.bg-overlay { background-color: hsl(var(--overlay)); }
+
+.text-foreground { color: hsl(var(--foreground)); }
+.text-card-foreground { color: hsl(var(--card-foreground)); }
+.text-popover-foreground { color: hsl(var(--popover-foreground)); }
+.text-primary { color: hsl(var(--primary)); }
+.text-primary-foreground { color: hsl(var(--primary-foreground)); }
+.text-secondary { color: hsl(var(--secondary)); }
+.text-secondary-foreground { color: hsl(var(--secondary-foreground)); }
+.text-muted { color: hsl(var(--muted)); }
+.text-muted-foreground { color: hsl(var(--muted-foreground)); }
+.text-accent { color: hsl(var(--accent)); }
+.text-accent-foreground { color: hsl(var(--accent-foreground)); }
+.text-destructive { color: hsl(var(--destructive)); }
+.text-destructive-foreground { color: hsl(var(--destructive-foreground)); }
+.text-header-foreground { color: hsl(var(--header-foreground)); }
+
+.border-border { border-color: hsl(var(--border)); }
+.border-subtle { border-color: hsl(var(--border-subtle)); }
+.border-input { border-color: hsl(var(--input)); }
+.border-primary { border-color: hsl(var(--primary)); }
+.border-secondary { border-color: hsl(var(--secondary)); }
+.border-muted { border-color: hsl(var(--muted)); }
+
+.ring-ring { --tw-ring-color: hsl(var(--ring)); }
+
+/* Opacity variants */
+.bg-primary\/10 { background-color: hsl(var(--primary) / 0.1); }
+.bg-primary\/20 { background-color: hsl(var(--primary) / 0.2); }
+.bg-primary\/5 { background-color: hsl(var(--primary) / 0.05); }
+.bg-primary\/90 { background-color: hsl(var(--primary) / 0.9); }
+.bg-background\/95 { background-color: hsl(var(--background) / 0.95); }
+.bg-background\/80 { background-color: hsl(var(--background) / 0.8); }
+.bg-background\/60 { background-color: hsl(var(--background) / 0.6); }
+
+.text-primary\/80 { color: hsl(var(--primary) / 0.8); }
+.border-primary\/50 { border-color: hsl(var(--primary) / 0.5); }
+.border-border\/40 { border-color: hsl(var(--border) / 0.4); }
+
+.shadow-primary\/25 { --tw-shadow-color: hsl(var(--primary) / 0.25); }
+.shadow-primary\/5 { --tw-shadow-color: hsl(var(--primary) / 0.05); }
+
+.hover\:bg-primary\/90:hover { background-color: hsl(var(--primary-hover)); }
+.hover\:text-primary\/80:hover { color: hsl(var(--primary) / 0.8); }
+.hover\:border-primary\/50:hover { border-color: hsl(var(--primary) / 0.5); }
+
+/* ========================================
+   STANDARDIZED BORDER WIDTH UTILITIES
+   ======================================== */
+
+/* Border width utilities - use with Tailwind border-color classes
+   Examples: border-thick border-primary, border-base border-border, border-subtle border-muted
+   Or use Tailwind classes: border-thick, border-base, border-subtle
+*/
+.border-thick { border-width: var(--border-thick); }
+.border-base { border-width: var(--border-base); }
+.border-subtle {
+  border-width: var(--border-subtle);  /* 0.33px */
+  border-color: hsl(var(--border));    /* white16 */
+}
+
+/* ========================================
+   STANDARDIZED BORDER RADIUS UTILITIES
+   ======================================== */
+
+/* Direct radius utilities - use these if Tailwind classes aren't working yet
+   After restarting dev server, prefer: rounded-xs, rounded-sm, rounded-md, rounded-lg, rounded-xl, rounded-2xl
+*/
+.rounded-xs { border-radius: var(--radius-4); }   /* 4px */
+.rounded-sm { border-radius: var(--radius-8); }   /* 8px */
+.rounded-md { border-radius: var(--radius-12); }  /* 12px */
+.rounded-lg { border-radius: var(--radius-16); }  /* 16px */
+.rounded-xl { border-radius: var(--radius-24); } /* 24px */
+.rounded-2xl { border-radius: var(--radius-32); } /* 32px */
+
+/* ========================================
+   STANDARDIZED BACKDROP BLUR UTILITIES
+   ======================================== */
+
+.backdrop-blur-sm {
+  backdrop-filter: blur(var(--blur-sm));
+  -webkit-backdrop-filter: blur(var(--blur-sm));
+}
+
+.backdrop-blur-lg {
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+}
+
+/* ========================================
+   OVERLAY SURFACES
+   ======================================== */
+
+.overlay-surface {
+  background-color: hsl(var(--gray66)); /* gray66 at 66% opacity (baked in) */
+  backdrop-filter: blur(var(--blur-sm)); /* Small blur on overlay background */
+  -webkit-backdrop-filter: blur(var(--blur-sm));
+  border: 1px solid hsl(var(--border));
+}
+
+/* ========================================
+   PANELS (BASIC CONTAINERS)
+   Cards/panels without borders - the most basic container element.
+   Default: gray66 bg, 16px radius, 16px padding.
+   ======================================== */
+
+/* Base panel - gray66 background (default) */
+.panel {
+  background-color: hsl(var(--gray66));
+  border-radius: var(--radius-16);
+  padding: 16px;
+}
+
+/* Light panel variant - white16 background */
+.panel-light {
+  background-color: hsl(var(--white16));
+}
+
+/* Dark panel variant - black33 background */
+.panel-dark {
+  background-color: hsl(var(--black33));
+}
+
+/* Panel padding variants */
+.panel-p-12 {
+  padding: 12px;
+}
+
+.panel-p-16 {
+  padding: 16px;
+}
+
+.panel-p-20 {
+  padding: 20px;
+}
+
+.panel-p-24 {
+  padding: 24px;
+}
+
+/* ========================================
+   CLICKABLE PANELS
+   For cards/panels that are interactive (links, buttons).
+   NO scale effects - panels contain text that shouldn't distort.
+   Scale effects are only for buttons, avatars, and small image cards.
+   ======================================== */
+
+.panel-clickable {
+  cursor: pointer;
+}
+
+.panel-clickable:focus {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* ========================================
+   GLASSMORPHISM CARDS
+   ======================================== */
+
+.glass-card {
+  background: hsl(var(--card) / 0.6);
+  backdrop-filter: blur(var(--blur-lg)); /* Large blur on cards/modals */
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 1rem;
+}
+
+.glass-card-subtle {
+  background: hsl(var(--card) / 0.4);
+  backdrop-filter: blur(var(--blur-lg)); /* Large blur on cards/modals */
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+  border: 1px solid hsl(var(--border) / 0.3);
+  border-radius: 0.75rem;
+}
+
+/* Card with top highlight */
+.card-highlight {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-highlight::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    hsl(var(--border) / 0.8) 50%, 
+    transparent 100%
+  );
+}
+
+/* Card hover glow effect */
+.card-glow {
+  transition: all 0.3s ease;
+}
+
+.card-glow:hover {
+  border-color: hsl(var(--primary) / 0.3);
+  box-shadow: 
+    0 0 0 1px hsl(var(--primary) / 0.1),
+    0 8px 40px -12px hsl(var(--primary) / 0.15);
+}
+
+/* ========================================
+   BUTTON STYLES
+   Three sizes for both primary and secondary: large, default, small
+   ======================================== */
+
+/* ========================================
+   PRIMARY BUTTONS (blurple gradient)
+   ======================================== */
+
+/* Large primary button */
+.btn-primary-large {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 0 24px;
+  font-size: 16px;
+  font-weight: 500;
+  color: hsl(var(--primary-foreground));
+  background-image: var(--button-primary-bg);
+  background-color: transparent;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transform: scale(1);
+  box-sizing: border-box;
+}
+
+.btn-primary-large:hover {
+  transform: scale(1.015);
+  box-shadow:
+    0 0 20px hsl(var(--primary) / 0.4),
+    0 10px 40px -20px hsl(var(--primary) / 0.6);
+}
+
+.btn-primary-large:active {
+  transform: scale(0.98);
+}
+
+/* Responsive: Scale down large primary button to 38px on mobile */
+@media (max-width: 767px) {
+  .btn-primary-large {
+    height: 38px;
+    padding: 0 18px;
+  }
+}
+
+/* Default primary button */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* ~38px total height with 16px font (Flutter main CTA) */
+  padding: 8px 18px;
+  font-size: 16px;
+  font-weight: 500;
+  color: hsl(var(--primary-foreground));
+  background-image: var(--button-primary-bg);
+  background-color: transparent;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transform: scale(1);
+}
+
+.btn-primary:hover {
+  transform: scale(1.025);
+  box-shadow:
+    0 0 20px hsl(var(--primary) / 0.4),
+    0 10px 40px -20px hsl(var(--primary) / 0.6);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+/* Small primary button */
+.btn-primary-small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--primary-foreground));
+  background-image: var(--button-primary-bg);
+  background-color: transparent;
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transform: scale(1);
+}
+
+.btn-primary-small:hover {
+  transform: scale(1.025);
+  box-shadow:
+    0 0 20px hsl(var(--primary) / 0.4),
+    0 10px 40px -20px hsl(var(--primary) / 0.6);
+}
+
+.btn-primary-small:active {
+  transform: scale(0.98);
+}
+
+/* ========================================
+   SECONDARY BUTTONS (gray66 background)
+   ======================================== */
+
+/* Large secondary button */
+.btn-secondary-large {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 0 24px;
+  font-size: 16px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--card)); /* gray66 */
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  transform: scale(1);
+  box-sizing: border-box;
+}
+
+.btn-secondary-large:hover {
+  transform: scale(1.025);
+}
+
+.btn-secondary-large:active {
+  transform: scale(0.98);
+}
+
+/* Responsive: Scale down large secondary button to 38px on mobile */
+@media (max-width: 767px) {
+  .btn-secondary-large {
+    height: 38px;
+    padding: 0 18px;
+  }
+}
+
+/* Default secondary button */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* ~38px total height with 16px font (same as primary) */
+  padding: 10px 22px;
+  font-size: 16px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--card)); /* gray66 */
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  transform: scale(1);
+}
+
+.btn-secondary:hover {
+  transform: scale(1.025);
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
+/* Small secondary button */
+.btn-secondary-small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--card)); /* gray66 */
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  transform: scale(1);
+}
+
+.btn-secondary-small:hover {
+  transform: scale(1.025);
+}
+
+.btn-secondary-small:active {
+  transform: scale(0.98);
+}
+
+/* Extra small secondary button */
+.btn-secondary-xs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--card)); /* gray66 */
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  transform: scale(1);
+}
+
+.btn-secondary-xs:hover {
+  transform: scale(1.025);
+}
+
+.btn-secondary-xs:active {
+  transform: scale(0.98);
+}
+
+/* ========================================
+   SECONDARY BUTTON COLOR VARIANTS
+   Light (white16) and Dark (black33) modes
+   ======================================== */
+
+/* Light secondary button variant (white8 background) */
+.btn-secondary-light,
+.btn-secondary-large.btn-secondary-light,
+.btn-secondary.btn-secondary-light,
+.btn-secondary-small.btn-secondary-light,
+.btn-secondary-xs.btn-secondary-light {
+  background-color: hsl(var(--white8));
+}
+
+/* Dark secondary button variant (black33 background) */
+.btn-secondary-dark,
+.btn-secondary-large.btn-secondary-dark,
+.btn-secondary.btn-secondary-dark,
+.btn-secondary-small.btn-secondary-dark,
+.btn-secondary-xs.btn-secondary-dark {
+  background-color: hsl(var(--black33));
+}
+
+/* Modal secondary button variant (black33 background + white66 text)
+   Use this for secondary buttons inside modals for better contrast */
+.btn-secondary-modal,
+.btn-secondary-large.btn-secondary-modal,
+.btn-secondary.btn-secondary-modal,
+.btn-secondary-small.btn-secondary-modal,
+.btn-secondary-xs.btn-secondary-modal {
+  background-color: hsl(var(--black33));
+  color: hsl(var(--white66));
+}
+
+/* Extra small primary button */
+.btn-primary-xs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(var(--primary-foreground));
+  background-image: var(--button-primary-bg);
+  background-color: transparent;
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transform: scale(1);
+}
+
+.btn-primary-xs:hover {
+  transform: scale(1.025);
+  box-shadow:
+    0 0 20px hsl(var(--primary) / 0.4),
+    0 10px 40px -20px hsl(var(--primary) / 0.6);
+}
+
+.btn-primary-xs:active {
+  transform: scale(0.98);
+}
+
+/* ========================================
+   GLASS BUTTONS (backdrop blur with border)
+   ======================================== */
+
+/* Large glass button */
+.btn-glass-large {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  padding: 0 24px;
+  font-size: 16px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--white4));
+  border: 1.4px solid hsl(var(--white16));
+  border-radius: 16px;
+  cursor: pointer;
+  backdrop-filter: blur(var(--blur-sm));
+  -webkit-backdrop-filter: blur(var(--blur-sm));
+  transition: transform 0.2s ease;
+  transform: scale(1);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.btn-glass-large::before {
+  content: '';
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+  filter: blur(20px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, left 0.1s ease-out, top 0.1s ease-out;
+  left: var(--mouse-x, 50%);
+  top: var(--mouse-y, 50%);
+  transform: translate(-50%, -50%);
+}
+
+.btn-glass-large:hover::before {
+  opacity: 1;
+}
+
+.btn-glass-large:hover {
+  transform: scale(1.015);
+}
+
+.btn-glass-large:active {
+  transform: scale(0.98);
+}
+
+/* Large glass button with chevron - reduced right padding, increased gap */
+.btn-glass-large.btn-glass-with-chevron {
+  padding-right: 14px;
+  gap: 12px;
+}
+
+/* Responsive: Scale down large glass button to 38px on mobile */
+@media (max-width: 767px) {
+  .btn-glass-large {
+    height: 42px;
+    padding: 0 18px;
+  }
+  
+  .btn-glass-large.btn-glass-with-chevron {
+    padding-right: 12px;
+    gap: 12px;
+  }
+}
+
+/* Default glass button */
+.btn-glass {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* ~38px total height with 16px font */
+  padding: 8px 18px;
+  font-size: 16px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--white4));
+  border: 1.4px solid hsl(var(--white16));
+  border-radius: 16px;
+  cursor: pointer;
+  backdrop-filter: blur(var(--blur-sm));
+  -webkit-backdrop-filter: blur(var(--blur-sm));
+  transition: transform 0.2s ease;
+  transform: scale(1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-glass::before {
+  content: '';
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+  filter: blur(20px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, left 0.1s ease-out, top 0.1s ease-out;
+  left: var(--mouse-x, 50%);
+  top: var(--mouse-y, 50%);
+  transform: translate(-50%, -50%);
+}
+
+.btn-glass:hover::before {
+  opacity: 1;
+}
+
+.btn-glass:hover {
+  transform: scale(1.025);
+}
+
+.btn-glass:active {
+  transform: scale(0.98);
+}
+
+/* Default glass button with chevron */
+.btn-glass.btn-glass-with-chevron {
+  padding-right: 12px;
+  gap: 12px;
+}
+
+/* Small glass button */
+.btn-glass-small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--white4));
+  border: 1.4px solid hsl(var(--white16));
+  border-radius: var(--radius-8);
+  cursor: pointer;
+  backdrop-filter: blur(var(--blur-sm));
+  -webkit-backdrop-filter: blur(var(--blur-sm));
+  transition: transform 0.2s ease;
+  transform: scale(1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-glass-small::before {
+  content: '';
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+  filter: blur(15px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, left 0.1s ease-out, top 0.1s ease-out;
+  left: var(--mouse-x, 50%);
+  top: var(--mouse-y, 50%);
+  transform: translate(-50%, -50%);
+}
+
+.btn-glass-small:hover::before {
+  opacity: 1;
+}
+
+.btn-glass-small:hover {
+  transform: scale(1.025);
+}
+
+.btn-glass-small:active {
+  transform: scale(0.98);
+}
+
+/* Extra small glass button */
+.btn-glass-xs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--white4));
+  border: 1.4px solid hsl(var(--white16));
+  border-radius: 9999px;
+  cursor: pointer;
+  backdrop-filter: blur(var(--blur-sm));
+  -webkit-backdrop-filter: blur(var(--blur-sm));
+  transition: transform 0.2s ease;
+  transform: scale(1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-glass-xs::before {
+  content: '';
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+  filter: blur(12px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, left 0.1s ease-out, top 0.1s ease-out;
+  left: var(--mouse-x, 50%);
+  top: var(--mouse-y, 50%);
+  transform: translate(-50%, -50%);
+}
+
+.btn-glass-xs:hover::before {
+  opacity: 1;
+}
+
+.btn-glass-xs:hover {
+  transform: scale(1.025);
+}
+
+.btn-glass-xs:active {
+  transform: scale(0.98);
+}
+
+/* ========================================
+   GLASS BUTTON ACCENT COLOR VARIANTS
+   ======================================== */
+
+/* Blurple glass button */
+.btn-glass-blurple,
+.btn-glass-large.btn-glass-blurple,
+.btn-glass.btn-glass-blurple,
+.btn-glass-small.btn-glass-blurple,
+.btn-glass-xs.btn-glass-blurple {
+  border-color: rgb(90 88 254 / 0.3);
+  box-shadow: 0 0 40px rgb(90 88 254 / 0.2), 0 0 80px rgb(90 88 254 / 0.1);
+}
+
+.btn-glass-blurple:hover,
+.btn-glass-large.btn-glass-blurple:hover,
+.btn-glass.btn-glass-blurple:hover,
+.btn-glass-small.btn-glass-blurple:hover,
+.btn-glass-xs.btn-glass-blurple:hover {
+  box-shadow: 0 0 60px rgb(90 88 254 / 0.3), 0 0 120px rgb(90 88 254 / 0.15);
+}
+
+/* Green glass button */
+.btn-glass-green,
+.btn-glass-large.btn-glass-green,
+.btn-glass.btn-glass-green,
+.btn-glass-small.btn-glass-green,
+.btn-glass-xs.btn-glass-green {
+  border-color: rgb(25 221 117 / 0.3);
+  box-shadow: 0 0 40px rgb(25 221 117 / 0.2), 0 0 80px rgb(25 221 117 / 0.1);
+}
+
+.btn-glass-green:hover,
+.btn-glass-large.btn-glass-green:hover,
+.btn-glass.btn-glass-green:hover,
+.btn-glass-small.btn-glass-green:hover,
+.btn-glass-xs.btn-glass-green:hover {
+  box-shadow: 0 0 60px rgb(25 221 117 / 0.3), 0 0 120px rgb(25 221 117 / 0.15);
+}
+
+/* Rouge glass button */
+.btn-glass-rouge,
+.btn-glass-large.btn-glass-rouge,
+.btn-glass.btn-glass-rouge,
+.btn-glass-small.btn-glass-rouge,
+.btn-glass-xs.btn-glass-rouge {
+  border-color: rgb(255 71 120 / 0.3);
+  box-shadow: 0 0 40px rgb(255 71 120 / 0.2), 0 0 80px rgb(255 71 120 / 0.1);
+}
+
+.btn-glass-rouge:hover,
+.btn-glass-large.btn-glass-rouge:hover,
+.btn-glass.btn-glass-rouge:hover,
+.btn-glass-small.btn-glass-rouge:hover,
+.btn-glass-xs.btn-glass-rouge:hover {
+  box-shadow: 0 0 60px rgb(255 71 120 / 0.3), 0 0 120px rgb(255 71 120 / 0.15);
+}
+
+/* Gold glass button */
+.btn-glass-gold,
+.btn-glass-large.btn-glass-gold,
+.btn-glass.btn-glass-gold,
+.btn-glass-small.btn-glass-gold,
+.btn-glass-xs.btn-glass-gold {
+  border-color: rgb(255 212 102 / 0.3);
+  box-shadow: 0 0 40px rgb(255 212 102 / 0.2), 0 0 80px rgb(255 212 102 / 0.1);
+}
+
+.btn-glass-gold:hover,
+.btn-glass-large.btn-glass-gold:hover,
+.btn-glass.btn-glass-gold:hover,
+.btn-glass-small.btn-glass-gold:hover,
+.btn-glass-xs.btn-glass-gold:hover {
+  box-shadow: 0 0 60px rgb(255 212 102 / 0.3), 0 0 120px rgb(255 212 102 / 0.15);
+}
+
+/* Green glass button - hover only variant (neutral default, green bg on hover) */
+.btn-glass-green-hover,
+.btn-glass-large.btn-glass-green-hover,
+.btn-glass.btn-glass-green-hover,
+.btn-glass-small.btn-glass-green-hover,
+.btn-glass-xs.btn-glass-green-hover {
+  background-color: rgb(0 0 0 / 0.33);
+  border-radius: 10px;
+  transition: transform 0.2s ease, border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease, color 0.3s ease;
+}
+
+.btn-glass-green-hover:hover,
+.btn-glass-large.btn-glass-green-hover:hover,
+.btn-glass.btn-glass-green-hover:hover,
+.btn-glass-small.btn-glass-green-hover:hover,
+.btn-glass-xs.btn-glass-green-hover:hover {
+  background: radial-gradient(circle at top left, rgb(25 221 117 / 0.15) 0%, rgb(11 187 140 / 0.15) 100%);
+  border-color: rgb(25 221 117 / 0.4);
+  box-shadow: 0 0 50px rgb(25 221 117 / 0.25), 0 0 100px rgb(25 221 117 / 0.12);
+  color: hsl(var(--foreground));
+}
+
+.btn-glass-green-hover::before,
+.btn-glass-large.btn-glass-green-hover::before,
+.btn-glass.btn-glass-green-hover::before,
+.btn-glass-small.btn-glass-green-hover::before,
+.btn-glass-xs.btn-glass-green-hover::before {
+  background: radial-gradient(circle, rgb(25 221 117 / 0.2) 0%, transparent 70%);
+}
+
+/* Icon color transition for green-hover buttons */
+.btn-glass-green-hover .btn-icon-green {
+  transition: color 0.3s ease;
+  color: hsl(var(--white66));
+}
+
+.btn-glass-green-hover:hover .btn-icon-green {
+  color: #19DD75;
+}
+
+/* ========================================
+   SEARCH BAR BUTTON
+   ======================================== */
+
+.search-bar-btn {
+  background-color: transparent;
+  border-width: var(--border-base);
+  border-radius: var(--radius-16);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  transform: scale(1);
+}
+
+/* Shared responsive width for search bar + modal inner search */
+.search-bar-width {
+  width: 100%;
+}
+
+/* Modal container width: slightly wider than the inner search on >= sm */
+@media (min-width: 640px) {
+  .search-modal-width {
+    width: 584px; /* 560px search + ~24px visual breathing room */
+  }
+}
+
+/* Equal-width header side columns (logo + auth) and fixed search width on >= lg */
+@media (min-width: 1024px) {
+  .header-side {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .search-bar-width {
+    width: 560px;
+  }
+}
+
+.search-bar-btn:hover {
+  transform: scale(1.005);
+}
+
+.search-bar-btn:active {
+  transform: scale(0.99);
+}
+
+/* ========================================
+   SPLIT BUTTON STYLES
+   ======================================== */
+
+/* Large split button */
+.split-button-large {
+  border-radius: 16px;
+  background-image: var(--button-primary-bg);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transform: scale(1);
+}
+
+.split-button-large:hover {
+  transform: scale(1.015);
+  box-shadow:
+    0 0 20px hsl(var(--primary) / 0.4),
+    0 10px 40px -20px hsl(var(--primary) / 0.6);
+}
+
+.split-button-large:active {
+  transform: scale(0.98);
+}
+
+.split-button-large .split-button-left,
+.split-button-large .split-button-right {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 500;
+  color: hsl(var(--primary-foreground));
   height: auto;
 }
 
-/* Prose styles for markdown content */
+.split-button-large .split-button-right {
+  padding: 12px 18px;
+  color: hsl(var(--white66));
+}
+
+/* Responsive: Scale down large split button to 38px height on smaller devices */
+@media (max-width: 1023px) {
+  .split-button-large .split-button-left,
+  .split-button-large .split-button-right {
+    /* ~38px total height with 16px font */
+    padding: 8px 18px;
+  }
+  
+  .split-button-large .split-button-right {
+    padding: 8px 14px;
+  }
+}
+
+/* Default split button */
+.split-button {
+  border-radius: 16px;
+  background-image: var(--button-primary-bg);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transform: scale(1);
+}
+
+.split-button:hover {
+  transform: scale(1.025);
+  box-shadow:
+    0 0 20px hsl(var(--primary) / 0.4),
+    0 10px 40px -20px hsl(var(--primary) / 0.6);
+}
+
+.split-button:active {
+  transform: scale(0.98);
+}
+
+.split-button .split-button-left,
+.split-button .split-button-right {
+  padding: 8px 18px;
+  font-size: 16px;
+  font-weight: 500;
+  color: hsl(var(--primary-foreground));
+  height: auto;
+}
+
+.split-button .split-button-right {
+  padding: 8px 14px;
+  color: hsl(var(--white66));
+}
+
+/* Small split button */
+.split-button-small {
+  border-radius: 16px;
+  background-image: var(--button-primary-bg);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transform: scale(1);
+}
+
+.split-button-small:hover {
+  transform: scale(1.025);
+  box-shadow:
+    0 0 20px hsl(var(--primary) / 0.4),
+    0 10px 40px -20px hsl(var(--primary) / 0.6);
+}
+
+.split-button-small:active {
+  transform: scale(0.98);
+}
+
+.split-button-small .split-button-left,
+.split-button-small .split-button-right {
+  padding: 9px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--primary-foreground));
+  height: auto;
+}
+
+.split-button-small .split-button-right {
+  padding: 9px 14px;
+  color: hsl(var(--white66));
+}
+
+.split-button-left,
+.split-button-right {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.split-button-left {
+  border-top-left-radius: 16px;
+  border-bottom-left-radius: 16px;
+}
+
+.split-button-right {
+  border-top-right-radius: 16px;
+  border-bottom-right-radius: 16px;
+}
+
+/* Prevent right button from triggering container active state */
+.split-button-right:active {
+  transform: none !important;
+}
+
+/* When right button is active, prevent container from scaling */
+.split-button-container.split-button-right-active:active {
+  transform: scale(1) !important;
+}
+
+/* Chevron sizes by button size */
+.split-button-large .split-button-chevron {
+  width: 20px;
+  height: 20px;
+}
+
+.split-button .split-button-chevron {
+  width: 16px;
+  height: 16px;
+}
+
+.split-button-small .split-button-chevron {
+  width: 14px;
+  height: 14px;
+}
+
+/* Profile avatar button hover effect */
+.profile-avatar-btn {
+  transition: transform 0.2s ease;
+  transform: scale(1);
+}
+
+.profile-avatar-btn:hover {
+  transform: scale(1.015);
+}
+
+.profile-avatar-btn:active {
+  transform: scale(0.99);
+}
+
+/* ========================================
+   LINK UNDERLINE ANIMATION
+   ======================================== */
+
+.link-underline {
+  position: relative;
+  text-decoration: none;
+}
+
+.link-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: currentColor;
+  transition: width 0.3s ease;
+}
+
+.link-underline:hover::after {
+  width: 100%;
+}
+
+/* ========================================
+   GRADIENT BACKGROUNDS
+   ======================================== */
+
+.bg-gradient-subtle {
+  background: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, hsl(var(--primary) / 0.15), transparent),
+    hsl(var(--background));
+}
+
+.bg-gradient-radial {
+  background: radial-gradient(
+    ellipse at center,
+    hsl(var(--primary) / 0.08) 0%,
+    transparent 70%
+  );
+}
+
+/* Animated gradient orb */
+.gradient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  animation: float-orb 8s ease-in-out infinite;
+}
+
+@keyframes float-orb {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(20px, -20px) scale(1.1); }
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+/* Fade in up animation */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out forwards;
+}
+
+/* Staggered delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
+
+/* Subtle pulse */
+@keyframes subtle-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+
+.animate-subtle-pulse {
+  animation: subtle-pulse 4s ease-in-out infinite;
+}
+
+/* Float animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* ========================================
+   PROSE STYLES FOR DOCUMENTATION
+   ======================================== */
+
 .prose {
-  --tw-prose-body: var(--color-text-secondary);
-  --tw-prose-headings: var(--color-text-primary);
-  --tw-prose-lead: var(--color-text-secondary);
-  --tw-prose-links: var(--color-accent);
-  --tw-prose-bold: var(--color-text-primary);
-  --tw-prose-counters: var(--color-text-tertiary);
-  --tw-prose-bullets: var(--color-text-tertiary);
-  --tw-prose-hr: var(--color-border);
-  --tw-prose-quotes: var(--color-text-primary);
-  --tw-prose-quote-borders: var(--color-border);
-  --tw-prose-captions: var(--color-text-tertiary);
-  --tw-prose-code: var(--color-text-primary);
-  --tw-prose-pre-code: #e5e7eb;
-  --tw-prose-pre-bg: #1f2937;
-  --tw-prose-th-borders: var(--color-border);
-  --tw-prose-td-borders: var(--color-border);
+  color: hsl(var(--foreground));
+  max-width: none;
+  line-height: 1.75;
 }
 
-.prose a {
-  text-decoration: underline;
-  text-underline-offset: 2px;
+.prose h1 {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 2.375rem;
+  font-weight: 650; /* Bold for large headings */
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-top: 0;
+  margin-bottom: 2rem;
+  color: hsl(var(--foreground));
 }
 
-.prose a:hover {
-  color: var(--color-accent-hover);
+.prose h2 {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 1.75rem;
+  font-weight: 650; /* Bold for large headings */
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  margin-top: 3rem;
+  margin-bottom: 1.5rem;
+  color: hsl(var(--foreground));
 }
 
-.prose code:not(pre code) {
-  background: var(--color-bg-secondary);
+.prose h3 {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 1.375rem;
+  font-weight: 650; /* Bold for large headings */
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  color: hsl(var(--foreground));
+}
+
+.prose h4 {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 650; /* Bold for large headings */
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  color: hsl(var(--foreground));
+}
+
+.prose p {
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+  font-size: 1.125rem;
+  line-height: 1.75;
+  color: hsl(var(--muted-foreground));
+}
+
+.prose ul {
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+  padding-left: 1.625rem;
+  list-style-type: disc;
+}
+
+.prose ol {
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+  padding-left: 1.625rem;
+  list-style-type: decimal;
+}
+
+.prose li {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: hsl(var(--muted-foreground));
+  padding-left: 0.375rem;
+}
+
+.prose li::marker {
+  color: hsl(var(--muted-foreground) / 0.6);
+}
+
+.prose ul ul,
+.prose ol ol,
+.prose ul ol,
+.prose ol ul {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose blockquote {
+  font-style: italic;
+  border-left: 3px solid hsl(var(--primary) / 0.5);
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  color: hsl(var(--muted-foreground));
+}
+
+.prose code {
+  background-color: hsl(var(--muted));
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-  font-size: 0.875em;
+  font-size: 0.875rem;
+  font-family: var(--font-mono);
+  color: hsl(var(--foreground));
 }
 
 .prose pre {
-  border-radius: 0.5rem;
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
   overflow-x: auto;
+  margin: 1.5rem 0;
 }
 
-.prose img {
-  border-radius: 0.5rem;
+.prose pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.875rem;
+}
+
+.prose a {
+  color: hsl(var(--primary));
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.prose a:hover {
+  color: hsl(var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.prose strong {
+  font-weight: 600;
+  color: hsl(var(--foreground));
 }
 
 .prose table {
   width: 100%;
   border-collapse: collapse;
+  margin: 1.5rem 0;
 }
 
-.prose th,
-.prose td {
-  border: 1px solid var(--color-border);
-  padding: 0.5rem 0.75rem;
+.prose th, .prose td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.75rem;
+  text-align: left;
 }
 
 .prose th {
-  background: var(--color-bg-secondary);
+  background-color: hsl(var(--muted));
   font-weight: 600;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 3rem 0;
+}
+
+/* ========================================
+   SCROLLBAR STYLES
+   ======================================== */
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* ========================================
+   SELECTION COLOR
+   ======================================== */
+
+::selection {
+  background-color: hsl(var(--primary) / 0.3);
+  color: white;
+}
+
+/* ========================================
+   CONTAINER CONSTRAINTS
+   ======================================== */
+
+/* Full width below large (1024px) - no max-width constraint */
+/* Apply max-width only from large screens and up */
+@media (min-width: 1024px) {
+  .container { max-width: 1100px; }
+}
+
+/* ========================================
+   CODE DEMO STYLES
+   ======================================== */
+
+.code-block {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  padding: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+/* ========================================
+   LEGACY ANIMATION SUPPORT
+   ======================================== */
+
+/* Lock shackle close animation */
+@keyframes lock-drop {
+  0% { transform: rotate(-22deg) translateY(-4px); opacity: .85; }
+  40% { transform: rotate(-8deg) translateY(-2px); opacity: .95; }
+  60% { transform: rotate(0deg) translateY(0); opacity: 1; }
+  100% { transform: rotate(0deg) translateY(0); opacity: 1; }
+}
+
+/* Gate barrier lift */
+@keyframes gate-lift {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(-35deg); }
+  100% { transform: rotate(0deg); }
+}
+
+/* Animated arc stroke for world distribution */
+@keyframes arc-dash {
+  0% { stroke-dashoffset: var(--arc-len, 240); opacity: 0.25; }
+  40% { opacity: 0.9; }
+  100% { stroke-dashoffset: 0; opacity: 0.25; }
+}
+
+/* ========================================
+   DITHER OVERLAY (BANDING REDUCTION)
+   ======================================== */
+
+.bg-dither {
+  background-image:
+    radial-gradient(circle at 25% 25%, rgba(255,255,255,0.008) 0, rgba(255,255,255,0) 2px),
+    radial-gradient(circle at 75% 75%, rgba(255,255,255,0.008) 0, rgba(255,255,255,0) 2px);
+  background-size: 64px 64px;
+  background-repeat: repeat;
+}
+
+/* ========================================
+   ADDITIONAL MICRO-INTERACTIONS
+   ======================================== */
+
+/* Scale on hover */
+.hover-scale {
+  transition: transform 0.2s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Lift on hover */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px -12px hsl(var(--primary) / 0.15);
+}
+
+/* Focus ring styles */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--primary) / 0.5);
+}
+
+/* Smooth image loading */
+img {
+  transition: opacity 0.3s ease;
+}
+
+/* Default transitions for interactive elements */
+a, button {
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+/* Spin animation for loading states */
+/* ========================================
+   DIVIDERS - Thin separators for UI elements
+   ======================================== */
+
+/* Horizontal divider - use for separating content sections */
+.divider {
+  width: 100%;
+  height: 0.33px;
+  background-color: hsl(var(--white11));
+  border: none;
+  margin: 0;
+}
+
+/* Vertical divider - use for separating inline elements */
+.divider-vertical {
+  width: 0.33px;
+  height: 100%;
+  background-color: hsl(var(--white11));
+  border: none;
+  margin: 0;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Shimmer animation for skeleton loading */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--card)) 0%,
+    hsl(var(--muted)) 50%,
+    hsl(var(--card)) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ========================================
+   REACHKIT THEME OVERRIDES
+   ======================================== */
+
+.reachkit-theme {
+  --primary: 43 100% 50%;           /* #FFB800 amber */
+  --primary-hover: 43 100% 55%;
+  --accent: 43 100% 60%;
+  --ring: 43 100% 50%;
+}
+
+/* ReachKit gradient utilities */
+.reachkit-theme .text-gradient,
+.reachkit-gradient {
+  background: linear-gradient(135deg, #FFB700 0%, #FF7733 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.reachkit-theme .gradient-orb {
+  background: rgb(255 183 0 / 0.2);
+}
+
+.reachkit-theme .bg-gradient-subtle {
+  background: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgb(255 183 0 / 0.15), transparent),
+    hsl(var(--background));
+}
+
+/* ========================================
+   DIVIDER UTILITIES
+   ======================================== */
+
+/* Standard horizontal divider - use for content separation */
+.divider {
+  width: 100%;
+  height: 1.4px;
+  background-color: hsl(var(--white11));
+}
+
+/* Vertical divider - use for inline separators */
+.divider-vertical {
+  width: 1.4px;
+  height: 100%;
+  background-color: hsl(var(--white11));
+}
+
+/* Section title with gradient */
+.section-title-gradient {
+  background: var(--gradient-white-blurple);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Section description text style */
+.section-description {
+  font-size: 1.125rem; /* text-lg */
+  line-height: 1.75; /* leading-relaxed - bigger line spacing */
+  color: hsl(var(--muted-foreground));
+}
+
+@media (min-width: 640px) {
+  .section-description {
+    font-size: 1.25rem; /* sm:text-xl */
+  }
 }

@@ -619,6 +619,58 @@ export async function fetchAppsByReleases(
 }
 
 /**
+ * Fetch app stacks (kind 30267) from relays.
+ *
+ * @param relays - Relay URLs to query
+ * @param limit - Number of stacks to fetch per page
+ * @param until - Fetch stacks created before this timestamp (for pagination)
+ * @param options - Fetch options
+ * @returns Object with stacks and cursor for next page
+ */
+export async function fetchAppStacks(
+	relays: string[],
+	limit: number = 20,
+	until?: number,
+	options: { timeout?: number; signal?: AbortSignal } = {}
+): Promise<{ stacks: NostrEvent[]; nextCursor: number | null }> {
+	const { timeout = 5000, signal } = options;
+
+	if (signal?.aborted) {
+		return { stacks: [], nextCursor: null };
+	}
+
+	const filter: Filter = {
+		kinds: [30267], // EVENT_KINDS.APP_STACK
+		limit
+	};
+	if (until !== undefined) {
+		filter.until = until;
+	}
+
+	console.log(`[NostrService] Fetching app stacks (limit: ${limit}, until: ${until ?? 'now'})...`);
+	const stacks = await fetchFromRelays(relays, filter, { timeout, signal });
+
+	if (signal?.aborted) {
+		return { stacks: [], nextCursor: null };
+	}
+
+	console.log(`[NostrService] Fetched ${stacks.length} app stacks`);
+
+	if (stacks.length === 0) {
+		return { stacks: [], nextCursor: null };
+	}
+
+	// Sort by created_at descending
+	stacks.sort((a, b) => b.created_at - a.created_at);
+
+	// Calculate next cursor
+	const lastStack = stacks[stacks.length - 1]!;
+	const nextCursor = stacks.length === limit ? lastStack.created_at - 1 : null;
+
+	return { stacks, nextCursor };
+}
+
+/**
  * Close all connections and cleanup
  */
 export function cleanup(): void {

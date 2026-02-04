@@ -30,7 +30,8 @@ export const EVENT_KINDS = {
 	ZAP_REQUEST: 9734,
 	ZAP_RECEIPT: 9735,
 	RELEASE: 30063,
-	APP: 32267
+	APP: 32267,
+	APP_STACK: 30267
 } as const;
 
 // Subscription prefixes (for relay backend identification)

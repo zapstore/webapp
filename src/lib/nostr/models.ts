@@ -59,6 +59,24 @@ export interface Profile {
 	createdAt: number;
 }
 
+export interface AppRef {
+	kind: number;
+	pubkey: string;
+	identifier: string;
+}
+
+export interface AppStack {
+	id: string;
+	pubkey: string;
+	dTag: string;
+	title: string;
+	description: string;
+	image?: string;
+	appRefs: AppRef[];
+	createdAt: number;
+	naddr: string;
+}
+
 // =============================================================================
 // Parsers
 // =============================================================================
@@ -163,6 +181,48 @@ export function parseProfile(event: NostrEvent): Profile {
 	};
 }
 
+/**
+ * Parse a kind 30267 App Stack event
+ */
+export function parseAppStack(event: NostrEvent): AppStack {
+	const dTag = event.tags.find((t) => t[0] === 'd')?.[1] ?? '';
+	const title = event.tags.find((t) => t[0] === 'title')?.[1] ?? 
+		event.tags.find((t) => t[0] === 'name')?.[1] ?? dTag;
+	const description = event.content || '';
+	const image = event.tags.find((t) => t[0] === 'image')?.[1];
+
+	// Parse 'a' tags to get app references (format: "kind:pubkey:identifier")
+	const appRefs: AppRef[] = event.tags
+		.filter((t) => t[0] === 'a')
+		.map((t) => {
+			const parts = t[1]?.split(':') ?? [];
+			return {
+				kind: parseInt(parts[0] ?? '0', 10),
+				pubkey: parts[1] ?? '',
+				identifier: parts[2] ?? ''
+			};
+		})
+		.filter((ref) => ref.pubkey && ref.identifier);
+
+	const naddr = nip19.naddrEncode({
+		kind: EVENT_KINDS.APP_STACK,
+		pubkey: event.pubkey,
+		identifier: dTag
+	});
+
+	return {
+		id: event.id,
+		pubkey: event.pubkey,
+		dTag,
+		title,
+		description,
+		image,
+		appRefs,
+		createdAt: event.created_at,
+		naddr
+	};
+}
+
 // =============================================================================
 // Utilities
 // =============================================================================
@@ -173,6 +233,17 @@ export function parseProfile(event: NostrEvent): Profile {
 export function encodeAppNaddr(pubkey: string, identifier: string): string {
 	return nip19.naddrEncode({
 		kind: EVENT_KINDS.APP,
+		pubkey,
+		identifier
+	});
+}
+
+/**
+ * Encode an app stack to its naddr
+ */
+export function encodeStackNaddr(pubkey: string, identifier: string): string {
+	return nip19.naddrEncode({
+		kind: EVENT_KINDS.APP_STACK,
 		pubkey,
 		identifier
 	});

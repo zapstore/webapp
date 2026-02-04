@@ -2,8 +2,12 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
-	import { AppCard, AppDetail } from '$lib/components';
+	import { pushState, replaceState } from '$app/navigation';
+	import { get } from 'svelte/store';
+	import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
+	import AppDetail from '$lib/components/AppDetail.svelte';
 	import type { App } from '$lib/nostr';
+	import { encodeAppNaddr } from '$lib/nostr/models';
 	import {
 		getApps,
 		getHasMore,
@@ -13,7 +17,7 @@
 		initWithPrerenderedData,
 		scheduleRefresh,
 		loadMore
-	} from '$lib/stores';
+	} from '$lib/stores/nostr.svelte';
 	import type { PageData } from './$types';
 
 	const SCROLL_THRESHOLD = 800; // pixels from bottom to trigger load
@@ -57,6 +61,33 @@
 	// This ensures prerendered HTML matches initial client render (no hydration mismatch)
 	const displayApps = $derived(storeInitialized ? storeApps : data.apps);
 
+	// Handle app click - shallow routing for instant navigation
+	function handleAppClick(app: App) {
+		return (e: MouseEvent) => {
+			e.preventDefault();
+			
+			// Save current scroll position in current history entry
+			const currentState = get(page).state as Record<string, unknown>;
+			replaceState('', { ...currentState, scrollY: window.scrollY });
+			
+			// Create serializable app data
+			const appData = JSON.parse(JSON.stringify(app));
+			const naddr = app.naddr || encodeAppNaddr(app.pubkey, app.dTag);
+			
+			// Push state with app data - instant, no page reload
+			pushState(`/apps/${naddr}`, { selectedApp: appData });
+			
+			// Scroll to top for detail view
+			window.scrollTo(0, 0);
+		};
+	}
+
+	// Get app URL for href (SEO / fallback)
+	function getAppUrl(app: App): string {
+		const naddr = app.naddr || encodeAppNaddr(app.pubkey, app.dTag);
+		return `/apps/${naddr}`;
+	}
+
 	// Infinite scroll: check if near bottom
 	function shouldLoadMore(): boolean {
 		if (!browser) return false;
@@ -99,7 +130,7 @@
 <svelte:head>
 	{#if selectedApp}
 		<title>{selectedApp.name} — Zapstore</title>
-		<meta name="description" content={selectedApp.description.slice(0, 160)} />
+		<meta name="description" content={selectedApp.description?.slice(0, 160) ?? ''} />
 	{:else}
 		<title>Browse Apps — Zapstore</title>
 		<meta name="description" content="Browse all apps available on Zapstore" />
@@ -111,43 +142,75 @@
 	<AppDetail app={selectedApp} />
 {:else}
 	<!-- Apps list view -->
-	<div class="page-header">
-		<div class="title-row">
-			<h1>All Apps</h1>
-			{#if refreshing}
-				<span class="refresh-icon" title="Refreshing from relays...">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-						<path d="M21 3v5h-5" />
-					</svg>
-				</span>
-		{/if}
-	</div>
-</div>
+	<section class="apps-page">
+		<div class="container">
+			<div class="page-header">
+				<div class="title-row">
+					<h1>All Apps</h1>
+					{#if refreshing}
+						<span class="refresh-icon" title="Refreshing from relays...">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+								<path d="M21 3v5h-5" />
+							</svg>
+						</span>
+					{/if}
+				</div>
+			</div>
 
-	<div class="app-grid">
-		{#if displayApps.length === 0}
-			<p class="empty-state">No apps found</p>
-		{:else}
-			{#each displayApps as app (app.id)}
-				<AppCard {app} />
-			{/each}
-		{/if}
-	</div>
+			<div class="app-grid">
+				{#if displayApps.length === 0}
+					<p class="empty-state">No apps found</p>
+				{:else}
+					{#each displayApps as app (app.id)}
+						<div class="app-item">
+							<AppSmallCard 
+								{app} 
+								href={getAppUrl(app)}
+								onclick={handleAppClick(app)}
+							/>
+						</div>
+					{/each}
+				{/if}
+			</div>
 
-	{#if loadingMore}
-		<div class="loader">
-			<span class="loading-spinner"></span>
-			<span>Loading more...</span>
+			{#if loadingMore}
+				<div class="loader">
+					<span class="loading-spinner"></span>
+					<span>Loading more...</span>
+				</div>
+			{/if}
+
+			{#if !hasMore && displayApps.length > 0}
+				<p class="end-message">You've reached the end</p>
+			{/if}
 		</div>
-	{/if}
-
-	{#if !hasMore && displayApps.length > 0}
-		<p class="end-message">You've reached the end</p>
-	{/if}
+	</section>
 {/if}
 
 <style>
+	.apps-page {
+		padding: 1.5rem 0;
+	}
+
+	.container {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0 1rem;
+	}
+
+	@media (min-width: 640px) {
+		.container {
+			padding: 0 1.5rem;
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.container {
+			padding: 0 2rem;
+		}
+	}
+
 	.page-header {
 		margin-bottom: 1.5rem;
 	}
@@ -159,16 +222,23 @@
 	}
 
 	.page-header h1 {
-		font-size: 2rem;
+		font-size: 1.5rem;
 		font-weight: 700;
 		margin: 0;
+		color: hsl(var(--foreground));
+	}
+
+	@media (min-width: 768px) {
+		.page-header h1 {
+			font-size: 2rem;
+		}
 	}
 
 	.refresh-icon {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		color: var(--color-accent, #8b5cf6);
+		color: hsl(var(--primary));
 		animation: spin 1s linear infinite;
 	}
 
@@ -177,21 +247,47 @@
 		to { transform: rotate(360deg); }
 	}
 
-	.page-header p {
-		color: var(--color-text-secondary, #6b7280);
-		margin: 0.25rem 0 0;
-	}
-
+	/* 3-column grid for apps */
 	.app-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-		gap: 1rem;
+		grid-template-columns: 1fr;
+		gap: 1.25rem;
+	}
+
+	@media (min-width: 640px) {
+		.app-grid {
+			grid-template-columns: repeat(2, 1fr);
+			gap: 1.5rem;
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.app-grid {
+			grid-template-columns: repeat(3, 1fr);
+			gap: 2rem;
+		}
+	}
+
+	.app-item {
+		padding: 0.75rem 0;
+		border-bottom: 1px solid hsl(var(--border) / 0.5);
+	}
+
+	.app-item:last-child {
+		border-bottom: none;
+	}
+
+	@media (min-width: 640px) {
+		.app-item {
+			padding: 0;
+			border-bottom: none;
+		}
 	}
 
 	.empty-state {
 		grid-column: 1 / -1;
 		text-align: center;
-		color: var(--text-secondary, #6b7280);
+		color: hsl(var(--muted-foreground));
 		padding: 3rem;
 	}
 
@@ -201,15 +297,15 @@
 		justify-content: center;
 		gap: 0.5rem;
 		padding: 2rem;
-		color: var(--color-text-secondary, #6b7280);
+		color: hsl(var(--muted-foreground));
 		font-size: 0.875rem;
 	}
 
 	.loading-spinner {
 		width: 1.25rem;
 		height: 1.25rem;
-		border: 2px solid var(--color-border, #e5e7eb);
-		border-top-color: var(--color-accent, #8b5cf6);
+		border: 2px solid hsl(var(--border));
+		border-top-color: hsl(var(--primary));
 		border-radius: 50%;
 		animation: spin 0.8s linear infinite;
 	}
@@ -217,7 +313,7 @@
 	.end-message {
 		text-align: center;
 		padding: 2rem;
-		color: var(--color-text-tertiary, #9ca3af);
+		color: hsl(var(--muted-foreground));
 		font-size: 0.875rem;
 	}
 </style>
