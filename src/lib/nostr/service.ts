@@ -864,9 +864,8 @@ function buildCommentFilter(
 
 /**
  * Query comment events from EventStore only (sync, local-first).
- * Uses #a/#A for subject, then includes any kind 1111 that has #e/#E pointing at
- * a comment we already have (replies cached from a previous fetchComments).
- * Use for immediate paint; then run fetchComments() for full cascade (IndexedDB → Relays).
+ * All comments for this app/stack are stored with #a; same filter as fetchComments.
+ * Use for immediate paint; then run fetchComments() for latest from relays.
  */
 export function queryCommentsFromStore(
 	pubkey: string,
@@ -875,39 +874,28 @@ export function queryCommentsFromStore(
 ): NostrEvent[] {
 	if (!pubkey || !identifier) return [];
 	const aTagValue = `${aTagKind}:${pubkey}:${identifier}`;
-	const filterLower = { kinds: [1111] as number[], '#a': [aTagValue], limit: 100 };
-	const filterUpper = { kinds: [1111] as number[], '#A': [aTagValue], limit: 100 };
+	const filterLower = { kinds: [1111] as number[], '#a': [aTagValue], limit: 500 };
+	const filterUpper = { kinds: [1111] as number[], '#A': [aTagValue], limit: 500 };
 	const lower = queryStore(filterLower);
 	const upper = queryStore(filterUpper);
 	const byId = new Map<string, NostrEvent>();
 	for (const e of [...lower, ...upper]) {
 		if (!byId.has(e.id)) byId.set(e.id, e);
 	}
-	// Include replies: events whose #e/#E points at a comment we have (may be cached from last fetch)
-	const commentIds = Array.from(byId.keys());
-	if (commentIds.length > 0) {
-		const allKind1111 = queryStore({ kinds: [1111] as number[], limit: 500 });
-		for (const e of allKind1111) {
-			if (byId.has(e.id)) continue;
-			const eTag = e.tags.find((t) => (t[0] === 'e' || t[0] === 'E') && t[1])?.[1];
-			if (eTag && commentIds.includes(eTag)) byId.set(e.id, e);
-		}
-	}
+	// All comments for this app/stack have #a; no need to follow #e (we persist what we fetch by #a)
 	return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
 }
 
 /**
- * Fetch comments for an app.
- * Uses NIP-22 (kind 1111). Two-phase fetch so replies from other clients show up:
- * 1) Fetch by #a and #A (app/stack coordinate) — gets roots and replies that include the subject tag.
- * 2) Fetch by #e (parent event id) for every comment id from (1) — gets replies that only reference
- *    the parent comment (e.g. from other Nostr apps that don't always include #a on replies).
- * See zapstore-mobile: comment.replies.query() does the equivalent #e follow-up.
+ * Fetch comments for an app/stack.
+ * All comments (roots and replies at any depth) reference the subject via the #a tag
+ * (e.g. 32267:pubkey:dTag for app, 30267:pubkey:dTag for stack). We publish with #a on every
+ * comment, so a single query by #a / #A returns the full thread.
  *
- * @param pubkey - App publisher's pubkey
- * @param identifier - App's d-tag identifier
+ * @param pubkey - App/stack publisher's pubkey
+ * @param identifier - App's d-tag or stack d-tag
  * @param options - Fetch options
- * @returns Array of comment events (root and replies)
+ * @returns Array of comment events (root and all nested replies)
  */
 export async function fetchComments(
 	pubkey: string,
@@ -921,8 +909,8 @@ export async function fetchComments(
 	}
 
 	const aTagValue = `${aTagKind}:${pubkey}:${identifier}`;
-	const filterLower = { kinds: [1111] as number[], '#a': [aTagValue], limit: 100 };
-	const filterUpper = { kinds: [1111] as number[], '#A': [aTagValue], limit: 100 };
+	const filterLower = { kinds: [1111] as number[], '#a': [aTagValue], limit: 500 };
+	const filterUpper = { kinds: [1111] as number[], '#A': [aTagValue], limit: 500 };
 
 	console.log(`[NostrService] Fetching comments for app: ${pubkey.slice(0, 8)}:${identifier}...`);
 
@@ -936,24 +924,6 @@ export async function fetchComments(
 		if (!byId.has(e.id)) byId.set(e.id, e);
 	}
 
-	// Phase 2: fetch replies that reference our comments via #e (some clients omit #a on replies)
-	const commentIds = Array.from(byId.keys());
-	if (commentIds.length > 0 && !signal?.aborted) {
-		const batchSize = 50;
-		for (let i = 0; i < commentIds.length; i += batchSize) {
-			const ids = commentIds.slice(i, i + batchSize);
-			const filterE = { kinds: [1111] as number[], '#e': ids, limit: 100 };
-			const filterEUpper = { kinds: [1111] as number[], '#E': ids, limit: 100 };
-			const [byELower, byEUpper] = await Promise.all([
-				fetchEvents(filterE, { relays, timeout, signal }),
-				fetchEvents(filterEUpper, { relays, timeout, signal })
-			]);
-			for (const e of [...byELower, ...byEUpper]) {
-				if (!byId.has(e.id)) byId.set(e.id, e);
-			}
-		}
-	}
-
 	const events = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
 	console.log(`[NostrService] Found ${events.length} comments`);
 	return events;
@@ -962,7 +932,7 @@ export async function fetchComments(
 /**
  * Watch comments for an app with background updates.
  * Sync: returns comments from EventStore (both #a and #A).
- * Background: runs fetchComments (dual #a/#A, full cascade) and calls onUpdate.
+ * Background: runs fetchComments (#a/#A, single query) and calls onUpdate.
  */
 export function watchComments(
 	pubkey: string,
@@ -1162,13 +1132,15 @@ export function parseZapReceipt(event: NostrEvent): {
  * @param target - App or stack being commented on (contentType + pubkey + identifier)
  * @param signEvent - Auth signer (e.g. from auth store)
  * @param emojiTags - Optional custom emoji shortcode/url for NIP-30 tags
+ * @param parentEventId - Optional parent event id (e-tag) for replies
  * @returns The signed event (already in store and sent to relays)
  */
 export async function publishComment(
 	content: string,
 	target: { contentType: 'app' | 'stack'; pubkey: string; identifier: string },
 	signEvent: (template: EventTemplate) => Promise<NostrEvent>,
-	emojiTags?: { shortcode: string; url: string }[]
+	emojiTags?: { shortcode: string; url: string }[],
+	parentEventId?: string
 ): Promise<NostrEvent> {
 	if (!content?.trim() || !target.pubkey || !target.identifier) {
 		throw new Error('Comment content and target (pubkey, identifier) are required');
@@ -1182,6 +1154,9 @@ export async function publishComment(
 			: `${stackKind}:${target.pubkey}:${target.identifier}`;
 
 	const tags: [string, string, ...string[]][] = [['a', aTagValue]];
+	if (parentEventId) {
+		tags.push(['e', parentEventId]);
+	}
 	const emojiList = emojiTags ?? [];
 	if (emojiList.length > 0) {
 		const seen = new Set<string>();

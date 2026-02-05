@@ -32,6 +32,8 @@
     publisherName?: string;
     otherZaps?: OtherZap[];
     isOpen?: boolean;
+    /** When true, no backdrop overlay (e.g. opened from inside another modal) */
+    nestedModal?: boolean;
     searchProfiles?: (query: string) => Promise<ProfileHit[]>;
     searchEmojis?: (query: string) => Promise<EmojiHit[]>;
     onclose?: (event: { success: boolean }) => void;
@@ -43,6 +45,7 @@
     publisherName = "",
     otherZaps = [],
     isOpen = $bindable(false),
+    nestedModal = false,
     searchProfiles = async () => [],
     searchEmojis = async () => [],
     onclose,
@@ -226,6 +229,7 @@
   ariaLabel="Zap {target?.name ?? 'Content'}"
   wide={true}
   align="bottom"
+  noBackdrop={nestedModal}
 >
   <div class="zap-modal-content">
     {#if error}

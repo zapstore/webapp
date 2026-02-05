@@ -27,6 +27,8 @@
     fillHeight?: boolean;
     closeOnBackdropClick?: boolean;
     closeOnEscape?: boolean;
+    /** When true, backdrop is transparent (e.g. when modal is nested inside another overlay) */
+    noBackdrop?: boolean;
     children?: import("svelte").Snippet;
     footer?: import("svelte").Snippet;
   }
@@ -44,6 +46,7 @@
     fillHeight = false,
     closeOnBackdropClick = true,
     closeOnEscape = true,
+    noBackdrop = false,
     children,
     footer,
   }: Props = $props();
@@ -138,7 +141,9 @@
 {#if open}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
   <div
-    class="modal-backdrop fixed inset-0 bg-overlay"
+    class="modal-backdrop fixed inset-0"
+    class:bg-overlay={!noBackdrop}
+    class:modal-backdrop-transparent={noBackdrop}
     class:items-start={actualAlignment === "top"}
     class:items-center={actualAlignment === "center"}
     class:items-end={actualAlignment === "bottom"}
@@ -154,7 +159,7 @@
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
       bind:this={modalElement}
-      class="modal-container relative w-full {effectiveMaxWidth} {className} border-subtle shadow-2xl overflow-hidden backdrop-blur-lg"
+      class="modal-container relative w-full {effectiveMaxWidth} {className} border-subtle overflow-hidden backdrop-blur-lg"
       class:modal-top={actualAlignment === "top"}
       class:modal-center={actualAlignment === "center"}
       class:modal-bottom={actualAlignment === "bottom"}
@@ -184,6 +189,10 @@
     justify-content: center;
     padding: 0;
     margin: 0;
+  }
+
+  .modal-backdrop-transparent {
+    background: transparent;
   }
 
   .modal-backdrop.items-start {
@@ -231,7 +240,6 @@
       margin-bottom: 16px;
       border-radius: 24px;
       border-bottom: 0.33px solid hsl(var(--white8));
-      box-shadow: 0 8px 64px hsl(var(--black));
     }
   }
 

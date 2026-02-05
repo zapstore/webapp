@@ -31,7 +31,7 @@
   import DownloadModal from "$lib/components/common/DownloadModal.svelte";
   import { createSearchProfilesFunction } from "$lib/services/profile-search";
   import { createSearchEmojisFunction } from "$lib/services/emoji-search";
-  import { getCurrentPubkey, signEvent } from "$lib/stores/auth.svelte";
+  import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte";
 
   let { data }: { data: PageData } = $props();
 
@@ -312,6 +312,47 @@
       console.error("Failed to load zaps:", err);
     } finally {
       zapsLoading = false;
+    }
+  }
+
+  async function handleCommentSubmit(event: {
+    text: string;
+    emojiTags: { shortcode: string; url: string }[];
+    mentions: string[];
+    parentId?: string;
+  }) {
+    const userPubkey = getCurrentPubkey();
+    if (!userPubkey || !app) return;
+    const { text, emojiTags: submitEmojiTags, parentId } = event;
+    const tempId = `pending-${Date.now()}`;
+    const optimistic: (ReturnType<typeof parseComment> & { pending?: boolean; npub?: string }) = {
+      id: tempId,
+      pubkey: userPubkey,
+      content: text,
+      contentHtml: "",
+      emojiTags: submitEmojiTags ?? [],
+      createdAt: Math.floor(Date.now() / 1000),
+      parentId: parentId ?? null,
+      isReply: parentId != null,
+      pending: true,
+      npub: nip19.npubEncode(userPubkey),
+    };
+    comments = [...comments, optimistic];
+    try {
+      const signed = await publishComment(
+        text,
+        { contentType: "app", pubkey: app.pubkey, identifier: app.dTag },
+        signEvent as (t: import("nostr-tools").EventTemplate) => Promise<import("nostr-tools").NostrEvent>,
+        submitEmojiTags,
+        parentId
+      );
+      const parsed = parseComment(signed) as ReturnType<typeof parseComment> & { npub?: string };
+      parsed.npub = nip19.npubEncode(signed.pubkey);
+      comments = comments.filter((c) => c.id !== tempId);
+      comments = [...comments, parsed];
+    } catch (err) {
+      console.error("Failed to publish comment:", err);
+      comments = comments.filter((c) => c.id !== tempId);
     }
   }
 
@@ -683,6 +724,10 @@
         zapsLoading={zapsLoading}
         {profiles}
         {profilesLoading}
+        searchProfiles={searchProfiles}
+        searchEmojis={searchEmojis}
+        onCommentSubmit={handleCommentSubmit}
+        onZapReceived={() => loadZaps()}
       />
     </div>
 
@@ -817,7 +862,8 @@
     {/if}
   </div>
 
-  <!-- Bottom Bar (owns Comment + ZapSlider modals; bar slides out when either open) -->
+  <!-- Bottom Bar (owns Comment + ZapSlider modals; bar slides out when either open). Only show when user is logged in. -->
+  {#if app && getIsSignedIn()}
   {@const zapTarget = app ? { name: app.name, pubkey: app.pubkey, dTag: app.dTag, id: app.id, pictureUrl: publisherPictureUrl } : null}
   <BottomBar
     appName={app.name || ""}
@@ -827,43 +873,13 @@
     {otherZaps}
     searchProfiles={searchProfiles}
     searchEmojis={searchEmojis}
-    oncommentSubmit={async ({ text, emojiTags: submitEmojiTags, mentions, target }) => {
-      const userPubkey = getCurrentPubkey();
-      if (!userPubkey || !app) return;
-      const tempId = `pending-${Date.now()}`;
-      const optimistic: (ReturnType<typeof parseComment> & { pending?: boolean; npub?: string }) = {
-        id: tempId,
-        pubkey: userPubkey,
-        content: text,
-        contentHtml: "",
-        emojiTags: submitEmojiTags ?? [],
-        createdAt: Math.floor(Date.now() / 1000),
-        parentId: null,
-        isReply: false,
-        pending: true,
-        npub: nip19.npubEncode(userPubkey),
-      };
-      comments = [...comments, optimistic];
-      try {
-        const signed = await publishComment(
-          text,
-          { contentType: "app", pubkey: app.pubkey, identifier: app.dTag },
-          signEvent as (t: import("nostr-tools").EventTemplate) => Promise<import("nostr-tools").NostrEvent>,
-          submitEmojiTags
-        );
-        const parsed = parseComment(signed) as ReturnType<typeof parseComment> & { npub?: string };
-        parsed.npub = nip19.npubEncode(signed.pubkey);
-        comments = comments.filter((c) => c.id !== tempId);
-        comments = [...comments, parsed];
-      } catch (err) {
-        console.error("Failed to publish comment:", err);
-        comments = comments.filter((c) => c.id !== tempId);
-      }
-    }}
+    oncommentSubmit={(e) =>
+      handleCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, parentId: undefined })}
     onzapReceived={() => {
       loadZaps();
     }}
   />
+  {/if}
 {/if}
 
 <style>

@@ -2,12 +2,11 @@
 	import { ChevronRight } from '$lib/components/icons';
 	import { assets } from '$app/paths';
 
-	const docsHref = '/docs';
 </script>
 
 <section id="quickstart" class="studio-tools-section border-t border-b border-border/50">
   <div class="studio-tools-container">
-		<h2 class="studio-quick-start-title">QUICKSTART</h2>
+		<h2 class="studio-quick-start-title section-title text-display-lg section-title-gradient">Quickstart</h2>
 
 		<div class="studio-tools-grid">
 			<!-- Left: Install panel (gray33) -->
@@ -20,7 +19,7 @@
 						<img src={`${assets}/images/emoji/app.png`} alt="" class="studio-panel-header-img" />
 						<h3 class="studio-panel-header-title">Install</h3>
 					</div>
-					<a href={docsHref} class="studio-panel-row studio-panel-row-link" rel="noopener">
+					<a href="https://github.com/zapstore/zsp" class="studio-panel-row studio-panel-row-link" target="_blank" rel="noopener noreferrer">
 						<div class="studio-panel-row-content">
 							<span class="studio-panel-row-name">ZSP</span>
 							<span class="studio-panel-row-desc">CLI for publishing and managing apps</span>
@@ -32,9 +31,10 @@
 					<div class="studio-panel-row studio-panel-row-static">
 						<div class="studio-panel-row-content">
 							<span class="studio-panel-row-name">Studio Apps</span>
-							<span class="studio-panel-row-desc"
-								>Desktop and web apps for Zapstore. Coming soon.</span
-							>
+							<span class="studio-coming-soon">
+								<span class="studio-coming-soon-dot"></span>
+								Coming Soon
+							</span>
 						</div>
 					</div>
 				</div>
@@ -54,7 +54,7 @@
 						/>
 						<h3 class="studio-panel-header-title">Documentation</h3>
 					</div>
-					<a href="/docs" class="studio-panel-row studio-panel-row-link" rel="noopener">
+					<a href="/docs/publish" class="studio-panel-row studio-panel-row-link" rel="noopener">
 						<div class="studio-panel-row-content">
 							<span class="studio-panel-row-name">Quickstart</span>
 							<span class="studio-panel-row-desc">Get up and running with Zapstore</span>
@@ -79,31 +79,29 @@
 </section>
 
 <style>
+	/* Match SignedSection: section padding defines inset, inner container 1000px max */
 	.studio-tools-section {
-		padding: 0;
-	}
-
-	.studio-tools-container {
-		max-width: 900px;
-		margin: 0 auto;
 		padding: 2rem 1rem 2.5rem;
 	}
 
 	@media (min-width: 768px) {
-		.studio-tools-container {
-			padding: 3.75rem 1rem 4.75rem;
+		.studio-tools-section {
+			padding: 3.75rem 1.5rem 4.75rem;
 		}
 	}
 
-	/* Gray gradient at 33% opacity; mobile-friendly sizes */
+	.studio-tools-container {
+		max-width: 1000px;
+		margin: 0 auto;
+	}
+
+	/* Landing-style section header */
 	.studio-quick-start-title {
-		font-size: 0.9375rem;
-		font-weight: 600;
-		line-height: 1.3;
-		margin: 0 0 1.85rem 0;
+		font-size: 2rem;
+		line-height: 1.1;
+		margin: 0 0 2rem 0;
 		text-align: center;
-		letter-spacing: 0.2em;
-		background: var(--gradient-gray33);
+		letter-spacing: -0.025em;
 		-webkit-background-clip: text;
 		background-clip: text;
 		color: transparent;
@@ -111,13 +109,62 @@
 
 	@media (min-width: 640px) {
 		.studio-quick-start-title {
-			font-size: 1.125rem;
+			font-size: 2.5rem;
+			margin-bottom: 2.25rem;
 		}
 	}
 
 	@media (min-width: 768px) {
 		.studio-quick-start-title {
-			font-size: 1.25rem;
+			font-size: 3rem;
+			margin-bottom: 2.5rem;
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.studio-quick-start-title {
+			font-size: 3.5rem;
+		}
+	}
+
+	@media (min-width: 1280px) {
+		.studio-quick-start-title {
+			font-size: 4rem;
+		}
+	}
+
+	/* Studio Apps: Coming Soon – gold theme (matches ReachKit gateway), text at gold6 */
+	.studio-coming-soon {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: hsl(var(--goldColor) / 0.6);
+		margin-top: 0.15rem;
+	}
+
+	@media (min-width: 640px) {
+		.studio-coming-soon {
+			font-size: 0.875rem;
+		}
+	}
+
+	.studio-coming-soon-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: hsl(var(--goldColor));
+		box-shadow: 0 0 8px hsl(var(--goldColor) / 0.8);
+		animation: studio-coming-soon-pulse 1.5s ease-in-out infinite;
+	}
+
+	@keyframes studio-coming-soon-pulse {
+		0%, 100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.5;
 		}
 	}
 
@@ -191,7 +238,7 @@
 
 	.studio-panel-row:last-child {
 		border-bottom: none;
-		padding-bottom: 1rem;
+		padding-bottom: 1.25rem;
 	}
 
 	.studio-panel-row-content {
