@@ -75,6 +75,10 @@
     getAppSlug?: (pubkey: string, dTag: string) => string;
     getStackSlug?: (pubkey: string, dTag: string) => string;
     pubkeyToNpub?: (pubkey: string) => string;
+    searchProfiles?: (query: string) => Promise<{ pubkey: string; name?: string; displayName?: string; picture?: string }[]>;
+    searchEmojis?: (query: string) => Promise<{ shortcode: string; url: string; source: string }[]>;
+    onCommentSubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[]; parentId?: string }) => void;
+    onZapReceived?: (event: { zapReceipt: unknown }) => void;
   }
 
   let {
@@ -94,6 +98,10 @@
     getAppSlug = () => "",
     getStackSlug = () => "",
     pubkeyToNpub = () => "",
+    searchProfiles = async () => [],
+    searchEmojis = async () => [],
+    onCommentSubmit,
+    onZapReceived,
   }: Props = $props();
 
   const staticTabs = [
@@ -164,6 +172,26 @@
       replies: repliesByParent.get(comment.id) || [],
     }))
   );
+
+  /** Full thread (root + all descendants) per root id, chronological, for the thread modal */
+  const threadByRootId = $derived.by(() => {
+    const map = new Map<string, ReturnType<typeof enrichComment>[]>();
+    for (const root of rootCommentsWithReplies) {
+      const collected: ReturnType<typeof enrichComment>[] = [root];
+      const queue = [root.id];
+      while (queue.length) {
+        const parentId = queue.shift()!;
+        const children = comments.filter((c) => c.parentId === parentId);
+        for (const c of children) {
+          const enriched = enrichComment(c);
+          collected.push(enriched);
+          queue.push(c.id);
+        }
+      }
+      map.set(root.id, collected.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0)));
+    }
+    return map;
+  });
 
   const enrichedZaps = $derived(
     zaps
@@ -267,6 +295,7 @@
               />
             {:else}
               <RootComment
+                id={item.id}
                 pictureUrl={item.avatarUrl}
                 name={item.displayName}
                 pubkey={item.pubkey}
@@ -275,6 +304,7 @@
                 loading={item.profileLoading}
                 pending={item.pending}
                 replies={item.replies}
+                threadComments={threadByRootId.get(item.id) ?? []}
                 authorPubkey={app?.pubkey}
                 content={item.content}
                 emojiTags={item.emojiTags}
@@ -283,6 +313,10 @@
                 appName={app?.name}
                 appIdentifier={app?.dTag}
                 {version}
+                {searchProfiles}
+                {searchEmojis}
+                onReplySubmit={onCommentSubmit ? (e) => onCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, parentId: e.parentId }) : undefined}
+                onZapReceived={onZapReceived}
               >
               </RootComment>
             {/if}

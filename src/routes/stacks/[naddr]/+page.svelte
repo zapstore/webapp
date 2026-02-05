@@ -36,7 +36,7 @@
   import DetailHeader from "$lib/components/layout/DetailHeader.svelte";
   import { createSearchProfilesFunction } from "$lib/services/profile-search";
   import { createSearchEmojisFunction } from "$lib/services/emoji-search";
-  import { getCurrentPubkey, signEvent } from "$lib/stores/auth.svelte";
+  import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte";
 
   interface Creator {
     name?: string;
@@ -306,6 +306,47 @@
     }
   }
 
+  async function handleCommentSubmit(event: {
+    text: string;
+    emojiTags: { shortcode: string; url: string }[];
+    mentions: string[];
+    parentId?: string;
+  }) {
+    const userPubkey = getCurrentPubkey();
+    if (!userPubkey || !stack) return;
+    const { text, emojiTags: submitEmojiTags, parentId } = event;
+    const tempId = `pending-${Date.now()}`;
+    const optimistic: (ReturnType<typeof parseComment> & { pending?: boolean; npub?: string }) = {
+      id: tempId,
+      pubkey: userPubkey,
+      content: text,
+      contentHtml: "",
+      emojiTags: submitEmojiTags ?? [],
+      createdAt: Math.floor(Date.now() / 1000),
+      parentId: parentId ?? null,
+      isReply: parentId != null,
+      pending: true,
+      npub: nip19.npubEncode(userPubkey),
+    };
+    comments = [...comments, optimistic];
+    try {
+      const signed = await publishComment(
+        text,
+        { contentType: "stack", pubkey: stack.pubkey, identifier: stack.dTag },
+        signEvent as (t: import("nostr-tools").EventTemplate) => Promise<import("nostr-tools").NostrEvent>,
+        submitEmojiTags,
+        parentId
+      );
+      const parsed = parseComment(signed) as ReturnType<typeof parseComment> & { npub?: string };
+      parsed.npub = nip19.npubEncode(signed.pubkey);
+      comments = comments.filter((c) => c.id !== tempId);
+      comments = [...comments, parsed];
+    } catch (err) {
+      console.error("Failed to publish comment:", err);
+      comments = comments.filter((c) => c.id !== tempId);
+    }
+  }
+
   function getAppUrl(app: App): string {
     return `/apps/${encodeAppNaddr(app.pubkey, app.dTag)}`;
   }
@@ -479,14 +520,18 @@
           {commentsError}
           {profiles}
           {profilesLoading}
+          searchProfiles={searchProfiles}
+          searchEmojis={searchEmojis}
+          onCommentSubmit={handleCommentSubmit}
+          onZapReceived={() => {}}
         />
       </div>
     {/if}
   </div>
 </section>
 
-<!-- Bottom Bar -->
-{#if stack}
+<!-- Bottom Bar: only show when user is logged in -->
+{#if stack && getIsSignedIn()}
   {@const zapTarget = stack ? {
     name: stack.title || displayTitle,
     pubkey: stack.pubkey,
@@ -501,39 +546,8 @@
     otherZaps={[]}
     searchProfiles={searchProfiles}
     searchEmojis={searchEmojis}
-    oncommentSubmit={async ({ text, emojiTags: submitEmojiTags, target }) => {
-      const userPubkey = getCurrentPubkey();
-      if (!userPubkey || !stack) return;
-      const tempId = `pending-${Date.now()}`;
-      const optimistic: (ReturnType<typeof parseComment> & { pending?: boolean; npub?: string }) = {
-        id: tempId,
-        pubkey: userPubkey,
-        content: text,
-        contentHtml: "",
-        emojiTags: submitEmojiTags ?? [],
-        createdAt: Math.floor(Date.now() / 1000),
-        parentId: null,
-        isReply: false,
-        pending: true,
-        npub: nip19.npubEncode(userPubkey),
-      };
-      comments = [...comments, optimistic];
-      try {
-        const signed = await publishComment(
-          text,
-          { contentType: "stack", pubkey: stack.pubkey, identifier: stack.dTag },
-          signEvent as (t: import("nostr-tools").EventTemplate) => Promise<import("nostr-tools").NostrEvent>,
-          submitEmojiTags
-        );
-        const parsed = parseComment(signed) as ReturnType<typeof parseComment> & { npub?: string };
-        parsed.npub = nip19.npubEncode(signed.pubkey);
-        comments = comments.filter((c) => c.id !== tempId);
-        comments = [...comments, parsed];
-      } catch (err) {
-        console.error("Failed to publish comment:", err);
-        comments = comments.filter((c) => c.id !== tempId);
-      }
-    }}
+    oncommentSubmit={(e) =>
+      handleCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, parentId: undefined })}
     onzapReceived={() => {}}
   />
 {/if}

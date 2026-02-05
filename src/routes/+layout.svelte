@@ -17,6 +17,9 @@
 
 	const path = $derived($page.url.pathname as string);
 
+	// ReachKit has its own layout (header + footer)
+	let isReachKit = $derived(path.startsWith('/studio/reachkit'));
+
 	// Determine header variant based on route
 	let isLandingPage = $derived(path === '/');
 	let isBrowsePage = $derived(
@@ -78,26 +81,30 @@
 	<div class="relative z-10 flex flex-col min-h-screen">
 		<NavigationProgress />
 
-		{#if !isDetailPage}
-			<Header
-				variant={headerVariant}
-				pageTitle={isBrowsePage || pageTitle === 'Profile' ? pageTitle : ''}
-			/>
-		{/if}
-
-		{#if !online}
-			<div class="offline-banner">
-				<span class="offline-icon">📡</span>
-				<span>You're offline — showing cached data</span>
-			</div>
-		{/if}
-
-		<main class="flex-1 main-content" class:has-header={!isDetailPage}>
+		{#if isReachKit}
 			{@render children()}
-		</main>
+		{:else}
+			{#if !isDetailPage}
+				<Header
+					variant={headerVariant}
+					pageTitle={isBrowsePage || pageTitle === 'Profile' ? pageTitle : ''}
+				/>
+			{/if}
 
-		{#if !isDetailPage}
-			<Footer />
+			{#if !online}
+				<div class="offline-banner">
+					<span class="offline-icon">📡</span>
+					<span>You're offline — showing cached data</span>
+				</div>
+			{/if}
+
+			<main class="flex-1 main-content" class:has-header={!isDetailPage}>
+				{@render children()}
+			</main>
+
+			{#if !isDetailPage}
+				<Footer />
+			{/if}
 		{/if}
 	</div>
 </div>

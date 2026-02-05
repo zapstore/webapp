@@ -12,7 +12,7 @@
   import "tippy.js/dist/tippy.css";
   import { hexToColor, rgbToCssString } from "$lib/utils/color.js";
   import * as nip19 from "nostr-tools/nip19";
-  import { Camera, EmojiFill, Gif, Plus, Send, ChevronDown } from "$lib/components/icons";
+  import { Camera, EmojiFill, Gif, Plus, Send, ChevronDown, Cross } from "$lib/components/icons";
 
   type SizePreset = "small" | "medium" | "large";
   type ProfileHit = {
@@ -39,6 +39,10 @@
     onChevronTap?: () => void;
     onchange?: (event: { content: string }) => void;
     onsubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[] }) => void;
+    /** When set, a small round close button is shown inside the editor area (top right); only the text zone is narrowed, not the action row */
+    onClose?: () => void;
+    /** Optional content rendered inside the rounded editor box, above the text input (e.g. QuotedMessage when replying) */
+    aboveEditor?: import("svelte").Snippet;
   }
 
   let {
@@ -56,6 +60,8 @@
     onChevronTap = () => {},
     onchange,
     onsubmit,
+    onClose,
+    aboveEditor,
   }: Props = $props();
 
   const sizeMap: Record<SizePreset, { minHeight: number; maxHeight: number }> = {
@@ -511,8 +517,18 @@
   style="--min-height: {dimensions.minHeight}px; --max-height: {dimensions.maxHeight}px;"
 >
   <div class="editor-wrapper">
+    {#if aboveEditor}
+      <div class="above-editor">{@render aboveEditor()}</div>
+    {/if}
     <div class="shader-top"></div>
-    <div bind:this={editorElement} class="editor-container"></div>
+    <div class="editor-container" class:has-close={!!onClose} class:has-above={!!aboveEditor}>
+      {#if onClose}
+        <button type="button" class="inline-close-btn" onclick={onClose} aria-label="Close">
+          <Cross variant="outline" size={12} color="hsl(var(--white66))" />
+        </button>
+      {/if}
+      <div bind:this={editorElement} class="editor-mount"></div>
+    </div>
     <div class="shader-bottom"></div>
   </div>
 
@@ -556,21 +572,57 @@
     max-height: var(--max-height);
     overflow: hidden;
   }
+  .above-editor {
+    padding: 8px 8px 0;
+  }
   .editor-container {
+    position: relative;
+    min-height: var(--min-height);
+    max-height: var(--max-height);
+    overflow: hidden;
+  }
+  .editor-mount {
     min-height: var(--min-height);
     max-height: var(--max-height);
     overflow-y: auto;
-    padding: 12px 16px;
+    padding: 4px 12px 12px 12px;
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--white16)) transparent;
   }
-  .editor-container::-webkit-scrollbar {
+  .editor-container.has-close .editor-mount {
+    padding-right: 48px;
+  }
+  .editor-container.has-above .editor-mount {
+    padding-top: 4px;
+  }
+  .inline-close-btn {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    background: hsl(var(--white4));
+    border-radius: 50%;
+    color: hsl(var(--white66));
+    cursor: pointer;
+  }
+  .inline-close-btn:hover {
+    background: hsl(var(--white16));
+    color: hsl(var(--foreground));
+  }
+  .editor-mount::-webkit-scrollbar {
     width: 4px;
   }
-  .editor-container::-webkit-scrollbar-track {
+  .editor-mount::-webkit-scrollbar-track {
     background: transparent;
   }
-  .editor-container::-webkit-scrollbar-thumb {
+  .editor-mount::-webkit-scrollbar-thumb {
     background: hsl(var(--white16));
     border-radius: 2px;
   }
@@ -591,31 +643,31 @@
     bottom: 0;
     background: linear-gradient(to top, hsl(var(--black33)) 0%, hsl(var(--black33) / 0) 100%);
   }
-  .editor-container :global(.ProseMirror) {
+  .editor-mount :global(.ProseMirror) {
     outline: none;
     min-height: inherit;
   }
-  .editor-container :global(.ProseMirror p) {
+  .editor-mount :global(.ProseMirror p) {
     margin: 0;
     font-size: 16px;
     line-height: 1.5;
     color: hsl(var(--white));
   }
-  .editor-container :global(.ProseMirror p.is-editor-empty:first-child::before) {
+  .editor-mount :global(.ProseMirror p.is-editor-empty:first-child::before) {
     content: attr(data-placeholder);
     color: hsl(var(--white33));
     pointer-events: none;
     float: left;
     height: 0;
   }
-  .editor-container :global(.mention) {
+  .editor-mount :global(.mention) {
     font-weight: 500;
   }
-  .editor-container :global(.emoji-node) {
+  .editor-mount :global(.emoji-node) {
     display: inline;
     vertical-align: middle;
   }
-  .editor-container :global(.inline-emoji) {
+  .editor-mount :global(.inline-emoji) {
     width: 1.25em;
     height: 1.25em;
     vertical-align: -0.2em;

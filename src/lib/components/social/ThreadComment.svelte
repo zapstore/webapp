@@ -26,6 +26,8 @@
     appName?: string;
     appIdentifier?: string | null;
     children?: import("svelte").Snippet;
+    /** Optional actions in the author row (e.g. menu trigger) */
+    headerActions?: import("svelte").Snippet;
   }
 
   let {
@@ -42,6 +44,7 @@
     appName = "",
     appIdentifier = null,
     children,
+    headerActions,
   }: Props = $props();
 
   let isDarkMode = $state(true);
@@ -96,6 +99,11 @@
       </div>
       {#if version}
         <span class="version-pill">{version}</span>
+      {/if}
+      {#if headerActions}
+        <div class="thread-comment-actions">
+          {@render headerActions()}
+        </div>
       {/if}
     </div>
   </div>
@@ -170,6 +178,10 @@
     padding: 2px 8px;
     border-radius: 100px;
     white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .thread-comment-actions {
     flex-shrink: 0;
   }
 

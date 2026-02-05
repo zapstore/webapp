@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { assets } from '$app/paths';
+	import { ChevronRight } from '$lib/components/icons';
 
 	let sectionElement;
 	let scrollProgress = 0;
@@ -62,7 +63,7 @@
 
 <section
 	bind:this={sectionElement}
-	class="relative min-h-[50vh] flex items-center justify-center overflow-hidden border-b border-border/50 py-14 sm:py-16"
+	class="relative min-h-[50vh] flex items-center justify-center overflow-hidden border-b border-border/50 py-20 sm:py-24"
 >
 	<!-- Blurple gradient background -->
 	<div class="absolute inset-0 z-0 flex items-center justify-center">
@@ -130,6 +131,18 @@
 		<p class="section-description max-w-2xl mx-auto mt-7">
 			No review process. No delay. No middlemen.
 		</p>
+		<a
+			href="/docs/publish"
+			class="btn-glass-large btn-glass-with-chevron group inline-flex items-center justify-center gap-3 mt-8"
+		>
+			Start Publishing
+			<ChevronRight
+				variant="outline"
+				color="hsl(var(--white33))"
+				size={18}
+				className="transition-transform group-hover:translate-x-0.5"
+			/>
+		</a>
 	</div>
 </section>
 

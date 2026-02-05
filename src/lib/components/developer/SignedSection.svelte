@@ -1,14 +1,42 @@
 <script lang="ts">
   /**
-   * SignedSection - Two columns: codeblock panels showing tail of signed event (left),
-   * and large "Signed. Yours. Truly." text (right). Section height clips top of code so only sig part visible.
+   * SignedSection - Two columns: codeblock in gray66 wrapper at top, fixed view on bottom (no scroll);
+   * right column "Signed. Yours. Truly." with white-blurple gradient and stepped opacity.
    */
-  const eventTail = {
-    created_at: 1734567890,
-    sig: "a1b2c3d4e5f6789...",
+  const signedEvent = {
+    kind: 32267,
+    id: "cc5f28ff8263f57310e1e0a699d1e2fc2a10f4c7f453d2cb4a652995c406e4b1",
+    pubkey: "78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d",
+    created_at: 1770317160,
+    tags: [
+      ["name", "Zapstore Alpha"],
+      ["d", "dev.zapstore.alpha"],
+      ["repository", "https://github.com/zapstore/zapstore"],
+      ["url", "https://zapstore.dev"],
+      ["f", "android-arm64-v8a"],
+      ["t", "android"],
+      ["t", "apk"],
+      ["t", "app"],
+      ["t", "appstore"],
+      ["t", "grapheneos"],
+      ["t", "lightning"],
+      ["t", "lightning-network"],
+      ["t", "nostr"],
+      ["t", "obtainium"],
+      ["t", "permissionless"],
+      ["t", "playstore"],
+      ["t", "sha256"],
+      ["t", "social-graph"],
+      ["t", "weboftrust"],
+      ["license", "MIT"],
+      ["icon", "https://cdn.zapstore.dev/2787fabd17260808c72ec5456996dbd5356bc8e822a1ecf85f220a29dbe2e998"],
+      ["a", "30063:78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d:dev.zapstore.alpha@1.0.0-rc4"],
+    ],
+    content: "The Open App Store",
+    sig: "b0e743bb26779760ad9cea7340c284587685cd3e46a8dfadec9ca41f324aa29887bff4e0fe92b86131f73f336df351c7a6fddf2561e1d26ad24eca8ba334f862",
   };
 
-  const formattedJson = JSON.stringify(eventTail, null, 2);
+  const formattedJson = JSON.stringify(signedEvent, null, 2);
 
   function escapeHtml(str: string): string {
     return str
@@ -65,37 +93,42 @@
 
 <section class="signed-section">
   <div class="signed-container">
-    <!-- Left: codeblock panel(s) – bottom of event visible, top clipped -->
+    <!-- Left: code in gray66 wrapper at top, fixed height, scroll at bottom -->
     <div class="signed-code-col">
-      <div class="signed-code-panel">
-        <span class="signed-code-label">JSON</span>
-        <div class="signed-code-clip">
-          <div class="signed-code-top-spacer" aria-hidden="true"></div>
-          <pre><code>{@html highlightedJson}</code></pre>
+      <div class="signed-code-outer">
+        <div class="signed-code-panel">
+          <div class="signed-code-fixed">
+            <div class="signed-code-spacer" aria-hidden="true"></div>
+            <pre><code>{@html highlightedJson}</code></pre>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Right: large text on three lines -->
+    <!-- Right: large text, top padding, white-blurple gradient, stepped opacity -->
     <div class="signed-text-col">
-      <p class="signed-line">Signed.</p>
-      <p class="signed-line">Yours.</p>
-      <p class="signed-line">Truly.</p>
+      <p class="signed-line signed-line-1">Signed.</p>
+      <p class="signed-line signed-line-2">Yours.</p>
+      <p class="signed-line signed-line-3">Truly.</p>
     </div>
+
+    <!-- Description under the two columns, centered; matches landing section-description -->
+    <p class="signed-desc section-description">
+      The bech32 signature in Nostr is public: anyone can verify it. Your event travels with its proof—so you own it, everywhere.
+    </p>
   </div>
 </section>
 
 <style>
   .signed-section {
     overflow: hidden;
-    padding: 3rem 1rem;
+    padding: 0 1rem 3rem;
     border-bottom: 1px solid hsl(var(--border) / 0.5);
   }
 
   @media (min-width: 768px) {
     .signed-section {
-      padding: 4rem 1.5rem;
-      min-height: 320px;
+      padding: 0 1.5rem 4rem;
     }
   }
 
@@ -110,132 +143,164 @@
 
   @media (min-width: 768px) {
     .signed-container {
-      grid-template-columns: 1fr auto;
+      grid-template-columns: 1fr 1fr;
       gap: 3rem;
+      align-items: start;
     }
   }
 
-  /* Code column: panel with clipped top so only bottom (sig) shows */
-  .signed-code-col {
-    min-width: 0;
-    order: 2;
+  .signed-desc {
+    grid-column: 1 / -1;
+    order: 3;
+    justify-self: center;
+    text-align: center;
+    margin: 1.75rem 0 0;
+    max-width: 36em;
   }
 
   @media (min-width: 768px) {
-    .signed-code-col {
-      order: 1;
+    .signed-desc {
+      margin-top: 2rem;
+    }
+  }
+
+  /* Code column: wrapper at top, gray66, fixed height, scroll to bottom */
+  .signed-code-col {
+    min-width: 0;
+    order: 1;
+  }
+
+  .signed-code-outer {
+    background-color: hsl(var(--gray44));
+    padding: 0 1.25rem 1.5rem;
+    border-radius: 0 0 24px 24px;
+    border: 0.33px solid hsl(var(--white16));
+    height: 280px;
+  }
+
+  @media (min-width: 768px) {
+    .signed-code-outer {
+      padding: 0 1.75rem 2rem;
+      height: 320px;
+      border-radius: 0 0 32px 32px;
     }
   }
 
   .signed-code-panel {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
     position: relative;
-    background-color: hsl(var(--gray33));
-    border-radius: 16px;
-    border: 0.33px solid hsl(var(--white16));
-    padding: 10px 14px;
-    max-height: 200px;
+  }
+
+  /* Fade-out mask at top of code */
+  .signed-code-panel::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 48px;
+    background: linear-gradient(to bottom, hsl(var(--gray44)) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Fixed view on bottom: no scroll, content aligned to end so bottom is visible */
+  .signed-code-fixed {
+    height: 100%;
+    min-height: 0;
     overflow: hidden;
-  }
-
-  @media (min-width: 768px) {
-    .signed-code-panel {
-      max-height: 240px;
-      padding: 12px 16px;
-    }
-  }
-
-  .signed-code-label {
-    font-family: var(--font-sans);
-    font-size: 0.75rem;
-    color: hsl(var(--white33));
-    display: block;
-    margin-bottom: 4px;
-  }
-
-  .signed-code-clip {
-    overflow: hidden;
-    height: 160px;
     display: flex;
     flex-direction: column;
+    justify-content: flex-end;
   }
 
-  @media (min-width: 768px) {
-    .signed-code-clip {
-      height: 200px;
-    }
-  }
-
-  .signed-code-top-spacer {
+  .signed-code-spacer {
     flex: 1;
     min-height: 120px;
   }
 
-  .signed-code-clip pre {
+  .signed-code-fixed pre {
     margin: 0;
     width: 100%;
+    min-width: 0;
     flex-shrink: 0;
   }
 
-  .signed-code-clip code {
+  .signed-code-fixed code {
     font-family: var(--font-mono);
     font-size: 1rem;
     font-weight: 400;
     line-height: 1.5;
     letter-spacing: 0.15px;
     color: hsl(var(--foreground));
-    white-space: pre;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow-wrap: break-word;
     display: block;
   }
 
   @media (min-width: 768px) {
-    .signed-code-clip code {
+    .signed-code-fixed code {
       font-size: 1.125rem;
     }
   }
 
-  .signed-code-clip :global(.hl-key) {
+  .signed-code-fixed :global(.hl-key) {
     color: hsl(var(--blurpleLightColor));
   }
 
-  .signed-code-clip :global(.hl-value) {
+  .signed-code-fixed :global(.hl-value) {
     color: hsl(0 0% 100% / 0.9);
   }
 
-  .signed-code-clip :global(.hl-punct) {
+  .signed-code-fixed :global(.hl-punct) {
     color: hsl(var(--white66));
   }
 
-  .signed-code-clip :global(.hl-brace) {
+  .signed-code-fixed :global(.hl-brace) {
     color: hsl(var(--goldColor));
   }
 
-  .signed-code-clip :global(.hl-bracket) {
+  .signed-code-fixed :global(.hl-bracket) {
     color: hsl(var(--goldColor66));
   }
 
-  /* Text column: three lines, large */
+  /* Text column: top padding on desktop */
   .signed-text-col {
-    text-align: center;
-    order: 1;
+    text-align: left;
+    order: 2;
   }
 
   @media (min-width: 768px) {
     .signed-text-col {
-      text-align: right;
-      order: 2;
+      padding-top: 3rem;
     }
   }
 
   .signed-line {
     margin: 0;
     font-size: 2.5rem;
-    font-weight: 600;
+    font-weight: 650;
     line-height: 1.1;
-    letter-spacing: 0.02em;
-    background: var(--gradient-gray);
+    letter-spacing: -0.02em;
+    background: var(--gradient-white-blurple);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  .signed-line-1 {
+    opacity: 1;
+  }
+
+  .signed-line-2 {
+    opacity: 0.9;
+  }
+
+  .signed-line-3 {
+    opacity: 0.8;
   }
 
   @media (min-width: 640px) {

@@ -1,7 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
 	import { assets } from '$app/paths';
-	import { ChevronRight } from '$lib/components/icons';
 
 	let mounted = false;
 
@@ -43,18 +42,6 @@
 				of users.
 			</p>
 		</div>
-		<a
-			href="#quickstart"
-			class="studio-hero-cta group hidden sm:inline-flex items-center justify-center gap-3 btn-glass-large btn-glass-with-chevron flex-shrink-0 self-center sm:self-start"
-		>
-			Start Publishing
-			<ChevronRight
-				variant="outline"
-				color="hsl(var(--white33))"
-				size={18}
-				className="transition-transform group-hover:translate-x-0.5"
-			/>
-		</a>
 	</div>
 
 	<!-- Screenshots: fixed to bottom of section; only section clips (no overflow here) -->
@@ -124,10 +111,6 @@
 <style>
 	.studio-hero {
 		padding-bottom: 0;
-	}
-
-	.studio-hero-cta {
-		min-width: 200px;
 	}
 
 	/* 3D area fixed to bottom of section; overflow only on section so nothing clips the slide-in */
