@@ -311,10 +311,12 @@
     emojiTags: { shortcode: string; url: string }[];
     mentions: string[];
     parentId?: string;
+    rootPubkey?: string;
+    parentKind?: number;
   }) {
     const userPubkey = getCurrentPubkey();
     if (!userPubkey || !stack) return;
-    const { text, emojiTags: submitEmojiTags, parentId } = event;
+    const { text, emojiTags: submitEmojiTags, parentId, rootPubkey, parentKind } = event;
     const tempId = `pending-${Date.now()}`;
     const optimistic: (ReturnType<typeof parseComment> & { pending?: boolean; npub?: string }) = {
       id: tempId,
@@ -335,7 +337,9 @@
         { contentType: "stack", pubkey: stack.pubkey, identifier: stack.dTag },
         signEvent as (t: import("nostr-tools").EventTemplate) => Promise<import("nostr-tools").NostrEvent>,
         submitEmojiTags,
-        parentId
+        parentId,
+        rootPubkey,
+        parentKind
       );
       const parsed = parseComment(signed) as ReturnType<typeof parseComment> & { npub?: string };
       parsed.npub = nip19.npubEncode(signed.pubkey);
@@ -344,6 +348,8 @@
     } catch (err) {
       console.error("Failed to publish comment:", err);
       comments = comments.filter((c) => c.id !== tempId);
+      commentsError =
+        err instanceof Error ? err.message : "Comment could not be published to any relay.";
     }
   }
 

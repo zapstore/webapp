@@ -18,6 +18,6 @@
 <StudioHero />
 <StudioToolsSection />
 <OpenProtocolsSection />
-<PublishAppSection />
 <SignedSection />
+<PublishAppSection />
 <ReachKitGatewaySection />

@@ -1,114 +1,147 @@
-<script>
-  import { ChevronRight } from '$lib/components/icons';
-  import { assets } from '$app/paths';
-</script>
+<script></script>
 
-<section class="reachkit-gateway border-t border-border/50">
-  <div class="reachkit-gateway-container">
-    <div class="reachkit-gateway-inner">
-      <div class="reachkit-gateway-badge">
-        <span class="reachkit-gateway-badge-dot"></span>
-        Coming Soon
+<section class="gateway-section border-b border-border/50">
+  <div class="gateway-container">
+    <!-- Left: ReachKit (gold theme) -->
+    <div class="gateway-panel gateway-panel-gold">
+      <div class="gateway-header-row">
+        <h2 class="gateway-panel-title">ReachKit</h2>
+        <div class="gateway-pill gateway-pill-gold">
+          <span class="gateway-pill-dot gateway-pill-dot-gold"></span>
+          Coming Soon
+        </div>
       </div>
-      <img
-        src={`${assets}/images/reachkit-logo.svg`}
-        alt=""
-        class="reachkit-gateway-logo"
-        width="40"
-        height="40"
-      />
-      <div class="reachkit-gateway-text">
-        <h2 class="reachkit-gateway-title">Need to distribute everywhere?</h2>
-        <p class="reachkit-gateway-desc">
-          ReachKit uses AI to predict app store rejections before you submit. Validate once, ship to every major mobile store — App Store, Google Play, F-Droid, Zapstore, and more.
-        </p>
-      </div>
-      <a
-        href="/studio/reachkit"
-        class="reachkit-gateway-cta btn-glass-large btn-glass-with-chevron group"
+      <h3
+        class="gateway-question"
+        style="background: var(--gradient-gold); -webkit-background-clip: text; background-clip: text; color: transparent;"
       >
-        Learn about ReachKit
-        <ChevronRight
-          variant="outline"
-          color="hsl(var(--white33))"
-          size={18}
-          className="transition-transform group-hover:translate-x-0.5"
-        />
+        Need to distribute everywhere?
+      </h3>
+      <p class="gateway-desc gateway-desc-large">
+        ReachKit uses AI to predict app store rejections before you submit. Validate once, ship to every major mobile store — App Store, Google Play, F-Droid, Zapstore, and more.
+      </p>
+      <a href="/studio/reachkit" class="btn-secondary gateway-cta">Learn More</a>
+    </div>
+
+    <!-- Right: SkillPub (green theme) -->
+    <div class="gateway-panel gateway-panel-green">
+      <div class="gateway-header-row">
+        <h2 class="gateway-panel-title">SkillPub</h2>
+        <div class="gateway-pill gateway-pill-green">
+          <span class="gateway-pill-dot gateway-pill-dot-green"></span>
+          Coming Soon
+        </div>
+      </div>
+      <h3
+        class="gateway-question"
+        style="background: var(--gradient-green); -webkit-background-clip: text; background-clip: text; color: transparent;"
+      >
+        Need an open marketplace for agents?
+      </h3>
+      <p class="gateway-desc gateway-desc-large">
+        An open marketplace for AI agent skills. Discover, purchase, install, or publish skills — built on open protocols. No accounts, no gatekeepers. Powered by Zapstore.
+      </p>
+      <a
+        href="https://skillpub.net/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn-secondary gateway-cta"
+      >
+        Learn More
       </a>
     </div>
   </div>
 </section>
 
 <style>
-  .reachkit-gateway {
+  .gateway-section {
     padding: 3rem 1rem;
   }
 
   @media (min-width: 768px) {
-    .reachkit-gateway {
+    .gateway-section {
       padding: 4rem 1.5rem;
     }
   }
 
-  .reachkit-gateway-container {
-    max-width: 900px;
+  .gateway-container {
+    max-width: 1000px;
     margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 
-  .reachkit-gateway-inner {
+  @media (min-width: 768px) {
+    .gateway-container {
+      grid-template-columns: 1fr 1fr;
+      gap: 2.75rem;
+    }
+  }
+
+  .gateway-panel {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 1.25rem;
-    text-align: center;
+    align-items: flex-start;
+    text-align: left;
     padding: 2rem 1.5rem;
     background-color: hsl(var(--gray33));
     border-radius: var(--radius-32);
-    border: 0.33px solid hsl(var(--white16));
   }
 
   @media (min-width: 768px) {
-    .reachkit-gateway-inner {
-      flex-direction: row;
-      flex-wrap: wrap;
-      text-align: left;
-      gap: 1.5rem 2rem;
-      padding: 2rem 2.5rem;
+    .gateway-panel {
+      padding: 2.25rem 2rem;
     }
   }
 
-  .reachkit-gateway-badge {
-    order: -1;
+  .gateway-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
     width: 100%;
+  }
+
+  .gateway-pill {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     gap: 0.5rem;
     padding: 0.35rem 0.75rem;
     border-radius: 9999px;
-    border: 1px solid hsl(var(--goldColor) / 0.35);
-    background: hsl(var(--goldColor) / 0.12);
     font-size: 0.75rem;
     font-weight: 500;
-    color: hsl(var(--goldColor) / 0.6);
+    flex-shrink: 0;
   }
 
-  @media (min-width: 768px) {
-    .reachkit-gateway-badge {
-      width: auto;
-      order: 0;
-    }
+  .gateway-pill-gold {
+    background: hsl(var(--goldColor) / 0.12);
+    color: hsl(var(--goldColor) / 0.9);
   }
 
-  .reachkit-gateway-badge-dot {
+  .gateway-pill-green {
+    background: rgb(25 221 117 / 0.12);
+    color: rgb(25 221 117 / 0.95);
+  }
+
+  .gateway-pill-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: hsl(var(--goldColor));
-    animation: reachkit-pulse 1.5s ease-in-out infinite;
   }
 
-  @keyframes reachkit-pulse {
+  .gateway-pill-dot-gold {
+    background: hsl(var(--goldColor));
+    animation: gateway-pulse 1.5s ease-in-out infinite;
+  }
+
+  .gateway-pill-dot-green {
+    background: rgb(25 221 117);
+    animation: gateway-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes gateway-pulse {
     0%, 100% {
       opacity: 1;
     }
@@ -117,47 +150,54 @@
     }
   }
 
-  .reachkit-gateway-logo {
-    flex-shrink: 0;
-    width: 40px;
-    height: 40px;
-  }
-
-  .reachkit-gateway-text {
-    min-width: 0;
-    flex: 1;
-  }
-
-  @media (min-width: 768px) {
-    .reachkit-gateway-text {
-      flex: 1 1 100%;
-      max-width: none;
-    }
-  }
-
-  .reachkit-gateway-title {
-    font-size: 1.35rem;
+  .gateway-panel-title {
+    font-size: 1.375rem;
     font-weight: 600;
-    line-height: 1.3;
-    color: hsl(var(--white));
-    margin: 0 0 0.4rem 0;
+    line-height: 1.2;
+    margin: 0;
+    color: hsl(var(--foreground));
+  }
+
+  .gateway-question {
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.25;
+    margin: 0 0 0.75rem 0;
+    width: 100%;
   }
 
   @media (min-width: 640px) {
-    .reachkit-gateway-title {
-      font-size: 1.5rem;
+    .gateway-question {
+      font-size: 1.75rem;
     }
   }
 
-  .reachkit-gateway-desc {
-    font-size: 0.9375rem;
-    color: hsl(var(--white66));
-    line-height: 1.45;
-    margin: 0;
+  @media (min-width: 768px) {
+    .gateway-question {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
   }
 
-  .reachkit-gateway-cta {
-    flex-shrink: 0;
+  .gateway-desc {
+    color: hsl(var(--white66));
+    line-height: 1.5;
+    margin: 0 0 1.5rem 0;
+  }
+
+  .gateway-desc-large {
+    font-size: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .gateway-desc-large {
+      font-size: 1.0625rem;
+      line-height: 1.55;
+    }
+  }
+
+  .gateway-cta {
+    margin-top: auto;
     text-decoration: none;
   }
 </style>

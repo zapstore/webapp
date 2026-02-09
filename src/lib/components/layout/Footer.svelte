@@ -48,6 +48,28 @@
               Stacks
             </a>
           </li>
+          <li>
+            <span
+              class="text-sm text-muted-foreground inline-flex items-center gap-1.5"
+            >
+              Catalogs
+              <span
+                class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-medium"
+                >Soon</span
+              >
+            </span>
+          </li>
+          <li>
+            <span
+              class="text-sm text-muted-foreground inline-flex items-center gap-1.5"
+            >
+              Labels
+              <span
+                class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-medium"
+                >Soon</span
+              >
+            </span>
+          </li>
         </ul>
       </div>
 
@@ -69,6 +91,20 @@
               class="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
             >
               ReachKit
+              <span
+                class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-medium"
+                >Soon</span
+              >
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://skillpub.net/"
+              class="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              SkillPub
               <span
                 class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-medium"
                 >Soon</span
@@ -99,7 +135,17 @@
               target="_blank"
               rel="noopener noreferrer"
             >
-              Tech Support on Signal
+              User Support on Signal
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
+              class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Dev Support on Signal
             </a>
           </li>
           <li>

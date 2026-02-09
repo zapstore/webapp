@@ -457,6 +457,7 @@
       onGifTap={() => {}}
       onAddTap={() => {}}
       onChevronTap={() => {}}
+      allowEmptySubmit={true}
       onsubmit={handleCommentSubmit}
       onchange={({ content }) => (message = content)}
       onClose={handleCommentClose}

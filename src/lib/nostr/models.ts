@@ -123,9 +123,9 @@ export function parseApp(event: NostrEvent): App {
 		icon: event.tags.find((t) => t[0] === 'icon')?.[1] ?? (content.icon as string),
 		images: event.tags.filter((t) => t[0] === 'image').map((t) => t[1]!),
 		platform: event.tags.find((t) => t[0] === 'platform')?.[1] ?? (content.platform as string) ?? 'Android',
-		repository: content.repository as string | undefined,
-		license: content.license as string | undefined,
-		url: content.url as string | undefined,
+		repository: event.tags.find((t) => t[0] === 'repository')?.[1] ?? (content.repository as string | undefined),
+		license: event.tags.find((t) => t[0] === 'license')?.[1] ?? (content.license as string | undefined),
+		url: event.tags.find((t) => t[0] === 'url')?.[1] ?? (content.url as string | undefined),
 		createdAt: event.created_at,
 		naddr,
 		rawEvent: event

@@ -78,28 +78,27 @@
     <div class="profile-column">
       {#if profileUrl}
         <a href={profileUrl} class="profile-link">
-          <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="md" />
+          <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
         </a>
       {:else}
-        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="md" />
+        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
       {/if}
     </div>
     <div class="author-info">
-      <div class="author-left">
-        {#if profileUrl}
-          <a href={profileUrl} class="author-name" style="color: {nameColorStyle};">
-            {name || "Anonymous"}
-          </a>
-        {:else}
-          <span class="author-name" style="color: {nameColorStyle};">
-            {name || "Anonymous"}
-          </span>
-        {/if}
-        <Timestamp {timestamp} size="xs" />
+      <div class="author-top">
+        <div class="author-name-wrap">
+          {#if profileUrl}
+            <a href={profileUrl} class="author-name" style="color: {nameColorStyle};">
+              {name || "Anonymous"}
+            </a>
+          {:else}
+            <span class="author-name" style="color: {nameColorStyle};">
+              {name || "Anonymous"}
+            </span>
+          {/if}
+        </div>
+        <Timestamp {timestamp} size="xs" className="author-timestamp" />
       </div>
-      {#if version}
-        <span class="version-pill">{version}</span>
-      {/if}
       {#if headerActions}
         <div class="thread-comment-actions">
           {@render headerActions()}
@@ -121,7 +120,7 @@
 
   .author-row {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
   }
 
@@ -140,18 +139,23 @@
 
   .author-info {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 12px;
     flex: 1;
     min-width: 0;
-    padding-top: 4px;
   }
 
-  .author-left {
+  .author-top {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .author-name-wrap {
     min-width: 0;
   }
 
@@ -170,17 +174,8 @@
     opacity: 0.8;
   }
 
-  .version-pill {
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: hsl(var(--white66));
-    background-color: hsl(var(--white16));
-    padding: 2px 8px;
-    border-radius: 100px;
-    white-space: nowrap;
+  .author-timestamp {
     flex-shrink: 0;
-    align-self: flex-start;
-    margin-top: -4px; /* align with profile pic top (cancel author-info padding-top) */
   }
 
   .thread-comment-actions {

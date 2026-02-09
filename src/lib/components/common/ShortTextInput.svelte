@@ -5,7 +5,7 @@
   import { onMount, onDestroy } from "svelte";
   import { Editor, Node, mergeAttributes } from "@tiptap/core";
   import StarterKit from "@tiptap/starter-kit";
-  import Mention from "@tiptap/extension-mention";
+  import Mention, { type MentionNodeAttrs } from "@tiptap/extension-mention";
   import Placeholder from "@tiptap/extension-placeholder";
   import Suggestion from "@tiptap/suggestion";
   import tippy from "tippy.js";
@@ -39,6 +39,8 @@
     onChevronTap?: () => void;
     onchange?: (event: { content: string }) => void;
     onsubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[] }) => void;
+    /** When true, submit is allowed with empty content (e.g. zap with amount only) */
+    allowEmptySubmit?: boolean;
     /** When set, a small round close button is shown inside the editor area (top right); only the text zone is narrowed, not the action row */
     onClose?: () => void;
     /** When 'focusedOrContent', close button is only shown when the editor is focused or has text (e.g. Zap modal comment) */
@@ -62,6 +64,7 @@
     onChevronTap = () => {},
     onchange,
     onsubmit,
+    allowEmptySubmit = false,
     onClose,
     showCloseWhen = 'always',
     aboveEditor,
@@ -84,6 +87,19 @@
   let suggestionItems = $state<unknown[]>([]);
   let selectedIndex = $state(0);
   let isScrollable = $state(false);
+  let sendOptionsWrap = $state<HTMLElement | null>(null);
+  let sendOptionsExplainerOpen = $state(false);
+
+  function toggleSendOptionsExplainer() {
+    sendOptionsExplainerOpen = !sendOptionsExplainerOpen;
+  }
+
+  function handleSendOptionsClickOutside(e: MouseEvent) {
+    const target = e.target as HTMLElement | null;
+    if (sendOptionsExplainerOpen && sendOptionsWrap && target && !sendOptionsWrap.contains(target)) {
+      sendOptionsExplainerOpen = false;
+    }
+  }
 
   function checkScrollable() {
     if (editorElement) {
@@ -169,7 +185,7 @@
         let popup: ReturnType<typeof tippy>;
         let container: HTMLElement;
         return {
-          onStart: (props: { items: unknown[]; clientRect?: () => DOMRect; command: CommandFn }) => {
+          onStart: (props: { items: unknown[]; clientRect?: (() => DOMRect | null) | null; command: CommandFn }) => {
             currentSuggestionType = "profile";
             suggestionItems = props.items ?? [];
             selectedIndex = 0;
@@ -177,7 +193,7 @@
             container.className = "suggestion-container";
             updateSuggestionContent(container, "profile", suggestionItems, selectedIndex, props.command);
             popup = tippy("body", {
-              getReferenceClientRect: props.clientRect,
+              getReferenceClientRect: props.clientRect ? () => props.clientRect?.() ?? new DOMRect() : undefined,
               appendTo: () => document.body,
               content: container,
               showOnCreate: true,
@@ -189,13 +205,13 @@
               animation: false,
               popperOptions: { modifiers: [{ name: "flip", enabled: true }] },
             });
-            suggestionPopup = popup[0];
+            suggestionPopup = popup[0] ?? null;
           },
-          onUpdate: (props: { items: unknown[]; clientRect?: () => DOMRect; command: CommandFn }) => {
+          onUpdate: (props: { items: unknown[]; clientRect?: (() => DOMRect | null) | null; command: CommandFn }) => {
             suggestionItems = props.items ?? [];
             selectedIndex = 0;
             updateSuggestionContent(container, "profile", suggestionItems, selectedIndex, props.command);
-            if (props.clientRect) popup[0]?.setProps({ getReferenceClientRect: props.clientRect });
+            if (props.clientRect) popup[0]?.setProps({ getReferenceClientRect: () => props.clientRect?.() ?? new DOMRect() });
           },
           onKeyDown: (props: { event: KeyboardEvent; command: CommandFn }) => {
             if (props.event.key === "Escape") {
@@ -224,7 +240,7 @@
             suggestionPopup = null;
             currentSuggestionType = null;
           },
-        };
+        } as any;
       },
     };
   }
@@ -289,7 +305,7 @@
               let popup: ReturnType<typeof tippy>;
               let container: HTMLElement;
               return {
-                onStart: (props: { items: unknown[]; clientRect?: () => DOMRect; command: CommandFn }) => {
+                onStart: (props: { items: unknown[]; clientRect?: (() => DOMRect | null) | null; command: CommandFn }) => {
                   currentSuggestionType = "emoji";
                   suggestionItems = props.items ?? [];
                   selectedIndex = 0;
@@ -297,7 +313,7 @@
                   container.className = "suggestion-container";
                   updateSuggestionContent(container, "emoji", suggestionItems, selectedIndex, props.command);
                   popup = tippy("body", {
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect ? () => props.clientRect?.() ?? new DOMRect() : undefined,
                     appendTo: () => document.body,
                     content: container,
                     showOnCreate: true,
@@ -308,13 +324,13 @@
                     arrow: false,
                     animation: false,
                   });
-                  suggestionPopup = popup[0];
+                  suggestionPopup = popup[0] ?? null;
                 },
-                onUpdate: (props: { items: unknown[]; clientRect?: () => DOMRect; command: CommandFn }) => {
+                onUpdate: (props: { items: unknown[]; clientRect?: (() => DOMRect | null) | null; command: CommandFn }) => {
                   suggestionItems = props.items ?? [];
                   selectedIndex = 0;
                   updateSuggestionContent(container, "emoji", suggestionItems, selectedIndex, props.command);
-                  if (props.clientRect) popup[0]?.setProps({ getReferenceClientRect: props.clientRect });
+                  if (props.clientRect) popup[0]?.setProps({ getReferenceClientRect: () => props.clientRect?.() ?? new DOMRect() });
                 },
                 onKeyDown: (props: { event: KeyboardEvent; command: CommandFn }) => {
                   if (props.event.key === "Escape") {
@@ -343,7 +359,7 @@
                   suggestionPopup = null;
                   currentSuggestionType = null;
                 },
-              };
+              } as any;
             },
           }),
         ];
@@ -422,11 +438,12 @@
   }
 
   function handleSubmit() {
-    if (isEmpty()) return;
+    if (!allowEmptySubmit && isEmpty()) return;
     onsubmit?.(getSerializedContent());
   }
 
   onMount(() => {
+    document.addEventListener("click", handleSendOptionsClickOutside);
     if (!editorElement) return;
     const ed = new Editor({
       element: editorElement,
@@ -462,15 +479,20 @@
           HTMLAttributes: { class: "mention" },
           suggestion: {
             ...createProfileSuggestion(),
-            command: ({ editor: ed, range, props }: { editor: Editor; range: { from: number; to: number }; props: ProfileHit }) => {
+            command: ({ editor: ed, range, props }: { editor: Editor; range: { from: number; to: number }; props: MentionNodeAttrs | ProfileHit }) => {
+              const pubkey = "pubkey" in props ? props.pubkey : (props.id ?? "") || "";
+              const label =
+                "displayName" in props
+                  ? (props.displayName || props.name || pubkey?.slice(0, 8))
+                  : ("label" in props ? (props.label ?? "") : "") || pubkey?.slice(0, 8);
               ed.chain()
                 .focus()
                 .insertContentAt(range, [
                   {
                     type: "mention",
                     attrs: {
-                      id: props.pubkey,
-                      label: props.displayName || props.name || props.pubkey?.slice(0, 8),
+                      id: pubkey,
+                      label,
                     },
                   },
                   { type: "text", text: " " },
@@ -508,6 +530,7 @@
   });
 
   onDestroy(() => {
+    document.removeEventListener("click", handleSendOptionsClickOutside);
     editor?.destroy();
     suggestionPopup?.destroy();
   });
@@ -558,14 +581,25 @@
           <Plus variant="outline" color="hsl(var(--white33))" size={16} strokeWidth={2.8} />
         </button>
       </div>
-      <div class="send-button-container">
+      <div class="send-button-container" bind:this={sendOptionsWrap}>
         <button type="button" class="send-btn" onclick={handleSubmit} aria-label="Send">
           <Send variant="fill" color="white" size={16} />
         </button>
         <div class="send-divider"></div>
-        <button type="button" class="chevron-btn" onclick={onChevronTap} aria-label="Send options">
+        <button
+          type="button"
+          class="chevron-btn"
+          onclick={toggleSendOptionsExplainer}
+          aria-label="Send options"
+          aria-expanded={sendOptionsExplainerOpen}
+        >
           <ChevronDown variant="outline" color="rgba(255, 255, 255, 0.66)" size={8} strokeWidth={2.8} />
         </button>
+        {#if sendOptionsExplainerOpen}
+          <div class="send-options-explainer-panel" role="dialog" aria-label="Send options info">
+            <p class="send-options-explainer-text">Send options coming soon.</p>
+          </div>
+        {/if}
       </div>
     </div>
   {/if}
@@ -835,12 +869,13 @@
     transform: scale(0.97);
   }
   .send-button-container {
+    position: relative;
     display: flex;
     align-items: center;
     height: 32px;
     background: var(--gradient-blurple);
     border-radius: 8px;
-    overflow: hidden;
+    overflow: visible;
   }
   .send-btn {
     height: 100%;
@@ -872,5 +907,26 @@
   }
   .chevron-btn:active {
     opacity: 0.8;
+  }
+
+  .send-options-explainer-panel {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    min-width: 200px;
+    max-width: 280px;
+    padding: 12px 14px;
+    background: hsl(241 15% 18%);
+    border: 1px solid hsl(var(--white16));
+    border-radius: 12px;
+    box-shadow: 0 8px 24px hsl(var(--black66) / 0.4);
+    z-index: 20;
+  }
+
+  .send-options-explainer-text {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: hsl(var(--white66));
   }
 </style>

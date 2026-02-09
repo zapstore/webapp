@@ -2,6 +2,7 @@
 export { default as MessageBubble } from './MessageBubble.svelte';
 export { default as ZapBubble } from './ZapBubble.svelte';
 export { default as ThreadComment } from './ThreadComment.svelte';
+export { default as ThreadZap } from './ThreadZap.svelte';
 export { default as RootComment } from './RootComment.svelte';
 export { default as DetailsTab } from './DetailsTab.svelte';
 export { default as SocialTabs } from './SocialTabs.svelte';

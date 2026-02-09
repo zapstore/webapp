@@ -4,6 +4,7 @@
   import { Package, X } from "lucide-svelte";
   import type { App, Release } from "$lib/nostr";
   import {
+    queryStore,
     queryStoreOne,
     queryCommentsFromStore,
     watchEvent,
@@ -13,12 +14,17 @@
     initNostrService,
     fetchProfile,
     fetchComments,
+    fetchCommentRepliesByE,
     fetchZaps,
     parseComment,
     parseZapReceipt,
     encodeAppNaddr,
     publishComment,
   } from "$lib/nostr";
+  import { parseAppStack } from "$lib/nostr/models";
+  import { getApps } from "$lib/stores/nostr.svelte";
+  import AppSmallCard from "$lib/components/cards/AppSmallCard.svelte";
+  import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
   import { nip19 } from "nostr-tools";
   import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS } from "$lib/config";
   import { wheelScroll } from "$lib/actions/wheelScroll.js";
@@ -29,7 +35,7 @@
   import { SocialTabs, BottomBar } from "$lib/components/social";
   import Modal from "$lib/components/common/Modal.svelte";
   import DownloadModal from "$lib/components/common/DownloadModal.svelte";
-  import { createSearchProfilesFunction } from "$lib/services/profile-search";
+  import { createSearchProfilesFunction, ZAPSTORE_PUBKEY } from "$lib/services/profile-search";
   import { createSearchEmojisFunction } from "$lib/services/emoji-search";
   import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte";
 
@@ -68,7 +74,7 @@
   let profiles = $state<Record<string, { displayName?: string; name?: string; picture?: string } | null>>({});
   let profilesLoading = $state(false);
 
-  let zaps = $state<ReturnType<typeof parseZapReceipt>[]>([]);
+  let zaps = $state<(ReturnType<typeof parseZapReceipt> & { id: string })[]>([]);
   let zapsLoading = $state(false);
   let zapperProfiles = $state(new Map<string, { displayName?: string; name?: string; picture?: string }>());
 
@@ -77,6 +83,10 @@
   let releasesModalOpen = $state(false);
   let releaseNotesExpanded = $state<Set<string>>(new Set());
   let downloadModalOpen = $state(false);
+  let securityModalOpen = $state(false);
+  let suggestionApps = $state<App[]>([]);
+  let suggestionsLoading = $state(true);
+  let suggestionsModalOpen = $state(false);
 
   const otherZaps = $derived(
     zaps.map((z) => {
@@ -109,6 +119,16 @@
   const publisherPictureUrl = $derived(publisherProfile?.picture || "");
   const publisherUrl = $derived(app?.npub ? `/profile/${app.npub}` : "#");
   const platforms = $derived(app?.platform ? [app.platform] : ["Android"]);
+  const hasRepository = $derived(!!app?.repository);
+  const isZapstorePublisher = $derived(
+    !!app?.pubkey && !!ZAPSTORE_PUBKEY && app.pubkey.toLowerCase() === ZAPSTORE_PUBKEY.toLowerCase()
+  );
+  /** Zapstore app we link to in GetTheAppSection: show "Published by Developer" (Zapstore is the developer) */
+  const ZAPSTORE_APP_NADDR = "naddr1qvzqqqr7pvpzq7xwd748yfjrsu5yuerm56fcn9tntmyv04w95etn0e23xrczvvraqqgxgetk9eaxzurnw3hhyefwv9c8qakg5jt";
+  const isZapstoreApp = $derived(!!app?.naddr && app.naddr === ZAPSTORE_APP_NADDR);
+  const publishedByDeveloper = $derived(
+    isZapstoreApp || (!isZapstorePublisher && hasRepository)
+  );
 
   // Check if description is truncated
   function checkTruncation(node: HTMLElement) {
@@ -259,6 +279,29 @@
     }
   }
 
+  /** Load replies that reference our comments/zaps via #e (e.g. from other apps that don't add #a). */
+  async function loadCommentReplies() {
+    if (!app?.pubkey || !app?.dTag) return;
+    const commentIds = comments.map((c) => c.id);
+    const zapIds = zaps.map((z) => z.id);
+    const allIds = [...new Set([...commentIds, ...zapIds])];
+    if (allIds.length === 0) return;
+    try {
+      const events = await fetchCommentRepliesByE(allIds);
+      const existingIds = new Set(comments.map((c) => c.id));
+      const newEvents = events.filter((ev) => !existingIds.has(ev.id));
+      if (newEvents.length === 0) return;
+      const newParsed = newEvents.map((ev) => {
+        const p = parseComment(ev) as ReturnType<typeof parseComment> & { npub?: string };
+        p.npub = nip19.npubEncode(ev.pubkey);
+        return p;
+      });
+      comments = [...comments, ...newParsed];
+    } catch (err) {
+      console.error("Failed to load comment replies by #e:", err);
+    }
+  }
+
   // Load zaps (optionally include #e for release/metadata ids — legacy, match Flutter)
   async function loadZaps(eventIds?: string[]) {
     if (!app?.pubkey || !app?.dTag) return;
@@ -266,7 +309,7 @@
     zapsLoading = true;
     try {
       const events = await fetchZaps(app.pubkey, app.dTag, { eventIds });
-      zaps = events.map(parseZapReceipt);
+      zaps = events.map((e) => ({ ...parseZapReceipt(e), id: e.id }));
 
       const uniqueSenders = [...new Set(zaps.map((z) => z.senderPubkey).filter(Boolean))] as string[];
 
@@ -287,27 +330,30 @@
           }
         }
       }
+      // Assign immediately so root zapper (and others) show from cache without waiting for relays
+      zapperProfiles = new Map(nextZapperProfiles);
 
-      // Fetch from relays for any still missing, then assign once (reactive)
+      // Fetch from relays for any still missing; update zapperProfiles as each returns so first profile (e.g. root zapper) shows ASAP
+      const missing = uniqueSenders.filter((pk) => !nextZapperProfiles.has(pk)).slice(0, 20);
       await Promise.all(
-        uniqueSenders.slice(0, 20).map(async (pubkey) => {
-          if (nextZapperProfiles.has(pubkey)) return;
+        missing.map(async (pubkey) => {
           try {
             const event = await fetchProfile(pubkey);
             if (event?.content) {
               const content = JSON.parse(event.content) as Record<string, unknown>;
-              nextZapperProfiles.set(pubkey, {
+              const profile = {
                 displayName: (content.display_name as string) ?? (content.name as string),
                 name: content.name as string,
                 picture: content.picture as string,
-              });
+              };
+              nextZapperProfiles.set(pubkey, profile);
+              zapperProfiles = new Map(nextZapperProfiles);
             }
           } catch {
             // Ignore
           }
         })
       );
-      zapperProfiles = new Map(nextZapperProfiles);
     } catch (err) {
       console.error("Failed to load zaps:", err);
     } finally {
@@ -320,10 +366,12 @@
     emojiTags: { shortcode: string; url: string }[];
     mentions: string[];
     parentId?: string;
+    rootPubkey?: string;
+    parentKind?: number;
   }) {
     const userPubkey = getCurrentPubkey();
     if (!userPubkey || !app) return;
-    const { text, emojiTags: submitEmojiTags, parentId } = event;
+    const { text, emojiTags: submitEmojiTags, parentId, rootPubkey, parentKind } = event;
     const tempId = `pending-${Date.now()}`;
     const optimistic: (ReturnType<typeof parseComment> & { pending?: boolean; npub?: string }) = {
       id: tempId,
@@ -344,7 +392,9 @@
         { contentType: "app", pubkey: app.pubkey, identifier: app.dTag },
         signEvent as (t: import("nostr-tools").EventTemplate) => Promise<import("nostr-tools").NostrEvent>,
         submitEmojiTags,
-        parentId
+        parentId,
+        rootPubkey,
+        parentKind
       );
       const parsed = parseComment(signed) as ReturnType<typeof parseComment> & { npub?: string };
       parsed.npub = nip19.npubEncode(signed.pubkey);
@@ -353,6 +403,8 @@
     } catch (err) {
       console.error("Failed to publish comment:", err);
       comments = comments.filter((c) => c.id !== tempId);
+      commentsError =
+        err instanceof Error ? err.message : "Comment could not be published to any relay.";
     }
   }
 
@@ -379,8 +431,140 @@
     }
   }
 
-  onMount(() => {
+  async function loadSuggestions(currentApp: App) {
+    suggestionsLoading = true;
+    suggestionApps = [];
+    const currentKey = `${currentApp.pubkey}:${currentApp.dTag}`;
+    const seen = new Set<string>();
+    const collected: App[] = [];
+    function addApp(a: App) {
+      const key = `${a.pubkey}:${a.dTag}`;
+      if (key === currentKey || seen.has(key)) return;
+      seen.add(key);
+      collected.push(a);
+    }
+
+    const relays = [...DEFAULT_CATALOG_RELAYS];
+
+    try {
+      // 1. Apps in stacks by this publisher — fetch from relays
+      const stackEvents = await fetchEvents(
+        {
+          kinds: [EVENT_KINDS.APP_STACK],
+          authors: [currentApp.pubkey],
+          limit: 30,
+        },
+        { relays }
+      );
+      for (const ev of stackEvents) {
+        const stack = parseAppStack(ev);
+        for (const ref of stack.appRefs) {
+          if (ref.kind !== EVENT_KINDS.APP) continue;
+          const appEvs = await fetchEvents(
+            {
+              kinds: [EVENT_KINDS.APP],
+              authors: [ref.pubkey],
+              "#d": [ref.identifier],
+              limit: 1,
+            },
+            { relays }
+          );
+          const appEv = appEvs[0];
+          if (appEv) addApp(parseApp(appEv));
+        }
+      }
+
+      // 2. Apps with same t tags — fetch from relays
+      const raw = currentApp.rawEvent as { tags?: string[][] } | undefined;
+      const tTags = (raw?.tags?.filter((t) => t[0] === "t").map((t) => t[1]).filter(Boolean) ?? []) as string[];
+      for (const t of tTags) {
+        const events = await fetchEvents(
+          { kinds: [EVENT_KINDS.APP], "#t": [t], limit: 25 },
+          { relays }
+        );
+        for (const ev of events) addApp(parseApp(ev));
+      }
+
+      // 3. Fetch apps from relays, then filter by first 10 (4+ letter) words from description
+      const words = (currentApp.description ?? "")
+        .split(/\s+/)
+        .filter((w) => w.length >= 4)
+        .slice(0, 10);
+      if (words.length > 0) {
+        const allAppEvents = await fetchEvents(
+          { kinds: [EVENT_KINDS.APP], limit: 150 },
+          { relays }
+        );
+        for (const ev of allAppEvents) {
+          const a = parseApp(ev);
+          const key = `${a.pubkey}:${a.dTag}`;
+          if (key === currentKey) continue;
+          const lowerDesc = (a.description ?? "").toLowerCase();
+          const lowerName = (a.name ?? "").toLowerCase();
+          const aRaw = a.rawEvent as { tags?: string[][] } | undefined;
+          const inTags =
+            aRaw?.tags?.some((tag) =>
+              tag.some(
+                (v, i) =>
+                  i > 0 &&
+                  words.some((w) => String(v).toLowerCase().includes(w.toLowerCase()))
+              )
+            ) ?? false;
+          const matches =
+            !!lowerDesc &&
+            words.some(
+              (w) =>
+                lowerDesc.includes(w.toLowerCase()) ||
+                lowerName.includes(w.toLowerCase()) ||
+                inTags
+            );
+          if (matches) addApp(a);
+        }
+      }
+
+      let result = collected.slice(0, 8);
+
+      // Only if we didn't find enough related apps, load fallback (recent apps from relays)
+      if (result.length < 8) {
+        const fallbackEvents = await fetchEvents(
+          { kinds: [EVENT_KINDS.APP], limit: 30 },
+          { relays }
+        );
+        const byCreated = fallbackEvents
+          .map((ev) => parseApp(ev))
+          .filter((a) => {
+            const k = `${a.pubkey}:${a.dTag}`;
+            return k !== currentKey && !seen.has(k);
+          })
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .slice(0, 8 - result.length);
+        result = [...result, ...byCreated];
+      }
+
+      suggestionApps = result;
+    } catch (e) {
+      console.error("Suggestions load failed", e);
+      const fromStore = getApps().filter((a) => `${a.pubkey}:${a.dTag}` !== currentKey).slice(0, 8);
+      if (fromStore.length > 0) {
+        suggestionApps = fromStore;
+      } else {
+        const allAppEvents = queryStore({ kinds: [EVENT_KINDS.APP], limit: 30 });
+        suggestionApps = allAppEvents
+          .map((ev) => parseApp(ev))
+          .filter((a) => `${a.pubkey}:${a.dTag}` !== currentKey)
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .slice(0, 8);
+      }
+    } finally {
+      suggestionsLoading = false;
+    }
+  }
+
+  onMount(async () => {
     if (!browser || !data.app) return;
+
+    // Ensure IndexedDB cache (including profiles) is in EventStore before any queries (ARCHITECTURE: local-first)
+    await initNostrService();
 
     const aTagValue = `${EVENT_KINDS.APP}:${data.app.pubkey}:${data.app.dTag}`;
 
@@ -429,9 +613,8 @@
       loadPublisherProfile(data.app.pubkey);
     }
 
-    // Async cascade: comments and zaps (EventStore → IndexedDB → Relays)
-    loadComments();
-    loadZaps();
+    // Async cascade: comments, zaps, then replies by #e (so other apps’ replies show)
+    Promise.all([loadComments(), loadZaps()]).then(() => loadCommentReplies());
 
     // Background refresh from relays and load releases
     const schedule =
@@ -442,6 +625,7 @@
     schedule(async () => {
       await initNostrService();
       loadReleases(aTagValue);
+      loadSuggestions(data.app!);
 
       refreshing = true;
       let pending = 2;
@@ -612,35 +796,48 @@
     <!-- Info Panels -->
     <div class="info-panels-container mb-4">
       <div class="info-panels-main">
-        <!-- Security Panel -->
-        <button type="button" class="info-panel panel-security text-left">
+        <!-- Security Panel (opens Security modal on click) -->
+        <button type="button" class="info-panel panel-security text-left w-full" onclick={() => (securityModalOpen = true)}>
           <div class="panel-header">
             <span class="text-base font-semibold" style="color: hsl(var(--foreground));">Security</span>
           </div>
           <div class="panel-list flex flex-col">
+            <!-- 1. Published by Developer (check) or Published by Indexer (line) -->
             <div class="panel-list-item flex items-center gap-2" style="color: hsl(var(--white66));">
-              <svg class="flex-shrink-0" width="14" height="10" viewBox="0 0 18 12" fill="none">
-                <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              <span class="text-sm">Signed by developer</span>
+              {#if publishedByDeveloper}
+                <svg class="security-check flex-shrink-0" width="14" height="10" viewBox="0 0 18 12" fill="none">
+                  <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span class="text-sm">Published by Developer</span>
+              {:else}
+                <span class="security-line flex-shrink-0" aria-hidden="true"></span>
+                <span class="text-sm">Published by Indexer</span>
+              {/if}
             </div>
-            <div class="panel-list-item flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 0.8; transform: scale(0.95); transform-origin: left;">
-              <svg class="flex-shrink-0" width="14" height="10" viewBox="0 0 18 12" fill="none">
-                <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              <span class="text-sm">Verified source</span>
+            <!-- 2. Open source (check) or Closed-source (line) -->
+            <div class="panel-list-item flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 0.9; transform: scale(0.98); transform-origin: left;">
+              {#if hasRepository}
+                <svg class="security-check flex-shrink-0" width="14" height="10" viewBox="0 0 18 12" fill="none">
+                  <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span class="text-sm">Open source</span>
+              {:else}
+                <span class="security-line flex-shrink-0" aria-hidden="true"></span>
+                <span class="text-sm">Closed-source</span>
+              {/if}
             </div>
-            <div class="panel-list-item panel-list-item-last flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 0.64; transform: scale(0.9); transform-origin: left;">
-              <svg class="flex-shrink-0" width="14" height="10" viewBox="0 0 18 12" fill="none">
+            <!-- 3. Trusted Catalog: always for all apps -->
+            <div class="panel-list-item panel-list-item-last flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 0.85; transform: scale(0.96); transform-origin: left;">
+              <svg class="security-check flex-shrink-0" width="14" height="10" viewBox="0 0 18 12" fill="none">
                 <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
-              <span class="text-sm">Open source</span>
+              <span class="text-sm">Trusted Catalog</span>
             </div>
           </div>
         </button>
 
-        <!-- Releases Panel -->
-        <div class="info-panel panel-releases text-left">
+        <!-- Releases Panel (entire panel opens modal) -->
+        <button type="button" class="info-panel panel-releases text-left w-full" onclick={() => (releasesModalOpen = true)}>
           <div class="panel-header">
             <span class="text-base font-semibold" style="color: hsl(var(--foreground));">Releases</span>
           </div>
@@ -652,12 +849,10 @@
             {:else}
               {#each releases.slice(0, 3) as release, i}
                 {@const preview = releaseNotesPreview(release.notes)}
-                <button
-                  type="button"
-                  class="panel-list-item flex items-center gap-2 min-w-0 w-full text-left cursor-pointer border-0 bg-transparent p-0"
+                <div
+                  class="panel-list-item flex items-center gap-2 min-w-0 w-full text-left"
                   class:panel-list-item-last={i === Math.min(3, releases.length) - 1}
                   style="opacity: {1 - i * 0.18}; transform: scale({1 - i * 0.05}); transform-origin: left;"
-                  onclick={() => (releasesModalOpen = true)}
                 >
                   <span class="text-sm font-medium flex-shrink-0" style="color: hsl(var(--white33));">
                     {release.version}
@@ -665,37 +860,51 @@
                   <span class="text-sm truncate" style="color: hsl(var(--white66)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     {preview || "No notes"}
                   </span>
-                </button>
+                </div>
               {/each}
             {/if}
           </div>
-        </div>
+        </button>
 
-        <!-- Suggestions Panel (desktop only) -->
-        <button type="button" class="info-panel panel-similar-desktop text-left">
+        <!-- Suggestions Panel (desktop only; opens modal on click) -->
+        <button type="button" class="info-panel panel-similar-desktop text-left w-full" onclick={() => (suggestionsModalOpen = true)}>
           <div class="panel-header">
             <span class="text-base font-semibold" style="color: hsl(var(--foreground));">Suggestions</span>
           </div>
           <div class="similar-apps-row flex gap-2">
-            <AppPic size="md" name="App 1" />
-            <AppPic size="md" name="App 2" />
-            <AppPic size="md" name="App 3" />
-            <AppPic size="md" name="App 4" />
+            {#if suggestionsLoading}
+              {#each Array(8) as _}
+                <div class="suggestion-skeleton">
+                  <SkeletonLoader />
+                </div>
+              {/each}
+            {:else}
+              {#each suggestionApps as sug}
+                <AppPic size="md" name={sug.name} iconUrl={sug.icon} identifier={sug.dTag} />
+              {/each}
+            {/if}
           </div>
         </button>
       </div>
 
-      <!-- Suggestions Panel (mobile only) -->
+      <!-- Suggestions Panel (mobile only; opens modal on click) -->
       <div class="info-panels-secondary">
-        <button type="button" class="info-panel panel-similar-mobile text-left">
+        <button type="button" class="info-panel panel-similar-mobile text-left w-full" onclick={() => (suggestionsModalOpen = true)}>
           <div class="panel-header">
             <span class="text-base font-semibold" style="color: hsl(var(--foreground));">Suggestions</span>
           </div>
           <div class="similar-apps-row flex gap-2">
-            <AppPic size="xs" name="App 1" />
-            <AppPic size="xs" name="App 2" />
-            <AppPic size="xs" name="App 3" />
-            <AppPic size="xs" name="App 4" />
+            {#if suggestionsLoading}
+              {#each Array(8) as _}
+                <div class="suggestion-skeleton suggestion-skeleton-xs">
+                  <SkeletonLoader />
+                </div>
+              {/each}
+            {:else}
+              {#each suggestionApps as sug}
+                <AppPic size="xs" name={sug.name} iconUrl={sug.icon} identifier={sug.dTag} />
+              {/each}
+            {/if}
           </div>
         </button>
       </div>
@@ -710,7 +919,7 @@
         getAppSlug={(p, d) => (app ? (app.naddr || encodeAppNaddr(p, d)) : "")}
         pubkeyToNpub={(pk) => nip19.npubEncode(pk)}
         zaps={zaps.map((z) => ({
-          id: String(z.createdAt),
+          id: z.id,
           senderPubkey: z.senderPubkey || undefined,
           amountSats: z.amountSats,
           createdAt: z.createdAt,
@@ -786,7 +995,7 @@
       </div>
     {/if}
 
-    <!-- Releases Modal (tall, scrollable list of release panels) -->
+    <!-- Releases Modal (dividers, same bg; header includes repo/website) -->
     {#if app}
       <Modal
         bind:open={releasesModalOpen}
@@ -796,19 +1005,13 @@
         class="releases-modal"
       >
         <div class="releases-modal-inner">
-        <div class="releases-modal-header">
-          <h2 class="text-lg font-semibold" style="color: hsl(var(--foreground));">Releases</h2>
-          <p class="text-sm" style="color: hsl(var(--white66));">{app.name}</p>
-        </div>
-        <div class="releases-modal-list">
-          {#each releases as release}
-            {@const notesExpanded = releaseNotesExpanded.has(release.id)}
-            <div class="release-panel">
-              <h3 class="release-panel-version" style="color: hsl(var(--foreground));">{release.version}</h3>
-              <div class="release-panel-meta">
+          <div class="releases-modal-header">
+            <h2 class="text-display text-4xl text-foreground text-center mb-3">Releases</h2>
+            {#if app.repository || app.url}
+              <div class="releases-modal-app-info">
                 {#if app.repository}
                   <div class="release-meta-row">
-                    <span class="meta-label">Repo</span>
+                    <span class="meta-label">Repository</span>
                     <a href={app.repository} target="_blank" rel="noopener noreferrer" class="meta-link">{app.repository}</a>
                   </div>
                 {/if}
@@ -818,39 +1021,105 @@
                     <a href={app.url} target="_blank" rel="noopener noreferrer" class="meta-link">{app.url}</a>
                   </div>
                 {/if}
-                <div class="release-meta-row">
-                  <span class="meta-label">Date</span>
-                  <span>{formatReleaseDate(release.createdAt)}</span>
-                </div>
-                {#if release.url}
+              </div>
+            {/if}
+          </div>
+          <div class="releases-modal-divider"></div>
+          <div class="releases-modal-list">
+            {#each releases as release, i}
+              {@const notesExpanded = releaseNotesExpanded.has(release.id)}
+              <div class="release-block">
+                <h3 class="release-panel-version" style="color: hsl(var(--foreground));">{release.version}</h3>
+                <div class="release-panel-meta">
                   <div class="release-meta-row">
-                    <span class="meta-label">Release URL</span>
-                    <a href={release.url} target="_blank" rel="noopener noreferrer" class="meta-link">{release.url}</a>
+                    <span class="meta-label">Date</span>
+                    <span>{formatReleaseDate(release.createdAt)}</span>
                   </div>
+                  {#if release.url}
+                    <div class="release-meta-row">
+                      <span class="meta-label">Release URL</span>
+                      <a href={release.url} target="_blank" rel="noopener noreferrer" class="meta-link">{release.url}</a>
+                    </div>
+                  {/if}
+                </div>
+                {#if release.notes}
+                  <div class="release-notes-container" class:expanded={notesExpanded}>
+                    <div class="release-notes prose prose-invert max-w-none" class:release-notes-collapsed={!notesExpanded}>
+                      {release.notes}
+                    </div>
+                    {#if !notesExpanded}
+                      <button
+                        type="button"
+                        class="read-more-btn"
+                        onclick={(e) => { e.stopPropagation(); toggleReleaseNotesExpanded(release.id); }}
+                      >
+                        Read more
+                      </button>
+                    {:else}
+                      <button
+                        type="button"
+                        class="read-more-btn release-read-more-inline"
+                        onclick={(e) => { e.stopPropagation(); toggleReleaseNotesExpanded(release.id); }}
+                      >
+                        Show less
+                      </button>
+                    {/if}
+                  </div>
+                {:else}
+                  <p class="text-sm" style="color: hsl(var(--white33));">No release notes.</p>
                 {/if}
               </div>
-              {#if release.notes}
-                <div class="release-notes-container" class:expanded={notesExpanded}>
-                  <div class="release-notes prose prose-invert max-w-none" class:release-notes-collapsed={!notesExpanded}>
-                    {release.notes}
-                  </div>
-                  <button
-                    type="button"
-                    class="read-more-btn release-read-more"
-                    onclick={() => toggleReleaseNotesExpanded(release.id)}
-                  >
-                    {notesExpanded ? "Show less" : "Read more"}
-                  </button>
-                </div>
-              {:else}
-                <p class="text-sm" style="color: hsl(var(--white33));">No release notes.</p>
+              {#if i < releases.length - 1}
+                <div class="releases-modal-divider"></div>
               {/if}
-            </div>
-          {/each}
-        </div>
+            {/each}
+          </div>
         </div>
       </Modal>
     {/if}
+
+    <!-- Security Modal (simple: header + coming soon) -->
+    {#if app}
+      <Modal
+        bind:open={securityModalOpen}
+        ariaLabel="Security"
+        maxHeight={90}
+        class="security-modal"
+      >
+        <div class="security-modal-inner">
+          <div class="security-modal-header">
+            <h2 class="text-display text-4xl text-foreground text-center mb-3">Security</h2>
+            <p class="text-sm text-center" style="color: hsl(var(--white66));">More Security metrics and tooling coming soon.</p>
+          </div>
+        </div>
+      </Modal>
+    {/if}
+
+    <!-- Suggestions Modal -->
+    <Modal
+      bind:open={suggestionsModalOpen}
+      ariaLabel="Suggestions"
+      maxHeight={90}
+      class="suggestions-modal"
+    >
+      <div class="suggestions-modal-inner">
+        <div class="suggestions-modal-header">
+          <h2 class="text-display text-4xl text-foreground text-center mb-3">Suggestions</h2>
+          <p class="suggestions-modal-desc text-sm text-center" style="color: hsl(var(--white66));">
+            The suggestion filter is very basic and dumb for now, while we are building smart search and suggestions.
+          </p>
+        </div>
+        <div class="suggestions-modal-list">
+          {#each suggestionApps as sug}
+            {@const sugHref = sug.naddr ? `/apps/${sug.naddr}` : `/apps/${encodeAppNaddr(sug.pubkey, sug.dTag)}`}
+            <AppSmallCard
+              app={{ name: sug.name, icon: sug.icon, description: sug.description, descriptionHtml: sug.descriptionHtml, dTag: sug.dTag }}
+              href={sugHref}
+            />
+          {/each}
+        </div>
+      </div>
+    </Modal>
 
     <!-- Download Modal -->
     {#if app}
@@ -893,13 +1162,7 @@
   .info-panels-main {
     display: flex;
     gap: 12px;
-    align-items: flex-start;
-  }
-
-  @media (min-width: 768px) {
-    .info-panels-main {
-      align-items: stretch;
-    }
+    align-items: stretch;
   }
 
   .panel-list-item {
@@ -920,9 +1183,79 @@
     min-width: 0;
   }
 
+  .security-check {
+    width: 14px;
+    height: 10px;
+  }
+
+  .security-line {
+    display: inline-block;
+    width: 14px;
+    height: 2.8px;
+    background-color: hsl(var(--white33));
+    border-radius: 1.4px;
+  }
+
+  .security-modal-inner {
+    padding: 0;
+  }
+
+  .security-modal-header {
+    padding: 1rem 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .security-modal-header {
+      padding: 1.5rem 2rem;
+    }
+  }
+
+  .suggestion-skeleton {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .suggestion-skeleton-xs {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+  .suggestions-modal-inner {
+    padding: 0;
+  }
+  .suggestions-modal-header {
+    padding: 1rem 1.5rem;
+  }
+  .suggestions-modal-desc {
+    max-width: 36rem;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.5;
+  }
+  .suggestions-modal-list {
+    padding: 0 1rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow-y: auto;
+  }
+  @media (min-width: 768px) {
+    .suggestions-modal-header {
+      padding: 1.5rem 2rem;
+    }
+    .suggestions-modal-list {
+      padding: 0 2rem 2rem;
+      gap: 0.75rem;
+    }
+  }
+
   .panel-releases {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .info-panels-secondary {
@@ -953,15 +1286,26 @@
 
   .panel-similar-desktop {
     display: none;
+    overflow: hidden;
   }
 
   .panel-similar-mobile {
     flex: 1;
     min-width: 0;
+    overflow: hidden;
   }
 
   .panel-similar-mobile .panel-header {
     margin-bottom: 6px;
+  }
+
+  .similar-apps-row {
+    min-width: 0;
+    overflow: hidden;
+    /* Full-bleed to panel container edge so clip is at border, not inside padding */
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
   }
 
   @media (min-width: 768px) {
@@ -1158,7 +1502,7 @@
     transform: translateX(-50%) scale(0.98);
   }
 
-  /* Releases modal */
+  /* Releases modal: zero padding so dividers full width; same bg throughout */
   .releases-modal-inner {
     display: flex;
     flex-direction: column;
@@ -1169,11 +1513,29 @@
 
   .releases-modal-header {
     flex-shrink: 0;
-    margin-bottom: 1rem;
+    padding: 1rem 1.5rem;
   }
 
-  .releases-modal-header h2 {
-    margin: 0 0 0.25rem 0;
+  @media (min-width: 768px) {
+    .releases-modal-header {
+      padding: 1.5rem 2rem;
+    }
+  }
+
+  .releases-modal-app-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    font-size: 0.875rem;
+    color: hsl(var(--white66));
+    justify-content: center;
+  }
+
+  .releases-modal-divider {
+    flex-shrink: 0;
+    width: 100%;
+    height: 1px;
+    background-color: hsl(var(--white16));
   }
 
   .releases-modal-list {
@@ -1182,27 +1544,29 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
   }
 
-  .release-panel {
-    padding: 1rem;
-    border-radius: 12px;
-    background: hsl(var(--white8));
-    border: 0.33px solid hsl(var(--white16));
+  .release-block {
+    padding: 0.5rem 1.25rem;
+  }
+
+  @media (min-width: 768px) {
+    .release-block {
+      padding: 0.75rem 1.5rem;
+    }
   }
 
   .release-panel-version {
     font-size: 1rem;
     font-weight: 600;
-    margin: 0 0 0.75rem 0;
+    margin: 0 0 0.5rem 0;
   }
 
   .release-panel-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem 1.25rem;
-    margin-bottom: 0.75rem;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.5rem;
     font-size: 0.875rem;
     color: hsl(var(--white66));
   }
@@ -1220,7 +1584,7 @@
   }
 
   .meta-link {
-    color: hsl(var(--blurpleColor));
+    color: hsl(var(--blurpleLightColor));
     text-decoration: none;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1238,6 +1602,8 @@
   .release-notes.release-notes-collapsed {
     max-height: 120px;
     overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
   }
 
   .release-notes {
@@ -1248,22 +1614,54 @@
     margin: 0;
   }
 
-  .release-read-more {
-    position: relative;
+  .release-notes-container:not(.expanded) {
+    padding-bottom: 2.25rem;
+  }
+
+  .release-notes-container .read-more-btn {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .release-notes-container .read-more-btn:hover {
+    transform: translateX(-50%) scale(1.025);
+  }
+
+  .release-notes-container .read-more-btn:active {
+    transform: translateX(-50%) scale(0.98);
+  }
+
+  .release-read-more-inline {
+    position: relative !important;
     margin-top: 0.5rem;
-    left: 0;
-    transform: none;
+    left: 0 !important;
+    transform: none !important;
   }
 
-  .release-read-more:hover {
-    transform: none;
+  .release-read-more-inline:hover {
+    transform: scale(1.025) !important;
   }
 
-  .release-read-more:active {
-    transform: none;
+  .release-read-more-inline:active {
+    transform: scale(0.98) !important;
   }
 
   @media (min-width: 768px) {
+    .release-notes-container .read-more-btn {
+      left: 0;
+      transform: none;
+    }
+
+    .release-notes-container .read-more-btn:hover {
+      transform: scale(1.025);
+    }
+
+    .release-notes-container .read-more-btn:active {
+      transform: scale(0.98);
+    }
+
     .read-more-btn {
       left: 0;
       transform: none;

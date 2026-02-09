@@ -77,7 +77,7 @@
     pubkeyToNpub?: (pubkey: string) => string;
     searchProfiles?: (query: string) => Promise<{ pubkey: string; name?: string; displayName?: string; picture?: string }[]>;
     searchEmojis?: (query: string) => Promise<{ shortcode: string; url: string; source: string }[]>;
-    onCommentSubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[]; parentId?: string }) => void;
+    onCommentSubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[]; parentId?: string; rootPubkey?: string; parentKind?: number }) => void;
     onZapReceived?: (event: { zapReceipt: unknown }) => void;
   }
 
@@ -127,8 +127,8 @@
   }
 
   function enrichComment(comment: Comment) {
-    const profile = profiles[comment.pubkey];
-    const hasProfile = profile !== undefined;
+    const profile = profiles[comment.pubkey] ?? zapperProfiles.get(comment.pubkey) ?? undefined;
+    const hasProfile = profile !== undefined && profile !== null;
     const npub = comment.npub ?? pubkeyToNpub(comment.pubkey);
     return {
       ...comment,
@@ -136,15 +136,20 @@
         profile?.displayName ||
         profile?.name ||
         (npub ? `${npub.slice(0, 12)}...` : "Anonymous"),
-      avatarUrl: profile?.picture || null,
+      avatarUrl: profile?.picture ?? null,
       profileUrl: npub ? `/profile/${npub}` : "",
       profileLoading: profilesLoading && !hasProfile,
     };
   }
 
-  // Only treat as root if no parent, or parent is not in this comment set (e.g. reply-to-app)
   const commentIds = $derived(new Set(comments.map((c) => c.id)));
-  const isRoot = (c: Comment) => !c.parentId || !commentIds.has(c.parentId);
+  /** All zap receipt ids (so replies to zaps are not shown as roots in the feed) */
+  const zapIds = $derived(new Set(zaps.map((z) => z.id)));
+  // Root only if: no parent or parent is another comment; and parent is not a zap. When zaps not loaded yet, only show as root comments with no parent (avoids glitch of zap-thread comments flashing in main feed).
+  const isRoot = (c: Comment) =>
+    (!c.parentId || commentIds.has(c.parentId)) &&
+    (c.parentId == null || !zapIds.has(c.parentId)) &&
+    (c.parentId == null || (zaps.length > 0 && !zapsLoading));
 
   const rootComments = $derived(
     comments
@@ -189,6 +194,32 @@
         }
       }
       map.set(root.id, collected.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0)));
+    }
+    return map;
+  });
+
+  /** Replies (and their descendants) per zap id, for zap thread modal. Zaps are not in comments, so key by zap id. */
+  const threadByZapId = $derived.by(() => {
+    const allZapIds = new Set(zaps.map((z) => z.id.toLowerCase()));
+    const map = new Map<string, ReturnType<typeof enrichComment>[]>();
+    const norm = (id: string | null | undefined) => (id ?? "").toLowerCase();
+    for (const zap of enrichedZaps) {
+      const zapIdNorm = zap.id.toLowerCase();
+      if (!allZapIds.has(zapIdNorm)) continue;
+      const direct = comments.filter((c) => norm(c.parentId) === zapIdNorm);
+      const allIds = new Set<string>(direct.map((c) => c.id));
+      let queue = [...direct.map((c) => c.id)];
+      while (queue.length) {
+        const parentId = queue.shift()!;
+        const parentNorm = norm(parentId);
+        const children = comments.filter((c) => norm(c.parentId) === parentNorm);
+        for (const c of children) {
+          allIds.add(c.id);
+          queue.push(c.id);
+        }
+      }
+      const thread = comments.filter((c) => allIds.has(c.id)).map((c) => enrichComment(c));
+      map.set(zap.id, thread.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0)));
     }
     return map;
   });
@@ -282,16 +313,37 @@
         <div class="space-y-4">
           {#each combinedFeed as item (item.type === "zap" ? `zap-${item.id}` : item.id)}
             {#if item.type === "zap"}
-              <ZapBubble
+              <RootComment
+                id={item.id}
                 pictureUrl={item.avatarUrl}
                 name={item.displayName}
                 pubkey={item.senderPubkey}
-                amount={item.amountSats || 0}
                 timestamp={item.createdAt}
                 profileUrl={item.profileUrl}
-                message={item.comment || ""}
+                content={item.comment || ""}
                 emojiTags={item.emojiTags}
+                isZapRoot={true}
+                zapAmount={item.amountSats ?? 0}
+                threadComments={threadByZapId.get(item.id) ?? []}
+                authorPubkey={app?.pubkey}
                 resolveMentionLabel={(pk) => profiles[pk]?.displayName ?? profiles[pk]?.name}
+                appIconUrl={app?.icon}
+                appName={app?.name}
+                appIdentifier={app?.dTag}
+                {version}
+                {searchProfiles}
+                {searchEmojis}
+                onReplySubmit={onCommentSubmit
+                  ? (e) => onCommentSubmit({
+                      text: e.text,
+                      emojiTags: e.emojiTags,
+                      mentions: e.mentions,
+                      parentId: e.parentId,
+                      rootPubkey: e.rootPubkey,
+                      parentKind: e.parentKind,
+                    })
+                  : undefined}
+                onZapReceived={onZapReceived}
               />
             {:else}
               <RootComment

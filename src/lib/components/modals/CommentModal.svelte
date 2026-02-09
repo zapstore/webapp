@@ -41,7 +41,14 @@
     onclose,
   }: Props = $props();
 
-  let textInput = $state<InstanceType<typeof ShortTextInput> | null>(null);
+  interface ShortTextInputRef {
+    clear: () => void;
+    focus: () => void;
+    getContent: () => string;
+    getSerializedContent: () => { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[] };
+    isEmpty: () => boolean;
+  }
+  let textInput = $state<ShortTextInputRef | null>(null);
   let submitting = $state(false);
 
   function close() {

@@ -62,10 +62,16 @@ export function getPool(): RelayPool {
 async function getDb(): Promise<IDBPDatabase> {
 	if (!db) {
 		db = await openDB(IDB_NAME, IDB_VERSION, {
-			upgrade(database) {
+			upgrade(database, oldVersion, _newVersion, transaction) {
 				if (!database.objectStoreNames.contains('events')) {
 					const store = database.createObjectStore('events', { keyPath: 'id' });
 					store.createIndex('cachedAt', 'cachedAt');
+					store.createIndex('kind', 'event.kind');
+				} else if (oldVersion > 0 && oldVersion < 3) {
+					const store = transaction.objectStore('events');
+					if (!store.indexNames.contains('kind')) {
+						store.createIndex('kind', 'event.kind');
+					}
 				}
 			}
 		});
@@ -421,24 +427,38 @@ export async function initNostrService(): Promise<void> {
 
 /**
  * Load cached events from IndexedDB into EventStore.
+ * Loads profiles (kind 0) first so profile lookups are fast (ARCHITECTURE: local-first).
  * Call this only when needed (offline mode, return visits).
  */
 export async function loadCacheIntoStore(): Promise<number> {
 	const store = getEventStore();
 	const database = await getDb();
 
-	const records = await database.getAll('events');
-	console.log(`[NostrService] Loading ${records.length} cached events...`);
-	
+	// Load profiles (kind 0) first so zapper/commenter profiles show immediately from cache
 	let loadedCount = 0;
-	for (const record of records as EventRecord[]) {
-		if (record.event && typeof record.event.kind === 'number') {
-			store.add(record.event);
-			loadedCount++;
+	let hasKindIndex = false;
+	try {
+		const profileRecords = (await database.getAllFromIndex('events', 'kind', 0)) as EventRecord[];
+		hasKindIndex = true;
+		for (const record of profileRecords) {
+			if (record.event && record.event.kind === 0) {
+				store.add(record.event);
+				loadedCount++;
+			}
 		}
+	} catch {
+		// Index may not exist on older DBs; will load all below
 	}
-	
-	console.log(`[NostrService] Loaded ${loadedCount} events from cache`);
+
+	const records = (await database.getAll('events')) as EventRecord[];
+	for (const record of records) {
+		if (!record.event || typeof record.event.kind !== 'number') continue;
+		if (hasKindIndex && record.event.kind === 0) continue; // already loaded
+		store.add(record.event);
+		loadedCount++;
+	}
+
+	console.log(`[NostrService] Loaded ${loadedCount} events from cache (profiles first)`);
 	return loadedCount;
 }
 
@@ -929,6 +949,30 @@ export async function fetchComments(
 	return events;
 }
 
+/** Batch size for #e filter (many relays cap filter size) */
+const COMMENT_REPLIES_E_BATCH = 100;
+
+/**
+ * Fetch kind 1111 comments that reference any of the given event ids via #e.
+ * Used to include replies from clients that don't add #a (e.g. other apps replying in our thread).
+ * Events are added to EventStore via fetchEvents.
+ */
+export async function fetchCommentRepliesByE(
+	eventIds: string[],
+	options: { timeout?: number; signal?: AbortSignal; relays?: string[] } = {}
+): Promise<NostrEvent[]> {
+	if (eventIds.length === 0) return [];
+	const { timeout = 5000, signal, relays = SOCIAL_RELAYS } = options;
+	const byId = new Map<string, NostrEvent>();
+	for (let i = 0; i < eventIds.length; i += COMMENT_REPLIES_E_BATCH) {
+		const chunk = eventIds.slice(i, i + COMMENT_REPLIES_E_BATCH);
+		const filter = { kinds: [1111] as number[], '#e': chunk, limit: 500 };
+		const events = await fetchEvents(filter, { relays, timeout, signal });
+		for (const e of events) byId.set(e.id, e);
+	}
+	return Array.from(byId.values());
+}
+
 /**
  * Watch comments for an app with background updates.
  * Sync: returns comments from EventStore (both #a and #A).
@@ -1133,6 +1177,8 @@ export function parseZapReceipt(event: NostrEvent): {
  * @param signEvent - Auth signer (e.g. from auth store)
  * @param emojiTags - Optional custom emoji shortcode/url for NIP-30 tags
  * @param parentEventId - Optional parent event id (e-tag) for replies
+ * @param replyToPubkey - Optional pubkey to p-tag (e.g. zapper when commenting on a zap so they get notified)
+ * @param parentKind - Optional parent event kind for NIP-22; use 9735 when commenting on a zap receipt so E,K,k,P tags are emitted and other clients can discover the comment
  * @returns The signed event (already in store and sent to relays)
  */
 export async function publishComment(
@@ -1140,7 +1186,9 @@ export async function publishComment(
 	target: { contentType: 'app' | 'stack'; pubkey: string; identifier: string },
 	signEvent: (template: EventTemplate) => Promise<NostrEvent>,
 	emojiTags?: { shortcode: string; url: string }[],
-	parentEventId?: string
+	parentEventId?: string,
+	replyToPubkey?: string,
+	parentKind?: number
 ): Promise<NostrEvent> {
 	if (!content?.trim() || !target.pubkey || !target.identifier) {
 		throw new Error('Comment content and target (pubkey, identifier) are required');
@@ -1153,9 +1201,28 @@ export async function publishComment(
 			? `${kind}:${target.pubkey}:${target.identifier}`
 			: `${stackKind}:${target.pubkey}:${target.identifier}`;
 
+	// Build tags in order (NIP-22): a, e, k, K, P, p, emoji
+	// Strict relays require "e" value to be exactly 64 lowercase hex chars (NIP-01).
 	const tags: [string, string, ...string[]][] = [['a', aTagValue]];
+
 	if (parentEventId) {
-		tags.push(['e', parentEventId]);
+		const eId = parentEventId.trim().toLowerCase();
+		if (!/^[a-f0-9]{64}$/.test(eId)) {
+			throw new Error(
+				`Invalid parent event id for comment (expected 64 hex chars): ${parentEventId.slice(0, 20)}...`
+			);
+		}
+		tags.push(['e', eId]);
+		if (parentKind !== undefined) {
+			tags.push(['k', String(parentKind)]);
+		}
+		if (parentKind === 9735 && replyToPubkey) {
+			tags.push(['K', '9735']);
+			tags.push(['P', replyToPubkey.trim().toLowerCase()]);
+		}
+	}
+	if (replyToPubkey) {
+		tags.push(['p', replyToPubkey.trim().toLowerCase()]);
 	}
 	const emojiList = emojiTags ?? [];
 	if (emojiList.length > 0) {
@@ -1176,21 +1243,26 @@ export async function publishComment(
 	};
 
 	const signed = (await signEvent(template)) as NostrEvent;
-	const store = getEventStore();
-	store.add(signed);
 
 	await initNostrService();
 	const p = getPool();
-	await p.publish([...SOCIAL_RELAYS], signed, { timeout: 10000 });
+	const results = await p.publish([...SOCIAL_RELAYS], signed, { timeout: 10000 });
+	const accepted = results.filter((r) => r.ok);
+	if (accepted.length === 0) {
+		const messages = results.map((r) => `${r.from}: ${r.message ?? 'rejected'}`).join('; ');
+		throw new Error(`Comment was not accepted by any relay. ${messages}`);
+	}
+
+	const store = getEventStore();
+	store.add(signed);
 	return signed;
 }
 
 /**
  * Parse a comment event to extract useful fields.
  * Includes NIP-30 emoji tags when present for use with ShortTextRenderer.
- * Threading: use 'e' tag for parent id whenever present so replies nest correctly
- * even when clients omit the 'k' tag. UI should treat as root only when parentId
- * is null or parent is not in the comment set (e.g. reply-to-app).
+ * Threading: parent id follows NIP-10 — use e tag with marker "reply" if present,
+ * otherwise the last e/E tag (direct reply). So replies from other clients nest correctly.
  */
 export function parseComment(event: NostrEvent): {
 	id: string;
@@ -1202,8 +1274,12 @@ export function parseComment(event: NostrEvent): {
 	parentId: string | null;
 	isReply: boolean;
 } {
-	const eTag = event.tags.find(t => (t[0] === 'e' || t[0] === 'E') && t[1]);
-	const parentId = eTag?.[1] ? (eTag[1] as string) : null;
+	const eTags = event.tags.filter((t): t is [string, string, ...string[]] =>
+		(t[0] === 'e' || t[0] === 'E') && !!t[1]
+	);
+	const replyTag = eTags.find((t) => t[3] === 'reply');
+	const parentId =
+		(replyTag?.[1] ?? eTags[eTags.length - 1]?.[1]) ?? null;
 
 	// NIP-30 emoji tags for custom emoji in content
 	const emojiTags: { shortcode: string; url: string }[] = [];

@@ -135,7 +135,7 @@
 					<span>Zap</span>
 				</button>
 
-				<InputButton placeholder="Comment" onclick={handleComment}>
+				<InputButton className="comment-btn" placeholder="Comment" onclick={handleComment}>
 					{#snippet icon()}
 						<Reply variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
 					{/snippet}
@@ -225,6 +225,11 @@
 		max-height: 70vh;
 		padding: 12px 16px 16px;
 	}
+	@media (max-width: 767px) {
+		.bottom-bar.expanded {
+			padding: 16px;
+		}
+	}
 
 	/* Slide out when zap modal is open */
 	.modal-open .bottom-bar {
@@ -281,6 +286,11 @@
 
 		.zap-button span {
 			font-size: 14px;
+		}
+
+		.comment-btn :global(svg) {
+			width: 16px;
+			height: 16px;
 		}
 	}
 

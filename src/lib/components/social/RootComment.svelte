@@ -5,6 +5,8 @@
    */
   import MessageBubble from "./MessageBubble.svelte";
   import ThreadComment from "./ThreadComment.svelte";
+  import ZapBubble from "./ZapBubble.svelte";
+  import ThreadZap from "./ThreadZap.svelte";
   import QuotedMessage from "./QuotedMessage.svelte";
   import CommentActionsModal from "./CommentActionsModal.svelte";
   import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
@@ -57,9 +59,13 @@
     children?: import("svelte").Snippet;
     /** Root comment event id (for reply parent and zap e-tag) */
     id?: string | null;
+    /** When true, root is a zap: show ZapBubble and pass rootPubkey on reply so zapper gets p-tagged */
+    isZapRoot?: boolean;
+    /** Zap amount (sats) when isZapRoot */
+    zapAmount?: number;
     searchProfiles?: (query: string) => Promise<{ pubkey: string; name?: string; displayName?: string; picture?: string }[]>;
     searchEmojis?: (query: string) => Promise<{ shortcode: string; url: string; source: string }[]>;
-    onReplySubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[]; parentId: string }) => void;
+    onReplySubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[]; parentId: string; rootPubkey?: string; parentKind?: number }) => void;
     onZapReceived?: (event: { zapReceipt: unknown }) => void;
   }
 
@@ -84,6 +90,8 @@
     version = "",
     children,
     id = null,
+    isZapRoot = false,
+    zapAmount = 0,
     searchProfiles = async () => [],
     searchEmojis = async () => [],
     onReplySubmit,
@@ -106,10 +114,11 @@
   /** True when any modal is open on top of the thread (Zap or Comment/Zap options) – drives overlay + scale animation */
   const childModalOpen = $derived(zapModalOpen || actionsModalOpen);
 
-  // Get unique repliers (by pubkey), prioritizing the app author
+  // Get unique repliers (by pubkey), prioritizing the app author. For zap root use threadComments.
   const uniqueRepliers = $derived.by(() => {
+    const source = isZapRoot ? threadComments : replies;
     const seen = new Set<string>();
-    const repliers = replies.filter((reply) => {
+    const repliers = source.filter((reply) => {
       if (seen.has(reply.pubkey)) return false;
       seen.add(reply.pubkey);
       return true;
@@ -253,7 +262,11 @@
     const parentId = replyingToComment ? replyingToComment.id : id;
     submitting = true;
     try {
-      onReplySubmit?.({ ...event, parentId });
+      onReplySubmit?.({
+        ...event,
+        parentId,
+        ...(isZapRoot && pubkey ? { rootPubkey: pubkey, parentKind: 9735 } : {}),
+      });
       replyInput?.clear?.();
       closeReply();
     } catch (err) {
@@ -292,30 +305,44 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div class="root-comment {className}" onclick={openThread}>
-  <MessageBubble
-    {pictureUrl}
-    {name}
-    {pubkey}
-    {timestamp}
-    {profileUrl}
-    {loading}
-    {pending}
-  >
-    {#if content !== undefined && content !== null}
-      <ShortTextRenderer
-        content={content}
-        emojiTags={emojiTags}
-        resolveMentionLabel={resolveMentionLabel}
-        class="root-comment-body"
-      />
-    {:else}
-      {@render children?.()}
-    {/if}
-  </MessageBubble>
+  {#if isZapRoot}
+    <ZapBubble
+      {pictureUrl}
+      {name}
+      {pubkey}
+      {timestamp}
+      {profileUrl}
+      message={content ?? ""}
+      amount={zapAmount}
+      {emojiTags}
+      {resolveMentionLabel}
+    />
+  {:else}
+    <MessageBubble
+      {pictureUrl}
+      {name}
+      {pubkey}
+      {timestamp}
+      {profileUrl}
+      {loading}
+      {pending}
+    >
+      {#if content !== undefined && content !== null}
+        <ShortTextRenderer
+          content={content}
+          emojiTags={emojiTags}
+          resolveMentionLabel={resolveMentionLabel}
+          class="root-comment-body"
+        />
+      {:else}
+        {@render children?.()}
+      {/if}
+    </MessageBubble>
+  {/if}
 
   {#if hasReplies}
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="reply-indicator" onclick={(e) => e.stopPropagation()}>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div class="reply-indicator" role="button" tabindex="0" onclick={(e) => e.stopPropagation()} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && e.stopPropagation()}>
       <div class="connector-column">
         <div class="connector-vertical"></div>
         <div class="connector-corner">
@@ -367,30 +394,45 @@
           class:clickable={showThreadActions}
           onclick={(e) => onBubbleClick(e, "root")}
         >
-          <ThreadComment
-            {appIconUrl}
-            {appName}
-            {appIdentifier}
-            {version}
-            {pictureUrl}
-            {name}
-            {pubkey}
-            {timestamp}
-            {profileUrl}
-            {loading}
-            {pending}
-          >
-            {#if content !== undefined && content !== null}
-              <ShortTextRenderer
-                content={content}
-                emojiTags={emojiTags}
-                resolveMentionLabel={resolveMentionLabel}
-                class="root-comment-body"
-              />
-            {:else}
-              {@render children?.()}
-            {/if}
-          </ThreadComment>
+          {#if isZapRoot}
+            <ThreadZap
+              {pictureUrl}
+              {name}
+              {pubkey}
+              amount={zapAmount}
+              {timestamp}
+              {profileUrl}
+              {version}
+              content={content ?? ""}
+              {emojiTags}
+              {resolveMentionLabel}
+            />
+          {:else}
+            <ThreadComment
+              {appIconUrl}
+              {appName}
+              {appIdentifier}
+              {version}
+              {pictureUrl}
+              {name}
+              {pubkey}
+              {timestamp}
+              {profileUrl}
+              {loading}
+              {pending}
+            >
+              {#if content !== undefined && content !== null}
+                <ShortTextRenderer
+                  content={content}
+                  emojiTags={emojiTags}
+                  resolveMentionLabel={resolveMentionLabel}
+                  class="root-comment-body"
+                />
+              {:else}
+                {@render children?.()}
+              {/if}
+            </ThreadComment>
+          {/if}
         </div>
       </div>
 
@@ -712,6 +754,10 @@
 
     .zap-button span {
       font-size: 14px;
+    }
+
+    .thread-bottom-bar.expanded {
+      padding: 16px;
     }
   }
 

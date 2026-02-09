@@ -32,6 +32,7 @@ export {
 	// Social features
 	queryCommentsFromStore,
 	fetchComments,
+	fetchCommentRepliesByE,
 	watchComments,
 	fetchZaps,
 	watchZaps,

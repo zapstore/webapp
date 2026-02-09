@@ -1,6 +1,5 @@
 <svg width="225" height="225" viewBox="0 0 225 225" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect x="0.5" y="0.5" width="224" height="224" fill="url(#paint0_radial_11122_21692)"/>
-<rect x="0.5" y="0.5" width="224" height="224" stroke="black"/>
+<rect width="225" height="225" fill="url(#paint0_radial_11122_21692)" fill-opacity="0.08"/>
 <g filter="url(#filter0_i_11122_21692)">
 <path fill-rule="evenodd" clip-rule="evenodd" d="M72.0782 130.751C74.9113 128.551 78.8578 128.487 81.7599 130.596L105.653 147.955C108.556 150.064 109.715 153.837 108.498 157.212L99.1837 183.03C96.679 189.973 88.2154 192.574 82.2442 188.235L50.6847 165.307C44.7135 160.968 44.5725 152.115 50.4015 147.588L72.0782 130.751ZM90.2413 176.609C88.8909 175.629 87.0009 175.928 86.0196 177.278C85.0388 178.629 85.3376 180.519 86.6876 181.5C88.0381 182.481 89.93 182.182 90.9112 180.832C91.8921 179.482 91.5916 177.591 90.2413 176.609Z" fill="url(#paint1_radial_11122_21692)" fill-opacity="0.5"/>
 <path fill-rule="evenodd" clip-rule="evenodd" d="M142.891 130.596C145.793 128.487 149.74 128.55 152.573 130.75L174.25 147.587C180.079 152.114 179.937 160.967 173.966 165.306L142.406 188.235C136.435 192.573 127.972 189.972 125.468 183.029L116.154 157.21C114.937 153.836 116.096 150.064 118.998 147.955L142.891 130.596ZM169.605 154.774C168.623 153.424 166.733 153.125 165.383 154.105C164.032 155.087 163.733 156.977 164.714 158.327C165.695 159.678 167.585 159.977 168.936 158.996C170.286 158.015 170.586 156.125 169.605 154.774Z" fill="url(#paint2_radial_11122_21692)" fill-opacity="0.5"/>
@@ -27,8 +26,8 @@
 <feBlend mode="normal" in2="shape" result="effect1_innerShadow_11122_21692"/>
 </filter>
 <radialGradient id="paint0_radial_11122_21692" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="rotate(45) scale(318.198)">
-<stop stop-color="#232323"/>
-<stop offset="1" stop-color="#202020"/>
+<stop stop-color="white"/>
+<stop offset="1" stop-color="#B9B9F6"/>
 </radialGradient>
 <radialGradient id="paint1_radial_11122_21692" cx="0" cy="0" r="1" gradientTransform="matrix(160 155.712 -160 155.712 32.5 34.6445)" gradientUnits="userSpaceOnUse">
 <stop stop-color="white"/>

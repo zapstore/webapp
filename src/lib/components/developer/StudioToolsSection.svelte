@@ -4,9 +4,10 @@
 
 </script>
 
-<section id="quickstart" class="studio-tools-section border-t border-b border-border/50">
+<section id="quickstart" class="studio-tools-section border-b border-border/50">
   <div class="studio-tools-container">
-		<h2 class="studio-quick-start-title section-title text-display-lg section-title-gradient">Quickstart</h2>
+		<h2 class="studio-quick-start-title section-title text-display-lg section-title-gradient hidden sm:block">Quickstart</h2>
+		<p class="section-description studio-quick-start-desc hidden sm:block">Get started with the tools we currently have. Get excited about the ones that are coming.</p>
 
 		<div class="studio-tools-grid">
 			<!-- Left: Install panel (gray33) -->
@@ -86,7 +87,7 @@
 
 	@media (min-width: 768px) {
 		.studio-tools-section {
-			padding: 3.75rem 1.5rem 4.75rem;
+			padding: 4.25rem 1.5rem 4.75rem;
 		}
 	}
 
@@ -99,7 +100,7 @@
 	.studio-quick-start-title {
 		font-size: 2rem;
 		line-height: 1.1;
-		margin: 0 0 2rem 0;
+		margin: 0 0 1rem 0;
 		text-align: center;
 		letter-spacing: -0.025em;
 		-webkit-background-clip: text;
@@ -110,14 +111,14 @@
 	@media (min-width: 640px) {
 		.studio-quick-start-title {
 			font-size: 2.5rem;
-			margin-bottom: 2.25rem;
+			margin-bottom: 1rem;
 		}
 	}
 
 	@media (min-width: 768px) {
 		.studio-quick-start-title {
 			font-size: 3rem;
-			margin-bottom: 2.5rem;
+			margin-bottom: 1rem;
 		}
 	}
 
@@ -131,6 +132,12 @@
 		.studio-quick-start-title {
 			font-size: 4rem;
 		}
+	}
+
+	.studio-quick-start-desc {
+		margin: 0 auto 2.5rem;
+		max-width: 28em;
+		text-align: center;
 	}
 
 	/* Studio Apps: Coming Soon – gold theme (matches ReachKit gateway), text at gold6 */
@@ -177,7 +184,7 @@
 	@media (min-width: 768px) {
 		.studio-tools-grid {
 			grid-template-columns: 1fr 1fr;
-			gap: 2rem;
+			gap: 2.75rem;
 		}
 	}
 

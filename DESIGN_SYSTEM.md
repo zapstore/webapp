@@ -99,7 +99,7 @@ The `.panel-clickable` class adds:
 
 ### Important Notes
 
-1. **Never add borders to panels** unless specifically required for a special case
+1. **Never add borders to panels** — Do not add a `border` property to panels or panel-like containers (cards, announcement boxes, hero side panels, etc.). No `border: 0.33px solid ...` or any other border. Use background color only. Add a border only when a special case explicitly requires it.
 2. **Always use panel classes** for container elements - don't create custom card styles
 3. **Clickable elements MUST have `cursor: pointer`** - this is enforced by `.panel-clickable`
 4. Use Tailwind utilities for additional spacing (margin, gap) as needed
@@ -723,9 +723,10 @@ border: 0.33px solid hsl(var(--white8));
 
 ### Important Rules
 
-1. **NEVER use borders thicker than 0.33px** for element outlines (panels, cards, profile pics)
-2. **NEVER use `outline` property** for visual borders - use `border` instead
-3. **ALWAYS use `hsl(var(--colorName))` syntax** for border colors
+1. **Do NOT add borders to panels or panel-like containers** — Panels, cards, announcement boxes, and hero side panels must have NO border (see [Panels](#panels-basic-containers)). Use background color only.
+2. **NEVER use borders thicker than 0.33px** for element outlines where a border is required (e.g. ProfilePic, AppPic, inputs — not panels)
+3. **NEVER use `outline` property** for visual borders - use `border` instead
+4. **ALWAYS use `hsl(var(--colorName))` syntax** for border colors
 
 ---
 

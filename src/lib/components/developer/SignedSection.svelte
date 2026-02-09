@@ -132,12 +132,23 @@
 	.signed-section {
 		overflow: hidden;
 		padding: 0 1rem 3rem;
-		border-bottom: 1px solid hsl(var(--border) / 0.5);
+		border-bottom: 1.4px solid hsl(var(--white11));
+	}
+
+	.signed-text-col,
+	.signed-desc {
+		padding-left: 1.25rem;
+		padding-right: 1.25rem;
 	}
 
 	@media (min-width: 768px) {
 		.signed-section {
 			padding: 0 1.5rem 4rem;
+		}
+		.signed-text-col,
+		.signed-desc {
+			padding-left: 0;
+			padding-right: 0;
 		}
 	}
 
@@ -163,7 +174,7 @@
     order: 3;
     justify-self: center;
     text-align: center;
-    margin: 0.75rem 0 0;
+    margin: 0.5rem 0 0;
     max-width: 36em;
   }
 
@@ -312,10 +323,10 @@
 		}
 	}
 
-	/* Mobile only: one div, one line, centered */
+	/* Mobile only: one div, one line, centered; match other section header size */
 	.signed-header-mobile {
 		margin: 0;
-		font-size: 2.5rem;
+		font-size: 2rem;
 		font-weight: 650;
 		line-height: 1.1;
 		letter-spacing: -0.02em;
