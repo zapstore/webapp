@@ -665,7 +665,7 @@
     gap: 0.5rem;
     padding: 0.5rem;
     background-color: hsl(var(--black33));
-    border-radius: 0.5rem;
+    border-radius: 16px;
   }
 
   .platform-btn {

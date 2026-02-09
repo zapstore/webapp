@@ -32,7 +32,7 @@
 	/** @type {string|null|undefined} - Hex pubkey for color generation */
 	export let pubkey = null;
 
-	/** @type {'xs'|'sm'|'bubble'|'md'|'lg'|'xl'|'2xl'|'3xl'|'4xl'} - Size preset */
+	/** @type {'xs'|'sm'|'bubble'|'smMd'|'md'|'lg'|'xl'|'2xl'|'3xl'|'4xl'} - Size preset */
 	export let size = 'md';
 
 	/** @type {() => void} - Click handler */
@@ -51,7 +51,7 @@
 		const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 		isDarkMode = mediaQuery.matches;
 
-		const handleChange = (e) => (isDarkMode = e.matches);
+		const handleChange = /** @type {(e: MediaQueryListEvent) => void} */ ((e) => (isDarkMode = e.matches));
 		mediaQuery.addEventListener('change', handleChange);
 		return () => mediaQuery.removeEventListener('change', handleChange);
 	});
@@ -61,6 +61,7 @@
 		xs: 20,
 		sm: 28,
 		bubble: 32,
+		smMd: 35, // between bubble and md
 		md: 38,
 		lg: 48,
 		xl: 64,
@@ -108,7 +109,7 @@
 	$: isNpub = name && name.trim().toLowerCase().startsWith('npub');
 
 	// Get initial letter from name (but not if it's an npub)
-	$: initial = name && name.trim() && !isNpub ? name.trim()[0].toUpperCase() : '';
+	$: initial = name && name.trim() && !isNpub ? (name.trim()[0]?.toUpperCase() ?? '') : '';
 	$: hasInitial = initial.length > 0;
 
 	// Color styles - use getProfileTextColor for text/icon readability

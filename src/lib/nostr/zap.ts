@@ -100,11 +100,11 @@ export async function createZap(
 	}
 
 	// 3. Build zap request (kind 9734) tags
-	const relays = [...DEFAULT_SOCIAL_RELAYS].slice(0, 10);
+	const relays: string[] = [...DEFAULT_SOCIAL_RELAYS].slice(0, 10);
 	const tags: [string, string, ...string[]][] = [
 		['p', target.pubkey],
 		['amount', amountMillisats.toString()],
-		['relays', ...relays],
+		['relays', relays[0] ?? '', ...relays.slice(1)],
 		['lnurl', lud16]
 	];
 

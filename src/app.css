@@ -89,8 +89,8 @@
   --gray16: 0 0% 20% / 0.16;      /* #333333 at 16% opacity */
 
   /* Blurple color variants - opacity baked into color definition */
-  --blurpleLightColor: 252 100% 72%;  /* #8483FE */
-  --blurpleLightColor66: 252 100% 72% / 0.66;
+  --blurpleLightColor: 241 100% 75%;  /* #8380FF – use for all links */
+  --blurpleLightColor66: 241 100% 75% / 0.66;
   --blurpleColor: 241 99% 67%;        /* #5C5AFE */
   --blurpleColor66: 241 99% 67% / 0.66;
   --blurpleColor33: 241 99% 67% / 0.33;
@@ -374,8 +374,8 @@
   --overlay: 0 0% 0% / 0.85;  /* #000000 (pure black) at 85% opacity */
 
   /* Blurple color variants - opacity baked into color definition */
-  --blurpleLightColor: 252 100% 72%;  /* #8483FE */
-  --blurpleLightColor66: 252 100% 72% / 0.66;
+  --blurpleLightColor: 241 100% 75%;  /* #8380FF – use for all links */
+  --blurpleLightColor66: 241 100% 75% / 0.66;
   --blurpleColor: 241 99% 67%;        /* #5C5AFE */
   --blurpleColor66: 241 99% 67% / 0.66;
   --blurpleColor33: 241 99% 67% / 0.33;
@@ -445,8 +445,8 @@
   --overlay: 0 0% 0% / 0.33;  /* #000000 at 33% opacity */
 
   /* Blurple color variants - opacity baked into color definition */
-  --blurpleLightColor: 240 50% 50%;  /* #4B4BCD */
-  --blurpleLightColor66: 240 50% 50% / 0.66;
+  --blurpleLightColor: 241 100% 75%;  /* #8380FF – use for all links */
+  --blurpleLightColor66: 241 100% 75% / 0.66;
   --blurpleColor: 241 99% 67%;        /* #5C5AFE */
   --blurpleColor66: 241 99% 67% / 0.66;
   --blurpleColor33: 241 99% 67% / 0.33;
@@ -1889,13 +1889,13 @@ h5, h6 {
 }
 
 .prose a {
-  color: hsl(var(--primary));
+  color: hsl(var(--blurpleLightColor));
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
 .prose a:hover {
-  color: hsl(var(--accent));
+  color: hsl(var(--blurpleLightColor) / 0.9);
   text-decoration: underline;
   text-underline-offset: 3px;
 }

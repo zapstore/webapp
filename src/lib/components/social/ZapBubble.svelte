@@ -50,10 +50,10 @@
   <div class="profile-column">
     {#if profileUrl}
       <a href={profileUrl} class="profile-link">
-        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="bubble" />
+        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
       </a>
     {:else}
-      <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="bubble" />
+      <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
     {/if}
   </div>
 

@@ -1,4 +1,5 @@
 <script>
+	import { onMount } from 'svelte';
 	import LandingSectionTitle from './LandingSectionTitle.svelte';
 	import { ChevronRight } from '$lib/components/icons';
 
@@ -10,37 +11,24 @@
 		{ name: 'Obtainium', icon: '/images/obtainium.svg', hasIcon: true }
 	];
 
-	// Criteria with values for each store
+	// Criteria with values for each store (order: Decentralized, Developer signatures, Zaps, No Review Process, User Communities, Any App)
 	// true = checkmark, false = cross, string = text
 	const criteria = [
-		{
-			name: 'Open Source',
-			values: [true, false, false, true]
-		},
-		{
-			name: 'No Fees',
-			values: [true, false, false, true]
-		},
-		{
-			name: 'No Review Process',
-			values: [true, false, false, true]
-		},
-		{
-			name: 'Decentralized',
-			values: [true, false, false, false]
-		},
-		{
-			name: 'Developer Tips',
-			values: [true, false, false, false]
-		},
-		{
-			name: 'Verified Builds',
-			values: [true, false, false, false]
-		}
+		{ name: 'Decentralized', values: [true, false, false, false] },
+		{ name: 'Developer signatures', values: [true, false, false, false] },
+		{ name: 'Zaps', values: [true, false, false, false] },
+		{ name: 'No Review Process', values: [true, false, false, true] },
+		{ name: 'User Communities', values: [true, false, false, false] },
+		{ name: 'Any App', values: [true, false, false, true] }
 	];
 
+	/** @type {HTMLButtonElement | undefined} */
 	let readMoreButton;
+	let readMoreDropdownOpen = false;
+	/** @type {HTMLDivElement | undefined} */
+	let readMoreMobileWrap;
 
+	/** @param {MouseEvent} event */
 	function handleReadMoreMouseMove(event) {
 		if (!readMoreButton) return;
 		const rect = readMoreButton.getBoundingClientRect();
@@ -49,8 +37,21 @@
 	}
 
 	function handleReadMore() {
-		// TODO: Navigate to read more
+		readMoreDropdownOpen = !readMoreDropdownOpen;
 	}
+
+	/** @param {MouseEvent} event */
+	function handleReadMoreClickOutside(event) {
+		const target = /** @type {Node | null} */ (event.target);
+		if (readMoreMobileWrap && target && !readMoreMobileWrap.contains(target)) {
+			readMoreDropdownOpen = false;
+		}
+	}
+
+	onMount(() => {
+		document.addEventListener('click', handleReadMoreClickOutside);
+		return () => document.removeEventListener('click', handleReadMoreClickOutside);
+	});
 </script>
 
 <section class="border-t border-border/50 pt-8 sm:pt-12 lg:pt-16 pb-0">
@@ -59,6 +60,7 @@
 		description="Let's compare Zapstore to some common alternatives."
 		showSeeMore={true}
 		seeMoreText="Read More"
+		seeMoreDropdownText="More coming soon!"
 		seeMoreAction={handleReadMore}
 	/>
 
@@ -70,8 +72,9 @@
 
 			<!-- Mobile: Read More button overlaying table -->
 			<div
-				class="md:hidden absolute left-1/2 transform -translate-x-1/2 z-20"
+				class="md:hidden absolute left-1/2 transform -translate-x-1/2 z-20 read-more-mobile-wrap"
 				style="bottom: 24px;"
+				bind:this={readMoreMobileWrap}
 			>
 				<button
 					type="button"
@@ -88,6 +91,11 @@
 						className="transition-transform group-hover:translate-x-0.5"
 					/>
 				</button>
+				{#if readMoreDropdownOpen}
+					<div class="read-more-mobile-panel" role="dialog" aria-label="More info">
+						<p class="read-more-mobile-panel-text">More coming soon!</p>
+					</div>
+				{/if}
 			</div>
 
 			<table class="comparison-table">
@@ -372,6 +380,31 @@
 			width: 18px;
 			height: 26px;
 		}
+	}
+
+	.read-more-mobile-wrap {
+		position: relative;
+	}
+
+	.read-more-mobile-panel {
+		position: absolute;
+		bottom: calc(100% + 8px);
+		left: 50%;
+		transform: translateX(-50%);
+		min-width: 200px;
+		max-width: 280px;
+		padding: 12px 14px;
+		background: hsl(241 15% 18%);
+		border: 1px solid hsl(var(--white16));
+		border-radius: 12px;
+		box-shadow: 0 8px 24px hsl(var(--black66) / 0.4);
+	}
+
+	.read-more-mobile-panel-text {
+		margin: 0;
+		font-size: 0.8125rem;
+		line-height: 1.45;
+		color: hsl(var(--white66));
 	}
 
 	@media (max-width: 640px) {

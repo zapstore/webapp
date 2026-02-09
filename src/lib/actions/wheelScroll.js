@@ -38,6 +38,7 @@ export function wheelScroll(node) {
     isHovering = false;
   }
 
+  /** @param {WheelEvent} e */
   function onWheel(e) {
     // Disable on mobile/tablet screens
     if (window.innerWidth < DESKTOP_BREAKPOINT) return;

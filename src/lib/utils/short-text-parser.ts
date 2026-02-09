@@ -101,12 +101,12 @@ export function parseShortText(input: ShortTextInput): ShortTextSegment[] {
     const overlaps = matches.some(
       (x) => (start >= x.index && start < x.index + x.length) || (end > x.index && end <= x.index + x.length)
     );
-    if (!overlaps) {
+    if (!overlaps && shortcode) {
       const url = emojiLookup.get(shortcode.toLowerCase()) ?? null;
       matches.push({
         index: start,
         length: full.length,
-        segment: { type: "emoji", shortcode, url }
+        segment: { type: "emoji", shortcode, url: url ?? "" }
       });
     }
   }
@@ -115,7 +115,8 @@ export function parseShortText(input: ShortTextInput): ShortTextSegment[] {
   matches.sort((a, b) => a.index - b.index);
   const merged: Match[] = [];
   for (const match of matches) {
-    if (merged.length === 0 || match.index >= merged[merged.length - 1].index + merged[merged.length - 1].length) {
+    const last = merged[merged.length - 1];
+    if (merged.length === 0 || !last || match.index >= last.index + last.length) {
       merged.push(match);
     }
   }

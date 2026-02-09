@@ -1,12 +1,13 @@
 <script lang="ts">
 	/**
 	 * BottomBar - Fixed bottom action bar for detail pages.
-	 * Owns CommentModal and ZapSliderModal so the bar can slide out when either is open (website-identical).
+	 * Morphs in place into the comment form when Comment is tapped (no separate modal).
+	 * Slides out only when ZapSliderModal is open.
 	 */
 	import { Zap, Reply, Options } from '$lib/components/icons';
 	import InputButton from '$lib/components/common/InputButton.svelte';
+	import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 	import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
-	import CommentModal from '$lib/components/modals/CommentModal.svelte';
 
 	type ProfileHit = { pubkey: string; name?: string; displayName?: string; picture?: string };
 	type EmojiHit = { shortcode: string; url: string; source: string };
@@ -58,9 +59,12 @@
 	}: Props = $props();
 
 	let zapModalOpen = $state(false);
-	let commentModalOpen = $state(false);
+	let commentExpanded = $state(false);
+	let commentInput = $state<{ clear?: () => void; focus?: () => void } | null>(null);
+	let submitting = $state(false);
 
-	const modalOpen = $derived(zapModalOpen || commentModalOpen);
+	/** Bar slides out only when zap modal is open (comment morphs in place) */
+	const barSlidesOut = $derived(zapModalOpen);
 
 	function handleZap() {
 		zapModalOpen = true;
@@ -78,49 +82,95 @@
 	}
 
 	function handleComment() {
-		commentModalOpen = true;
+		commentExpanded = true;
 	}
 
-	function handleCommentClose() {
-		commentModalOpen = false;
+	function closeComment() {
+		commentExpanded = false;
 	}
 
-	function handleCommentSubmit(event: {
+	async function handleCommentSubmit(event: {
 		text: string;
 		emojiTags: { shortcode: string; url: string }[];
 		mentions: string[];
-		target: ZapTarget | null;
 	}) {
-		oncommentSubmit?.(event);
+		if (submitting || !event.text.trim()) return;
+		submitting = true;
+		try {
+			oncommentSubmit?.({ ...event, target: zapTarget });
+			commentInput?.clear?.();
+			closeComment();
+		} catch (err) {
+			console.error('Failed to submit comment:', err);
+		} finally {
+			submitting = false;
+		}
 	}
 
-	function handleOptions() {
-		onoptions?.();
+	function handleCommentKeydown(e: KeyboardEvent) {
+		if (!commentExpanded) return;
+		if (e.key === 'Escape') {
+			closeComment();
+			e.preventDefault();
+			e.stopPropagation();
+		}
 	}
+
+	$effect(() => {
+		if (commentExpanded && commentInput) {
+			const t = setTimeout(() => commentInput?.focus?.(), 120);
+			return () => clearTimeout(t);
+		}
+	});
 </script>
 
-<div class="bottom-bar-wrapper {className}" class:modal-open={modalOpen}>
-	<div class="bottom-bar">
-		<div class="bottom-bar-content">
-			<button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
-				<Zap variant="fill" size={18} color="hsl(var(--whiteEnforced))" />
-				<span>Zap</span>
-			</button>
+<svelte:window onkeydown={handleCommentKeydown} />
 
-			<InputButton placeholder="Comment" onclick={handleComment}>
-				{#snippet icon()}
-					<Reply variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
-				{/snippet}
-			</InputButton>
+<div class="bottom-bar-wrapper {className}" class:modal-open={barSlidesOut}>
+	<div class="bottom-bar" class:expanded={commentExpanded}>
+		{#if !commentExpanded}
+			<div class="bottom-bar-content">
+				<button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
+					<Zap variant="fill" size={18} color="hsl(var(--whiteEnforced))" />
+					<span>Zap</span>
+				</button>
 
-			<button
-				type="button"
-				class="btn-secondary-large btn-secondary-dark options-button"
-				onclick={handleOptions}
-			>
-				<Options variant="fill" size={20} color="hsl(var(--white33))" />
-			</button>
-		</div>
+				<InputButton className="comment-btn" placeholder="Comment" onclick={handleComment}>
+					{#snippet icon()}
+						<Reply variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
+					{/snippet}
+				</InputButton>
+
+				<button
+					type="button"
+					class="btn-secondary-large btn-secondary-dark options-button"
+					onclick={onoptions}
+				>
+					<Options variant="fill" size={20} color="hsl(var(--white33))" />
+				</button>
+			</div>
+		{:else}
+			<div class="bottom-bar-comment">
+				<div class="comment-input-wrap">
+					<ShortTextInput
+						bind:this={commentInput}
+						placeholder="Comment on {zapTarget?.name ?? 'this'}"
+						size="medium"
+						{searchProfiles}
+						{searchEmojis}
+						autoFocus={true}
+						showActionRow={true}
+						onClose={closeComment}
+						onCameraTap={() => {}}
+						onEmojiTap={() => {}}
+						onGifTap={() => {}}
+						onAddTap={() => {}}
+						onChevronTap={() => {}}
+						onsubmit={handleCommentSubmit}
+					/>
+				</div>
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -133,16 +183,6 @@
 	{searchEmojis}
 	onclose={handleZapClose}
 	onzapReceived={handleZapReceived}
-/>
-
-<CommentModal
-	bind:isOpen={commentModalOpen}
-	target={zapTarget}
-	placeholder="Comment on {zapTarget?.name ?? 'this'}"
-	{searchProfiles}
-	{searchEmojis}
-	onclose={handleCommentClose}
-	onsubmit={handleCommentSubmit}
 />
 
 <style>
@@ -158,6 +198,8 @@
 	}
 
 	.bottom-bar {
+		flex-shrink: 0;
+		align-self: center;
 		width: 100%;
 		max-width: 100%;
 		margin: 0;
@@ -165,16 +207,31 @@
 		border-radius: var(--radius-32) var(--radius-32) 0 0;
 		border: 0.33px solid hsl(var(--white8));
 		border-bottom: none;
+		box-shadow: 0 -4px 24px hsl(var(--black));
 		padding: 16px 6px 16px 16px;
 		pointer-events: auto;
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
+		max-height: 88px;
+		overflow: hidden;
 		transition:
-			transform 0.2s cubic-bezier(0.33, 1, 0.68, 1),
-			opacity 0.2s ease;
+			transform 0.25s cubic-bezier(0.33, 1, 0.68, 1),
+			opacity 0.2s ease,
+			max-height 0.3s cubic-bezier(0.33, 1, 0.68, 1);
 	}
 
-	/* Slide out when either modal is open (website-identical) */
+	/* Morph: expand to show comment form */
+	.bottom-bar.expanded {
+		max-height: 70vh;
+		padding: 12px 16px 16px;
+	}
+	@media (max-width: 767px) {
+		.bottom-bar.expanded {
+			padding: 16px;
+		}
+	}
+
+	/* Slide out when zap modal is open */
 	.modal-open .bottom-bar {
 		transform: translateY(100%);
 		opacity: 0;
@@ -185,6 +242,21 @@
 		display: flex;
 		align-items: center;
 		gap: 12px;
+	}
+
+	.bottom-bar-comment {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		flex: 1;
+	}
+
+	.comment-input-wrap {
+		background: hsl(var(--black33));
+		border-radius: var(--radius-16);
+		border: 0.33px solid hsl(var(--white33));
+		min-height: 0;
+		flex: 1;
 	}
 
 	.zap-button {
@@ -215,6 +287,11 @@
 		.zap-button span {
 			font-size: 14px;
 		}
+
+		.comment-btn :global(svg) {
+			width: 16px;
+			height: 16px;
+		}
 	}
 
 	@media (min-width: 768px) {
@@ -225,6 +302,10 @@
 			border-bottom: 0.33px solid hsl(var(--white8));
 			padding: 12px 2px 12px 12px;
 			box-shadow: 0 40px 64px 12px hsl(var(--black));
+		}
+
+		.bottom-bar.expanded {
+			padding: 12px;
 		}
 	}
 </style>

@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { assets } from '$app/paths';
+	import { ChevronRight } from '$lib/components/icons';
 
 	let sectionElement;
 	let scrollProgress = 0;
@@ -39,10 +40,10 @@
 		// Clamp between 0 and 1
 		scrollProgress = Math.max(0, Math.min(1, scrollProgress));
 
-		// Chains closer on mobile only; desktop original
+		// Chains: on mobile keep anchors near center so chains stay visible (small offset = overlap in middle); desktop original
 		const isMobile = window.innerWidth < 640;
-		const maxOffset = isMobile ? window.innerWidth * 0.04 : window.innerWidth * 0.08;
-		const initialOverlap = isMobile ? -window.innerWidth * 0.03 : -window.innerWidth * 0.05;
+		const maxOffset = isMobile ? window.innerWidth * 0.06 : window.innerWidth * 0.08;
+		const initialOverlap = isMobile ? -window.innerWidth * 0.04 : -window.innerWidth * 0.05;
 		chainLeftOffset = initialOverlap - scrollProgress * maxOffset;
 		chainRightOffset = -initialOverlap + scrollProgress * maxOffset;
 
@@ -62,7 +63,7 @@
 
 <section
 	bind:this={sectionElement}
-	class="relative min-h-[50vh] flex items-center justify-center overflow-hidden border-b border-border/50 py-14 sm:py-16"
+	class="relative min-h-[50vh] flex items-center justify-center overflow-hidden border-b border-border/50 pt-20 pb-14 sm:py-24"
 >
 	<!-- Blurple gradient background -->
 	<div class="absolute inset-0 z-0 flex items-center justify-center">
@@ -76,8 +77,8 @@
 	<img
 		src={`${assets}/images/chain-left.png`}
 		alt=""
-		class="absolute h-[70vh] w-auto object-contain z-10"
-		style="left: 50%; top: 50%; transform: translate(-100%, -50%) translateX({chainLeftOffset}px); transition: transform 0.1s ease-out;"
+		class="publish-chain-img publish-chain-left"
+		style="left: 50%; transform: translate(-100%, -50%) translateX({chainLeftOffset}px); transition: transform 0.1s ease-out;"
 		loading="lazy"
 	/>
 
@@ -85,8 +86,8 @@
 	<img
 		src={`${assets}/images/chain-right.png`}
 		alt=""
-		class="absolute h-[70vh] w-auto object-contain z-10"
-		style="left: 50%; top: 50%; transform: translate(0%, -50%) translateX({chainRightOffset}px); transition: transform 0.1s ease-out;"
+		class="publish-chain-img publish-chain-right"
+		style="left: 50%; transform: translate(0%, -50%) translateX({chainRightOffset}px); transition: transform 0.1s ease-out;"
 		loading="lazy"
 	/>
 
@@ -127,13 +128,60 @@
 				>Without Permission</span
 			>
 		</h2>
-		<p class="section-description max-w-2xl mx-auto mt-7">
+		<p class="section-description max-w-2xl mx-auto mt-7 publish-desc-desktop">
 			No review process. No delay. No middlemen.
 		</p>
+		<p class="section-description max-w-2xl mx-auto mt-7 publish-desc-mobile">
+			No review process. No delay.<br />
+			No middlemen.
+		</p>
+		<a
+			href="/docs/publish"
+			class="btn-glass-large btn-glass-with-chevron group inline-flex items-center justify-center gap-3 mt-6 sm:mt-8"
+		>
+			Start Publishing
+			<ChevronRight
+				variant="outline"
+				color="hsl(var(--white33))"
+				size={18}
+				className="transition-transform group-hover:translate-x-0.5"
+			/>
+		</a>
 	</div>
 </section>
 
 <style>
+	.publish-chain-img {
+		position: absolute;
+		top: 50%;
+		height: 70vh;
+		width: auto;
+		object-fit: contain;
+		z-index: 10;
+	}
+
+	@media (max-width: 639px) {
+		.publish-chain-img {
+			top: 40%;
+			height: 50vh;
+		}
+	}
+
+	.publish-desc-mobile {
+		display: none;
+	}
+	.publish-desc-desktop {
+		display: block;
+	}
+	@media (max-width: 639px) {
+		.publish-desc-mobile {
+			display: block;
+		}
+		.publish-desc-desktop {
+			display: none;
+		}
+	}
+
 	.publish-three-lines {
 		line-height: 1.05;
 	}

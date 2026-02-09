@@ -31,6 +31,8 @@
     pending?: boolean;
     light?: boolean;
     children?: import("svelte").Snippet;
+    /** Optional actions in the header row (e.g. menu trigger) */
+    headerActions?: import("svelte").Snippet;
   }
 
   let {
@@ -44,6 +46,7 @@
     pending = false,
     light = false,
     children,
+    headerActions,
   }: Props = $props();
 
   let isDarkMode = $state(true);
@@ -76,10 +79,10 @@
   <div class="profile-column">
     {#if profileUrl}
       <a href={profileUrl} class="profile-link">
-        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="bubble" />
+        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
       </a>
     {:else}
-      <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="bubble" />
+      <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
     {/if}
   </div>
 
@@ -100,6 +103,11 @@
         <span class="publish-spinner" aria-label="Publishing">
           <Loader2 class="h-3.5 w-3.5 animate-spin" style="color: hsl(var(--blurpleLightColor));" />
         </span>
+      {/if}
+      {#if headerActions}
+        <div class="bubble-header-actions">
+          {@render headerActions()}
+        </div>
       {/if}
     </div>
 
@@ -136,6 +144,10 @@
     gap: 6px;
     flex-wrap: wrap;
     margin-bottom: 4px;
+  }
+
+  .bubble-header-actions {
+    flex-shrink: 0;
   }
 
   .publish-spinner {

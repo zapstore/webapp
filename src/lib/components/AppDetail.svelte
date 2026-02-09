@@ -13,13 +13,14 @@
 
 	let { app, initialRelease = null }: Props = $props();
 
-	// Local state
-	let latestRelease = $state<Release | null>(initialRelease);
+	// Local state (set from initialRelease in onMount to avoid capturing stale reference)
+	let latestRelease = $state<Release | null>(null);
 	let refreshing = $state(false);
 
 	onMount(() => {
 		if (!browser || !app) return;
 
+		latestRelease = initialRelease ?? null;
 		const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
 
 		// Sync: query EventStore immediately (release is already there from listing)

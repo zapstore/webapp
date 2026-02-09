@@ -169,6 +169,7 @@ export function hexToColor(hex) {
 }
 
 // Lazy import nip19 to avoid issues if not available
+/** @type {Record<string, unknown> | null} */
 let nip19Module = null;
 async function getNip19() {
   if (!nip19Module) {
@@ -190,9 +191,9 @@ async function getNip19() {
 async function decodeNpubAsync(npub) {
   try {
     const nip19 = await getNip19();
-    if (!nip19) return "";
-    const decoded = nip19.decode(npub);
-    if (decoded.type === "npub") {
+    if (!nip19 || typeof nip19.decode !== "function") return "";
+    const decoded = /** @type {{ decode: (s: string) => { type: string; data?: string } }} */ (nip19).decode(npub);
+    if (decoded.type === "npub" && decoded.data) {
       return decoded.data;
     }
     return "";
@@ -338,7 +339,8 @@ export const extensionToColorInt = stringToColorInt;
  */
 export function getFileExtensionColor(filename) {
   const parts = filename.split(".");
-  const extension = parts.length > 1 ? parts[parts.length - 1] : "";
+  const ext = parts.length > 1 ? parts[parts.length - 1] : "";
+  const extension = typeof ext === "string" ? ext : "";
   return stringToHexColor(extension);
 }
 
@@ -349,7 +351,8 @@ export function getFileExtensionColor(filename) {
  */
 export function getFileExtensionColorInt(filename) {
   const parts = filename.split(".");
-  const extension = parts.length > 1 ? parts[parts.length - 1] : "";
+  const ext = parts.length > 1 ? parts[parts.length - 1] : "";
+  const extension = typeof ext === "string" ? ext : "";
   return stringToColorInt(extension);
 }
 

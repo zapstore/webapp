@@ -350,6 +350,11 @@
     });
   }
 
+  function handleCommentClose() {
+    shortTextInput?.clear?.();
+    message = "";
+  }
+
   export function getValue(): number {
     return Math.round(value);
   }
@@ -446,13 +451,16 @@
       {searchEmojis}
       size="small"
       showActionRow={true}
+      showCloseWhen="focusedOrContent"
       onCameraTap={() => {}}
       onEmojiTap={() => {}}
       onGifTap={() => {}}
       onAddTap={() => {}}
       onChevronTap={() => {}}
+      allowEmptySubmit={true}
       onsubmit={handleCommentSubmit}
       onchange={({ content }) => (message = content)}
+      onClose={handleCommentClose}
     />
   </div>
 

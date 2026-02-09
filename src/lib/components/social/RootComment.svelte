@@ -1,18 +1,27 @@
 <script lang="ts">
   /**
-   * RootComment - Wraps a MessageBubble with reply indicator
+   * RootComment - Wraps a MessageBubble with reply indicator.
+   * Thread modal supports Zap (root comment author) and Comment (reply) when logged in.
    */
   import MessageBubble from "./MessageBubble.svelte";
   import ThreadComment from "./ThreadComment.svelte";
+  import ZapBubble from "./ZapBubble.svelte";
+  import ThreadZap from "./ThreadZap.svelte";
+  import QuotedMessage from "./QuotedMessage.svelte";
+  import CommentActionsModal from "./CommentActionsModal.svelte";
   import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
   import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
   import Modal from "$lib/components/common/Modal.svelte";
   import InputButton from "$lib/components/common/InputButton.svelte";
+  import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
+  import ZapSliderModal from "$lib/components/modals/ZapSliderModal.svelte";
   import { Zap, Reply, Options } from "$lib/components/icons";
+  import { getIsSignedIn } from "$lib/stores/auth.svelte";
 
   interface ReplyComment {
     id: string;
     pubkey: string;
+    parentId?: string | null;
     avatarUrl?: string | null;
     displayName?: string;
     createdAt?: number;
@@ -33,6 +42,8 @@
     /** Show publishing spinner next to bubble */
     pending?: boolean;
     replies?: ReplyComment[];
+    /** Full thread (root + all descendants) chronological; when set, feed uses this and shows QuotedMessage for replies */
+    threadComments?: ReplyComment[];
     authorPubkey?: string | null;
     className?: string;
     /** Plain text content (rendered via ShortTextRenderer) */
@@ -46,6 +57,16 @@
     appIdentifier?: string | null;
     version?: string;
     children?: import("svelte").Snippet;
+    /** Root comment event id (for reply parent and zap e-tag) */
+    id?: string | null;
+    /** When true, root is a zap: show ZapBubble and pass rootPubkey on reply so zapper gets p-tagged */
+    isZapRoot?: boolean;
+    /** Zap amount (sats) when isZapRoot */
+    zapAmount?: number;
+    searchProfiles?: (query: string) => Promise<{ pubkey: string; name?: string; displayName?: string; picture?: string }[]>;
+    searchEmojis?: (query: string) => Promise<{ shortcode: string; url: string; source: string }[]>;
+    onReplySubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[]; parentId: string; rootPubkey?: string; parentKind?: number }) => void;
+    onZapReceived?: (event: { zapReceipt: unknown }) => void;
   }
 
   let {
@@ -57,6 +78,7 @@
     loading = false,
     pending = false,
     replies = [],
+    threadComments = [],
     authorPubkey = null,
     className = "",
     content = "",
@@ -67,14 +89,36 @@
     appIdentifier = null,
     version = "",
     children,
+    id = null,
+    isZapRoot = false,
+    zapAmount = 0,
+    searchProfiles = async () => [],
+    searchEmojis = async () => [],
+    onReplySubmit,
+    onZapReceived,
   }: Props = $props();
 
   let modalOpen = $state(false);
+  let zapModalOpen = $state(false);
+  let commentExpanded = $state(false);
+  /** When set, we're replying to this comment (show QuotedMessage above input) */
+  let replyingToComment = $state<ReplyComment | null>(null);
+  /** When set, Zap modal targets this comment instead of the root */
+  let zapTargetOverride = $state<{ name?: string; pubkey: string; id?: string; pictureUrl?: string } | null>(null);
+  let replyInput = $state<{ clear?: () => void; focus?: () => void } | null>(null);
+  let submitting = $state(false);
+  /** Which comment the actions modal is for: 'root' or a reply */
+  let actionsModalTarget = $state<"root" | ReplyComment | null>(null);
+  let actionsModalOpen = $state(false);
 
-  // Get unique repliers (by pubkey), prioritizing the app author
+  /** True when any modal is open on top of the thread (Zap or Comment/Zap options) – drives overlay + scale animation */
+  const childModalOpen = $derived(zapModalOpen || actionsModalOpen);
+
+  // Get unique repliers (by pubkey), prioritizing the app author. For zap root use threadComments.
   const uniqueRepliers = $derived.by(() => {
+    const source = isZapRoot ? threadComments : replies;
     const seen = new Set<string>();
-    const repliers = replies.filter((reply) => {
+    const repliers = source.filter((reply) => {
       if (seen.has(reply.pubkey)) return false;
       seen.add(reply.pubkey);
       return true;
@@ -104,16 +148,152 @@
     })
   );
 
+  /** Chronological feed entries for the thread modal: when threadComments is set, use it (excluding root); else use sortedReplies */
+  const feedReplies = $derived.by(() => {
+    if (threadComments.length === 0) return sortedReplies;
+    return threadComments
+      .filter((c) => c.id !== id)
+      .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+  });
+
+  const threadById = $derived.by(() => {
+    const map = new Map<string, ReplyComment>();
+    for (const c of threadComments) {
+      map.set(c.id, c);
+    }
+    return map;
+  });
+
+  function getContentPreview(comment: ReplyComment): string {
+    if (comment.content && comment.content.trim()) return comment.content;
+    if (comment.contentHtml) {
+      return comment.contentHtml.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    }
+    return "";
+  }
+
+  /** Zap target: root comment author; id ties zap to this comment event */
+  const rootZapTarget = $derived(
+    pubkey
+      ? {
+          name: name || undefined,
+          pubkey,
+          id: id ?? undefined,
+          pictureUrl: pictureUrl ?? undefined,
+        }
+      : null
+  );
+  /** Active zap target (override when Zap chosen from a reply's menu) */
+  const zapTarget = $derived(zapTargetOverride ?? rootZapTarget);
+
+  const showThreadActions = $derived(
+    getIsSignedIn() && (onReplySubmit != null || onZapReceived != null) && (id != null || pubkey != null)
+  );
+
+  function openActionsModal(target: "root" | ReplyComment) {
+    actionsModalTarget = target;
+    actionsModalOpen = true;
+  }
+
+  function onBubbleClick(e: MouseEvent, target: "root" | ReplyComment) {
+    if (!showThreadActions) return;
+    const t = e.target as Node;
+    if (t instanceof Element && t.closest("a, button, input, [contenteditable='true']")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openActionsModal(target);
+  }
+
+  function actionsModalOnComment() {
+    if (actionsModalTarget === "root") handleReply();
+    else if (actionsModalTarget) openReplyToComment(actionsModalTarget);
+  }
+
+  function actionsModalOnZap() {
+    if (actionsModalTarget === "root") handleZap();
+    else if (actionsModalTarget) handleZapComment(actionsModalTarget);
+  }
+
   function openThread() {
     modalOpen = true;
   }
 
   function handleZap() {
-    // TODO: Implement zap functionality
+    zapModalOpen = true;
   }
 
   function handleReply() {
-    // TODO: Open reply input
+    replyingToComment = null;
+    commentExpanded = true;
+  }
+
+  function openReplyToComment(comment: ReplyComment) {
+    replyingToComment = comment;
+    commentExpanded = true;
+  }
+
+  function closeReply() {
+    commentExpanded = false;
+    replyingToComment = null;
+  }
+
+  function handleZapComment(comment: ReplyComment) {
+    zapTargetOverride = {
+      name: comment.displayName || undefined,
+      pubkey: comment.pubkey,
+      id: comment.id,
+      pictureUrl: comment.avatarUrl ?? undefined,
+    };
+    zapModalOpen = true;
+  }
+
+  function handleZapClose(event: { success: boolean }) {
+    zapModalOpen = false;
+    zapTargetOverride = null;
+    if (event.success) onZapReceived?.({ zapReceipt: {} });
+  }
+
+  async function handleReplySubmit(event: {
+    text: string;
+    emojiTags: { shortcode: string; url: string }[];
+    mentions: string[];
+  }) {
+    if (submitting || !id) return;
+    const parentId = replyingToComment ? replyingToComment.id : id;
+    submitting = true;
+    try {
+      onReplySubmit?.({
+        ...event,
+        parentId,
+        ...(isZapRoot && pubkey ? { rootPubkey: pubkey, parentKind: 9735 } : {}),
+      });
+      replyInput?.clear?.();
+      closeReply();
+    } catch (err) {
+      console.error("Failed to submit reply:", err);
+    } finally {
+      submitting = false;
+    }
+  }
+
+  function handleReplyKeydown(e: KeyboardEvent) {
+    if (!modalOpen || !commentExpanded) return;
+    if (e.key === "Escape") {
+      closeReply();
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+
+  $effect(() => {
+    if (commentExpanded && replyInput) {
+      const t = setTimeout(() => replyInput?.focus?.(), 120);
+      return () => clearTimeout(t);
+    }
+  });
+
+  function handleZapReceived(event: { zapReceipt: unknown }) {
+    onZapReceived?.(event);
   }
 
   function handleOptions() {
@@ -121,32 +301,48 @@
   }
 </script>
 
+<svelte:window onkeydown={handleReplyKeydown} />
+
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div class="root-comment {className}" onclick={openThread}>
-  <MessageBubble
-    {pictureUrl}
-    {name}
-    {pubkey}
-    {timestamp}
-    {profileUrl}
-    {loading}
-    {pending}
-  >
-    {#if content !== undefined && content !== null}
-      <ShortTextRenderer
-        content={content}
-        emojiTags={emojiTags}
-        resolveMentionLabel={resolveMentionLabel}
-        class="root-comment-body"
-      />
-    {:else}
-      {@render children?.()}
-    {/if}
-  </MessageBubble>
+  {#if isZapRoot}
+    <ZapBubble
+      {pictureUrl}
+      {name}
+      {pubkey}
+      {timestamp}
+      {profileUrl}
+      message={content ?? ""}
+      amount={zapAmount}
+      {emojiTags}
+      {resolveMentionLabel}
+    />
+  {:else}
+    <MessageBubble
+      {pictureUrl}
+      {name}
+      {pubkey}
+      {timestamp}
+      {profileUrl}
+      {loading}
+      {pending}
+    >
+      {#if content !== undefined && content !== null}
+        <ShortTextRenderer
+          content={content}
+          emojiTags={emojiTags}
+          resolveMentionLabel={resolveMentionLabel}
+          class="root-comment-body"
+        />
+      {:else}
+        {@render children?.()}
+      {/if}
+    </MessageBubble>
+  {/if}
 
   {#if hasReplies}
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="reply-indicator" onclick={(e) => e.stopPropagation()}>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div class="reply-indicator" role="button" tabindex="0" onclick={(e) => e.stopPropagation()} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && e.stopPropagation()}>
       <div class="connector-column">
         <div class="connector-vertical"></div>
         <div class="connector-corner">
@@ -185,51 +381,89 @@
   align="bottom"
   fillHeight={true}
   wide={true}
-  class="thread-modal"
+  class="thread-modal {childModalOpen ? 'thread-modal-child-open' : ''}"
 >
   {#snippet children()}
-    <div class="thread-content">
+    <div class="thread-content-wrap" class:child-modal-open={childModalOpen}>
+      <div class="thread-modal-child-overlay" aria-hidden="true"></div>
+      <div class="thread-content">
       <div class="thread-root">
-        <ThreadComment
-          {appIconUrl}
-          {appName}
-          {appIdentifier}
-          {version}
-          {pictureUrl}
-          {name}
-          {pubkey}
-          {timestamp}
-          {profileUrl}
-          {loading}
-          {pending}
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <div
+          class="thread-bubble-click-wrap"
+          class:clickable={showThreadActions}
+          onclick={(e) => onBubbleClick(e, "root")}
         >
-          {#if content !== undefined && content !== null}
-            <ShortTextRenderer
-              content={content}
-              emojiTags={emojiTags}
-              resolveMentionLabel={resolveMentionLabel}
-              class="root-comment-body"
+          {#if isZapRoot}
+            <ThreadZap
+              {pictureUrl}
+              {name}
+              {pubkey}
+              amount={zapAmount}
+              {timestamp}
+              {profileUrl}
+              {version}
+              content={content ?? ""}
+              {emojiTags}
+              {resolveMentionLabel}
             />
           {:else}
-            {@render children?.()}
+            <ThreadComment
+              {appIconUrl}
+              {appName}
+              {appIdentifier}
+              {version}
+              {pictureUrl}
+              {name}
+              {pubkey}
+              {timestamp}
+              {profileUrl}
+              {loading}
+              {pending}
+            >
+              {#if content !== undefined && content !== null}
+                <ShortTextRenderer
+                  content={content}
+                  emojiTags={emojiTags}
+                  resolveMentionLabel={resolveMentionLabel}
+                  class="root-comment-body"
+                />
+              {:else}
+                {@render children?.()}
+              {/if}
+            </ThreadComment>
           {/if}
-        </ThreadComment>
+        </div>
       </div>
 
       <div class="thread-divider"></div>
 
       <div class="thread-replies">
-        {#if sortedReplies.length > 0}
-          {#each sortedReplies as reply (reply.id)}
-            <MessageBubble
-              pictureUrl={reply.avatarUrl}
-              name={reply.displayName}
-              pubkey={reply.pubkey}
-              timestamp={reply.createdAt}
-              profileUrl={reply.profileUrl}
-              loading={reply.profileLoading}
-              light={true}
+        {#if feedReplies.length > 0}
+          {#each feedReplies as reply (reply.id)}
+            {@const quotedParent = reply.parentId && reply.parentId !== id ? threadById.get(reply.parentId) : null}
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <div
+              class="thread-bubble-click-wrap"
+              class:clickable={showThreadActions}
+              onclick={(e) => onBubbleClick(e, reply)}
             >
+              <MessageBubble
+                pictureUrl={reply.avatarUrl}
+                name={reply.displayName}
+                pubkey={reply.pubkey}
+                timestamp={reply.createdAt}
+                profileUrl={reply.profileUrl}
+                loading={reply.profileLoading}
+                light={true}
+              >
+                {#if quotedParent}
+                <QuotedMessage
+                  authorName={quotedParent.displayName || "Anonymous"}
+                  authorPubkey={quotedParent.pubkey}
+                  contentPreview={getContentPreview(quotedParent)}
+                />
+              {/if}
               {#if reply.content !== undefined && reply.content !== null}
                 <ShortTextRenderer
                   content={reply.content}
@@ -240,36 +474,97 @@
               {:else}
                 {@html reply.contentHtml || "<p class='text-muted-foreground italic'>No content</p>"}
               {/if}
-            </MessageBubble>
+              </MessageBubble>
+            </div>
           {/each}
         {:else}
           <div class="no-comments-text">No comments yet</div>
         {/if}
       </div>
     </div>
+    </div>
   {/snippet}
 
   {#snippet footer()}
-    <div class="thread-bottom-bar">
-      <div class="thread-bottom-bar-content">
-        <button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
-          <Zap variant="fill" size={18} color="hsl(var(--whiteEnforced))" />
-          <span>Zap</span>
-        </button>
+    {#if showThreadActions}
+      <div class="thread-footer-wrap" class:child-modal-open={childModalOpen}>
+        <div class="thread-modal-child-overlay" aria-hidden="true"></div>
+      <div class="thread-bottom-bar" class:expanded={commentExpanded}>
+        {#if !commentExpanded}
+          <div class="thread-bottom-bar-content">
+            <button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
+              <Zap variant="fill" size={18} color="hsl(var(--whiteEnforced))" />
+              <span>Zap</span>
+            </button>
 
-        <InputButton placeholder="Comment" onclick={handleReply}>
-          {#snippet icon()}
-            <Reply variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
-          {/snippet}
-        </InputButton>
+            <InputButton placeholder="Comment" onclick={handleReply}>
+              {#snippet icon()}
+                <Reply variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
+              {/snippet}
+            </InputButton>
 
-        <button type="button" class="btn-secondary-large btn-secondary-dark options-button" onclick={handleOptions}>
-          <Options variant="fill" size={20} color="hsl(var(--white33))" />
-        </button>
+            <button type="button" class="btn-secondary-large btn-secondary-dark options-button" onclick={handleOptions}>
+              <Options variant="fill" size={20} color="hsl(var(--white33))" />
+            </button>
+          </div>
+        {:else}
+          <div class="thread-reply-form">
+            <div class="thread-reply-input-wrap">
+              <ShortTextInput
+                bind:this={replyInput}
+                placeholder="Comment on {replyingToComment?.displayName ?? name ?? 'this'}"
+                size="medium"
+                {searchProfiles}
+                {searchEmojis}
+                autoFocus={true}
+                showActionRow={true}
+                onClose={closeReply}
+                onCameraTap={() => {}}
+                onEmojiTap={() => {}}
+                onGifTap={() => {}}
+                onAddTap={() => {}}
+                onChevronTap={() => {}}
+                onsubmit={handleReplySubmit}
+              >
+                {#snippet aboveEditor()}
+                  {#if replyingToComment}
+                    <QuotedMessage
+                      authorName={replyingToComment.displayName || "Anonymous"}
+                      authorPubkey={replyingToComment.pubkey}
+                      contentPreview={getContentPreview(replyingToComment)}
+                    />
+                  {/if}
+                {/snippet}
+              </ShortTextInput>
+            </div>
+          </div>
+        {/if}
       </div>
-    </div>
+      </div>
+    {/if}
   {/snippet}
 </Modal>
+
+<CommentActionsModal
+  bind:open={actionsModalOpen}
+  authorName={actionsModalTarget === "root" ? (name || "Anonymous") : (actionsModalTarget ? actionsModalTarget.displayName || "Anonymous" : "Anonymous")}
+  authorPubkey={actionsModalTarget === "root" ? pubkey : (actionsModalTarget ? actionsModalTarget.pubkey : null)}
+  contentPreview={actionsModalTarget === "root" ? (content || "").trim() : (actionsModalTarget ? getContentPreview(actionsModalTarget) : "")}
+  onComment={actionsModalOnComment}
+  onZap={actionsModalOnZap}
+/>
+
+<ZapSliderModal
+  bind:isOpen={zapModalOpen}
+  target={zapTarget}
+  publisherName={name || ''}
+  otherZaps={[]}
+  nestedModal={true}
+  {searchProfiles}
+  {searchEmojis}
+  onclose={handleZapClose}
+  onzapReceived={handleZapReceived}
+/>
 
 <style>
   .root-comment {
@@ -320,14 +615,58 @@
     min-width: 0;
   }
 
+  .thread-content-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .thread-modal-child-overlay {
+    position: absolute;
+    inset: 0;
+    background: hsl(var(--black33));
+    z-index: 10;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+  }
+
+  .thread-content-wrap.child-modal-open .thread-modal-child-overlay,
+  .thread-footer-wrap.child-modal-open .thread-modal-child-overlay {
+    opacity: 1;
+  }
+
+  /* Whole thread modal scales and moves down when Zap or options modal opens (class is on Modal’s container) */
+  :global(.thread-modal.thread-modal-child-open) {
+    transform: scale(0.97) translateY(8px);
+    transform-origin: top center;
+    transition: transform 0.25s cubic-bezier(0.33, 1, 0.68, 1);
+  }
+
+  .thread-footer-wrap {
+    position: relative;
+  }
+
   .thread-content {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
   }
 
   .thread-root {
     padding: 16px;
     padding-bottom: 12px;
+  }
+
+  .thread-bubble-click-wrap {
+    display: block;
+    width: 100%;
+  }
+  .thread-bubble-click-wrap.clickable {
+    cursor: pointer;
   }
 
   .thread-divider {
@@ -356,12 +695,36 @@
     background: hsl(var(--gray66));
     border-top: 0.33px solid hsl(var(--white16));
     padding: 16px 6px 16px 16px;
+    max-height: 88px;
+    overflow: hidden;
+    transition: max-height 0.3s cubic-bezier(0.33, 1, 0.68, 1);
+  }
+
+  .thread-bottom-bar.expanded {
+    max-height: 50vh;
+    padding: 12px;
   }
 
   .thread-bottom-bar-content {
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+
+  .thread-reply-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .thread-reply-input-wrap {
+    background: hsl(var(--black33));
+    border-radius: var(--radius-16);
+    border: 0.33px solid hsl(var(--white33));
+    min-height: 0;
+    flex: 1;
   }
 
   .zap-button {
@@ -392,11 +755,19 @@
     .zap-button span {
       font-size: 14px;
     }
+
+    .thread-bottom-bar.expanded {
+      padding: 16px;
+    }
   }
 
   @media (min-width: 768px) {
     .thread-bottom-bar {
       padding: 12px 2px 12px 12px;
+    }
+
+    .thread-bottom-bar.expanded {
+      padding: 12px;
     }
   }
 </style>

@@ -255,19 +255,33 @@
 		<div
 			class="profile-hero-content container mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6 md:pt-10 md:pb-8"
 		>
-			<div class="profile-header flex items-center gap-4 sm:gap-6">
-				<div class="profile-pic-wrap flex-shrink-0">
-					<ProfilePic
-						pictureUrl={profilePictureUrl || undefined}
-						{pubkey}
-						name={profileName}
-						size="3xl"
-						loading={profileLoading}
-					/>
+			<div class="profile-header flex items-center gap-6 sm:gap-8">
+				<div class="profile-pic-column flex flex-col items-center flex-shrink-0">
+					<div class="profile-pic-wrap">
+						<ProfilePic
+							pictureUrl={profilePictureUrl || undefined}
+							{pubkey}
+							name={profileName}
+							size="3xl"
+							loading={profileLoading}
+						/>
+					</div>
+					{#if isConnected}
+						<button
+							type="button"
+							class="add-btn install-btn-mobile btn-primary-small flex items-center justify-center gap-2 w-full"
+							onclick={handleAddClick}
+							disabled={addButtonDisabled}
+							aria-label={addButtonLabel}
+						>
+							<Plus variant="outline" color="white" size={16} strokeWidth={2.5} />
+							<span>{addButtonLabel}</span>
+						</button>
+					{/if}
 				</div>
 
 				<div class="profile-info flex-1 min-w-0">
-					<div class="profile-name-row flex items-center justify-between gap-3 mb-2">
+					<div class="profile-name-row flex items-center justify-between gap-3 mb-3">
 						<h1
 							class="profile-name text-[1.625rem] sm:text-4xl font-black"
 							style="color: hsl(var(--white));"
@@ -285,20 +299,10 @@
 								<Plus variant="outline" color="white" size={18} strokeWidth={2.5} />
 								<span>{addButtonLabel}</span>
 							</button>
-							<button
-								type="button"
-								class="add-btn install-btn-mobile btn-primary-small flex items-center gap-2 flex-shrink-0"
-								onclick={handleAddClick}
-								disabled={addButtonDisabled}
-								aria-label={addButtonLabel}
-							>
-								<Plus variant="outline" color="white" size={16} strokeWidth={2.5} />
-								<span>{addButtonLabel}</span>
-							</button>
 						{/if}
 					</div>
 					{#if profile?.about?.trim()}
-						<div class="profile-description text-sm mb-2" style="color: hsl(var(--white66));">
+						<div class="profile-description text-base mb-3" style="color: hsl(var(--white66));">
 							<ShortTextRenderer
 								content={profile.about}
 								resolveMentionLabel={(pk) => mentionProfiles[pk]}
@@ -332,10 +336,10 @@
 		</div>
 	</section>
 
-	<div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 pb-8">
+	<div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-8 md:pt-10 pb-8">
 		<!-- Published Apps (one row, horizontal scroll like discover) -->
 		<section class="profile-section">
-			<SectionHeader title="Published Apps" />
+			<SectionHeader title="Apps" />
 			{#if appsLoading}
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
@@ -385,7 +389,7 @@
 
 		<!-- Published Stacks (one row, horizontal scroll like discover) -->
 		<section class="profile-section">
-			<SectionHeader title="Published Stacks" />
+			<SectionHeader title="Stacks" />
 			{#if stacksLoading}
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
@@ -491,7 +495,34 @@
 	}
 
 	.profile-header {
-		align-items: center;
+		align-items: flex-start;
+	}
+
+	.profile-pic-column {
+		gap: 12px;
+	}
+
+	/* Mobile: scale down profile section and show Add under pic */
+	@media (max-width: 767px) {
+		.profile-hero-content {
+			font-size: 0.94em;
+		}
+		.profile-pic-wrap {
+			transform: scale(0.75);
+			transform-origin: top center;
+		}
+		.profile-name {
+			font-size: 1.5rem !important;
+		}
+	}
+
+	@media (min-width: 768px) {
+		.profile-header {
+			align-items: center;
+		}
+		.profile-pic-column .install-btn-mobile {
+			display: none !important;
+		}
 	}
 
 	.profile-name {
@@ -499,7 +530,7 @@
 	}
 
 	.profile-npub-row {
-		margin-top: 4px;
+		margin-top: 12px;
 		display: flex;
 		align-items: center;
 		gap: 6px;
@@ -553,9 +584,6 @@
 	}
 
 	@media (min-width: 768px) {
-		.add-btn.install-btn-mobile {
-			display: none;
-		}
 		.add-btn.install-btn-desktop {
 			display: inline-flex;
 		}
