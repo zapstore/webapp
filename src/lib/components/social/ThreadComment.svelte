@@ -179,6 +179,8 @@
     border-radius: 100px;
     white-space: nowrap;
     flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: -4px; /* align with profile pic top (cancel author-info padding-top) */
   }
 
   .thread-comment-actions {
@@ -186,7 +188,7 @@
   }
 
   .content {
-    margin-top: 12px;
+    margin-top: 8px;
     font-size: 0.9375rem;
     line-height: 1.5;
     color: hsl(var(--foreground) / 0.85);

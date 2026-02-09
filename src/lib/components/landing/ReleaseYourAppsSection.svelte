@@ -23,9 +23,8 @@
 				</span>
 			</h2>
 			<p class="section-description max-w-2xl mx-auto mt-3 sm:mt-5">
-				Publish apps directly to users without gatekeepers. <span class="hidden sm:inline"
-					><br /></span
-				>Get insights, monetize and build community.
+				A developer toolkit for publishing apps directly to users, high signal insights, honest
+				monetisation and building community.
 			</p>
 		</div>
 

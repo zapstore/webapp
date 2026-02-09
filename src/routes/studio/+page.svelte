@@ -1,4 +1,5 @@
 <script lang="ts">
+  import OpenProtocolsSection from '$lib/components/developer/OpenProtocolsSection.svelte';
   import PublishAppSection from '$lib/components/developer/PublishAppSection.svelte';
   import ReachKitGatewaySection from '$lib/components/developer/ReachKitGatewaySection.svelte';
   import SignedSection from '$lib/components/developer/SignedSection.svelte';
@@ -16,6 +17,7 @@
 
 <StudioHero />
 <StudioToolsSection />
+<OpenProtocolsSection />
 <PublishAppSection />
 <SignedSection />
 <ReachKitGatewaySection />

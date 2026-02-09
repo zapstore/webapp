@@ -103,6 +103,9 @@
   let actionsModalTarget = $state<"root" | ReplyComment | null>(null);
   let actionsModalOpen = $state(false);
 
+  /** True when any modal is open on top of the thread (Zap or Comment/Zap options) – drives overlay + scale animation */
+  const childModalOpen = $derived(zapModalOpen || actionsModalOpen);
+
   // Get unique repliers (by pubkey), prioritizing the app author
   const uniqueRepliers = $derived.by(() => {
     const seen = new Set<string>();
@@ -351,10 +354,12 @@
   align="bottom"
   fillHeight={true}
   wide={true}
-  class="thread-modal"
+  class="thread-modal {childModalOpen ? 'thread-modal-child-open' : ''}"
 >
   {#snippet children()}
-    <div class="thread-content">
+    <div class="thread-content-wrap" class:child-modal-open={childModalOpen}>
+      <div class="thread-modal-child-overlay" aria-hidden="true"></div>
+      <div class="thread-content">
       <div class="thread-root">
         <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
         <div
@@ -435,10 +440,13 @@
         {/if}
       </div>
     </div>
+    </div>
   {/snippet}
 
   {#snippet footer()}
     {#if showThreadActions}
+      <div class="thread-footer-wrap" class:child-modal-open={childModalOpen}>
+        <div class="thread-modal-child-overlay" aria-hidden="true"></div>
       <div class="thread-bottom-bar" class:expanded={commentExpanded}>
         {#if !commentExpanded}
           <div class="thread-bottom-bar-content">
@@ -489,6 +497,7 @@
             </div>
           </div>
         {/if}
+      </div>
       </div>
     {/if}
   {/snippet}
@@ -564,9 +573,45 @@
     min-width: 0;
   }
 
+  .thread-content-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .thread-modal-child-overlay {
+    position: absolute;
+    inset: 0;
+    background: hsl(var(--black33));
+    z-index: 10;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+  }
+
+  .thread-content-wrap.child-modal-open .thread-modal-child-overlay,
+  .thread-footer-wrap.child-modal-open .thread-modal-child-overlay {
+    opacity: 1;
+  }
+
+  /* Whole thread modal scales and moves down when Zap or options modal opens (class is on Modal’s container) */
+  :global(.thread-modal.thread-modal-child-open) {
+    transform: scale(0.97) translateY(8px);
+    transform-origin: top center;
+    transition: transform 0.25s cubic-bezier(0.33, 1, 0.68, 1);
+  }
+
+  .thread-footer-wrap {
+    position: relative;
+  }
+
   .thread-content {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
   }
 
   .thread-root {
@@ -615,7 +660,7 @@
 
   .thread-bottom-bar.expanded {
     max-height: 50vh;
-    padding: 12px 16px 16px;
+    padding: 12px;
   }
 
   .thread-bottom-bar-content {
@@ -676,7 +721,7 @@
     }
 
     .thread-bottom-bar.expanded {
-      padding: 12px 16px 16px;
+      padding: 12px;
     }
   }
 </style>

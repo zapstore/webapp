@@ -198,6 +198,8 @@
 	}
 
 	.bottom-bar {
+		flex-shrink: 0;
+		align-self: center;
 		width: 100%;
 		max-width: 100%;
 		margin: 0;
@@ -293,7 +295,7 @@
 		}
 
 		.bottom-bar.expanded {
-			padding: 12px 16px 16px;
+			padding: 12px;
 		}
 	}
 </style>

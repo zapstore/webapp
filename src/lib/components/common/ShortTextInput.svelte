@@ -41,6 +41,8 @@
     onsubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[] }) => void;
     /** When set, a small round close button is shown inside the editor area (top right); only the text zone is narrowed, not the action row */
     onClose?: () => void;
+    /** When 'focusedOrContent', close button is only shown when the editor is focused or has text (e.g. Zap modal comment) */
+    showCloseWhen?: 'always' | 'focusedOrContent';
     /** Optional content rendered inside the rounded editor box, above the text input (e.g. QuotedMessage when replying) */
     aboveEditor?: import("svelte").Snippet;
   }
@@ -61,6 +63,7 @@
     onchange,
     onsubmit,
     onClose,
+    showCloseWhen = 'always',
     aboveEditor,
   }: Props = $props();
 
@@ -73,6 +76,9 @@
 
   let editorElement = $state<HTMLDivElement | null>(null);
   let editor = $state<Editor | null>(null);
+  let editorFocused = $state(false);
+  let hasContent = $state(false);
+  const showClose = $derived(!!onClose && (showCloseWhen === 'always' || (showCloseWhen === 'focusedOrContent' && (editorFocused || hasContent))));
   let suggestionPopup: ReturnType<typeof tippy>[0] | null = null;
   let currentSuggestionType = $state<"profile" | "emoji" | null>(null);
   let suggestionItems = $state<unknown[]>([]);
@@ -490,10 +496,14 @@
       autofocus: autoFocus,
       onUpdate: () => {
         checkScrollable();
+        hasContent = !ed.isEmpty;
         onchange?.({ content: getContent() });
       },
     });
     editor = ed;
+    ed.on('focus', () => { editorFocused = true; });
+    ed.on('blur', () => { editorFocused = false; });
+    hasContent = !ed.isEmpty;
     setTimeout(checkScrollable, 100);
   });
 
@@ -521,10 +531,10 @@
       <div class="above-editor">{@render aboveEditor()}</div>
     {/if}
     <div class="shader-top"></div>
-    <div class="editor-container" class:has-close={!!onClose} class:has-above={!!aboveEditor}>
-      {#if onClose}
+    <div class="editor-container" class:has-close={showClose} class:has-above={!!aboveEditor}>
+      {#if showClose}
         <button type="button" class="inline-close-btn" onclick={onClose} aria-label="Close">
-          <Cross variant="outline" size={12} color="hsl(var(--white66))" />
+          <Cross variant="outline" color="hsl(var(--white33))" size={10} strokeWidth={1.4} />
         </button>
       {/if}
       <div bind:this={editorElement} class="editor-mount"></div>
@@ -572,8 +582,21 @@
     max-height: var(--max-height);
     overflow: hidden;
   }
+  /* Optional third row (thread modal only): 8px padding except bottom – stuck to typed text row */
   .above-editor {
     padding: 8px 8px 0;
+  }
+  /* When quote is above: no top padding so quoted row is stuck to typed text + cross row */
+  .editor-container.has-above .editor-mount {
+    padding-top: 0 !important;
+  }
+  .editor-container.has-above {
+    padding-top: 0;
+  }
+  /* Same row as typed text: when has-above, add a little top padding in thread modal context */
+  .editor-container.has-above .inline-close-btn {
+    top: 3px;
+    right: 10px;
   }
   .editor-container {
     position: relative;
@@ -585,36 +608,37 @@
     min-height: var(--min-height);
     max-height: var(--max-height);
     overflow-y: auto;
-    padding: 4px 12px 12px 12px;
+    padding: 10px 8px 10px 12px;
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--white16)) transparent;
   }
   .editor-container.has-close .editor-mount {
-    padding-right: 48px;
-  }
-  .editor-container.has-above .editor-mount {
-    padding-top: 4px;
+    padding-right: 36px;
   }
   .inline-close-btn {
     position: absolute;
-    top: 6px;
+    top: 10px;
     right: 10px;
     z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     border: none;
     background: hsl(var(--white4));
     border-radius: 50%;
-    color: hsl(var(--white66));
+    color: hsl(var(--white33));
     cursor: pointer;
   }
   .inline-close-btn:hover {
     background: hsl(var(--white16));
     color: hsl(var(--foreground));
+  }
+  .inline-close-btn :global(svg) {
+    stroke: hsl(var(--white33)) !important;
+    fill: none !important;
   }
   .editor-mount::-webkit-scrollbar {
     width: 4px;
