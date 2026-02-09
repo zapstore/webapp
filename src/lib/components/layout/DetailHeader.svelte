@@ -27,6 +27,7 @@
 	} from '$lib/services/profile-search';
 	import SearchModal from '$lib/components/common/SearchModal.svelte';
 	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
+	import OnboardingBuildingModal from '$lib/components/modals/OnboardingBuildingModal.svelte';
 	import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
 
 	interface CatalogProfile {
@@ -91,6 +92,7 @@
 	let searchQuery = $state('');
 	let getStartedModalOpen = $state(false);
 	let spinKeyModalOpen = $state(false);
+	let onboardingBuildingModalOpen = $state(false);
 	let onboardingProfileName = $state('');
 
 	// Categories and platforms for the search modal
@@ -220,6 +222,10 @@
 		profileName: string;
 	}) {
 		spinKeyModalOpen = false;
+		// Defer so SpinKeyModal can close and unmount before showing the next modal
+		setTimeout(() => {
+			onboardingBuildingModalOpen = true;
+		}, 150);
 	}
 
 	function handleUseExistingKey() {
@@ -617,6 +623,8 @@
 	onspinComplete={handleSpinComplete}
 	onuseExistingKey={handleUseExistingKey}
 />
+
+<OnboardingBuildingModal bind:open={onboardingBuildingModalOpen} zIndex={56} />
 
 <style>
 	/* Fixed header height - exactly 64px to match main header */

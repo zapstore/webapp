@@ -12,6 +12,7 @@
   import ProfilePic from "$lib/components/common/ProfilePic.svelte";
   import SearchModal from "$lib/components/common/SearchModal.svelte";
   import GetStartedModal from "$lib/components/modals/GetStartedModal.svelte";
+  import OnboardingBuildingModal from "$lib/components/modals/OnboardingBuildingModal.svelte";
   import SpinKeyModal from "$lib/components/modals/SpinKeyModal.svelte";
 
   interface Props {
@@ -29,6 +30,7 @@
   let menuContainer = $state<HTMLElement | null>(null);
   let getStartedModalOpen = $state(false);
   let spinKeyModalOpen = $state(false);
+  let onboardingBuildingModalOpen = $state(false);
   let onboardingProfileName = $state("");
 
   // Categories and platforms for search
@@ -151,6 +153,10 @@
 
   function handleSpinComplete(_event: { nsec: string; secretKeyHex: string; pubkey: string; profileName: string }) {
     spinKeyModalOpen = false;
+    // Defer so SpinKeyModal can close and unmount before showing the next modal
+    setTimeout(() => {
+      onboardingBuildingModalOpen = true;
+    }, 150);
   }
 
   function handleUseExistingKey() {
@@ -495,6 +501,8 @@
   onspinComplete={handleSpinComplete}
   onuseExistingKey={handleUseExistingKey}
 />
+
+<OnboardingBuildingModal bind:open={onboardingBuildingModalOpen} zIndex={56} />
 
 <style>
   .header {
