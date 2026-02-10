@@ -348,7 +348,7 @@
 
 		<!-- Catalogs Section (placeholder) -->
 		<div class="section-container">
-			<SectionHeader title="Catalogs" linkText="See all" href="/catalogs" />
+			<SectionHeader title="Catalogs" />
 			<div class="empty-state-panel">
 				<p class="empty-state-text">Catalogs coming soon</p>
 			</div>
@@ -356,7 +356,7 @@
 
 		<!-- Labels Section (placeholder) -->
 		<div class="section-container">
-			<SectionHeader title="Labels" linkText="See all" href="/labels" />
+			<SectionHeader title="Labels" />
 			<div class="empty-state-panel">
 				<p class="empty-state-text">Labels coming soon</p>
 			</div>
