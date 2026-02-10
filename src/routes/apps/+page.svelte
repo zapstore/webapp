@@ -33,7 +33,8 @@
 	const loadingMore = $derived(isLoadingMore());
 
 	// Search query from URL (?q=...)
-	const searchQ = $derived($page.url.searchParams.get('q')?.trim() ?? '');
+	// Guard against prerender: searchParams not available during SSR with prerender=true
+	const searchQ = $derived(browser ? ($page.url.searchParams.get('q')?.trim() ?? '') : '');
 
 	// Search state: relay-fetched results when ?q= is present
 	let searchResults = $state<App[] | null>(null);

@@ -14,7 +14,7 @@
 		encodeStackNaddr
 	} from '$lib/nostr';
 	import { nip19 } from 'nostr-tools';
-	import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS } from '$lib/config';
+	import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS, PLATFORM_FILTER } from '$lib/config';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import { parseShortText } from '$lib/utils/short-text-parser.js';
 	import { resolveStackApps } from '$lib/stores/stacks.svelte';
@@ -87,7 +87,7 @@
 		try {
 			if (browser) await initNostrService();
 			const events = await fetchEvents(
-				{ kinds: [EVENT_KINDS.APP], authors: [pk], limit: 50 },
+				{ kinds: [EVENT_KINDS.APP], authors: [pk], ...PLATFORM_FILTER, limit: 50 },
 				{ relays: [...DEFAULT_CATALOG_RELAYS], timeout: 8000 }
 			);
 			apps = events.map((ev) => parseApp(ev));

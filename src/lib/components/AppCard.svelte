@@ -4,7 +4,7 @@
   import { get } from 'svelte/store';
   import type { App } from '$lib/nostr';
   import { queryStore, fetchEvents, parseRelease } from '$lib/nostr';
-  import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS } from '$lib/config';
+  import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS, PLATFORM_FILTER } from '$lib/config';
   
   interface Props {
     app: App;
@@ -22,7 +22,7 @@
     
     // Release is already in store from the listing - query locally
     const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-    const releases = queryStore({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], limit: 1 });
+    const releases = queryStore({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], ...PLATFORM_FILTER, limit: 1 });
     
     if (releases.length === 0) return;
     

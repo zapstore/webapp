@@ -6,7 +6,7 @@
  */
 
 import { browser } from '$app/environment';
-import { DEFAULT_CATALOG_RELAYS, EVENT_KINDS } from '$lib/config';
+import { DEFAULT_CATALOG_RELAYS, EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
 import { decodeNaddr, parseApp, parseRelease, fetchEvent } from '$lib/nostr';
 import type { PageLoad } from './$types';
 
@@ -41,11 +41,11 @@ export const load: PageLoad = async ({ params }) => {
 
 	const [appEvent, releaseEvent] = await Promise.all([
 		fetchEvent(
-			{ kinds: [EVENT_KINDS.APP], authors: [pubkey], '#d': [identifier] },
+			{ kinds: [EVENT_KINDS.APP], authors: [pubkey], '#d': [identifier], ...PLATFORM_FILTER },
 			{ relays: [...DEFAULT_CATALOG_RELAYS], timeout: 10000 }
 		),
 		fetchEvent(
-			{ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], limit: 1 },
+			{ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], ...PLATFORM_FILTER, limit: 1 },
 			{ relays: [...DEFAULT_CATALOG_RELAYS], timeout: 10000 }
 		)
 	]);

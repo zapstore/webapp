@@ -40,5 +40,9 @@ export const EVENT_KINDS = {
 	APP_STACK: 30267
 } as const;
 
+// Platform filter — only Android arm64 is supported for now.
+// Spread into every APP / RELEASE relay filter so the relay only returns matching events.
+export const PLATFORM_FILTER: { '#f': string[] } = { '#f': ['android-arm64-v8a'] };
+
 // Subscription prefixes (for relay backend identification)
 export const SUB_PREFIX = 'web-';

@@ -19,7 +19,7 @@ import { RelayPool } from 'applesauce-relay';
 import { openDB, type IDBPDatabase } from 'idb';
 import type { NostrEvent, Filter } from 'nostr-tools';
 import type { EventTemplate } from 'nostr-tools/pure';
-import { IDB_NAME, IDB_VERSION, DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS, PROFILE_RELAYS } from '$lib/config';
+import { IDB_NAME, IDB_VERSION, DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS, PROFILE_RELAYS, PLATFORM_FILTER } from '$lib/config';
 
 const { persistEventsToCache } = Helpers;
 
@@ -580,6 +580,7 @@ export async function fetchAppsByReleases(
 	// Step 1: Fetch releases sorted by created_at
 	const releaseFilter: Filter = {
 		kinds: [30063], // EVENT_KINDS.RELEASE
+		...PLATFORM_FILTER,
 		limit
 	};
 	if (until !== undefined) {
@@ -624,7 +625,7 @@ export async function fetchAppsByReleases(
 		if (signal?.aborted) break;
 
 		const app = await fetchEvent(
-			{ kinds: [32267], authors: [ref.pubkey], '#d': [ref.identifier] },
+			{ kinds: [32267], authors: [ref.pubkey], '#d': [ref.identifier], ...PLATFORM_FILTER },
 			{ relays, timeout, signal }
 		);
 
@@ -665,6 +666,7 @@ export async function searchApps(
 	const filter: Filter = {
 		kinds: [32267], // EVENT_KINDS.APP
 		search: query.trim(),
+		...PLATFORM_FILTER,
 		limit
 	};
 
@@ -751,6 +753,7 @@ export async function fetchApp(
 		kinds: [32267], // EVENT_KINDS.APP
 		authors: [pubkey],
 		'#d': [identifier],
+		...PLATFORM_FILTER,
 		limit: 1
 	};
 

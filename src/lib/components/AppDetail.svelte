@@ -4,7 +4,7 @@
 	import { ReleaseCard } from '$lib/components';
 	import type { App, Release } from '$lib/nostr';
 	import { queryStoreOne, watchEvent, parseRelease, initNostrService } from '$lib/nostr';
-	import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS } from '$lib/config';
+	import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS, PLATFORM_FILTER } from '$lib/config';
 	import { renderMarkdown } from '$lib/utils/markdown';
 
 	interface Props {
@@ -25,7 +25,7 @@
 		const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
 
 		// Sync: query EventStore immediately (release is already there from listing)
-		const cachedRelease = queryStoreOne({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue] });
+		const cachedRelease = queryStoreOne({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], ...PLATFORM_FILTER });
 		if (cachedRelease) {
 			latestRelease = parseRelease(cachedRelease);
 		}
@@ -42,7 +42,7 @@
 			refreshing = true;
 
 			watchEvent(
-				{ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue] },
+				{ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], ...PLATFORM_FILTER },
 				{ relays: DEFAULT_CATALOG_RELAYS },
 				(freshEvent) => {
 					if (freshEvent) {

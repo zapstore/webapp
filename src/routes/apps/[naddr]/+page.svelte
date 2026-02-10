@@ -26,7 +26,7 @@
   import AppSmallCard from "$lib/components/cards/AppSmallCard.svelte";
   import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
   import { nip19 } from "nostr-tools";
-  import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS } from "$lib/config";
+  import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS, PLATFORM_FILTER } from "$lib/config";
   import { wheelScroll } from "$lib/actions/wheelScroll.js";
   import type { PageData } from "./$types";
   import AppPic from "$lib/components/common/AppPic.svelte";
@@ -482,7 +482,7 @@
     releasesLoading = true;
     try {
       const events = await fetchEvents(
-        { kinds: [EVENT_KINDS.RELEASE], "#a": [aTag], limit: 50 },
+        { kinds: [EVENT_KINDS.RELEASE], "#a": [aTag], ...PLATFORM_FILTER, limit: 50 },
         { relays: [...DEFAULT_CATALOG_RELAYS] }
       );
       const sorted = events.sort((a, b) => b.created_at - a.created_at);
@@ -531,13 +531,14 @@
         for (const ref of stack.appRefs) {
           if (ref.kind !== EVENT_KINDS.APP) continue;
           const appEvs = await fetchEvents(
-            {
-              kinds: [EVENT_KINDS.APP],
-              authors: [ref.pubkey],
-              "#d": [ref.identifier],
-              limit: 1,
-            },
-            { relays }
+              {
+                kinds: [EVENT_KINDS.APP],
+                authors: [ref.pubkey],
+                "#d": [ref.identifier],
+                ...PLATFORM_FILTER,
+                limit: 1,
+              },
+              { relays }
           );
           const appEv = appEvs[0];
           if (appEv) addApp(parseApp(appEv));
@@ -549,8 +550,8 @@
       const tTags = (raw?.tags?.filter((t) => t[0] === "t").map((t) => t[1]).filter(Boolean) ?? []) as string[];
       for (const t of tTags) {
         const events = await fetchEvents(
-          { kinds: [EVENT_KINDS.APP], "#t": [t], limit: 25 },
-          { relays }
+            { kinds: [EVENT_KINDS.APP], "#t": [t], ...PLATFORM_FILTER, limit: 25 },
+            { relays }
         );
         for (const ev of events) addApp(parseApp(ev));
       }
@@ -562,7 +563,7 @@
         .slice(0, 10);
       if (words.length > 0) {
         const allAppEvents = await fetchEvents(
-          { kinds: [EVENT_KINDS.APP], limit: 150 },
+          { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: 150 },
           { relays }
         );
         for (const ev of allAppEvents) {
@@ -597,7 +598,7 @@
       // Only if we didn't find enough related apps, load fallback (recent apps from relays)
       if (result.length < 8) {
         const fallbackEvents = await fetchEvents(
-          { kinds: [EVENT_KINDS.APP], limit: 30 },
+          { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: 30 },
           { relays }
         );
         const byCreated = fallbackEvents
@@ -618,7 +619,7 @@
       if (fromStore.length > 0) {
         suggestionApps = fromStore;
       } else {
-        const allAppEvents = queryStore({ kinds: [EVENT_KINDS.APP], limit: 30 });
+        const allAppEvents = queryStore({ kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: 30 });
         suggestionApps = allAppEvents
           .map((ev) => parseApp(ev))
           .filter((a) => `${a.pubkey}:${a.dTag}` !== currentKey)
@@ -639,7 +640,7 @@
     const aTagValue = `${EVENT_KINDS.APP}:${data.app.pubkey}:${data.app.dTag}`;
 
     // Sync: query EventStore immediately
-    const cachedRelease = queryStoreOne({ kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue] });
+    const cachedRelease = queryStoreOne({ kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue], ...PLATFORM_FILTER });
     if (cachedRelease) {
       latestRelease = parseRelease(cachedRelease);
     }
@@ -648,6 +649,7 @@
       kinds: [EVENT_KINDS.APP],
       authors: [data.app.pubkey],
       "#d": [data.app.dTag],
+      ...PLATFORM_FILTER,
     });
     if (cachedApp) {
       app = parseApp(cachedApp);
@@ -710,7 +712,7 @@
       };
 
       watchEvent(
-        { kinds: [EVENT_KINDS.APP], authors: [data.app!.pubkey], "#d": [data.app!.dTag] },
+        { kinds: [EVENT_KINDS.APP], authors: [data.app!.pubkey], "#d": [data.app!.dTag], ...PLATFORM_FILTER },
         { relays: DEFAULT_CATALOG_RELAYS },
         (freshEvent) => {
           if (freshEvent) app = parseApp(freshEvent);
@@ -719,7 +721,7 @@
       );
 
       watchEvent(
-        { kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue] },
+        { kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue], ...PLATFORM_FILTER },
         { relays: DEFAULT_CATALOG_RELAYS },
         (freshEvent) => {
           if (freshEvent) latestRelease = parseRelease(freshEvent);

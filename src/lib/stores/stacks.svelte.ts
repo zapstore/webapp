@@ -7,7 +7,7 @@
 
 import { initNostrService, fetchAppStacks, fetchEvents } from '$lib/nostr/service';
 import { parseAppStack, parseApp, type AppStack, type App } from '$lib/nostr/models';
-import { DEFAULT_CATALOG_RELAYS, EVENT_KINDS } from '$lib/config';
+import { DEFAULT_CATALOG_RELAYS, EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
 
 const PAGE_SIZE = 20;
 
@@ -206,7 +206,8 @@ export async function resolveStackApps(stack: AppStack): Promise<App[]> {
 			{
 				kinds: [EVENT_KINDS.APP],
 				authors: [ref.pubkey],
-				'#d': [ref.identifier]
+				'#d': [ref.identifier],
+				...PLATFORM_FILTER
 			},
 			{ relays: [...DEFAULT_CATALOG_RELAYS] }
 		);

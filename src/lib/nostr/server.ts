@@ -11,7 +11,7 @@
  */
 
 import { SimplePool, type Filter, type Event } from 'nostr-tools';
-import { DEFAULT_CATALOG_RELAYS, EVENT_KINDS } from '$lib/config';
+import { DEFAULT_CATALOG_RELAYS, EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
 import { parseApp, parseRelease, type App, type Release } from './models';
 
 const FETCH_TIMEOUT = 10000; // 10 seconds for server-side fetches
@@ -95,6 +95,7 @@ export async function fetchAppsByReleases(
 	// Step 1: Fetch releases sorted by created_at
 	const releaseFilter: Filter = {
 		kinds: [EVENT_KINDS.RELEASE],
+		...PLATFORM_FILTER,
 		limit
 	};
 	if (until !== undefined) {
@@ -139,7 +140,8 @@ export async function fetchAppsByReleases(
 				const events = await fetchEvents({
 					kinds: [EVENT_KINDS.APP],
 					authors: [ref.pubkey],
-					'#d': [ref.identifier]
+					'#d': [ref.identifier],
+					...PLATFORM_FILTER
 				});
 				return events;
 			});
@@ -189,7 +191,8 @@ export async function fetchApp(
 	const events = await fetchEvents({
 		kinds: [EVENT_KINDS.APP],
 		authors: [pubkey],
-		'#d': [identifier]
+		'#d': [identifier],
+		...PLATFORM_FILTER
 	});
 
 	if (events.length === 0) return null;
@@ -210,6 +213,7 @@ export async function fetchLatestReleaseForApp(pubkey: string, identifier: strin
 	const events = await fetchEvents({
 		kinds: [EVENT_KINDS.RELEASE],
 		'#a': [aTagValue],
+		...PLATFORM_FILTER,
 		limit: 1
 	});
 
