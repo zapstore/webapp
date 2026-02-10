@@ -56,6 +56,8 @@
     createdAt?: number;
     comment?: string;
     emojiTags?: { shortcode: string; url: string }[];
+    /** Event id that was zapped (parent zap receipt); for zaps on zaps. */
+    zappedEventId?: string | null;
   }
 
   interface Props {
@@ -77,10 +79,12 @@
     pubkeyToNpub?: (pubkey: string) => string;
     searchProfiles?: (query: string) => Promise<{ pubkey: string; name?: string; displayName?: string; picture?: string }[]>;
     searchEmojis?: (query: string) => Promise<{ shortcode: string; url: string; source: string }[]>;
-    onCommentSubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[]; parentId?: string; rootPubkey?: string; parentKind?: number }) => void;
+    onCommentSubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[]; parentId?: string; replyToPubkey?: string; rootPubkey?: string; parentKind?: number }) => void;
     onZapReceived?: (event: { zapReceipt: unknown }) => void;
     /** When guest taps "Get started to comment" in a thread (opens onboarding). */
     onGetStarted?: () => void;
+    /** Event ids that count as "main" level (app, release). Zaps with e-tag in this set appear in the main feed. */
+    mainEventIds?: string[];
   }
 
   let {
@@ -105,6 +109,7 @@
     onCommentSubmit,
     onZapReceived,
     onGetStarted,
+    mainEventIds = [],
   }: Props = $props();
 
   const staticTabs = [
@@ -118,10 +123,17 @@
   let activeTab = $state("comments");
 
   const totalZapAmount = $derived(zaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0));
-  /** Zaps that have a comment (shown in combined feed) */
-  const zapsWithCommentsCount = $derived(zaps.filter((z) => z.comment && z.comment.trim()).length);
-  /** Comment tab badge: comments (roots + replies) + zaps with comments */
-  const totalCommentCount = $derived(comments.length + zapsWithCommentsCount);
+  /** Main feed: zaps on the main event (app/stack). Include zaps with no e-tag or e-tag in mainEventIds (e.g. app id, release id). */
+  const mainIdsSet = $derived(new Set((mainEventIds ?? []).map((id) => id.toLowerCase())));
+  const zapsOnMainEvent = $derived(
+    zaps.filter(
+      (z) =>
+        z.comment &&
+        z.comment.trim() &&
+        (!z.zappedEventId || (z.zappedEventId && mainIdsSet.has(z.zappedEventId.toLowerCase())))
+    )
+  );
+  const totalCommentCount = $derived(comments.length + zapsOnMainEvent.length);
 
   function formatSats(amount: number): string {
     if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
@@ -146,6 +158,7 @@
   }
 
   const commentIds = $derived(new Set(comments.map((c) => c.id)));
+  // Model: main feed = zaps on the main event (app/stack) + root comments. For each item in the feed we have zaps (and comments) on that event; when you open its modal we reuse that same data.
   // Only top-level comments (no parent) are roots in the main feed. Replies to comments or zaps must never appear as roots, so we require !c.parentId. This also avoids zap-thread replies flashing in the main feed before zaps are loaded.
   const isRoot = (c: Comment) => !c.parentId;
 
@@ -222,6 +235,60 @@
     return map;
   });
 
+  /** For each root zap in the feed: zaps on that zap (e-tag = this receipt id). Modal shows these when opened. */
+  const threadZapsByZapId = $derived.by(() => {
+    const norm = (id: string | null | undefined) => (id ?? "").toLowerCase();
+    const byParent = new Map<string, typeof enrichedZaps>();
+    for (const z of enrichedZaps) {
+      const pid = norm(z.zappedEventId);
+      if (!pid) continue;
+      if (!byParent.has(pid)) byParent.set(pid, []);
+      byParent.get(pid)!.push(z);
+    }
+    const map = new Map<string, typeof enrichedZaps>();
+    function collectDescendants(rootId: string): typeof enrichedZaps {
+      const out: typeof enrichedZaps = [];
+      let queue = [rootId.toLowerCase()];
+      while (queue.length) {
+        const pid = queue.shift()!;
+        const children = byParent.get(pid) ?? [];
+        for (const z of children) {
+          out.push(z);
+          queue.push(z.id.toLowerCase());
+        }
+      }
+      return out.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+    }
+    for (const zap of enrichedZaps) {
+      const descendants = collectDescendants(zap.id.toLowerCase());
+      if (descendants.length > 0) map.set(zap.id, descendants);
+    }
+    return map;
+  });
+
+  /** For each root comment in the feed: zaps on any event in that thread. Used when opening the modal for that root comment. */
+  const threadZapsByRootId = $derived.by(() => {
+    const norm = (id: string | null | undefined) => (id ?? "").toLowerCase();
+    const map = new Map<string, typeof enrichedZaps>();
+    for (const root of rootCommentsWithReplies) {
+      const threadCommentIds = new Set<string>();
+      let queue = [root.id];
+      while (queue.length) {
+        const cid = queue.shift()!;
+        threadCommentIds.add(norm(cid));
+        const kids = comments.filter((c) => norm(c.parentId) === norm(cid)).map((c) => c.id);
+        queue.push(...kids);
+      }
+      const zapsInThread = enrichedZaps.filter(
+        (z) => z.zappedEventId && threadCommentIds.has(norm(z.zappedEventId))
+      );
+      if (zapsInThread.length > 0) {
+        map.set(root.id, zapsInThread.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0)));
+      }
+    }
+    return map;
+  });
+
   const enrichedZaps = $derived(
     zaps
       .map((zap) => {
@@ -249,8 +316,15 @@
       timestamp: c.createdAt,
     }));
 
-    const zapsWithComments = enrichedZaps.filter((zap) => zap.comment && zap.comment.trim());
-    const combined = [...commentsWithType, ...zapsWithComments];
+    /** Main feed: root comments + zaps on the main event (app/stack). Include zaps with no e-tag or e-tag in mainEventIds. */
+    const mainIds = new Set((mainEventIds ?? []).map((id) => id.toLowerCase()));
+    const mainEventZapsWithComments = enrichedZaps.filter(
+      (z) =>
+        z.comment &&
+        z.comment.trim() &&
+        (!z.zappedEventId || (z.zappedEventId && mainIds.has(z.zappedEventId.toLowerCase())))
+    );
+    const combined = [...commentsWithType, ...mainEventZapsWithComments];
 
     return combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   });
@@ -323,6 +397,7 @@
                 isZapRoot={true}
                 zapAmount={item.amountSats ?? 0}
                 threadComments={threadByZapId.get(item.id) ?? []}
+                threadZaps={threadZapsByZapId.get(item.id) ?? []}
                 authorPubkey={app?.pubkey}
                 resolveMentionLabel={(pk) => profiles[pk]?.displayName ?? profiles[pk]?.name}
                 appIconUrl={app?.icon}
@@ -337,6 +412,7 @@
                       emojiTags: e.emojiTags,
                       mentions: e.mentions,
                       parentId: e.parentId,
+                      replyToPubkey: e.replyToPubkey,
                       rootPubkey: e.rootPubkey,
                       parentKind: e.parentKind,
                     })
@@ -356,6 +432,7 @@
                 pending={item.pending}
                 replies={item.replies}
                 threadComments={threadByRootId.get(item.id) ?? []}
+                threadZaps={threadZapsByRootId.get(item.id) ?? []}
                 authorPubkey={app?.pubkey}
                 content={item.content}
                 emojiTags={item.emojiTags}
@@ -366,7 +443,7 @@
                 {version}
                 {searchProfiles}
                 {searchEmojis}
-                onReplySubmit={onCommentSubmit ? (e) => onCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, parentId: e.parentId }) : undefined}
+                onReplySubmit={onCommentSubmit ? (e) => onCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, parentId: e.parentId, replyToPubkey: e.replyToPubkey }) : undefined}
                 onZapReceived={onZapReceived}
                 onGetStarted={onGetStarted}
               >

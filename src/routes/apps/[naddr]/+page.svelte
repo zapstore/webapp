@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { browser } from "$app/environment";
   import { Package, X } from "lucide-svelte";
-  import type { App, Release } from "$lib/nostr";
+  import type { App, Release, NostrEvent } from "$lib/nostr";
   import {
     queryStore,
     queryStoreOne,
@@ -280,81 +280,52 @@
     }
   }
 
-  /** Load replies that reference our comments/zaps via #e (e.g. from other apps that don't add #a). */
-  async function loadCommentReplies() {
-    if (!app?.pubkey || !app?.dTag) return;
+  /** Load replies that reference our comments/zaps via #e (e.g. from other apps that don't add #a). Returns all comment ids after merge (so caller can fetch zaps on them). */
+  async function loadCommentReplies(): Promise<string[]> {
+    if (!app?.pubkey || !app?.dTag) return comments.map((c) => c.id);
     const commentIds = comments.map((c) => c.id);
     const zapIds = zaps.map((z) => z.id);
     const allIds = [...new Set([...commentIds, ...zapIds])];
-    if (allIds.length === 0) return;
+    if (allIds.length === 0) return commentIds;
     try {
       const events = await fetchCommentRepliesByE(allIds);
-      const existingIds = new Set(comments.map((c) => c.id));
-      const newEvents = events.filter((ev) => !existingIds.has(ev.id));
-      if (newEvents.length === 0) return;
+      const existingIds = new Set(comments.map((c) => c.id.toLowerCase()));
+      const newEvents = events.filter((ev) => !existingIds.has(ev.id.toLowerCase()));
+      if (newEvents.length === 0) return comments.map((c) => c.id);
       const newParsed = newEvents.map((ev) => {
         const p = parseComment(ev) as ReturnType<typeof parseComment> & { npub?: string };
         p.npub = nip19.npubEncode(ev.pubkey);
         return p;
       });
       comments = [...comments, ...newParsed];
+      return comments.map((c) => c.id);
     } catch (err) {
       console.error("Failed to load comment replies by #e:", err);
+      return comments.map((c) => c.id);
     }
   }
 
-  // Load zaps (optionally include #e for release/metadata ids — legacy, match Flutter)
-  async function loadZaps(eventIds?: string[]) {
+  /** 1) Fetch zaps that tag the main app/stack (#a) → main feed zaps. 2) Then fetch zaps that tag any comment or zap in that main feed (#e) and merge. One level only; deeper zaps later. */
+  async function loadZaps() {
     if (!app?.pubkey || !app?.dTag) return;
 
     zapsLoading = true;
     try {
-      const events = await fetchZaps(app.pubkey, app.dTag, { eventIds });
-      zaps = events.map((e) => ({ ...parseZapReceipt(e), id: e.id }));
+      // Step 1: zaps on the main event (app/stack) only
+      const initialEvents = await fetchZaps(app.pubkey, app.dTag);
+      const byId = new Map(initialEvents.map((e) => [e.id, e]));
 
-      const uniqueSenders = [...new Set(zaps.map((z) => z.senderPubkey).filter(Boolean))] as string[];
-
-      // Hydrate zapper profiles from EventStore first (instant if cached)
-      const nextZapperProfiles = new Map(zapperProfiles);
-      for (const pk of uniqueSenders) {
-        const ev = queryStoreOne({ kinds: [0], authors: [pk] });
-        if (ev?.content) {
-          try {
-            const c = JSON.parse(ev.content) as Record<string, unknown>;
-            nextZapperProfiles.set(pk, {
-              displayName: (c.display_name as string) ?? (c.name as string),
-              name: c.name as string,
-              picture: c.picture as string,
-            });
-          } catch {
-            /* ignore */
-          }
+      const parseOne = (e: NostrEvent) => {
+        const parsed = { ...parseZapReceipt(e), id: e.id };
+        if (!parsed.zappedEventId && e.tags?.length) {
+          const eTag = e.tags.find((t: string[]) => (t[0]?.toLowerCase() === 'e') && t[1]);
+          if (eTag?.[1]) parsed.zappedEventId = eTag[1];
         }
-      }
-      // Assign immediately so root zapper (and others) show from cache without waiting for relays
-      zapperProfiles = new Map(nextZapperProfiles);
+        return parsed;
+      };
 
-      // Fetch from relays for any still missing; update zapperProfiles as each returns so first profile (e.g. root zapper) shows ASAP
-      const missing = uniqueSenders.filter((pk) => !nextZapperProfiles.has(pk)).slice(0, 20);
-      await Promise.all(
-        missing.map(async (pubkey) => {
-          try {
-            const event = await fetchProfile(pubkey);
-            if (event?.content) {
-              const content = JSON.parse(event.content) as Record<string, unknown>;
-              const profile = {
-                displayName: (content.display_name as string) ?? (content.name as string),
-                name: content.name as string,
-                picture: content.picture as string,
-              };
-              nextZapperProfiles.set(pubkey, profile);
-              zapperProfiles = new Map(nextZapperProfiles);
-            }
-          } catch {
-            // Ignore
-          }
-        })
-      );
+      zaps = Array.from(byId.values()).map(parseOne);
+      await hydrateZapperProfiles();
     } catch (err) {
       console.error("Failed to load zaps:", err);
     } finally {
@@ -362,17 +333,94 @@
     }
   }
 
+  /** Fetch zaps that tag any of the given event ids (#e) and merge into zaps. Used for zaps on main-feed comments and zaps. */
+  async function loadZapsByMainFeedIds(mainFeedEventIds: string[]) {
+    if (!app?.pubkey || !app?.dTag || mainFeedEventIds.length === 0) return;
+
+    try {
+      const events = await fetchZaps(app.pubkey, app.dTag, { eventIds: mainFeedEventIds });
+      const existingIds = new Set(zaps.map((z) => z.id.toLowerCase()));
+      const newEvents = events.filter((e) => !existingIds.has(e.id.toLowerCase()));
+      if (newEvents.length === 0) return;
+
+      const parseOne = (e: NostrEvent) => {
+        const parsed = { ...parseZapReceipt(e), id: e.id };
+        if (!parsed.zappedEventId && e.tags?.length) {
+          const eTag = e.tags.find((t: string[]) => (t[0]?.toLowerCase() === 'e') && t[1]);
+          if (eTag?.[1]) parsed.zappedEventId = eTag[1].toLowerCase();
+        }
+        return parsed;
+      };
+
+      const newZaps = newEvents.map(parseOne);
+      const merged = [...zaps];
+      const mergedIds = new Set(merged.map((z) => z.id.toLowerCase()));
+      for (const z of newZaps) {
+        if (!mergedIds.has(z.id.toLowerCase())) {
+          merged.push(z);
+          mergedIds.add(z.id.toLowerCase());
+        }
+      }
+      zaps = merged;
+      await hydrateZapperProfiles();
+    } catch (err) {
+      console.error("Failed to load zaps by main feed ids:", err);
+    }
+  }
+
+  async function hydrateZapperProfiles() {
+    const uniqueSenders = [...new Set(zaps.map((z) => z.senderPubkey).filter(Boolean))] as string[];
+    const nextZapperProfiles = new Map(zapperProfiles);
+    for (const pk of uniqueSenders) {
+      const ev = queryStoreOne({ kinds: [0], authors: [pk] });
+      if (ev?.content) {
+        try {
+          const c = JSON.parse(ev.content) as Record<string, unknown>;
+          nextZapperProfiles.set(pk, {
+            displayName: (c.display_name as string) ?? (c.name as string),
+            name: c.name as string,
+            picture: c.picture as string,
+          });
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    zapperProfiles = new Map(nextZapperProfiles);
+    const missing = uniqueSenders.filter((pk) => !nextZapperProfiles.has(pk)).slice(0, 20);
+    await Promise.all(
+      missing.map(async (pubkey) => {
+        try {
+          const event = await fetchProfile(pubkey);
+          if (event?.content) {
+            const content = JSON.parse(event.content) as Record<string, unknown>;
+            const profile = {
+              displayName: (content.display_name as string) ?? (content.name as string),
+              name: content.name as string,
+              picture: content.picture as string,
+            };
+            nextZapperProfiles.set(pubkey, profile);
+            zapperProfiles = new Map(nextZapperProfiles);
+          }
+        } catch {
+          /* ignore */
+        }
+      })
+    );
+  }
+
   async function handleCommentSubmit(event: {
     text: string;
     emojiTags: { shortcode: string; url: string }[];
     mentions: string[];
     parentId?: string;
+    replyToPubkey?: string;
     rootPubkey?: string;
     parentKind?: number;
   }) {
     const userPubkey = getCurrentPubkey();
     if (!userPubkey || !app) return;
-    const { text, emojiTags: submitEmojiTags, parentId, rootPubkey, parentKind } = event;
+    const { text, emojiTags: submitEmojiTags, parentId, replyToPubkey, rootPubkey, parentKind } = event;
     const tempId = `pending-${Date.now()}`;
     const optimistic: (ReturnType<typeof parseComment> & { pending?: boolean; npub?: string }) = {
       id: tempId,
@@ -394,13 +442,33 @@
         signEvent as (t: import("nostr-tools").EventTemplate) => Promise<import("nostr-tools").NostrEvent>,
         submitEmojiTags,
         parentId,
-        rootPubkey,
+        replyToPubkey ?? rootPubkey,
         parentKind
       );
       const parsed = parseComment(signed) as ReturnType<typeof parseComment> & { npub?: string };
       parsed.npub = nip19.npubEncode(signed.pubkey);
       comments = comments.filter((c) => c.id !== tempId);
       comments = [...comments, parsed];
+      // So the new comment shows our name/avatar: ensure current user's profile is in profiles (cache first, then fetch)
+      const existing = queryStoreOne({ kinds: [0], authors: [userPubkey] });
+      if (existing?.content) {
+        try {
+          const c = JSON.parse(existing.content) as Record<string, unknown>;
+          profiles = { ...profiles, [userPubkey]: { displayName: (c.display_name as string) ?? (c.displayName as string), name: c.name as string, picture: c.picture as string } };
+        } catch {
+          /* ignore */
+        }
+      } else {
+        try {
+          const event = await fetchProfile(userPubkey);
+          if (event?.content) {
+            const content = JSON.parse(event.content) as Record<string, unknown>;
+            profiles = { ...profiles, [userPubkey]: { displayName: (content.display_name as string) ?? (content.displayName as string), name: content.name as string, picture: content.picture as string } };
+          }
+        } catch {
+          /* ignore */
+        }
+      }
     } catch (err) {
       console.error("Failed to publish comment:", err);
       comments = comments.filter((c) => c.id !== tempId);
@@ -418,11 +486,11 @@
       );
       const sorted = events.sort((a, b) => b.created_at - a.created_at);
       releases = sorted.map((e) => parseRelease(e));
-      // Re-fetch zaps with release/metadata ids so we get #e-tagged zaps (legacy)
+      // Re-fetch zaps with release/metadata ids so we get #e-tagged zaps (legacy, match previous behavior)
       const latest = releases[0];
       if (latest && app?.pubkey && app?.dTag) {
-        const ids = [latest.id, ...latest.artifacts];
-        loadZaps(ids);
+        const ids = [latest.id, ...(latest.artifacts ?? [])];
+        loadZapsByMainFeedIds(ids);
       }
     } catch (err) {
       console.error("Failed to load releases:", err);
@@ -615,7 +683,11 @@
     }
 
     // Async cascade: comments, zaps, then replies by #e (so other apps’ replies show)
-    Promise.all([loadComments(), loadZaps()]).then(() => loadCommentReplies());
+    Promise.all([loadComments(), loadZaps()]).then(async () => {
+      const mainFeedZapIds = zaps.filter((z) => !z.zappedEventId).map((z) => z.id);
+      const allCommentIds = await loadCommentReplies();
+      loadZapsByMainFeedIds([...allCommentIds, ...mainFeedZapIds]);
+    });
 
     // Background refresh from relays and load releases
     const schedule =
@@ -917,6 +989,7 @@
       <SocialTabs
         app={app}
         version={latestRelease?.version}
+        mainEventIds={[app?.id, latestRelease?.id].filter(Boolean) as string[]}
         {publisherProfile}
         getAppSlug={(p, d) => (app ? (app.naddr || encodeAppNaddr(p, d)) : "")}
         pubkeyToNpub={(pk) => nip19.npubEncode(pk)}
@@ -927,6 +1000,7 @@
           createdAt: z.createdAt,
           comment: z.comment,
           emojiTags: z.emojiTags ?? [],
+          zappedEventId: z.zappedEventId ?? undefined,
         }))}
         {zapperProfiles}
         {comments}
@@ -938,7 +1012,17 @@
         searchProfiles={searchProfiles}
         searchEmojis={searchEmojis}
         onCommentSubmit={handleCommentSubmit}
-        onZapReceived={() => loadZaps()}
+        onZapReceived={() => {
+          function refetchZapsAndThreads() {
+            loadZaps().then(async () => {
+              const mainFeedZapIds = zaps.filter((z) => !z.zappedEventId).map((z) => z.id);
+              const allCommentIds = await loadCommentReplies();
+              loadZapsByMainFeedIds([...allCommentIds, ...mainFeedZapIds]);
+            });
+          }
+          refetchZapsAndThreads();
+          setTimeout(refetchZapsAndThreads, 2500);
+        }}
         onGetStarted={() => (getStartedModalOpen = true)}
       />
     </div>
@@ -1136,7 +1220,7 @@
 
   <!-- Bottom Bar: shown for everyone; guests see "Get started to comment" and can zap with anon keypair. -->
   {#if app}
-  {@const zapTarget = app ? { name: app.name, pubkey: app.pubkey, dTag: app.dTag, id: app.id, pictureUrl: publisherPictureUrl } : null}
+  {@const zapTarget = app ? { name: app.name, pubkey: app.pubkey, dTag: app.dTag, id: latestRelease?.id ?? app.id, pictureUrl: publisherPictureUrl } : null}
   <BottomBar
     appName={app.name || ""}
     {publisherName}

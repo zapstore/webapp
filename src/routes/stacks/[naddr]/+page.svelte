@@ -312,12 +312,13 @@
     emojiTags: { shortcode: string; url: string }[];
     mentions: string[];
     parentId?: string;
+    replyToPubkey?: string;
     rootPubkey?: string;
     parentKind?: number;
   }) {
     const userPubkey = getCurrentPubkey();
     if (!userPubkey || !stack) return;
-    const { text, emojiTags: submitEmojiTags, parentId, rootPubkey, parentKind } = event;
+    const { text, emojiTags: submitEmojiTags, parentId, replyToPubkey, rootPubkey, parentKind } = event;
     const tempId = `pending-${Date.now()}`;
     const optimistic: (ReturnType<typeof parseComment> & { pending?: boolean; npub?: string }) = {
       id: tempId,
@@ -339,7 +340,7 @@
         signEvent as (t: import("nostr-tools").EventTemplate) => Promise<import("nostr-tools").NostrEvent>,
         submitEmojiTags,
         parentId,
-        rootPubkey,
+        replyToPubkey ?? rootPubkey,
         parentKind
       );
       const parsed = parseComment(signed) as ReturnType<typeof parseComment> & { npub?: string };

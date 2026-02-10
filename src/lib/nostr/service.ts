@@ -1017,13 +1017,13 @@ function buildZapFilter(pubkey: string, identifier: string): Filter {
 }
 
 /**
- * Fetch zaps for an app.
- * Uses kind 9735 (zap receipt) referencing the app via 'a' tag.
- * Fetches with both #a and #A (some relays use uppercase) then dedupes.
+ * Fetch zaps per NIP-57. Zaps on the app event only — #a / #A only (no #p; that pulls in random profile zaps from other apps).
+ * - Main event: #a / #A so receipt must have app a-tag (we send it on every zap from the app page).
+ * - Zaps on other events: #e with event ids (comment or zap receipt ids).
  *
  * @param pubkey - App publisher's pubkey
  * @param identifier - App's d-tag identifier
- * @param options - Fetch options
+ * @param options - Fetch options; eventIds = comment or zap receipt ids to fetch zaps ON those events
  * @returns Array of zap receipt events
  */
 export async function fetchZaps(
@@ -1038,23 +1038,25 @@ export async function fetchZaps(
 	}
 
 	const aTagValue = `32267:${pubkey}:${identifier}`;
-	const filterLower = { kinds: [9735] as number[], '#a': [aTagValue], limit: 100 };
-	const filterUpper = { kinds: [9735] as number[], '#A': [aTagValue], limit: 100 };
-
-	console.log(`[NostrService] Fetching zaps for app: ${pubkey.slice(0, 8)}:${identifier}...`);
-
-	const [eventsLower, eventsUpper] = await Promise.all([
-		fetchEvents(filterLower, { relays, timeout, signal }),
-		fetchEvents(filterUpper, { relays, timeout, signal })
-	]);
-
 	const byId = new Map<string, NostrEvent>();
-	for (const e of [...eventsLower, ...eventsUpper]) {
-		if (!byId.has(e.id)) byId.set(e.id, e);
+
+	// 1) Zaps on the app event ONLY: #a / #A. No #p — that returns zaps to the profile from anywhere (other apps, notes), not just this app.
+	// To get more app zaps: always send the app a-tag in zap requests from this app page so receipts have it and we find them here.
+	const filtersMain: Filter[] = [
+		{ kinds: [9735] as number[], '#a': [aTagValue], limit: 100 },
+		{ kinds: [9735] as number[], '#A': [aTagValue], limit: 100 },
+	];
+	const mainResults = await Promise.all(
+		filtersMain.map((f) => fetchEvents(f, { relays, timeout, signal }))
+	);
+	for (const events of mainResults) {
+		for (const e of events) {
+			if (!byId.has(e.id)) byId.set(e.id, e);
+		}
 	}
 
-	// Also fetch zaps that reference release/metadata via #e (legacy, match Flutter app)
-	const eventIds = options.eventIds ?? [];
+	// 2) Zaps on specific events (comments or zap receipts): NIP-57 Appendix F — #e with those event ids (normalized lowercase for relay matching)
+	const eventIds = (options.eventIds ?? []).map((id) => id.trim().toLowerCase()).filter((id) => /^[a-f0-9]{64}$/.test(id));
 	if (eventIds.length > 0 && !signal?.aborted) {
 		const filterE = { kinds: [9735] as number[], '#e': eventIds, limit: 100 };
 		const filterEUpper = { kinds: [9735] as number[], '#E': eventIds, limit: 100 };
@@ -1099,7 +1101,8 @@ export function watchZaps(
 }
 
 /**
- * Parse a zap receipt to extract sender, amount, comment, and emoji tags (from zap request in description).
+ * Parse a zap receipt to extract sender, amount, comment, emoji tags (from zap request in description),
+ * and zappedEventId (event id that was zapped, from zap request 'e' tag — for zaps on zaps).
  */
 export function parseZapReceipt(event: NostrEvent): {
 	senderPubkey: string | null;
@@ -1108,6 +1111,8 @@ export function parseZapReceipt(event: NostrEvent): {
 	comment: string;
 	emojiTags: { shortcode: string; url: string }[];
 	createdAt: number;
+	/** Event id that was zapped (parent zap receipt or other event); from zap request e-tag. */
+	zappedEventId: string | null;
 } {
 	const result = {
 		senderPubkey: null as string | null,
@@ -1115,7 +1120,8 @@ export function parseZapReceipt(event: NostrEvent): {
 		amountSats: 0,
 		comment: '',
 		emojiTags: [] as { shortcode: string; url: string }[],
-		createdAt: event.created_at
+		createdAt: event.created_at,
+		zappedEventId: null as string | null
 	};
 
 	// Get recipient pubkey from 'p' tag
@@ -1144,6 +1150,10 @@ export function parseZapReceipt(event: NostrEvent): {
 		}
 	}
 
+	// e-tag: event that was zapped (comment or zap receipt id). Normalize to lowercase so threadZapsByRootId matching works.
+	const receiptETag = event.tags.find((t): t is [string, string, ...string[]] => (t[0]?.toLowerCase() === 'e') && !!t[1]);
+	if (receiptETag?.[1]) result.zappedEventId = receiptETag[1].toLowerCase();
+
 	// Parse the description tag which contains the original zap request (NIP-57)
 	const descTag = event.tags.find(t => t[0] === 'description');
 	if (descTag && descTag[1]) {
@@ -1151,6 +1161,11 @@ export function parseZapReceipt(event: NostrEvent): {
 			const zapRequest = JSON.parse(descTag[1]) as NostrEvent;
 			result.senderPubkey = zapRequest.pubkey;
 			result.comment = zapRequest.content || '';
+			// e-tag from zap request if not already set from receipt
+			if (result.zappedEventId == null) {
+				const eTag = zapRequest.tags?.find((t): t is [string, string, ...string[]] => t[0] === 'e' && !!t[1]);
+				if (eTag?.[1]) result.zappedEventId = eTag[1].toLowerCase();
+			}
 			// Extract NIP-30 emoji tags from zap request (same as comments)
 			const seen = new Set<string>();
 			for (const tag of zapRequest.tags ?? []) {
@@ -1190,8 +1205,11 @@ export async function publishComment(
 	replyToPubkey?: string,
 	parentKind?: number
 ): Promise<NostrEvent> {
-	if (!content?.trim() || !target.pubkey || !target.identifier) {
-		throw new Error('Comment content and target (pubkey, identifier) are required');
+	if (!content?.trim()) {
+		throw new Error('Comment content is required');
+	}
+	if (!target?.pubkey?.trim() || !target?.identifier?.trim()) {
+		throw new Error('Comment target (pubkey, identifier) is required so the event has an a-tag (kind 1111 / NIP-22).');
 	}
 
 	const kind = 32267; // app
@@ -1200,10 +1218,17 @@ export async function publishComment(
 		target.contentType === 'app'
 			? `${kind}:${target.pubkey}:${target.identifier}`
 			: `${stackKind}:${target.pubkey}:${target.identifier}`;
+	if (!aTagValue || aTagValue.length < 10) {
+		throw new Error('Invalid comment target: a-tag is required for kind 1111.');
+	}
 
-	// Build tags in order (NIP-22): a, e, k, K, P, p, emoji
-	// Strict relays require "e" value to be exactly 64 lowercase hex chars (NIP-01).
-	const tags: [string, string, ...string[]][] = [['a', aTagValue]];
+	// NIP-22 kind 1111: root scope (a), root kind (K), root pubkey (P); then parent (e, k, p) if reply. Lowercase a/e only.
+	const rootKind = target.contentType === 'app' ? kind : stackKind;
+	const tags: [string, string, ...string[]][] = [
+		['a', aTagValue],
+		['K', String(rootKind)],
+		['P', target.pubkey.trim().toLowerCase()]
+	];
 
 	if (parentEventId) {
 		const eId = parentEventId.trim().toLowerCase();
@@ -1213,16 +1238,10 @@ export async function publishComment(
 			);
 		}
 		tags.push(['e', eId]);
-		if (parentKind !== undefined) {
-			tags.push(['k', String(parentKind)]);
+		tags.push(['k', String(parentKind ?? 1111)]);
+		if (replyToPubkey) {
+			tags.push(['p', replyToPubkey.trim().toLowerCase()]);
 		}
-		if (parentKind === 9735 && replyToPubkey) {
-			tags.push(['K', '9735']);
-			tags.push(['P', replyToPubkey.trim().toLowerCase()]);
-		}
-	}
-	if (replyToPubkey) {
-		tags.push(['p', replyToPubkey.trim().toLowerCase()]);
 	}
 	const emojiList = emojiTags ?? [];
 	if (emojiList.length > 0) {

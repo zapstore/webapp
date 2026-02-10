@@ -22,6 +22,8 @@ export interface ZapTarget {
 	name?: string;
 	pubkey?: string;
 	dTag?: string;
+	/** App coordinate (32267:pubkey:dTag) for a-tag when zapping from app context. Keeps request consistent and receipts discoverable by #a. */
+	aTag?: string;
 	id?: string;
 	pictureUrl?: string;
 }
@@ -41,7 +43,7 @@ export type SignEvent = (template: EventTemplate) => Promise<NostrEvent | unknow
  * publishes the receipt. Caller can subscribe via subscribeToZapReceipt and/or
  * refetch zaps (e.g. loadZaps) when the user indicates payment is done.
  *
- * @param target - Recipient app/profile (pubkey required; dTag + id for a/e tags)
+ * @param target - p = author we're zapping (Lightning recipient); e = event id (comment or zap receipt). For zap-on-zap: e = receipt id, p = zap-request author.
  * @param amountSats - Amount in satoshis
  * @param comment - Optional zap message
  * @param signEvent - Auth signer (e.g. from auth store)
@@ -54,8 +56,13 @@ export async function createZap(
 	signEvent: SignEvent,
 	emojiTags?: { shortcode: string; url: string }[]
 ): Promise<CreateZapResult> {
-	if (!target?.pubkey) {
+	if (!target?.pubkey?.trim()) {
 		throw new Error('Zap target must have a pubkey');
+	}
+	// Normalize to lowercase hex so profile lookup and wallet parsing work (NIP-57 expects hex p-tag)
+	const recipientHex = target.pubkey.trim().toLowerCase();
+	if (!/^[a-f0-9]{64}$/.test(recipientHex)) {
+		throw new Error('Zap target pubkey must be a 64-character hex string');
 	}
 	const amountMillisats = Math.round(amountSats) * 1000;
 	if (amountMillisats < 1000) {
@@ -63,7 +70,7 @@ export async function createZap(
 	}
 
 	// 1. Get recipient profile for lud16
-	const profileEvent = await fetchProfile(target.pubkey);
+	const profileEvent = await fetchProfile(recipientHex);
 	if (!profileEvent?.content) {
 		throw new Error('Could not load recipient profile');
 	}
@@ -99,22 +106,26 @@ export async function createZap(
 		throw new Error(`Comment too long. Maximum ${lnurlData.commentAllowed} characters.`);
 	}
 
-	// 3. Build zap request (kind 9734) tags
+	// 3. Build zap request (kind 9734) — tag order must match grimoire/NIP-57 so wallets recognize it: p, amount, relays, lnurl, then e, then a (see grimoire-main/src/lib/create-zap-request.ts).
 	const relays: string[] = [...DEFAULT_SOCIAL_RELAYS].slice(0, 10);
 	const tags: [string, string, ...string[]][] = [
-		['p', target.pubkey],
+		['p', recipientHex],
 		['amount', amountMillisats.toString()],
-		['relays', relays[0] ?? '', ...relays.slice(1)],
+		['relays', ...relays],
 		['lnurl', lud16]
 	];
-
-	// a-tag for app context (NIP-57) so receipt is tied to the app
-	if (target.pubkey && target.dTag) {
-		tags.push(['a', `32267:${target.pubkey}:${target.dTag}`]);
+	// e-tag when zapping an event (comment, zap receipt, release) — after amount/relays/lnurl so wallet sees standard zap shape.
+	if (target.id?.trim()) {
+		const eId = target.id.trim().toLowerCase();
+		if (/^[a-f0-9]{64}$/.test(eId)) {
+			tags.push(['e', eId]);
+		}
 	}
-	// e-tag if zapping a specific event (e.g. release)
-	if (target.id) {
-		tags.push(['e', target.id]);
+	// a-tag only when zapping the app/stack itself. Omit for comment/zap-on-zap.
+	if (target.aTag) {
+		tags.push(['a', target.aTag]);
+	} else if (target.dTag && recipientHex) {
+		tags.push(['a', `32267:${recipientHex}:${target.dTag}`]);
 	}
 	if (emojiTags?.length) {
 		const seen = new Set<string>();
