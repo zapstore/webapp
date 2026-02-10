@@ -1,5 +1,7 @@
 import { dev } from '$app/environment';
 
+export const prerender = true;
+
 interface PostModule {
 	metadata?: {
 		title?: string;
@@ -26,7 +28,7 @@ export function load(): { posts: Post[] } {
 		// Keep: /src/content/blog/<folder>/_index.md
 		const rel = path.replace('/src/content/blog/', '');
 		const parts = rel.split('/');
-		
+
 		if (parts.length === 1) {
 			// top-level file
 			posts.push({

@@ -8,6 +8,8 @@
 import { fetchAppsByReleases } from '$lib/nostr/server';
 import type { PageServerLoad } from './$types';
 
+export const prerender = true;
+
 const PAGE_SIZE = 40;
 
 export const load: PageServerLoad = async () => {

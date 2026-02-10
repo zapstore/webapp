@@ -2,6 +2,8 @@ import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import type { Component } from 'svelte';
 
+export const prerender = true;
+
 interface PostModule {
 	default: Component;
 	metadata?: {
