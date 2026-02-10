@@ -5,11 +5,19 @@
    */
   import { onDestroy } from "svelte";
   import { Loader2, AlertCircle, CheckCircle, Copy, Check } from "lucide-svelte";
+  import { generateSecretKey, finalizeEvent } from "nostr-tools/pure";
+  import type { EventTemplate, NostrEvent } from "nostr-tools/pure";
   import { createZap, subscribeToZapReceipt } from "$lib/nostr";
-  import { getIsSignedIn, getIsConnecting, connect, signEvent } from "$lib/stores/auth.svelte";
+  import { getIsSignedIn, signEvent } from "$lib/stores/auth.svelte";
   import Modal from "$lib/components/common/Modal.svelte";
   import ZapSlider from "./ZapSlider.svelte";
   import Zap from "$lib/components/icons/Zap.svelte";
+
+  /** Sign zap request with a fresh random keypair (for guest zaps). */
+  async function signWithAnonymousKey(template: EventTemplate): Promise<NostrEvent> {
+    const sk = generateSecretKey();
+    return finalizeEvent(template, sk) as NostrEvent;
+  }
 
   type ProfileHit = { pubkey: string; name?: string; displayName?: string; picture?: string };
   type EmojiHit = { shortcode: string; url: string; source: string };
@@ -73,7 +81,6 @@
   let lastEmojiTags = $state<{ shortcode: string; url: string }[]>([]);
 
   const isConnected = $derived(getIsSignedIn());
-  const isConnecting = $derived(getIsConnecting());
 
   const qrCodeUrl = $derived(
     invoice
@@ -130,14 +137,6 @@
     handleZap();
   }
 
-  async function handleSignIn() {
-    try {
-      await connect();
-    } catch (err) {
-      error = err instanceof Error ? err.message : "Failed to sign in";
-    }
-  }
-
   async function handleZap() {
     if (loading || zapValue < 1) return;
     // Show invoice step immediately with skeleton; createZap runs in background
@@ -151,11 +150,14 @@
       const serialized = sliderComponent?.getSerializedContent?.();
       const commentText = serialized?.text?.trim() ?? message;
       const emojiTagsToSend = (serialized?.emojiTags?.length ? serialized.emojiTags : lastEmojiTags) ?? [];
+      const signer = isConnected
+        ? (signEvent as (t: EventTemplate) => Promise<unknown>)
+        : signWithAnonymousKey;
       const result = await createZap(
         target,
         Math.round(zapValue),
         commentText,
-        signEvent as (t: import("nostr-tools/pure").EventTemplate) => Promise<unknown>,
+        signer,
         emojiTagsToSend.length ? emojiTagsToSend : undefined
       );
       invoice = result.invoice;
@@ -280,27 +282,8 @@
       </div>
     {/if}
 
-    {#if !isConnected}
-      <div class="sign-in-prompt">
-        <div class="sign-in-icon">
-          <Zap variant="fill" size={32} color="hsl(var(--goldColor))" />
-        </div>
-        <p class="sign-in-text">Sign in with Nostr to send zaps</p>
-        <button
-          type="button"
-          class="btn-primary-large"
-          onclick={handleSignIn}
-          disabled={isConnecting}
-        >
-          {#if isConnecting}
-            <Loader2 size={18} class="animate-spin" />
-            <span>Connecting...</span>
-          {:else}
-            <span>Sign in with Nostr</span>
-          {/if}
-        </button>
-      </div>
-    {:else if step === "slider"}
+    {#if step === "slider"}
+      <!-- Same zap flow for guest (anon keypair) and signed-in users -->
       <div class="pt-4">
         <h2 class="text-display text-4xl text-foreground text-center mb-2">Zap</h2>
         <p class="text-base text-muted-foreground text-center mb-4">
@@ -404,28 +387,6 @@
     border-radius: var(--radius-12);
     color: hsl(var(--destructive));
     font-size: 14px;
-  }
-  .sign-in-prompt {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 32px 16px;
-    text-align: center;
-  }
-  .sign-in-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 64px;
-    height: 64px;
-    background: hsl(var(--goldColor) / 0.1);
-    border-radius: 50%;
-    margin-bottom: 16px;
-  }
-  .sign-in-text {
-    color: hsl(var(--white66));
-    font-size: 14px;
-    margin-bottom: 20px;
   }
   .invoice-view {
     display: flex;

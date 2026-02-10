@@ -79,6 +79,8 @@
     searchEmojis?: (query: string) => Promise<{ shortcode: string; url: string; source: string }[]>;
     onCommentSubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[]; parentId?: string; rootPubkey?: string; parentKind?: number }) => void;
     onZapReceived?: (event: { zapReceipt: unknown }) => void;
+    /** When guest taps "Get started to comment" in a thread (opens onboarding). */
+    onGetStarted?: () => void;
   }
 
   let {
@@ -102,6 +104,7 @@
     searchEmojis = async () => [],
     onCommentSubmit,
     onZapReceived,
+    onGetStarted,
   }: Props = $props();
 
   const staticTabs = [
@@ -143,13 +146,8 @@
   }
 
   const commentIds = $derived(new Set(comments.map((c) => c.id)));
-  /** All zap receipt ids (so replies to zaps are not shown as roots in the feed) */
-  const zapIds = $derived(new Set(zaps.map((z) => z.id)));
-  // Root only if: no parent or parent is another comment; and parent is not a zap. When zaps not loaded yet, only show as root comments with no parent (avoids glitch of zap-thread comments flashing in main feed).
-  const isRoot = (c: Comment) =>
-    (!c.parentId || commentIds.has(c.parentId)) &&
-    (c.parentId == null || !zapIds.has(c.parentId)) &&
-    (c.parentId == null || (zaps.length > 0 && !zapsLoading));
+  // Only top-level comments (no parent) are roots in the main feed. Replies to comments or zaps must never appear as roots, so we require !c.parentId. This also avoids zap-thread replies flashing in the main feed before zaps are loaded.
+  const isRoot = (c: Comment) => !c.parentId;
 
   const rootComments = $derived(
     comments
@@ -344,6 +342,7 @@
                     })
                   : undefined}
                 onZapReceived={onZapReceived}
+                onGetStarted={onGetStarted}
               />
             {:else}
               <RootComment
@@ -369,6 +368,7 @@
                 {searchEmojis}
                 onReplySubmit={onCommentSubmit ? (e) => onCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, parentId: e.parentId }) : undefined}
                 onZapReceived={onZapReceived}
+                onGetStarted={onGetStarted}
               >
               </RootComment>
             {/if}

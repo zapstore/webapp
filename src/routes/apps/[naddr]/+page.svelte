@@ -83,6 +83,7 @@
   let releasesModalOpen = $state(false);
   let releaseNotesExpanded = $state<Set<string>>(new Set());
   let downloadModalOpen = $state(false);
+  let getStartedModalOpen = $state(false);
   let securityModalOpen = $state(false);
   let suggestionApps = $state<App[]>([]);
   let suggestionsLoading = $state(true);
@@ -717,6 +718,7 @@
     {catalogs}
     catalogText="In Zapstore"
     showPublisher={true}
+    bind:getStartedModalOpen
   />
 
   <div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 pb-24">
@@ -937,6 +939,7 @@
         searchEmojis={searchEmojis}
         onCommentSubmit={handleCommentSubmit}
         onZapReceived={() => loadZaps()}
+        onGetStarted={() => (getStartedModalOpen = true)}
       />
     </div>
 
@@ -1131,8 +1134,8 @@
     {/if}
   </div>
 
-  <!-- Bottom Bar (owns Comment + ZapSlider modals; bar slides out when either open). Only show when user is logged in. -->
-  {#if app && getIsSignedIn()}
+  <!-- Bottom Bar: shown for everyone; guests see "Get started to comment" and can zap with anon keypair. -->
+  {#if app}
   {@const zapTarget = app ? { name: app.name, pubkey: app.pubkey, dTag: app.dTag, id: app.id, pictureUrl: publisherPictureUrl } : null}
   <BottomBar
     appName={app.name || ""}
@@ -1140,6 +1143,8 @@
     contentType="app"
     {zapTarget}
     {otherZaps}
+    isSignedIn={getIsSignedIn()}
+    onGetStarted={() => (getStartedModalOpen = true)}
     searchProfiles={searchProfiles}
     searchEmojis={searchEmojis}
     oncommentSubmit={(e) =>

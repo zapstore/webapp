@@ -66,6 +66,7 @@
   let comments = $state<(ReturnType<typeof parseComment> & { pending?: boolean; npub?: string })[]>([]);
   let commentsLoading = $state(false);
   let commentsError = $state("");
+  let getStartedModalOpen = $state(false);
   let profiles = $state<Record<string, { displayName?: string; name?: string; picture?: string } | null>>({});
   let profilesLoading = $state(false);
 
@@ -422,9 +423,10 @@
     {catalogs}
     catalogText="In Zapstore"
     showPublisher={true}
+    bind:getStartedModalOpen
   />
 {:else if stack}
-  <DetailHeader {catalogs} catalogText="In Zapstore" showPublisher={false} />
+  <DetailHeader {catalogs} catalogText="In Zapstore" showPublisher={false} bind:getStartedModalOpen />
 {/if}
 
 <section class="stack-page">
@@ -530,14 +532,15 @@
           searchEmojis={searchEmojis}
           onCommentSubmit={handleCommentSubmit}
           onZapReceived={() => {}}
+          onGetStarted={() => (getStartedModalOpen = true)}
         />
       </div>
     {/if}
   </div>
 </section>
 
-<!-- Bottom Bar: only show when user is logged in -->
-{#if stack && getIsSignedIn()}
+<!-- Bottom Bar: shown for everyone; guests see "Get started to comment" and can zap with anon keypair. -->
+{#if stack}
   {@const zapTarget = stack ? {
     name: stack.title || displayTitle,
     pubkey: stack.pubkey,
@@ -550,6 +553,8 @@
     contentType="stack"
     {zapTarget}
     otherZaps={[]}
+    isSignedIn={getIsSignedIn()}
+    onGetStarted={() => (getStartedModalOpen = true)}
     searchProfiles={searchProfiles}
     searchEmojis={searchEmojis}
     oncommentSubmit={(e) =>

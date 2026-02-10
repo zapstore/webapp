@@ -47,6 +47,8 @@
 		showPublisher?: boolean;
 		/** When set, header is hidden until user scrolls past this px (e.g. 164 for profile page). */
 		scrollThreshold?: number;
+		/** Bindable: when set to true from parent (e.g. from BottomBar "Get started to comment"), opens the Get Started onboarding modal. */
+		getStartedModalOpen?: boolean;
 	}
 
 	let {
@@ -58,7 +60,8 @@
 		catalogs = [],
 		catalogText = 'In Zapstore',
 		showPublisher = true,
-		scrollThreshold
+		scrollThreshold,
+		getStartedModalOpen = $bindable(false)
 	}: Props = $props();
 
 	// Reactive Zapstore profile from store (populated by profile-search from EventStore/relays)
@@ -90,7 +93,6 @@
 	let catalogDropdownContainer = $state<HTMLElement | null>(null);
 	let searchOpen = $state(false);
 	let searchQuery = $state('');
-	let getStartedModalOpen = $state(false);
 	let spinKeyModalOpen = $state(false);
 	let onboardingBuildingModalOpen = $state(false);
 	let onboardingProfileName = $state('');

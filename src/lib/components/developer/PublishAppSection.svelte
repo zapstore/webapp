@@ -1,9 +1,9 @@
-<script>
+<script lang="ts">
 	import { onMount } from 'svelte';
 	import { assets } from '$app/paths';
 	import { ChevronRight } from '$lib/components/icons';
 
-	let sectionElement;
+	let sectionElement: HTMLElement | undefined;
 	let scrollProgress = 0;
 	let chainLeftOffset = 0;
 	let chainRightOffset = 0;

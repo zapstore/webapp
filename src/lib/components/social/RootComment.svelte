@@ -67,6 +67,8 @@
     searchEmojis?: (query: string) => Promise<{ shortcode: string; url: string; source: string }[]>;
     onReplySubmit?: (event: { text: string; emojiTags: { shortcode: string; url: string }[]; mentions: string[]; parentId: string; rootPubkey?: string; parentKind?: number }) => void;
     onZapReceived?: (event: { zapReceipt: unknown }) => void;
+    /** When guest taps "Get started to comment" in thread bar (opens onboarding). */
+    onGetStarted?: () => void;
   }
 
   let {
@@ -96,6 +98,7 @@
     searchEmojis = async () => [],
     onReplySubmit,
     onZapReceived,
+    onGetStarted,
   }: Props = $props();
 
   let modalOpen = $state(false);
@@ -186,8 +189,9 @@
   /** Active zap target (override when Zap chosen from a reply's menu) */
   const zapTarget = $derived(zapTargetOverride ?? rootZapTarget);
 
+  /** Show Zap + Comment (or "Get started to comment" for guests) in thread modal when we have handlers and a root id. */
   const showThreadActions = $derived(
-    getIsSignedIn() && (onReplySubmit != null || onZapReceived != null) && (id != null || pubkey != null)
+    (onReplySubmit != null || onZapReceived != null || onGetStarted != null) && (id != null || pubkey != null)
   );
 
   function openActionsModal(target: "root" | ReplyComment) {
@@ -497,11 +501,21 @@
               <span>Zap</span>
             </button>
 
-            <InputButton placeholder="Comment" onclick={handleReply}>
-              {#snippet icon()}
-                <Reply variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
-              {/snippet}
-            </InputButton>
+            {#if getIsSignedIn()}
+              <InputButton placeholder="Comment" onclick={handleReply}>
+                {#snippet icon()}
+                  <Reply variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
+                {/snippet}
+              </InputButton>
+            {:else}
+              <button
+                type="button"
+                class="thread-get-started-comment-btn"
+                onclick={() => onGetStarted?.()}
+              >
+                <span class="get-started-text">Get started with Zapstore to comment</span>
+              </button>
+            {/if}
 
             <button type="button" class="btn-secondary-large btn-secondary-dark options-button" onclick={handleOptions}>
               <Options variant="fill" size={20} color="hsl(var(--white33))" />
@@ -731,6 +745,34 @@
     gap: 8px;
     padding: 0 20px 0 14px;
     flex-shrink: 0;
+  }
+
+  /* Same look as Comment InputButton: border, bg, height, radius */
+  .thread-get-started-comment-btn {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    height: 42px;
+    padding: 0 16px;
+    background-color: hsl(var(--black33));
+    border-radius: 16px;
+    border: 0.33px solid hsl(var(--white33));
+    cursor: pointer;
+    justify-content: flex-start;
+  }
+  .thread-get-started-comment-btn .get-started-text {
+    color: hsl(var(--white33));
+    font-size: 16px;
+    font-weight: 500;
+  }
+  @media (max-width: 767px) {
+    .thread-get-started-comment-btn {
+      height: 38px;
+    }
+    .thread-get-started-comment-btn .get-started-text {
+      font-size: 14px;
+    }
   }
 
   .options-button {
