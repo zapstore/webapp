@@ -111,7 +111,7 @@ export async function createZap(
 	const tags: [string, string, ...string[]][] = [
 		['p', recipientHex],
 		['amount', amountMillisats.toString()],
-		['relays', ...relays],
+		['relays', relays[0] ?? '', ...relays.slice(1)],
 		['lnurl', lud16]
 	];
 	// e-tag when zapping an event (comment, zap receipt, release) — after amount/relays/lnurl so wallet sees standard zap shape.

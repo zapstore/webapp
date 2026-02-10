@@ -14,6 +14,7 @@ import { queryStore, queryStoreOne, watchEvents, fetchEvents } from '$lib/nostr'
 import { parseProfile } from '$lib/nostr/models';
 import { PROFILE_RELAYS } from '$lib/config';
 import { nip19 } from 'nostr-tools';
+import type { NostrEvent } from '$lib/nostr';
 
 const KIND_PROFILE = 0;
 const KIND_CONTACT_LIST = 3;
@@ -59,7 +60,7 @@ export interface ZapstoreProfile {
 /** Reactive store: Zapstore profile (picture, name) when loaded from EventStore/relays. Null until then. */
 export const zapstoreProfileStore = writable<ZapstoreProfile | null>(null);
 
-function setZapstoreProfileFromEvent(event: { content: string } | null): void {
+function setZapstoreProfileFromEvent(event: NostrEvent | null): void {
 	if (!event) return;
 	const p = parseProfile(event);
 	zapstoreProfileStore.set({
