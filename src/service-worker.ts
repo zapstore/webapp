@@ -123,16 +123,19 @@ sw.addEventListener('fetch', (event) => {
 		return;
 	}
 
-	// Skip other external requests
-	if (url.origin !== sw.location.origin) return;
-
-	// For static assets: cache-first
-	if (PRECACHE_ASSETS.includes(url.pathname)) {
+	// Precached assets: cache-first (works for same-origin paths or cross-origin CDN URLs when PUBLIC_ASSET_BASE is set)
+	const urlString = event.request.url;
+	const isPrecached =
+		PRECACHE_ASSETS.includes(urlString) || PRECACHE_ASSETS.includes(url.pathname);
+	if (isPrecached) {
 		event.respondWith(
 			caches.match(event.request).then((cached) => cached || fetch(event.request))
 		);
 		return;
 	}
+
+	// Skip other external requests (e.g. third-party APIs)
+	if (url.origin !== sw.location.origin) return;
 
 	// For HTML pages: network-first with cache fallback
 	if (event.request.headers.get('accept')?.includes('text/html')) {

@@ -36,7 +36,7 @@ and browsing apps distributed via Nostr app catalogs.
 2. Never modify files in `spec/guidelines/` without explicit permission
 3. If a spec is unclear, report it—do not guess
 4. Prefer small, localized changes. Avoid unrelated refactors.
-5. After dependency changes, run: `pnpm install`
+5. After dependency changes, run: `bun install`
 6. Fix any TypeScript/lint errors introduced by your changes
 
 ## Spec-First Workflow
@@ -56,10 +56,10 @@ For non-trivial work, changes are not complete unless:
 ## Key Commands
 
 ```bash
-pnpm dev      # Development server
-pnpm build    # Build for production (prerenders all pages)
-pnpm preview  # Preview production build
-pnpm check    # TypeScript check
+bun run dev      # Development server
+bun run build    # Build for production (prerenders all pages)
+bun run preview  # Preview production build
+bun run check    # TypeScript check
 ```
 
 ## Architecture Summary

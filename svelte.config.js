@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-static';
+import adapter from '@sveltejs/adapter-node';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import { mdsvex, defineMDSveXConfig } from 'mdsvex';
 import rehypeSlug from 'rehype-slug';
@@ -68,15 +68,11 @@ const config = {
 	preprocess: [vitePreprocess(), mdsvex(mdsvexConfig)],
 
 	kit: {
-		// Static adapter for platform-agnostic deployment
-		adapter: adapter({
-			pages: 'build',
-			assets: 'build',
-			fallback: 'index.html', // SPA fallback for client-side routing
-			precompress: true,
-			strict: true
-		}),
-
+		adapter: adapter(),
+		// When PUBLIC_ASSET_BASE is set (e.g. https://assets.example.com), built assets are loaded from CDN
+		paths: {
+			assets: process.env.PUBLIC_ASSET_BASE || ''
+		},
 		alias: {
 			$lib: './src/lib',
 			$components: './src/lib/components',

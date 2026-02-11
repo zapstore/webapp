@@ -24,9 +24,10 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Lock files (using pnpm)
+# Lock files (using bun)
 package-lock.json
 yarn.lock
+pnpm-lock.yaml
 
 website
 zapstore

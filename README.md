@@ -15,13 +15,13 @@ Enables discovering apps, viewing detailed metadata, and connecting users to the
 Install dependencies:
 
 ```bash
-pnpm install
+bun install
 ```
 
 Start the development server:
 
 ```bash
-pnpm dev
+bun run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
@@ -29,11 +29,11 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 ## Other Commands
 
 ```bash
-pnpm build      # Build for production
-pnpm preview    # Preview production build
-pnpm check      # Run TypeScript checks
-pnpm lint       # Run ESLint
-pnpm format     # Format code with Prettier
+bun run build      # Build for production
+bun run preview    # Preview production build
+bun run check      # Run TypeScript checks
+bun run lint       # Run ESLint
+bun run format     # Format code with Prettier
 ```
 
 ## Documentation
