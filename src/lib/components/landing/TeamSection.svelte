@@ -180,9 +180,9 @@
 			profileHref: '/profile/npub10pensatlcfwktnvjjw2dtem38n6rvw8g6fv73h84cuacxn4c28eqyfn34f'
 		},
 		{
-			name: 'Freedom Tech Co.',
+			name: 'HRF',
 			role: 'Donor',
-			image: '/images/team-sprofiles/ftc.jpg',
+			image: '/images/team-sprofiles/hrf.png',
 			size: 100,
 			x: 100,
 			y: 175,
@@ -192,11 +192,11 @@
 			nameLoading: false
 		},
 		{
-			name: 'HRF',
+			name: 'Freedom Tech Co.',
 			role: 'Donor',
-			image: '/images/team-sprofiles/hrf.png',
+			image: '/images/team-sprofiles/ftc.jpg',
 			size: 100,
-			x: 100,
+			x: 300,
 			y: 175,
 			blur: 0,
 			opacity: 1,
@@ -219,11 +219,11 @@
 		{ size: 70, x: -700, y: -175, blur: 1.2, opacity: 0.65 },
 		{ size: 70, x: 700, y: -175, blur: 1.2, opacity: 0.65 },
 		{ size: 88, x: -300, y: 175, blur: 0.4, opacity: 0.9 },
-		{ size: 88, x: 300, y: 175, blur: 0.4, opacity: 0.9 },
+		{ size: 88, x: 500, y: 175, blur: 0.4, opacity: 0.9 },
 		{ size: 76, x: -500, y: 175, blur: 0.8, opacity: 0.78 },
-		{ size: 76, x: 500, y: 175, blur: 0.8, opacity: 0.78 },
+		{ size: 76, x: 650, y: 175, blur: 0.8, opacity: 0.78 },
 		{ size: 66, x: -700, y: 175, blur: 1.3, opacity: 0.62 },
-		{ size: 66, x: 700, y: 175, blur: 1.3, opacity: 0.62 }
+		{ size: 66, x: 850, y: 175, blur: 1.3, opacity: 0.62 }
 	];
 
 	const ZAPPER_PLACEHOLDER_COUNT = 16;
