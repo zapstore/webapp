@@ -31,3 +31,6 @@ pnpm-lock.yaml
 
 website
 zapstore
+relay.db
+relay.db-shm
+relay.db-wal

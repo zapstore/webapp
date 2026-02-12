@@ -22,7 +22,7 @@
   /** @type {string|null} - Link destination URL */
   export let href = null;
 
-  /** @type {() => void} - Click handler (alternative to href) */
+  /** @type {(() => void)|null} - Click handler (alternative to href) */
   export let onClick = null;
 
   $: hasLink = linkText && (href || onClick);

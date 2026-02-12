@@ -32,7 +32,8 @@ This is non-negotiable. Any code path that blocks UI on network is a bug.
 - **Styling:** Tailwind CSS 4
 - **Nostr:** Applesauce (EventStore, RelayPool) + nostr-tools
 - **Storage:** IndexedDB for event cache, localStorage for preferences
-- **Hosting:** Static files served by any CDN
+- **Runtime:** Bun runs the SvelteKit server at apex
+- **Assets:** Static assets can be served from CDN via `PUBLIC_ASSET_BASE`
 
 ## Data Layer (Applesauce)
 
@@ -62,6 +63,7 @@ See [Applesauce Caching Docs](https://applesauce.build/storage/caching/) for pat
 - **IndexedDB**: Persistent mirror of EventStore — all writes go through the store (store.add) then persistEventsToCache syncs to IDB. Never write to IndexedDB without going through EventStore. On init, load from IDB into the store so the two layers stay in sync. No separate client path that bypasses the store.
 - **persistEventsToCache**: Non-blocking writes to IndexedDB; every event added to the store is persisted so return visits and offline have the same data.
 - **RelayPool**: Background refresh only, conditional on online status.
+- **Server SQLite path**: Prerender/SSR catalog reads use `relay.db` (or `CATALOG_DB_PATH`) via server-only SQLite queries, not request-time relay websockets.
 
 **Applesauce for social content:** Islands of social content (comments, zaps, profiles) use the same Applesauce pattern: watchComments, watchZaps, fetchComments, fetchZaps all use EventStore + RelayPool and persistEventsToCache. They return sync results from the store, then refresh in the background and update the store; the UI reacts. No separate cache for social—everything flows through EventStore → IndexedDB.
 
@@ -104,7 +106,7 @@ Key functions in `src/lib/nostr/service.ts`:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  1. PRERENDER (build time)                                  │
-│     +page.server.ts fetches from relays → static HTML       │
+│     +page.server.ts reads relay.db (SQLite) → static HTML   │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
@@ -116,6 +118,7 @@ Key functions in `src/lib/nostr/service.ts`:
                            ▼ (onMount, requestIdleCallback)
 ┌─────────────────────────────────────────────────────────────┐
 │  3. QUERY CASCADE                                           │
+│     - seed server events into EventStore on hydrate         │
 │     - queryStore(filter) → immediate (EventStore)           │
 │     - queryCache(filter) → check IndexedDB if empty         │
 │     - fetchFromRelays()  → background refresh               │
@@ -126,6 +129,7 @@ Key functions in `src/lib/nostr/service.ts`:
 
 Key files:
 - `src/lib/nostr/service.ts` — EventStore, IndexedDB, queries, relay fetching
+- `src/lib/nostr/server-db.ts` — server-side SQLite catalog reads (`relay.db`)
 - `src/lib/stores/nostr.svelte.ts` — Apps listing pagination state
 
 ## Rendering Strategy
@@ -134,9 +138,9 @@ Every render path prioritizes local data:
 
 ### Initial Visit (New User)
 
-1. CDN serves pre-rendered HTML → **instant content**
+1. Apex serves pre-rendered HTML (assets may come from CDN) → **instant content**
 2. SvelteKit hydrates
-3. IndexedDB cache populated from prerendered data
+3. Server-provided seed events populate EventStore + IndexedDB
 4. Background relay fetch (if online)
 5. UI updates reactively
 
@@ -159,9 +163,9 @@ Every render path prioritizes local data:
 
 For SEO and first-visit performance:
 
-1. `+page.server.ts` fetches from relays (or reads from server SQLite when configured)
+1. `+page.server.ts` reads catalog events from server SQLite (`relay.db` / `CATALOG_DB_PATH`)
 2. HTML generated with full content
-3. Static files deployed to CDN
+3. Runtime serves HTML from apex; static assets can be deployed to CDN
 
 **Landing pages (marketing):** Fully prerendered; no runtime data dependency. No loading states.
 
@@ -204,11 +208,16 @@ Catalogs are Nostr relays that hold app events.
 - Configured catalog relays
 - Signed-in pubkey
 
+### Server SQLite (catalog)
+
+- **Primary source for server render path:** `relay.db` in project root by default, or custom path via `CATALOG_DB_PATH`.
+- **Usage:** `src/lib/nostr/server-db.ts` reads app/release events directly from SQLite for prerender/SSR.
+- **No request-time websocket dependency:** server route rendering does not open relay subscriptions.
+
 ### Seeding the client cache
 
-- **Source:** Data is seeded from the **server response** (SSR/load). The server reads from SQLite (read-only) and embeds or streams data into the page so the client can hydrate and fill EventStore + IndexedDB.
-- **Tradeoffs:** Prefer **normalized or slim payloads** for list/detail views (e.g. `{ id, name, icon, description, … }`) to keep payloads small and parse cheap. **Full Nostr events** are fetched only when the user opens a view that needs them—e.g. the **Details** tab that shows raw event JSON. Until then, do not embed or request full events; maximize performance by deferring full-event load to that moment.
-- **Flow:** Server sends data in the same response as HTML (e.g. SvelteKit load). Client receives it, merges into EventStore, and persists to IndexedDB in the background. Subsequent visits read from IndexedDB → EventStore for instant paint, then optionally request fresh data from the server again.
+- **Source:** Data is seeded from the **server response** (SSR/load). Alongside parsed list payload, first-page raw events are included so hydration can fill EventStore + IndexedDB.
+- **Flow:** Server sends HTML + load payload. Client merges seed events into EventStore, and `persistEventsToCache` writes them to IndexedDB in the background. Subsequent visits read IndexedDB → EventStore for instant paint, then refresh from relays in the background.
 
 ## Service Worker (PWA)
 
@@ -234,7 +243,8 @@ webapp/
 │   │   ├── nostr/          # Applesauce integration
 │   │   │   ├── service.ts  # EventStore, RelayPool, IndexedDB
 │   │   │   ├── models.ts   # Event parsing (App, Release, etc.)
-│   │   │   ├── server.ts   # SSR/prerender utilities
+│   │   │   ├── server.ts   # Server API facade
+│   │   │   ├── server-db.ts # SQLite reads for prerender/SSR
 │   │   │   └── index.ts    # Public exports
 │   │   ├── stores/         # Svelte stores
 │   │   │   ├── nostr.svelte.ts   # Reactive EventStore access

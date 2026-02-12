@@ -21,6 +21,7 @@ export {
 	fetchProfile,
 	fetchProfilesBatch,
 	cleanup,
+	seedEventsToLocalCache,
 	// Low-level query (single source)
 	queryStore,
 	queryStoreOne,

@@ -13,11 +13,12 @@
   import PlatformSelector from "./PlatformSelector.svelte";
   import AppPic from "./AppPic.svelte";
   import Modal from "./Modal.svelte";
+  /** @typedef {import("$lib/nostr/models").App} AppModel */
 
   /** @type {boolean} */
   export let open = false;
 
-  /** @type {Object|null} - App data (required for non-Zapstore apps) */
+  /** @type {AppModel|null} - App data (required for non-Zapstore apps) */
   export let app = null;
 
   /** @type {boolean} - Whether this is the Zapstore app itself */
@@ -53,8 +54,8 @@
     "99e33b0c2d07e75fcd9df7e40e886646ff667e3aa6648e1a1160b036cf2b9320";
 
   // App info helpers
-  $: minAndroidVersion = app?.minAndroidVersion || "Android 8.0+";
-  $: sourceUrl = app?.repository || app?.sourceUrl || null;
+  $: minAndroidVersion = "Android 8.0+";
+  $: sourceUrl = app?.repository || app?.url || null;
   $: deepLink = app?.dTag ? `zapstore://app/${app.dTag}` : null;
 
   function handleOpenInZapstore() {
@@ -95,9 +96,10 @@
     }
   }
 
+  /** @param {SubmitEvent} event */
   async function handleIosWaitlistSubmit(event) {
     event.preventDefault();
-    const form = event.currentTarget;
+    const form = /** @type {HTMLFormElement} */ (event.currentTarget);
     const formData = new FormData(form);
     const contact = formData.get("contact")?.toString().trim();
 
@@ -168,7 +170,7 @@
         <PlatformSelector
           platforms={zapstorePlatforms}
           {selectedPlatform}
-          onSelect={(platform) => (selectedPlatform = platform)}
+          onSelect={(/** @type {string} */ platform) => (selectedPlatform = platform)}
         />
       </div>
 

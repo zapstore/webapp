@@ -1,8 +1,10 @@
 <script>
 	import { ChevronRight } from '$lib/components/icons';
 
-	let ctaButton;
+	/** @type {HTMLAnchorElement | null} */
+	let ctaButton = null;
 
+	/** @param {MouseEvent} event */
 	function handleMouseMove(event) {
 		if (!ctaButton) return;
 		const rect = ctaButton.getBoundingClientRect();

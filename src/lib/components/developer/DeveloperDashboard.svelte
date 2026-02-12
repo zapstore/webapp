@@ -6,7 +6,7 @@
   import ProfilePic from "$lib/components/common/ProfilePic.svelte";
   import { getCurrentPubkey } from "$lib/stores/auth.svelte";
   import { getApps, scheduleRefresh } from "$lib/stores/nostr.svelte";
-  import { encodeAppNaddr } from "$lib/nostr/models";
+import { encodeAppNaddr, type App } from "$lib/nostr/models";
 
   // Get current user's pubkey
   const userPubkey = $derived(getCurrentPubkey());
@@ -101,12 +101,15 @@
 
     if (points.length < 2) return "";
 
-    let path = `M${points[0].x},${points[0].y}`;
+    const first = points[0];
+    if (!first) return "";
+    let path = `M${first.x},${first.y}`;
     
     for (let i = 1; i < points.length; i++) {
       const prev = points[i - 1];
       const curr = points[i];
-      const next = points[i + 1] || curr;
+      if (!prev || !curr) continue;
+      const next = points[i + 1] ?? curr;
       const prevPrev = points[i - 2];
       
       const tensionFactor = 0.3;
@@ -125,7 +128,7 @@
     if (!data || data.length === 0) return { x: 0, y: height / 2 };
     const graphHeight = height - chartPadding.top - chartPadding.bottom;
     const graphWidth = chartWidth - chartPadding.right;
-    const lastVal = data[data.length - 1];
+    const lastVal = data[data.length - 1] ?? 0;
     return {
       x: graphWidth,
       y: chartPadding.top + graphHeight - (lastVal / maxValue) * graphHeight
@@ -138,8 +141,8 @@
     return num.toString();
   }
 
-  function getAppUrl(app: { pubkey: string; identifier: string }): string {
-    return `/apps/${encodeAppNaddr(app.pubkey, app.identifier)}`;
+  function getAppUrl(app: App): string {
+    return `/apps/${encodeAppNaddr(app.pubkey, app.dTag)}`;
   }
 
   let downloadsChartWidth = $state(400);
@@ -159,11 +162,10 @@
               class="nav-item {activeTab === item.id ? 'nav-item-active' : ''}"
               onclick={() => (activeTab = item.id)}
             >
-              <svelte:component 
-                this={item.icon} 
-                variant="outline" 
-                size={18} 
-                color={activeTab === item.id ? "hsl(var(--foreground))" : "hsl(var(--white33))"} 
+              <item.icon
+                variant="outline"
+                size={18}
+                color={activeTab === item.id ? "hsl(var(--foreground))" : "hsl(var(--white33))"}
               />
               <span>{item.label}</span>
             </button>
@@ -250,7 +252,7 @@
                     />
 
                     {#each userApps.slice(0, 3) as app, i}
-                      {@const appData = chartData.apps[i] || chartData.apps[0]}
+                      {@const appData = chartData.apps[i] ?? chartData.apps[0] ?? []}
                       {@const appEndPoint = getEndPoint(appData, maxDownloads, downloadsChartWidth, chartHeight)}
                       <path
                         d={generateSmoothPath(appData, maxDownloads, downloadsChartWidth, chartHeight)}

@@ -37,12 +37,14 @@
 	$: gridApps = [...displayApps, ...Array(4 - displayApps.length).fill(null)];
 
 	// Helper to capitalize a string (first letter uppercase)
+	/** @param {string | undefined | null} text */
 	function capitalize(text) {
 		if (!text) return '';
 		return text.charAt(0).toUpperCase() + text.slice(1);
 	}
 
 	// Helper to get first N words from a string
+	/** @param {string | undefined | null} text @param {number} count */
 	function getFirstWords(text, count = 5) {
 		if (!text) return '';
 		const words = text.trim().split(/\s+/);
@@ -51,6 +53,7 @@
 	}
 
 	// Check if description is essentially the same as the name (case-insensitive)
+	/** @param {string | undefined | null} name @param {string | undefined | null} description */
 	function isDescriptionSameAsName(name, description) {
 		if (!name || !description) return false;
 		return name.toLowerCase().trim() === description.toLowerCase().trim();
@@ -72,6 +75,7 @@
 		}
 	}
 
+	/** @param {MouseEvent | KeyboardEvent} e */
 	function handleCreatorClick(e) {
 		e.stopPropagation();
 		const npub =

@@ -1,12 +1,13 @@
 <script>
   import LandingSectionTitle from "./LandingSectionTitle.svelte";
-  import Selector from "../Selector.svelte";
+  import Selector from "../common/Selector.svelte";
   import ForumPost from "../ForumPost.svelte";
   import { wheelScroll } from "$lib/actions/wheelScroll.js";
 
   let selectedTab = "Forum";
   const tabs = ["Forum", "Articles", "Events", "Apps"];
 
+  /** @param {string} tab */
   function handleTabSelect(tab) {
     selectedTab = tab;
     // TODO: Update content based on selected tab
@@ -134,6 +135,7 @@
     return cols;
   })();
 
+  /** @param {{ id: number; title: string }} post */
   function handlePostClick(post) {
     // TODO: Navigate to post detail page
     console.log("Post clicked:", post);

@@ -27,6 +27,7 @@
 		setResolvedStacks
 	} from '$lib/stores/stacks.svelte';
 	import { nip19 } from 'nostr-tools';
+	import type { NostrEvent } from 'nostr-tools';
 	import { encodeAppNaddr, encodeStackNaddr, type App, type AppStack } from '$lib/nostr/models';
 	import { fetchProfile } from '$lib/nostr/service';
 	import { parseProfile } from '$lib/nostr/models';
@@ -34,6 +35,9 @@
 
 	// Server-provided data
 	let { data }: { data: PageData } = $props();
+	const seedEvents = $derived(
+		((data as PageData & { seedEvents?: NostrEvent[] }).seedEvents ?? [])
+	);
 
 	// Refs for horizontal scroll containers
 	let appsScrollContainer: HTMLElement | null = $state(null);
@@ -218,7 +222,7 @@
 
 		// Initialize store with prerendered data (or use existing if already initialized from /apps)
 		if (!isStoreInitialized()) {
-			initWithPrerenderedData(data.apps, data.nextCursor);
+			initWithPrerenderedData(data.apps, data.nextCursor, seedEvents);
 		}
 		if (!isStacksInitialized()) {
 			initWithPrerenderedStacks([], null);
@@ -487,31 +491,6 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-	}
-
-	.load-more-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 12px 20px;
-		border-radius: 12px;
-		background-color: hsl(var(--gray66));
-		color: hsl(var(--white66));
-		font-size: 0.875rem;
-		font-weight: 500;
-		border: none;
-		cursor: pointer;
-		transition: all 0.15s ease;
-	}
-
-	.load-more-btn:hover:not(:disabled) {
-		background-color: hsl(var(--gray44));
-		color: hsl(var(--foreground));
-	}
-
-	.load-more-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
 	}
 
 	.spinner {

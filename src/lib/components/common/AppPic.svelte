@@ -56,6 +56,7 @@
   };
 
   // Border radius based on size (matching Flutter logic)
+  /** @param {number} sizeInPx */
   function getBorderRadius(sizeInPx) {
     if (sizeInPx >= 120) return 32;
     if (sizeInPx >= 72) return 24;
@@ -78,6 +79,7 @@
   $: showImage = hasValidUrl && !imageError;
   
   // Action to check if image is already cached (loaded synchronously)
+  /** @param {HTMLImageElement} img */
   function checkIfCached(img) {
     // Check immediately - cached images are already complete
     if (img.complete && img.naturalHeight !== 0) {
@@ -109,7 +111,7 @@
   }
 
   // Get initial letter from name
-  $: initial = name && name.trim() ? name.trim()[0].toUpperCase() : "";
+  $: initial = name && name.trim() ? (name.trim()[0] ?? "").toUpperCase() : "";
   $: hasInitial = initial.length > 0;
 
   // Color styles

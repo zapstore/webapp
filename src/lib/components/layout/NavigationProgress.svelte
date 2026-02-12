@@ -4,7 +4,8 @@
 	
 	let progress = 0;
 	let visible = false;
-	let interval;
+	/** @type {ReturnType<typeof setInterval> | null} */
+	let interval = null;
 	let startTime = 0;
 	const MIN_DISPLAY_TIME = 300; // Minimum time to show the bar (ms)
 	

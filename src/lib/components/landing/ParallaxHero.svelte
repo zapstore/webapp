@@ -15,15 +15,18 @@
 		'/images/parallax-apps/primal.png'
 	];
 
-	let heroButton;
+	/** @type {HTMLAnchorElement | null} */
+	let heroButton = null;
 
 	// Track loaded state for each icon image (reassigned for reactivity)
 	/** @type {{ [url: string]: boolean }} */
 	let loadedImages = {};
-	let devButton;
+	/** @type {HTMLAnchorElement | null} */
+	let devButton = null;
 	let mouseX = 0;
 	let mouseY = 0;
 
+	/** @param {MouseEvent} event */
 	function handleMouseMove(event) {
 		if (!heroButton) return;
 		const rect = heroButton.getBoundingClientRect();
@@ -33,6 +36,7 @@
 		heroButton.style.setProperty('--mouse-y', `${mouseY}px`);
 	}
 
+	/** @param {MouseEvent} event */
 	function handleDevButtonMouseMove(event) {
 		if (!devButton) return;
 		const rect = devButton.getBoundingClientRect();
@@ -43,7 +47,8 @@
 	}
 
 	let scrollY = 0;
-	let heroElement;
+	/** @type {HTMLElement | null} */
+	let heroElement = null;
 	let windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
 
 	// Icon configuration array - edit this to control each icon's properties
@@ -458,6 +463,7 @@
 
 	// Calculate parallax speed based on size
 	// Larger icons move faster (closer to viewer), smaller icons move slower (farther away)
+	/** @param {number} size */
 	function calculateParallaxSpeed(size) {
 		// Map size (0.5-2.8) to parallax speed (0.15-0.9)
 		// Linear interpolation: larger = faster parallax
@@ -473,6 +479,7 @@
 
 	// Calculate opacity based on size
 	// Smaller icons get less opacity (min 33%)
+	/** @param {number} size */
 	function calculateOpacity(size) {
 		// Map size (0.5-2.8) to opacity (0.33-1.0)
 		// Linear interpolation: smaller = less opacity
@@ -489,6 +496,7 @@
 	// Calculate blur based on size
 	// Base size is 1.9 (no blur)
 	// Same blur factor for both larger and smaller sizes
+	/** @param {number} size */
 	function calculateBlur(size) {
 		const baseSize = 1.9;
 		const sizeDifference = Math.abs(size - baseSize);
@@ -882,13 +890,4 @@
 		background: radial-gradient(circle, rgb(92 95 255 / 0.12) 0%, transparent 70%);
 	}
 
-	/* Icon color transition for blurple-hover buttons */
-	.btn-icon-blurple {
-		transition: color 0.3s ease;
-		color: hsl(var(--white66));
-	}
-
-	.btn-glass-blurple-hover:hover .btn-icon-blurple {
-		color: hsl(var(--foreground));
-	}
 </style>

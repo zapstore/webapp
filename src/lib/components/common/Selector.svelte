@@ -4,8 +4,10 @@
    * Used for tab/option selection with primary/secondary button styling
    */
 
+  /** @type {string[]} */
   export let options = [];
   export let selectedOption = "";
+  /** @type {(option: string) => void} */
   export let onSelect = () => {};
   export let size = "default"; // "default" or "large"
 </script>

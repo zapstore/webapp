@@ -14,10 +14,11 @@ const PAGE_SIZE = 40;
 
 export const load: PageServerLoad = async () => {
 	// Fetch first page of releases and resolve to apps
-	const { apps, nextCursor } = await fetchAppsByReleases(PAGE_SIZE);
+	const { apps, nextCursor, seedEvents } = await fetchAppsByReleases(PAGE_SIZE);
 
 	return {
 		apps,
+		seedEvents,
 		nextCursor,
 		fetchedAt: Date.now()
 	};

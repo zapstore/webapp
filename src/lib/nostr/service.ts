@@ -498,6 +498,27 @@ export function hasCachedEvents(kind: number): boolean {
 }
 
 /**
+ * Seed server-provided events into EventStore.
+ *
+ * This is used on hydration so prerender/load payloads also populate
+ * local-first cache layers (EventStore + IndexedDB via persistence hook).
+ */
+export async function seedEventsToLocalCache(events: NostrEvent[]): Promise<number> {
+	if (events.length === 0) return 0;
+
+	await initNostrService();
+	const store = getEventStore();
+
+	let added = 0;
+	for (const event of events) {
+		store.add(event);
+		added++;
+	}
+
+	return added;
+}
+
+/**
  * Fetch events from relays
  * Returns events and adds them to the store
  * 

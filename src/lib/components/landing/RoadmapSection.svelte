@@ -55,12 +55,17 @@
 			eta: 'COMPLETED'
 		}
 	];
+	/** @typedef {'closed'|'inReview'|'inProgress'|'open'} TaskStatus */
 
 	// Sort tasks: closed first (partially visible), then inReview, inProgress, open
+	/** @type {Record<TaskStatus, number>} */
 	const statusOrder = { closed: 0, inReview: 1, inProgress: 2, open: 3 };
-	$: sortedTasks = [...tasks].sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+	$: sortedTasks = [...tasks].sort(
+		(a, b) => statusOrder[/** @type {TaskStatus} */ (a.status)] - statusOrder[/** @type {TaskStatus} */ (b.status)]
+	);
 
-	let scrollContainer;
+	/** @type {HTMLDivElement | null} */
+	let scrollContainer = null;
 	let initialScrollSet = false;
 
 	onMount(() => {
@@ -76,7 +81,8 @@
 					const gap = 24;
 					// Show about 80px of the last closed task
 					const scrollTo = Math.max(0, (closedTasks - 1) * (cardWidth + gap) + cardWidth - 80);
-					scrollContainer.scrollLeft = scrollTo;
+					const container = scrollContainer;
+					if (container) container.scrollLeft = scrollTo;
 				}
 				initialScrollSet = true;
 			}, 100);

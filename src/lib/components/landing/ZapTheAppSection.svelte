@@ -1,8 +1,10 @@
 <script>
   import { ChevronRight } from "$lib/components/icons";
 
-  let openFeedButton;
+  /** @type {HTMLButtonElement | null} */
+  let openFeedButton = null;
 
+  /** @param {MouseEvent} event */
   function handleMouseMove(event) {
     if (!openFeedButton) return;
     const rect = openFeedButton.getBoundingClientRect();

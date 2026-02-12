@@ -5,6 +5,7 @@
 	import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import type { App } from '$lib/nostr';
+	import type { NostrEvent } from 'nostr-tools';
 	import { parseApp } from '$lib/nostr/models';
 	import { encodeAppNaddr } from '$lib/nostr/models';
 	import { searchApps, initNostrService } from '$lib/nostr/service';
@@ -24,6 +25,9 @@
 	const SCROLL_THRESHOLD = 800; // pixels from bottom to trigger load
 
 	let { data }: { data: PageData } = $props();
+	const seedEvents = $derived(
+		((data as PageData & { seedEvents?: NostrEvent[] }).seedEvents ?? [])
+	);
 
 	// Reactive getters from store
 	const storeApps = $derived(getApps());
@@ -122,7 +126,7 @@
 		// Use cached apps when coming from discover (or elsewhere): don't overwrite with empty.
 		// Only init when we have server data to show, or when store was never initialized.
 		if (!isStoreInitialized() || (data.apps?.length ?? 0) > 0) {
-			initWithPrerenderedData(data.apps ?? [], data.nextCursor ?? null);
+			initWithPrerenderedData(data.apps ?? [], data.nextCursor ?? null, seedEvents);
 		}
 
 		// Add scroll listener for infinite scroll

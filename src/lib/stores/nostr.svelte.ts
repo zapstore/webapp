@@ -11,9 +11,11 @@
  */
 
 import { initNostrService, fetchAppsByReleases } from '$lib/nostr/service';
+import { seedEventsToLocalCache } from '$lib/nostr/service';
 import { parseApp, type App } from '$lib/nostr/models';
 import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
 import { setBackgroundRefreshing } from '$lib/stores/refresh-indicator.svelte';
+import type { NostrEvent } from 'nostr-tools';
 
 const PAGE_SIZE = 24; // Fetch extra to account for duplicates, ensures ~16+ unique apps
 
@@ -41,6 +43,7 @@ let initialized = $state(false);
 
 /** Set of seen app keys for deduplication */
 const seenApps = new Set<string>();
+const seededEventIds = new Set<string>();
 
 // ============================================================================
 // Public Reactive Getters
@@ -74,7 +77,11 @@ export function isStoreInitialized(): boolean {
  * Initialize with prerendered data.
  * Call this on page load with SSG data.
  */
-export function initWithPrerenderedData(prerenderedApps: App[], nextCursor: number | null): void {
+export function initWithPrerenderedData(
+	prerenderedApps: App[],
+	nextCursor: number | null,
+	seedEvents: NostrEvent[] = []
+): void {
 	apps = prerenderedApps;
 	cursor = nextCursor;
 	hasMore = nextCursor !== null;
@@ -87,6 +94,24 @@ export function initWithPrerenderedData(prerenderedApps: App[], nextCursor: numb
 	
 	// Mark store as initialized (client now owns the data)
 	initialized = true;
+
+	if (seedEvents.length > 0) {
+		void seedPrerenderedEvents(seedEvents);
+	}
+}
+
+async function seedPrerenderedEvents(events: NostrEvent[]): Promise<void> {
+	const unseen = events.filter((event) => !seededEventIds.has(event.id));
+	if (unseen.length === 0) return;
+
+	try {
+		await seedEventsToLocalCache(unseen);
+		for (const event of unseen) {
+			seededEventIds.add(event.id);
+		}
+	} catch (err) {
+		console.error('[NostrStore] Failed to seed prerendered events:', err);
+	}
 }
 
 /**
@@ -214,4 +239,5 @@ export function resetStore(): void {
 	refreshing = false;
 	initialized = false;
 	seenApps.clear();
+	seededEventIds.clear();
 }
