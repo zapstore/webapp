@@ -812,9 +812,11 @@
           <h1 class="app-name text-[1.625rem] sm:text-4xl font-black" style="color: hsl(var(--white));">
             {app.name}
           </h1>
+          <!--
           <button type="button" class="install-btn-desktop btn-primary flex-shrink-0" onclick={() => (downloadModalOpen = true)}>
             Download
           </button>
+          -->
         </div>
 
         <div class="platforms-row flex items-center gap-3">
@@ -833,9 +835,11 @@
             </div>
           </div>
 
+          <!--
           <button type="button" class="install-btn-mobile btn-primary-small flex-shrink-0" onclick={() => (downloadModalOpen = true)}>
             Download
           </button>
+          -->
         </div>
       </div>
     </div>
@@ -1411,7 +1415,8 @@
     }
   }
 
-  /* Responsive install buttons */
+  /*
+  Responsive install buttons (commented out with Download buttons)
   .install-btn-mobile {
     display: inline-flex;
   }
@@ -1429,6 +1434,7 @@
       display: inline-flex;
     }
   }
+  */
 
   /* Responsive app icon */
   :global(.app-icon-responsive) {
