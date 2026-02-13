@@ -2,7 +2,7 @@
 import { pushState, replaceState } from '$app/navigation';
 import { page } from '$app/stores';
 import { get } from 'svelte/store';
-import { queryStore, parseRelease } from '$lib/nostr';
+import { queryEvents, parseRelease } from '$lib/nostr';
 import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
 let { app } = $props();
 // Track prefetched apps to avoid duplicate fetches
@@ -12,9 +12,9 @@ async function handleMouseEnter() {
     if (prefetched.has(key))
         return;
     prefetched.add(key);
-    // Release is already in store from the listing - query locally
+    // Release is already in Dexie from the listing - query locally
     const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-    const releases = queryStore({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], ...PLATFORM_FILTER, limit: 1 });
+    const releases = await queryEvents({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], ...PLATFORM_FILTER, limit: 1 });
     if (releases.length === 0)
         return;
     const release = parseRelease(releases[0]);

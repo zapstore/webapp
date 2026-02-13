@@ -8,7 +8,7 @@
  *
  * Based on Grimoire's implementation
  */
-import { fetchEvents } from '$lib/nostr';
+import { queryEvents } from '$lib/nostr';
 import { DEFAULT_SOCIAL_RELAYS } from '$lib/config';
 const KIND_USER_EMOJI_LIST = 10030;
 const KIND_EMOJI_SET = 30030;
@@ -291,20 +291,14 @@ export function createEmojiSearch(userPubkey = null) {
                     authors: [userPubkey],
                     limit: 1
                 };
-                const userEmojiListEvents = await fetchEvents(emojiListFilter, {
-                    timeout: 5000,
-                    relays: DEFAULT_SOCIAL_RELAYS
-                });
+                const userEmojiListEvents = await queryEvents(emojiListFilter);
                 // Fetch user's emoji sets (kind 30030)
                 const emojiSetFilter = {
                     kinds: [KIND_EMOJI_SET],
                     authors: [userPubkey],
                     limit: 50
                 };
-                const userEmojiSets = await fetchEvents(emojiSetFilter, {
-                    timeout: 5000,
-                    relays: DEFAULT_SOCIAL_RELAYS
-                });
+                const userEmojiSets = await queryEvents(emojiSetFilter);
                 // Process user emoji list
                 if (userEmojiListEvents && userEmojiListEvents.length > 0) {
                     const userEmojiList = userEmojiListEvents[0];
@@ -330,10 +324,7 @@ export function createEmojiSearch(userPubkey = null) {
                                     '#d': [coord.identifier],
                                     limit: 1
                                 };
-                                const setEvents = await fetchEvents(setFilter, {
-                                    timeout: 3000,
-                                    relays: DEFAULT_SOCIAL_RELAYS
-                                });
+                                const setEvents = await queryEvents(setFilter);
                                 if (setEvents && setEvents.length > 0) {
                                     addEmojiSet(setEvents[0]);
                                 }

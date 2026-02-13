@@ -14,7 +14,7 @@ import { Search } from 'lucide-svelte';
 import { cn } from '$lib/utils';
 import { nip19 } from 'nostr-tools';
 import { getCurrentPubkey, connect } from '$lib/stores/auth.svelte.js';
-import { queryStoreOne, fetchProfile } from '$lib/nostr';
+import { queryEvent, fetchProfile } from '$lib/nostr';
 import { parseProfile } from '$lib/nostr/models';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import ProfilePicStack from '$lib/components/common/ProfilePicStack.svelte';
@@ -74,22 +74,22 @@ $effect(() => {
         currentUserProfile = null;
         return;
     }
-    const ev = queryStoreOne({ kinds: [0], authors: [pk], limit: 1 });
-    if (ev?.content) {
-        try {
-            const p = parseProfile(ev);
-            currentUserProfile = {
-                picture: p.picture ?? '',
-                name: p.displayName ?? p.name ?? ''
-            };
-        }
-        catch {
+    queryEvent({ kinds: [0], authors: [pk], limit: 1 }).then((ev) => {
+        if (ev?.content) {
+            try {
+                const p = parseProfile(ev);
+                currentUserProfile = {
+                    picture: p.picture ?? '',
+                    name: p.displayName ?? p.name ?? ''
+                };
+            }
+            catch {
+                currentUserProfile = null;
+            }
+        } else {
             currentUserProfile = null;
         }
-    }
-    else {
-        currentUserProfile = null;
-    }
+    }).catch(() => { currentUserProfile = null; });
     fetchProfile(pk).then((e) => {
         if (e?.content) {
             try {

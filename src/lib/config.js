@@ -18,9 +18,8 @@ export const PROFILE_RELAYS = [
 ];
 // Relay subscription timeout (ms after first EOSE)
 export const EOSE_TIMEOUT = 2500;
-// IndexedDB configuration
-export const IDB_NAME = 'zapstore-webapp';
-export const IDB_VERSION = 4;
+// Dexie database name (used for clear-local-data fallback)
+export const IDB_NAME = 'zapstore';
 // Event kinds
 export const EVENT_KINDS = {
     PROFILE: 0,

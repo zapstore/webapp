@@ -3,7 +3,7 @@ import { onMount } from "svelte";
 import { browser } from "$app/environment";
 import { page } from "$app/stores";
 import { Package, X } from "lucide-svelte";
-import { queryStore, queryStoreOne, queryCommentsFromStore, parseApp, parseRelease, fetchProfile, fetchProfilesBatch, fetchComments, fetchCommentRepliesByE, fetchZaps, parseComment, parseZapReceipt, encodeAppNaddr, publishComment, } from "$lib/nostr";
+import { queryEvents, queryEvent, queryCommentsFromStore, parseApp, parseRelease, fetchProfile, fetchProfilesBatch, fetchComments, fetchCommentRepliesByE, fetchZaps, parseComment, parseZapReceipt, encodeAppNaddr, publishComment, } from "$lib/nostr";
 import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
 import { nip19 } from "nostr-tools";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
@@ -322,7 +322,7 @@ async function hydrateZapperProfiles() {
     const uniqueSenders = [...new Set(zaps.map((z) => z.senderPubkey).filter(Boolean))];
     const nextZapperProfiles = new Map(zapperProfiles);
     for (const pk of uniqueSenders) {
-        const ev = queryStoreOne({ kinds: [0], authors: [pk] });
+        const ev = await queryEvent({ kinds: [0], authors: [pk] });
         if (ev?.content) {
             try {
                 const c = JSON.parse(ev.content);
@@ -385,7 +385,7 @@ async function handleCommentSubmit(event) {
         comments = comments.filter((c) => c.id !== tempId);
         comments = [...comments, parsed];
         // So the new comment shows our name/avatar: ensure current user's profile is in profiles (cache first, then fetch)
-        const existing = queryStoreOne({ kinds: [0], authors: [userPubkey] });
+        const existing = await queryEvent({ kinds: [0], authors: [userPubkey] });
         if (existing?.content) {
             try {
                 const c = JSON.parse(existing.content);
@@ -441,12 +441,12 @@ onMount(async () => {
     latestRelease = data.latestRelease;
     releases = data.releases ?? [];
     const aTagValue = `${EVENT_KINDS.APP}:${data.app.pubkey}:${data.app.dTag}`;
-    // Sync: query EventStore immediately
-    const cachedRelease = queryStoreOne({ kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue], ...PLATFORM_FILTER });
+    // Async: query Dexie for cached data
+    const cachedRelease = await queryEvent({ kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue], ...PLATFORM_FILTER });
     if (cachedRelease) {
         latestRelease = parseRelease(cachedRelease);
     }
-    const cachedApp = queryStoreOne({
+    const cachedApp = await queryEvent({
         kinds: [EVENT_KINDS.APP],
         authors: [data.app.pubkey],
         "#d": [data.app.dTag],
@@ -455,15 +455,15 @@ onMount(async () => {
     if (cachedApp) {
         app = parseApp(cachedApp);
     }
-    // Sync: comments from EventStore (local-first, 0ms)
-    const cachedCommentEvents = queryCommentsFromStore(data.app.pubkey, data.app.dTag);
+    // Async: comments from Dexie (local-first)
+    const cachedCommentEvents = await queryCommentsFromStore(data.app.pubkey, data.app.dTag);
     if (cachedCommentEvents.length > 0) {
         comments = cachedCommentEvents.map(parseComment);
-        // Sync: hydrate comment-author profiles from store so names/pics show immediately
+        // Hydrate comment-author profiles from Dexie so names/pics show immediately
         const nextProfiles = { ...profiles };
         const pubkeys = [...new Set(comments.map((c) => c.pubkey))];
         for (const pk of pubkeys) {
-            const ev = queryStoreOne({ kinds: [0], authors: [pk] });
+            const ev = await queryEvent({ kinds: [0], authors: [pk] });
             if (ev?.content) {
                 try {
                     const c = JSON.parse(ev.content);

@@ -6,7 +6,7 @@
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import { Zap, Send } from '$lib/components/icons';
-	import { fetchEvents, parseZapReceipt, fetchProfile } from '$lib/nostr';
+	import { fetchZapReceiptsByPubkeys, parseZapReceipt, fetchProfile } from '$lib/nostr';
 	import { DEFAULT_SOCIAL_RELAYS } from '$lib/config';
 	import {
 		hexToColor,
@@ -301,15 +301,10 @@
 				if (zapRecipientPubkeys.length === 0) return;
 
 				const since = Math.floor(Date.now() / 1000) - THREE_MONTHS_SEC;
-				const receipts = await fetchEvents(
-					{
-						kinds: [9735],
-						'#p': zapRecipientPubkeys,
-						since,
-						limit: ZAP_RECEIPTS_LIMIT
-					},
-					{ relays: [...DEFAULT_SOCIAL_RELAYS], timeout: 12000 }
-				);
+				const receipts = await fetchZapReceiptsByPubkeys(zapRecipientPubkeys, {
+					since,
+					limit: ZAP_RECEIPTS_LIMIT
+				});
 
 				const bySender = /** @type {Record<string, number>} */ ({});
 				for (const event of receipts) {

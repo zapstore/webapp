@@ -1,6 +1,5 @@
 import { nip19 } from 'nostr-tools';
-import { fetchAppsByAuthor, fetchStacksByAuthor } from '$lib/nostr/server';
-import { fetchProfilesServer } from '$lib/nostr/server-profiles';
+import { fetchAppsByAuthor, fetchStacksByAuthor, fetchProfilesServer } from '$lib/nostr/server';
 import { parseProfile } from '$lib/nostr/models';
 
 export const prerender = false;

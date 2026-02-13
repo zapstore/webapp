@@ -7,7 +7,7 @@ import { cn } from "$lib/utils";
 import { onMount } from "svelte";
 import { nip19 } from "nostr-tools";
 import { getCurrentPubkey, getIsConnecting, connect, signOut } from "$lib/stores/auth.svelte.js";
-import { queryStoreOne, fetchProfile } from "$lib/nostr";
+import { queryEvent, fetchProfile } from "$lib/nostr";
 import { parseProfile } from "$lib/nostr/models";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import SearchModal from "$lib/components/common/SearchModal.svelte";
@@ -41,22 +41,24 @@ $effect(() => {
         currentUserProfile = null;
         return;
     }
-    const ev = queryStoreOne({ kinds: [0], authors: [pk], limit: 1 });
-    if (ev?.content) {
-        try {
-            const p = parseProfile(ev);
-            currentUserProfile = {
-                picture: p.picture ?? "",
-                name: p.displayName ?? p.name ?? "",
-            };
+    // queryEvent is async (Dexie) — check local cache first, then fetch from relays
+    queryEvent({ kinds: [0], authors: [pk], limit: 1 }).then((ev) => {
+        if (ev?.content) {
+            try {
+                const p = parseProfile(ev);
+                currentUserProfile = {
+                    picture: p.picture ?? "",
+                    name: p.displayName ?? p.name ?? "",
+                };
+            }
+            catch {
+                currentUserProfile = null;
+            }
         }
-        catch {
+        else {
             currentUserProfile = null;
         }
-    }
-    else {
-        currentUserProfile = null;
-    }
+    });
     fetchProfile(pk).then((e) => {
         if (e?.content) {
             try {

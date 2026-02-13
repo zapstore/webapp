@@ -8,12 +8,12 @@ See `QUALITY_BAR.md` for best practices that involve judgment.
 These are the most critical invariants. Local-first is not optional.
 
 - **UI NEVER waits for network** — always render from local data first.
-- **IndexedDB is the source of truth** for the UI, not relays.
-- **Relay fetches are background-only** — they update local cache, UI reacts.
+- **Dexie (IndexedDB) is the source of truth** for the client UI. All data writes go to Dexie; liveQuery handles reactivity.
+- **Server/relay fetches are background-only** — they write to Dexie, liveQuery reacts, UI updates.
 - **Offline mode is fully functional** — the app works fully offline; all cached data and routes remain accessible without network.
-- **Online status determines relay behavior** — skip fetches when offline.
+- **Online status determines fetch behavior** — skip API/relay fetches when offline.
 - Network failures degrade gracefully with clear feedback (offline banner).
-- **UI MUST update reactively** when local or server/background data changes—no full page reload required. Use reactive state so new data flows into the view immediately.
+- **UI MUST update reactively** when local or background data changes—no full page reload required. Dexie liveQuery ensures new data flows into the view immediately.
 - Fresh data updates UI reactively without blocking or reload.
 
 ## Performance
@@ -24,21 +24,19 @@ These are the most critical invariants. Local-first is not optional.
 - Client-side navigation must feel instant (<100ms perceived).
 - **Loading states and skeletons must be minimal.** First paint must show real content from local data or prerender whenever possible. Use loading spinners or skeletons only where necessary (e.g. true first-ever empty state, explicit search-in-flight). Avoid the classic SPA pattern of loading/skeletons everywhere.
 
-## Relay Fetching
+## Data Fetching
 
-- Prerendered content displays immediately; relay fetch is background refresh.
-- Relay fetches must have a timeout (default 5 seconds).
-- Any relay subscription that waits for EOSE must resolve on first EOSE + 300ms grace (client and server), with timeout fallback.
-- Server-side relay subscriptions must resolve at first EOSE + 300ms grace (or timeout fallback).
-- Never wait indefinitely for relay responses.
-- Fresh data updates UI reactively without blocking.
+- Prerendered content displays immediately; API/relay fetch is background refresh.
+- All fetch operations must have a timeout (default 5 seconds).
+- **EOSE + 300ms rule:** All relay subscriptions — both server-side (in-memory relay pool) and client-side (social/search fetches) — must resolve at first EOSE + 300ms grace period, or timeout fallback (default 5s). This prevents hanging on slow relays while still collecting late-arriving events. Never wait indefinitely for relay or API responses.
+- Fresh data is written to Dexie; liveQuery updates UI reactively without blocking.
 
 ## Data Source Boundaries
 
-- Comments and zaps are social data and come from client-side relay checking.
-- The EOSE + 300ms grace rule applies to both client-side and server-side relay fetch paths.
-- Apps, releases, stacks, and profiles are server-side data paths only.
-- Server data hydrates the client cache/store, then updates in the background without blocking UI.
+- All catalog data (apps, releases, stacks, profiles) and social data (comments, zaps) flows through the server's in-memory relay cache and REST API.
+- The EOSE + 300ms grace rule applies to both the server-side relay pool and the client-side relay pool (social fetches, search).
+- API responses write to Dexie; liveQuery handles client-side reactivity.
+- Server data hydrates Dexie, then background API fetches update Dexie without blocking UI.
 
 ## Storage Management
 
@@ -49,10 +47,10 @@ These are the most critical invariants. Local-first is not optional.
 
 ## Search
 
-- Search is ALWAYS a remote relay query — never pre-rendered or from cache.
+- Search is ALWAYS a server API query (which queries the in-memory relay cache or upstream relays) — never pre-rendered or from local cache.
 - Search MUST show a loading spinner while querying.
-- Search queries all configured catalog relays using NIP-50.
-- Search results are cached in IndexedDB for back-navigation only.
+- Search queries use NIP-50 via the server relay pool.
+- Search results are written to Dexie for back-navigation only.
 
 ## UI Safety
 
@@ -66,7 +64,7 @@ These are the most critical invariants. Local-first is not optional.
 ## Async Discipline
 
 - No polling or artificial delays.
-- Relay subscriptions must be cleaned up on component destroy.
+- Dexie liveQuery subscriptions and any relay/API abort controllers must be cleaned up on component destroy.
 - All promises must handle rejection (no unhandled promise rejections).
 - Concurrent requests must be deduplicated where appropriate.
 
@@ -85,8 +83,8 @@ These are the most critical invariants. Local-first is not optional.
 
 ## Lifecycle Safety
 
-- Svelte `$effect` cleanup functions must cancel subscriptions.
-- Component destroy must unsubscribe from all relay subscriptions.
+- Svelte `$effect` cleanup functions must cancel subscriptions and liveQuery observables.
+- Component destroy must clean up all subscriptions (liveQuery, API abort controllers).
 - Service worker updates must not break active sessions.
 
 ## SEO
@@ -106,4 +104,4 @@ These are the most critical invariants. Local-first is not optional.
 - The app MUST be a full Progressive Web App: valid web app manifest and a compliant service worker.
 - Manifest: name, short_name, start_url, display, icons, theme_color (and any required fields) must be present and correct.
 - Service worker: must handle install (precache), activate (clean old caches, claim), and fetch (cache-first for assets, network-first with cache fallback for documents). Scope must be the app origin.
-- **Fully working offline:** Cached routes and local data (IndexedDB) must allow the app to function fully offline—no network required for previously visited content. Show an offline indicator when appropriate.
+- **Fully working offline:** Cached routes and local data (Dexie / IndexedDB) must allow the app to function fully offline—no network required for previously visited content. Show an offline indicator when appropriate.

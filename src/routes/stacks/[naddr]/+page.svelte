@@ -12,7 +12,7 @@ import { page } from "$app/stores";
 import { onMount } from "svelte";
 import { browser } from "$app/environment";
 import { beforeNavigate } from "$app/navigation";
-import { fetchProfile, fetchProfilesBatch, queryStoreOne, queryCommentsFromStore, fetchComments, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, } from "$lib/nostr";
+import { fetchProfile, fetchProfilesBatch, queryEvent, queryCommentsFromStore, fetchComments, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, } from "$lib/nostr";
 import { nip19 } from "nostr-tools";
 import { wheelScroll } from "$lib/actions/wheelScroll.js";
 import AppSmallCard from "$lib/components/cards/AppSmallCard.svelte";
@@ -150,15 +150,15 @@ async function loadStack() {
             }
         }
         stack = { ...foundStack, creator };
-        // Sync: comments from EventStore (local-first)
-        const cachedCommentEvents = queryCommentsFromStore(foundStack.pubkey, foundStack.dTag, EVENT_KINDS.APP_STACK);
+        // Async: comments from Dexie (local-first)
+        const cachedCommentEvents = await queryCommentsFromStore(foundStack.pubkey, foundStack.dTag, EVENT_KINDS.APP_STACK);
         if (cachedCommentEvents.length > 0) {
             comments = cachedCommentEvents.map(parseComment);
-            // Sync: hydrate comment-author profiles from store so names/pics show immediately
+            // Hydrate comment-author profiles from Dexie so names/pics show immediately
             const nextProfiles = { ...profiles };
             const pubkeys = [...new Set(comments.map((c) => c.pubkey))];
             for (const pk of pubkeys) {
-                const ev = queryStoreOne({ kinds: [0], authors: [pk] });
+                const ev = await queryEvent({ kinds: [0], authors: [pk] });
                 if (ev?.content) {
                     try {
                         const c = JSON.parse(ev.content);

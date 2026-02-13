@@ -29,9 +29,9 @@ This approach ensures:
 
 - SSG pre-renders first 20 apps for instant first paint
 - User sees content immediately (no JavaScript required)
-- Client hydrates and fetches fresh releases from relays
+- Client hydrates: seed events written to Dexie, background API fetch for fresh data
 - Refresh indicator (small spinning icon) appears next to title while fetching
-- UI updates reactively as fresh data arrives
+- Fresh data written to Dexie → liveQuery updates UI reactively
 
 ### Infinite Scroll
 
@@ -42,23 +42,23 @@ This approach ensures:
 ### Hover Prefetch
 
 - Hovering over any app card prefetches the app detail page data
-- Fetches app event and releases from relays
-- Stores in IndexedDB for instant rendering on navigation
-- Clicking an app renders detail page instantly from cache
-- Relay subscription updates in background after render
+- Fetches app event and releases via server API
+- Writes to Dexie for instant rendering on navigation
+- Clicking an app renders detail page instantly from local data
+- Background API fetch updates Dexie after render
 
 ### Refresh Indicator
 
 - Small spinning icon appears next to page title
 - Does NOT shift layout (no banner/bar insertion)
-- Tooltip shows "Refreshing from relays..."
-- Disappears when EOSE timeout completes
+- Tooltip shows "Refreshing..."
+- Disappears when background fetch completes
 
 ## Edge Cases
 
-- Relay timeout → show what we have, stop refreshing indicator
+- Fetch timeout → show what we have, stop refreshing indicator
 - No apps → show "No apps found" empty state
-- Offline → render from IndexedDB, skip relay subscription
+- Offline → render from Dexie (IndexedDB), skip API fetches
 - Partial data during scroll → show what's available, continue loading
 - Rapid scrolling → debounce/throttle load requests
 
@@ -118,9 +118,9 @@ Apps are deduplicated by `${pubkey}:${dTag}` key:
 ### Prefetch Strategy
 
 - Track prefetched apps in `Set<string>` to avoid duplicates
-- Cancel active prefetch subscriptions on page unmount
+- Cancel active prefetch requests on page unmount
 - Prefetch triggers on `mouseenter` event
-- Fetches both APP (32267) and RELEASE (30063) events
+- Fetches both APP (32267) and RELEASE (30063) events via server API, writes to Dexie
 
 ### URL Format
 
@@ -141,8 +141,8 @@ This provides:
 
 ### SSG Coordination
 
-Server fetches first page of releases and resolves to apps. Client hydrates and:
+Server queries in-memory relay cache for first page of releases and resolves to apps. Client hydrates and:
 1. Displays prerendered apps immediately
-2. Fetches fresh releases from relays (background refresh)
-3. Updates UI reactively with fresh data
+2. Writes seed events to Dexie, fetches fresh data from API (background)
+3. API response written to Dexie → liveQuery updates UI reactively
 4. Enables infinite scroll for remaining apps via cursor pagination

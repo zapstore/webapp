@@ -13,7 +13,7 @@ import BubbleSkeleton from "./BubbleSkeleton.svelte";
 import DetailsTab from "./DetailsTab.svelte";
 import Spinner from "$lib/components/common/Spinner.svelte";
 import { Zap } from "$lib/components/icons";
-import { queryStoreOne } from "$lib/nostr";
+import { queryEvent } from "$lib/nostr";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
 let { app = {}, stack = null, version = "", publisherProfile = null, zaps = [], zapperProfiles = new Map(), className = "", comments = [], commentsLoading = false, commentsError = "", zapsLoading = false, profiles = {}, profilesLoading = false, getAppSlug = () => "", getStackSlug = () => "", pubkeyToNpub = () => "", searchProfiles = async () => [], searchEmojis = async () => [], onCommentSubmit, onZapReceived, onGetStarted, mainEventIds = [], } = $props();
 const staticTabs = [
@@ -47,12 +47,14 @@ $effect(() => {
         "#d": [target.dTag],
         ...(kind === EVENT_KINDS.APP ? PLATFORM_FILTER : {}),
     };
-    const fromStore = queryStoreOne(filter);
-    if (fromStore) {
-        detailsRawData = fromStore;
-        return;
-    }
-    detailsRawData = null;
+    // queryEvent is async (Dexie) — fire and update state when resolved
+    queryEvent(filter).then((fromStore) => {
+        if (fromStore) {
+            detailsRawData = fromStore;
+        } else {
+            detailsRawData = null;
+        }
+    });
 });
 const totalZapAmount = $derived(zaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0));
 /** Main feed: zaps on the main event (app/stack). Include zaps with no e-tag or e-tag in mainEventIds (e.g. app id, release id). */

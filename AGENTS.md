@@ -7,7 +7,7 @@ and browsing apps distributed via Nostr app catalogs.
 
 | What | Where |
 |------|-------|
-| **Design system (colors, gradients, panels, buttons, icons, etc.)** | **`DESIGN_SYSTEM.md`** |
+| **Design system (colors, gradients, panels, buttons, icons, etc.)** | **`spec/guidelines/DESIGN_SYSTEM.md`** |
 | Architecture & patterns | `spec/guidelines/ARCHITECTURE.md` |
 | Non-negotiable rules | `spec/guidelines/INVARIANTS.md` |
 | Quality standards | `spec/guidelines/QUALITY_BAR.md` |
@@ -19,7 +19,7 @@ and browsing apps distributed via Nostr app catalogs.
 
 **Phase 1: Apps** — Browse and discover apps, releases, search.
 
-**All UI and visual design MUST follow the design system.** From here on, work is design-led: always check **`DESIGN_SYSTEM.md`** for panels, buttons, colors, preset gradients, icons, loading states, modals, and typography. Do not invent custom gradients, borders, or styles—use the preset gradients and tokens defined there and in `src/app.css`.
+**All UI and visual design MUST follow the design system.** From here on, work is design-led: always check **`spec/guidelines/DESIGN_SYSTEM.md`** for panels, buttons, colors, preset gradients, icons, loading states, modals, and typography. Do not invent custom gradients, borders, or styles—use the preset gradients and tokens defined there and in `src/app.css`.
 
 ## File Ownership
 
@@ -64,10 +64,12 @@ bun run check    # TypeScript check
 
 ## Architecture Summary
 
-SvelteKit app with Applesauce-based Nostr data layer:
+SvelteKit app with Nostr-native data layer:
 
-- **Prerendering**: All pages built at deploy time via `+page.server.ts`
-- **Local-first**: EventStore (memory) + IndexedDB (persistence)
-- **Background refresh**: RelayPool fetches fresh data after hydration
+- **Server**: In-memory Nostr relay cache fed by reconnectable pool (upstream relays). REST API returns Nostr events.
+- **Client**: Dexie.js (IndexedDB) with `liveQuery` for reactive queries. No separate in-memory EventStore.
+- **Prerendering**: All pages built at deploy time via `+page.server.ts` (queries relay cache)
+- **Local-first**: Dexie (IndexedDB) is the single client-side source of truth
+- **Background refresh**: API fetches write to Dexie → liveQuery updates UI reactively
 
 See `spec/guidelines/ARCHITECTURE.md` for details.

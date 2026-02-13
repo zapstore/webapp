@@ -1,85 +1,384 @@
 /**
- * Server-side Nostr utilities backed by relay.db (SQLite).
+ * Server-side Nostr data facade
  *
- * This module intentionally avoids request-time relay websocket fetching.
- * It reads catalog data from SQLite only (Option A).
+ * All functions query the in-memory relay cache. Same export signatures
+ * as before so +page.server.js and API endpoints work without changes.
+ *
+ * Server-only module — never import from client code.
  */
 import {
-    fetchAppsByReleases,
-    fetchApp,
-    fetchLatestReleaseForApp,
-    fetchReleasesForApp,
-    fetchStacks as fetchStacksFromDb,
-    fetchStack,
-    fetchAppsByAuthor,
-    fetchStacksByAuthor,
-    closeServerDb
-} from './server-db';
+	queryCache,
+	fetchProfiles,
+	warmUp
+} from './relay-cache';
+import {
+	parseApp,
+	parseRelease,
+	parseAppStack,
+	parseProfile
+} from './models';
+import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
 
-const STACKS_CACHE_TTL_MS = 30_000;
-const stacksCache = new Map();
-const stacksInflight = new Map();
+// ============================================================================
+// Helpers
+// ============================================================================
 
-function getStacksCacheKey(limit, until) {
-    return `${limit}:${until ?? 'first-page'}`;
+function getFirstTagValue(event, tagName) {
+	const tag = event.tags?.find((t) => t[0] === tagName && typeof t[1] === 'string');
+	return tag?.[1] ?? null;
 }
 
-async function loadAndCacheStacks(key, limit, until) {
-    const result = await fetchStacksFromDb(limit, until);
-    stacksCache.set(key, {
-        value: result,
-        expiresAt: Date.now() + STACKS_CACHE_TTL_MS
-    });
-    return result;
+function getReleaseIdentifier(event) {
+	const iTag = getFirstTagValue(event, 'i');
+	if (iTag) return iTag;
+	const dTag = getFirstTagValue(event, 'd');
+	if (!dTag) return null;
+	const [identifier] = dTag.split('@');
+	return identifier || null;
 }
 
+/**
+ * Strip Symbol keys from a raw Nostr event so SvelteKit can serialize it.
+ * nostr-tools SimplePool attaches internal Symbols that break JSON serialization.
+ */
+function sanitizeEvent(event) {
+	const { id, pubkey, created_at, kind, tags, content, sig } = event;
+	return { id, pubkey, created_at, kind, tags, content, sig };
+}
+
+function dedupeEventsById(events) {
+	const seen = new Set();
+	const result = [];
+	for (const event of events) {
+		if (seen.has(event.id)) continue;
+		seen.add(event.id);
+		result.push(sanitizeEvent(event));
+	}
+	return result;
+}
+
+// ============================================================================
+// Public API (same signatures as before)
+// ============================================================================
+
+/**
+ * Fetch apps ordered by release recency.
+ * Queries the relay cache for recent releases, resolves to their apps.
+ */
+export async function fetchAppsByReleases(limit = 20, until) {
+	await warmUp();
+
+	const platformTag = PLATFORM_FILTER['#f']?.[0];
+
+	// Step 1: Get releases
+	const releaseFilter = { kinds: [EVENT_KINDS.RELEASE], limit };
+	if (until !== undefined) releaseFilter.until = until;
+
+	const releaseEvents = queryCache(releaseFilter);
+
+	if (releaseEvents.length === 0) {
+		return { apps: [], releases: [], nextCursor: null, seedEvents: [] };
+	}
+
+	// Step 2: Extract app references from releases
+	const releaseRefs = releaseEvents.map((event) => ({
+		release: event,
+		identifier: getReleaseIdentifier(event)
+	}));
+
+	const identifiers = [
+		...new Set(releaseRefs.map((ref) => ref.identifier).filter(Boolean))
+	];
+
+	// Step 3: Find matching apps in cache
+	let appEvents = [];
+	if (identifiers.length > 0) {
+		const allApps = queryCache({
+			kinds: [EVENT_KINDS.APP],
+			...(platformTag ? { '#f': [platformTag] } : {})
+		});
+		// Filter to only apps matching our identifiers
+		const idSet = new Set(identifiers);
+		appEvents = allApps.filter((e) => {
+			const dTag = getFirstTagValue(e, 'd');
+			return dTag && idSet.has(dTag);
+		});
+	}
+
+	// Latest replaceable app event for (pubkey, d) and for d fallback
+	const latestByPubkeyAndD = new Map();
+	const latestByDOnly = new Map();
+	for (const appEvent of appEvents) {
+		const dTag = getFirstTagValue(appEvent, 'd');
+		if (!dTag) continue;
+		const key = `${appEvent.pubkey}:${dTag}`;
+		if (!latestByPubkeyAndD.has(key)) latestByPubkeyAndD.set(key, appEvent);
+		if (!latestByDOnly.has(dTag)) latestByDOnly.set(dTag, appEvent);
+	}
+
+	const apps = [];
+	const selectedAppEvents = [];
+	const seenAppKeys = new Set();
+
+	for (const { release, identifier } of releaseRefs) {
+		if (!identifier) continue;
+		const exactKey = `${release.pubkey}:${identifier}`;
+		const appEvent =
+			latestByPubkeyAndD.get(exactKey) ?? latestByDOnly.get(identifier);
+		if (!appEvent) continue;
+		const appKey = `${appEvent.pubkey}:${identifier}`;
+		if (seenAppKeys.has(appKey)) continue;
+		seenAppKeys.add(appKey);
+		apps.push(parseApp(appEvent));
+		selectedAppEvents.push(appEvent);
+	}
+
+	const releases = releaseEvents.map(parseRelease);
+	const lastRelease = releaseEvents[releaseEvents.length - 1];
+	const nextCursor =
+		releaseEvents.length === limit && lastRelease
+			? lastRelease.created_at - 1
+			: null;
+	const seedEvents = dedupeEventsById([...releaseEvents, ...selectedAppEvents]);
+
+	return { apps, releases, nextCursor, seedEvents };
+}
+
+/**
+ * Fetch a single app by pubkey and identifier.
+ */
+export async function fetchApp(pubkey, identifier) {
+	await warmUp();
+
+	const platformTag = PLATFORM_FILTER['#f']?.[0];
+	const filter = {
+		kinds: [EVENT_KINDS.APP],
+		authors: [pubkey],
+		'#d': [identifier],
+		...(platformTag ? { '#f': [platformTag] } : {}),
+		limit: 1
+	};
+
+	const results = queryCache(filter);
+	if (results.length === 0) return null;
+	return parseApp(results[0]);
+}
+
+/**
+ * Fetch latest release for an app.
+ */
+export async function fetchLatestReleaseForApp(pubkey, identifier) {
+	await warmUp();
+
+	// Try by 'a' tag first (canonical)
+	const aTagValue = `${EVENT_KINDS.APP}:${pubkey}:${identifier}`;
+	let results = queryCache({
+		kinds: [EVENT_KINDS.RELEASE],
+		'#a': [aTagValue],
+		limit: 1
+	});
+
+	if (results.length === 0) {
+		// Fallback: by author + 'i' tag
+		const allReleases = queryCache({
+			kinds: [EVENT_KINDS.RELEASE],
+			authors: [pubkey],
+			limit: 100
+		});
+		results = allReleases.filter((e) => {
+			const iTag = getFirstTagValue(e, 'i');
+			if (iTag === identifier) return true;
+			const dTag = getFirstTagValue(e, 'd');
+			return dTag?.startsWith(`${identifier}@`);
+		});
+	}
+
+	if (results.length === 0) return null;
+	return parseRelease(results[0]);
+}
+
+/**
+ * Fetch releases for an app.
+ */
+export async function fetchReleasesForApp(pubkey, identifier, limit = 50) {
+	await warmUp();
+
+	const safeLimit = Math.max(1, Math.min(200, Math.floor(limit)));
+	const aTagValue = `${EVENT_KINDS.APP}:${pubkey}:${identifier}`;
+	const platformTag = PLATFORM_FILTER['#f']?.[0];
+
+	const results = queryCache({
+		kinds: [EVENT_KINDS.RELEASE],
+		'#a': [aTagValue],
+		...(platformTag ? { '#f': [platformTag] } : {}),
+		limit: safeLimit
+	});
+
+	return results.map(parseRelease);
+}
+
+/**
+ * Fetch stacks with resolved apps.
+ */
 export async function fetchStacks(limit = 20, until) {
-    const key = getStacksCacheKey(limit, until);
-    const now = Date.now();
-    const cached = stacksCache.get(key);
+	await warmUp();
 
-    if (cached && cached.expiresAt > now) {
-        return cached.value;
-    }
+	const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+	const platformTag = PLATFORM_FILTER['#f']?.[0];
+	const filter = {
+		kinds: [EVENT_KINDS.APP_STACK],
+		...(platformTag ? { '#f': [platformTag] } : {}),
+		limit: safeLimit
+	};
+	if (until !== undefined) filter.until = until;
 
-    const inflight = stacksInflight.get(key);
-    if (inflight) {
-        return inflight;
-    }
+	const stackEvents = queryCache(filter);
+	const stacks = stackEvents.map(parseAppStack);
 
-    if (cached) {
-        // Serve stale data immediately, then refresh in background.
-        const refreshPromise = loadAndCacheStacks(key, limit, until)
-            .catch(() => {
-                // Keep stale cache on refresh failures.
-            })
-            .finally(() => {
-                stacksInflight.delete(key);
-            });
-        stacksInflight.set(key, refreshPromise);
-        return cached.value;
-    }
+	// Resolve apps for each stack
+	const resolvedStacks = [];
+	const selectedAppEvents = [];
 
-    const requestPromise = loadAndCacheStacks(key, limit, until)
-        .finally(() => {
-            stacksInflight.delete(key);
-        });
-    stacksInflight.set(key, requestPromise);
-    return requestPromise;
+	for (const stack of stacks) {
+		const apps = resolveStackAppsFromCache(stack);
+		selectedAppEvents.push(
+			...apps.map((a) => a.rawEvent).filter(Boolean)
+		);
+		resolvedStacks.push({ stack, apps });
+	}
+
+	const lastStack = stackEvents[stackEvents.length - 1];
+	const nextCursor =
+		stackEvents.length === safeLimit && lastStack
+			? lastStack.created_at - 1
+			: null;
+	const seedEvents = dedupeEventsById([...stackEvents, ...selectedAppEvents]);
+
+	return { stacks, resolvedStacks, nextCursor, seedEvents };
 }
 
-export {
-    fetchAppsByReleases,
-    fetchApp,
-    fetchLatestReleaseForApp,
-    fetchReleasesForApp,
-    fetchStack,
-    fetchAppsByAuthor,
-    fetchStacksByAuthor
-};
+/**
+ * Fetch a single stack with apps and creator profile.
+ */
+export async function fetchStack(pubkey, identifier) {
+	await warmUp();
 
+	const platformTag = PLATFORM_FILTER['#f']?.[0];
+	const results = queryCache({
+		kinds: [EVENT_KINDS.APP_STACK],
+		authors: [pubkey],
+		'#d': [identifier],
+		...(platformTag ? { '#f': [platformTag] } : {}),
+		limit: 1
+	});
+
+	if (results.length === 0) return null;
+
+	const stackEvent = results[0];
+	const stack = parseAppStack(stackEvent);
+	const apps = resolveStackAppsFromCache(stack);
+
+	// Fetch creator profile
+	const profileMap = await fetchProfiles([pubkey]);
+	const profileEvent = profileMap.get(pubkey);
+	const creator = profileEvent ? parseProfile(profileEvent) : null;
+
+	const seedEvents = dedupeEventsById([
+		stackEvent,
+		...apps.map((a) => a.rawEvent).filter(Boolean),
+		...(profileEvent ? [profileEvent] : [])
+	]);
+
+	return { stack, apps, creator, seedEvents };
+}
+
+/**
+ * Fetch apps by author.
+ */
+export async function fetchAppsByAuthor(pubkey, limit = 50) {
+	await warmUp();
+
+	const safeLimit = Math.max(1, Math.min(200, Math.floor(limit)));
+	const platformTag = PLATFORM_FILTER['#f']?.[0];
+
+	const results = queryCache({
+		kinds: [EVENT_KINDS.APP],
+		authors: [pubkey],
+		...(platformTag ? { '#f': [platformTag] } : {}),
+		limit: safeLimit
+	});
+
+	return results.map(parseApp);
+}
+
+/**
+ * Fetch stacks by author.
+ */
+export async function fetchStacksByAuthor(pubkey, limit = 50) {
+	await warmUp();
+
+	const safeLimit = Math.max(1, Math.min(200, Math.floor(limit)));
+	const platformTag = PLATFORM_FILTER['#f']?.[0];
+	const results = queryCache({
+		kinds: [EVENT_KINDS.APP_STACK],
+		authors: [pubkey],
+		...(platformTag ? { '#f': [platformTag] } : {}),
+		limit: safeLimit
+	});
+
+	const stackEvents = results;
+	const stacks = stackEvents.map(parseAppStack);
+
+	const resolvedStacks = [];
+	for (const stack of stacks) {
+		const apps = resolveStackAppsFromCache(stack);
+		resolvedStacks.push({ stack, apps });
+	}
+
+	return { stacks, resolvedStacks };
+}
+
+/**
+ * Fetch profiles (server-side).
+ * Used by /api/profiles endpoint.
+ */
+export async function fetchProfilesServer(pubkeys, options = {}) {
+	await warmUp();
+	return fetchProfiles(pubkeys, options);
+}
+
+// ============================================================================
+// Internal helpers
+// ============================================================================
+
+function resolveStackAppsFromCache(stack) {
+	if (!stack?.appRefs || stack.appRefs.length === 0) return [];
+
+	const platformTag = PLATFORM_FILTER['#f']?.[0];
+	const apps = [];
+
+	for (const ref of stack.appRefs) {
+		if (ref.kind !== EVENT_KINDS.APP) continue;
+
+		const results = queryCache({
+			kinds: [EVENT_KINDS.APP],
+			authors: [ref.pubkey],
+			'#d': [ref.identifier],
+			...(platformTag ? { '#f': [platformTag] } : {}),
+			limit: 1
+		});
+
+		if (results.length > 0) {
+			apps.push(parseApp(results[0]));
+		}
+	}
+
+	return apps;
+}
+
+/**
+ * Cleanup (called on server shutdown if needed).
+ */
 export function closeServerPool() {
-    stacksCache.clear();
-    stacksInflight.clear();
-    closeServerDb();
+	// No-op for now; SimplePool handles its own cleanup
 }

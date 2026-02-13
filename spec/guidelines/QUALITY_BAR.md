@@ -39,16 +39,16 @@ If multiple phases: `WORK-005-a.md`, `WORK-005-b.md` (same feature number).
 
 ## Layer Expectations
 
-### Sync Layer (`src/lib/nostr/`)
+### Nostr Layer (`src/lib/nostr/`)
 
 - Event parsing must tolerate unknown tags.
-- Relay connections must handle disconnection gracefully.
-- Storage operations must not block rendering.
+- Server relay pool must handle disconnection and reconnection gracefully.
+- Dexie writes must not block rendering.
 
 ### Data Layer (`src/lib/stores/`)
 
-- Store state must be derivable from cached events.
-- Subscriptions must clean up on component destroy.
+- Store state must be derivable from Dexie (IndexedDB) via liveQuery.
+- liveQuery subscriptions must clean up on component destroy.
 - Loading/error states must be explicit.
 
 ### Presentation Layer (`src/routes/`, `src/lib/components/`)

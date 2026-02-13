@@ -2,7 +2,7 @@
 import { onMount } from 'svelte';
 import { browser } from '$app/environment';
 import { ReleaseCard } from '$lib/components';
-import { queryStoreOne, parseRelease } from '$lib/nostr';
+import { queryEvent, parseRelease } from '$lib/nostr';
 import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
 import { renderMarkdown } from '$lib/utils/markdown';
 let { app, initialRelease = null } = $props();
@@ -14,8 +14,8 @@ onMount(() => {
         return;
     latestRelease = initialRelease ?? null;
     const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-    // Sync: query EventStore immediately (release is already there from listing)
-    const cachedRelease = queryStoreOne({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], ...PLATFORM_FILTER });
+    // Async: query Dexie for cached release
+    const cachedRelease = await queryEvent({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], ...PLATFORM_FILTER });
     if (cachedRelease) {
         latestRelease = parseRelease(cachedRelease);
     }

@@ -4,7 +4,7 @@
 
 - **Minimize loading states and skeletons.** Avoid the classic SPA pattern of spinners or skeletons everywhere. They have a place (e.g. true first-ever empty state, explicit search-in-flight) but must be minimal. First paint should show **real content** from local data or prerender whenever possible.
 - **Landing pages (marketing) are fully prerendered.** No blocking on data; static or build-time data only.
-- **UI always updates reactively.** When local data or server/background data changes, the UI MUST update without full page reload. Use reactive state (e.g. Svelte runes, stores) so new data flows into the view immediately.
+- **UI always updates reactively.** When local data or server/background data changes, the UI MUST update without full page reload. Use reactive state (e.g. Svelte runes, Dexie liveQuery) so new data flows into the view immediately.
 - **Full PWA.** The app is a full Progressive Web App: valid web app manifest, compliant service worker (install, fetch, activate, scope), and offline support for cached routes and local data. No half-measures.
 
 ## Core Principle: Local-First
@@ -16,11 +16,11 @@ Network is optional—used only for background refresh.
 ┌────────────────────────────────────────────────────────────────┐
 │                     LOCAL-FIRST PRINCIPLE                       │
 │                                                                 │
-│  1. UI renders IMMEDIATELY from local data (IndexedDB)          │
+│  1. UI renders IMMEDIATELY from local data (Dexie / IndexedDB) │
 │  2. Network fetch happens IN THE BACKGROUND                     │
 │  3. User NEVER waits for network on return visits               │
 │  4. App works FULLY OFFLINE with cached data                    │
-│  5. Fresh data updates UI REACTIVELY (no reload needed)         │
+│  5. Fresh data updates UI REACTIVELY via liveQuery              │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -30,83 +30,128 @@ This is non-negotiable. Any code path that blocks UI on network is a bug.
 
 - **Framework:** SvelteKit 2 with Svelte 5 (runes)
 - **Styling:** Tailwind CSS 4
-- **Nostr:** Applesauce (EventStore, RelayPool) + nostr-tools
-- **Storage:** IndexedDB for event cache, localStorage for preferences
+- **Nostr:** nostr-tools
+- **Client storage:** Dexie.js (IndexedDB) with `liveQuery` for reactive queries
+- **Server cache:** In-memory Nostr relay (caching layer)
 - **Runtime:** Bun runs the SvelteKit server at apex
 - **Assets:** Static assets can be served from CDN via `PUBLIC_ASSET_BASE`
 
-## Data Layer (Applesauce)
+## Data Layer
 
-The app uses [Applesauce](https://applesauce.build/) for local-first Nostr data.
-See [Applesauce Caching Docs](https://applesauce.build/storage/caching/) for patterns.
+Nostr events are the universal data format from end to end. Every layer stores and returns raw Nostr events.
+
+### Server: In-Memory Relay Cache
+
+The server runs an **in-memory Nostr relay** that acts as a caching layer. It is the single server-side source of truth for all catalog and social data.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     EventStore (memory)                      │
-│         SYNCHRONOUS access — UI derives from here            │
+│         Upstream Relays (relay.zapstore.dev, social, etc.)   │
+│                  persistent subscriptions                    │
 └─────────────────────────────────────────────────────────────┘
-        ↑                                       ↓
-        │ load on init              persistEventsToCache
-        │ (from IndexedDB)          (non-blocking writes)
+                           │
+                           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    IndexedDB (persistent)                    │
-│              LOCAL CACHE — survives page reload              │
+│              In-Memory Nostr Relay (server)                   │
+│         Single cache — NIP-01 filter queries                 │
+│         Warm-up from upstream relays on cold start            │
 └─────────────────────────────────────────────────────────────┘
+                           │
+              ┌────────────┴────────────┐
+              ▼                         ▼
+    REST API (JSON)            Prerender (build time)
+    returns Nostr events       queries relay cache → static HTML
+```
 
+- **Reconnectable pool:** Maintains persistent subscriptions to upstream relays (including `wss://relay.zapstore.dev`). New events published upstream are automatically available in the cache.
+- **Cold start:** On server start, the pool warms up by pulling recent events from upstream relays. Prerendered HTML covers users during the brief warm-up window.
+- **No SQLite / relay.db:** There is no server-side SQLite file. All server data comes from relays over websockets.
+- **REST API:** SvelteKit `+server.ts` endpoints query the in-memory relay and return Nostr events as JSON. These endpoints support bundling (e.g. "stack + its apps + creator profile" in one response).
+
+### Client: Dexie (IndexedDB) with liveQuery
+
+The client uses **Dexie.js** as its single reactive data layer. There is no separate in-memory EventStore — Dexie is both persistence and reactivity.
+
+```
 ┌─────────────────────────────────────────────────────────────┐
-│                      RelayPool                               │
-│     BACKGROUND ONLY — never blocks UI, skipped offline       │
+│                   Dexie.js (IndexedDB)                        │
+│         Persistent, reactive via liveQuery                   │
+│         Single client-side source of truth                   │
 └─────────────────────────────────────────────────────────────┘
+                           │
+              ┌────────────┴────────────┐
+              ▼                         ▼
+     liveQuery (reactive)      Background writes
+     UI subscribes & reacts    from API / relay refresh
 ```
 
-- **EventStore**: In-memory, synchronous — UI derives state from here. Single source of truth for in-memory state.
-- **IndexedDB**: Persistent mirror of EventStore — all writes go through the store (store.add) then persistEventsToCache syncs to IDB. Never write to IndexedDB without going through EventStore. On init, load from IDB into the store so the two layers stay in sync. No separate client path that bypasses the store.
-- **persistEventsToCache**: Non-blocking writes to IndexedDB; every event added to the store is persisted so return visits and offline have the same data.
-- **RelayPool**: Background refresh only, conditional on online status.
-- **Server SQLite path**: Prerender/SSR catalog reads use `relay.db` (or `CATALOG_DB_PATH`) via server-only SQLite queries, not request-time relay websockets.
+- **Dexie liveQuery:** Observable queries that automatically re-fire when underlying data changes. Any write to Dexie (from any code path — server payload, relay fetch, pagination) triggers subscribers to re-query. No manual invalidation.
+- **Svelte integration:** Dexie's `liveQuery` returns an Observable compatible with Svelte's store contract. In Svelte 5, wrap in a small adapter for `$state`-based signals.
+- **No EventStore:** The Applesauce EventStore layer is removed. Dexie replaces both persistence and in-memory reactive state.
+- **No persistEventsToCache:** Writes go directly to Dexie. liveQuery handles reactivity automatically.
+- **Indices:** Dexie table uses compound indices for fast Nostr-style filter queries: `kind`, `pubkey`, `created_at`, `[kind+created_at]`, and tag-based indices as needed.
 
-**Applesauce for social content:** Islands of social content (comments, zaps, profiles) use the same Applesauce pattern: watchComments, watchZaps, fetchComments, fetchZaps all use EventStore + RelayPool and persistEventsToCache. They return sync results from the store, then refresh in the background and update the store; the UI reacts. No separate cache for social—everything flows through EventStore → IndexedDB.
-
-### Query Interface (Applesauce Pattern)
-
-Following [Applesauce caching](https://applesauce.build/storage/caching/), queries follow this order:
+### End-to-End Data Flow
 
 ```
-EventStore (memory) → IndexedDB (cache) → Relays (network)
-     sync, 0ms           async, fast         async, background
+Upstream relays
+      │ persistent subscriptions
+      ▼
+In-memory relay (server cache)
+      │
+      ├── REST API ──→ JSON (Nostr events) ──→ Dexie write ──→ liveQuery ──→ UI
+      │
+      └── Prerender ──→ static HTML + seed events ──→ Dexie write ──→ liveQuery ──→ UI
 ```
 
-Two cousin APIs implement this pattern:
+**One cache on the server. One reactive store on the client. Nostr events as the lingua franca throughout.**
+
+### Relay Subscription Pattern: EOSE + 300ms
+
+All relay subscriptions (both server and client) follow a single deterministic pattern:
+
+1. Open a `subscribeMany` subscription with one or more filters.
+2. Collect events via `onevent`.
+3. On `oneose` (End of Stored Events), start a **300ms grace timer** to catch late-arriving events.
+4. When the grace timer fires, close the subscription and resolve with collected events.
+5. A hard **timeout** (default 5s) acts as a safety net if EOSE never arrives.
+
+```
+subscribe → collect events → EOSE → +300ms grace → resolve
+                                  ↑ timeout (5s) fallback
+```
+
+This prevents hanging on slow or unresponsive relays while still capturing events that arrive slightly after EOSE. The pattern is implemented identically in:
+
+- **Server:** `relay-cache.js` → `queryRelaysRaw()` (feeds the in-memory cache)
+- **Client:** `service.js` → `fetchFromRelays()` (social features, search)
+
+### Query Interface
+
+The client queries data through two paths:
 
 ```typescript
-// FETCH: async, Promise-based (waits for result)
-const app = await fetchEvent(
-  { kinds: [32267], authors: [pubkey], '#d': [id] },
-  { relays: DEFAULT_CATALOG_RELAYS }
+// REACTIVE: Dexie liveQuery (auto-updates on writes)
+import { liveQuery } from 'dexie';
+
+const apps = liveQuery(() =>
+  db.events.where('kind').equals(32267).reverse().sortBy('created_at')
 );
 
-// WATCH: sync return + callback (reactive)
-const localResults = watchEvents(
-  { kinds: [30063], '#a': [aTagValue] },
-  { relays: DEFAULT_CATALOG_RELAYS },
-  (freshResults) => {
-    latestRelease = parseRelease(freshResults[0]);
-  }
-);
+// API: Fetch from server REST endpoints (writes result to Dexie)
+const response = await fetch('/api/apps?limit=24');
+const { events } = await response.json();
+await db.events.bulkPut(events);
+// liveQuery subscribers auto-update — no manual notification needed
 ```
-
-Key functions in `src/lib/nostr/service.ts`:
-- `queryStore(filter)` — EventStore only (sync)
-- `queryCache(filter)` — IndexedDB only (async)
-- `fetchEvents/fetchEvent` — Full cascade, returns Promise
-- `watchEvents/watchEvent` — Full cascade, sync return + callback
 
 ### Data Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  1. PRERENDER (build time)                                  │
-│     +page.server.ts reads relay.db (SQLite) → static HTML   │
+│     +page.server.ts queries in-memory relay → static HTML   │
+│     Seed events embedded in payload                         │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
@@ -117,20 +162,19 @@ Key functions in `src/lib/nostr/service.ts`:
                            │
                            ▼ (onMount, requestIdleCallback)
 ┌─────────────────────────────────────────────────────────────┐
-│  3. QUERY CASCADE                                           │
-│     - seed server events into EventStore on hydrate         │
-│     - queryStore(filter) → immediate (EventStore)           │
-│     - queryCache(filter) → check IndexedDB if empty         │
-│     - fetchFromRelays()  → background refresh               │
-│     - persistEventsToCache → save new events to IndexedDB   │
-│     - onUpdate callback → UI state updated                  │
+│  3. HYDRATION                                               │
+│     - Seed events from server payload written to Dexie      │
+│     - liveQuery subscribers fire, UI updates reactively     │
+│     - Background: fetch fresh data from REST API            │
+│     - API response written to Dexie → liveQuery → UI       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 Key files:
-- `src/lib/nostr/service.ts` — EventStore, IndexedDB, queries, relay fetching
-- `src/lib/nostr/server-db.ts` — server-side SQLite catalog reads (`relay.db`)
-- `src/lib/stores/nostr.svelte.ts` — Apps listing pagination state
+- `src/lib/nostr/relay-cache.ts` — In-memory relay cache + reconnectable pool (server-only)
+- `src/lib/nostr/dexie.ts` — Dexie database schema, liveQuery helpers
+- `src/lib/nostr/models.ts` — Event parsing (App, Release, etc.)
+- `src/lib/stores/` — Reactive stores (pagination state, UI state)
 
 ## Rendering Strategy
 
@@ -140,31 +184,31 @@ Every render path prioritizes local data:
 
 1. Apex serves pre-rendered HTML (assets may come from CDN) → **instant content**
 2. SvelteKit hydrates
-3. Server-provided seed events populate EventStore + IndexedDB
-4. Background relay fetch (if online)
-5. UI updates reactively
+3. Seed events from server payload written to Dexie
+4. liveQuery subscribers fire → UI updates reactively
+5. Background API fetch for fresh data → writes to Dexie → UI updates
 
 ### Return Visit (Local-First)
 
-1. IndexedDB cache loaded into EventStore → **instant content**
-2. UI renders from cache immediately
-3. Background relay fetch (if online)
-4. UI updates reactively
+1. Dexie (IndexedDB) already has cached events → **instant content**
+2. liveQuery renders UI immediately from local data
+3. Background API fetch for fresh data (if online)
+4. New data written to Dexie → liveQuery → UI updates reactively
 
 ### Offline
 
 1. Service worker serves cached HTML shell
-2. IndexedDB cache provides all data
+2. Dexie provides all data from IndexedDB
 3. UI renders fully from local data
-4. Relay fetches skipped
+4. API fetches skipped
 5. Offline banner shown
 
 ### Build Time (Prerendering)
 
 For SEO and first-visit performance:
 
-1. `+page.server.ts` reads catalog events from server SQLite (`relay.db` / `CATALOG_DB_PATH`)
-2. HTML generated with full content
+1. `+page.server.ts` queries in-memory relay cache for catalog events
+2. HTML generated with full content + seed events in payload
 3. Runtime serves HTML from apex; static assets can be deployed to CDN
 
 **Landing pages (marketing):** Fully prerendered; no runtime data dependency. No loading states.
@@ -173,7 +217,7 @@ For SEO and first-visit performance:
 
 ## URLs and routing
 
-- **Profile pages:** `/profile/[npub]` — human-readable, stable URLs (see INVARIANTS: “URLs must be stable and human-readable”). Use **npub** in the path (not hex pubkey).
+- **Profile pages:** `/profile/[npub]` — human-readable, stable URLs (see INVARIANTS: "URLs must be stable and human-readable"). Use **npub** in the path (not hex pubkey).
 - **Apps:** `/apps/[naddr]` (naddr encodes kind 32267, pubkey, identifier).
 - **Stacks:** `/stacks/[naddr]` (naddr encodes kind 30267, pubkey, identifier).
 
@@ -197,27 +241,32 @@ Catalogs are Nostr relays that hold app events.
 
 ## Storage
 
-### IndexedDB (client cache)
-- Nostr events cached via `persistEventsToCache`
-- Loaded into EventStore on app init so the **hot path is in-memory** (sync). IndexedDB is used for persistence and cold load.
-- **Speed:** IndexedDB is asynchronous; typical indexed reads are on the order of 1–10 ms for small/medium datasets. For local-first, the important latency is **cold start**: load from IndexedDB into EventStore once, then all reads are sync from memory. That is acceptable; no browser standard offers faster **persistent** structured storage. Alternatives: **in-memory only** (no persistence across reload), **Cache API** (good for response bodies, not queryable event stores). For structured, queryable, persistent client data, IndexedDB is the right choice.
-- **Indices:** Use indices to keep queries fast: `event.kind`, `event.created_at`, `event.pubkey`, and compound `(event.kind, event.created_at)` where supported. Avoid full table scans; filter by index first then apply remaining filters in memory.
+### Dexie / IndexedDB (client)
+
+- **Single client-side source of truth.** All Nostr events stored in Dexie (IndexedDB). UI derives state from liveQuery subscriptions.
+- **Reactive:** Dexie's `liveQuery` automatically re-runs queries when data changes. No manual cache invalidation or event propagation needed.
+- **Writes:** All data paths (server seed, API fetch, background relay refresh) write directly to Dexie. liveQuery handles the rest.
+- **Indices:** Use Dexie compound indices for fast queries: `kind`, `created_at`, `pubkey`, `[kind+created_at]`, and tag-based indices where needed. Avoid full table scans; filter by index first.
+- **Speed:** IndexedDB reads are async (~1-5ms for indexed queries). Prerendered HTML covers first paint, so async latency is invisible in practice. Subsequent updates are automatic via liveQuery.
 
 ### localStorage
+
 - User preferences
 - Configured catalog relays
 - Signed-in pubkey
 
-### Server SQLite (catalog)
+### In-Memory Relay (server)
 
-- **Primary source for server render path:** `relay.db` in project root by default, or custom path via `CATALOG_DB_PATH`.
-- **Usage:** `src/lib/nostr/server-db.ts` reads app/release events directly from SQLite for prerender/SSR.
-- **No request-time websocket dependency:** server route rendering does not open relay subscriptions.
+- **Single server-side source of truth.** All server data comes from the in-memory relay cache.
+- **Fed by reconnectable pool:** Persistent websocket subscriptions to upstream relays keep the cache fresh. New events appear automatically.
+- **Cold start warm-up:** On server start, pull recent events from upstream relays. The warm-up window is brief; prerendered HTML covers users during this time.
+- **No SQLite / relay.db:** No file-based database. All data flows through relay websockets.
+- **REST API:** `+server.ts` endpoints query the relay cache and return Nostr events as JSON. Bundling endpoints combine related data (e.g. stack + apps + profile) in a single response.
 
-### Seeding the client cache
+### Seeding the client
 
-- **Source:** Data is seeded from the **server response** (SSR/load). Alongside parsed list payload, first-page raw events are included so hydration can fill EventStore + IndexedDB.
-- **Flow:** Server sends HTML + load payload. Client merges seed events into EventStore, and `persistEventsToCache` writes them to IndexedDB in the background. Subsequent visits read IndexedDB → EventStore for instant paint, then refresh from relays in the background.
+- **Source:** Seed events come from the server response (prerender or API). The payload includes raw Nostr events alongside parsed data.
+- **Flow:** Server queries in-memory relay → sends HTML + seed events. Client writes seed events to Dexie on hydration. liveQuery subscribers fire, UI updates. Background API fetch for fresh data writes to Dexie → liveQuery → UI updates again. Return visits read directly from Dexie for instant paint.
 
 ## Service Worker (PWA)
 
@@ -228,7 +277,7 @@ The app is a **full PWA** with a compliant service worker and manifest.
   - **Install:** Precaches static assets (JS, CSS, HTML) and optionally critical data URLs. Uses versioned cache names; skipWaiting so new SW activates promptly.
   - **Activate:** Cleans old caches; claims clients so the new SW controls the page immediately.
   - **Fetch:** Cache-first for precached assets (including cross-origin CDN assets when used); network-first for document requests with cache fallback for offline. No requests block first paint for content that can be served from cache.
-- **Offline:** The app must be **fully working offline**: cached shell and routes serve from cache; app uses IndexedDB for all data; no network required for previously visited content. Offline banner or indicator is shown when navigator.onLine is false.
+- **Offline:** The app must be **fully working offline**: cached shell and routes serve from cache; app uses Dexie (IndexedDB) for all data; no network required for previously visited content. Offline banner or indicator is shown when navigator.onLine is false.
 - **Background refresh indicator:** When data is refreshing from the server in the background, a very subtle indicator (e.g. small dot or bar) may be shown so the user knows fresh data is being fetched without implying loading or blocking.
 - **Scope:** Service worker scope is the app origin (apex). Assets may be served from a CDN; the SW still controls the page and can cache CDN URLs for offline.
 
@@ -240,14 +289,13 @@ webapp/
 │   ├── service-worker.ts   # PWA service worker
 │   ├── lib/
 │   │   ├── components/     # Svelte components
-│   │   ├── nostr/          # Applesauce integration
-│   │   │   ├── service.ts  # EventStore, RelayPool, IndexedDB
-│   │   │   ├── models.ts   # Event parsing (App, Release, etc.)
-│   │   │   ├── server.ts   # Server API facade
-│   │   │   ├── server-db.ts # SQLite reads for prerender/SSR
-│   │   │   └── index.ts    # Public exports
+│   │   ├── nostr/          # Nostr data layer
+│   │   │   ├── relay-cache.ts  # In-memory relay cache + pool (server-only)
+│   │   │   ├── dexie.ts        # Dexie schema, liveQuery helpers (client)
+│   │   │   ├── models.ts       # Event parsing (App, Release, etc.)
+│   │   │   └── index.ts        # Public exports
 │   │   ├── stores/         # Svelte stores
-│   │   │   ├── nostr.svelte.ts   # Reactive EventStore access
+│   │   │   ├── nostr.svelte.ts   # Reactive data access (pagination, etc.)
 │   │   │   ├── online.svelte.ts  # Online/offline status
 │   │   │   ├── catalogs.svelte.ts
 │   │   │   └── auth.svelte.ts
@@ -255,13 +303,13 @@ webapp/
 │   └── routes/
 │       ├── +layout.svelte         # App shell, offline banner
 │       ├── +page.svelte           # Homepage
+│       ├── api/                   # REST API endpoints (query relay cache, return events)
 │       └── apps/
-│           ├── +page.svelte       # Apps listing (reactive)
-│           ├── +page.server.ts    # Prerender data
+│           ├── +page.svelte       # Apps listing (reactive via liveQuery)
+│           ├── +page.server.ts    # Prerender data (queries relay cache)
 │           └── [naddr]/
-│               ├── +page.svelte   # App detail (reactive)
+│               ├── +page.svelte   # App detail (reactive via liveQuery)
 │               └── +page.server.ts # Prerender data + entries
 ├── static/                 # Static assets
 └── spec/                   # Documentation
 ```
-

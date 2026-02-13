@@ -4,8 +4,7 @@
  * Pre-renders apps data for instant first paint,
  * same strategy as /apps page.
  */
-import { fetchAppsByReleases } from '$lib/nostr/server';
-import { fetchStacks } from '$lib/nostr/server';
+import { fetchAppsByReleases, fetchStacks } from '$lib/nostr/server';
 export const prerender = true;
 const PAGE_SIZE = 40;
 const STACKS_PAGE_SIZE = 20;
