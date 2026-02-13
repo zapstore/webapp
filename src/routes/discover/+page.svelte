@@ -7,22 +7,53 @@ import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
-import { getApps, getHasMore, isRefreshing, isLoadingMore, isStoreInitialized, initWithPrerenderedData, scheduleRefresh, loadMore } from '$lib/stores/nostr.svelte.js';
-import { getStacks, isStacksInitialized, initWithPrerenderedStacks, scheduleStacksRefresh, resolveStackApps } from '$lib/stores/stacks.svelte.js';
+import { createAppsQuery, seedEvents, initPagination, getHasMore, isLoadingMore, scheduleRefresh, loadMore } from '$lib/stores/nostr.svelte.js';
+import { createStacksQuery, seedStackEvents, initStacksPagination, scheduleStacksRefresh } from '$lib/stores/stacks.svelte.js';
 import { nip19 } from 'nostr-tools';
 import { encodeStackNaddr } from '$lib/nostr/models';
 import { fetchProfilesBatch } from '$lib/nostr/service';
 import { parseProfile } from '$lib/nostr/models';
 // Server-provided data
 let { data } = $props();
-const seedEvents = $derived((data.seedEvents ?? []));
+// liveQuery-driven data from Dexie (local-first, auto-updates)
+let liveApps = $state(null);
+let liveStacks = $state(null); // { stack, apps }[]
+// Pagination state
+const hasMore = $derived(getHasMore());
+const loadingMore = $derived(isLoadingMore());
 // Refs for horizontal scroll containers
 let appsScrollContainer = $state(null);
 let stacksScrollContainer = $state(null);
+// Subscribe to Dexie liveQuery for reactive apps
+$effect(() => {
+    const sub = createAppsQuery().subscribe({
+        next: (value) => { liveApps = value; },
+        error: (err) => console.error('[Discover] apps liveQuery error:', err)
+    });
+    return () => sub.unsubscribe();
+});
+// Subscribe to Dexie liveQuery for reactive stacks (with resolved apps)
+$effect(() => {
+    const sub = createStacksQuery().subscribe({
+        next: (value) => { liveStacks = value; },
+        error: (err) => console.error('[Discover] stacks liveQuery error:', err)
+    });
+    return () => sub.unsubscribe();
+});
+// Data: liveQuery → prerendered fallback
+const apps = $derived(
+    liveApps !== null && liveApps.length > 0 ? liveApps : (data.apps ?? [])
+);
+const rawStacks = $derived(
+    liveStacks !== null && liveStacks.length > 0 ? liveStacks : []
+);
+// Resolved stacks with creator profiles (fetched as side effect)
+let resolvedDisplayStacks = $state([]);
+let stacksLoading = $state(false);
+let resolvedStackKeys = $state('');
 // Save scroll positions before navigating away
 beforeNavigate(() => {
-    if (!browser)
-        return;
+    if (!browser) return;
     const scrollState = {
         scrollY: window.scrollY,
         appsScrollX: appsScrollContainer?.scrollLeft ?? 0,
@@ -31,82 +62,43 @@ beforeNavigate(() => {
     };
     sessionStorage.setItem('discover_scroll', JSON.stringify(scrollState));
 });
-// Restore scroll positions on mount (when coming back)
+// Restore scroll positions
 let pendingScrollRestore = null;
 function restoreScrollPositions() {
     const saved = sessionStorage.getItem('discover_scroll');
     if (saved) {
         try {
             const scrollState = JSON.parse(saved);
-            // Only restore if saved within last 5 minutes (avoid stale data)
             if (Date.now() - scrollState.timestamp < 5 * 60 * 1000) {
                 pendingScrollRestore = scrollState;
-                // Restore vertical scroll immediately
                 if (scrollState.scrollY > 0) {
                     window.scrollTo(0, scrollState.scrollY);
                 }
-                // Try to restore horizontal positions immediately
                 tryRestoreHorizontalScroll();
             }
-        }
-        catch (e) {
-            // Ignore parse errors
-        }
-        // Clear after restoring
+        } catch (e) { /* ignore */ }
         sessionStorage.removeItem('discover_scroll');
     }
 }
 function tryRestoreHorizontalScroll() {
-    if (!pendingScrollRestore)
-        return;
-    let restored = false;
+    if (!pendingScrollRestore) return;
     if (appsScrollContainer && pendingScrollRestore.appsScrollX > 0) {
         appsScrollContainer.scrollLeft = pendingScrollRestore.appsScrollX;
-        restored = true;
     }
     if (stacksScrollContainer && pendingScrollRestore.stacksScrollX > 0) {
         stacksScrollContainer.scrollLeft = pendingScrollRestore.stacksScrollX;
-        restored = true;
     }
-    // If both containers exist and we restored, clear pending
     if (appsScrollContainer && stacksScrollContainer) {
         pendingScrollRestore = null;
-    }
-    else if (!restored) {
-        // Containers not ready, try again next frame
+    } else {
         requestAnimationFrame(tryRestoreHorizontalScroll);
     }
 }
-// Also try to restore when scroll containers become available
 $effect(() => {
     if (browser && pendingScrollRestore && (appsScrollContainer || stacksScrollContainer)) {
         tryRestoreHorizontalScroll();
     }
 });
-// Reactive state from stores
-const storeApps = $derived(getApps());
-const storeInitialized = $derived(isStoreInitialized());
-const stacks = $derived(getStacks());
-const hasMore = $derived(getHasMore());
-const refreshing = $derived(isRefreshing());
-const loadingMore = $derived(isLoadingMore());
-const stacksInitialized = $derived(isStacksInitialized());
-// Use prerendered data until store is initialized, then use store data
-const apps = $derived(storeInitialized ? storeApps : data.apps);
-// Horizontal infinite scroll: load more when near right edge
-const HORIZONTAL_SCROLL_THRESHOLD = 500; // pixels from right edge - load early for smooth experience
-function handleAppsScroll() {
-    if (!appsScrollContainer || !hasMore || loadingMore)
-        return;
-    const { scrollLeft, scrollWidth, clientWidth } = appsScrollContainer;
-    const distanceFromEnd = scrollWidth - scrollLeft - clientWidth;
-    if (distanceFromEnd < HORIZONTAL_SCROLL_THRESHOLD) {
-        loadMore();
-    }
-}
-// Resolved stacks with apps and creators (local page state)
-let resolvedDisplayStacks = $state([]);
-let stacksLoading = $state(false);
 // Group apps into columns of 4 for horizontal scroll
 function getAppColumns(appList, itemsPerColumn = 4) {
     const columns = [];
@@ -116,6 +108,14 @@ function getAppColumns(appList, itemsPerColumn = 4) {
     return columns;
 }
 const appColumns = $derived(getAppColumns(apps, 4));
+const HORIZONTAL_SCROLL_THRESHOLD = 500;
+function handleAppsScroll() {
+    if (!appsScrollContainer || !hasMore || loadingMore) return;
+    const { scrollLeft, scrollWidth, clientWidth } = appsScrollContainer;
+    if (scrollWidth - scrollLeft - clientWidth < HORIZONTAL_SCROLL_THRESHOLD) {
+        loadMore();
+    }
+}
 function getAppUrl(app) {
     return `/apps/${app.naddr}`;
 }
@@ -126,57 +126,41 @@ function hasIdentifier(value) {
     return typeof value === 'string' && value.trim().length > 0;
 }
 function safeEncodeStackNaddr(pubkey, dTag) {
-    if (!isHexPubkey(pubkey) || !hasIdentifier(dTag))
-        return '';
-    try {
-        return encodeStackNaddr(pubkey.trim().toLowerCase(), dTag.trim());
-    }
-    catch {
-        return '';
-    }
+    if (!isHexPubkey(pubkey) || !hasIdentifier(dTag)) return '';
+    try { return encodeStackNaddr(pubkey.trim().toLowerCase(), dTag.trim()); }
+    catch { return ''; }
 }
 function safeNpub(pubkey) {
-    if (!isHexPubkey(pubkey))
-        return '';
-    try {
-        return nip19.npubEncode(pubkey.trim().toLowerCase());
-    }
-    catch {
-        return '';
-    }
+    if (!isHexPubkey(pubkey)) return '';
+    try { return nip19.npubEncode(pubkey.trim().toLowerCase()); }
+    catch { return ''; }
 }
 function getStackUrl(stack) {
     const naddr = safeEncodeStackNaddr(stack?.pubkey, stack?.dTag);
     return naddr ? `/stacks/${naddr}` : '#';
 }
-async function loadResolvedStacks() {
-    if (!browser || stacks.length === 0)
-        return;
+// Fetch creator profiles when liveQuery stacks change
+async function resolveCreatorsForStacks(stacksWithApps) {
+    if (!browser || stacksWithApps.length === 0) return;
     stacksLoading = true;
     try {
-        const visibleStacks = stacks.slice(0, 20);
-        const creatorPubkeys = [...new Set(visibleStacks.map((stack) => stack.pubkey).filter((pk) => isHexPubkey(pk)))];
+        const visible = stacksWithApps.slice(0, 20);
+        const creatorPubkeys = [...new Set(
+            visible.map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk))
+        )];
         const creatorEvents = await fetchProfilesBatch(creatorPubkeys);
-        const resolved = await Promise.all(visibleStacks.map(async (stack) => {
-            // Resolve apps for the stack
-            const stackApps = await resolveStackApps(stack);
-            // Fetch creator profile from social relays
+        resolvedDisplayStacks = visible.map(({ stack, apps: stackApps }) => {
             let creator = undefined;
             if (isHexPubkey(stack.pubkey)) {
-                try {
-                    const profileEvent = creatorEvents.get(stack.pubkey);
-                    if (profileEvent) {
-                        const profile = parseProfile(profileEvent);
-                        creator = {
-                            name: profile.displayName || profile.name,
-                            picture: profile.picture,
-                            pubkey: stack.pubkey,
-                            npub: safeNpub(stack.pubkey)
-                        };
-                    }
-                }
-                catch (e) {
-                    // Profile fetch failed, continue without creator
+                const profileEvent = creatorEvents.get(stack.pubkey);
+                if (profileEvent) {
+                    const profile = parseProfile(profileEvent);
+                    creator = {
+                        name: profile.displayName || profile.name,
+                        picture: profile.picture,
+                        pubkey: stack.pubkey,
+                        npub: safeNpub(stack.pubkey)
+                    };
                 }
             }
             return {
@@ -187,36 +171,45 @@ async function loadResolvedStacks() {
                 pubkey: stack.pubkey,
                 dTag: stack.dTag
             };
-        }));
-        resolvedDisplayStacks = resolved;
-    }
-    catch (err) {
-        console.error('Error resolving stacks:', err);
-    }
-    finally {
+        });
+    } catch (err) {
+        console.error('Error resolving stack creators:', err);
+    } finally {
         stacksLoading = false;
     }
 }
-// Load stack cards when stacks become available
+// Re-resolve creators when stacks change
 $effect(() => {
-    if (stacks.length > 0 && resolvedDisplayStacks.length === 0 && !stacksLoading) {
-        loadResolvedStacks();
+    if (!browser) return;
+    // Create a stable key to avoid re-running for the same stacks
+    const key = rawStacks.map((s) => s.stack.id).join(',');
+    if (rawStacks.length > 0 && key !== resolvedStackKeys) {
+        resolvedStackKeys = key;
+        resolveCreatorsForStacks(rawStacks);
     }
 });
-onMount(async () => {
-    if (!browser)
-        return;
-    // Initialize store with prerendered data (or use existing if already initialized from /apps)
-    if (!isStoreInitialized()) {
-        initWithPrerenderedData(data.apps, data.nextCursor, seedEvents);
+onMount(() => {
+    if (!browser) return;
+    // Seed prerendered events into Dexie → liveQuery picks them up
+    seedEvents(data.seedEvents ?? []);
+    initPagination(data.nextCursor ?? null);
+    seedStackEvents(data.stacksSeedEvents ?? []);
+    initStacksPagination(data.stacksNextCursor ?? null);
+    // If we have prerendered resolved stacks but no live data yet, show them
+    if (data.resolvedStacks?.length > 0 && resolvedDisplayStacks.length === 0) {
+        resolvedDisplayStacks = data.resolvedStacks.map(({ stack, apps: stackApps }) => ({
+            name: stack.title,
+            description: stack.description,
+            apps: stackApps ?? [],
+            creator: undefined,
+            pubkey: stack.pubkey,
+            dTag: stack.dTag
+        }));
     }
-    if (!isStacksInitialized()) {
-        initWithPrerenderedStacks(data.stacks ?? [], data.resolvedStacks ?? [], data.stacksNextCursor ?? null, data.stacksSeedEvents ?? []);
-    }
-    // Schedule background refresh for apps and stacks
+    // Schedule background refresh for fresh data
     scheduleRefresh();
     scheduleStacksRefresh();
-    // Restore scroll positions if coming back from another page
+    // Restore scroll positions
     restoreScrollPositions();
 });
 </script>
@@ -286,7 +279,7 @@ onMount(async () => {
 		<!-- Stacks Section -->
 		<div class="section-container">
 			<SectionHeader title="Stacks" linkText="See all" href="/stacks" />
-			{#if !stacksInitialized || (stacks.length > 0 && resolvedDisplayStacks.length === 0 && stacksLoading)}
+			{#if resolvedDisplayStacks.length === 0 && (liveStacks === null || stacksLoading)}
 				<div class="horizontal-scroll" use:wheelScroll>
 					<div class="scroll-content">
 						{#each Array(4) as _}

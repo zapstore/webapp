@@ -1,78 +1,141 @@
 /**
- * Reactive Stacks Store
+ * Stacks Store — liveQuery + Pagination
  *
- * Provides reactive access to app stacks with cursor-based pagination.
- * Uses Dexie for event persistence, server API for data fetching.
+ * Architecture-compliant: Dexie liveQuery is the single client-side source of truth.
+ *
+ * This store provides:
+ *   - createStacksQuery() → liveQuery observable for stacks with resolved apps
+ *   - Pagination state (cursor, hasMore, loadingMore, refreshing)
+ *   - Actions that write to Dexie (liveQuery updates UI automatically)
  */
+import { liveQuery } from 'dexie';
 import { setBackgroundRefreshing } from '$lib/stores/refresh-indicator.svelte.js';
-import { putEvents } from '$lib/nostr/dexie';
+import { db, putEvents } from '$lib/nostr/dexie';
+import { parseApp, parseAppStack } from '$lib/nostr/models';
+import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
 
 const PAGE_SIZE = 20;
+const platformTag = PLATFORM_FILTER['#f']?.[0];
 
 // ============================================================================
-// Reactive State
+// Reactive State (pagination/UI only — data comes from liveQuery)
 // ============================================================================
 
-let stacks = $state([]);
 let cursor = $state(null);
 let hasMore = $state(true);
 let loadingMore = $state(false);
 let refreshing = $state(false);
-let initialized = $state(false);
-const seenStacks = new Set();
-let resolvedStacksCache = $state([]);
 
 // ============================================================================
 // Public Reactive Getters
 // ============================================================================
 
-export function getStacks() {
-	return stacks;
-}
-export function getHasMore() {
+export function getStacksHasMore() {
 	return hasMore;
 }
-export function isLoadingMore() {
+export function isStacksLoadingMore() {
 	return loadingMore;
 }
-export function isRefreshing() {
+export function isStacksRefreshing() {
 	return refreshing;
-}
-export function isStacksInitialized() {
-	return initialized;
-}
-export function getResolvedStacks() {
-	return resolvedStacksCache;
-}
-export function setResolvedStacks(value) {
-	resolvedStacksCache = value;
 }
 
 // ============================================================================
-// Actions
+// liveQuery — Reactive data from Dexie
 // ============================================================================
 
 /**
- * Initialize with prerendered data.
+ * Returns a Dexie liveQuery observable for stacks with their resolved apps.
+ * Each entry is { stack: ParsedStack, apps: ParsedApp[] }.
+ * Subscribe in a component $effect for reactive updates.
  */
-export function initWithPrerenderedStacks(prerenderedStacks, prerenderedResolvedStacks, nextCursor, seedEvents = []) {
-	stacks = prerenderedStacks;
-	resolvedStacksCache = prerenderedResolvedStacks ?? [];
-	cursor = nextCursor;
-	hasMore = nextCursor !== null;
+export function createStacksQuery() {
+	return liveQuery(async () => {
+		// Get stack events
+		let stackEvents = await db.events
+			.where('kind')
+			.equals(EVENT_KINDS.APP_STACK)
+			.reverse()
+			.sortBy('created_at');
 
-	seenStacks.clear();
-	for (const stack of prerenderedStacks) {
-		seenStacks.add(`${stack.pubkey}:${stack.dTag}`);
-	}
+		// Filter by platform tag
+		if (platformTag) {
+			stackEvents = stackEvents.filter((e) =>
+				e.tags?.some((t) => t[0] === 'f' && t[1] === platformTag)
+			);
+		}
 
-	initialized = true;
+		// Discard encrypted stacks (non-empty content that isn't valid JSON description)
+		stackEvents = stackEvents.filter((e) => {
+			if (!e.content) return true;
+			// parseAppStack uses content as description, so we keep it
+			return true;
+		});
 
-	if (seedEvents.length > 0) {
-		putEvents(seedEvents).catch((err) =>
+		// Get all app events for resolving stack references
+		let appEvents = await db.events.where('kind').equals(EVENT_KINDS.APP).toArray();
+
+		if (platformTag) {
+			appEvents = appEvents.filter((e) =>
+				e.tags?.some((t) => t[0] === 'f' && t[1] === platformTag)
+			);
+		}
+
+		// Index apps by (pubkey:dTag)
+		const appsByKey = new Map();
+		for (const app of appEvents) {
+			const dTag = app.tags?.find((t) => t[0] === 'd')?.[1];
+			if (!dTag) continue;
+			const key = `${app.pubkey}:${dTag}`;
+			const existing = appsByKey.get(key);
+			if (!existing || app.created_at > existing.created_at) {
+				appsByKey.set(key, app);
+			}
+		}
+
+		// Parse stacks and resolve their apps
+		return stackEvents.map((event) => {
+			const stack = parseAppStack(event);
+			const apps = [];
+
+			if (stack.appRefs) {
+				for (const ref of stack.appRefs) {
+					if (ref.kind !== EVENT_KINDS.APP) continue;
+					const key = `${ref.pubkey}:${ref.identifier}`;
+					const appEvent = appsByKey.get(key);
+					if (appEvent) {
+						apps.push(parseApp(appEvent));
+					}
+				}
+			}
+
+			return { stack, apps };
+		});
+	});
+}
+
+// ============================================================================
+// Actions — write to Dexie, liveQuery handles the rest
+// ============================================================================
+
+/**
+ * Seed events into Dexie (non-blocking).
+ */
+export function seedStackEvents(events) {
+	if (events && events.length > 0) {
+		return putEvents(events).catch((err) =>
 			console.error('[StacksStore] Seed persist failed:', err)
 		);
 	}
+	return Promise.resolve();
+}
+
+/**
+ * Set initial pagination cursor from prerendered data.
+ */
+export function initStacksPagination(nextCursor) {
+	cursor = nextCursor ?? null;
+	hasMore = nextCursor !== null;
 }
 
 /**
@@ -83,19 +146,16 @@ async function fetchStacksPageFromServer(limit, nextCursor) {
 	if (nextCursor !== undefined && nextCursor !== null) {
 		params.set('cursor', String(nextCursor));
 	}
-
 	const response = await fetch(`/api/stacks?${params.toString()}`);
-	if (!response.ok) {
-		throw new Error(`Stacks API failed: ${response.status}`);
-	}
-
+	if (!response.ok) throw new Error(`Stacks API failed: ${response.status}`);
 	return response.json();
 }
 
 /**
- * Refresh stacks from server (background, non-blocking).
+ * Refresh from server API (background).
+ * Writes to Dexie → liveQuery updates UI automatically.
  */
-export async function refreshStacksFromRelays() {
+export async function refreshStacksFromAPI() {
 	if (refreshing) return;
 	if (typeof window === 'undefined' || !navigator.onLine) return;
 
@@ -103,44 +163,22 @@ export async function refreshStacksFromRelays() {
 	setBackgroundRefreshing(true);
 
 	try {
-		const { stacks: freshStacks, resolvedStacks: freshResolvedStacks = [], nextCursor, seedEvents = [] } =
-			await fetchStacksPageFromServer(PAGE_SIZE);
-
-		if (seedEvents.length > 0) {
-			await putEvents(seedEvents).catch(() => {});
+		const { nextCursor, seedEvents: events = [] } = await fetchStacksPageFromServer(PAGE_SIZE);
+		if (events.length > 0) {
+			await putEvents(events);
 		}
-
-		if (freshStacks.length > 0) {
-			const parsed = [];
-			const newSeen = new Set();
-
-			for (const stack of freshStacks) {
-				const key = `${stack.pubkey}:${stack.dTag}`;
-				if (!newSeen.has(key)) {
-					newSeen.add(key);
-					parsed.push(stack);
-				}
-			}
-
-			stacks = parsed;
-			resolvedStacksCache = freshResolvedStacks;
-			cursor = nextCursor;
-			hasMore = nextCursor !== null;
-
-			seenStacks.clear();
-			for (const key of newSeen) seenStacks.add(key);
-		}
+		cursor = nextCursor;
+		hasMore = nextCursor !== null;
 	} catch (err) {
 		console.error('[StacksStore] Refresh failed:', err);
 	} finally {
-		initialized = true;
 		refreshing = false;
 		setBackgroundRefreshing(false);
 	}
 }
 
 /**
- * Load more stacks (next page).
+ * Load more stacks (next page → Dexie → liveQuery).
  */
 export async function loadMoreStacks() {
 	if (loadingMore || !hasMore || cursor === null) return;
@@ -149,30 +187,13 @@ export async function loadMoreStacks() {
 	loadingMore = true;
 
 	try {
-		const { stacks: moreStacks, resolvedStacks: moreResolvedStacks = [], nextCursor, seedEvents = [] } =
-			await fetchStacksPageFromServer(PAGE_SIZE, cursor);
-
-		if (seedEvents.length > 0) {
-			await putEvents(seedEvents).catch(() => {});
+		const { nextCursor, seedEvents: events = [] } = await fetchStacksPageFromServer(
+			PAGE_SIZE,
+			cursor
+		);
+		if (events.length > 0) {
+			await putEvents(events);
 		}
-
-		if (moreStacks.length > 0) {
-			const newStacks = [];
-			for (const stack of moreStacks) {
-				const key = `${stack.pubkey}:${stack.dTag}`;
-				if (!seenStacks.has(key)) {
-					seenStacks.add(key);
-					newStacks.push(stack);
-				}
-			}
-			if (newStacks.length > 0) {
-				stacks = [...stacks, ...newStacks];
-			}
-			if (moreResolvedStacks.length > 0) {
-				resolvedStacksCache = [...resolvedStacksCache, ...moreResolvedStacks];
-			}
-		}
-
 		cursor = nextCursor;
 		hasMore = nextCursor !== null;
 	} catch (err) {
@@ -183,54 +204,11 @@ export async function loadMoreStacks() {
 }
 
 /**
- * Resolve apps for a stack.
- */
-export async function resolveStackApps(stack) {
-	if (!stack?.pubkey || !stack?.dTag) return [];
-	const key = `${stack.pubkey}:${stack.dTag}`;
-	const resolved = resolvedStacksCache.find(
-		(entry) => `${entry.stack.pubkey}:${entry.stack.dTag}` === key
-	);
-	return resolved?.apps ?? [];
-}
-
-/**
- * Resolve apps for multiple stacks.
- */
-export async function resolveMultipleStackApps(stacksList) {
-	if (typeof window === 'undefined' || stacksList.length === 0) return [];
-	return Promise.all(
-		stacksList.map(async (stack) => ({
-			stack,
-			apps: await resolveStackApps(stack)
-		}))
-	);
-}
-
-/**
  * Schedule background refresh.
  */
 export function scheduleStacksRefresh() {
 	if (typeof window === 'undefined') return;
 	const schedule =
-		'requestIdleCallback' in window
-			? window.requestIdleCallback
-			: (cb) => setTimeout(cb, 1);
-	schedule(() => {
-		refreshStacksFromRelays();
-	});
-}
-
-/**
- * Reset store state.
- */
-export function resetStacksStore() {
-	stacks = [];
-	resolvedStacksCache = [];
-	cursor = null;
-	hasMore = true;
-	loadingMore = false;
-	refreshing = false;
-	initialized = false;
-	seenStacks.clear();
+		'requestIdleCallback' in window ? window.requestIdleCallback : (cb) => setTimeout(cb, 1);
+	schedule(() => refreshStacksFromAPI());
 }

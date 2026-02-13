@@ -47,9 +47,9 @@ These are the most critical invariants. Local-first is not optional.
 
 ## Search
 
-- Search is ALWAYS a server API query (which queries the in-memory relay cache or upstream relays) — never pre-rendered or from local cache.
+- Search is ALWAYS a live relay query (NIP-50 full-text search) — never pre-rendered or from local cache.
 - Search MUST show a loading spinner while querying.
-- Search queries use NIP-50 via the server relay pool.
+- Search queries use NIP-50 via the client-side relay pool (direct to catalog relays).
 - Search results are written to Dexie for back-navigation only.
 
 ## UI Safety

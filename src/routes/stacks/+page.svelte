@@ -3,19 +3,28 @@ import { onMount } from 'svelte';
 import { browser } from '$app/environment';
 import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
-import { getStacks, getHasMore as getStacksHasMore, isLoadingMore as isStacksLoadingMore, isStacksInitialized, scheduleStacksRefresh, loadMoreStacks, resolveStackApps, initWithPrerenderedStacks } from '$lib/stores/stacks.svelte.js';
+import { createStacksQuery, seedStackEvents, initStacksPagination, getStacksHasMore, isStacksLoadingMore, loadMoreStacks, scheduleStacksRefresh } from '$lib/stores/stacks.svelte.js';
 import { nip19 } from 'nostr-tools';
 import { fetchProfilesBatch } from '$lib/nostr/service';
 import { parseProfile, encodeStackNaddr } from '$lib/nostr/models';
 let { data } = $props();
-// Reactive state from store
-const stacks = $derived(getStacks());
+// liveQuery-driven stacks from Dexie (local-first, auto-updates)
+let liveStacks = $state(null); // { stack, apps }[]
+// Pagination state
 const hasMore = $derived(getStacksHasMore());
 const loadingMore = $derived(isStacksLoadingMore());
-const initialized = $derived(isStacksInitialized());
-// Resolved stacks with apps and creators
+// Subscribe to Dexie liveQuery for reactive stacks
+$effect(() => {
+    const sub = createStacksQuery().subscribe({
+        next: (value) => { liveStacks = value; },
+        error: (err) => console.error('[StacksPage] liveQuery error:', err)
+    });
+    return () => sub.unsubscribe();
+});
+// Resolved stacks with creator profiles
 let resolvedStacks = $state([]);
 let loading = $state(true);
+let resolvedStackKeys = $state('');
 function isHexPubkey(value) {
     return typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value.trim());
 }
@@ -23,58 +32,44 @@ function hasIdentifier(value) {
     return typeof value === 'string' && value.trim().length > 0;
 }
 function safeEncodeStackNaddr(pubkey, dTag) {
-    if (!isHexPubkey(pubkey) || !hasIdentifier(dTag))
-        return '';
-    try {
-        return encodeStackNaddr(pubkey.trim().toLowerCase(), dTag.trim());
-    }
-    catch {
-        return '';
-    }
+    if (!isHexPubkey(pubkey) || !hasIdentifier(dTag)) return '';
+    try { return encodeStackNaddr(pubkey.trim().toLowerCase(), dTag.trim()); }
+    catch { return ''; }
 }
 function safeNpub(pubkey) {
-    if (!isHexPubkey(pubkey))
-        return '';
-    try {
-        return nip19.npubEncode(pubkey.trim().toLowerCase());
-    }
-    catch {
-        return '';
-    }
+    if (!isHexPubkey(pubkey)) return '';
+    try { return nip19.npubEncode(pubkey.trim().toLowerCase()); }
+    catch { return ''; }
 }
 function getStackUrl(stack) {
     const naddr = safeEncodeStackNaddr(stack?.pubkey, stack?.dTag);
     return naddr ? `/stacks/${naddr}` : '#';
 }
-async function loadResolvedStacks() {
-    if (!browser)
-        return;
-    if (stacks.length === 0) {
+// Fetch creator profiles when liveQuery stacks change
+async function resolveCreators(stacksWithApps) {
+    if (!browser) return;
+    if (stacksWithApps.length === 0) {
         loading = false;
         return;
     }
     loading = true;
     try {
-        const creatorPubkeys = [...new Set(stacks.map((stack) => stack.pubkey).filter((pk) => isHexPubkey(pk)))];
+        const creatorPubkeys = [...new Set(
+            stacksWithApps.map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk))
+        )];
         const creatorEvents = await fetchProfilesBatch(creatorPubkeys);
-        const resolved = await Promise.all(stacks.map(async (stack) => {
-            const stackApps = await resolveStackApps(stack);
+        resolvedStacks = stacksWithApps.map(({ stack, apps: stackApps }) => {
             let creator = undefined;
             if (isHexPubkey(stack.pubkey)) {
-                try {
-                    const profileEvent = creatorEvents.get(stack.pubkey);
-                    if (profileEvent) {
-                        const profile = parseProfile(profileEvent);
-                        creator = {
-                            name: profile.displayName || profile.name,
-                            picture: profile.picture,
-                            pubkey: stack.pubkey,
-                            npub: safeNpub(stack.pubkey)
-                        };
-                    }
-                }
-                catch (e) {
-                    // Profile fetch failed
+                const profileEvent = creatorEvents.get(stack.pubkey);
+                if (profileEvent) {
+                    const profile = parseProfile(profileEvent);
+                    creator = {
+                        name: profile.displayName || profile.name,
+                        picture: profile.picture,
+                        pubkey: stack.pubkey,
+                        npub: safeNpub(stack.pubkey)
+                    };
                 }
             }
             return {
@@ -85,32 +80,28 @@ async function loadResolvedStacks() {
                 pubkey: stack.pubkey,
                 dTag: stack.dTag
             };
-        }));
-        resolvedStacks = resolved;
-    }
-    catch (err) {
+        });
+    } catch (err) {
         console.error('Error resolving stacks:', err);
-    }
-    finally {
+    } finally {
         loading = false;
     }
 }
+// Re-resolve creators when liveQuery stacks change
 $effect(() => {
-    if (initialized) {
-        if (stacks.length > 0) {
-            loadResolvedStacks();
-        }
-        else {
-            loading = false;
-        }
+    if (!browser || liveStacks === null) return;
+    const key = liveStacks.map((s) => s.stack.id).join(',');
+    if (key !== resolvedStackKeys) {
+        resolvedStackKeys = key;
+        resolveCreators(liveStacks);
     }
 });
 onMount(() => {
-    if (!browser)
-        return;
-    if (!isStacksInitialized()) {
-        initWithPrerenderedStacks(data.stacks ?? [], data.resolvedStacks ?? [], data.nextCursor ?? null, data.seedEvents ?? []);
-    }
+    if (!browser) return;
+    // Seed prerendered events into Dexie → liveQuery picks them up
+    seedStackEvents(data.seedEvents ?? []);
+    initStacksPagination(data.nextCursor ?? null);
+    // Schedule background refresh for fresh data
     scheduleStacksRefresh();
 });
 </script>
@@ -127,7 +118,7 @@ onMount(() => {
 			<p class="text-muted-foreground mt-2">Curated collections of apps by the community</p>
 		</div>
 
-		{#if loading || !initialized}
+		{#if loading && resolvedStacks.length === 0}
 			<div class="stacks-grid">
 				{#each [1, 2, 3] as _}
 					<div class="skeleton-stack">

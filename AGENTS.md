@@ -68,7 +68,7 @@ SvelteKit app with Nostr-native data layer:
 
 - **Server**: In-memory Nostr relay cache fed by reconnectable pool (upstream relays). REST API returns Nostr events.
 - **Client**: Dexie.js (IndexedDB) with `liveQuery` for reactive queries. No separate in-memory EventStore.
-- **Prerendering**: All pages built at deploy time via `+page.server.ts` (queries relay cache)
+- **Prerendering**: All pages built at deploy time via `+page.server.js` (queries relay cache)
 - **Local-first**: Dexie (IndexedDB) is the single client-side source of truth
 - **Background refresh**: API fetches write to Dexie → liveQuery updates UI reactively
 

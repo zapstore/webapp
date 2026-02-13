@@ -260,12 +260,13 @@ export async function fetchStacks(limit = 20, until) {
 	const stackEvents = queryCache(filter);
 	const stacks = stackEvents.map(parseAppStack);
 
-	// Resolve apps for each stack
+	// Resolve apps for all stacks in a single batch query
+	const appsByStackId = resolveMultipleStackAppsFromCache(stacks);
 	const resolvedStacks = [];
 	const selectedAppEvents = [];
 
 	for (const stack of stacks) {
-		const apps = resolveStackAppsFromCache(stack);
+		const apps = appsByStackId.get(stack.id) ?? [];
 		selectedAppEvents.push(
 			...apps.map((a) => a.rawEvent).filter(Boolean)
 		);
@@ -375,9 +376,10 @@ export async function fetchStacksByAuthor(pubkey, limit = 50) {
 
 	const stacks = stackEvents.map(parseAppStack);
 
+	const appsByStackId = resolveMultipleStackAppsFromCache(stacks);
 	const resolvedStacks = [];
 	for (const stack of stacks) {
-		const apps = resolveStackAppsFromCache(stack);
+		const apps = appsByStackId.get(stack.id) ?? [];
 		resolvedStacks.push({ stack, apps });
 	}
 
@@ -398,64 +400,148 @@ export async function fetchProfilesServer(pubkeys, options = {}) {
 // ============================================================================
 
 /**
- * Resolve apps referenced by a stack (cache only).
+ * Resolve apps referenced by multiple stacks (cache only, single batch query).
  * Used by listing functions where speed matters — no relay queries.
+ * Returns a Map from stack event id to parsed app array.
  */
-function resolveStackAppsFromCache(stack) {
-	if (!stack?.appRefs || stack.appRefs.length === 0) return [];
+function resolveMultipleStackAppsFromCache(stacks) {
+	const result = new Map();
+	if (!stacks || stacks.length === 0) return result;
 
 	const platformTag = PLATFORM_FILTER['#f']?.[0];
-	const apps = [];
 
-	for (const ref of stack.appRefs) {
-		if (ref.kind !== EVENT_KINDS.APP) continue;
+	// Collect all unique app refs across all stacks
+	const allRefKeys = new Set();
+	const allAuthors = new Set();
+	const allIdentifiers = new Set();
 
-		const results = queryCache({
-			kinds: [EVENT_KINDS.APP],
-			authors: [ref.pubkey],
-			'#d': [ref.identifier],
-			...(platformTag ? { '#f': [platformTag] } : {}),
-			limit: 1
-		});
-
-		if (results.length > 0) {
-			apps.push(parseApp(results[0]));
+	for (const stack of stacks) {
+		if (!stack?.appRefs) continue;
+		for (const ref of stack.appRefs) {
+			if (ref.kind !== EVENT_KINDS.APP) continue;
+			allRefKeys.add(`${ref.pubkey}:${ref.identifier}`);
+			allAuthors.add(ref.pubkey);
+			allIdentifiers.add(ref.identifier);
 		}
 	}
 
-	return apps;
+	if (allRefKeys.size === 0) {
+		for (const stack of stacks) result.set(stack.id, []);
+		return result;
+	}
+
+	// Single batch cache query for all referenced apps
+	const cachedResults = queryCache({
+		kinds: [EVENT_KINDS.APP],
+		authors: [...allAuthors],
+		'#d': [...allIdentifiers],
+		...(platformTag ? { '#f': [platformTag] } : {})
+	});
+
+	// Build lookup map: "pubkey:dTag" -> event (first/latest wins due to sort order)
+	const appEventsByKey = new Map();
+	for (const event of cachedResults) {
+		const dTag = event.tags?.find((t) => t[0] === 'd')?.[1] ?? '';
+		const key = `${event.pubkey}:${dTag}`;
+		if (allRefKeys.has(key) && !appEventsByKey.has(key)) {
+			appEventsByKey.set(key, event);
+		}
+	}
+
+	// Resolve each stack's apps in original order
+	for (const stack of stacks) {
+		const apps = [];
+		if (stack?.appRefs) {
+			for (const ref of stack.appRefs) {
+				if (ref.kind !== EVENT_KINDS.APP) continue;
+				const key = `${ref.pubkey}:${ref.identifier}`;
+				const event = appEventsByKey.get(key);
+				if (event) apps.push(parseApp(event));
+			}
+		}
+		result.set(stack.id, apps);
+	}
+
+	return result;
 }
 
 /**
- * Resolve apps referenced by a stack (with relay fallback).
+ * Resolve apps referenced by a stack (with relay fallback, batched).
  * Used by single-item detail lookups where completeness matters.
+ * Makes at most 1 cache query + 1 relay query (for any cache misses).
  */
 async function resolveStackApps(stack) {
 	if (!stack?.appRefs || stack.appRefs.length === 0) return [];
 
 	const platformTag = PLATFORM_FILTER['#f']?.[0];
-	const apps = [];
+
+	// Collect all unique app refs
+	const refsByKey = new Map();
+	const allAuthors = new Set();
+	const allIdentifiers = new Set();
 
 	for (const ref of stack.appRefs) {
 		if (ref.kind !== EVENT_KINDS.APP) continue;
+		const key = `${ref.pubkey}:${ref.identifier}`;
+		refsByKey.set(key, ref);
+		allAuthors.add(ref.pubkey);
+		allIdentifiers.add(ref.identifier);
+	}
 
-		const filter = {
+	if (refsByKey.size === 0) return [];
+
+	// Single batch cache query
+	const cachedResults = queryCache({
+		kinds: [EVENT_KINDS.APP],
+		authors: [...allAuthors],
+		'#d': [...allIdentifiers],
+		...(platformTag ? { '#f': [platformTag] } : {})
+	});
+
+	// Build lookup map from cache hits
+	const appsByKey = new Map();
+	for (const event of cachedResults) {
+		const dTag = event.tags?.find((t) => t[0] === 'd')?.[1] ?? '';
+		const key = `${event.pubkey}:${dTag}`;
+		if (refsByKey.has(key) && !appsByKey.has(key)) {
+			appsByKey.set(key, event);
+		}
+	}
+
+	// Find cache misses and batch-fetch from relays
+	const missingAuthors = new Set();
+	const missingIdentifiers = new Set();
+	for (const [key, ref] of refsByKey) {
+		if (!appsByKey.has(key)) {
+			missingAuthors.add(ref.pubkey);
+			missingIdentifiers.add(ref.identifier);
+		}
+	}
+
+	if (missingAuthors.size > 0) {
+		const relayResults = await queryRelays(DEFAULT_CATALOG_RELAYS, {
 			kinds: [EVENT_KINDS.APP],
-			authors: [ref.pubkey],
-			'#d': [ref.identifier],
-			...(platformTag ? { '#f': [platformTag] } : {}),
-			limit: 1
-		};
+			authors: [...missingAuthors],
+			'#d': [...missingIdentifiers],
+			...(platformTag ? { '#f': [platformTag] } : {})
+		});
 
-		let results = queryCache(filter);
-		if (results.length === 0) {
-			// Cache miss — fetch on-demand from upstream relays
-			results = await queryRelays(DEFAULT_CATALOG_RELAYS, filter);
+		for (const event of relayResults) {
+			const dTag = event.tags?.find((t) => t[0] === 'd')?.[1] ?? '';
+			const key = `${event.pubkey}:${dTag}`;
+			if (refsByKey.has(key) && !appsByKey.has(key)) {
+				appsByKey.set(key, event);
+			}
 		}
+	}
 
-		if (results.length > 0) {
-			apps.push(parseApp(results[0]));
-		}
+	// Resolve in original order
+	const apps = [];
+	for (const ref of stack.appRefs) {
+		if (ref.kind !== EVENT_KINDS.APP) continue;
+		const key = `${ref.pubkey}:${ref.identifier}`;
+		const event = appsByKey.get(key);
+		if (event) apps.push(parseApp(event));
 	}
 
 	return apps;

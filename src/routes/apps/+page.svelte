@@ -8,63 +8,61 @@ import { parseApp } from '$lib/nostr/models';
 import { encodeAppNaddr } from '$lib/nostr/models';
 import { searchApps } from '$lib/nostr/service';
 import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
-import { getApps, getHasMore, isRefreshing, isLoadingMore, isStoreInitialized, initWithPrerenderedData, scheduleRefresh, loadMore } from '$lib/stores/nostr.svelte.js';
-const SCROLL_THRESHOLD = 800; // pixels from bottom to trigger load
+import { createAppsQuery, seedEvents, initPagination, getHasMore, isRefreshing, isLoadingMore, scheduleRefresh, loadMore } from '$lib/stores/nostr.svelte.js';
+const SCROLL_THRESHOLD = 800;
 let { data } = $props();
-const seedEvents = $derived((data.seedEvents ?? []));
-// Reactive getters from store
-const storeApps = $derived(getApps());
-const storeInitialized = $derived(isStoreInitialized());
+// liveQuery-driven apps from Dexie (local-first, auto-updates)
+let liveApps = $state(null);
+// Pagination state from store
 const hasMore = $derived(getHasMore());
 const refreshing = $derived(isRefreshing());
 const loadingMore = $derived(isLoadingMore());
 // Search query from URL (?q=...)
-// Guard against prerender: searchParams not available during SSR with prerender=true
 const searchQ = $derived(browser ? ($page.url.searchParams.get('q')?.trim() ?? '') : '');
-// Search state: relay-fetched results when ?q= is present
+// Search state
 let searchResults = $state(null);
 let searching = $state(false);
 let searchedQuery = $state('');
-// SSR-safe display logic
-const baseApps = $derived(storeInitialized ? storeApps : (data.apps ?? []));
-// When searching, show relay results; otherwise show the paginated list
+// Data: liveQuery result (if available) → prerendered fallback
+const baseApps = $derived(
+    liveApps !== null && liveApps.length > 0 ? liveApps : (data.apps ?? [])
+);
 const displayApps = $derived(searchQ ? (searchResults ?? []) : baseApps);
-// True while search is in flight, OR when we have a query but no results yet
 const isSearching = $derived(searchQ !== '' && (searching || searchResults === null));
-// Navigate to app detail page route (/apps/[naddr])
+// Subscribe to Dexie liveQuery for reactive local-first data
+$effect(() => {
+    const sub = createAppsQuery().subscribe({
+        next: (value) => { liveApps = value; },
+        error: (err) => console.error('[AppsPage] liveQuery error:', err)
+    });
+    return () => sub.unsubscribe();
+});
 function getAppUrl(app) {
     const naddr = app.naddr || encodeAppNaddr(app.pubkey, app.dTag);
     return `/apps/${naddr}`;
 }
-// Infinite scroll: check if near bottom
 function shouldLoadMore() {
-    if (!browser)
-        return false;
+    if (!browser) return false;
     const scrollTop = window.scrollY || document.documentElement.scrollTop;
     const scrollHeight = document.documentElement.scrollHeight;
     const clientHeight = window.innerHeight;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    return distanceFromBottom < SCROLL_THRESHOLD;
+    return scrollHeight - scrollTop - clientHeight < SCROLL_THRESHOLD;
 }
 function handleScroll() {
     if (!searchQ && hasMore && !loadingMore && shouldLoadMore()) {
         loadMore();
     }
 }
-// Run NIP-50 search against the relay when query changes
 async function runSearch(query) {
     if (!query) {
         searchResults = null;
         searchedQuery = '';
         return;
     }
-    // Don't re-run if already searched for this query
-    if (query === searchedQuery && searchResults !== null)
-        return;
+    if (query === searchedQuery && searchResults !== null) return;
     searching = true;
     try {
         const events = await searchApps([...DEFAULT_CATALOG_RELAYS], query, { limit: 50 });
-        // Deduplicate and parse
         const seen = new Set();
         const parsed = [];
         for (const event of events) {
@@ -77,32 +75,24 @@ async function runSearch(query) {
         }
         searchResults = parsed;
         searchedQuery = query;
-    }
-    catch (err) {
+    } catch (err) {
         console.error('[AppsPage] Search failed:', err);
         searchResults = [];
-    }
-    finally {
+    } finally {
         searching = false;
     }
 }
-// React to searchQ changes
 $effect(() => {
-    if (browser) {
-        runSearch(searchQ);
-    }
+    if (browser) runSearch(searchQ);
 });
 onMount(() => {
-    if (!browser)
-        return;
-    // Use cached apps when coming from discover (or elsewhere): don't overwrite with empty.
-    // Only init when we have server data to show, or when store was never initialized.
-    if (!isStoreInitialized() || (data.apps?.length ?? 0) > 0) {
-        initWithPrerenderedData(data.apps ?? [], data.nextCursor ?? null, seedEvents);
-    }
-    // Add scroll listener for infinite scroll
+    if (!browser) return;
+    // Seed prerendered events into Dexie → liveQuery picks them up
+    seedEvents(data.seedEvents ?? []);
+    initPagination(data.nextCursor ?? null);
+    // Scroll listener for infinite scroll
     window.addEventListener('scroll', handleScroll, { passive: true });
-    // Always schedule background refresh so we can load/update in the meantime
+    // ALWAYS fetch fresh data from API in background
     if (!searchQ) {
         scheduleRefresh();
     }
