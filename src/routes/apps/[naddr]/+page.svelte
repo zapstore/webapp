@@ -4,6 +4,8 @@ import { browser } from "$app/environment";
 import { page } from "$app/stores";
 import { Package, X } from "lucide-svelte";
 import { queryEvents, queryEvent, queryCommentsFromStore, parseApp, parseRelease, fetchProfile, fetchProfilesBatch, fetchComments, fetchCommentRepliesByE, fetchZaps, parseComment, parseZapReceipt, encodeAppNaddr, publishComment, decodeNaddr, putEvents, } from "$lib/nostr";
+import { fetchFromRelays } from "$lib/nostr/service";
+import { DEFAULT_CATALOG_RELAYS } from "$lib/config";
 import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
 import { nip19 } from "nostr-tools";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
@@ -417,10 +419,27 @@ async function handleCommentSubmit(event) {
     }
 }
 async function loadReleases() {
+    if (!app?.pubkey || !app?.dTag) return;
     releasesLoading = true;
     try {
-        releases = data.releases ?? [];
-        // Re-fetch zaps with release/metadata ids so we get #e-tagged zaps (legacy, match previous behavior)
+        // Fetch releases from relays (server doesn't cache releases)
+        const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
+        await fetchFromRelays(DEFAULT_CATALOG_RELAYS, {
+            kinds: [EVENT_KINDS.RELEASE],
+            '#a': [aTagValue],
+            limit: 50
+        });
+        // Read from Dexie (fetchFromRelays wrote them there)
+        const releaseEvents = await queryEvents({
+            kinds: [EVENT_KINDS.RELEASE],
+            '#a': [aTagValue],
+            limit: 50
+        });
+        releases = releaseEvents.map(parseRelease);
+        if (releases.length > 0 && !latestRelease) {
+            latestRelease = releases[0];
+        }
+        // Re-fetch zaps with release/metadata ids
         const latest = releases[0];
         if (latest && app?.pubkey && app?.dTag) {
             const ids = [latest.id, ...(latest.artifacts ?? [])];
@@ -462,16 +481,10 @@ onMount(async () => {
     if (cachedRelease) {
         latestRelease = parseRelease(cachedRelease);
     }
-    // 2. Supplement with server data (may be fresher or have releases)
-    if (data.app) {
-        if (!app) {
-            app = data.app;
-            error = null;
-        }
-        if (data.latestRelease && !latestRelease) {
-            latestRelease = data.latestRelease;
-        }
-        releases = data.releases ?? [];
+    // 2. Supplement with server data (may be fresher)
+    if (data.app && !app) {
+        app = data.app;
+        error = null;
     }
     // 3. If neither Dexie nor server had the app, show error
     if (!app) {

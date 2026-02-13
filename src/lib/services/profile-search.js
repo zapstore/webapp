@@ -6,7 +6,7 @@
  *
  * - Empty query: default profiles (Zapstore + 3 npubs) from Dexie or placeholders
  * - Non-empty query: filter profiles from Dexie (kind 0) + contacts
- * - Background: fetch profiles via server API, write to Dexie
+ * - Background: fetch profiles from relays, write to Dexie
  */
 import { writable } from 'svelte/store';
 import { queryEvents, queryEvent, fetchProfilesBatch } from '$lib/nostr';
@@ -59,7 +59,7 @@ function startFetchDefaultProfiles() {
 	if (defaultProfilesStarted) return;
 	defaultProfilesStarted = true;
 
-	// Async: check Dexie for Zapstore profile, then fetch missing via server API
+	// Async: check Dexie for Zapstore profile, then fetch missing from relays
 	void (async () => {
 		try {
 			const zapstoreEvent = await queryEvent({

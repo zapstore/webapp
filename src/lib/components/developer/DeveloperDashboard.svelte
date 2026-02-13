@@ -5,12 +5,19 @@ import { Options, Zap, Download, Home, Mail, List, ChevronDown } from "$lib/comp
 import AppPic from "$lib/components/common/AppPic.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import { getCurrentPubkey } from "$lib/stores/auth.svelte.js";
-import { getApps, scheduleRefresh } from "$lib/stores/nostr.svelte.js";
+import { createAppsQuery } from "$lib/stores/nostr.svelte.js";
 import { encodeAppNaddr } from "$lib/nostr/models";
 // Get current user's pubkey
 const userPubkey = $derived(getCurrentPubkey());
-// Get apps from store (will filter by user's pubkey when available)
-const allApps = $derived(getApps());
+// liveQuery-driven apps from Dexie
+let allApps = $state([]);
+$effect(() => {
+    const sub = createAppsQuery().subscribe({
+        next: (value) => { allApps = value; },
+        error: (err) => console.error('[Dashboard] liveQuery error:', err)
+    });
+    return () => sub.unsubscribe();
+});
 // Filter apps by current user's pubkey
 const userApps = $derived(userPubkey
     ? allApps.filter(app => app.pubkey === userPubkey)
@@ -38,8 +45,7 @@ const colors = {
 const totalDownloads = 2100;
 const totalZaps = 31000;
 onMount(() => {
-    // Refresh apps on mount
-    scheduleRefresh();
+    // Apps refresh via live relay subscriptions (started in root layout)
 });
 function generateAppChartData(appCount) {
     const data = {};

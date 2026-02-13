@@ -5,7 +5,7 @@
 - **Minimize loading states and skeletons.** Avoid the classic SPA pattern of spinners or skeletons everywhere. They have a place (e.g. true first-ever empty state, explicit search-in-flight) but must be minimal. First paint should show **real content** from local data or prerender whenever possible.
 - **Landing pages (marketing) are fully prerendered.** No blocking on data; static or build-time data only.
 - **UI always updates reactively.** When local data or server/background data changes, the UI MUST update without full page reload. Use reactive state (e.g. Svelte runes, Dexie liveQuery) so new data flows into the view immediately.
-- **Full PWA.** The app is a full Progressive Web App: valid web app manifest, compliant service worker (install, fetch, activate, scope), and offline support for cached routes and local data. No half-measures.
+- **Full PWA.** The app is a full Progressive Web App: valid web app manifest, compliant service worker (install, fetch, activate, scope), and offline support for cached routes and local data.
 
 ## Core Principle: Local-First
 
@@ -32,41 +32,86 @@ This is non-negotiable. Any code path that blocks UI on network is a bug.
 - **Styling:** Tailwind CSS 4
 - **Nostr:** nostr-tools
 - **Client storage:** Dexie.js (IndexedDB) with `liveQuery` for reactive queries
-- **Server cache:** In-memory Nostr relay (caching layer)
+- **Server cache:** In-memory Nostr event store (polling-fed)
 - **Runtime:** Bun runs the SvelteKit server at apex
 - **Assets:** Static assets can be served from CDN via `PUBLIC_ASSET_BASE`
 
 ## Data Layer
 
-Nostr events are the universal data format from end to end. Every layer stores and returns raw Nostr events.
+Nostr events are the universal data format from end to end. Every layer stores and returns raw Nostr events. **NIP-01 filters are the universal query language** — the same filter objects are used to query relays, the server cache, and IndexedDB.
 
-### Server: In-Memory Relay Cache
+### Two-Tier Data Flow
 
-The server runs an **in-memory Nostr relay** that acts as a caching layer. It is the single server-side source of truth for all catalog and social data.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  TIER 1 — SERVER (seed data)                                     │
+│                                                                   │
+│  Server polls two relays every 60s:                              │
+│    • wss://relay.zapstore.dev                                    │
+│    • wss://relay.vertexlab.io                                    │
+│                                                                   │
+│  Maintains an in-memory event cache.                             │
+│  Serves pages hydrated with seed events from this cache.         │
+│  Purpose: near-instant first paint with real data.               │
+└─────────────────────────────────────────────────────────────────┘
+                           │
+                     seed events
+                     (page payload)
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Dexie (IndexedDB)                            │
+│               Single client-side source of truth                 │
+│                                                                   │
+│  ALL events — regardless of source — go here first.              │
+│  liveQuery reactively updates UI from this store.                │
+└─────────────────────────────────────────────────────────────────┘
+                           ▲
+                     live events
+                     (relay stream)
+                           │
+┌─────────────────────────────────────────────────────────────────┐
+│  TIER 2 — CLIENT (live updates)                                  │
+│                                                                   │
+│  Client maintains persistent WebSocket connections to relays.    │
+│  Receives events as they are published.                          │
+│  Writes all received events directly to Dexie.                   │
+│  Handles reconnection and retry.                                 │
+│  Also used for one-shot queries: search, load-more, social.     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**The universal rule:** Any Nostr event, from any source (server seed, relay stream, one-shot fetch), is written directly to Dexie via `putEvents()`. liveQuery subscribers react automatically. There is no other data path.
+
+### Server: Polling Cache
+
+The server runs an **in-memory Nostr event store** fed by **polling** two catalog relays every 60 seconds. It is the single server-side source of truth for seed data.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│         Upstream Relays (relay.zapstore.dev, social, etc.)   │
-│                  persistent subscriptions                    │
+│    Upstream Relays (relay.zapstore.dev, relay.vertexlab.io)   │
+│                    polled every 60s                           │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              In-Memory Nostr Relay (server)                   │
-│         Single cache — NIP-01 filter queries                 │
-│         Warm-up from upstream relays on cold start            │
+│              In-Memory Event Store (server)                    │
+│         NIP-01 filter queries against cached events           │
+│         Initial warm-up on cold start, then polling           │
 └─────────────────────────────────────────────────────────────┘
                            │
               ┌────────────┴────────────┐
               ▼                         ▼
-    REST API (JSON)            Prerender (build time)
-    returns Nostr events       queries relay cache → static HTML
+    +page.server.js              Prerender (build time)
+    returns seed events          queries cache → static HTML
 ```
 
-- **Reconnectable pool:** Maintains persistent subscriptions to upstream relays (including `wss://relay.zapstore.dev`). New events published upstream are automatically available in the cache.
-- **Cold start:** On server start, the pool warms up by pulling recent events from upstream relays. Prerendered HTML covers users during the brief warm-up window.
-- **No SQLite / relay.db:** There is no server-side SQLite file. All server data comes from relays over websockets.
-- **REST API:** SvelteKit `+server.js` endpoints query the in-memory relay and return Nostr events as JSON. These endpoints support bundling (e.g. "stack + its apps + creator profile" in one response).
+- **Catalog polling (every 60s):** Polls upstream relays for top 50 apps (kind 32267) and top 50 stacks (kind 30267) with platform filter. Uses `since: lastPollTimestamp` to fetch only new events. No releases (kind 30063) — those are fetched client-side.
+- **Profile polling (every 60min):** Polls `relay.vertexlab.io` for profiles (kind 0) of all pubkeys from cached apps and stacks. Profiles change infrequently.
+- **Cold start:** On server start, a full warm-up pull populates the cache. Prerendered HTML covers users during the brief warm-up window.
+- **No persistent WebSocket subscriptions:** The server does not maintain long-lived relay connections. It connects, polls, disconnects.
+- **No SQLite / relay.db:** There is no server-side database. All server data lives in memory, fed by polling.
+- **Seed events:** `+page.server.js` functions query the in-memory cache and return raw Nostr events as seed data in the page payload.
 
 ### Client: Dexie (IndexedDB) with liveQuery
 
@@ -81,34 +126,117 @@ The client uses **Dexie.js** as its single reactive data layer. There is no sepa
                            │
               ┌────────────┴────────────┐
               ▼                         ▼
-     liveQuery (reactive)      Background writes
-     UI subscribes & reacts    from API / relay refresh
+     liveQuery (reactive)      Writes from ALL sources
+     UI subscribes & reacts    seed / relay stream / one-shot
 ```
 
-- **Dexie liveQuery:** Observable queries that automatically re-fire when underlying data changes. Any write to Dexie (from any code path — server payload, relay fetch, pagination) triggers subscribers to re-query. No manual invalidation.
+- **Dexie liveQuery:** Observable queries that automatically re-fire when underlying data changes. Any write to Dexie (from any code path — server seed, relay stream, one-shot fetch) triggers subscribers to re-query. No manual invalidation.
 - **Svelte integration:** Dexie's `liveQuery` returns an Observable. In Svelte 5, subscribe in a component `$effect` and assign to `$state`; the effect's cleanup return unsubscribes automatically.
-- **No EventStore:** The Applesauce EventStore layer is removed. Dexie replaces both persistence and in-memory reactive state.
-- **No persistEventsToCache:** Writes go directly to Dexie. liveQuery handles reactivity automatically.
-- **Indices:** Dexie table uses compound indices for fast Nostr-style filter queries: `kind`, `pubkey`, `created_at`, `[kind+created_at]`, and tag-based indices as needed.
+- **No EventStore:** Dexie replaces both persistence and in-memory reactive state.
+- **NIP-01 query engine:** `queryEvents(filter)` translates NIP-01 filters to efficient Dexie queries. This is the single query primitive used everywhere on the client — inside liveQuery, for one-shot reads, for joins.
+
+### Client: Persistent Relay Connections
+
+The client maintains **persistent WebSocket connections** to catalog and social relays for live event updates. This is the "updates" data flow.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Client Relay Pool (persistent connections)                    │
+│                                                                │
+│  Catalog relays:   relay.zapstore.dev, relay.vertexlab.io     │
+│  Social relays:    relay.damus.io, relay.primal.net, nos.lol  │
+│                                                                │
+│  Subscriptions:                                                │
+│    • Apps (kind 32267) with platform filter                   │
+│    • Releases (kind 30063)                                    │
+│    • Stacks (kind 30267) with platform filter                 │
+│                                                                │
+│  onevent → batch buffer (100ms) → putEvents → Dexie           │
+│  Reconnects automatically on disconnect.                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **Batched writes:** Incoming relay events are buffered for 100ms and written to Dexie in batches. This prevents per-event transaction overhead and reduces liveQuery re-evaluation frequency.
+- **Reconnection:** nostr-tools SimplePool handles reconnection automatically.
+- **One-shot queries:** Search, load-more, and social features (comments, zaps) use separate one-shot relay queries that close after EOSE + grace period.
+
+### NIP-01 Filters as Universal Query DSL
+
+The same NIP-01 filter object is used across every layer:
+
+| Layer | NIP-01 filter used for |
+|-------|----------------------|
+| Server polling | What to fetch from upstream relays |
+| Page seed data | What to embed in server response |
+| Client relay subscriptions | What to subscribe to for live updates |
+| Client one-shot queries | Search, load-more, social features |
+| Dexie liveQuery | What to show on each page |
+
+Every data need is expressed as one or more NIP-01 filters. No custom query languages, no SQL-style joins. When data from one query informs another (e.g. release events → extract `#a` tags → query matching apps), that's just two sequential NIP-01 queries — exactly how a Nostr client talks to a relay.
+
+```javascript
+// Inside liveQuery — two NIP-01 queries, no joins
+const releases = await queryEvents({ kinds: [30063], limit: 200 });
+const appRefs = extractRefs(releases); // read #a tags
+const apps = await queryEvents({ kinds: [32267], '#d': appRefs.ids, '#f': ['android-arm64-v8a'] });
+```
 
 ### End-to-End Data Flow
 
 ```
-Upstream relays
-      │ persistent subscriptions
-      ▼
-In-memory relay (server cache)
-      │
-      ├── REST API ──→ JSON (Nostr events) ──→ Dexie write ──→ liveQuery ──→ UI
-      │
-      └── Prerender ──→ static HTML + seed events ──→ Dexie write ──→ liveQuery ──→ UI
+Upstream relays (relay.zapstore.dev, relay.vertexlab.io)
+      │                              │
+      │ poll every 60s               │ persistent client connections
+      ▼                              ▼
+Server cache ──→ seed events ──→ putEvents ──→ Dexie ──→ liveQuery ──→ UI
+                                     ▲
+Client relay pool ──→ events ──→ putEvents ─┘
 ```
 
-**One cache on the server. One reactive store on the client. Nostr events as the lingua franca throughout.**
+**One polling cache on the server. One reactive store on the client. NIP-01 filters as the lingua franca throughout.**
 
-### Relay Subscription Pattern: EOSE + 300ms
+### IndexedDB Schema & Indices
 
-All relay subscriptions (both server and client) follow a single deterministic pattern:
+Performance-critical. The Dexie schema uses a **multi-entry `*_tags` index** for efficient NIP-01 tag-based queries alongside standard field indices.
+
+```javascript
+db.version(2).stores({
+  events: 'id, kind, pubkey, created_at, [kind+created_at], [kind+pubkey], *_tags'
+});
+```
+
+| Index | Purpose | Example query |
+|-------|---------|---------------|
+| `id` (PK) | Lookup by event ID | `{ ids: ['abc...'] }` |
+| `kind` | Filter by event kind | `{ kinds: [32267] }` |
+| `pubkey` | Filter by author | `{ authors: ['abc...'] }` |
+| `created_at` | Time-range queries | `{ since: ..., until: ... }` |
+| `[kind+created_at]` | Kind + time range | `{ kinds: [30063], until: ... }` |
+| `[kind+pubkey]` | Specific author's events by kind | `{ kinds: [32267], authors: ['abc...'] }` |
+| `*_tags` | **Multi-entry tag index** | `{ '#d': ['com.example'] }`, `{ '#a': ['32267:pk:id'] }` |
+
+**`_tags` field:** A denormalized array computed on write. Each tag `[name, value]` becomes `"name:value"` in the `_tags` array. Example: `['d:com.example', 'f:android-arm64-v8a', 'a:32267:pk:id']`.
+
+**Multi-entry index `*_tags`:** Dexie creates one index entry per array element. Querying `db.events.where('_tags').equals('d:com.example')` hits the index directly — no scan needed.
+
+### queryEvents: Index Selection Strategy
+
+`queryEvents(filter)` is the single NIP-01 → Dexie query engine. It selects the optimal index based on filter shape:
+
+1. **`ids`** → Use `id` primary key (most selective, O(1) per id)
+2. **Selective tag filters** (`#d`, `#a`, `#e`, `#i` with ≤ few values) → Use `_tags` multi-entry index. These tags identify specific entities and are highly selective.
+3. **`kinds.length === 1 && authors.length === 1`** → Use `[kind+pubkey]` compound index
+4. **`kinds.length === 1`** → Use `kind` index
+5. **`authors` only** → Use `pubkey` index with `anyOf`
+6. **Else** → Full collection scan (rare, only for truly open-ended queries)
+
+After index-based pre-filtering, remaining filter conditions (additional kinds, authors, since/until, non-indexed tag filters like `#f`) are applied in memory. Results are sorted by `created_at` descending and limited.
+
+**Non-selective tags** like `#f` (platform) are always filtered in memory, never used as the index entry point — they match too many events to be useful as an index.
+
+### Relay Subscription Patterns
+
+**One-shot queries** (search, load-more, social features):
 
 1. Open a `subscribeMany` subscription with one or more filters.
 2. Collect events via `onevent`.
@@ -117,100 +245,34 @@ All relay subscriptions (both server and client) follow a single deterministic p
 5. A hard **timeout** (default 5s) acts as a safety net if EOSE never arrives.
 
 ```
-subscribe → collect events → EOSE → +300ms grace → resolve
+subscribe → collect events → EOSE → +300ms grace → resolve → putEvents → Dexie
                                   ↑ timeout (5s) fallback
 ```
 
-This prevents hanging on slow or unresponsive relays while still capturing events that arrive slightly after EOSE. The pattern is implemented identically in:
+**Persistent subscriptions** (live updates):
 
-- **Server:** `relay-cache.js` → `queryRelaysRaw()` (feeds the in-memory cache)
-- **Client:** `service.js` → `fetchFromRelays()` (social features, search)
+1. Open a `subscribeMany` subscription with catalog filters.
+2. Receive events via `onevent` continuously.
+3. Buffer events for 100ms, then batch `putEvents` to Dexie.
+4. Never close — subscription stays open after EOSE.
+5. SimplePool handles reconnection automatically.
 
 ### Batch Queries — No N+1
 
-**Never query inside a loop.** Every code path that resolves related data (e.g. "apps in a stack", "profiles for a list of pubkeys", "older versions of replaceable events") must collect all keys first and issue a **single** batch query, then distribute results in memory.
+**Never query inside a loop.** Every code path that resolves related data must collect all keys first and issue a **single** batch query, then distribute results in memory.
 
 ```
 ❌ BAD — N+1 (one query per item)
 for (const ref of stack.appRefs) {
-  const result = queryCache({ kinds: [APP], authors: [ref.pubkey], '#d': [ref.id], limit: 1 });
+  const result = await queryEvents({ kinds: [32267], authors: [ref.pubkey], '#d': [ref.id] });
 }
 
 ✅ GOOD — batch (one query for all items)
-const results = queryCache({ kinds: [APP], authors: allPubkeys, '#d': allIds });
-const byKey = new Map(results.map(e => [`${e.pubkey}:${dTag(e)}`, e]));
-for (const ref of stack.appRefs) {
-  const app = byKey.get(`${ref.pubkey}:${ref.id}`);
-}
+const apps = await queryEvents({ kinds: [32267], '#d': allIds });
+const byKey = new Map(apps.map(e => [dTag(e), e]));
 ```
 
-This applies equally to:
-- **Server relay cache** (`queryCache`, `queryRelays`) — each relay round-trip is expensive (WebSocket open → EOSE → grace → close).
-- **Client Dexie** (`queryEvent`, `queryEvents`, `db.events.where(...)`) — IndexedDB transactions have per-call overhead.
-- **Relay fetches** (`queryRelays`, `fetchFromRelays`) — always batch missing keys into one subscription.
-
-When resolving data for multiple parent objects (e.g. apps for 20 stacks), collect refs across **all** parents, issue one query, then distribute results back.
-
-### Query Interface
-
-The client queries data through two paths:
-
-```javascript
-// REACTIVE: liveQuery in a Svelte 5 component
-import { liveQuery } from 'dexie';
-import { db } from '$lib/nostr/dexie';
-
-let apps = $state([]);
-
-$effect(() => {
-  const sub = liveQuery(() =>
-    db.events.where('kind').equals(32267).reverse().sortBy('created_at')
-  ).subscribe({
-    next: (value) => { apps = value; },
-    error: (err) => console.error(err)
-  });
-  return () => sub.unsubscribe();
-});
-
-// API: Fetch from server REST endpoints (writes to Dexie via putEvents)
-const response = await fetch('/api/apps?limit=24');
-const { seedEvents } = await response.json();
-await putEvents(seedEvents);
-// liveQuery subscribers auto-update — no manual notification needed
-```
-
-### Data Flow
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  1. PRERENDER (build time)                                  │
-│     +page.server.js queries in-memory relay → static HTML   │
-│     Seed events embedded in payload                         │
-└─────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│  2. FIRST PAINT (0ms)                                       │
-│     Prerendered HTML renders instantly                      │
-└─────────────────────────────────────────────────────────────┘
-                           │
-                           ▼ (onMount, requestIdleCallback)
-┌─────────────────────────────────────────────────────────────┐
-│  3. HYDRATION                                               │
-│     - Seed events from server payload written to Dexie      │
-│     - liveQuery subscribers fire, UI updates reactively     │
-│     - Background: fetch fresh data from REST API            │
-│     - API response written to Dexie → liveQuery → UI       │
-└─────────────────────────────────────────────────────────────┘
-```
-
-Key files:
-- `src/lib/nostr/relay-cache.js` — In-memory relay cache + reconnectable pool (server-only)
-- `src/lib/nostr/server.js` — Server-side data facade (queries relay cache, used by API + prerender)
-- `src/lib/nostr/dexie.js` — Dexie database schema, putEvents, queryEvents
-- `src/lib/nostr/service.js` — Client-side data layer (relay fetch, profiles, comments, zaps)
-- `src/lib/nostr/models.js` — Event parsing (App, Release, Stack, Profile, etc.)
-- `src/lib/stores/` — Stores provide `createXxxQuery()` liveQuery factories + pagination/UI state
+This applies equally to Dexie queries (`queryEvents`), relay subscriptions, and server cache queries.
 
 ## Rendering Strategy
 
@@ -218,42 +280,39 @@ Every render path prioritizes local data:
 
 ### Initial Visit (New User)
 
-1. Apex serves pre-rendered HTML (assets may come from CDN) → **instant content**
+1. Server serves HTML with seed events in page payload → **instant content**
 2. SvelteKit hydrates
-3. Seed events from server payload written to Dexie
+3. Seed events written to Dexie via `putEvents`
 4. liveQuery subscribers fire → UI updates reactively
-5. Background API fetch for fresh data → writes to Dexie → UI updates
+5. Client opens persistent relay connections → live events → Dexie → UI
 
 ### Return Visit (Local-First)
 
 1. Dexie (IndexedDB) already has cached events → **instant content**
 2. liveQuery renders UI immediately from local data
-3. Background API fetch for fresh data (if online)
-4. New data written to Dexie → liveQuery → UI updates reactively
+3. Client opens relay connections → new events → Dexie → UI updates reactively
 
 ### Offline
 
 1. Service worker serves cached HTML shell
 2. Dexie provides all data from IndexedDB
 3. UI renders fully from local data
-4. API fetches skipped
+4. Relay connections skipped
 5. Offline banner shown
 
 ### Build Time (Prerendering)
 
 For SEO and first-visit performance:
 
-1. `+page.server.js` queries in-memory relay cache for catalog events
+1. `+page.server.js` queries in-memory event cache for catalog events
 2. HTML generated with full content + seed events in payload
 3. Runtime serves HTML from apex; static assets can be deployed to CDN
 
 **Landing pages (marketing):** Fully prerendered; no runtime data dependency. No loading states.
 
-**Prerender scope:** Any route that has no client-side interactivity and no runtime data dependency can be fully prerendered (e.g. landing, static marketing, docs). Use prerender where possible so first paint shows real content without loading states.
-
 ## URLs and routing
 
-- **Profile pages:** `/profile/[npub]` — human-readable, stable URLs (see INVARIANTS: "URLs must be stable and human-readable"). Use **npub** in the path (not hex pubkey).
+- **Profile pages:** `/profile/[npub]` — human-readable, stable URLs. Use **npub** in the path (not hex pubkey).
 - **Apps:** `/apps/[naddr]` (naddr encodes kind 32267, pubkey, identifier).
 - **Stacks:** `/stacks/[naddr]` (naddr encodes kind 30267, pubkey, identifier).
 
@@ -261,7 +320,7 @@ For SEO and first-visit performance:
 
 Catalogs are Nostr relays that hold app events.
 
-- **Default:** `wss://relay.zapstore.dev`
+- **Catalog relays:** `wss://relay.zapstore.dev`, `wss://relay.vertexlab.io`
 - **Custom catalogs:** Phase 2 feature
 
 ## Event Kinds
@@ -281,9 +340,10 @@ Catalogs are Nostr relays that hold app events.
 
 - **Single client-side source of truth.** All Nostr events stored in Dexie (IndexedDB). UI derives state from liveQuery subscriptions.
 - **Reactive:** Dexie's `liveQuery` automatically re-runs queries when data changes. No manual cache invalidation or event propagation needed.
-- **Writes:** All data paths (server seed, API fetch, background relay refresh) write directly to Dexie. liveQuery handles the rest.
-- **Indices:** Use Dexie compound indices for fast queries: `kind`, `created_at`, `pubkey`, `[kind+created_at]`, and tag-based indices where needed. Avoid full table scans; filter by index first.
+- **Writes:** All data paths (server seed, relay stream, one-shot fetch) write directly to Dexie via `putEvents`. liveQuery handles the rest.
+- **Indices:** Multi-entry `*_tags` index for tag-based NIP-01 queries. Compound indices `[kind+created_at]` and `[kind+pubkey]` for field-based queries. See "IndexedDB Schema & Indices" above.
 - **Speed:** IndexedDB reads are async (~1-5ms for indexed queries). Prerendered HTML covers first paint, so async latency is invisible in practice. Subsequent updates are automatic via liveQuery.
+- **Schema upgrade:** `_tags` field is computed on write (`putEvents`) and populated for existing events via Dexie upgrade handler.
 
 ### localStorage
 
@@ -291,18 +351,17 @@ Catalogs are Nostr relays that hold app events.
 - Configured catalog relays
 - Signed-in pubkey
 
-### In-Memory Relay (server)
+### In-Memory Event Store (server)
 
-- **Single server-side source of truth.** All server data comes from the in-memory relay cache.
-- **Fed by reconnectable pool:** Persistent websocket subscriptions to upstream relays keep the cache fresh. New events appear automatically.
-- **Cold start warm-up:** On server start, pull recent events from upstream relays. The warm-up window is brief; prerendered HTML covers users during this time.
-- **No SQLite / relay.db:** No file-based database. All data flows through relay websockets.
-- **REST API:** `+server.js` endpoints query the relay cache and return Nostr events as JSON. Bundling endpoints combine related data (e.g. stack + apps + profile) in a single response.
+- **Single server-side source of truth.** All server data comes from the in-memory event store, populated by polling.
+- **Fed by polling:** Every 60 seconds, polls upstream relays with `since` to fetch new events. Initial warm-up on cold start pulls recent data.
+- **No persistent WebSocket connections:** Connect → poll → disconnect. Simple and predictable.
+- **No SQLite / relay.db:** No file-based database. All data flows through relay polling.
 
 ### Seeding the client
 
-- **Source:** Seed events come from the server response (prerender or API). The payload includes raw Nostr events alongside parsed data.
-- **Flow:** Server queries in-memory relay → sends HTML + seed events. Client writes seed events to Dexie on hydration. liveQuery subscribers fire, UI updates. Background API fetch for fresh data writes to Dexie → liveQuery → UI updates again. Return visits read directly from Dexie for instant paint.
+- **Source:** Seed events come from the server response (prerender or SSR). The payload includes raw Nostr events.
+- **Flow:** Server queries in-memory cache → sends HTML + seed events. Client writes seed events to Dexie on hydration. liveQuery subscribers fire, UI updates. Client relay connections provide live updates → Dexie → liveQuery → UI.
 
 ## Service Worker (PWA)
 
@@ -314,7 +373,7 @@ The app is a **full PWA** with a compliant service worker and manifest.
   - **Activate:** Cleans old caches; claims clients so the new SW controls the page immediately.
   - **Fetch:** Cache-first for precached assets (including cross-origin CDN assets when used); network-first for document requests with cache fallback for offline. No requests block first paint for content that can be served from cache.
 - **Offline:** The app must be **fully working offline**: cached shell and routes serve from cache; app uses Dexie (IndexedDB) for all data; no network required for previously visited content. Offline banner or indicator is shown when navigator.onLine is false.
-- **Background refresh indicator:** When data is refreshing from the server in the background, a very subtle indicator (e.g. small dot or bar) may be shown so the user knows fresh data is being fetched without implying loading or blocking.
+- **Background refresh indicator:** When data is refreshing from relays in the background, a very subtle indicator (e.g. small dot or bar) may be shown so the user knows fresh data is being fetched without implying loading or blocking.
 - **Scope:** Service worker scope is the app origin (apex). Assets may be served from a CDN; the SW still controls the page and can cache CDN URLs for offline.
 
 ## File Structure
@@ -326,36 +385,37 @@ webapp/
 │   ├── lib/
 │   │   ├── components/     # Svelte components
 │   │   ├── nostr/          # Nostr data layer
-│   │   │   ├── relay-cache.js  # In-memory relay cache + pool (server-only)
-│   │   │   ├── server.js       # Server data facade (queries relay cache)
+│   │   │   ├── relay-cache.js  # In-memory event store + polling (server-only)
+│   │   │   ├── server.js       # Server data facade (queries cache)
 │   │   │   ├── dexie.js        # Dexie schema, putEvents, queryEvents (client)
-│   │   │   ├── service.js      # Client data layer (relay fetch, profiles, social)
+│   │   │   ├── service.js      # Client relay pool (persistent + one-shot)
 │   │   │   ├── models.js       # Event parsing (App, Release, Stack, Profile)
 │   │   │   └── index.js        # Public exports
 │   │   ├── stores/         # Svelte stores (liveQuery factories + pagination/UI state)
-│   │   │   ├── nostr.svelte.js          # Apps: createAppsQuery(), pagination, API refresh
-│   │   │   ├── stacks.svelte.js         # Stacks: createStacksQuery(), pagination, API refresh
+│   │   │   ├── nostr.svelte.js          # Apps: createAppsQuery(), pagination
+│   │   │   ├── stacks.svelte.js         # Stacks: createStacksQuery(), pagination
 │   │   │   ├── refresh-indicator.svelte.js  # Background refresh indicator state
 │   │   │   ├── online.svelte.js         # Online/offline status
 │   │   │   ├── catalogs.svelte.js       # Catalog relay config
 │   │   │   └── auth.svelte.js           # Auth state (NIP-07)
 │   │   └── config.js       # App configuration (relays, event kinds, platform filter)
 │   └── routes/
-│       ├── +layout.svelte         # App shell, offline banner
+│       ├── +layout.svelte         # App shell, offline banner, starts live subscriptions
 │       ├── +page.svelte           # Homepage / landing
-│       ├── api/                   # REST API endpoints (query relay cache, return events)
+│       ├── api/
+│       │   └── image/             # Image proxy (only remaining API endpoint)
 │       ├── discover/
 │       │   ├── +page.svelte       # Discover page (apps + stacks, reactive via liveQuery)
-│       │   └── +page.server.js    # Prerender data
+│       │   └── +page.server.js    # Seed data (apps + stacks from cache)
 │       ├── apps/
 │       │   ├── +page.svelte       # Apps listing (reactive via liveQuery)
-│       │   ├── +page.server.js    # Prerender data (queries relay cache)
+│       │   ├── +page.server.js    # Seed data (apps from cache)
 │       │   └── [naddr]/
-│       │       ├── +page.svelte   # App detail
-│       │       └── +page.server.js
+│       │       ├── +page.svelte   # App detail (releases fetched from relays)
+│       │       └── +page.server.js # Seed data (app from cache, no releases)
 │       ├── stacks/
 │       │   ├── +page.svelte       # Stacks listing (reactive via liveQuery)
-│       │   ├── +page.server.js    # Prerender data
+│       │   ├── +page.server.js    # Seed data (stacks from cache)
 │       │   └── [naddr]/
 │       │       └── +page.svelte   # Stack detail
 │       └── profile/

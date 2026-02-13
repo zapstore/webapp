@@ -1,21 +1,24 @@
 /**
  * Application configuration
  */
-// Default catalog relays (app data)
+// Catalog relays — the two sources for app/release/stack data
 export const DEFAULT_CATALOG_RELAYS = [
-    'wss://relay.zapstore.dev'
+    'wss://relay.zapstore.dev',
+    'wss://relay.vertexlab.io'
 ];
-// Default social relays (profiles, comments, zaps) — align with Flutter zapstore app
+// Social relays (profiles, comments, zaps) — align with Flutter zapstore app
 export const DEFAULT_SOCIAL_RELAYS = [
     'wss://relay.damus.io',
     'wss://relay.primal.net',
     'wss://nos.lol',
 ];
-// Extra relay for profile lookups (Flutter uses social + vertex for profiles)
+// Profile relays (social + catalog for broad coverage)
 export const PROFILE_RELAYS = [
     ...DEFAULT_SOCIAL_RELAYS,
-    'wss://relay.vertexlab.io',
+    ...DEFAULT_CATALOG_RELAYS,
 ];
+// Server-side poll interval (ms) — how often the server polls upstream relays
+export const POLL_INTERVAL_MS = 60_000;
 // Relay subscription timeout (ms after first EOSE)
 export const EOSE_TIMEOUT = 2500;
 // Dexie database name (used for clear-local-data fallback)

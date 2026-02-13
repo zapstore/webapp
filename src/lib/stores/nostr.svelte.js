@@ -1,24 +1,23 @@
 /**
- * Apps Store — liveQuery + Pagination
+ * Apps Store — liveQuery + Relay-backed pagination
  *
- * Architecture-compliant: Dexie liveQuery is the single client-side source of truth.
+ * Architecture: Dexie liveQuery is the single client-side source of truth.
+ * All queries use queryEvents() with NIP-01 filters — the universal query DSL.
  *
  * This store provides:
  *   - createAppsQuery() → liveQuery observable (subscribe in component $effect)
- *   - Pagination state (cursor, hasMore, loadingMore, refreshing)
+ *   - Pagination state (cursor, hasMore, loadingMore)
  *   - Actions that write to Dexie (liveQuery updates UI automatically)
  *
  * Data flow:
- *   1. liveQuery reads from Dexie → UI renders immediately (local-first)
- *   2. Seed events / API fetch → write to Dexie → liveQuery re-fires → UI updates
+ *   1. liveQuery reads from Dexie via queryEvents() → UI renders immediately (local-first)
+ *   2. Seed events / relay stream → putEvents → Dexie → liveQuery re-fires → UI updates
  */
 import { liveQuery } from 'dexie';
-import { setBackgroundRefreshing } from '$lib/stores/refresh-indicator.svelte.js';
-import { db, putEvents } from '$lib/nostr/dexie';
+import { putEvents, queryEvents } from '$lib/nostr/dexie';
 import { parseApp } from '$lib/nostr/models';
 import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
 
-const PAGE_SIZE = 24;
 const platformTag = PLATFORM_FILTER['#f']?.[0];
 
 // ============================================================================
@@ -28,7 +27,6 @@ const platformTag = PLATFORM_FILTER['#f']?.[0];
 let cursor = $state(null);
 let hasMore = $state(true);
 let loadingMore = $state(false);
-let refreshing = $state(false);
 
 // ============================================================================
 // Public Reactive Getters
@@ -40,12 +38,9 @@ export function getHasMore() {
 export function isLoadingMore() {
 	return loadingMore;
 }
-export function isRefreshing() {
-	return refreshing;
-}
 
 // ============================================================================
-// liveQuery — Reactive data from Dexie
+// liveQuery — Reactive data from Dexie via NIP-01 filters
 // ============================================================================
 
 /**
@@ -63,26 +58,37 @@ function getReleaseIdentifier(event) {
 /**
  * Returns a Dexie liveQuery observable for apps ordered by release recency.
  * Subscribe in a component $effect for reactive updates.
+ *
+ * Uses two sequential NIP-01 queries:
+ *   1. Releases (kind 30063) → extract app identifiers
+ *   2. Apps (kind 32267) matching those identifiers + platform filter
+ *
  * Any write to Dexie automatically updates all subscribers.
  */
 export function createAppsQuery() {
 	return liveQuery(async () => {
-		// Get releases sorted by recency
-		const releases = await db.events
-			.where('kind')
-			.equals(EVENT_KINDS.RELEASE)
-			.reverse()
-			.sortBy('created_at');
+		// Query 1: releases sorted by recency (NIP-01 filter)
+		const releases = await queryEvents({ kinds: [EVENT_KINDS.RELEASE] });
 
-		// Get all app events
-		let appEvents = await db.events.where('kind').equals(EVENT_KINDS.APP).toArray();
+		if (releases.length === 0) return [];
 
-		// Filter by platform tag
-		if (platformTag) {
-			appEvents = appEvents.filter((e) =>
-				e.tags?.some((t) => t[0] === 'f' && t[1] === platformTag)
-			);
+		// Extract app identifiers from releases
+		const identifiers = [];
+		const seen = new Set();
+		for (const release of releases) {
+			const id = getReleaseIdentifier(release);
+			if (id && !seen.has(id)) {
+				seen.add(id);
+				identifiers.push(id);
+			}
 		}
+
+		if (identifiers.length === 0) return [];
+
+		// Query 2: apps matching those identifiers (NIP-01 filter with #d tag)
+		const appFilter = { kinds: [EVENT_KINDS.APP], '#d': identifiers };
+		if (platformTag) appFilter['#f'] = [platformTag];
+		const appEvents = await queryEvents(appFilter);
 
 		// Index apps by (pubkey:dTag) — keep latest per key
 		const appsByKey = new Map();
@@ -145,84 +151,36 @@ export function seedEvents(events) {
 }
 
 /**
- * Set initial pagination cursor from prerendered data.
+ * Load more apps by querying relays for older releases.
+ * The fetched events are written to Dexie; liveQuery picks them up automatically.
+ *
+ * @param {function} fetchFromRelays - relay fetch function from service.js
+ * @param {string[]} relayUrls - relay URLs to query
  */
-export function initPagination(nextCursor) {
-	cursor = nextCursor ?? null;
-	hasMore = nextCursor !== null;
-}
-
-/**
- * Fetch apps page from server API.
- */
-async function fetchAppsPageFromServer(limit, nextCursor) {
-	const params = new URLSearchParams({ limit: String(limit) });
-	if (nextCursor !== undefined && nextCursor !== null) {
-		params.set('cursor', String(nextCursor));
-	}
-	const response = await fetch(`/api/apps?${params.toString()}`);
-	if (!response.ok) throw new Error(`Apps API failed: ${response.status}`);
-	return response.json();
-}
-
-/**
- * Refresh from server API (background).
- * Writes to Dexie → liveQuery updates UI automatically.
- */
-export async function refreshFromAPI() {
-	if (refreshing) return;
-	if (typeof window === 'undefined' || !navigator.onLine) return;
-
-	refreshing = true;
-	setBackgroundRefreshing(true);
-
-	try {
-		const { nextCursor, seedEvents: events = [] } = await fetchAppsPageFromServer(PAGE_SIZE);
-		if (events.length > 0) {
-			await putEvents(events);
-		}
-		cursor = nextCursor;
-		hasMore = nextCursor !== null;
-	} catch (err) {
-		console.error('[AppsStore] Refresh failed:', err);
-	} finally {
-		refreshing = false;
-		setBackgroundRefreshing(false);
-	}
-}
-
-/**
- * Load more apps (next page → Dexie → liveQuery).
- */
-export async function loadMore() {
+export async function loadMore(fetchFromRelays, relayUrls) {
 	if (loadingMore || !hasMore || cursor === null) return;
 	if (typeof window === 'undefined' || !navigator.onLine) return;
 
 	loadingMore = true;
 
 	try {
-		const { nextCursor, seedEvents: events = [] } = await fetchAppsPageFromServer(
-			PAGE_SIZE,
-			cursor
-		);
+		const filter = {
+			kinds: [EVENT_KINDS.RELEASE],
+			until: cursor,
+			limit: 24
+		};
+		const events = await fetchFromRelays(relayUrls, filter);
+
 		if (events.length > 0) {
-			await putEvents(events);
+			const lastEvent = events[events.length - 1];
+			cursor = lastEvent.created_at - 1;
+			hasMore = events.length >= 24;
+		} else {
+			hasMore = false;
 		}
-		cursor = nextCursor;
-		hasMore = nextCursor !== null;
 	} catch (err) {
 		console.error('[AppsStore] Load more failed:', err);
 	} finally {
 		loadingMore = false;
 	}
-}
-
-/**
- * Schedule background refresh.
- */
-export function scheduleRefresh() {
-	if (typeof window === 'undefined') return;
-	const schedule =
-		'requestIdleCallback' in window ? window.requestIdleCallback : (cb) => setTimeout(cb, 1);
-	schedule(() => refreshFromAPI());
 }

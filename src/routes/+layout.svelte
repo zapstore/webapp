@@ -5,8 +5,8 @@ import { page } from '$app/stores';
 import { initAuth } from '$lib/stores/auth.svelte.js';
 import { initCatalogs } from '$lib/stores/catalogs.svelte.js';
 import { initOnlineStatus, isOnline } from '$lib/stores/online.svelte.js';
-import { isBackgroundRefreshing } from '$lib/stores/refresh-indicator.svelte.js';
 import { startProfileSearchBackground } from '$lib/services/profile-search';
+import { startLiveSubscriptions, stopLiveSubscriptions } from '$lib/nostr/service';
 import { IDB_NAME } from '$lib/config';
 import Header from '$lib/components/layout/Header.svelte';
 import Footer from '$lib/components/layout/Footer.svelte';
@@ -14,7 +14,6 @@ import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte
 import '../app.css';
 let { children } = $props();
 let online = $derived(isOnline());
-let backgroundRefreshing = $derived(isBackgroundRefreshing());
 const path = $derived($page.url.pathname);
 let isClearingLocalData = $state(false);
 // ReachKit has its own layout (header + footer)
@@ -43,17 +42,22 @@ let pageTitle = $derived(path === '/discover'
                     : /^\/profile\/[^/]+$/.test(path)
                         ? 'Profile'
                         : '');
-onMount(async () => {
+onMount(() => {
     if (browser) {
         // Restore auth from localStorage so "logged in" persists across reloads/navigation
         initAuth();
         // Initialize online/offline detection
         initOnlineStatus();
+        // Start persistent relay connections for live catalog updates
+        startLiveSubscriptions();
         // Start background load of default profiles for @ mention suggestions (local-first)
         startProfileSearchBackground();
         // Initialize catalog preferences from localStorage
         initCatalogs();
     }
+    return () => {
+        stopLiveSubscriptions();
+    };
 });
 
 function deleteIndexedDb(name) {
@@ -119,10 +123,6 @@ async function clearAllLocalCaches() {
 	<div class="relative z-10 flex flex-col min-h-screen">
 		<NavigationProgress />
 
-		{#if backgroundRefreshing}
-			<div class="refresh-indicator" aria-hidden="true" title="Updating…"></div>
-		{/if}
-
 		{#if isReachKit}
 			{@render children()}
 		{:else}
@@ -186,18 +186,6 @@ async function clearAllLocalCaches() {
 		font-size: 1rem;
 	}
 
-	.refresh-indicator {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 2px;
-		background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.6), transparent);
-		animation: refresh-pulse 1.2s ease-in-out infinite;
-		z-index: 9999;
-		pointer-events: none;
-	}
-
 	.cache-bust-control {
 		position: fixed;
 		right: 1rem;
@@ -205,8 +193,4 @@ async function clearAllLocalCaches() {
 		z-index: 1200;
 	}
 
-	@keyframes refresh-pulse {
-		0%, 100% { opacity: 0.4; }
-		50% { opacity: 1; }
-	}
 </style>

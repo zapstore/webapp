@@ -1,25 +1,22 @@
 /**
- * Discover page - server-side data loading
+ * Discover page — server-side seed data
  *
- * Pre-renders apps data for instant first paint,
- * same strategy as /apps page.
+ * Returns apps and stacks from the polling cache for instant first paint.
+ * No releases on server — those are fetched client-side from relays.
  */
-import { fetchAppsByReleases, fetchStacks } from '$lib/nostr/server';
+import { fetchApps, fetchStacks } from '$lib/nostr/server';
+
 export const prerender = true;
-const PAGE_SIZE = 40;
-const STACKS_PAGE_SIZE = 20;
+
 export const load = async () => {
-    // Fetch first page of releases and resolve to apps
-    const { apps, nextCursor, seedEvents } = await fetchAppsByReleases(PAGE_SIZE);
-    const { stacks, resolvedStacks, nextCursor: stacksNextCursor, seedEvents: stacksSeedEvents } = await fetchStacks(STACKS_PAGE_SIZE);
-    return {
-        apps,
-        seedEvents,
-        nextCursor,
-        stacks,
-        resolvedStacks,
-        stacksNextCursor,
-        stacksSeedEvents,
-        fetchedAt: Date.now()
-    };
+	const { apps, seedEvents } = await fetchApps(50);
+	const { stacks, resolvedStacks, seedEvents: stacksSeedEvents } = await fetchStacks(20);
+	return {
+		apps,
+		seedEvents,
+		stacks,
+		resolvedStacks,
+		stacksSeedEvents,
+		fetchedAt: Date.now()
+	};
 };

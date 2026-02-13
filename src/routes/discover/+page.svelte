@@ -7,8 +7,10 @@ import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
-import { createAppsQuery, seedEvents, initPagination, getHasMore, isLoadingMore, scheduleRefresh, loadMore } from '$lib/stores/nostr.svelte.js';
-import { createStacksQuery, seedStackEvents, initStacksPagination, scheduleStacksRefresh } from '$lib/stores/stacks.svelte.js';
+import { createAppsQuery, seedEvents, getHasMore, isLoadingMore, loadMore } from '$lib/stores/nostr.svelte.js';
+import { createStacksQuery, seedStackEvents } from '$lib/stores/stacks.svelte.js';
+import { fetchFromRelays } from '$lib/nostr/service';
+import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
 import { nip19 } from 'nostr-tools';
 import { encodeStackNaddr } from '$lib/nostr/models';
 import { fetchProfilesBatch } from '$lib/nostr/service';
@@ -113,7 +115,7 @@ function handleAppsScroll() {
     if (!appsScrollContainer || !hasMore || loadingMore) return;
     const { scrollLeft, scrollWidth, clientWidth } = appsScrollContainer;
     if (scrollWidth - scrollLeft - clientWidth < HORIZONTAL_SCROLL_THRESHOLD) {
-        loadMore();
+        loadMore(fetchFromRelays, DEFAULT_CATALOG_RELAYS);
     }
 }
 function getAppUrl(app) {
@@ -192,9 +194,7 @@ onMount(() => {
     if (!browser) return;
     // Seed prerendered events into Dexie → liveQuery picks them up
     seedEvents(data.seedEvents ?? []);
-    initPagination(data.nextCursor ?? null);
     seedStackEvents(data.stacksSeedEvents ?? []);
-    initStacksPagination(data.stacksNextCursor ?? null);
     // If we have prerendered resolved stacks but no live data yet, show them
     if (data.resolvedStacks?.length > 0 && resolvedDisplayStacks.length === 0) {
         resolvedDisplayStacks = data.resolvedStacks.map(({ stack, apps: stackApps }) => ({
@@ -206,9 +206,6 @@ onMount(() => {
             dTag: stack.dTag
         }));
     }
-    // Schedule background refresh for fresh data
-    scheduleRefresh();
-    scheduleStacksRefresh();
     // Restore scroll positions
     restoreScrollPositions();
 });

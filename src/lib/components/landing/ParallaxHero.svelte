@@ -889,5 +889,4 @@
 	.btn-glass-blurple-hover::before {
 		background: radial-gradient(circle, rgb(92 95 255 / 0.12) 0%, transparent 70%);
 	}
-
 </style>

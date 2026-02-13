@@ -1,14 +1,16 @@
+/**
+ * Stacks listing page — server-side seed data
+ *
+ * Returns stacks with resolved apps from the polling cache.
+ */
 import { fetchStacks } from '$lib/nostr/server';
 
-const PAGE_SIZE = 20;
-
 export const load = async () => {
-    const { stacks, resolvedStacks, nextCursor, seedEvents } = await fetchStacks(PAGE_SIZE);
-    return {
-        stacks,
-        resolvedStacks,
-        nextCursor,
-        seedEvents,
-        fetchedAt: Date.now()
-    };
+	const { stacks, resolvedStacks, seedEvents } = await fetchStacks(20);
+	return {
+		stacks,
+		resolvedStacks,
+		seedEvents,
+		fetchedAt: Date.now()
+	};
 };

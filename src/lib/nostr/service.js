@@ -1,18 +1,19 @@
 /**
  * Nostr Service Layer — Client-side
  *
- * Uses Dexie (IndexedDB) as the single reactive data store.
- * All writes go to Dexie; liveQuery handles reactivity.
+ * Two modes of relay interaction:
+ *   1. Persistent subscriptions — live event updates, kept open after EOSE
+ *   2. One-shot queries — search, load-more, social features (close after EOSE)
  *
- * Social features (comments, zaps, profiles) fetch via server API
- * endpoints that query the in-memory relay cache.
+ * ALL events from ALL sources are written to Dexie via putEvents().
+ * liveQuery handles reactivity — no manual notification needed.
  */
 import { SimplePool } from 'nostr-tools';
-import { DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS, PLATFORM_FILTER } from '$lib/config';
-import { db, putEvents, queryEvents } from './dexie';
+import { DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS, PLATFORM_FILTER, EVENT_KINDS } from '$lib/config';
+import { putEvents, queryEvents } from './dexie';
 
 // ============================================================================
-// Relay Pool (client-side, for social features + search)
+// Relay Pool
 // ============================================================================
 
 let pool = null;
@@ -24,10 +25,128 @@ function getPool() {
 
 const EOSE_GRACE_MS = 300;
 
+// ============================================================================
+// Persistent Relay Subscriptions (live updates)
+// ============================================================================
+
+/** @type {Array<{ close: () => void }>} */
+let activeSubscriptions = [];
+
+/** Batched event buffer for persistent subscriptions */
+let pendingEvents = [];
+let flushTimer = null;
+const FLUSH_INTERVAL_MS = 100;
+
 /**
- * Fetch events from relays, add to Dexie, return results.
+ * Buffer an incoming relay event for batched write to Dexie.
+ * Events are flushed every 100ms to avoid per-event transaction overhead.
  */
-async function fetchFromRelays(relayUrls, filter, options = {}) {
+function bufferEvent(event) {
+	if (!event?.id) return;
+	pendingEvents.push(event);
+	if (!flushTimer) {
+		flushTimer = setTimeout(flushEvents, FLUSH_INTERVAL_MS);
+	}
+}
+
+/**
+ * Flush buffered events to Dexie.
+ */
+async function flushEvents() {
+	flushTimer = null;
+	const batch = pendingEvents;
+	pendingEvents = [];
+	if (batch.length > 0) {
+		await putEvents(batch).catch((err) =>
+			console.error('[Service] Failed to flush events to Dexie:', err)
+		);
+	}
+}
+
+/**
+ * Start persistent relay subscriptions for live catalog updates.
+ * Events stream directly into Dexie via the batched buffer.
+ * Subscriptions stay open after EOSE — they receive new events as published.
+ *
+ * Call on app mount. Idempotent — subsequent calls are no-ops.
+ */
+export function startLiveSubscriptions() {
+	if (activeSubscriptions.length > 0) return; // already started
+
+	const p = getPool();
+	const subParams = {
+		onevent(event) {
+			bufferEvent(event);
+		},
+		oneose() {
+			// Don't close — keep connection open for live updates
+		},
+		onclose(reasons) {
+			console.log('[Service] Catalog subscription closed:', reasons);
+		}
+	};
+
+	// Separate subscriptions per filter (subscribeMany takes a single filter)
+	// Apps (with platform filter)
+	activeSubscriptions.push(
+		p.subscribeMany(DEFAULT_CATALOG_RELAYS, { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER }, subParams)
+	);
+	// Releases (no platform filter)
+	activeSubscriptions.push(
+		p.subscribeMany(DEFAULT_CATALOG_RELAYS, { kinds: [EVENT_KINDS.RELEASE] }, subParams)
+	);
+	// Stacks (with platform filter)
+	activeSubscriptions.push(
+		p.subscribeMany(DEFAULT_CATALOG_RELAYS, { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER }, subParams)
+	);
+	console.log('[Service] Live subscriptions started');
+}
+
+/**
+ * Stop all persistent relay subscriptions.
+ * Call on app unmount or cleanup.
+ */
+export function stopLiveSubscriptions() {
+	for (const sub of activeSubscriptions) {
+		try {
+			sub.close();
+		} catch {
+			/* noop */
+		}
+	}
+	activeSubscriptions = [];
+
+	// Flush any remaining buffered events
+	if (flushTimer) {
+		clearTimeout(flushTimer);
+		flushTimer = null;
+	}
+	if (pendingEvents.length > 0) {
+		const batch = pendingEvents;
+		pendingEvents = [];
+		putEvents(batch).catch(() => {});
+	}
+
+	console.log('[Service] Live subscriptions stopped');
+}
+
+// ============================================================================
+// One-Shot Relay Queries (search, load-more, social)
+// ============================================================================
+
+/**
+ * Fetch events from relays (one-shot: EOSE + grace → close → putEvents).
+ * Returns the collected events after writing them to Dexie.
+ *
+ * Note: nostr-tools SimplePool.subscribeMany expects a single filter object
+ * as the second argument (it handles grouping internally via subscribeMap).
+ *
+ * @param {string[]} relayUrls
+ * @param {object} filter - NIP-01 filter object
+ * @param {{ timeout?: number, signal?: AbortSignal }} options
+ * @returns {Promise<import('nostr-tools').Event[]>}
+ */
+export async function fetchFromRelays(relayUrls, filter, options = {}) {
 	const { timeout = 5000, signal } = options;
 	if (signal?.aborted) return [];
 
@@ -42,7 +161,11 @@ async function fetchFromRelays(relayUrls, filter, options = {}) {
 			settled = true;
 			if (eoseTimer) clearTimeout(eoseTimer);
 			if (timeoutTimer) clearTimeout(timeoutTimer);
-			try { sub?.close(); } catch { /* noop */ }
+			try {
+				sub?.close();
+			} catch {
+				/* noop */
+			}
 			// Write to Dexie
 			if (events.length > 0) {
 				await putEvents(events).catch((err) =>
@@ -76,7 +199,7 @@ async function fetchFromRelays(relayUrls, filter, options = {}) {
 
 /**
  * Query events from Dexie (async).
- * Use for one-shot reads. For reactive reads, use liveQuery directly.
+ * Use for one-shot reads. For reactive reads, use liveQuery in components.
  */
 export { queryEvents, queryEvent, putEvents } from './dexie';
 export { liveQuery } from 'dexie';
@@ -100,7 +223,7 @@ export async function searchApps(relays, query, options = {}) {
 }
 
 // ============================================================================
-// Profile Fetching (local-first with server API fallback)
+// Profile Fetching (local-first with relay fallback)
 // ============================================================================
 
 /**
@@ -115,7 +238,7 @@ export async function fetchProfile(pubkey, options = {}) {
 
 /**
  * Fetch multiple profiles in batch.
- * Checks Dexie first, then server API for misses.
+ * Checks Dexie first, then fetches missing from relays.
  */
 export async function fetchProfilesBatch(pubkeys, options = {}) {
 	const { timeout = 5000, signal } = options;
@@ -132,7 +255,6 @@ export async function fetchProfilesBatch(pubkeys, options = {}) {
 
 	// First pass: batch check Dexie — single query for all pubkeys
 	const cachedProfiles = await queryEvents({ kinds: [0], authors: uniquePubkeys });
-	// Keep latest per pubkey (queryEvents returns sorted by created_at desc)
 	for (const event of cachedProfiles) {
 		const pk = event.pubkey?.toLowerCase();
 		if (pk && !results.has(pk)) {
@@ -141,32 +263,27 @@ export async function fetchProfilesBatch(pubkeys, options = {}) {
 	}
 	const missingPubkeys = uniquePubkeys.filter((pk) => !results.has(pk));
 
-	// Second pass: server API for misses
+	// Second pass: fetch missing from relays directly
 	if (missingPubkeys.length > 0 && typeof window !== 'undefined') {
 		try {
-			const response = await fetch('/api/profiles', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ pubkeys: missingPubkeys, timeout }),
-				signal
-			});
-			if (response.ok) {
-				const payload = await response.json();
-				const profiles = payload?.profiles ?? {};
-				const eventsToStore = [];
-				for (const pubkey of missingPubkeys) {
-					const event = profiles[pubkey] ?? null;
-					if (event && typeof event === 'object' && event.kind === 0) {
-						eventsToStore.push(event);
-						results.set(pubkey, event);
-					}
-				}
-				if (eventsToStore.length > 0) {
-					await putEvents(eventsToStore);
+			const profileRelays = [...DEFAULT_SOCIAL_RELAYS, ...DEFAULT_CATALOG_RELAYS];
+			const events = await fetchFromRelays(
+				profileRelays,
+				{ kinds: [0], authors: missingPubkeys, limit: missingPubkeys.length * 2 },
+				{ timeout, signal }
+			);
+
+			// Pick latest profile per pubkey
+			for (const event of events) {
+				const pk = event.pubkey?.toLowerCase();
+				if (!pk) continue;
+				const existing = results.get(pk);
+				if (!existing || event.created_at > existing.created_at) {
+					results.set(pk, event);
 				}
 			}
 		} catch {
-			// Keep partial local-first results when server profile fetch fails.
+			// Keep partial local-first results when relay fetch fails.
 		}
 	}
 
@@ -243,7 +360,6 @@ export async function fetchCommentRepliesByE(eventIds, options = {}) {
 
 /**
  * Fetch zap receipts by recipient pubkeys from social relays.
- * Writes results to Dexie.
  */
 export async function fetchZapReceiptsByPubkeys(pubkeys, options = {}) {
 	const { since, limit = 500, timeout = 8000, signal } = options;
@@ -460,11 +576,12 @@ export function parseComment(event) {
 }
 
 /**
- * Cleanup
+ * Cleanup — stop subscriptions and close pool.
  */
 export function cleanup() {
+	stopLiveSubscriptions();
 	if (pool) {
-		pool.close(DEFAULT_SOCIAL_RELAYS);
+		pool.close([...DEFAULT_CATALOG_RELAYS, ...DEFAULT_SOCIAL_RELAYS]);
 		pool = null;
 	}
 }

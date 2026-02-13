@@ -1,22 +1,18 @@
 /**
- * Apps listing page - server-side data loading
+ * Apps listing page — server-side seed data
  *
- * Data loading strategy:
- * - Load releases (kind 30063) sorted by created_at
- * - For each release, find its app (kind 32267)
- * - Pre-render first 40 apps for instant first paint
- * - Client hydrates and paginates for remaining apps
+ * Returns top apps from the polling cache (ordered by created_at).
+ * No releases on server — those are fetched client-side from relays.
  */
-import { fetchAppsByReleases } from '$lib/nostr/server';
-const PAGE_SIZE = 40;
+import { fetchApps } from '$lib/nostr/server';
+
 export const prerender = true;
+
 export const load = async () => {
-    // Fetch first page of releases and resolve to apps
-    const { apps, nextCursor, seedEvents } = await fetchAppsByReleases(PAGE_SIZE);
-    return {
-        apps,
-        seedEvents,
-        nextCursor,
-        fetchedAt: Date.now()
-    };
+	const { apps, seedEvents } = await fetchApps(50);
+	return {
+		apps,
+		seedEvents,
+		fetchedAt: Date.now()
+	};
 };

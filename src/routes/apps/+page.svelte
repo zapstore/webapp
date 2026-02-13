@@ -6,16 +6,15 @@ import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 import { parseApp } from '$lib/nostr/models';
 import { encodeAppNaddr } from '$lib/nostr/models';
-import { searchApps } from '$lib/nostr/service';
+import { searchApps, fetchFromRelays } from '$lib/nostr/service';
 import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
-import { createAppsQuery, seedEvents, initPagination, getHasMore, isRefreshing, isLoadingMore, scheduleRefresh, loadMore } from '$lib/stores/nostr.svelte.js';
+import { createAppsQuery, seedEvents, getHasMore, isLoadingMore, loadMore } from '$lib/stores/nostr.svelte.js';
 const SCROLL_THRESHOLD = 800;
 let { data } = $props();
 // liveQuery-driven apps from Dexie (local-first, auto-updates)
 let liveApps = $state(null);
 // Pagination state from store
 const hasMore = $derived(getHasMore());
-const refreshing = $derived(isRefreshing());
 const loadingMore = $derived(isLoadingMore());
 // Search query from URL (?q=...)
 const searchQ = $derived(browser ? ($page.url.searchParams.get('q')?.trim() ?? '') : '');
@@ -50,7 +49,7 @@ function shouldLoadMore() {
 }
 function handleScroll() {
     if (!searchQ && hasMore && !loadingMore && shouldLoadMore()) {
-        loadMore();
+        loadMore(fetchFromRelays, DEFAULT_CATALOG_RELAYS);
     }
 }
 async function runSearch(query) {
@@ -89,13 +88,8 @@ onMount(() => {
     if (!browser) return;
     // Seed prerendered events into Dexie → liveQuery picks them up
     seedEvents(data.seedEvents ?? []);
-    initPagination(data.nextCursor ?? null);
     // Scroll listener for infinite scroll
     window.addEventListener('scroll', handleScroll, { passive: true });
-    // ALWAYS fetch fresh data from API in background
-    if (!searchQ) {
-        scheduleRefresh();
-    }
 });
 onDestroy(() => {
     if (browser) {
@@ -116,7 +110,7 @@ onDestroy(() => {
 		</div>
 
 		<div class="app-grid">
-			{#if displayApps.length === 0 && !refreshing && !isSearching}
+			{#if displayApps.length === 0 && !isSearching}
 				<p class="empty-state">{searchQ ? `No apps match "${searchQ}"` : 'No apps found'}</p>
 			{:else if displayApps.length > 0}
 				{#each displayApps as app (app.id)}

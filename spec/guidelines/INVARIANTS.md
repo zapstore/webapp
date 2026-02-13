@@ -9,12 +9,18 @@ These are the most critical invariants. Local-first is not optional.
 
 - **UI NEVER waits for network** — always render from local data first.
 - **Dexie (IndexedDB) is the source of truth** for the client UI. All data writes go to Dexie; liveQuery handles reactivity.
-- **Server/relay fetches are background-only** — they write to Dexie, liveQuery reacts, UI updates.
+- **All events → Dexie → liveQuery → UI** — regardless of source (server seed, relay stream, one-shot fetch). There is no other data path.
 - **Offline mode is fully functional** — the app works fully offline; all cached data and routes remain accessible without network.
-- **Online status determines fetch behavior** — skip API/relay fetches when offline.
+- **Online status determines fetch behavior** — skip relay connections when offline.
 - Network failures degrade gracefully with clear feedback (offline banner).
 - **UI MUST update reactively** when local or background data changes—no full page reload required. Dexie liveQuery ensures new data flows into the view immediately.
-- Fresh data updates UI reactively without blocking or reload.
+
+## Data Flow
+
+- **Server polls, client streams.** The server polls two catalog relays every 60 seconds to maintain its seed data cache. The client maintains persistent relay connections for live updates.
+- **NIP-01 filters are the universal query language.** The same filter objects are used to query relays, the server cache, and IndexedDB. No custom query APIs.
+- **`queryEvents(filter)` is the single client-side query primitive.** All data queries — inside liveQuery, for one-shot reads, for relationship resolution — go through this function. No raw Dexie `.where()` chains in application code.
+- **No REST API for data refresh.** The client gets live data from relay connections, not from server API endpoints. REST APIs exist only for initial page seed data delivery via `+page.server.js`.
 
 ## Performance
 
@@ -26,18 +32,18 @@ These are the most critical invariants. Local-first is not optional.
 
 ## Data Fetching
 
-- Prerendered content displays immediately; API/relay fetch is background refresh.
-- All fetch operations must have a timeout (default 5 seconds).
-- **EOSE + 300ms rule:** All relay subscriptions — both server-side (in-memory relay pool) and client-side (social/search fetches) — must resolve at first EOSE + 300ms grace period, or timeout fallback (default 5s). This prevents hanging on slow relays while still collecting late-arriving events. Never wait indefinitely for relay or API responses.
-- **No N+1 queries.** Never issue a query inside a loop. Collect all keys first, issue one batch query, then distribute results in memory. This applies to relay subscriptions (`queryRelays`, `fetchFromRelays`), the server cache (`queryCache`), and client storage (`queryEvent`/`queryEvents`/Dexie `.where()`). Each relay round-trip opens a WebSocket subscription, waits for EOSE + grace, and closes — doing this per item is a critical performance bug.
+- Prerendered content displays immediately; relay connections provide live updates in the background.
+- All one-shot relay queries must have a timeout (default 5 seconds).
+- **EOSE + 300ms rule:** One-shot relay subscriptions (search, load-more, social) must resolve at first EOSE + 300ms grace period, or timeout fallback (default 5s). This prevents hanging on slow relays while still collecting late-arriving events. Never wait indefinitely.
+- **Persistent relay subscriptions** stay open after EOSE for live updates. Events are buffered (100ms) and batch-written to Dexie.
+- **No N+1 queries.** Never issue a query inside a loop. Collect all keys first, issue one batch query, then distribute results in memory. This applies to relay subscriptions, server cache queries, and Dexie `queryEvents` calls. Each relay round-trip or IndexedDB transaction has per-call overhead.
 - Fresh data is written to Dexie; liveQuery updates UI reactively without blocking.
 
-## Data Source Boundaries
+## IndexedDB Indices
 
-- All catalog data (apps, releases, stacks, profiles) and social data (comments, zaps) flows through the server's in-memory relay cache and REST API.
-- The EOSE + 300ms grace rule applies to both the server-side relay pool and the client-side relay pool (social fetches, search).
-- API responses write to Dexie; liveQuery handles client-side reactivity.
-- Server data hydrates Dexie, then background API fetches update Dexie without blocking UI.
+- The `*_tags` multi-entry index must be used for NIP-01 tag-based queries. Selective tags (`#d`, `#a`, `#e`, `#i`) should use the `_tags` index as the primary entry point. Non-selective tags (`#f`, `#p`) are filtered in memory after index-based pre-filtering.
+- The `_tags` field must be computed by `putEvents` on every write. Missing `_tags` on existing events must be populated by the Dexie schema upgrade handler.
+- Compound indices `[kind+created_at]` and `[kind+pubkey]` must be maintained for field-based queries.
 
 ## Storage Management
 
@@ -64,10 +70,10 @@ These are the most critical invariants. Local-first is not optional.
 
 ## Async Discipline
 
-- No polling or artificial delays.
-- Dexie liveQuery subscriptions and any relay/API abort controllers must be cleaned up on component destroy.
+- Dexie liveQuery subscriptions, relay connections, and any abort controllers must be cleaned up on component destroy.
 - All promises must handle rejection (no unhandled promise rejections).
 - Concurrent requests must be deduplicated where appropriate.
+- **Server-side polling is intentional** — the server polls relays on a 60-second interval. This is the designed data refresh mechanism, not an anti-pattern. Client-side UI polling remains prohibited.
 
 ## Security
 
@@ -85,7 +91,7 @@ These are the most critical invariants. Local-first is not optional.
 ## Lifecycle Safety
 
 - Svelte `$effect` cleanup functions must cancel subscriptions and liveQuery observables.
-- Component destroy must clean up all subscriptions (liveQuery, API abort controllers).
+- Component destroy must clean up all subscriptions (liveQuery, relay connections, abort controllers).
 - Service worker updates must not break active sessions.
 
 ## SEO

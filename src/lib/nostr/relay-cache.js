@@ -1,26 +1,34 @@
 /**
- * In-Memory Relay Cache — Server-side Nostr event cache
+ * In-Memory Relay Cache — Server-side Nostr event store
  *
- * Single server-side source of truth. Fed by a reconnectable pool that
- * maintains persistent subscriptions to upstream relays.
+ * Single server-side source of truth for seed data.
  *
- * On cold start, pulls recent events from upstream relays to warm up.
- * Provides NIP-01 filter query interface for REST API endpoints and prerendering.
+ * Polling intervals:
+ *   - Every 60s: top 50 apps (kind 32267) + top 50 stacks (kind 30267)
+ *     from relay.zapstore.dev only
+ *   - Every 60min: profiles (kind 0) for all cached pubkeys,
+ *     from relay.vertexlab.io only
+ *
+ * On cold start, a full warm-up pull populates the cache. Then polling
+ * intervals keep it fresh using `since` to fetch only new events.
  *
  * Server-only module — never import from client code.
  */
 import { SimplePool } from 'nostr-tools';
 import {
-	DEFAULT_CATALOG_RELAYS,
-	DEFAULT_SOCIAL_RELAYS,
-	PROFILE_RELAYS,
 	EVENT_KINDS,
-	PLATFORM_FILTER
+	PLATFORM_FILTER,
+	POLL_INTERVAL_MS
 } from '$lib/config';
 
 const EOSE_GRACE_MS = 300;
 const QUERY_TIMEOUT_MS = 5000;
 const WARMUP_TIMEOUT_MS = 8000;
+const PROFILE_POLL_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+// Server-side relay sources (distinct from client-side [CATALOG_RELAY])
+const CATALOG_RELAY = 'wss://relay.zapstore.dev';
+const PROFILE_RELAY = 'wss://relay.vertexlab.io';
 
 // ============================================================================
 // In-Memory Event Store
@@ -38,7 +46,10 @@ const kindIndex = new Map();
 /** @type {Map<string, Set<string>>} pubkey -> event ids */
 const pubkeyIndex = new Map();
 
-let warmedUp = false;
+let started = false;
+let lastCatalogPollTime = 0;
+let catalogPollTimer = null;
+let profilePollTimer = null;
 
 function isReplaceable(kind) {
 	return (kind >= 10000 && kind < 20000) || kind >= 30000;
@@ -122,7 +133,6 @@ export function queryCache(filter) {
 	if (filter.ids?.length > 0) {
 		candidateIds = new Set(filter.ids.filter((id) => eventsById.has(id)));
 	} else if (filter.kinds?.length === 1 && filter.authors?.length === 1) {
-		// Intersect kind and pubkey indices
 		const byKind = kindIndex.get(filter.kinds[0]);
 		const byPubkey = pubkeyIndex.get(filter.authors[0]);
 		if (!byKind || !byPubkey) return [];
@@ -149,7 +159,6 @@ export function queryCache(filter) {
 		const event = eventsById.get(id);
 		if (!event) continue;
 
-		// Apply filters not handled by index
 		if (filter.kinds && filter.kinds.length > 1 && !filter.kinds.includes(event.kind)) continue;
 		if (
 			filter.authors &&
@@ -181,16 +190,14 @@ export function queryCache(filter) {
 }
 
 // ============================================================================
-// Relay Pool (persistent subscriptions)
+// Relay Pool (polling, not persistent subscriptions)
 // ============================================================================
 
 const pool = new SimplePool();
 
-/** Active subscription closers for cleanup */
-const activeSubscriptions = [];
-
 /**
  * Query upstream relays and add results to cache. Returns collected events.
+ * Note: SimplePool.subscribeMany expects a single filter object (not an array).
  */
 function queryRelaysRaw(relayUrls, filter, timeoutMs = QUERY_TIMEOUT_MS) {
 	return new Promise((resolve) => {
@@ -199,8 +206,8 @@ function queryRelaysRaw(relayUrls, filter, timeoutMs = QUERY_TIMEOUT_MS) {
 		let eoseTimer = null;
 		let timeoutTimer = null;
 
-		const filterDesc = `kinds=${JSON.stringify(filter.kinds)} limit=${filter.limit}`;
-		console.log(`[RelayCache] queryRelaysRaw: ${filterDesc} from ${relayUrls.join(', ')}`);
+		const filterDesc = `kinds=${JSON.stringify(filter.kinds)} limit=${filter.limit ?? 'none'}`;
+		console.log(`[RelayCache] poll: ${filterDesc} from ${relayUrls.join(', ')}`);
 
 		const finish = (reason) => {
 			if (settled) return;
@@ -212,11 +219,10 @@ function queryRelaysRaw(relayUrls, filter, timeoutMs = QUERY_TIMEOUT_MS) {
 			} catch {
 				/* noop */
 			}
-			// Add all events to cache
 			for (const event of events) {
 				addEvent(event);
 			}
-			console.log(`[RelayCache] queryRelaysRaw finished (${reason}): ${events.length} events for ${filterDesc}`);
+			console.log(`[RelayCache] poll finished (${reason}): ${events.length} events for ${filterDesc}`);
 			resolve(events);
 		};
 
@@ -225,7 +231,6 @@ function queryRelaysRaw(relayUrls, filter, timeoutMs = QUERY_TIMEOUT_MS) {
 				if (event?.id) events.push(event);
 			},
 			oneose() {
-				// Wait a grace period after EOSE for late events
 				if (!eoseTimer) {
 					eoseTimer = setTimeout(() => finish('eose+grace'), EOSE_GRACE_MS);
 				}
@@ -241,42 +246,102 @@ function queryRelaysRaw(relayUrls, filter, timeoutMs = QUERY_TIMEOUT_MS) {
 }
 
 /**
- * Warm up the cache by fetching recent catalog data from upstream relays.
- * Called on server start.
+ * Collect all unique pubkeys from cached apps and stacks.
  */
-export async function warmUp() {
-	if (warmedUp) return;
+function collectCachedPubkeys() {
+	const pubkeys = new Set();
+	const appIds = kindIndex.get(EVENT_KINDS.APP);
+	const stackIds = kindIndex.get(EVENT_KINDS.APP_STACK);
+	if (appIds) {
+		for (const id of appIds) {
+			const event = eventsById.get(id);
+			if (event) pubkeys.add(event.pubkey);
+		}
+	}
+	if (stackIds) {
+		for (const id of stackIds) {
+			const event = eventsById.get(id);
+			if (event) pubkeys.add(event.pubkey);
+		}
+	}
+	return [...pubkeys];
+}
 
-	console.log('[RelayCache] Warming up from upstream relays...');
+/**
+ * Extract app references from stack events' `a` tags.
+ * Returns { authors: string[], identifiers: string[] } for the batch query.
+ */
+function extractAppRefsFromStacks(stackEvents) {
+	const authors = new Set();
+	const identifiers = new Set();
+	for (const event of stackEvents) {
+		if (!event.tags) continue;
+		for (const tag of event.tags) {
+			if (tag[0] !== 'a' || !tag[1]) continue;
+			// a tag format: "kind:pubkey:d-tag"
+			const parts = tag[1].split(':');
+			if (parts.length < 3) continue;
+			const kind = parseInt(parts[0], 10);
+			if (kind !== EVENT_KINDS.APP) continue;
+			const pubkey = parts[1];
+			const identifier = parts.slice(2).join(':'); // d-tag may contain colons
+			if (pubkey && identifier) {
+				authors.add(pubkey);
+				identifiers.add(identifier);
+			}
+		}
+	}
+	return { authors: [...authors], identifiers: [...identifiers] };
+}
+
+/**
+ * Fetch apps referenced by stack events.
+ * Deduplication is handled by addEvent (replaceable event logic).
+ */
+async function fetchStackReferencedApps(stackEvents, timeoutMs = QUERY_TIMEOUT_MS) {
+	const { authors, identifiers } = extractAppRefsFromStacks(stackEvents);
+	if (authors.length === 0 || identifiers.length === 0) return;
+
+	console.log(`[RelayCache] Fetching ${identifiers.length} apps referenced by stacks...`);
+	await queryRelaysRaw([CATALOG_RELAY], {
+		kinds: [EVENT_KINDS.APP],
+		authors,
+		'#d': identifiers,
+		...PLATFORM_FILTER
+	}, timeoutMs);
+}
+
+/**
+ * Initial warm-up: fetch catalog data from relay.zapstore.dev.
+ * 1. Top 50 apps + top 30 stacks in parallel
+ * 2. Then fetch apps referenced by stacks (deduplicates with step 1)
+ */
+async function warmUp() {
+	console.log('[RelayCache] Warming up...');
 	const start = Date.now();
 
 	try {
-		// Fetch catalog data in parallel
-		await Promise.allSettled([
-			// Recent releases (for app discovery)
-			queryRelaysRaw(DEFAULT_CATALOG_RELAYS, {
-				kinds: [EVENT_KINDS.RELEASE],
-				limit: 500
-			}, WARMUP_TIMEOUT_MS),
-
-			// Apps
-			queryRelaysRaw(DEFAULT_CATALOG_RELAYS, {
+		const [, stackResult] = await Promise.allSettled([
+			// Top 50 apps
+			queryRelaysRaw([CATALOG_RELAY], {
 				kinds: [EVENT_KINDS.APP],
 				...PLATFORM_FILTER,
-				limit: 500
+				limit: 50
 			}, WARMUP_TIMEOUT_MS),
 
-			// Stacks
-			queryRelaysRaw([...DEFAULT_CATALOG_RELAYS, ...DEFAULT_SOCIAL_RELAYS], {
+			// Top 30 stacks
+			queryRelaysRaw([CATALOG_RELAY], {
 				kinds: [EVENT_KINDS.APP_STACK],
 				...PLATFORM_FILTER,
-				limit: 200
+				limit: 30
 			}, WARMUP_TIMEOUT_MS),
-
-			// Profiles for catalog authors (fetched separately on demand)
 		]);
 
-		warmedUp = true;
+		// Fetch apps referenced by stacks (addEvent deduplicates)
+		if (stackResult.status === 'fulfilled' && stackResult.value.length > 0) {
+			await fetchStackReferencedApps(stackResult.value, WARMUP_TIMEOUT_MS);
+		}
+
 		const elapsed = Date.now() - start;
 		console.log(
 			`[RelayCache] Warm-up complete in ${elapsed}ms. ` +
@@ -284,88 +349,109 @@ export async function warmUp() {
 		);
 	} catch (err) {
 		console.error('[RelayCache] Warm-up failed:', err);
-		warmedUp = true; // Don't retry, serve what we have
 	}
 }
 
 /**
- * Fetch profiles from upstream relays and add to cache.
- * Returns a map of pubkey -> profile event.
- *
- * @param {string[]} pubkeys
- * @param {{ timeout?: number }} options
- * @returns {Promise<Map<string, import('nostr-tools').Event>>}
+ * Poll relay.zapstore.dev for new catalog events since last poll.
+ * 1. Top 50 apps + top 30 stacks
+ * 2. Then fetch apps referenced by any new stacks
  */
-export async function fetchProfiles(pubkeys, options = {}) {
-	const { timeout = QUERY_TIMEOUT_MS } = options;
-	const results = new Map();
-	if (!pubkeys || pubkeys.length === 0) return results;
+async function pollCatalog() {
+	const since = lastCatalogPollTime;
+	lastCatalogPollTime = Math.floor(Date.now() / 1000);
 
-	const normalized = [
-		...new Set(
-			pubkeys
-				.map((pk) => String(pk).trim().toLowerCase())
-				.filter((pk) => /^[a-f0-9]{64}$/.test(pk))
-		)
-	];
+	console.log(`[RelayCache] Polling catalog since ${since}...`);
 
-	// Check cache first — single batch query for all pubkeys
-	const cachedProfiles = queryCache({ kinds: [EVENT_KINDS.PROFILE], authors: normalized });
-	// Keep latest per pubkey (queryCache returns sorted by created_at desc)
-	for (const event of cachedProfiles) {
-		const pk = event.pubkey?.toLowerCase();
-		if (pk && !results.has(pk)) {
-			results.set(pk, event);
+	try {
+		const [, stackResult] = await Promise.allSettled([
+			queryRelaysRaw([CATALOG_RELAY], {
+				kinds: [EVENT_KINDS.APP],
+				...PLATFORM_FILTER,
+				since,
+				limit: 50
+			}),
+			queryRelaysRaw([CATALOG_RELAY], {
+				kinds: [EVENT_KINDS.APP_STACK],
+				...PLATFORM_FILTER,
+				since,
+				limit: 30
+			}),
+		]);
+
+		// Fetch apps referenced by new stacks
+		if (stackResult.status === 'fulfilled' && stackResult.value.length > 0) {
+			await fetchStackReferencedApps(stackResult.value);
 		}
+	} catch (err) {
+		console.error('[RelayCache] Catalog poll failed:', err);
 	}
-	const missing = normalized.filter((pk) => !results.has(pk));
-
-	// Fetch missing from relays
-	if (missing.length > 0) {
-		const events = await queryRelaysRaw(
-			PROFILE_RELAYS,
-			{ kinds: [EVENT_KINDS.PROFILE], authors: missing, limit: missing.length * 2 },
-			timeout
-		);
-
-		// Pick latest profile per pubkey
-		const latestByPubkey = new Map();
-		for (const event of events) {
-			const pk = event.pubkey?.toLowerCase();
-			if (!pk) continue;
-			const existing = latestByPubkey.get(pk);
-			if (!existing || event.created_at > existing.created_at) {
-				latestByPubkey.set(pk, event);
-			}
-		}
-
-		for (const pk of missing) {
-			const event = latestByPubkey.get(pk) ?? null;
-			if (event) results.set(pk, event);
-		}
-	}
-
-	return results;
 }
 
 /**
- * Query upstream relays on demand (for data not covered by warm-up).
- * Events are added to cache automatically.
- *
- * @param {string[]} relayUrls
- * @param {object} filter
- * @param {{ timeout?: number }} options
- * @returns {Promise<import('nostr-tools').Event[]>}
+ * Poll profiles for all cached pubkeys from vertexlab relay.
+ * Called every hour — profiles change infrequently.
  */
-export async function queryRelays(relayUrls, filter, options = {}) {
-	return queryRelaysRaw(relayUrls, filter, options.timeout ?? QUERY_TIMEOUT_MS);
+async function pollProfiles() {
+	const pubkeys = collectCachedPubkeys();
+	if (pubkeys.length === 0) return;
+
+	console.log(`[RelayCache] Polling ${pubkeys.length} profiles from ${PROFILE_RELAY}...`);
+
+	try {
+		await queryRelaysRaw([PROFILE_RELAY], {
+			kinds: [EVENT_KINDS.PROFILE],
+			authors: pubkeys,
+			limit: pubkeys.length
+		});
+	} catch (err) {
+		console.error('[RelayCache] Profile poll failed:', err);
+	}
 }
 
 /**
- * Check if the cache has been warmed up.
+ * Start the relay cache: initial warm-up + periodic polling.
+ * Called lazily on first server data request. Idempotent.
  */
-export function isWarmedUp() {
-	return warmedUp;
+export async function startPolling() {
+	if (started) return;
+	started = true;
+
+	await warmUp();
+	lastCatalogPollTime = Math.floor(Date.now() / 1000);
+
+	// Fetch initial profiles after catalog warm-up
+	await pollProfiles();
+
+	// Start periodic catalog polling (every 60s)
+	catalogPollTimer = setInterval(() => pollCatalog(), POLL_INTERVAL_MS);
+	console.log(`[RelayCache] Catalog polling started (every ${POLL_INTERVAL_MS / 1000}s)`);
+
+	// Start periodic profile polling (every 1 hour)
+	profilePollTimer = setInterval(() => pollProfiles(), PROFILE_POLL_INTERVAL_MS);
+	console.log(`[RelayCache] Profile polling started (every ${PROFILE_POLL_INTERVAL_MS / 60000}min)`);
+}
+
+/**
+ * Stop polling. Called on server shutdown if needed.
+ */
+export function stopPolling() {
+	if (catalogPollTimer) {
+		clearInterval(catalogPollTimer);
+		catalogPollTimer = null;
+	}
+	if (profilePollTimer) {
+		clearInterval(profilePollTimer);
+		profilePollTimer = null;
+	}
+	started = false;
+}
+
+/**
+ * Check if the cache has been started (warmed up + polling).
+ */
+export function isStarted() {
+	return started;
 }
 
 /**
@@ -377,6 +463,6 @@ export function getCacheStats() {
 		kinds: Object.fromEntries(
 			[...kindIndex.entries()].map(([k, v]) => [k, v.size])
 		),
-		warmedUp
+		started
 	};
 }

@@ -3,9 +3,10 @@ import { onMount } from 'svelte';
 import { browser } from '$app/environment';
 import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
-import { createStacksQuery, seedStackEvents, initStacksPagination, getStacksHasMore, isStacksLoadingMore, loadMoreStacks, scheduleStacksRefresh } from '$lib/stores/stacks.svelte.js';
+import { createStacksQuery, seedStackEvents, getStacksHasMore, isStacksLoadingMore, loadMoreStacks } from '$lib/stores/stacks.svelte.js';
 import { nip19 } from 'nostr-tools';
-import { fetchProfilesBatch } from '$lib/nostr/service';
+import { fetchProfilesBatch, fetchFromRelays } from '$lib/nostr/service';
+import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
 import { parseProfile, encodeStackNaddr } from '$lib/nostr/models';
 let { data } = $props();
 // liveQuery-driven stacks from Dexie (local-first, auto-updates)
@@ -100,9 +101,6 @@ onMount(() => {
     if (!browser) return;
     // Seed prerendered events into Dexie → liveQuery picks them up
     seedStackEvents(data.seedEvents ?? []);
-    initStacksPagination(data.nextCursor ?? null);
-    // Schedule background refresh for fresh data
-    scheduleStacksRefresh();
 });
 </script>
 
@@ -145,7 +143,7 @@ onMount(() => {
 
 			{#if hasMore}
 				<div class="load-more-container">
-					<button class="btn-secondary" onclick={() => loadMoreStacks()} disabled={loadingMore}>
+					<button class="btn-secondary" onclick={() => loadMoreStacks(fetchFromRelays, DEFAULT_CATALOG_RELAYS)} disabled={loadingMore}>
 						{#if loadingMore}
 							<span class="spinner"></span>
 							Loading...
