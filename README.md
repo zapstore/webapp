@@ -6,8 +6,9 @@ Enables discovering apps, viewing detailed metadata, and connecting users to the
 
 ## Tech Stack
 
-- **SvelteKit** — Static site generation with prerendering
-- **Applesauce** — Nostr data layer (EventStore + IndexedDB)
+- **SvelteKit** — Server-rendered app with Node.js adapter
+- **Dexie.js** — Reactive IndexedDB layer with liveQuery
+- **nostr-tools** — Nostr protocol implementation
 - **Tailwind CSS** — Styling
 
 ## Development

@@ -2,8 +2,8 @@
 
 ## Goals (non-negotiable)
 
-- **Minimize loading states and skeletons.** Avoid the classic SPA pattern of spinners or skeletons everywhere. They have a place (e.g. true first-ever empty state, explicit search-in-flight) but must be minimal. First paint should show **real content** from local data or prerender whenever possible.
-- **Landing pages (marketing) are fully prerendered.** No blocking on data; static or build-time data only.
+- **Minimize loading states and skeletons.** Avoid the classic SPA pattern of spinners or skeletons everywhere. They have a place (e.g. true first-ever empty state, explicit search-in-flight) but must be minimal. First paint should show **real content** from local data (IndexedDB) or server-rendered seed data.
+- **Static content is prerendered.** Blog, docs, and marketing pages are fully prerendered at build time. Dynamic app catalog pages (apps, stacks, discover) are server-rendered at runtime with seed data from the in-memory cache.
 - **UI always updates reactively.** When local data or server/background data changes, the UI MUST update without full page reload. Use reactive state (e.g. Svelte runes, Dexie liveQuery) so new data flows into the view immediately.
 - **Full PWA.** The app is a full Progressive Web App: valid web app manifest, compliant service worker (install, fetch, activate, scope), and offline support for cached routes and local data.
 
@@ -90,7 +90,7 @@ The server runs an **in-memory Nostr event store** fed by **polling** two catalo
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │    Upstream Relays (relay.zapstore.dev, relay.vertexlab.io)   │
-│                    polled every 60s                           │
+│                    polled every 60s (runtime only)            │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
@@ -100,18 +100,19 @@ The server runs an **in-memory Nostr event store** fed by **polling** two catalo
 │         Initial warm-up on cold start, then polling           │
 └─────────────────────────────────────────────────────────────┘
                            │
-              ┌────────────┴────────────┐
-              ▼                         ▼
-    +page.server.js              Prerender (build time)
-    returns seed events          queries cache → static HTML
+                           ▼
+                   +page.server.js
+                 returns seed events
+            (server-rendered at runtime)
 ```
 
 - **Catalog polling (every 60s):** Polls upstream relays for top 50 apps (kind 32267) and top 50 stacks (kind 30267) with platform filter. Uses `since: lastPollTimestamp` to fetch only new events. No releases (kind 30063) — those are fetched client-side.
 - **Profile polling (every 60min):** Polls `relay.vertexlab.io` for profiles (kind 0) of all pubkeys from cached apps and stacks. Profiles change infrequently.
-- **Cold start:** On server start, a full warm-up pull populates the cache. Prerendered HTML covers users during the brief warm-up window.
+- **Cold start:** On server start, a full warm-up pull populates the cache. First request after startup gets fresh relay data.
 - **No persistent WebSocket subscriptions:** The server does not maintain long-lived relay connections. It connects, polls, disconnects.
 - **No SQLite / relay.db:** There is no server-side database. All server data lives in memory, fed by polling.
 - **Seed events:** `+page.server.js` functions query the in-memory cache and return raw Nostr events as seed data in the page payload.
+- **Build vs Runtime:** During build, RelayCache does a one-time warmup (no polling timers) for any prerendered static pages. During runtime, polling timers keep the cache fresh continuously.
 
 ### Client: Dexie (IndexedDB) with liveQuery
 
@@ -282,7 +283,7 @@ Every render path prioritizes local data:
 
 ### Initial Visit (New User)
 
-1. Server serves HTML with seed events in page payload → **instant content**
+1. Server renders HTML with seed events from in-memory cache → **instant content**
 2. SvelteKit hydrates
 3. Seed events written to Dexie via `putEvents`
 4. liveQuery subscribers fire → UI updates reactively
@@ -302,15 +303,11 @@ Every render path prioritizes local data:
 4. Relay connections skipped
 5. Offline banner shown
 
-### Build Time (Prerendering)
+### Build Time
 
-For SEO and first-visit performance:
+**Static content pages** (blog, docs, studio, marketing) are prerendered at build time as static HTML.
 
-1. `+page.server.js` queries in-memory event cache for catalog events
-2. HTML generated with full content + seed events in payload
-3. Runtime serves HTML from apex; static assets can be deployed to CDN
-
-**Landing pages (marketing):** Fully prerendered; no runtime data dependency. No loading states.
+**Dynamic catalog pages** (apps, stacks, discover) are NOT prerendered. They are server-rendered at runtime with fresh data from the in-memory RelayCache. During build, the RelayCache may do a one-time warmup (without starting polling timers) if any build-time logic requires it, but catalog pages themselves are rendered on-demand at runtime.
 
 ## URLs and routing
 

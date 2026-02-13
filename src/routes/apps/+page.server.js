@@ -6,7 +6,7 @@
  */
 import { fetchApps } from '$lib/nostr/server';
 
-export const prerender = true;
+export const prerender = false;
 
 export const load = async () => {
 	const seedEvents = fetchApps(50);

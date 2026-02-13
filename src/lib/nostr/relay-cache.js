@@ -15,6 +15,7 @@
  * Server-only module — never import from client code.
  */
 import { SimplePool } from 'nostr-tools';
+import { building } from '$app/environment';
 import {
 	EVENT_KINDS,
 	PLATFORM_FILTER,
@@ -411,10 +412,17 @@ async function pollProfiles() {
 
 /**
  * Start the relay cache: initial warm-up + periodic polling.
- * Called lazily on first server data request. Idempotent.
+ * Called on server boot via hooks.server.js. Idempotent.
+ *
+ * Skipped entirely during build — no data pages are prerendered,
+ * so the cache is not needed at build time.
  */
 export async function startPolling() {
 	if (started) return;
+	if (building) {
+		console.log('[RelayCache] Build mode — skipping relay cache entirely');
+		return;
+	}
 	started = true;
 
 	await warmUp();

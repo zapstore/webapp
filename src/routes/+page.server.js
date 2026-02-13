@@ -1,6 +1,8 @@
 import testimonials from '$lib/data/testimonials.json';
 import { nip19 } from 'nostr-tools';
-export const prerender = true;
+
+export const prerender = false;
+
 export async function load() {
     try {
         // Enrich testimonials with npub/nevent

@@ -57,7 +57,7 @@ For non-trivial work, changes are not complete unless:
 
 ```bash
 bun run dev      # Development server
-bun run build    # Build for production (prerenders all pages)
+bun run build    # Build for production (static content only; catalog pages are SSR)
 bun run preview  # Preview production build
 bun run check    # TypeScript check
 ```
@@ -66,10 +66,11 @@ bun run check    # TypeScript check
 
 SvelteKit app with Nostr-native data layer:
 
-- **Server**: In-memory Nostr relay cache fed by reconnectable pool (upstream relays). REST API returns Nostr events.
+- **Server**: In-memory Nostr relay cache fed by polling (every 60s). Cache starts on server boot and stays fresh.
 - **Client**: Dexie.js (IndexedDB) with `liveQuery` for reactive queries. No separate in-memory EventStore.
-- **Prerendering**: All pages built at deploy time via `+page.server.js` (queries relay cache)
+- **Server-rendering**: Catalog pages (apps, stacks, discover) are server-rendered at runtime with seed data from in-memory cache.
+- **Prerendering**: Only static content pages (blog, docs, marketing) are prerendered at build time.
 - **Local-first**: Dexie (IndexedDB) is the single client-side source of truth
-- **Background refresh**: API fetches write to Dexie → liveQuery updates UI reactively
+- **Background refresh**: Persistent relay connections write to Dexie → liveQuery updates UI reactively
 
 See `spec/guidelines/ARCHITECTURE.md` for details.

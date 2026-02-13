@@ -534,11 +534,8 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 	const signed = await signEvent(template);
 	const p = getPool();
 
-	// Publish to relays
-	const publishPromises = SOCIAL_RELAYS.map((relay) =>
-		p.publish([relay], signed).catch(() => null)
-	);
-	await Promise.allSettled(publishPromises);
+	// Publish to relays — pool.publish returns an array of promises (one per relay)
+	await Promise.allSettled(p.publish(SOCIAL_RELAYS, signed));
 
 	// Write to Dexie
 	await putEvents([signed]);
