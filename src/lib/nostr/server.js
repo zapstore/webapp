@@ -112,18 +112,10 @@ export function fetchStacks(limit = 20, until) {
 	const stackEvents = queryCache(filter);
 	const stacks = stackEvents.map(parseAppStack);
 
-	// Resolve referenced apps to include their raw events in the seed
-	const appsByStackId = resolveMultipleStackAppsFromCache(stacks);
-	const selectedAppEvents = [];
+	// Resolve referenced apps — get raw events directly from cache (no duplication)
+	const { appEvents } = resolveMultipleStackAppsFromCache(stacks);
 
-	for (const stack of stacks) {
-		const apps = appsByStackId.get(stack.id) ?? [];
-		selectedAppEvents.push(
-			...apps.map((a) => a.rawEvent).filter(Boolean)
-		);
-	}
-
-	return dedupeEventsById([...stackEvents, ...selectedAppEvents]);
+	return dedupeEventsById([...stackEvents, ...appEvents]);
 }
 
 /**
@@ -144,7 +136,7 @@ export function fetchStack(pubkey, identifier) {
 
 	const stackEvent = results[0];
 	const stack = parseAppStack(stackEvent);
-	const apps = resolveStackAppsFromCache(stack);
+	const { apps, appEvents } = resolveStackAppsFromCache(stack);
 
 	// Get creator profile from cache (populated by hourly profile poll)
 	const profileResults = queryCache({ kinds: [EVENT_KINDS.PROFILE], authors: [pubkey], limit: 1 });
@@ -153,7 +145,7 @@ export function fetchStack(pubkey, identifier) {
 
 	const seedEvents = dedupeEventsById([
 		stackEvent,
-		...apps.map((a) => a.rawEvent).filter(Boolean),
+		...appEvents,
 		...(profileEvent ? [profileEvent] : [])
 	]);
 
@@ -193,7 +185,7 @@ export function fetchStacksByAuthor(pubkey, limit = 50) {
 	const stackEvents = queryCache(filter);
 	const stacks = stackEvents.map(parseAppStack);
 
-	const appsByStackId = resolveMultipleStackAppsFromCache(stacks);
+	const { appsByStackId } = resolveMultipleStackAppsFromCache(stacks);
 	const resolvedStacks = [];
 	for (const stack of stacks) {
 		const apps = appsByStackId.get(stack.id) ?? [];
@@ -237,11 +229,12 @@ export function fetchProfilesServer(pubkeys) {
 
 /**
  * Resolve apps referenced by multiple stacks (cache only, single batch query).
- * Returns a Map from stack event id to parsed app array.
+ * Returns { appsByStackId: Map<stackId, parsedApp[]>, appEvents: rawEvent[] }.
+ * appEvents are the raw cache events — no duplication with parsed models.
  */
 function resolveMultipleStackAppsFromCache(stacks) {
-	const result = new Map();
-	if (!stacks || stacks.length === 0) return result;
+	const appsByStackId = new Map();
+	if (!stacks || stacks.length === 0) return { appsByStackId, appEvents: [] };
 
 	const platformTag = PLATFORM_FILTER['#f']?.[0];
 
@@ -260,8 +253,8 @@ function resolveMultipleStackAppsFromCache(stacks) {
 	}
 
 	if (allRefKeys.size === 0) {
-		for (const stack of stacks) result.set(stack.id, []);
-		return result;
+		for (const stack of stacks) appsByStackId.set(stack.id, []);
+		return { appsByStackId, appEvents: [] };
 	}
 
 	const cachedResults = queryCache({
@@ -290,17 +283,21 @@ function resolveMultipleStackAppsFromCache(stacks) {
 				if (event) apps.push(parseApp(event));
 			}
 		}
-		result.set(stack.id, apps);
+		appsByStackId.set(stack.id, apps);
 	}
 
-	return result;
+	// Collect unique raw events for seeding (no rawEvent on parsed models)
+	const appEvents = [...appEventsByKey.values()];
+
+	return { appsByStackId, appEvents };
 }
 
 /**
  * Resolve apps referenced by a single stack (cache only).
+ * Returns { apps: parsedApp[], appEvents: rawEvent[] }.
  */
 function resolveStackAppsFromCache(stack) {
-	if (!stack?.appRefs || stack.appRefs.length === 0) return [];
+	if (!stack?.appRefs || stack.appRefs.length === 0) return { apps: [], appEvents: [] };
 
 	const platformTag = PLATFORM_FILTER['#f']?.[0];
 
@@ -316,7 +313,7 @@ function resolveStackAppsFromCache(stack) {
 		allIdentifiers.add(ref.identifier);
 	}
 
-	if (refsByKey.size === 0) return [];
+	if (refsByKey.size === 0) return { apps: [], appEvents: [] };
 
 	const cachedResults = queryCache({
 		kinds: [EVENT_KINDS.APP],
@@ -342,5 +339,5 @@ function resolveStackAppsFromCache(stack) {
 		if (event) apps.push(parseApp(event));
 	}
 
-	return apps;
+	return { apps, appEvents: [...appsByKey.values()] };
 }

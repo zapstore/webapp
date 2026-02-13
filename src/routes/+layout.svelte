@@ -7,6 +7,7 @@ import { initCatalogs } from '$lib/stores/catalogs.svelte.js';
 import { initOnlineStatus, isOnline } from '$lib/stores/online.svelte.js';
 import { startProfileSearchBackground } from '$lib/services/profile-search';
 import { startLiveSubscriptions, stopLiveSubscriptions } from '$lib/nostr/service';
+import { evictOldEvents } from '$lib/nostr/dexie';
 import { IDB_NAME } from '$lib/config';
 import Header from '$lib/components/layout/Header.svelte';
 import Footer from '$lib/components/layout/Footer.svelte';
@@ -50,6 +51,8 @@ onMount(() => {
         initOnlineStatus();
         // Start persistent relay connections for live catalog updates
         startLiveSubscriptions();
+        // Evict old non-replaceable events to prevent unbounded IndexedDB growth
+        evictOldEvents();
         // Start background load of default profiles for @ mention suggestions (local-first)
         startProfileSearchBackground();
         // Initialize catalog preferences from localStorage

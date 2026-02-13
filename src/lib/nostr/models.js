@@ -43,8 +43,7 @@ export function parseApp(event) {
         license: event.tags.find((t) => t[0] === 'license')?.[1] ?? content.license,
         url: event.tags.find((t) => t[0] === 'url')?.[1] ?? content.url,
         createdAt: event.created_at,
-        naddr,
-        rawEvent: { id: event.id, pubkey: event.pubkey, created_at: event.created_at, kind: event.kind, tags: event.tags, content: event.content, sig: event.sig }
+        naddr
     };
 }
 /**
@@ -160,8 +159,7 @@ export function parseAppStack(event) {
         image,
         appRefs,
         createdAt: event.created_at,
-        naddr,
-        rawEvent: { id: event.id, pubkey: event.pubkey, created_at: event.created_at, kind: event.kind, tags: event.tags, content: event.content, sig: event.sig }
+        naddr
     };
 }
 // =============================================================================

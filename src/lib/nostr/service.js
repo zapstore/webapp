@@ -68,6 +68,9 @@ async function flushEvents() {
  * Events stream directly into Dexie via the batched buffer.
  * Subscriptions stay open after EOSE — they receive new events as published.
  *
+ * All subscriptions use `limit` to cap the initial backfill.
+ * Progressive loading (load-more, pagination) handles deeper data.
+ *
  * Call on app mount. Idempotent — subsequent calls are no-ops.
  */
 export function startLiveSubscriptions() {
@@ -87,17 +90,18 @@ export function startLiveSubscriptions() {
 	};
 
 	// Separate subscriptions per filter (subscribeMany takes a single filter)
-	// Apps (with platform filter)
+	// Limits match the UI viewport — load-more handles deeper data
+	// Apps: discover/apps page seeds 50
 	activeSubscriptions.push(
-		p.subscribeMany(DEFAULT_CATALOG_RELAYS, { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER }, subParams)
+		p.subscribeMany(DEFAULT_CATALOG_RELAYS, { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: 50 }, subParams)
 	);
-	// Releases (no platform filter)
+	// Releases: needed for app ordering in liveQuery (apps sorted by release recency)
 	activeSubscriptions.push(
-		p.subscribeMany(DEFAULT_CATALOG_RELAYS, { kinds: [EVENT_KINDS.RELEASE] }, subParams)
+		p.subscribeMany(DEFAULT_CATALOG_RELAYS, { kinds: [EVENT_KINDS.RELEASE], limit: 50 }, subParams)
 	);
-	// Stacks (with platform filter)
+	// Stacks: discover/stacks page seeds 20
 	activeSubscriptions.push(
-		p.subscribeMany(DEFAULT_CATALOG_RELAYS, { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER }, subParams)
+		p.subscribeMany(DEFAULT_CATALOG_RELAYS, { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER, limit: 20 }, subParams)
 	);
 	console.log('[Service] Live subscriptions started');
 }

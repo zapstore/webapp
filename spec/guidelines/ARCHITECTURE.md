@@ -146,10 +146,10 @@ The client maintains **persistent WebSocket connections** to catalog and social 
 │  Catalog relays:   relay.zapstore.dev, relay.vertexlab.io     │
 │  Social relays:    relay.damus.io, relay.primal.net, nos.lol  │
 │                                                                │
-│  Subscriptions:                                                │
-│    • Apps (kind 32267) with platform filter                   │
-│    • Releases (kind 30063)                                    │
-│    • Stacks (kind 30267) with platform filter                 │
+│  Subscriptions (all with limit matching UI viewport):          │
+│    • Apps (kind 32267) with platform filter, limit 50         │
+│    • Releases (kind 30063), limit 50                          │
+│    • Stacks (kind 30267) with platform filter, limit 20       │
 │                                                                │
 │  onevent → batch buffer (100ms) → putEvents → Dexie           │
 │  Reconnects automatically on disconnect.                       │
@@ -200,10 +200,12 @@ Client relay pool ──→ events ──→ putEvents ─┘
 Performance-critical. The Dexie schema uses a **multi-entry `*_tags` index** for efficient NIP-01 tag-based queries alongside standard field indices.
 
 ```javascript
-db.version(2).stores({
+db.version(SCHEMA_VERSION).stores({
   events: 'id, kind, pubkey, created_at, [kind+created_at], [kind+pubkey], *_tags'
 });
 ```
+
+**Schema changes nuke the database.** There are no migrations. Bump `SCHEMA_VERSION` in `dexie.js` and the database is deleted on next load. Relay subscriptions and seed events repopulate it immediately. This keeps the schema code simple and the upgrade path zero-risk.
 
 | Index | Purpose | Example query |
 |-------|---------|---------------|
@@ -251,10 +253,10 @@ subscribe → collect events → EOSE → +300ms grace → resolve → putEvents
 
 **Persistent subscriptions** (live updates):
 
-1. Open a `subscribeMany` subscription with catalog filters.
+1. Open a `subscribeMany` subscription with catalog filters. **Always include `limit`** to cap the initial backfill — UI loads progressively via pagination/load-more.
 2. Receive events via `onevent` continuously.
 3. Buffer events for 100ms, then batch `putEvents` to Dexie.
-4. Never close — subscription stays open after EOSE.
+4. Never close — subscription stays open after EOSE for live updates.
 5. SimplePool handles reconnection automatically.
 
 ### Batch Queries — No N+1
@@ -343,7 +345,9 @@ Catalogs are Nostr relays that hold app events.
 - **Writes:** All data paths (server seed, relay stream, one-shot fetch) write directly to Dexie via `putEvents`. liveQuery handles the rest.
 - **Indices:** Multi-entry `*_tags` index for tag-based NIP-01 queries. Compound indices `[kind+created_at]` and `[kind+pubkey]` for field-based queries. See "IndexedDB Schema & Indices" above.
 - **Speed:** IndexedDB reads are async (~1-5ms for indexed queries). Prerendered HTML covers first paint, so async latency is invisible in practice. Subsequent updates are automatic via liveQuery.
-- **Schema upgrade:** `_tags` field is computed on write (`putEvents`) and populated for existing events via Dexie upgrade handler.
+- **Schema changes nuke the database.** Bump `SCHEMA_VERSION` → old DB deleted → fresh start. No migrations. Relay subscriptions and seed events repopulate immediately.
+- **Replaceability:** `putEvents` correctly handles all NIP-01 replaceable kinds: kind 0 and 3 (one per pubkey), kinds 10000-19999 (one per kind+pubkey), kinds 30000+ (one per kind+pubkey+dTag). Older versions are deleted on write.
+- **Eviction:** Non-replaceable events (comments, zaps, file metadata) are capped per kind. `evictOldEvents()` runs on app startup and prunes old events beyond the cap, keeping the newest. This prevents unbounded IndexedDB growth.
 
 ### localStorage
 

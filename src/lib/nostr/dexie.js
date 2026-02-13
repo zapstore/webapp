@@ -9,36 +9,42 @@
  * It translates NIP-01 filter objects to efficient IndexedDB queries using
  * the optimal index for each filter shape.
  *
- * Schema v2 adds *_tags multi-entry index for efficient tag-based queries.
+ * Schema changes: bump SCHEMA_VERSION and the database is nuked (no migrations).
+ * Relay subscriptions and seed events repopulate it immediately.
  */
 import Dexie from 'dexie';
+import { browser } from '$app/environment';
 import { EVENT_KINDS } from '$lib/config';
+
+// ============================================================================
+// Schema — bump this to nuke the database on next load
+// ============================================================================
+
+const SCHEMA_VERSION = 3;
+const SCHEMA_KEY = 'zapstore_schema_version';
+
+/**
+ * Nuke the database if the schema version changed.
+ * No migrations — relay subscriptions and seed events repopulate immediately.
+ */
+if (browser) {
+	try {
+		const stored = parseInt(localStorage.getItem(SCHEMA_KEY) ?? '0', 10);
+		if (stored !== SCHEMA_VERSION) {
+			// Synchronous delete before Dexie opens — IndexedDB API allows this
+			indexedDB.deleteDatabase('zapstore');
+			localStorage.setItem(SCHEMA_KEY, String(SCHEMA_VERSION));
+		}
+	} catch {
+		// localStorage or indexedDB unavailable — Dexie will create fresh
+	}
+}
 
 export const db = new Dexie('zapstore');
 
-// ============================================================================
-// Schema
-// ============================================================================
-
-// v1: original schema (kept for upgrade path)
-db.version(1).stores({
-	events: 'id, kind, pubkey, created_at, [kind+created_at], [kind+pubkey]'
+db.version(SCHEMA_VERSION).stores({
+	events: 'id, kind, pubkey, created_at, [kind+created_at], [kind+pubkey], *_tags'
 });
-
-// v2: add *_tags multi-entry index for NIP-01 tag-based queries
-db.version(2)
-	.stores({
-		events: 'id, kind, pubkey, created_at, [kind+created_at], [kind+pubkey], *_tags'
-	})
-	.upgrade((tx) => {
-		// Populate _tags for all existing events
-		return tx
-			.table('events')
-			.toCollection()
-			.modify((event) => {
-				event._tags = computeTags(event);
-			});
-	});
 
 // ============================================================================
 // Tag index helpers
@@ -140,16 +146,25 @@ export async function putEvents(events) {
 	);
 	if (valid.length === 0) return;
 
-	// Separate replaceable and non-replaceable
+	// Separate replaceable and non-replaceable per NIP-01:
+	//   kind 0, 3        → replaceable (one per pubkey, no dTag)
+	//   kind 10000-19999  → replaceable (one per kind+pubkey, no dTag)
+	//   kind >= 30000     → parameterized-replaceable (one per kind+pubkey+dTag)
 	const nonReplaceable = [];
 	const replaceableByKey = new Map();
 
 	for (const event of valid) {
 		const isReplaceable =
-			(event.kind >= 10000 && event.kind < 20000) || event.kind >= 30000;
+			event.kind === 0 ||
+			event.kind === 3 ||
+			(event.kind >= 10000 && event.kind < 20000) ||
+			event.kind >= 30000;
 
 		if (isReplaceable) {
-			const dTag = event.tags?.find((t) => t[0] === 'd')?.[1] ?? '';
+			// kind 0 and 3 have no dTag — key by kind+pubkey only
+			const dTag = event.kind >= 30000
+				? (event.tags?.find((t) => t[0] === 'd')?.[1] ?? '')
+				: '';
 			const key = `${event.kind}:${event.pubkey}:${dTag}`;
 			const existing = replaceableByKey.get(key);
 			if (!existing || event.created_at > existing.created_at) {
@@ -349,6 +364,69 @@ export async function queryEvents(filter) {
 export async function queryEvent(filter) {
 	const results = await queryEvents({ ...filter, limit: 1 });
 	return results[0] ?? null;
+}
+
+// ============================================================================
+// Eviction — prune non-replaceable events to prevent unbounded growth
+// ============================================================================
+
+/**
+ * Maximum number of non-replaceable events to keep per kind.
+ * Replaceable events (kind 0, 3, 10000-19999, 30000+) are self-limiting
+ * via putEvents dedup — only non-replaceable kinds accumulate.
+ */
+const EVICTION_LIMITS = {
+	[EVENT_KINDS.COMMENT]: 500,
+	[EVENT_KINDS.ZAP_REQUEST]: 200,
+	[EVENT_KINDS.ZAP_RECEIPT]: 500,
+	[EVENT_KINDS.FILE_METADATA]: 300,
+	[EVENT_KINDS.RELEASE]: 500,
+};
+
+/** Default cap for any non-replaceable kind not listed above */
+const DEFAULT_EVICTION_LIMIT = 500;
+
+/**
+ * Run eviction for all non-replaceable event kinds.
+ * Keeps the newest N events per kind, deletes the rest.
+ * Call on app startup (non-blocking).
+ */
+export async function evictOldEvents() {
+	if (!browser) return;
+
+	try {
+		// Collect all distinct kinds in the store
+		const allEvents = await db.events.orderBy('kind').uniqueKeys();
+		const nonReplaceableKinds = allEvents.filter((kind) =>
+			kind !== 0 &&
+			kind !== 3 &&
+			!(kind >= 10000 && kind < 20000) &&
+			!(kind >= 30000)
+		);
+
+		for (const kind of nonReplaceableKinds) {
+			const limit = EVICTION_LIMITS[kind] ?? DEFAULT_EVICTION_LIMIT;
+
+			// Count events of this kind
+			const count = await db.events.where('kind').equals(kind).count();
+			if (count <= limit) continue;
+
+			// Get the oldest events beyond the limit (sorted newest-first, skip the keepers)
+			const toDelete = await db.events
+				.where('[kind+created_at]')
+				.between([kind, Dexie.minKey], [kind, Dexie.maxKey])
+				.reverse()    // newest first
+				.offset(limit)
+				.primaryKeys();
+
+			if (toDelete.length > 0) {
+				await db.events.bulkDelete(toDelete);
+				console.log(`[Dexie] Evicted ${toDelete.length} old kind ${kind} events (kept ${limit})`);
+			}
+		}
+	} catch (err) {
+		console.error('[Dexie] Eviction failed:', err);
+	}
 }
 
 // Re-export liveQuery for convenience

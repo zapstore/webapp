@@ -35,21 +35,22 @@ These are the most critical invariants. Local-first is not optional.
 - Prerendered content displays immediately; relay connections provide live updates in the background.
 - All one-shot relay queries must have a timeout (default 5 seconds).
 - **EOSE + 300ms rule:** One-shot relay subscriptions (search, load-more, social) must resolve at first EOSE + 300ms grace period, or timeout fallback (default 5s). This prevents hanging on slow relays while still collecting late-arriving events. Never wait indefinitely.
-- **Persistent relay subscriptions** stay open after EOSE for live updates. Events are buffered (100ms) and batch-written to Dexie.
+- **Persistent relay subscriptions** stay open after EOSE for live updates. Events are buffered (100ms) and batch-written to Dexie. **All subscriptions MUST include `limit`** to cap the initial backfill — UI loads progressively via pagination/load-more. Unbounded subscriptions are a bug.
 - **No N+1 queries.** Never issue a query inside a loop. Collect all keys first, issue one batch query, then distribute results in memory. This applies to relay subscriptions, server cache queries, and Dexie `queryEvents` calls. Each relay round-trip or IndexedDB transaction has per-call overhead.
 - Fresh data is written to Dexie; liveQuery updates UI reactively without blocking.
 
 ## IndexedDB Indices
 
 - The `*_tags` multi-entry index must be used for NIP-01 tag-based queries. Selective tags (`#d`, `#a`, `#e`, `#i`) should use the `_tags` index as the primary entry point. Non-selective tags (`#f`, `#p`) are filtered in memory after index-based pre-filtering.
-- The `_tags` field must be computed by `putEvents` on every write. Missing `_tags` on existing events must be populated by the Dexie schema upgrade handler.
+- The `_tags` field must be computed by `putEvents` on every write.
 - Compound indices `[kind+created_at]` and `[kind+pubkey]` must be maintained for field-based queries.
 
 ## Storage Management
 
-- IndexedDB MUST implement LRU (Least Recently Used) eviction.
-- Eviction triggers when storage approaches browser limits.
-- Recently accessed data is preserved; old data is evicted.
+- **Schema changes nuke the database.** Bump `SCHEMA_VERSION` in `dexie.js` → database deleted → fresh start. No migrations. Relay subscriptions and seed events repopulate immediately.
+- **Replaceable events are self-limiting.** `putEvents` handles NIP-01 replaceability: kind 0/3 (one per pubkey), kinds 10000-19999 (one per kind+pubkey), kinds 30000+ (one per kind+pubkey+dTag). Older versions are deleted on write.
+- **Non-replaceable events are capped per kind.** `evictOldEvents()` runs on app startup and prunes old events beyond the cap (keeping newest). This prevents unbounded IndexedDB growth.
+- **All relay subscriptions MUST include `limit`.** Unbounded subscriptions that dump entire relay contents into IndexedDB are a bug.
 - Eviction must not break the app — graceful degradation to network fetch.
 
 ## Search

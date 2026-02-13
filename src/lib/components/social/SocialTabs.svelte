@@ -36,10 +36,7 @@ $effect(() => {
         detailsRawData = null;
         return;
     }
-    if (stack ? stack.rawEvent : app?.rawEvent) {
-        detailsRawData = null;
-        return;
-    }
+    // Always fetch from Dexie — no rawEvent embedded in models
     const kind = stack ? EVENT_KINDS.APP_STACK : EVENT_KINDS.APP;
     const filter = {
         kinds: [kind],
@@ -414,7 +411,7 @@ const combinedFeed = $derived.by(() => {
         publicationLabel={stack ? "Stack" : "App"}
         npub={safeNpubFromPubkey(stack?.pubkey ?? app?.pubkey)}
         pubkey={stack?.pubkey ?? app?.pubkey ?? ""}
-        rawData={detailsRawData ?? (stack ? (stack.rawEvent ?? stack) : (app?.rawEvent ?? app))}
+        rawData={detailsRawData}
       />
     {/if}
   </div>
