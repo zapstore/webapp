@@ -30,14 +30,22 @@ and browsing apps distributed via Nostr app catalogs.
 | `work/*.md` | AI | Yes |
 | `src/**` | Shared | Yes |
 
+## Spec Loading
+
+All specs in `spec/guidelines/` have YAML frontmatter and are symlinked into `.cursor/rules/` as `.mdc` files. Cursor loads them automatically:
+
+- **Always loaded**: ARCHITECTURE, INVARIANTS, QUALITY_BAR, VISION (`alwaysApply: true`)
+- **Loaded when editing UI**: DESIGN_SYSTEM (glob-scoped to `*.svelte`, `*.css`)
+
+Do NOT re-read these files — their content is already in your context.
+
 ## Rules
 
-1. Read `spec/guidelines/ARCHITECTURE.md` first for technical context
-2. Never modify files in `spec/guidelines/` without explicit permission
-3. If a spec is unclear, report it—do not guess
-4. Prefer small, localized changes. Avoid unrelated refactors.
-5. After dependency changes, run: `bun install`
-6. Fix any TypeScript/lint errors introduced by your changes
+1. Never modify files in `spec/guidelines/` without explicit permission
+2. If a spec is unclear, report it—do not guess
+3. Prefer small, localized changes. Avoid unrelated refactors.
+4. After dependency changes, run: `bun install`
+5. Fix any TypeScript/lint errors introduced by your changes
 
 ## Spec-First Workflow
 

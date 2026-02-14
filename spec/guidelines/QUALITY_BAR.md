@@ -1,3 +1,8 @@
+---
+description: Quality expectations — layer standards, anti-patterns, testing, when to spec
+alwaysApply: true
+---
+
 # Zapstore Webapp — Quality Bar
 
 These are best practices and expectations. Unlike invariants (which are binary pass/fail),

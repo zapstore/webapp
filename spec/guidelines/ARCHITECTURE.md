@@ -1,3 +1,8 @@
+---
+description: Core architecture — local-first data flow, Dexie/liveQuery, relay patterns, universal loads, PWA
+alwaysApply: true
+---
+
 # Zapstore Webapp — Architecture
 
 ## Goals (non-negotiable)

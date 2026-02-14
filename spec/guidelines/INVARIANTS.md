@@ -1,3 +1,8 @@
+---
+description: Non-negotiable invariants — local-first, data flow, performance, security, lifecycle safety
+alwaysApply: true
+---
+
 # Zapstore Webapp — Invariants
 
 These are non-negotiable rules. Violating any invariant is a bug—no tradeoffs or exceptions.

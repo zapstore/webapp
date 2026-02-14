@@ -1,3 +1,9 @@
+---
+description: Design system — panels, buttons, icons, colors, typography, components, loading states
+globs: "**/*.svelte,**/*.css,**/app.css"
+alwaysApply: false
+---
+
 # Design System & Development Rules
 
 **This document contains all design system rules and standards for this project. LLMs and developers MUST follow these rules when working on this codebase.**

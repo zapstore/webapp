@@ -1,3 +1,8 @@
+---
+description: Product vision — what Zapstore Webapp is and who it serves
+alwaysApply: true
+---
+
 # Zapstore Webapp — Vision
 
 ## What Zapstore Webapp Is
