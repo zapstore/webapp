@@ -431,12 +431,15 @@ export async function startPolling() {
 	// Fetch initial profiles after catalog warm-up
 	await pollProfiles();
 
-	// Start periodic catalog polling (every 60s)
+	// Start periodic catalog polling (every 60s).
+	// unref() so timers don't prevent process exit on shutdown.
 	catalogPollTimer = setInterval(() => pollCatalog(), POLL_INTERVAL_MS);
+	catalogPollTimer.unref();
 	console.log(`[RelayCache] Catalog polling started (every ${POLL_INTERVAL_MS / 1000}s)`);
 
-	// Start periodic profile polling (every 1 hour)
+	// Start periodic profile polling (every 6h)
 	profilePollTimer = setInterval(() => pollProfiles(), PROFILE_POLL_INTERVAL_MS);
+	profilePollTimer.unref();
 	console.log(`[RelayCache] Profile polling started (every ${PROFILE_POLL_INTERVAL_MS / 60000}min)`);
 }
 

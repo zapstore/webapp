@@ -12,10 +12,14 @@ import { startPolling, stopPolling } from '$lib/nostr/relay-cache';
 
 startPolling();
 
-function shutdown() {
-	stopPolling();
-	process.exit(0);
-}
-
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+// Register shutdown handler after module init (deferred so Vite
+// bundling doesn't interfere with the process.on binding).
+setTimeout(() => {
+	const shutdown = () => {
+		console.log('[Server] Shutdown signal received, cleaning up…');
+		stopPolling();
+		process.exit(0);
+	};
+	process.on('SIGTERM', shutdown);
+	process.on('SIGINT', shutdown);
+}, 0);
