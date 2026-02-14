@@ -9,10 +9,12 @@ import { encodeAppNaddr } from '$lib/nostr/models';
 import { searchApps, fetchFromRelays } from '$lib/nostr/service';
 import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
 import { createAppsQuery, seedEvents, getHasMore, isLoadingMore, loadMore } from '$lib/stores/nostr.svelte.js';
+import { getCached, setCached } from '$lib/stores/query-cache.js';
 const SCROLL_THRESHOLD = 800;
 let { data } = $props();
 // liveQuery-driven apps from Dexie (local-first, auto-updates)
-let liveApps = $state(null);
+// Initialize from cache to avoid skeleton flash on back navigation.
+let liveApps = $state(getCached('apps'));
 // Pagination state from store
 const hasMore = $derived(getHasMore());
 const loadingMore = $derived(isLoadingMore());
@@ -31,7 +33,7 @@ const isSearching = $derived(searchQ !== '' && (searching || searchResults === n
 // Subscribe to Dexie liveQuery for reactive local-first data
 $effect(() => {
     const sub = createAppsQuery().subscribe({
-        next: (value) => { liveApps = value; },
+        next: (value) => { liveApps = value; setCached('apps', value); },
         error: (err) => console.error('[AppsPage] liveQuery error:', err)
     });
     return () => sub.unsubscribe();

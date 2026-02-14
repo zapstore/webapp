@@ -9,6 +9,7 @@ import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 import { createAppsQuery, seedEvents, getHasMore, isLoadingMore, loadMore } from '$lib/stores/nostr.svelte.js';
 import { createStacksQuery } from '$lib/stores/stacks.svelte.js';
+import { getCached, setCached } from '$lib/stores/query-cache.js';
 import { fetchFromRelays } from '$lib/nostr/service';
 import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
 import { nip19 } from 'nostr-tools';
@@ -18,8 +19,9 @@ import { parseProfile } from '$lib/nostr/models';
 // Server-provided data
 let { data } = $props();
 // liveQuery-driven data from Dexie (local-first, auto-updates)
-let liveApps = $state(null);
-let liveStacks = $state(null); // { stack, apps }[]
+// Initialize from cache to avoid skeleton flash on back navigation.
+let liveApps = $state(getCached('apps'));
+let liveStacks = $state(getCached('stacks'));
 // Pagination state
 const hasMore = $derived(getHasMore());
 const loadingMore = $derived(isLoadingMore());
@@ -29,7 +31,7 @@ let stacksScrollContainer = $state(null);
 // Subscribe to Dexie liveQuery for reactive apps
 $effect(() => {
     const sub = createAppsQuery().subscribe({
-        next: (value) => { liveApps = value; },
+        next: (value) => { liveApps = value; setCached('apps', value); },
         error: (err) => console.error('[Discover] apps liveQuery error:', err)
     });
     return () => sub.unsubscribe();
@@ -37,7 +39,7 @@ $effect(() => {
 // Subscribe to Dexie liveQuery for reactive stacks (with resolved apps)
 $effect(() => {
     const sub = createStacksQuery().subscribe({
-        next: (value) => { liveStacks = value; },
+        next: (value) => { liveStacks = value; setCached('stacks', value); },
         error: (err) => console.error('[Discover] stacks liveQuery error:', err)
     });
     return () => sub.unsubscribe();
@@ -50,7 +52,8 @@ const rawStacks = $derived(
     liveStacks !== null && liveStacks.length > 0 ? liveStacks : []
 );
 // Resolved stacks with creator profiles (fetched as side effect)
-let resolvedDisplayStacks = $state([]);
+// Initialize from cache so back navigation shows content instantly.
+let resolvedDisplayStacks = $state(getCached('discover:resolvedStacks') ?? []);
 let stacksLoading = $state(false);
 let resolvedStackKeys = $state('');
 // Save scroll positions before navigating away
@@ -174,6 +177,7 @@ async function resolveCreatorsForStacks(stacksWithApps) {
                 dTag: stack.dTag
             };
         });
+        setCached('discover:resolvedStacks', resolvedDisplayStacks);
     } catch (err) {
         console.error('Error resolving stack creators:', err);
     } finally {

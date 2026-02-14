@@ -4,27 +4,30 @@ import { browser } from '$app/environment';
 import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 import { createStacksQuery, seedStackEvents, getStacksHasMore, isStacksLoadingMore, loadMoreStacks } from '$lib/stores/stacks.svelte.js';
+import { getCached, setCached } from '$lib/stores/query-cache.js';
 import { nip19 } from 'nostr-tools';
 import { fetchProfilesBatch, fetchFromRelays } from '$lib/nostr/service';
 import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
 import { parseProfile, encodeStackNaddr } from '$lib/nostr/models';
 let { data } = $props();
 // liveQuery-driven stacks from Dexie (local-first, auto-updates)
-let liveStacks = $state(null); // { stack, apps }[]
+// Initialize from cache to avoid skeleton flash on back navigation.
+let liveStacks = $state(getCached('stacks'));
 // Pagination state
 const hasMore = $derived(getStacksHasMore());
 const loadingMore = $derived(isStacksLoadingMore());
 // Subscribe to Dexie liveQuery for reactive stacks
 $effect(() => {
     const sub = createStacksQuery().subscribe({
-        next: (value) => { liveStacks = value; },
+        next: (value) => { liveStacks = value; setCached('stacks', value); },
         error: (err) => console.error('[StacksPage] liveQuery error:', err)
     });
     return () => sub.unsubscribe();
 });
 // Resolved stacks with creator profiles
-let resolvedStacks = $state([]);
-let loading = $state(true);
+// Initialize from cache so back navigation shows content instantly.
+let resolvedStacks = $state(getCached('stacks:resolved') ?? []);
+let loading = $state(!getCached('stacks:resolved'));
 let resolvedStackKeys = $state('');
 function isHexPubkey(value) {
     return typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value.trim());
@@ -82,6 +85,7 @@ async function resolveCreators(stacksWithApps) {
                 dTag: stack.dTag
             };
         });
+        setCached('stacks:resolved', resolvedStacks);
     } catch (err) {
         console.error('Error resolving stacks:', err);
     } finally {
