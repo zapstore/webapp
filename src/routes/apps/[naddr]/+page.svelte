@@ -19,6 +19,7 @@ import DownloadModal from "$lib/components/common/DownloadModal.svelte";
 import { createSearchProfilesFunction, ZAPSTORE_PUBKEY } from "$lib/services/profile-search";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
+import { isOnline } from "$lib/stores/online.svelte.js";
 import { renderMarkdown } from "$lib/utils/markdown";
 let { data } = $props();
 const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
@@ -488,7 +489,21 @@ onMount(async () => {
         app = data.app;
         error = null;
     }
-    // 3. If neither Dexie nor server had the app, show error
+    // 3. Not in cache or Dexie: try relays once before showing 404 (online only)
+    if (!app && isOnline()) {
+        const events = await fetchFromRelays(DEFAULT_CATALOG_RELAYS, {
+            kinds: [EVENT_KINDS.APP],
+            authors: [_pubkey],
+            '#d': [_identifier],
+            ...PLATFORM_FILTER,
+            limit: 1
+        });
+        if (events.length > 0) {
+            app = parseApp(events[0]);
+            error = null;
+        }
+    }
+    // 4. If still no app, show error
     if (!app) {
         error = data.error ?? 'App not found';
         return;
