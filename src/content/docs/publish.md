@@ -31,7 +31,7 @@ zsp publish -r github.com/your-org/your-app
 
 For all flags and advanced usage, see the [`zsp` README](https://github.com/zapstore/zsp).
 
-## Auto-whitelisting via GitHub
+<!-- ## Auto-whitelisting via GitHub
 
 If your app event is rejected due to low reputation, the relay can automatically whitelist you by verifying a `zapstore.yaml` file in your GitHub repository.
 
@@ -62,4 +62,4 @@ When your event arrives, the relay fetches the file from your repo, verifies the
 Your pubkey is permanently linked to your GitHub username in relay records. If malware is detected:
 - Your pubkey is blacklisted
 - Your GitHub username is flagged
-- Future whitelisting attempts via any repo under that username are rejected
+- Future whitelisting attempts via any repo under that username are rejected -->
