@@ -4,11 +4,12 @@
  */
 import { onMount } from 'svelte';
 import { browser } from '$app/environment';
-import { fetchProfile, encodeAppNaddr, encodeStackNaddr } from '$lib/nostr';
+import { fetchProfile, encodeAppNaddr, encodeStackNaddr, queryEvents, queryEvent, putEvents } from '$lib/nostr';
 import { nip19 } from 'nostr-tools';
 import { wheelScroll } from '$lib/actions/wheelScroll.js';
 import { parseShortText } from '$lib/utils/short-text-parser.js';
-import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
+import { getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
+import { DEFAULT_SOCIAL_RELAYS } from '$lib/config';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import NpubDisplay from '$lib/components/common/NpubDisplay.svelte';
 import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
@@ -16,7 +17,9 @@ import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
+import Modal from '$lib/components/common/Modal.svelte';
 import { Plus, Copy, Check } from '$lib/components/icons';
+import { hexToColor } from '$lib/utils/color.js';
 let { data } = $props();
 const npub = $derived(data.npub ?? '');
 const pubkey = $derived(data.pubkey);
@@ -28,10 +31,19 @@ let stacks = $state([]);
 let stacksLoading = $state(false);
 let addButtonLabel = $state('Add');
 let addButtonDisabled = $state(false);
+let isFollowing = $state(false);
+let checkingFollowStatus = $state(false);
+let listsModalOpen = $state(false);
+let userLists = $state([]);
+let listStates = $state({});
+let loadingLists = $state(false);
+let savingLists = $state(false);
 /** Resolved display names for npubs mentioned in profile about (nostr:npub1...) */
 let mentionProfiles = $state({});
 /** Stacks with resolved app details (icons, names) for display */
 let resolvedStacks = $state([]);
+let descriptionModalOpen = $state(false);
+let colorDropdownOpen = $state(false);
 const profileName = $derived(profile?.displayName || profile?.name || (pubkey ? `${pubkey.slice(0, 8)}…` : 'Anonymous'));
 const profilePictureUrl = $derived(profile?.picture ?? '');
 const isConnected = $derived(getCurrentPubkey() !== null);
@@ -94,15 +106,187 @@ async function loadMentionProfiles(about) {
         mentionProfiles = { ...mentionProfiles, ...next };
     }
 }
-function handleAddClick() {
-    // Placeholder: add/remove from kind 3 and kind 30000 (simplified for first draft)
-    addButtonDisabled = true;
-    addButtonLabel = 'Added';
-    setTimeout(() => {
-        addButtonDisabled = false;
-    }, 800);
+async function checkFollowStatus() {
+    const userPubkey = getCurrentPubkey();
+    if (!userPubkey || !pubkey) {
+        isFollowing = false;
+        return;
+    }
+    
+    checkingFollowStatus = true;
+    try {
+        // Check kind 3 contact list
+        const kind3 = await queryEvents({ kinds: [3], authors: [userPubkey], limit: 1 });
+        for (const ev of kind3) {
+            const pTags = ev.tags.filter((t) => t[0] === 'p' && t[1] === pubkey);
+            if (pTags.length > 0) {
+                isFollowing = true;
+                checkingFollowStatus = false;
+                return;
+            }
+        }
+        
+        // Check kind 30000 follow sets
+        const kind30k = await queryEvents({ kinds: [30000], authors: [userPubkey], limit: 50 });
+        for (const ev of kind30k) {
+            const pTags = ev.tags.filter((t) => t[0] === 'p' && t[1] === pubkey);
+            if (pTags.length > 0) {
+                isFollowing = true;
+                checkingFollowStatus = false;
+                return;
+            }
+        }
+        
+        isFollowing = false;
+    } catch (err) {
+        console.error('Failed to check follow status:', err);
+        isFollowing = false;
+    } finally {
+        checkingFollowStatus = false;
+    }
+}
+
+async function loadUserLists() {
+    const userPubkey = getCurrentPubkey();
+    if (!userPubkey || !pubkey) return;
+    
+    loadingLists = true;
+    try {
+        const lists = [];
+        const states = {};
+        
+        // Get kind 3 contact list
+        const kind3Events = await queryEvents({ kinds: [3], authors: [userPubkey], limit: 1 });
+        if (kind3Events.length > 0) {
+            const ev = kind3Events[0];
+            const hasPubkey = ev.tags.some((t) => t[0] === 'p' && t[1] === pubkey);
+            lists.push({ id: 'kind3', name: 'Contacts', kind: 3, event: ev });
+            states['kind3'] = hasPubkey;
+        } else {
+            lists.push({ id: 'kind3', name: 'Contacts', kind: 3, event: null });
+            states['kind3'] = false;
+        }
+        
+        // Get kind 30000 follow sets
+        const kind30kEvents = await queryEvents({ kinds: [30000], authors: [userPubkey], limit: 50 });
+        for (const ev of kind30kEvents) {
+            const dTag = ev.tags.find((t) => t[0] === 'd')?.[1] || '';
+            const title = ev.tags.find((t) => t[0] === 'title')?.[1] || ev.tags.find((t) => t[0] === 'name')?.[1] || dTag || 'Unnamed List';
+            const hasPubkey = ev.tags.some((t) => t[0] === 'p' && t[1] === pubkey);
+            const listId = `kind30000-${dTag}`;
+            lists.push({ id: listId, name: title, kind: 30000, dTag, event: ev });
+            states[listId] = hasPubkey;
+        }
+        
+        userLists = lists;
+        listStates = states;
+    } catch (err) {
+        console.error('Failed to load user lists:', err);
+    } finally {
+        loadingLists = false;
+    }
+}
+
+function toggleList(listId) {
+    listStates = { ...listStates, [listId]: !listStates[listId] };
+}
+
+async function saveListChanges() {
+    const userPubkey = getCurrentPubkey();
+    if (!userPubkey || !pubkey) return;
+    
+    savingLists = true;
+    try {
+        const eventsToPublish = [];
+        
+        for (const list of userLists) {
+            const shouldHavePubkey = listStates[list.id];
+            const currentlyHas = list.event?.tags.some((t) => t[0] === 'p' && t[1] === pubkey) || false;
+            
+            if (shouldHavePubkey !== currentlyHas) {
+                // Need to update this list
+                let tags = [];
+                if (list.event) {
+                    // Keep all existing tags except p tags for this pubkey
+                    tags = list.event.tags.filter((t) => !(t[0] === 'p' && t[1] === pubkey));
+                } else if (list.kind === 30000) {
+                    // New kind 30000 list, add d tag
+                    tags.push(['d', list.dTag || '']);
+                }
+                
+                if (shouldHavePubkey) {
+                    // Add the profile
+                    tags.push(['p', pubkey]);
+                }
+                
+                const event = {
+                    kind: list.kind,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags,
+                    content: list.event?.content || ''
+                };
+                
+                const signed = await signEvent(event);
+                eventsToPublish.push(signed);
+            }
+        }
+        
+        if (eventsToPublish.length > 0) {
+            await putEvents(eventsToPublish);
+        }
+        
+        // Update follow status
+        await checkFollowStatus();
+        listsModalOpen = false;
+    } catch (err) {
+        console.error('Failed to save list changes:', err);
+    } finally {
+        savingLists = false;
+    }
+}
+
+async function handleAddClick() {
+    if (!isFollowing) {
+        // Quick add to kind 3
+        const userPubkey = getCurrentPubkey();
+        if (!userPubkey || !pubkey) return;
+        
+        addButtonDisabled = true;
+        try {
+            const kind3Events = await queryEvents({ kinds: [3], authors: [userPubkey], limit: 1 });
+            const existingEvent = kind3Events[0];
+            
+            let tags = [];
+            if (existingEvent) {
+                tags = existingEvent.tags.filter((t) => !(t[0] === 'p' && t[1] === pubkey));
+            }
+            tags.push(['p', pubkey]);
+            
+            const event = {
+                kind: 3,
+                created_at: Math.floor(Date.now() / 1000),
+                tags,
+                content: existingEvent?.content || ''
+            };
+            
+            const signed = await signEvent(event);
+            await putEvents([signed]);
+            
+            await checkFollowStatus();
+        } catch (err) {
+            console.error('Failed to add to contacts:', err);
+        } finally {
+            addButtonDisabled = false;
+        }
+    } else {
+        // Open modal to manage lists
+        await loadUserLists();
+        listsModalOpen = true;
+    }
 }
 let npubCopied = $state(false);
+let colorCopied = $state(false);
+
 async function copyNpub() {
     if (!npub)
         return;
@@ -110,6 +294,21 @@ async function copyNpub() {
         await navigator.clipboard.writeText(npub);
         npubCopied = true;
         setTimeout(() => (npubCopied = false), 1500);
+    }
+    catch {
+        // ignore
+    }
+}
+
+const profileColor = $derived(pubkey ? hexToColor(pubkey) : { r: 128, g: 128, b: 128 });
+const profileColorHex = $derived(`#${profileColor.r.toString(16).padStart(2, '0')}${profileColor.g.toString(16).padStart(2, '0')}${profileColor.b.toString(16).padStart(2, '0')}`.toUpperCase());
+
+async function copyProfileColor() {
+    if (!pubkey) return;
+    try {
+        await navigator.clipboard.writeText(profileColorHex);
+        colorCopied = true;
+        setTimeout(() => (colorCopied = false), 1500);
     }
     catch {
         // ignore
@@ -124,11 +323,20 @@ onMount(() => {
     resolvedStacks = data.resolvedStacks ?? [];
     if (!profile)
         loadProfile(pubkey);
+    
+    // Check follow status if user is signed in
+    if (getCurrentPubkey()) {
+        checkFollowStatus();
+    }
 });
 $effect(() => {
     const about = profile?.about?.trim();
     if (about && browser)
         loadMentionProfiles(about);
+});
+
+$effect(() => {
+    addButtonLabel = isFollowing ? 'Added' : 'Add';
 });
 // Stack card shape for AppStackCard: name, description, apps[] (with icon), creator
 function stackToCard(s, resolvedApps) {
@@ -199,10 +407,14 @@ function stackToCard(s, resolvedApps) {
 							type="button"
 							class="add-btn install-btn-mobile btn-primary-small flex items-center justify-center gap-2 w-full"
 							onclick={handleAddClick}
-							disabled={addButtonDisabled}
+							disabled={addButtonDisabled || checkingFollowStatus}
 							aria-label={addButtonLabel}
 						>
-							<Plus variant="outline" color="white" size={16} strokeWidth={2.5} />
+							{#if isFollowing}
+								<Check variant="outline" color="white" size={16} strokeWidth={2.8} />
+							{:else}
+								<Plus variant="outline" color="white" size={16} strokeWidth={2.5} />
+							{/if}
 							<span>{addButtonLabel}</span>
 						</button>
 					{/if}
@@ -221,24 +433,74 @@ function stackToCard(s, resolvedApps) {
 								type="button"
 								class="add-btn install-btn-desktop btn-primary flex items-center gap-2 flex-shrink-0"
 								onclick={handleAddClick}
-								disabled={addButtonDisabled}
+								disabled={addButtonDisabled || checkingFollowStatus}
 								aria-label={addButtonLabel}
 							>
-								<Plus variant="outline" color="white" size={18} strokeWidth={2.5} />
+								{#if isFollowing}
+									<Check variant="outline" color="white" size={18} strokeWidth={2.8} />
+								{:else}
+									<Plus variant="outline" color="white" size={18} strokeWidth={2.5} />
+								{/if}
 								<span>{addButtonLabel}</span>
 							</button>
 						{/if}
 					</div>
 					{#if profile?.about?.trim()}
-						<div class="profile-description text-base mb-3" style="color: hsl(var(--white66));">
-							<ShortTextRenderer
-								content={profile.about}
-								resolveMentionLabel={(pk) => mentionProfiles[pk]}
-							/>
-						</div>
+						<button
+							type="button"
+							class="profile-description text-base mb-3 text-left"
+							style="color: hsl(var(--white66)); cursor: pointer; background: none; border: none; padding: 0; width: 100%;"
+							onclick={() => (descriptionModalOpen = true)}
+						>
+							<div class="profile-description-truncated">
+								<ShortTextRenderer
+									content={profile.about}
+									resolveMentionLabel={(pk) => mentionProfiles[pk]}
+								/>
+							</div>
+						</button>
 					{/if}
-					<div class="profile-npub-row">
-						<NpubDisplay {npub} {pubkey} size="md" truncate={true} />
+					<div class="profile-npub-row profile-npub-row-fixed">
+						<div class="profile-color-circle-wrap">
+							<span
+								class="profile-dot"
+								style="background-color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});"
+							></span>
+							<div class="profile-color-dropdown">
+								<div class="profile-color-dropdown-content">
+									<div
+										class="profile-color-hex"
+										style="color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});"
+									>
+										{profileColorHex}
+										<button
+											type="button"
+											class="color-copy-btn"
+											onclick={copyProfileColor}
+											aria-label="Copy color"
+										>
+											{#if colorCopied}
+												<span class="color-copy-check">
+													<Check
+														variant="outline"
+														size={12}
+														strokeWidth={2.8}
+														color="hsl(var(--blurpleLightColor))"
+													/>
+												</span>
+											{:else}
+												<Copy variant="outline" size={14} color="hsl(var(--white66))" />
+											{/if}
+										</button>
+									</div>
+									<p class="profile-color-desc">
+										Profile color derived from the public identifier (pub) and serves as extra
+										identification, for example in chat bubbles.
+									</p>
+								</div>
+							</div>
+						</div>
+						<span class="npub-text">{npub ? `${npub.slice(0, 12)}...${npub.slice(-6)}` : ''}</span>
 						<button
 							type="button"
 							class="profile-npub-copy"
@@ -292,7 +554,9 @@ function stackToCard(s, resolvedApps) {
 					</div>
 				</div>
 			{:else if apps.length === 0}
-				<p class="text-sm" style="color: hsl(var(--white33));">No published apps.</p>
+				<div class="empty-state-panel">
+					<p class="empty-state-text">No published apps</p>
+				</div>
 			{:else}
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
@@ -348,7 +612,9 @@ function stackToCard(s, resolvedApps) {
 					</div>
 				</div>
 			{:else if resolvedStacks.length === 0}
-				<p class="text-sm" style="color: hsl(var(--white33));">No published stacks.</p>
+				<div class="empty-state-panel">
+					<p class="empty-state-text">No published stacks</p>
+				</div>
 			{:else}
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
@@ -363,6 +629,85 @@ function stackToCard(s, resolvedApps) {
 			{/if}
 		</section>
 	</div>
+
+	<!-- Description Modal -->
+	{#if profile?.about?.trim()}
+		<Modal bind:open={descriptionModalOpen} ariaLabel="Profile Description" maxHeight={90}>
+			<div class="description-modal-content">
+				<h2 class="text-display text-4xl text-foreground text-center mb-4">About</h2>
+				<div class="description-modal-text" style="color: hsl(var(--white66));">
+					<ShortTextRenderer
+						content={profile.about}
+						resolveMentionLabel={(pk) => mentionProfiles[pk]}
+					/>
+				</div>
+			</div>
+		</Modal>
+	{/if}
+
+	<!-- Lists Management Modal -->
+	<Modal bind:open={listsModalOpen} ariaLabel="Manage Profile Lists" maxHeight={90}>
+		<div class="lists-modal-content">
+			<h2 class="text-display text-4xl text-foreground text-center mb-4">
+				{profileName}
+			</h2>
+			<p class="text-sm text-center mb-6" style="color: hsl(var(--white66));">
+				Add or remove this profile from your lists
+			</p>
+
+			{#if loadingLists}
+				<div class="lists-loading">
+					<div class="spinner"></div>
+					<p class="text-sm" style="color: hsl(var(--white66));">Loading lists...</p>
+				</div>
+			{:else}
+				<div class="lists-container">
+					{#each userLists as list}
+						<button
+							type="button"
+							class="list-item"
+							onclick={() => toggleList(list.id)}
+							disabled={savingLists}
+						>
+							<div class="list-checkbox" class:checked={listStates[list.id]}>
+								{#if listStates[list.id]}
+									<svg class="check-icon" viewBox="0 0 18 12" fill="none">
+										<path
+											d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z"
+											stroke="hsl(var(--whiteEnforced))"
+											stroke-width="2.5"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
+									</svg>
+								{/if}
+							</div>
+							<span class="list-name">{list.name}</span>
+						</button>
+					{/each}
+				</div>
+
+				<div class="lists-actions">
+					<button
+						type="button"
+						class="btn-secondary-large w-full"
+						onclick={() => (listsModalOpen = false)}
+						disabled={savingLists}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						class="btn-primary-large w-full"
+						onclick={saveListChanges}
+						disabled={savingLists}
+					>
+						{savingLists ? 'Saving...' : 'Save Changes'}
+					</button>
+				</div>
+			{/if}
+		</div>
+	</Modal>
 {/if}
 
 <style>
@@ -462,6 +807,273 @@ function stackToCard(s, resolvedApps) {
 		display: flex;
 		align-items: center;
 		gap: 6px;
+	}
+
+	.profile-npub-row-fixed {
+		min-height: 28px;
+	}
+
+	.profile-description-truncated {
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.description-modal-content {
+		padding: 16px;
+	}
+
+	@media (min-width: 768px) {
+		.description-modal-content {
+			padding: 24px;
+		}
+	}
+
+	.description-modal-text {
+		font-size: 1rem;
+		line-height: 1.6;
+	}
+
+	.profile-color-circle-wrap {
+		position: relative;
+		display: inline-flex;
+	}
+
+	.profile-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		border: 0.33px solid hsl(var(--white16));
+		flex-shrink: 0;
+	}
+
+	.profile-color-dropdown {
+		display: none;
+		position: absolute;
+		bottom: calc(100% + 8px);
+		left: 50%;
+		transform: translateX(-50%);
+		min-width: 240px;
+		max-width: 280px;
+		padding: 12px 14px;
+		background: hsl(241 15% 18%);
+		border: 1px solid hsl(var(--white16));
+		border-radius: 12px;
+		box-shadow: 0 8px 24px hsl(var(--black66) / 0.4);
+		z-index: 100;
+	}
+
+	@media (min-width: 768px) {
+		.profile-color-circle-wrap:hover .profile-color-dropdown {
+			display: block;
+		}
+	}
+
+	.profile-color-dropdown-content {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.profile-color-hex {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		font-size: 1.125rem;
+		font-weight: 600;
+	}
+
+	.color-copy-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 4px;
+		margin: 0;
+		border: none;
+		background: none;
+		cursor: pointer;
+		color: hsl(var(--white66));
+		transition: color 0.15s ease;
+	}
+
+	.color-copy-btn:hover {
+		color: hsl(var(--white));
+	}
+
+	.color-copy-check {
+		display: flex;
+		animation: popIn 0.3s ease-out;
+	}
+
+	.profile-color-desc {
+		margin: 0;
+		font-size: 0.8125rem;
+		line-height: 1.45;
+		color: hsl(var(--white66));
+	}
+
+	.npub-text {
+		font-size: 0.875rem;
+		color: hsl(var(--white66));
+		white-space: nowrap;
+	}
+
+	.empty-state-panel {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: hsl(var(--gray16));
+		border-radius: var(--radius-16, 16px);
+	}
+
+	.empty-state-text {
+		font-size: 1.5rem;
+		font-weight: 600;
+		color: hsl(var(--white16));
+		text-align: center;
+		padding: 50px 0;
+		margin: 0;
+	}
+
+	/* Lists Modal */
+	.lists-modal-content {
+		padding: 16px;
+	}
+
+	@media (min-width: 768px) {
+		.lists-modal-content {
+			padding: 24px;
+		}
+	}
+
+	.lists-loading {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 12px;
+		padding: 48px 0;
+	}
+
+	.spinner {
+		width: 24px;
+		height: 24px;
+		border: 2px solid hsl(var(--white33));
+		border-top-color: hsl(var(--foreground));
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.lists-container {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		margin-bottom: 20px;
+	}
+
+	.list-item {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 12px 16px;
+		background: hsl(var(--white8));
+		border-radius: 12px;
+		border: none;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		width: 100%;
+		text-align: left;
+	}
+
+	.list-item:hover {
+		background: hsl(var(--white11));
+		transform: scale(1.01);
+	}
+
+	.list-item:active {
+		transform: scale(0.99);
+	}
+
+	.list-item:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.list-checkbox {
+		width: 24px;
+		height: 24px;
+		border-radius: 8px;
+		background: hsl(var(--black33));
+		border: 1.4px solid hsl(var(--white33));
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		transition: all 0.2s ease;
+		position: relative;
+	}
+
+	.list-checkbox.checked {
+		background: linear-gradient(135deg, hsl(var(--blurpleColor)) 0%, hsl(var(--blurpleDarkColor)) 100%);
+		border-color: transparent;
+		animation: checkboxPop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+	}
+
+	@keyframes checkboxPop {
+		0% {
+			transform: scale(1);
+		}
+		50% {
+			transform: scale(1.16);
+		}
+		100% {
+			transform: scale(1);
+		}
+	}
+
+	.check-icon {
+		width: 14px;
+		height: 10px;
+		animation: checkPop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+	}
+
+	@keyframes checkPop {
+		0% {
+			transform: scale(0);
+		}
+		50% {
+			transform: scale(1.4);
+		}
+		100% {
+			transform: scale(1);
+		}
+	}
+
+	.list-name {
+		font-size: 1rem;
+		font-weight: 500;
+		color: hsl(var(--foreground));
+	}
+
+	.lists-actions {
+		display: flex;
+		gap: 12px;
+		margin-top: 20px;
+	}
+
+	@media (max-width: 767px) {
+		.lists-actions {
+			flex-direction: column;
+		}
 	}
 
 	.profile-npub-copy {

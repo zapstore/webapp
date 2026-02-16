@@ -522,8 +522,15 @@
 			const rect = heroElement.getBoundingClientRect();
 			// Calculate scroll based on hero's position in viewport
 			// Start parallax as soon as hero enters viewport (top of hero reaches top of viewport)
-			// Use window.scrollY directly for immediate parallax effect
-			scrollY = window.scrollY;
+			// Check if body is locked by modal (to prevent parallax jump)
+			const bodyScrollY = document.body.dataset.scrollY;
+			if (bodyScrollY !== undefined) {
+				// Modal is open, use saved scroll position
+				scrollY = parseInt(bodyScrollY, 10);
+			} else {
+				// Normal scroll, use window.scrollY
+				scrollY = window.scrollY;
+			}
 		}
 	}
 

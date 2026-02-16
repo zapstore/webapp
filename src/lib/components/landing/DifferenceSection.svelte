@@ -70,34 +70,6 @@
 			<!-- Mobile: Bottom gradient overlay on table -->
 			<div class="md:hidden table-overlay-gradient"></div>
 
-			<!-- Mobile: Read More button overlaying table -->
-			<div
-				class="md:hidden absolute left-1/2 transform -translate-x-1/2 z-20 read-more-mobile-wrap"
-				style="bottom: 24px;"
-				bind:this={readMoreMobileWrap}
-			>
-				<button
-					type="button"
-					bind:this={readMoreButton}
-					on:click={handleReadMore}
-					on:mousemove={handleReadMoreMouseMove}
-					class="btn-glass-large btn-glass-with-chevron flex items-center group"
-				>
-					Read More
-					<ChevronRight
-						variant="outline"
-						color="hsl(var(--white33))"
-						size={18}
-						className="transition-transform group-hover:translate-x-0.5"
-					/>
-				</button>
-				{#if readMoreDropdownOpen}
-					<div class="read-more-mobile-panel" role="dialog" aria-label="More info">
-						<p class="read-more-mobile-panel-text">More coming soon!</p>
-					</div>
-				{/if}
-			</div>
-
 			<table class="comparison-table">
 				<colgroup>
 					<col class="col-criteria" />

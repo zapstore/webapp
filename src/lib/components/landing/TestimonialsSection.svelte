@@ -275,34 +275,6 @@
 				style="height: 120px; background: linear-gradient(to top, hsl(10 10% 7%) 0%, hsl(10 10% 7% / 0.95) 20%, hsl(10 10% 7% / 0.7) 50%, hsl(10 10% 7% / 0.3) 75%, transparent 100%);"
 			></div>
 
-			<!-- Mobile: See More button -->
-			<div
-				class="md:hidden absolute left-1/2 transform -translate-x-1/2 z-40 see-more-mobile-wrap"
-				style="bottom: 32px;"
-				bind:this={seeMoreMobileWrap}
-			>
-				<button
-					type="button"
-					bind:this={seeMoreButton}
-					on:click={handleSeeMore}
-					on:mousemove={handleSeeMoreMouseMove}
-					class="btn-glass-large btn-glass-with-chevron flex items-center group"
-				>
-					See More
-					<ChevronRight
-						variant="outline"
-						color="hsl(var(--white33))"
-						size={18}
-						className="transition-transform group-hover:translate-x-0.5"
-					/>
-				</button>
-				{#if seeMoreDropdownOpen}
-					<div class="see-more-mobile-panel" role="dialog" aria-label="More info">
-						<p class="see-more-mobile-panel-text">More coming soon!</p>
-					</div>
-				{/if}
-			</div>
-
 			<!-- Scrolling container -->
 			<div
 				bind:this={testimonialsContainer}
