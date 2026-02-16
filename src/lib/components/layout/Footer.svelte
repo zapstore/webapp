@@ -87,6 +87,14 @@
           </li>
           <li>
             <a
+              href="/docs/publish"
+              class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Docs
+            </a>
+          </li>
+          <li>
+            <a
               href="/studio/reachkit"
               class="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
             >

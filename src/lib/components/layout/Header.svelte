@@ -167,9 +167,7 @@ function toggleDropdown(e) {
   <nav
     class={cn(
       "container mx-auto h-full",
-      variant === "browse" || variant === "studio"
-        ? "pl-1 pr-4 sm:pl-3 sm:pr-6 md:pl-5 md:pr-8"
-        : "px-4 sm:px-6 md:px-8 lg:px-8"
+      "pl-1 pr-4 sm:pl-3 sm:pr-6 md:pl-5 md:pr-8"
     )}
   >
     <div class="flex items-center justify-between gap-2 sm:gap-6 h-full">
@@ -195,8 +193,7 @@ function toggleDropdown(e) {
             </button>
 
             {#if menuOpen}
-              <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-              <div class="menu-backdrop" onclick={closeMenu}></div>
+              <div class="menu-backdrop" role="button" tabindex="0" aria-label="Close menu" onclick={closeMenu} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); closeMenu(); } }}></div>
             {/if}
 
             {#if menuOpen}
@@ -220,7 +217,7 @@ function toggleDropdown(e) {
                         pubkey={pubkey}
                         pictureUrl={currentUserProfile?.picture || undefined}
                         name={currentUserProfile?.name || undefined}
-                        size="md"
+                        size="sm"
                       />
                     </a>
                   {/if}
@@ -243,8 +240,7 @@ function toggleDropdown(e) {
                   <a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
                   <nav class="menu-subnav">
                     <a href="/studio#quickstart" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Quickstart</a>
-                    <a href="/studio/reachkit" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>ReachKit</a>
-                    <a href="https://skillpub.net/" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">SkillPub</a>
+                    <a href="/docs/publish" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Docs</a>
                   </nav>
                 </div>
 
@@ -296,13 +292,29 @@ function toggleDropdown(e) {
           {/if}
           </div>
         {:else}
-          <!-- Landing variant: Logo + text that opens menu -->
-          <div class="menu-container logo-menu-container" bind:this={menuContainer} role="navigation" aria-label="Main menu">
+          <!-- Landing variant: Menu icon + Logo in same row (like Studio/Browse) -->
+          <div class="menu-trigger-wrap flex items-center min-w-0" bind:this={menuContainer} role="navigation" aria-label="Main menu">
+            <div class="menu-container flex items-center">
+            <button
+              type="button"
+              class="menu-button"
+              class:menu-button-open={menuOpen}
+              onclick={(e) => { e.stopPropagation(); toggleMenu(); }}
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+            >
+              {#if menuOpen}
+                <Cross variant="outline" color="hsl(var(--white33))" size={14} />
+              {:else}
+                <Menu variant="outline" color="hsl(var(--white33))" size={16} />
+              {/if}
+            </button>
+
             <button
               type="button"
               onclick={(e) => { e.stopPropagation(); toggleMenu(); }}
-              class="logo-button flex items-center gap-2 sm:gap-3"
-              class:menu-open={menuOpen}
+              class="logo-button flex items-center gap-2 sm:gap-3 ml-1"
+              aria-label="Open menu"
             >
               <svg width="19" height="32" viewBox="0 0 19 32" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-6 lg:h-7 w-auto flex-shrink-0">
                 <defs>
@@ -317,8 +329,7 @@ function toggleDropdown(e) {
             </button>
 
             {#if menuOpen}
-              <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-              <div class="menu-backdrop" onclick={closeMenu}></div>
+              <div class="menu-backdrop" role="button" tabindex="0" aria-label="Close menu" onclick={closeMenu} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); closeMenu(); } }}></div>
             {/if}
 
             {#if menuOpen}
@@ -342,7 +353,7 @@ function toggleDropdown(e) {
                         pubkey={pubkey}
                         pictureUrl={currentUserProfile?.picture || undefined}
                         name={currentUserProfile?.name || undefined}
-                        size="md"
+                        size="sm"
                       />
                     </a>
                   {/if}
@@ -365,8 +376,7 @@ function toggleDropdown(e) {
                   <a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
                   <nav class="menu-subnav">
                     <a href="/studio#quickstart" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Quickstart</a>
-                    <a href="/studio/reachkit" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>ReachKit</a>
-                    <a href="https://skillpub.net/" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">SkillPub</a>
+                    <a href="/docs/publish" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Docs</a>
                   </nav>
                 </div>
 
@@ -391,6 +401,7 @@ function toggleDropdown(e) {
                 {/if}
               </div>
             {/if}
+            </div>
           </div>
         {/if}
       </div>
@@ -435,7 +446,7 @@ function toggleDropdown(e) {
                 pubkey={pubkey}
                 pictureUrl={currentUserProfile?.picture || undefined}
                 name={currentUserProfile?.name || undefined}
-                size="md"
+                size="bubble"
               />
             </button>
 

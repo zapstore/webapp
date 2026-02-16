@@ -28,6 +28,8 @@ alwaysApply: false
 14. [Timestamp Component](#timestamp-component)
 15. [Image Containers](#image-containers)
 16. [Modals](#modals)
+17. [Empty State Component](#empty-state-component)
+18. [URL Display](#url-display)
 
 ---
 
@@ -972,6 +974,14 @@ The component handles missing data gracefully:
 - **Background**: Profile color at 24% opacity
 - **Text/Icon**: Profile color adjusted via `getProfileTextColor()` for readability (8% brighter in dark mode, 5% darker in light mode)
 
+### Profile display (name and pic) — never raw hex
+
+**CRITICAL**: Across the whole app:
+
+- **Profile picture**: Never feed the raw hex pubkey as the display name for `ProfilePic`. The pic must show a **profile icon** (generic user icon) until a real display name is available. Pass `name={realNameOrNull}` so that when only the pubkey is known, `name` is `null` and the component shows the icon fallback.
+- **Display name**: When no profile name is loaded, show the **middle-trimmed npub** (e.g. `npub149p......9g722q`), not the raw hex or a truncated hex. Use a consistent format: `npub1` + 3 characters + `......` + last 6 characters.
+- **Summary**: Pic = icon until name is found; label = middle-trimmed npub until name is found. Never display raw hex as a name or as the source for the avatar initial.
+
 ### Standardization
 
 **CRITICAL**: All profile pictures MUST use the `ProfilePic` component. Do not create custom avatar implementations. This includes:
@@ -1641,6 +1651,48 @@ Scale effects are for:
 5. **Consistency first** - Prefer reusing existing patterns over creating new ones
 6. **Cursor pointer on clickable elements** - **ALL clickable elements MUST have `cursor: pointer`**. This includes buttons, links, cards that navigate, toggles, and any other interactive elements. Users must always have clear visual feedback that an element is clickable.
 7. **Two-breakpoint responsive**: Use the mobile/desktop (768px) breakpoint pattern for all functional UI - see "Responsive Sizing Pattern" section
+
+---
+
+## Empty State Component
+
+### Overview
+
+Use the `EmptyState` component for consistent empty states (e.g. "No published apps", "No comments yet", "Labels coming soon"). By default it matches the discover page style (gray16 background, white16 text). The height can be overridden for tall areas (e.g. SocialTabs).
+
+**Location**: `src/lib/components/common/EmptyState.svelte`
+
+### Props
+
+- `message` (string): Text to display (e.g. "No published apps").
+- `minHeight` (number | string, optional): Minimum height (e.g. `600` for pixels or `"600px"`). Omit for default (no min height).
+
+### Usage
+
+```svelte
+<EmptyState message="No published apps" />
+
+<EmptyState message="No comments yet" minHeight={600} />
+```
+
+### Styling
+
+- Background: `hsl(var(--gray16))`
+- Text: `hsl(var(--white16))`, 1.5rem, font-weight 600
+- Border radius: `var(--radius-16)`
+
+---
+
+## URL Display
+
+**CRITICAL**: When displaying URLs as visible text (repository, website, release URL, etc.), **never** show the protocol or trailing slash. Use `stripUrlForDisplay()` from `$lib/utils/url.js` for the link text; keep the full URL in the `href` attribute.
+
+**Example**: Display `github.com/user/repo` instead of `https://github.com/user/repo/`.
+
+```svelte
+import { stripUrlForDisplay } from '$lib/utils/url.js';
+<a href={app.repository} target="_blank" rel="noopener noreferrer">{stripUrlForDisplay(app.repository)}</a>
+```
 
 ---
 

@@ -26,7 +26,8 @@
 import { liveQuery } from 'dexie';
 import { putEvents, queryEvents } from '$lib/nostr/dexie';
 import { parseApp } from '$lib/nostr/models';
-import { EVENT_KINDS, PLATFORM_FILTER, POLL_INTERVAL_MS } from '$lib/config';
+import { fetchReleasesFromRelays, fetchAppFromRelays } from '$lib/nostr/service';
+import { EVENT_KINDS, PLATFORM_FILTER, POLL_INTERVAL_MS, DEFAULT_CATALOG_RELAYS } from '$lib/config';
 import { APPS_PAGE_SIZE } from '$lib/constants';
 
 const platformTag = PLATFORM_FILTER['#f']?.[0];
@@ -210,9 +211,92 @@ export async function loadMoreApps() {
 				console.error('[AppsStore] Load more persist failed:', err)
 			);
 			_cursor = data.cursor ?? null;
-			_hasMore = data.hasMore ?? false;
+			_hasMore = data.hasMore ?? true;
+			// When API says no more, try relays once (server cache may be limited)
+			if (data.hasMore === false && _cursor != null) {
+				try {
+					const releaseEvents = await fetchReleasesFromRelays(DEFAULT_CATALOG_RELAYS, {
+						limit: APPS_PAGE_SIZE,
+						until: _cursor
+					});
+					if (releaseEvents.length > 0) {
+						await putEvents(releaseEvents).catch(() => {});
+						const seen = new Set();
+						for (const ev of releaseEvents) {
+							const aTag = ev.tags?.find((t) => t[0] === 'a')?.[1] ?? '';
+							const parts = aTag.split(':');
+							const appPubkey = parts[1];
+							const appD = parts[2];
+							if (!appPubkey || !appD) continue;
+							const key = `${appPubkey}:${appD}`;
+							if (seen.has(key)) continue;
+							seen.add(key);
+							const existing = await queryEvents({
+								kinds: [32267],
+								authors: [appPubkey],
+								'#d': [appD],
+								limit: 1
+							});
+							if (existing.length === 0) {
+								const appEv = await fetchAppFromRelays(DEFAULT_CATALOG_RELAYS, appPubkey, appD);
+								if (appEv) await putEvents([appEv]).catch(() => {});
+							}
+						}
+						const minCreated = Math.min(...releaseEvents.map((e) => e.created_at));
+						_cursor = minCreated;
+						_hasMore = releaseEvents.length >= APPS_PAGE_SIZE;
+					} else {
+						_hasMore = false;
+					}
+				} catch (e) {
+					console.error('[AppsStore] Relay fallback (after API hasMore false) failed:', e);
+					_hasMore = false;
+				}
+			}
 		} else {
-			_hasMore = false;
+			// API cache exhausted — try relays for next page (releases + ensure apps in Dexie)
+			if (_cursor != null) {
+				try {
+					const releaseEvents = await fetchReleasesFromRelays(DEFAULT_CATALOG_RELAYS, {
+						limit: APPS_PAGE_SIZE,
+						until: _cursor
+					});
+					if (releaseEvents.length > 0) {
+						await putEvents(releaseEvents).catch(() => {});
+						const seen = new Set();
+						for (const ev of releaseEvents) {
+							const aTag = ev.tags?.find((t) => t[0] === 'a')?.[1] ?? '';
+							const parts = aTag.split(':');
+							const appPubkey = parts[1];
+							const appD = parts[2];
+							if (!appPubkey || !appD) continue;
+							const key = `${appPubkey}:${appD}`;
+							if (seen.has(key)) continue;
+							seen.add(key);
+							const existing = await queryEvents({
+								kinds: [32267],
+								authors: [appPubkey],
+								'#d': [appD],
+								limit: 1
+							});
+							if (existing.length === 0) {
+								const appEv = await fetchAppFromRelays(DEFAULT_CATALOG_RELAYS, appPubkey, appD);
+								if (appEv) await putEvents([appEv]).catch(() => {});
+							}
+						}
+						const minCreated = Math.min(...releaseEvents.map((e) => e.created_at));
+						_cursor = minCreated;
+						_hasMore = releaseEvents.length >= APPS_PAGE_SIZE;
+					} else {
+						_hasMore = false;
+					}
+				} catch (e) {
+					console.error('[AppsStore] Relay fallback failed:', e);
+					_hasMore = false;
+				}
+			} else {
+				_hasMore = false;
+			}
 		}
 	} catch (err) {
 		console.error('[AppsStore] Load more failed:', err);

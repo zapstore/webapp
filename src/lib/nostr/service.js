@@ -226,6 +226,55 @@ export async function searchApps(relays, query, options = {}) {
 	return fetchFromRelays(relays, filter, { timeout, signal });
 }
 
+/**
+ * Fetch app events by author from relays (for profile pages, etc.).
+ * Events are written to Dexie via fetchFromRelays.
+ */
+export async function fetchAppsByAuthorFromRelays(relayUrls, pubkey, options = {}) {
+	const { limit = 50, timeout = 5000, signal } = options;
+	if (signal?.aborted || !pubkey) return [];
+	const filter = {
+		kinds: [32267],
+		authors: [pubkey],
+		...PLATFORM_FILTER,
+		limit
+	};
+	return fetchFromRelays(relayUrls, filter, { timeout, signal });
+}
+
+/**
+ * Fetch a single app event by pubkey + d-tag from relays.
+ * Used when resolving stack refs or app detail when not in Dexie.
+ */
+export async function fetchAppFromRelays(relayUrls, pubkey, dTag, options = {}) {
+	const { timeout = 5000, signal } = options;
+	if (signal?.aborted || !pubkey || !dTag) return null;
+	const filter = {
+		kinds: [32267],
+		authors: [pubkey],
+		'#d': [dTag],
+		...PLATFORM_FILTER,
+		limit: 1
+	};
+	const events = await fetchFromRelays(relayUrls, filter, { timeout, signal });
+	return events.length > 0 ? events[0] : null;
+}
+
+/**
+ * Fetch release events (kind 30063) from relays for pagination.
+ * until = created_at cursor (exclusive). Events are written to Dexie.
+ */
+export async function fetchReleasesFromRelays(relayUrls, options = {}) {
+	const { limit = 25, until, timeout = 5000, signal } = options;
+	if (signal?.aborted) return [];
+	const filter = {
+		kinds: [30063],
+		limit
+	};
+	if (until != null && !isNaN(until)) filter.until = Number(until);
+	return fetchFromRelays(relayUrls, filter, { timeout, signal });
+}
+
 // ============================================================================
 // Profile Fetching (local-first with relay fallback)
 // ============================================================================
@@ -499,6 +548,7 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 	const rootKind = target.contentType === 'app' ? kind : stackKind;
 	const tags = [
 		['a', aTagValue],
+		['A', aTagValue],
 		['K', String(rootKind)],
 		['P', target.pubkey.trim().toLowerCase()]
 	];

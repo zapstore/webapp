@@ -16,11 +16,14 @@ import DetailHeader from "$lib/components/layout/DetailHeader.svelte";
 import { SocialTabs, BottomBar } from "$lib/components/social";
 import Modal from "$lib/components/common/Modal.svelte";
 import DownloadModal from "$lib/components/common/DownloadModal.svelte";
-import { createSearchProfilesFunction, ZAPSTORE_PUBKEY } from "$lib/services/profile-search";
+import { createSearchProfilesFunction, ZAPSTORE_PUBKEY, zapstoreProfileStore } from "$lib/services/profile-search";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
 import { isOnline } from "$lib/stores/online.svelte.js";
 import { renderMarkdown } from "$lib/utils/markdown";
+import Timestamp from "$lib/components/common/Timestamp.svelte";
+import { stripUrlForDisplay } from "$lib/utils/url.js";
+import { Copy, Check } from "$lib/components/icons";
 let { data } = $props();
 const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
 const searchEmojis = $derived(createSearchEmojisFunction(getCurrentPubkey()));
@@ -53,7 +56,8 @@ let zapperProfiles = $state(new Map());
 let releases = $state([]);
 let releasesLoading = $state(false);
 let releasesModalOpen = $state(false);
-let releaseNotesExpanded = $state(new Set());
+/** Single expanded release id (null = none). Toggling this one value is reliable in Svelte 5. */
+let expandedReleaseId = $state(null);
 let downloadModalOpen = $state(false);
 let getStartedModalOpen = $state(false);
 let securityModalOpen = $state(false);
@@ -67,7 +71,7 @@ const otherZaps = $derived(zaps.map((z) => {
             : undefined,
     };
 }));
-// Catalog for this app
+// Catalog for this app (used in header and Security modal) — same source as DetailHeader so catalog image matches
 const catalogs = [
     {
         name: "Zapstore",
@@ -75,9 +79,56 @@ const catalogs = [
         pubkey: "78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55f2fe2202182",
     },
 ];
+let zapstoreProfile = $state(null);
+$effect(() => {
+    const unsub = zapstoreProfileStore.subscribe((v) => (zapstoreProfile = v));
+    return unsub;
+});
+const isZapstoreCatalog = $derived(
+    catalogs.length > 0 &&
+        catalogs[0]?.pubkey &&
+        ZAPSTORE_PUBKEY &&
+        (catalogs[0].pubkey.toLowerCase() === ZAPSTORE_PUBKEY.toLowerCase() ||
+            (catalogs[0].name ?? "").toLowerCase() === "zapstore")
+);
+const effectiveCatalogs = $derived(
+    isZapstoreCatalog && zapstoreProfile
+        ? [{ ...catalogs[0], pictureUrl: zapstoreProfile.picture, name: zapstoreProfile.name }]
+        : [...catalogs]
+);
+const catalogProfiles = $derived(
+    effectiveCatalogs.map((c) => ({
+        picture: c.pictureUrl,
+        displayName: c.name,
+        name: c.name,
+        pubkey: c.pubkey,
+    }))
+);
 // Derived values
-const truncatedNpub = $derived(app?.npub ? `${app.npub.slice(0, 12)}...${app.npub.slice(-6)}` : "");
+function middleTrimNpub(npubStr) {
+	if (!npubStr || npubStr.length < 14) return npubStr ?? '';
+	const afterPrefix = npubStr.startsWith('npub1') ? npubStr.slice(5, 8) : npubStr.slice(0, 3);
+	return `npub1${afterPrefix}......${npubStr.slice(-6)}`;
+}
+function middleTrimNaddr(naddrStr) {
+	if (!naddrStr || naddrStr.length < 20) return naddrStr ?? '';
+	if (!naddrStr.startsWith('naddr1')) return naddrStr.slice(0, 10) + '......' + naddrStr.slice(-6);
+	return 'naddr1' + naddrStr.slice(7, 11) + '......' + naddrStr.slice(-6);
+}
+let naddrCopied = $state(false);
+async function copyNaddr() {
+	if (!app?.naddr) return;
+	try {
+		await navigator.clipboard.writeText(app.naddr);
+		naddrCopied = true;
+		setTimeout(() => (naddrCopied = false), 1500);
+	} catch {
+		// ignore
+	}
+}
+const truncatedNpub = $derived(app?.npub ? middleTrimNpub(app.npub) : '');
 const publisherName = $derived(publisherProfile?.displayName || publisherProfile?.name || truncatedNpub);
+const publisherNameForPic = $derived(publisherProfile?.displayName || publisherProfile?.name || null);
 const publisherPictureUrl = $derived(publisherProfile?.picture || "");
 const publisherUrl = $derived(app?.npub ? `/profile/${app.npub}` : "#");
 const platforms = $derived(app?.platform ? [app.platform] : ["Android"]);
@@ -565,12 +616,8 @@ function formatReleaseDate(ts) {
         day: "numeric",
     });
 }
-function toggleReleaseNotesExpanded(id) {
-    releaseNotesExpanded = new Set(releaseNotesExpanded);
-    if (releaseNotesExpanded.has(id))
-        releaseNotesExpanded.delete(id);
-    else
-        releaseNotesExpanded.add(id);
+function toggleReleaseNotesExpanded(releaseId) {
+    expandedReleaseId = expandedReleaseId === releaseId ? null : releaseId;
 }
 </script>
 
@@ -611,6 +658,7 @@ function toggleReleaseNotesExpanded(id) {
   <DetailHeader
     publisherPic={publisherPictureUrl}
     {publisherName}
+    publisherNameForPic={publisherNameForPic}
     publisherPubkey={app.pubkey}
     {publisherUrl}
     timestamp={app.createdAt}
@@ -720,10 +768,10 @@ function toggleReleaseNotesExpanded(id) {
           </div>
           <div class="panel-list flex flex-col">
             <!-- 1. Published by Developer (check) or Published by Indexer (line) -->
-            <div class="panel-list-item flex items-center gap-2" style="color: hsl(var(--white66));">
+            <div class="panel-list-item flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 1; transform: scale(1); transform-origin: left;">
               {#if publishedByDeveloper}
-                <svg class="security-check flex-shrink-0" width="14" height="10" viewBox="0 0 18 12" fill="none">
-                  <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                <svg class="security-check flex-shrink-0" width="20" height="14" viewBox="-1.5 -1.5 20 14" fill="none" style="overflow: visible;">
+                  <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
                 <span class="text-sm">Published by Developer</span>
               {:else}
@@ -731,11 +779,11 @@ function toggleReleaseNotesExpanded(id) {
                 <span class="text-sm">Published by Indexer</span>
               {/if}
             </div>
-            <!-- 2. Open source (check) or Closed-source (line) -->
-            <div class="panel-list-item flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 0.9; transform: scale(0.98); transform-origin: left;">
+            <!-- 2. Open source (check) or Closed-source (line) — step down -->
+            <div class="panel-list-item flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 0.82; transform: scale(0.95); transform-origin: left;">
               {#if hasRepository}
-                <svg class="security-check flex-shrink-0" width="14" height="10" viewBox="0 0 18 12" fill="none">
-                  <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                <svg class="security-check flex-shrink-0" width="20" height="14" viewBox="-1.5 -1.5 20 14" fill="none" style="overflow: visible;">
+                  <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
                 <span class="text-sm">Open source</span>
               {:else}
@@ -743,10 +791,10 @@ function toggleReleaseNotesExpanded(id) {
                 <span class="text-sm">Closed-source</span>
               {/if}
             </div>
-            <!-- 3. Trusted Catalog: always for all apps -->
-            <div class="panel-list-item panel-list-item-last flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 0.85; transform: scale(0.96); transform-origin: left;">
-              <svg class="security-check flex-shrink-0" width="14" height="10" viewBox="0 0 18 12" fill="none">
-                <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            <!-- 3. Trusted Catalog — step down again -->
+            <div class="panel-list-item panel-list-item-last flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 0.64; transform: scale(0.9); transform-origin: left;">
+              <svg class="security-check flex-shrink-0" width="20" height="14" viewBox="-1.5 -1.5 20 14" fill="none" style="overflow: visible;">
+                <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
               <span class="text-sm">Trusted Catalog</span>
             </div>
@@ -791,7 +839,7 @@ function toggleReleaseNotesExpanded(id) {
       <SocialTabs
         app={app}
         version={latestRelease?.version}
-        mainEventIds={[app?.id, latestRelease?.id].filter(Boolean)}
+        mainEventIds={[app?.id, ...(releases ?? []).map((r) => r.id)].filter(Boolean)}
         {publisherProfile}
         getAppSlug={(p, d) => (app ? (app.naddr || encodeAppNaddr(p, d)) : "")}
         pubkeyToNpub={(pk) => nip19.npubEncode(pk)}
@@ -884,101 +932,211 @@ function toggleReleaseNotesExpanded(id) {
       </div>
     {/if}
 
-    <!-- Releases Modal (dividers, same bg; header includes repo/website) -->
+    <!-- Releases Modal -->
     {#if app}
       <Modal
         bind:open={releasesModalOpen}
         ariaLabel="Releases"
-        maxHeight={90}
+        maxHeight={80}
         fillHeight={true}
+        title="Releases"
+        description="Application details & Release Notes"
         class="releases-modal"
       >
         <div class="releases-modal-inner">
-          <div class="releases-modal-header">
-            <h2 class="text-display text-4xl text-foreground text-center mb-3">Releases</h2>
-            {#if app.repository || app.url}
-              <div class="releases-modal-app-info">
-                {#if app.repository}
-                  <div class="release-meta-row">
-                    <span class="meta-label">Repository</span>
-                    <a href={app.repository} target="_blank" rel="noopener noreferrer" class="meta-link">{app.repository}</a>
-                  </div>
-                {/if}
-                {#if app.url}
-                  <div class="release-meta-row">
-                    <span class="meta-label">Website</span>
-                    <a href={app.url} target="_blank" rel="noopener noreferrer" class="meta-link">{app.url}</a>
-                  </div>
-                {/if}
-              </div>
-            {/if}
-          </div>
           <div class="releases-modal-divider"></div>
+
+          <h3 class="releases-section-heading">DETAILS</h3>
+          <div class="releases-details-rows">
+            <div class="releases-detail-row">
+              <span class="releases-detail-label">Repository</span>
+              <span class="releases-detail-value">
+                {#if app.repository}
+                  <a href={app.repository} target="_blank" rel="noopener noreferrer" class="meta-link">{stripUrlForDisplay(app.repository)}</a>
+                {:else}
+                  <span class="meta-muted">—</span>
+                {/if}
+              </span>
+            </div>
+            <div class="releases-detail-row">
+              <span class="releases-detail-label">Website</span>
+              <span class="releases-detail-value">
+                {#if app.url}
+                  <a href={app.url} target="_blank" rel="noopener noreferrer" class="meta-link">{stripUrlForDisplay(app.url)}</a>
+                {:else}
+                  <span class="meta-muted">—</span>
+                {/if}
+              </span>
+            </div>
+            <div class="releases-detail-row">
+              <span class="releases-detail-label">App identifier</span>
+              <span class="releases-detail-value">{app.dTag ?? '—'}</span>
+            </div>
+            <div class="releases-detail-row">
+              <span class="releases-detail-label">Naddr</span>
+              <span class="releases-detail-value releases-naddr-row">
+                <span class="releases-naddr-text">{app.naddr ? middleTrimNaddr(app.naddr) : '—'}</span>
+                {#if app.naddr}
+                  <button
+                    type="button"
+                    class="releases-naddr-copy"
+                    onclick={copyNaddr}
+                    aria-label="Copy naddr"
+                  >
+                    {#if naddrCopied}
+                      <span class="releases-naddr-copy-check"><Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" /></span>
+                    {:else}
+                      <Copy variant="outline" size={16} color="hsl(var(--white66))" />
+                    {/if}
+                  </button>
+                {/if}
+              </span>
+            </div>
+          </div>
+
+          <div class="releases-modal-divider"></div>
+
+          <h3 class="releases-section-heading">RELEASE NOTES</h3>
           <div class="releases-modal-list">
-            {#each releases as release, i}
-              {@const notesExpanded = releaseNotesExpanded.has(release.id)}
-              <div class="release-block">
-                <h3 class="release-panel-version" style="color: hsl(var(--foreground));">{release.version}</h3>
-                <div class="release-panel-meta">
-                  <div class="release-meta-row">
-                    <span class="meta-label">Date</span>
-                    <span>{formatReleaseDate(release.createdAt)}</span>
-                  </div>
-                  {#if release.url}
-                    <div class="release-meta-row">
-                      <span class="meta-label">Release URL</span>
-                      <a href={release.url} target="_blank" rel="noopener noreferrer" class="meta-link">{release.url}</a>
+            {#each releases as release, i (release.id ?? `release-${i}`)}
+              {@const releaseId = release.id ?? `release-${i}`}
+              {@const notesExpanded = expandedReleaseId === releaseId}
+              <div class="release-panel">
+                <div class="release-panel-row release-panel-head">
+                  <span class="release-panel-version" style="color: hsl(var(--foreground));">{release.version}</span>
+                  <Timestamp timestamp={release.createdAt} size="sm" className="release-timestamp" />
+                </div>
+                <div class="release-panel-divider"></div>
+                <div class="release-panel-row release-panel-notes">
+                  {#if release.notes}
+                    <div class="release-notes-block">
+                      <div class="release-notes-text" class:collapsed={!notesExpanded}>
+                        <div class="release-notes prose prose-invert max-w-none">
+                          {@html renderMarkdown(release.notes)}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        class="release-notes-toggle"
+                        onclick={(e) => { e.stopPropagation(); toggleReleaseNotesExpanded(releaseId); }}
+                      >
+                        {notesExpanded ? 'Show less' : 'Read more'}
+                      </button>
                     </div>
+                  {:else}
+                    <p class="text-sm meta-muted">No release notes.</p>
                   {/if}
                 </div>
-                {#if release.notes}
-                  <div class="release-notes-container" class:expanded={notesExpanded}>
-                    <div class="release-notes prose prose-invert max-w-none" class:release-notes-collapsed={!notesExpanded}>
-                      {@html renderMarkdown(release.notes)}
-                    </div>
-                    {#if !notesExpanded}
-                      <button
-                        type="button"
-                        class="read-more-btn"
-                        onclick={(e) => { e.stopPropagation(); toggleReleaseNotesExpanded(release.id); }}
-                      >
-                        Read more
-                      </button>
-                    {:else}
-                      <button
-                        type="button"
-                        class="read-more-btn release-read-more-inline"
-                        onclick={(e) => { e.stopPropagation(); toggleReleaseNotesExpanded(release.id); }}
-                      >
-                        Show less
-                      </button>
-                    {/if}
-                  </div>
-                {:else}
-                  <p class="text-sm" style="color: hsl(var(--white33));">No release notes.</p>
-                {/if}
               </div>
-              {#if i < releases.length - 1}
-                <div class="releases-modal-divider"></div>
-              {/if}
             {/each}
           </div>
         </div>
       </Modal>
     {/if}
 
-    <!-- Security Modal (simple: header + coming soon) -->
+    <!-- Security Modal (publisher, repository, catalog; bigger icons; no footer text) -->
     {#if app}
       <Modal
         bind:open={securityModalOpen}
         ariaLabel="Security"
-        maxHeight={90}
+        maxHeight={72}
+        title="Security"
+        description="More security metrics coming soon."
         class="security-modal"
       >
         <div class="security-modal-inner">
-          <div class="security-modal-header">
-            <h2 class="text-display text-4xl text-foreground text-center mb-3">Security</h2>
-            <p class="text-sm text-center" style="color: hsl(var(--white66));">More Security metrics and tooling coming soon.</p>
+          <div class="security-modal-divider"></div>
+
+          <!-- Published by Developer/Indexer -->
+          <div class="security-item-content security-item-row">
+            <div class="security-icon-box">
+              {#if publishedByDeveloper}
+                <svg class="security-check-icon" width="20" height="20" viewBox="-1 1 26 22" fill="none" style="overflow: visible;">
+                  <path d="M8 17L2 11L8 16.5L22 3L8 17Z" stroke="hsl(var(--blurpleColor))" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              {:else}
+                <span class="security-line" aria-hidden="true"></span>
+              {/if}
+            </div>
+            <div class="security-item-body">
+              <h3 class="security-item-title">{publishedByDeveloper ? 'Published by Developer' : 'Published by Indexer'}</h3>
+              <p class="security-item-description">
+                {#if publishedByDeveloper}
+                  This app is published directly by its developer, ensuring authenticity and direct updates from the source.
+                {:else}
+                  This app is published by a Zapstore indexer. While vetted, it's not directly from the developer.
+                {/if}
+              </p>
+              <div class="security-profile-row">
+                <span class="security-inline-label">Profile</span>
+                <div class="security-profile">
+                  <ProfilePic pictureUrl={publisherPictureUrl} name={publisherNameForPic} pubkey={app.pubkey} size="xs" />
+                  <span class="security-profile-name">{publisherName}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="security-modal-divider"></div>
+
+          <!-- Open source/Closed-source -->
+          <div class="security-item-content security-item-row">
+            <div class="security-icon-box">
+              {#if hasRepository}
+                <svg class="security-check-icon" width="20" height="20" viewBox="-1 1 26 22" fill="none" style="overflow: visible;">
+                  <path d="M8 17L2 11L8 16.5L22 3L8 17Z" stroke="hsl(var(--blurpleColor))" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              {:else}
+                <span class="security-line" aria-hidden="true"></span>
+              {/if}
+            </div>
+            <div class="security-item-body">
+              <h3 class="security-item-title">{hasRepository ? 'Open Source' : 'Closed Source'}</h3>
+              <p class="security-item-description">
+                {#if hasRepository}
+                  The source code is publicly available for review, allowing community audits and transparency.
+                {:else}
+                  The source code is not publicly available. Exercise caution and verify the publisher's reputation.
+                {/if}
+              </p>
+              <div class="security-profile-row">
+                <span class="security-inline-label">Repository</span>
+                {#if hasRepository && app.repository}
+                  <a href={app.repository} target="_blank" rel="noopener noreferrer" class="security-profile-link">{stripUrlForDisplay(app.repository)}</a>
+                {:else}
+                  <span class="security-profile-muted">—</span>
+                {/if}
+              </div>
+            </div>
+          </div>
+          <div class="security-modal-divider"></div>
+
+          <!-- Trusted Catalog -->
+          <div class="security-item-content security-item-row">
+            <div class="security-icon-box">
+              <svg class="security-check-icon" width="20" height="20" viewBox="-1 1 26 22" fill="none" style="overflow: visible;">
+                <path d="M8 17L2 11L8 16.5L22 3L8 17Z" stroke="hsl(var(--blurpleColor))" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div class="security-item-body">
+              <h3 class="security-item-title">Trusted Catalog</h3>
+              <p class="security-item-description">
+                This app is listed in the official Zapstore catalog, which is curated and maintained by the Zapstore team.
+              </p>
+              {#each catalogProfiles as catalogProfile}
+                <div class="security-profile-row">
+                  <span class="security-inline-label">Catalog</span>
+                  <div class="security-profile">
+                    <ProfilePic
+                      pictureUrl={catalogProfile.picture}
+                      name={catalogProfile?.displayName ?? catalogProfile?.name}
+                      pubkey={catalogProfile.pubkey}
+                      size="xs"
+                    />
+                    <span class="security-profile-name">{catalogProfile?.displayName ?? catalogProfile?.name ?? ''}</span>
+                  </div>
+                </div>
+              {/each}
+            </div>
           </div>
         </div>
       </Modal>
@@ -1048,32 +1206,140 @@ function toggleReleaseNotesExpanded(id) {
     min-width: 0;
   }
 
-  .security-check {
-    width: 14px;
-    height: 10px;
+  .security-modal-inner {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .security-modal-divider {
+    width: 100%;
+    height: 1px;
+    background-color: hsl(var(--white16));
+    flex-shrink: 0;
+  }
+
+  .security-item-content {
+    flex-shrink: 0;
+  }
+
+  .security-item-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 16px;
+  }
+
+  @media (min-width: 768px) {
+    .security-item-row {
+      padding: 20px;
+    }
+  }
+
+  .security-icon-box {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: hsl(var(--white8));
+    border-radius: 12px;
+    overflow: visible;
+  }
+
+  .security-check,
+  .security-check-icon {
+    overflow: visible;
+  }
+
+  .security-check-icon {
+    width: 20px;
+    height: 20px;
   }
 
   .security-line {
     display: inline-block;
-    width: 14px;
+    width: 20px;
     height: 2.8px;
+    min-height: 2.8px;
     background-color: hsl(var(--white33));
     border-radius: 1.4px;
   }
 
-  .security-modal-inner {
-    padding: 0;
+  .security-item-body {
+    flex: 1;
+    min-width: 0;
   }
 
-  .security-modal-header {
-    padding: 1rem 1.5rem;
+  .security-item-title {
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    margin: 0 0 0.5rem 0;
   }
 
-  @media (min-width: 768px) {
-    .security-modal-header {
-      padding: 1.5rem 2rem;
-    }
+  .security-item-description {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: hsl(var(--white66));
   }
+
+  .security-profile-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .security-inline-label {
+    flex-shrink: 0;
+    padding-right: 0.5rem;
+    color: hsl(var(--white33));
+  }
+
+  .security-profile :global(button),
+  .security-profile :global(.profile-pic) {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+  }
+
+  .security-profile {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .security-profile-name {
+    font-size: 0.875rem;
+    color: hsl(var(--white));
+    font-weight: 500;
+  }
+
+  .security-profile-muted {
+    font-size: 0.875rem;
+    color: hsl(var(--white33));
+  }
+
+  .security-profile-link {
+    font-size: 0.875rem;
+    color: hsl(var(--blurpleLightColor));
+    text-decoration: none;
+    font-weight: 500;
+    word-break: break-all;
+  }
+
+  .security-profile-link:hover {
+    text-decoration: underline;
+  }
+
 
   .panel-releases {
     flex: 1;
@@ -1276,11 +1542,11 @@ function toggleReleaseNotesExpanded(id) {
     pointer-events: none;
   }
 
-  .read-more-btn {
+  /* Description Read More: left-aligned so no jump on hover (same as release notes) */
+  .description-container .read-more-btn {
     position: absolute;
     bottom: 8px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
     height: 32px;
     padding: 0 14px;
     background-color: hsl(var(--white8));
@@ -1295,41 +1561,115 @@ function toggleReleaseNotesExpanded(id) {
     transition: transform 0.15s ease;
   }
 
-  .read-more-btn:hover {
-    transform: translateX(-50%) scale(1.025);
+  .description-container .read-more-btn:hover {
+    transform: scale(1.025);
   }
 
-  .read-more-btn:active {
-    transform: translateX(-50%) scale(0.98);
+  .description-container .read-more-btn:active {
+    transform: scale(0.98);
   }
 
-  /* Releases modal: zero padding so dividers full width; same bg throughout */
+  /* Releases modal: single scroll (no nested scroll); content flows in modal-content */
   .releases-modal-inner {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    height: 100%;
+    display: block;
     padding: 0;
   }
 
-  .releases-modal-header {
-    flex-shrink: 0;
-    padding: 1rem 1.5rem;
+  .releases-section-heading {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: hsl(var(--white33));
+    margin: 0;
+    padding: 12px 16px 12px;
   }
 
   @media (min-width: 768px) {
-    .releases-modal-header {
-      padding: 1.5rem 2rem;
+    .releases-section-heading {
+      padding: 16px 20px 12px;
     }
   }
 
-  .releases-modal-app-info {
+  .releases-details-rows {
+    padding: 0 16px 12px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem 1.25rem;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .releases-details-rows {
+      padding: 0 20px 16px;
+    }
+  }
+
+  .releases-detail-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
     font-size: 0.875rem;
+    min-width: 0;
+  }
+
+  .releases-detail-label {
+    flex-shrink: 0;
+    width: 6.5rem;
     color: hsl(var(--white66));
+  }
+
+  .releases-naddr-row .releases-naddr-text {
+    color: hsl(var(--white66));
+  }
+
+  .releases-detail-value {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .releases-naddr-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .releases-naddr-text {
+    font-size: 0.875rem;
+    word-break: break-all;
+  }
+
+  .releases-naddr-copy {
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
+    padding: 4px;
+    margin: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: hsl(var(--white66));
+    transition: color 0.15s ease;
+  }
+
+  .releases-naddr-copy:hover {
+    color: hsl(var(--white));
+  }
+
+  .releases-naddr-copy-check {
+    display: flex;
+    color: hsl(var(--blurpleLightColor));
+    animation: releasesPopIn 0.3s ease-out;
+  }
+
+  @keyframes releasesPopIn {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  .meta-muted {
+    color: hsl(var(--white33));
   }
 
   .releases-modal-divider {
@@ -1340,48 +1680,67 @@ function toggleReleaseNotesExpanded(id) {
   }
 
   .releases-modal-list {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
-  }
-
-  .release-block {
-    padding: 0.5rem 1.25rem;
+    gap: 0.75rem;
+    padding: 0 16px 16px;
   }
 
   @media (min-width: 768px) {
-    .release-block {
-      padding: 0.75rem 1.5rem;
+    .releases-modal-list {
+      padding: 0 20px 16px;
     }
+  }
+
+  .release-panel {
+    background: hsl(var(--white4));
+    border-radius: 12px;
+    padding: 0 0 12px 0;
+    overflow: visible;
+    flex-shrink: 0;
+  }
+
+  .release-panel-row {
+    font-size: 0.875rem;
+  }
+
+  .release-panel-row.release-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0 16px;
+    min-height: 48px;
+  }
+
+  @media (min-width: 768px) {
+    .release-panel-row.release-panel-head {
+      padding: 0 20px;
+    }
+  }
+
+  .release-panel-row.release-panel-notes {
+    display: block;
+    padding: 12px 16px 12px;
+    overflow: visible;
+  }
+
+  @media (min-width: 768px) {
+    .release-panel-row.release-panel-notes {
+      padding: 12px 20px 12px;
+    }
+  }
+
+  .release-panel-divider {
+    height: 1px;
+    background-color: hsl(var(--white16));
+    width: 100%;
   }
 
   .release-panel-version {
     font-size: 1rem;
     font-weight: 600;
-    margin: 0 0 0.5rem 0;
-  }
-
-  .release-panel-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
-    color: hsl(var(--white66));
-  }
-
-  .release-meta-row {
-    display: flex;
-    align-items: baseline;
-    gap: 0.35rem;
-    min-width: 0;
-  }
-
-  .meta-label {
-    flex-shrink: 0;
-    color: hsl(var(--white33));
+    margin: 0;
   }
 
   .meta-link {
@@ -1396,15 +1755,25 @@ function toggleReleaseNotesExpanded(id) {
     text-decoration: underline;
   }
 
-  .release-notes-container {
-    position: relative;
+  .release-notes-block {
+    display: block;
+    isolation: isolate;
   }
 
-  .release-notes.release-notes-collapsed {
+  .release-notes-text {
+    overflow: hidden;
+    display: block;
+  }
+
+  .release-notes-text.collapsed {
     max-height: 120px;
     overflow: hidden;
-    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
-    mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
+    contain: layout style;
+    padding-bottom: 42px;
+    margin-bottom: -42px;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(to bottom, black 0, black 58%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 0, black 58%, transparent 100%);
   }
 
   .release-notes {
@@ -1412,6 +1781,7 @@ function toggleReleaseNotesExpanded(id) {
     line-height: 1.5;
     color: hsl(var(--foreground) / 0.9);
     margin: 0;
+    padding-top: 0;
   }
 
   .release-notes :global(p:first-child) {
@@ -1465,66 +1835,34 @@ function toggleReleaseNotesExpanded(id) {
     background: none;
   }
 
-  .release-notes-container:not(.expanded) {
-    padding-bottom: 2.25rem;
+  .release-notes-text:not(.collapsed) {
+    padding-bottom: 2px;
   }
 
-  .release-notes-container .read-more-btn {
-    position: absolute;
-    bottom: 10px;
-    left: 50%;
-    transform: translateX(-50%);
+  .release-notes-toggle {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    margin-top: 10px;
+    padding: 0 14px;
+    min-height: 32px;
+    line-height: 32px;
+    background-color: hsl(0 0% 26%); /* lighter gray, 100% opacity */
+    border: none;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: hsl(var(--white66));
+    cursor: pointer;
+    transition: transform 0.15s ease;
   }
 
-  .release-notes-container .read-more-btn:hover {
-    transform: translateX(-50%) scale(1.025);
+  .release-notes-toggle:hover {
+    transform: scale(1.02);
   }
 
-  .release-notes-container .read-more-btn:active {
-    transform: translateX(-50%) scale(0.98);
-  }
-
-  .release-read-more-inline {
-    position: relative !important;
-    margin-top: 0.5rem;
-    left: 0 !important;
-    transform: none !important;
-  }
-
-  .release-read-more-inline:hover {
-    transform: scale(1.025) !important;
-  }
-
-  .release-read-more-inline:active {
-    transform: scale(0.98) !important;
-  }
-
-  @media (min-width: 768px) {
-    .release-notes-container .read-more-btn {
-      left: 0;
-      transform: none;
-    }
-
-    .release-notes-container .read-more-btn:hover {
-      transform: scale(1.025);
-    }
-
-    .release-notes-container .read-more-btn:active {
-      transform: scale(0.98);
-    }
-
-    .read-more-btn {
-      left: 0;
-      transform: none;
-    }
-
-    .read-more-btn:hover {
-      transform: scale(1.025);
-    }
-
-    .read-more-btn:active {
-      transform: scale(0.98);
-    }
+  .release-notes-toggle:active {
+    transform: scale(0.98);
   }
 
   /* Platform pills */

@@ -40,10 +40,4 @@ let { placeholder = "", className = "", onclick, icon, trailing, } = $props();
     overflow: hidden;
     text-overflow: ellipsis;
   }
-
-  @media (max-width: 767px) {
-    .input-placeholder {
-      font-size: 14px;
-    }
-  }
 </style>

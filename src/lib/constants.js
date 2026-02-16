@@ -10,8 +10,8 @@
  *   - Server relay-cache warmup & polling window
  *   - Client persistent relay subscription limits
  */
-export const APPS_PAGE_SIZE = 20;
-export const STACKS_PAGE_SIZE = 12;
+export const APPS_PAGE_SIZE = 48;
+export const STACKS_PAGE_SIZE = 24;
 
 export const APPS_POLL_LIMIT = APPS_PAGE_SIZE * 3; // 60
 export const STACKS_POLL_LIMIT = STACKS_PAGE_SIZE * 3; // 36

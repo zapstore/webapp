@@ -65,14 +65,15 @@ const hasReplies = $derived(uniqueRepliers.length > 0);
 const featuredReplier = $derived(uniqueRepliers[0]);
 const otherRepliersCount = $derived(uniqueRepliers.length - 1);
 const displayedRepliers = $derived(uniqueRepliers.slice(0, 3));
-/** Profile stack text: "X & N others" or just "X", no zap count. */
+/** Profile stack text: "X & N Others" or just "X", no zap count. */
 const replyIndicatorText = $derived.by(() => {
     if (uniqueRepliers.length === 0)
         return "";
     return otherRepliersCount > 0
-        ? `${featuredReplier?.displayName || "Someone"} & ${otherRepliersCount} ${otherRepliersCount === 1 ? "other" : "others"}`
+        ? `${featuredReplier?.displayName || "Someone"} & ${otherRepliersCount} ${otherRepliersCount === 1 ? "Other" : "Others"}`
         : (featuredReplier?.displayName || "Someone");
 });
+const replyCount = $derived(isZapRoot ? threadComments.length : (replies?.length ?? 0));
 const sortedReplies = $derived([...replies].sort((a, b) => {
     const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -324,6 +325,7 @@ function handleOptions() {
           size="sm"
           onclick={openThread}
         />
+        <span class="repliers-comment-count">{replyCount}</span>
       </div>
     </div>
   {/if}
@@ -600,6 +602,20 @@ function handleOptions() {
     padding-top: 4px;
     flex: 1;
     min-width: 0;
+  }
+
+  .repliers-comment-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    min-width: 28px;
+    padding: 0 8px;
+    margin-left: 8px;
+    background-color: hsl(var(--white4));
+    border-radius: 9999px;
+    color: hsl(var(--white33));
+    font-size: 0.8125rem;
   }
 
   .thread-content-wrap {

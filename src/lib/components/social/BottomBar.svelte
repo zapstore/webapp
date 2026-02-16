@@ -69,61 +69,68 @@ $effect(() => {
 <svelte:window onkeydown={handleCommentKeydown} />
 
 <div class="bottom-bar-wrapper {className}" class:modal-open={barSlidesOut}>
-	<div class="bottom-bar" class:expanded={commentExpanded}>
-		{#if !commentExpanded}
+	{#if commentExpanded && isSignedIn}
+		<div class="bottom-bar-comment-only">
+			<div class="comment-input-wrap">
+				<ShortTextInput
+					bind:this={commentInput}
+					placeholder="Comment on {zapTarget?.name ?? 'this'}"
+					size="medium"
+					{searchProfiles}
+					{searchEmojis}
+					autoFocus={true}
+					showActionRow={true}
+					onClose={closeComment}
+					onCameraTap={() => {}}
+					onEmojiTap={() => {}}
+					onGifTap={() => {}}
+					onAddTap={() => {}}
+					onChevronTap={() => {}}
+					onsubmit={handleCommentSubmit}
+				/>
+			</div>
+		</div>
+	{:else if !commentExpanded}
+		<div class="bottom-bar" class:guest={!isSignedIn} class:expanded={false}>
 			<div class="bottom-bar-content">
-				<button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
-					<Zap variant="fill" size={18} color="hsl(var(--whiteEnforced))" />
-					<span>Zap</span>
-				</button>
-
 				{#if isSignedIn}
+					<button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
+						<Zap variant="fill" size={18} color="hsl(var(--whiteEnforced))" />
+						<span>Zap</span>
+					</button>
 					<InputButton className="comment-btn" placeholder="Comment" onclick={handleComment}>
 						{#snippet icon()}
 							<Reply variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
 						{/snippet}
 					</InputButton>
-				{:else}
 					<button
 						type="button"
-						class="get-started-comment-btn"
-						onclick={() => onGetStarted?.()}
+						class="btn-secondary-large btn-secondary-dark options-button"
+						onclick={onoptions}
 					>
-						<span class="get-started-text">Get started with Zapstore to comment</span>
+						<Options variant="fill" size={20} color="hsl(var(--white33))" />
+					</button>
+				{:else}
+					<a href="/" class="bottom-bar-logo-link" aria-label="Zapstore home">
+						<svg width="19" height="32" viewBox="0 0 19 32" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-6 lg:h-7 w-auto flex-shrink-0">
+							<defs>
+								<linearGradient id="bottombar-logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+									<stop offset="0%" style="stop-color: hsl(252, 100%, 72%);" />
+									<stop offset="100%" style="stop-color: hsl(241, 100%, 68%);" />
+								</linearGradient>
+							</defs>
+							<path d="M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z" fill="url(#bottombar-logo-gradient)" />
+						</svg>
+						<span class="font-semibold text-lg lg:text-xl tracking-tight">Zapstore</span>
+					</a>
+					<button type="button" onclick={() => onGetStarted?.()} class="btn-primary-small h-10 px-4">
+						<span class="sm:hidden">Start</span>
+						<span class="hidden sm:inline">Get Started</span>
 					</button>
 				{/if}
-
-				<button
-					type="button"
-					class="btn-secondary-large btn-secondary-dark options-button"
-					onclick={onoptions}
-				>
-					<Options variant="fill" size={20} color="hsl(var(--white33))" />
-				</button>
 			</div>
-		{:else}
-			<div class="bottom-bar-comment">
-				<div class="comment-input-wrap">
-					<ShortTextInput
-						bind:this={commentInput}
-						placeholder="Comment on {zapTarget?.name ?? 'this'}"
-						size="medium"
-						{searchProfiles}
-						{searchEmojis}
-						autoFocus={true}
-						showActionRow={true}
-						onClose={closeComment}
-						onCameraTap={() => {}}
-						onEmojiTap={() => {}}
-						onGifTap={() => {}}
-						onAddTap={() => {}}
-						onChevronTap={() => {}}
-						onsubmit={handleCommentSubmit}
-					/>
-				</div>
-			</div>
-		{/if}
-	</div>
+		</div>
+	{/if}
 </div>
 
 <ZapSliderModal
@@ -171,6 +178,11 @@ $effect(() => {
 			opacity 0.2s ease,
 			max-height 0.3s cubic-bezier(0.33, 1, 0.68, 1);
 	}
+	.bottom-bar.guest {
+		padding: 18px 16px;
+		min-height: 56px;
+		box-shadow: 0 -6px 28px hsl(var(--black) / 0.5);
+	}
 
 	/* Morph: expand to show comment form */
 	.bottom-bar.expanded {
@@ -195,6 +207,55 @@ $effect(() => {
 		align-items: center;
 		gap: 12px;
 	}
+	.bottom-bar-content:has(.bottom-bar-logo-link) {
+		justify-content: space-between;
+		width: 100%;
+	}
+	.bottom-bar-logo-link {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		text-decoration: none;
+		color: inherit;
+		flex-shrink: 0;
+	}
+	@media (min-width: 640px) {
+		.bottom-bar-logo-link {
+			gap: 12px;
+		}
+	}
+	.bottom-bar-logo-link:hover {
+		color: inherit;
+	}
+	.bottom-bar-comment-only {
+		align-self: center;
+		width: 100%;
+		max-width: 100%;
+		background: hsl(var(--gray66));
+		border-radius: var(--radius-32) var(--radius-32) 0 0;
+		border: 0.33px solid hsl(var(--white8));
+		border-bottom: none;
+		box-shadow: 0 -4px 24px hsl(var(--black));
+		padding: 12px 16px 16px;
+		pointer-events: auto;
+		backdrop-filter: blur(24px);
+		-webkit-backdrop-filter: blur(24px);
+		max-height: 70vh;
+	}
+	@media (max-width: 767px) {
+		.bottom-bar-comment-only {
+			padding: 16px;
+		}
+	}
+	@media (min-width: 768px) {
+		.bottom-bar-comment-only {
+			max-width: 560px;
+			margin-bottom: 16px;
+			border-radius: 24px;
+			border-bottom: 0.33px solid hsl(var(--white8));
+			box-shadow: 0 40px 64px 12px hsl(var(--black));
+		}
+	}
 
 	.bottom-bar-comment {
 		display: flex;
@@ -217,34 +278,6 @@ $effect(() => {
 		flex-shrink: 0;
 	}
 
-	/* Same look as Comment InputButton: border, bg, height, radius */
-	.get-started-comment-btn {
-		display: flex;
-		align-items: center;
-		flex: 1;
-		min-width: 0;
-		height: 42px;
-		padding: 0 16px;
-		background-color: hsl(var(--black33));
-		border-radius: 16px;
-		border: 0.33px solid hsl(var(--white33));
-		cursor: pointer;
-		justify-content: flex-start;
-	}
-	.get-started-comment-btn .get-started-text {
-		color: hsl(var(--white33));
-		font-size: 16px;
-		font-weight: 500;
-	}
-	@media (max-width: 767px) {
-		.get-started-comment-btn {
-			height: 38px;
-		}
-		.get-started-comment-btn .get-started-text {
-			font-size: 14px;
-		}
-	}
-
 	.options-button {
 		width: 42px;
 		padding: 0;
@@ -263,15 +296,6 @@ $effect(() => {
 		.options-button {
 			width: 38px;
 		}
-
-		.zap-button span {
-			font-size: 14px;
-		}
-
-		.comment-btn :global(svg) {
-			width: 16px;
-			height: 16px;
-		}
 	}
 
 	@media (min-width: 768px) {
@@ -283,7 +307,11 @@ $effect(() => {
 			padding: 12px 2px 12px 12px;
 			box-shadow: 0 40px 64px 12px hsl(var(--black));
 		}
-
+		.bottom-bar.guest {
+			padding: 18px 16px;
+			min-height: 64px;
+			box-shadow: 0 48px 72px 16px hsl(var(--black) / 0.5);
+		}
 		.bottom-bar.expanded {
 			padding: 12px;
 		}

@@ -25,6 +25,8 @@ let isBrowsePage = $derived(path === '/discover' ||
     path === '/apps' ||
     path === '/stacks' ||
     path === '/studio' ||
+    path === '/docs' ||
+    path.startsWith('/docs/') ||
     path === '/search');
 // Detail pages use their own contextual header (app and stack only; profile uses normal header)
 let isDetailPage = $derived(/^\/apps\/[^/]+$/.test(path) || /^\/stacks\/[^/]+$/.test(path));
@@ -38,11 +40,13 @@ let pageTitle = $derived(path === '/discover'
             ? 'Stacks'
             : path === '/studio'
                 ? 'Studio'
-                : path === '/search'
-                    ? 'Search'
-                    : /^\/profile\/[^/]+$/.test(path)
-                        ? 'Profile'
-                        : '');
+                : path === '/docs' || path.startsWith('/docs/')
+                    ? 'Docs'
+                    : path === '/search'
+                        ? 'Search'
+                        : /^\/profile\/[^/]+$/.test(path)
+                            ? 'Profile'
+                            : '');
 onMount(() => {
     if (browser) {
         // Restore auth from localStorage so "logged in" persists across reloads/navigation
@@ -147,7 +151,7 @@ async function clearAllLocalCaches() {
 				{@render children()}
 			</main>
 
-			{#if !isDetailPage}
+			{#if !isDetailPage && path !== '/apps'}
 				<Footer />
 			{/if}
 

@@ -3,11 +3,22 @@
  * ZapBubble - A chat-like bubble for displaying zaps
  * Zap comment is rendered via ShortTextRenderer (mentions, emoji, nostr refs).
  */
+import { nip19 } from "nostr-tools";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
 import { Zap } from "$lib/components/icons";
 let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", className = "", loading = false, message = "", emojiTags = [], resolveMentionLabel, } = $props();
+function formatNpubDisplay(npubStr) {
+    if (!npubStr || typeof npubStr !== "string") return "";
+    const s = npubStr.trim();
+    if (s.length < 14) return s;
+    const afterPrefix = s.startsWith("npub1") ? s.slice(5, 8) : s.slice(0, 3);
+    return s.startsWith("npub1") ? `npub1${afterPrefix}......${s.slice(-6)}` : `${afterPrefix}......${s.slice(-6)}`;
+}
+const displayName = $derived(
+    name?.trim() ? name : (pubkey ? formatNpubDisplay(nip19.npubEncode(pubkey)) : "")
+);
 function formatAmount(val) {
     if (val >= 1000000)
         return `${(val / 1000000).toFixed(val % 1000000 === 0 ? 0 : 1)}M`;
@@ -33,11 +44,11 @@ function formatAmount(val) {
       <div class="header-left">
         {#if profileUrl}
           <a href={profileUrl} class="author-name">
-            {name || "Anonymous"}
+            {displayName}
           </a>
         {:else}
           <span class="author-name">
-            {name || "Anonymous"}
+            {displayName}
           </span>
         {/if}
         <Timestamp {timestamp} size="xs" />

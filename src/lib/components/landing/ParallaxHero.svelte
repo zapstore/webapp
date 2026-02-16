@@ -519,11 +519,13 @@
 
 	function handleScroll() {
 		if (heroElement) {
-			const rect = heroElement.getBoundingClientRect();
-			// Calculate scroll based on hero's position in viewport
-			// Start parallax as soon as hero enters viewport (top of hero reaches top of viewport)
-			// Use window.scrollY directly for immediate parallax effect
-			scrollY = window.scrollY;
+			// When a modal is open, body scroll is locked and dataset.scrollY holds the saved position
+			const bodyScrollY = document.body.dataset.scrollY;
+			if (bodyScrollY !== undefined) {
+				scrollY = parseInt(bodyScrollY, 10);
+			} else {
+				scrollY = window.scrollY;
+			}
 		}
 	}
 

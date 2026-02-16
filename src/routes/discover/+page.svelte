@@ -7,6 +7,7 @@
 	import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
+	import EmptyState from '$lib/components/common/EmptyState.svelte';
 	import {
 		createAppsQuery,
 		seedEvents,
@@ -265,9 +266,10 @@
 		// Initialize apps pagination cursor from SSR response
 		initPagination(data.appsCursor, data.appsHasMore);
 
-		// If no SSR data (client-side nav), fetch page 0 from API
+		// If no SSR data (client-side nav), fetch page 0 from API and stacks from relays
 		if ((!data.seedEvents || data.seedEvents.length === 0) && navigator.onLine) {
 			await loadMoreApps();
+			await loadMoreStacks(fetchFromRelays, DEFAULT_CATALOG_RELAYS);
 		}
 
 		// Start periodic page-0 refresh for apps (every 60s)
@@ -411,17 +413,13 @@
 		<!-- Catalogs Section (placeholder) -->
 		<div class="section-container">
 			<SectionHeader title="Catalogs" />
-			<div class="empty-state-panel">
-				<p class="empty-state-text">Catalogs coming soon</p>
-			</div>
+			<EmptyState message="Catalogs coming soon" />
 		</div>
 
 		<!-- Labels Section (placeholder) -->
 		<div class="section-container">
 			<SectionHeader title="Labels" />
-			<div class="empty-state-panel">
-				<p class="empty-state-text">Labels coming soon</p>
-			</div>
+			<EmptyState message="Labels coming soon" />
 		</div>
 	</div>
 </section>
@@ -571,24 +569,6 @@
 		background-color: hsl(var(--gray66));
 		border-radius: 16px;
 		text-align: center;
-	}
-
-	.empty-state-panel {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: hsl(var(--gray16));
-		border-radius: var(--radius-16, 16px);
-	}
-
-	.empty-state-text {
-		font-size: 1.5rem;
-		font-weight: 600;
-		color: hsl(var(--white16));
-		text-align: center;
-		padding: 50px 0;
-		margin: 0;
 	}
 
 	/* Skeleton loading styles */

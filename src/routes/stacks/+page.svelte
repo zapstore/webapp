@@ -146,10 +146,14 @@
 		}
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		if (!browser) return;
 		// Seed prerendered events into Dexie → liveQuery picks them up
 		seedStackEvents(data.seedEvents ?? []);
+		// If no seed (client-side nav), fetch first page from relays
+		if ((!data.seedEvents || data.seedEvents.length === 0) && navigator.onLine) {
+			await loadMoreStacks(fetchFromRelays, DEFAULT_CATALOG_RELAYS);
+		}
 		// Scroll listener for infinite scroll
 		window.addEventListener('scroll', handleScroll, { passive: true });
 	});
@@ -169,8 +173,7 @@
 <section class="stacks-page">
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
 		<div class="page-header">
-			<h1 class="text-2xl md:text-3xl font-bold">App Stacks</h1>
-			<p class="text-muted-foreground mt-2">Latest curated collections of apps by the community</p>
+			<h1 class="text-2xl md:text-3xl font-bold">Latest Stacks</h1>
 		</div>
 
 		{#if loading && resolvedStacks.length === 0}
@@ -196,14 +199,24 @@
 				{#each resolvedStacks as stack}
 					<AppStackCard {stack} href={getStackUrl(stack)} />
 				{/each}
+				{#if loadingMore}
+					{#each [1, 2, 3, 4, 5, 6] as _}
+						<div class="skeleton-stack">
+							<div class="skeleton-stack-grid">
+								<SkeletonLoader />
+							</div>
+							<div class="skeleton-stack-info">
+								<div class="skeleton-stack-name"><SkeletonLoader /></div>
+								<div class="skeleton-stack-desc"></div>
+								<div class="skeleton-stack-creator">
+									<div class="skeleton-stack-avatar"><SkeletonLoader /></div>
+									<div class="skeleton-stack-creator-name"></div>
+								</div>
+							</div>
+						</div>
+					{/each}
+				{/if}
 			</div>
-
-			{#if loadingMore}
-				<div class="loader">
-					<span class="spinner"></span>
-					<span>Loading more...</span>
-				</div>
-			{/if}
 
 			{#if !hasMore}
 				<p class="end-message">You've reached the end</p>
@@ -230,17 +243,18 @@
 	.stacks-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-		gap: 20px;
+		gap: 12px;
 	}
-
-	.loader {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		padding: 2rem;
-		color: hsl(var(--muted-foreground));
-		font-size: 0.875rem;
+	.stacks-grid :global(.app-stack-card) {
+		padding: 4px 0;
+	}
+	@media (min-width: 768px) {
+		.stacks-grid {
+			gap: 20px;
+		}
+		.stacks-grid :global(.app-stack-card) {
+			padding: 8px 0;
+		}
 	}
 
 	.end-message {
@@ -255,22 +269,6 @@
 		background-color: hsl(var(--gray66));
 		border-radius: 16px;
 		text-align: center;
-	}
-
-	.spinner {
-		display: inline-block;
-		width: 16px;
-		height: 16px;
-		border: 2px solid hsl(var(--white33));
-		border-top-color: hsl(var(--foreground));
-		border-radius: 50%;
-		animation: spin 0.8s linear infinite;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
 	}
 
 	/* Skeleton styles */

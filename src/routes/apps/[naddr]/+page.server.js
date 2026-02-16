@@ -9,26 +9,28 @@ export const load = async ({ params }) => {
         return {
             app: null,
             latestRelease: null,
+            releases: [],
             error: 'Invalid app URL'
         };
     }
     const { pubkey, identifier } = pointer;
-    const [app, latestRelease] = await Promise.all([
-        fetchApp(pubkey, identifier),
-        fetchLatestReleaseForApp(pubkey, identifier)
-    ]);
-    if (!app) {
+    const result = fetchApp(pubkey, identifier);
+    if (!result) {
         return {
             app: null,
             latestRelease: null,
+            releases: [],
             error: 'App not found'
         };
     }
-    const releases = await fetchReleasesForApp(pubkey, identifier, 50);
+    const { app, seedEvents } = result;
+    const latestRelease = fetchLatestReleaseForApp(pubkey, identifier);
+    const releases = fetchReleasesForApp(pubkey, identifier, 50);
     return {
         app,
         latestRelease,
         releases,
+        seedEvents: seedEvents ?? [],
         error: null
     };
 };

@@ -24,7 +24,22 @@ import SearchModal from '$lib/components/common/SearchModal.svelte';
 import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 import OnboardingBuildingModal from '$lib/components/modals/OnboardingBuildingModal.svelte';
 import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
-let { publisherPic = null, publisherName = null, publisherPubkey = null, publisherUrl = '#', timestamp = null, catalogs = [], catalogText = 'In Zapstore', showPublisher = true, scrollThreshold, getStartedModalOpen = $bindable(false) } = $props();
+let { publisherPic = null, publisherName = null, publisherNameForPic = undefined, publisherPubkey = null, publisherUrl = '#', timestamp = null, catalogs = [], catalogText = 'In Zapstore', showPublisher = true, scrollThreshold, getStartedModalOpen = $bindable(false) } = $props();
+const nameForPic = $derived(publisherNameForPic !== undefined ? publisherNameForPic : publisherName);
+function formatNpubDisplay(npubStr) {
+    if (!npubStr || typeof npubStr !== 'string') return '';
+    const s = npubStr.trim();
+    if (s.length < 14) return s;
+    const afterPrefix = s.startsWith('npub1') ? s.slice(5, 8) : s.slice(0, 3);
+    return s.startsWith('npub1') ? `npub1${afterPrefix}......${s.slice(-6)}` : `${afterPrefix}......${s.slice(-6)}`;
+}
+const publisherDisplayName = $derived(
+    publisherName?.trim()
+        ? publisherName
+        : publisherPubkey
+            ? formatNpubDisplay(nip19.npubEncode(publisherPubkey))
+            : ''
+);
 // Reactive Zapstore profile from store (populated by profile-search from EventStore/relays)
 let zapstoreProfile = $state(null);
 $effect(() => {
@@ -378,12 +393,12 @@ async function handleSignIn() {
 					>
 						<ProfilePic
 							pictureUrl={publisherPic}
-							name={publisherName}
+							name={nameForPic}
 							pubkey={publisherPubkey}
 							size="sm"
 						/>
 						<span class="publisher-name">
-							{publisherName || 'Anonymous'}
+							{publisherDisplayName}
 						</span>
 						{#if timestamp}
 							<Timestamp {timestamp} size="xs" className="publisher-timestamp" />

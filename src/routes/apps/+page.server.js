@@ -11,12 +11,13 @@ import { fetchAppsByReleases } from '$lib/nostr/server';
 const PAGE_SIZE = 40;
 export const prerender = true;
 export const load = async () => {
-    // Fetch first page of releases and resolve to apps
-    const { apps, nextCursor, seedEvents } = await fetchAppsByReleases(PAGE_SIZE);
+    const { apps, nextCursor, seedEvents, hasMore } = await fetchAppsByReleases(PAGE_SIZE);
     return {
         apps,
         seedEvents,
         nextCursor,
+        appsCursor: nextCursor,
+        appsHasMore: hasMore ?? true,
         fetchedAt: Date.now()
     };
 };

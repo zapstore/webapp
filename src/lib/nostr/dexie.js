@@ -54,7 +54,7 @@ db.version(SCHEMA_VERSION).stores({
  * Tags that are highly selective (each value typically matches 1-2 events).
  * These are preferred as index entry points over kind/pubkey indices.
  */
-const SELECTIVE_TAGS = new Set(['d', 'a', 'e', 'i']);
+const SELECTIVE_TAGS = new Set(['d', 'a', 'A', 'e', 'i']);
 
 /**
  * Compute the _tags array for an event.

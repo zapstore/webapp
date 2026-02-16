@@ -21,5 +21,6 @@ export const load = async () => {
 	// SSR: fetch apps + releases sorted by latest release (server-side ranking)
 	const { fetchAppsSortedByRelease } = await import('$lib/nostr/server.js');
 	const { events, cursor, hasMore } = fetchAppsSortedByRelease(APPS_PAGE_SIZE);
-	return { seedEvents: events, appsCursor: cursor, appsHasMore: hasMore };
+	// Pass hasMore: true so client can load more from relays (server cache may be limited)
+	return { seedEvents: events, appsCursor: cursor, appsHasMore: true };
 };

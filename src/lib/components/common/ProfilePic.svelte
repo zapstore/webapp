@@ -108,9 +108,11 @@
 
 	// Check if the name is actually an npub (not a real display name)
 	$: isNpub = name && name.trim().toLowerCase().startsWith('npub');
+	// Never use raw hex pubkey as display name — show icon instead
+	$: isHexPubkey = name && typeof name === 'string' && /^[a-f0-9]{64}$/i.test(name.trim());
 
-	// Get initial letter from name (but not if it's an npub)
-	$: initial = name && name.trim() && !isNpub ? (name.trim()[0]?.toUpperCase() ?? '') : '';
+	// Get initial letter from name only when it's a real name (not npub, not hex)
+	$: initial = name && name.trim() && !isNpub && !isHexPubkey ? (name.trim()[0]?.toUpperCase() ?? '') : '';
 	$: hasInitial = initial.length > 0;
 
 	// Color styles - use getProfileTextColor for text/icon readability

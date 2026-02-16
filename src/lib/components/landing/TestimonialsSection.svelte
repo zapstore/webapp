@@ -251,8 +251,10 @@
 			title="What people are saying"
 			description="Real posts from the Nostr community"
 			showSeeMore={true}
+			seeMoreText="See More"
 			seeMoreDropdownText="More coming soon!"
 			seeMoreAction={handleSeeMore}
+			showButtonsOnMobile={false}
 		/>
 
 		<!-- Horizontal Scrolling Testimonials Grid -->
@@ -269,39 +271,10 @@
 				style="background: linear-gradient(to left, hsl(var(--background)) 0%, hsl(var(--background) / 0.95) 20%, hsl(var(--background) / 0.7) 50%, transparent 100%);"
 			></div>
 
-			<!-- Mobile: Bottom gradient fade - overlaps testimonies -->
+			<!-- Mobile: Bottom shadow mask over scrollable row (stronger fade) -->
 			<div
-				class="md:hidden absolute left-0 right-0 bottom-0 z-30 pointer-events-none"
-				style="height: 120px; background: linear-gradient(to top, hsl(10 10% 7%) 0%, hsl(10 10% 7% / 0.95) 20%, hsl(10 10% 7% / 0.7) 50%, hsl(10 10% 7% / 0.3) 75%, transparent 100%);"
+				class="md:hidden absolute left-0 right-0 bottom-0 z-30 pointer-events-none testimonials-mobile-bottom-mask"
 			></div>
-
-			<!-- Mobile: See More button -->
-			<div
-				class="md:hidden absolute left-1/2 transform -translate-x-1/2 z-40 see-more-mobile-wrap"
-				style="bottom: 32px;"
-				bind:this={seeMoreMobileWrap}
-			>
-				<button
-					type="button"
-					bind:this={seeMoreButton}
-					on:click={handleSeeMore}
-					on:mousemove={handleSeeMoreMouseMove}
-					class="btn-glass-large btn-glass-with-chevron flex items-center group"
-				>
-					See More
-					<ChevronRight
-						variant="outline"
-						color="hsl(var(--white33))"
-						size={18}
-						className="transition-transform group-hover:translate-x-0.5"
-					/>
-				</button>
-				{#if seeMoreDropdownOpen}
-					<div class="see-more-mobile-panel" role="dialog" aria-label="More info">
-						<p class="see-more-mobile-panel-text">More coming soon!</p>
-					</div>
-				{/if}
-			</div>
 
 			<!-- Scrolling container -->
 			<div
@@ -311,7 +284,7 @@
 				on:scroll={handleScroll}
 				role="region"
 				aria-label="Testimonials carousel"
-				class="flex gap-6 px-4 md:px-32 py-2 pb-20 md:pb-2 overflow-x-auto scrollbar-hide relative z-10"
+				class="flex gap-6 px-4 md:px-32 py-2 pb-16 md:pb-2 overflow-x-auto scrollbar-hide relative z-10"
 				style="scroll-behavior: auto;"
 			>
 				{#each columns as column, columnIndex (`col-${columnIndex}`)}
@@ -355,6 +328,33 @@
 				{/each}
 			</div>
 		</div>
+
+		<!-- Mobile only: See More overlayed at bottom of section, centered -->
+		<div
+			class="md:hidden absolute inset-x-0 bottom-0 z-40 see-more-mobile-wrap"
+			bind:this={seeMoreMobileWrap}
+		>
+			<button
+				type="button"
+				bind:this={seeMoreButton}
+				on:click={handleSeeMore}
+				on:mousemove={handleSeeMoreMouseMove}
+				class="btn-glass-large btn-glass-with-chevron flex items-center group"
+			>
+				See More
+				<ChevronRight
+					variant="outline"
+					color="hsl(var(--white33))"
+					size={18}
+					className="transition-transform group-hover:translate-x-0.5"
+				/>
+			</button>
+			{#if seeMoreDropdownOpen}
+				<div class="see-more-mobile-panel" role="dialog" aria-label="More info">
+					<p class="see-more-mobile-panel-text">More coming soon!</p>
+				</div>
+			{/if}
+		</div>
 	</section>
 {/if}
 
@@ -387,8 +387,39 @@
 		display: none;
 	}
 
+	/* Mobile: full-width strip so button is truly centered; match Release with Ease spacing (32px) */
 	.see-more-mobile-wrap {
-		position: relative;
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		display: flex;
+		justify-content: center;
+		align-items: flex-end;
+		padding-bottom: 32px;
+		pointer-events: none;
+	}
+	.see-more-mobile-wrap > button {
+		pointer-events: auto;
+	}
+	@media (min-width: 768px) {
+		.see-more-mobile-wrap {
+			display: none !important;
+		}
+	}
+
+	/* Mobile: strong bottom shadow mask over the scrollable testimonies row */
+	.testimonials-mobile-bottom-mask {
+		height: 120px;
+		background: linear-gradient(
+			to top,
+			hsl(var(--background)) 0%,
+			hsl(var(--background) / 0.99) 10%,
+			hsl(var(--background) / 0.95) 25%,
+			hsl(var(--background) / 0.8) 50%,
+			hsl(var(--background) / 0.4) 75%,
+			transparent 100%
+		);
 	}
 
 	.see-more-mobile-panel {

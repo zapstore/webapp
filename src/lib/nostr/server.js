@@ -13,7 +13,8 @@ import { queryCache } from './relay-cache';
 import {
 	parseApp,
 	parseAppStack,
-	parseProfile
+	parseProfile,
+	parseRelease
 } from './models';
 import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
 import { APPS_PAGE_SIZE } from '$lib/constants';
@@ -155,6 +156,22 @@ export function fetchAppsSortedByRelease(limit = APPS_PAGE_SIZE, until) {
 }
 
 /**
+ * Alias for discover/apps listing pages: fetch apps by release order and return
+ * { apps, nextCursor, seedEvents } for SSR seeding and pagination.
+ * Uses fetchAppsSortedByRelease under the hood.
+ */
+export function fetchAppsByReleases(limit = APPS_PAGE_SIZE, until) {
+	const { events, cursor, hasMore } = fetchAppsSortedByRelease(limit, until);
+	const apps = events.filter((e) => e.kind === EVENT_KINDS.APP).map(parseApp);
+	return {
+		apps,
+		nextCursor: cursor,
+		seedEvents: events,
+		hasMore
+	};
+}
+
+/**
  * Fetch a single app by pubkey and identifier.
  * Returns { app, seedEvents } where seedEvents includes the raw app event
  * and the publisher's profile event (if available in cache).
@@ -185,6 +202,46 @@ export function fetchApp(pubkey, identifier) {
 	]);
 
 	return { app, seedEvents };
+}
+
+/**
+ * Build the 'a' tag value for an app (kind:pubkey:identifier).
+ */
+function appATag(pubkey, identifier) {
+	return `${EVENT_KINDS.APP}:${pubkey}:${identifier}`;
+}
+
+/**
+ * Fetch latest release for an app from cache.
+ * Returns parsed release or null.
+ */
+export function fetchLatestReleaseForApp(pubkey, identifier) {
+	const platformTag = PLATFORM_FILTER['#f']?.[0];
+	const filter = {
+		kinds: [EVENT_KINDS.RELEASE],
+		'#a': [appATag(pubkey, identifier)],
+		...(platformTag ? { '#f': [platformTag] } : {}),
+		limit: 1
+	};
+	const cached = queryCache(filter);
+	if (cached.length === 0) return null;
+	return parseRelease(cached[0]);
+}
+
+/**
+ * Fetch all releases for an app from cache (newest first).
+ */
+export function fetchReleasesForApp(pubkey, identifier, limit = 50) {
+	const platformTag = PLATFORM_FILTER['#f']?.[0];
+	const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+	const filter = {
+		kinds: [EVENT_KINDS.RELEASE],
+		'#a': [appATag(pubkey, identifier)],
+		...(platformTag ? { '#f': [platformTag] } : {}),
+		limit: safeLimit
+	};
+	const cached = queryCache(filter);
+	return cached.map(parseRelease);
 }
 
 /**
@@ -225,8 +282,10 @@ export function fetchStack(pubkey, identifier) {
 
 	const results = queryCache(filter);
 	if (results.length === 0) return null;
-
-	const stackEvent = results[0];
+	// Prefer latest by created_at when cache has multiple events for same (pubkey, d)
+	const stackEvent = results.length === 1
+		? results[0]
+		: [...results].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
 	const stack = parseAppStack(stackEvent);
 	const { apps, appEvents } = resolveStackAppsFromCache(stack);
 
@@ -275,7 +334,18 @@ export function fetchStacksByAuthor(pubkey, limit = 50) {
 	};
 
 	const stackEvents = queryCache(filter);
-	const stacks = stackEvents.map(parseAppStack);
+	const parsed = stackEvents.map(parseAppStack);
+	// Keep only the latest stack per (pubkey, dTag)
+	const stacksByKey = new Map();
+	for (const stack of parsed) {
+		if (!stack?.pubkey || !stack?.dTag) continue;
+		const key = `${stack.pubkey}:${stack.dTag}`;
+		const existing = stacksByKey.get(key);
+		if (!existing || (stack.createdAt != null && stack.createdAt > (existing.createdAt ?? 0))) {
+			stacksByKey.set(key, stack);
+		}
+	}
+	const stacks = [...stacksByKey.values()];
 
 	const { appsByStackId } = resolveMultipleStackAppsFromCache(stacks);
 	const resolvedStacks = [];

@@ -4,18 +4,21 @@
  */
 import { onMount } from 'svelte';
 import { browser } from '$app/environment';
-import { fetchProfile, queryEvents, encodeAppNaddr, encodeStackNaddr, parseApp, parseAppStack } from '$lib/nostr';
+import { fetchProfile, queryEvents, encodeAppNaddr, encodeStackNaddr, parseApp, parseAppStack, fetchAppsByAuthorFromRelays, fetchAppFromRelays } from '$lib/nostr';
+import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
 import { nip19 } from 'nostr-tools';
 import { wheelScroll } from '$lib/actions/wheelScroll.js';
 import { parseShortText } from '$lib/utils/short-text-parser.js';
 import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
-import NpubDisplay from '$lib/components/common/NpubDisplay.svelte';
 import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
+import Modal from '$lib/components/common/Modal.svelte';
+import EmptyState from '$lib/components/common/EmptyState.svelte';
+import { hexToColor } from '$lib/utils/color.js';
 import { Plus, Copy, Check } from '$lib/components/icons';
 let { data } = $props();
 const npub = $derived(data.npub ?? '');
@@ -23,18 +26,33 @@ const pubkey = $derived(data.pubkey);
 let profile = $state(null);
 let profileLoading = $state(false);
 let apps = $state([]);
-let appsLoading = $state(false);
+let appsLoading = $state(true);
 let stacks = $state([]);
-let stacksLoading = $state(false);
+let stacksLoading = $state(true);
 let addButtonLabel = $state('Add');
 let addButtonDisabled = $state(false);
+let descriptionModalOpen = $state(false);
+let colorCopied = $state(false);
 /** Resolved display names for npubs mentioned in profile about (nostr:npub1...) */
 let mentionProfiles = $state({});
 /** Stacks with resolved app details (icons, names) for display */
 let resolvedStacks = $state([]);
-const profileName = $derived(profile?.displayName || profile?.name || (pubkey ? `${pubkey.slice(0, 8)}…` : 'Anonymous'));
+const profileName = $derived(profile?.displayName || profile?.name || displayNpub || 'Anonymous');
+/** Real name only (for ProfilePic: show icon until we have a name) */
+const profileNameForPic = $derived(profile?.displayName || profile?.name || null);
 const profilePictureUrl = $derived(profile?.picture ?? '');
 const isConnected = $derived(getCurrentPubkey() !== null);
+const profileColor = $derived(pubkey ? hexToColor(pubkey) : { r: 128, g: 128, b: 128 });
+const profileColorHex = $derived(
+	`#${profileColor.r.toString(16).padStart(2, '0')}${profileColor.g.toString(16).padStart(2, '0')}${profileColor.b.toString(16).padStart(2, '0')}`.toUpperCase()
+);
+function formatNpubDisplay(npubStr) {
+	if (!npubStr) return '';
+	if (npubStr.length < 14) return npubStr;
+	const afterPrefix = npubStr.startsWith('npub1') ? npubStr.slice(5, 8) : npubStr.slice(0, 3);
+	return `npub1${afterPrefix}......${npubStr.slice(-6)}`;
+}
+const displayNpub = $derived(formatNpubDisplay(npub));
 async function loadProfile(pk) {
     profileLoading = true;
     try {
@@ -103,6 +121,7 @@ function handleAddClick() {
     }, 800);
 }
 let npubCopied = $state(false);
+let npubOverlayOpen = $state(false);
 async function copyNpub() {
     if (!npub)
         return;
@@ -115,6 +134,16 @@ async function copyNpub() {
         // ignore
     }
 }
+async function copyProfileColor() {
+    if (!pubkey) return;
+    try {
+        await navigator.clipboard.writeText(profileColorHex);
+        colorCopied = true;
+        setTimeout(() => (colorCopied = false), 1500);
+    } catch {
+        // ignore
+    }
+}
 onMount(async () => {
     if (!pubkey || !browser)
         return;
@@ -124,11 +153,15 @@ onMount(async () => {
     resolvedStacks = data.resolvedStacks ?? [];
     if (!profile)
         await loadProfile(pubkey);
-    // Client-side navigation / offline: resolve from Dexie if no server data
+    // Client-side navigation / offline: resolve from Dexie, then relays if empty
     if (apps.length === 0) {
         appsLoading = true;
         try {
-            const events = await queryEvents({ kinds: [32267], authors: [pubkey] });
+            let events = await queryEvents({ kinds: [32267], authors: [pubkey] });
+            if (events.length === 0) {
+                await fetchAppsByAuthorFromRelays(DEFAULT_CATALOG_RELAYS, pubkey, { limit: 50 });
+                events = await queryEvents({ kinds: [32267], authors: [pubkey] });
+            }
             apps = events.map(parseApp);
         }
         finally {
@@ -151,17 +184,34 @@ onMount(async () => {
             }
             if (allIds.size > 0) {
                 const appEvents = await queryEvents({ kinds: [32267], '#d': [...allIds] });
-                const byDTag = new Map();
+                const byPubkeyAndD = new Map();
                 for (const e of appEvents) {
                     const a = parseApp(e);
-                    if (a.dTag)
-                        byDTag.set(a.dTag, a);
+                    if (a.pubkey && a.dTag) byPubkeyAndD.set(`${a.pubkey}:${a.dTag}`, a);
+                }
+                const missingRefs = [];
+                for (const st of parsedStacks) {
+                    for (const r of st.appRefs || []) {
+                        if (r.kind === 32267 && r.pubkey && r.identifier && !byPubkeyAndD.get(`${r.pubkey}:${r.identifier}`))
+                            missingRefs.push(r);
+                    }
+                }
+                const seen = new Set();
+                for (const ref of missingRefs) {
+                    const key = `${ref.pubkey}:${ref.identifier}`;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    const ev = await fetchAppFromRelays(DEFAULT_CATALOG_RELAYS, ref.pubkey, ref.identifier);
+                    if (ev) {
+                        const a = parseApp(ev);
+                        if (a.pubkey && a.dTag) byPubkeyAndD.set(`${a.pubkey}:${a.dTag}`, a);
+                    }
                 }
                 resolvedStacks = parsedStacks.map((s) => ({
                     stack: s,
                     apps: (s.appRefs || [])
                         .filter((r) => r.kind === 32267)
-                        .map((r) => byDTag.get(r.identifier))
+                        .map((r) => byPubkeyAndD.get(`${r.pubkey}:${r.identifier}`))
                         .filter(Boolean)
                 }));
             }
@@ -238,12 +288,12 @@ function stackToCard(s, resolvedApps) {
 						<ProfilePic
 							pictureUrl={profilePictureUrl || undefined}
 							{pubkey}
-							name={profileName}
+							name={profileNameForPic}
 							size="3xl"
 							loading={profileLoading}
 						/>
 					</div>
-					{#if isConnected}
+					{#if false && isConnected}
 						<button
 							type="button"
 							class="add-btn install-btn-mobile btn-primary-small flex items-center justify-center gap-2 w-full"
@@ -265,7 +315,7 @@ function stackToCard(s, resolvedApps) {
 						>
 							{profileName}
 						</h1>
-						{#if isConnected}
+						{#if false && isConnected}
 							<button
 								type="button"
 								class="add-btn install-btn-desktop btn-primary flex items-center gap-2 flex-shrink-0"
@@ -278,16 +328,88 @@ function stackToCard(s, resolvedApps) {
 							</button>
 						{/if}
 					</div>
-					{#if profile?.about?.trim()}
-						<div class="profile-description text-base mb-3" style="color: hsl(var(--white66));">
-							<ShortTextRenderer
-								content={profile.about}
-								resolveMentionLabel={(pk) => mentionProfiles[pk]}
-							/>
+					<div class="profile-description-wrap">
+						{#if profile?.about?.trim()}
+							<button
+								type="button"
+								class="profile-description text-base text-left"
+								style="color: hsl(var(--white66)); cursor: pointer; background: none; border: none; padding: 0; width: 100%;"
+								onclick={() => (descriptionModalOpen = true)}
+								aria-label="View full description"
+							>
+								<div class="profile-description-truncated">
+									<ShortTextRenderer
+										content={profile.about}
+										resolveMentionLabel={(pk) => mentionProfiles[pk]}
+									/>
+								</div>
+							</button>
+						{:else}
+							<p class="profile-description-empty">No description</p>
+						{/if}
+					</div>
+					<div class="profile-npub-row profile-npub-row-fixed">
+						<div
+							class="profile-npub-hover-wrap"
+							role="group"
+							aria-label="Public identifier and profile color"
+							onmouseenter={() => (npubOverlayOpen = true)}
+							onmouseleave={() => (npubOverlayOpen = false)}
+						>
+							<span
+								class="profile-dot"
+								style="background-color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});"
+							></span>
+							<span class="npub-text">{npub ? `${npub.slice(0, 12)}...${npub.slice(-6)}` : ''}</span>
+							<div
+								class="profile-npub-overlay"
+								class:open={npubOverlayOpen}
+								role="group"
+								aria-label="Npub and color details"
+								onmouseenter={() => (npubOverlayOpen = true)}
+								onmouseleave={() => (npubOverlayOpen = false)}
+							>
+								<p class="profile-npub-overlay-desc">
+									This is a Public Identifier (npub) on the Nostr protocol. We derive a profile color from it for extra recognisability in the app interfaces.
+								</p>
+								<div class="profile-npub-overlay-row">
+									<span class="profile-npub-overlay-value npub-monospace" title={npub}>{npub || ''}</span>
+									<button
+										type="button"
+										class="profile-npub-overlay-copy"
+										onclick={(e) => { e.stopPropagation(); copyNpub(); }}
+										aria-label="Copy npub"
+									>
+										{#if npubCopied}
+											<Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+										{:else}
+											<Copy variant="outline" size={14} color="hsl(var(--white66))" />
+										{/if}
+									</button>
+								</div>
+								<div class="profile-npub-overlay-row">
+									<span
+										class="profile-npub-overlay-value profile-color-hex-inline"
+										style="color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});"
+										title={profileColorHex}
+									>
+										{profileColorHex}
+									</span>
+									<button
+										type="button"
+										class="profile-npub-overlay-copy"
+										onclick={(e) => { e.stopPropagation(); copyProfileColor(); }}
+										aria-label="Copy color"
+									>
+										{#if colorCopied}
+											<Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+										{:else}
+											<Copy variant="outline" size={14} color="hsl(var(--white66))" />
+										{/if}
+									</button>
+								</div>
+							</div>
 						</div>
-					{/if}
-					<div class="profile-npub-row">
-						<NpubDisplay {npub} {pubkey} size="md" truncate={true} />
 						<button
 							type="button"
 							class="profile-npub-copy"
@@ -341,7 +463,7 @@ function stackToCard(s, resolvedApps) {
 					</div>
 				</div>
 			{:else if apps.length === 0}
-				<p class="text-sm" style="color: hsl(var(--white33));">No published apps.</p>
+				<EmptyState message="No published apps" />
 			{:else}
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
@@ -397,7 +519,7 @@ function stackToCard(s, resolvedApps) {
 					</div>
 				</div>
 			{:else if resolvedStacks.length === 0}
-				<p class="text-sm" style="color: hsl(var(--white33));">No published stacks.</p>
+				<EmptyState message="No published stacks" />
 			{:else}
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
@@ -412,6 +534,20 @@ function stackToCard(s, resolvedApps) {
 			{/if}
 		</section>
 	</div>
+
+	{#if profile?.about?.trim()}
+		<Modal bind:open={descriptionModalOpen} ariaLabel="Profile Description" maxHeight={90}>
+			<div class="description-modal-content">
+				<h2 class="text-display text-4xl text-foreground text-center mb-4">About</h2>
+				<div class="description-modal-text" style="color: hsl(var(--white66));">
+					<ShortTextRenderer
+						content={profile.about}
+						resolveMentionLabel={(pk) => mentionProfiles[pk]}
+					/>
+				</div>
+			</div>
+		</Modal>
+	{/if}
 {/if}
 
 <style>
@@ -507,10 +643,158 @@ function stackToCard(s, resolvedApps) {
 	}
 
 	.profile-npub-row {
-		margin-top: 12px;
+		margin-top: 4px;
 		display: flex;
 		align-items: center;
 		gap: 6px;
+	}
+
+	.profile-npub-row-fixed {
+		min-height: 28px;
+	}
+
+	.profile-description-wrap {
+		height: 2.75em;
+		display: flex;
+		align-items: flex-start;
+		margin-bottom: 0;
+	}
+
+	.profile-description-wrap .profile-description,
+	.profile-description-wrap .profile-description-empty {
+		flex: 1;
+		min-height: 0;
+	}
+
+	.profile-description-truncated {
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		line-height: 1.375;
+	}
+
+	.profile-description-empty {
+		margin: 0;
+		font-size: 1rem;
+		line-height: 1.375;
+		color: hsl(var(--white33));
+	}
+
+	.description-modal-content {
+		padding: 16px;
+	}
+
+	.description-modal-text {
+		font-size: 1rem;
+		line-height: 1.5;
+	}
+
+	@media (min-width: 768px) {
+		.description-modal-content {
+			padding: 24px;
+		}
+	}
+
+	.profile-npub-hover-wrap {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		cursor: default;
+	}
+
+	.profile-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		border: 0.33px solid hsl(var(--white16));
+		flex-shrink: 0;
+	}
+
+	.profile-npub-overlay {
+		display: none;
+		position: absolute;
+		bottom: 100%;
+		margin-bottom: 2px;
+		left: 0;
+		min-width: 280px;
+		max-width: min(360px, 90vw);
+		padding: 12px 14px 8px;
+		background: hsl(241 15% 18%);
+		border: 1px solid hsl(var(--white16));
+		border-radius: 12px;
+		box-shadow: 0 8px 24px hsl(var(--black66) / 0.4);
+		z-index: 100;
+		pointer-events: auto;
+	}
+
+	.profile-npub-overlay.open {
+		display: block;
+	}
+
+	.profile-npub-overlay-desc {
+		margin: 0 0 10px 0;
+		font-size: 0.8125rem;
+		line-height: 1.45;
+		color: hsl(var(--white66));
+	}
+
+	.profile-npub-overlay-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		min-height: 28px;
+		padding: 2px 0;
+		border-bottom: 1px solid hsl(var(--white11));
+	}
+
+	.profile-npub-overlay-row:last-child {
+		border-bottom: none;
+	}
+
+	.profile-npub-overlay-value {
+		font-size: 0.8125rem;
+		color: hsl(var(--white66));
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		min-width: 0;
+	}
+
+	.npub-monospace {
+		font-family: ui-monospace, monospace;
+	}
+
+	.profile-color-hex-inline {
+		font-weight: 600;
+	}
+
+	.profile-npub-overlay-copy {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 4px;
+		margin: 0;
+		border: none;
+		background: none;
+		cursor: pointer;
+		color: hsl(var(--white66));
+		transition: color 0.15s ease;
+		flex-shrink: 0;
+	}
+
+	.profile-npub-overlay-copy:hover {
+		color: hsl(var(--white));
+	}
+
+	.npub-text {
+		font-size: 0.875rem;
+		color: hsl(var(--white66));
+		white-space: nowrap;
 	}
 
 	.profile-npub-copy {

@@ -44,6 +44,16 @@
 	const baseApps = $derived(liveApps !== null && liveApps.length > 0 ? liveApps : []);
 	const displayApps = $derived(searchQ ? (searchResults ?? []) : baseApps);
 	const isSearching = $derived(searchQ !== '' && (searching || searchResults === null));
+	// In-grid skeleton count: initial load (no apps yet) = 12 slots; load more = 6 slots
+	const skeletonCount = $derived(
+		searchQ
+			? 0
+			: displayApps.length === 0
+				? (liveApps === null ? 12 : 0)
+				: loadingMore
+					? 6
+					: 0
+	);
 
 	// Subscribe to Dexie liveQuery for reactive local-first data
 	$effect(() => {
@@ -152,15 +162,13 @@
 		<div class="app-grid">
 			{#if searchQ && displayApps.length === 0 && !isSearching}
 				<p class="empty-state">No apps match "{searchQ}"</p>
-			{:else if displayApps.length > 0}
+			{:else}
 				{#each displayApps as app (app.id)}
 					<div class="app-item">
 						<AppSmallCard {app} href={getAppUrl(app)} />
 					</div>
 				{/each}
-			{:else}
-				<!-- Loading: 3 skeleton cards that mimic AppSmallCard -->
-				{#each [1, 2, 3] as _}
+				{#each Array(skeletonCount) as _}
 					<div class="app-item skeleton-item">
 						<div class="skeleton-card">
 							<div class="skeleton-icon">
@@ -180,13 +188,6 @@
 				{/each}
 			{/if}
 		</div>
-
-		{#if loadingMore}
-			<div class="loader">
-				<span class="loading-spinner"></span>
-				<span>Loading more...</span>
-			</div>
-		{/if}
 
 		{#if !searchQ && !hasMore && displayApps.length > 0}
 			<p class="end-message">You've reached the end</p>
@@ -220,13 +221,13 @@
 	.app-grid {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
-		gap: 1.25rem;
+		gap: 0.75rem;
 	}
 
 	@media (min-width: 640px) {
 		.app-grid {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
-			gap: 1.5rem;
+			gap: 1.25rem;
 		}
 	}
 
@@ -238,7 +239,7 @@
 	}
 
 	.app-item {
-		padding: 0.75rem 0;
+		padding: 0.5rem 0;
 		border-bottom: 1px solid hsl(var(--border) / 0.5);
 		min-width: 0;
 	}
@@ -263,7 +264,7 @@
 
 	/* Skeleton cards (mimic AppSmallCard) when loading */
 	.skeleton-item {
-		padding: 0.75rem 0;
+		padding: 0.5rem 0;
 		border-bottom: 1px solid hsl(var(--border) / 0.5);
 	}
 	@media (min-width: 640px) {
@@ -348,30 +349,6 @@
 		}
 		.skeleton-desc-2.desktop-only {
 			display: block;
-		}
-	}
-
-	.loader {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		padding: 2rem;
-		color: hsl(var(--muted-foreground));
-		font-size: 0.875rem;
-	}
-
-	.loading-spinner {
-		width: 1.25rem;
-		height: 1.25rem;
-		border: 2px solid hsl(var(--border));
-		border-top-color: hsl(var(--primary));
-		border-radius: 50%;
-		animation: spin 0.8s linear infinite;
-	}
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
 		}
 	}
 

@@ -54,7 +54,7 @@
 	});
 </script>
 
-<section class="border-t border-border/50 pt-8 sm:pt-12 lg:pt-16 pb-0">
+<section class="difference-section border-t border-border/50 pt-8 sm:pt-12 lg:pt-16 pb-0 relative difference-section-root">
 	<LandingSectionTitle
 		title="What's the difference?"
 		description="Let's compare Zapstore to some common alternatives."
@@ -62,41 +62,14 @@
 		seeMoreText="Read More"
 		seeMoreDropdownText="More coming soon!"
 		seeMoreAction={handleReadMore}
+		showButtonsOnMobile={false}
 	/>
 
 	<!-- Comparison Table -->
-	<div class="container mx-auto px-4 sm:px-6 lg:px-8">
+	<div class="container mx-auto px-4 sm:px-6 lg:px-8 comparison-table-container">
 		<div class="comparison-table-wrapper overflow-x-auto relative">
 			<!-- Mobile: Bottom gradient overlay on table -->
 			<div class="md:hidden table-overlay-gradient"></div>
-
-			<!-- Mobile: Read More button overlaying table -->
-			<div
-				class="md:hidden absolute left-1/2 transform -translate-x-1/2 z-20 read-more-mobile-wrap"
-				style="bottom: 24px;"
-				bind:this={readMoreMobileWrap}
-			>
-				<button
-					type="button"
-					bind:this={readMoreButton}
-					on:click={handleReadMore}
-					on:mousemove={handleReadMoreMouseMove}
-					class="btn-glass-large btn-glass-with-chevron flex items-center group"
-				>
-					Read More
-					<ChevronRight
-						variant="outline"
-						color="hsl(var(--white33))"
-						size={18}
-						className="transition-transform group-hover:translate-x-0.5"
-					/>
-				</button>
-				{#if readMoreDropdownOpen}
-					<div class="read-more-mobile-panel" role="dialog" aria-label="More info">
-						<p class="read-more-mobile-panel-text">More coming soon!</p>
-					</div>
-				{/if}
-			</div>
 
 			<table class="comparison-table">
 				<colgroup>
@@ -164,6 +137,33 @@
 				</tbody>
 			</table>
 		</div>
+	</div>
+
+	<!-- Mobile only: Read More overlayed at bottom center of section -->
+	<div
+		class="md:hidden absolute inset-x-0 bottom-0 z-40 read-more-mobile-wrap"
+		bind:this={readMoreMobileWrap}
+	>
+		<button
+			type="button"
+			bind:this={readMoreButton}
+			on:click={handleReadMore}
+			on:mousemove={handleReadMoreMouseMove}
+			class="btn-glass-large btn-glass-with-chevron flex items-center group"
+		>
+			Read More
+			<ChevronRight
+				variant="outline"
+				color="hsl(var(--white33))"
+				size={18}
+				className="transition-transform group-hover:translate-x-0.5"
+			/>
+		</button>
+		{#if readMoreDropdownOpen}
+			<div class="read-more-mobile-panel" role="dialog" aria-label="More info">
+				<p class="read-more-mobile-panel-text">More coming soon!</p>
+			</div>
+		{/if}
 	</div>
 </section>
 
@@ -382,8 +382,33 @@
 		}
 	}
 
+	.difference-section-root {
+		padding-bottom: 0 !important;
+	}
+
+	.comparison-table-container {
+		padding-bottom: 0 !important;
+	}
+
+	.comparison-table-wrapper {
+		padding-bottom: 0 !important;
+		margin-bottom: 0 !important;
+	}
+
 	.read-more-mobile-wrap {
-		position: relative;
+		display: flex;
+		justify-content: center;
+		align-items: flex-end;
+		padding-bottom: 32px;
+		pointer-events: none;
+	}
+	.read-more-mobile-wrap > button {
+		pointer-events: auto;
+	}
+	@media (min-width: 768px) {
+		.read-more-mobile-wrap {
+			display: none !important;
+		}
 	}
 
 	.read-more-mobile-panel {

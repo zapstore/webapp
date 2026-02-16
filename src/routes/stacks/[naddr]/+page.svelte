@@ -416,10 +416,15 @@ const displayDescription = $derived(!stack?.title ||
         </div>
       </div>
     {:else if stack}
-      <!-- Stack Header -->
+      <!-- Stack Header: name in column, then description row (description left, count right) -->
       <div class="stack-header">
         <h1 class="stack-title">{displayTitle}</h1>
-        <p class="stack-description">{displayDescription}</p>
+        <div class="stack-desc-row">
+          <p class="stack-description">{displayDescription}</p>
+          {#if apps.length > 0}
+            <span class="stack-page-app-count">{apps.length} Apps</span>
+          {/if}
+        </div>
       </div>
 
       <!-- Apps Section -->
@@ -505,8 +510,11 @@ const displayDescription = $derived(!stack?.title ||
     min-height: 100vh;
   }
 
-  /* Stack Header */
+  /* Stack Header: column with title, then row with description + count */
   .stack-header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     margin-bottom: 32px;
   }
 
@@ -514,15 +522,31 @@ const displayDescription = $derived(!stack?.title ||
     font-size: 1.75rem;
     font-weight: 700;
     color: hsl(var(--foreground));
-    margin: 0 0 8px 0;
+    margin: 0;
     line-height: 1.2;
   }
 
+  .stack-desc-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
   .stack-description {
+    flex: 1;
+    min-width: 0;
     font-size: 1rem;
     color: hsl(var(--white66));
     margin: 0;
     line-height: 1.5;
+  }
+
+  .stack-page-app-count {
+    flex-shrink: 0;
+    font-size: 1rem;
+    color: hsl(var(--white33));
   }
 
   @media (min-width: 768px) {
@@ -531,6 +555,10 @@ const displayDescription = $derived(!stack?.title ||
     }
 
     .stack-description {
+      font-size: 1.125rem;
+    }
+
+    .stack-page-app-count {
       font-size: 1.125rem;
     }
   }

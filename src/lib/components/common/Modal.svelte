@@ -13,14 +13,14 @@
 import { fade, fly } from "svelte/transition";
 import { cubicOut } from "svelte/easing";
 import { browser } from "$app/environment";
-let { open = $bindable(false), ariaLabel = "Modal dialog", ariaLabelledby = null, align = "center", zIndex = 50, maxWidth = "max-w-lg", wide = false, class: className = "", maxHeight = 80, fillHeight = false, closeOnBackdropClick = true, closeOnEscape = true, noBackdrop = false, children, footer, } = $props();
+let { open = $bindable(false), ariaLabel = "Modal dialog", ariaLabelledby = null, align = "center", zIndex = 50, maxWidth = "max-w-lg", wide = false, class: className = "", maxHeight = 80, fillHeight = false, closeOnBackdropClick = true, closeOnEscape = true, noBackdrop = false, title = "", description = "", closeButtonMobile = false, children, footer, } = $props();
 let modalElement = $state(null);
 let isBottomAligned = $state(false);
 let isMobile = $state(false);
 const effectiveMaxWidth = $derived(wide ? "modal-wide" : maxWidth);
 const actualAlignment = $derived(align === "top"
     ? "top"
-    : align === "bottom" || isBottomAligned || isMobile
+    : align === "bottom" || isMobile
         ? "bottom"
         : "center");
 function checkMobile() {
@@ -29,10 +29,10 @@ function checkMobile() {
     }
 }
 function checkContentHeight() {
-    if (browser && modalElement) {
+    if (browser && modalElement && isMobile) {
         const threshold = window.innerHeight * (maxHeight / 100);
         const contentHeight = modalElement.scrollHeight;
-        isBottomAligned = contentHeight > threshold || isMobile;
+        isBottomAligned = contentHeight > threshold;
     }
 }
 function lockBodyScroll() {
@@ -129,8 +129,21 @@ function handleResize() {
       tabindex="-1"
     >
       <div class="modal-content">
+        {#if title}
+          <div class="modal-title-block">
+            <h2 class="modal-title text-display text-4xl text-foreground text-center">{title}</h2>
+            {#if description}
+              <p class="modal-description">{description}</p>
+            {/if}
+          </div>
+        {/if}
         {@render children?.()}
       </div>
+      {#if closeButtonMobile}
+        <div class="modal-mobile-close-wrap">
+          <button type="button" class="modal-mobile-close-btn" onclick={() => (open = false)}>Close</button>
+        </div>
+      {/if}
       {@render footer?.()}
     </div>
   </div>
@@ -188,6 +201,12 @@ function handleResize() {
     border-bottom: none;
   }
 
+  @media (max-width: 767px) {
+    .modal-bottom .modal-content {
+      padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+  }
+
   @media (min-width: 768px) {
     .modal-bottom {
       margin-bottom: 16px;
@@ -216,6 +235,58 @@ function handleResize() {
     .modal-wide {
       max-width: 560px;
     }
+  }
+
+  .modal-title-block {
+    flex-shrink: 0;
+    padding: 24px 16px 0;
+  }
+  .modal-title {
+    margin: 0;
+    font-size: 2.25rem;
+  }
+  .modal-title-block:has(.modal-description) .modal-title {
+    margin-bottom: 10px;
+  }
+  .modal-description {
+    margin: 0 0 20px 0;
+    font-size: 0.9375rem;
+    text-align: center;
+    color: hsl(var(--white66));
+  }
+  @media (min-width: 768px) {
+    .modal-title-block {
+      padding: 20px 20px 0;
+    }
+    .modal-title-block:has(.modal-description) .modal-description {
+      margin-bottom: 24px;
+    }
+  }
+
+  .modal-mobile-close-wrap {
+    display: none;
+    flex-shrink: 0;
+    padding: 12px 16px 16px;
+  }
+  @media (max-width: 767px) {
+    .modal-mobile-close-wrap {
+      display: block;
+    }
+  }
+  .modal-mobile-close-btn {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: hsl(var(--white66));
+    background: hsl(var(--white8));
+    border: 0.33px solid hsl(var(--white16));
+    border-radius: 12px;
+    cursor: pointer;
+  }
+  .modal-mobile-close-btn:hover {
+    background: hsl(var(--white16));
+    color: hsl(var(--white));
   }
 
   .modal-content {

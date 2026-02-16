@@ -11,6 +11,7 @@ import RootComment from "./RootComment.svelte";
 import ZapBubble from "./ZapBubble.svelte";
 import BubbleSkeleton from "./BubbleSkeleton.svelte";
 import DetailsTab from "./DetailsTab.svelte";
+import EmptyState from "$lib/components/common/EmptyState.svelte";
 import Spinner from "$lib/components/common/Spinner.svelte";
 import { Zap } from "$lib/components/icons";
 import { queryEvent } from "$lib/nostr";
@@ -20,7 +21,6 @@ const staticTabs = [
     { id: "comments", label: "Comments" },
     { id: "zaps", label: "Zaps" },
     { id: "labels", label: "Labels" },
-    { id: "stacks", label: "Stacks" },
     { id: "details", label: "Details" },
 ];
 let activeTab = $state("comments");
@@ -54,12 +54,8 @@ $effect(() => {
     });
 });
 const totalZapAmount = $derived(zaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0));
-/** Main feed: zaps on the main event (app/stack). Include zaps with no e-tag or e-tag in mainEventIds (e.g. app id, release id). */
-const mainIdsSet = $derived(new Set((mainEventIds ?? []).map((id) => id.toLowerCase())));
-const zapsOnMainEvent = $derived(zaps.filter((z) => z.comment &&
-    z.comment.trim() &&
-    (!z.zappedEventId || (z.zappedEventId && mainIdsSet.has(z.zappedEventId.toLowerCase())))));
-const totalCommentCount = $derived(comments.length + zapsOnMainEvent.length);
+const zapsWithComments = $derived(zaps.filter((z) => z.comment && z.comment.trim()));
+const totalCommentCount = $derived(comments.length + zapsWithComments.length);
 function safeNpubFromPubkey(pubkey) {
     if (typeof pubkey !== "string")
         return "";
@@ -72,6 +68,14 @@ function safeNpubFromPubkey(pubkey) {
     catch {
         return "";
     }
+}
+/** Same trimmed npub format as profile page: npub1xxx......yyyyyy */
+function formatNpubDisplay(npubStr) {
+    if (!npubStr || typeof npubStr !== "string") return "";
+    const s = npubStr.trim();
+    if (s.length < 14) return s;
+    const afterPrefix = s.startsWith("npub1") ? s.slice(5, 8) : s.slice(0, 3);
+    return s.startsWith("npub1") ? `npub1${afterPrefix}......${s.slice(-6)}` : `${afterPrefix}......${s.slice(-6)}`;
 }
 function formatSats(amount) {
     if (amount >= 1000000)
@@ -88,7 +92,7 @@ function enrichComment(comment) {
         ...comment,
         displayName: profile?.displayName ||
             profile?.name ||
-            (npub ? `${npub.slice(0, 12)}...` : "Anonymous"),
+            (npub ? formatNpubDisplay(npub) : "Anonymous"),
         avatarUrl: profile?.picture ?? null,
         profileUrl: npub ? `/profile/${npub}` : "",
         profileLoading: profilesLoading && !hasProfile,
@@ -222,7 +226,7 @@ const enrichedZaps = $derived(zaps
     const senderNpub = safeNpubFromPubkey(zap.senderPubkey);
     const displayName = profile?.displayName?.trim() ||
         profile?.name?.trim() ||
-        (senderNpub ? `${senderNpub.slice(0, 12)}…` : "Anonymous");
+        (senderNpub ? formatNpubDisplay(senderNpub) : "Anonymous");
     return {
         ...zap,
         type: "zap",
@@ -239,12 +243,9 @@ const combinedFeed = $derived.by(() => {
         type: "comment",
         timestamp: c.createdAt,
     }));
-    /** Main feed: root comments + zaps on the main event (app/stack). Include zaps with no e-tag or e-tag in mainEventIds. */
-    const mainIds = new Set((mainEventIds ?? []).map((id) => id.toLowerCase()));
-    const mainEventZapsWithComments = enrichedZaps.filter((z) => z.comment &&
-        z.comment.trim() &&
-        (!z.zappedEventId || (z.zappedEventId && mainIds.has(z.zappedEventId.toLowerCase()))));
-    const combined = [...commentsWithType, ...mainEventZapsWithComments];
+    /** Same set as Zaps tab, filtered to only zaps that have a comment (content tag filled). */
+    const zapsWithComments = enrichedZaps.filter((z) => z.comment && z.comment.trim());
+    const combined = [...commentsWithType, ...zapsWithComments];
     return combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 });
 </script>
@@ -297,9 +298,7 @@ const combinedFeed = $derived.by(() => {
       {#if commentsLoading && combinedFeed.length === 0}
         <BubbleSkeleton />
       {:else if combinedFeed.length === 0}
-        <div class="empty-state-panel">
-          <p class="empty-state-text">No comments yet</p>
-        </div>
+        <EmptyState message="No comments yet" minHeight={600} />
       {:else}
         <div class="space-y-4">
           {#each combinedFeed as item (item.type === "zap" ? `zap-${item.id}` : item.id)}
@@ -375,9 +374,7 @@ const combinedFeed = $derived.by(() => {
       {#if zapsLoading && enrichedZaps.length === 0}
         <BubbleSkeleton />
       {:else if enrichedZaps.length === 0}
-        <div class="empty-state-panel">
-          <p class="empty-state-text">No zaps yet</p>
-        </div>
+        <EmptyState message="No zaps yet" minHeight={600} />
       {:else}
         <div class="space-y-4">
           {#each enrichedZaps as zap (zap.id)}
@@ -396,13 +393,7 @@ const combinedFeed = $derived.by(() => {
         </div>
       {/if}
     {:else if activeTab === "labels"}
-      <div class="empty-state-panel">
-        <p class="empty-state-text">Labels coming soon</p>
-      </div>
-    {:else if activeTab === "stacks"}
-      <div class="empty-state-panel">
-        <p class="empty-state-text">Stacks coming soon</p>
-      </div>
+      <EmptyState message="Labels coming soon" minHeight={600} />
     {:else if activeTab === "details"}
       <DetailsTab
         shareableId={stack
@@ -458,22 +449,4 @@ const combinedFeed = $derived.by(() => {
     color: hsl(0 0% 100% / 0.44);
   }
 
-  .empty-state-panel {
-    width: 100%;
-    min-height: 600px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    background: hsl(var(--gray16));
-    border-radius: var(--radius-16, 16px);
-  }
-
-  .empty-state-text {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: hsl(var(--white16));
-    text-align: center;
-    padding: 100px 0 48px;
-    margin: 0;
-  }
 </style>

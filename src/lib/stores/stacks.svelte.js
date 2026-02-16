@@ -12,7 +12,8 @@
 import { liveQuery } from 'dexie';
 import { putEvents, queryEvents } from '$lib/nostr/dexie';
 import { parseApp, parseAppStack } from '$lib/nostr/models';
-import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
+import { fetchAppFromRelays } from '$lib/nostr/service';
+import { EVENT_KINDS, PLATFORM_FILTER, DEFAULT_CATALOG_RELAYS } from '$lib/config';
 import { STACKS_PAGE_SIZE } from '$lib/constants';
 
 const platformTag = PLATFORM_FILTER['#f']?.[0];
@@ -58,8 +59,18 @@ export function createStacksQuery() {
 
 		if (stackEvents.length === 0) return [];
 
-		// Parse stacks and collect all app references
-		const stacks = stackEvents.map(parseAppStack);
+		// Parse stacks and keep only the latest event per (pubkey, dTag)
+		const parsed = stackEvents.map(parseAppStack);
+		const stacksByKey = new Map();
+		for (const stack of parsed) {
+			if (!stack?.pubkey || !stack?.dTag) continue;
+			const key = `${stack.pubkey}:${stack.dTag}`;
+			const existing = stacksByKey.get(key);
+			if (!existing || (stack.createdAt != null && stack.createdAt > (existing.createdAt ?? 0))) {
+				stacksByKey.set(key, stack);
+			}
+		}
+		const stacks = [...stacksByKey.values()];
 		const allIdentifiers = new Set();
 
 		for (const stack of stacks) {
@@ -129,9 +140,40 @@ export function seedStackEvents(events) {
 			}
 		}
 
-		return putEvents(events).catch((err) =>
+		const p = putEvents(events).catch((err) =>
 			console.error('[StacksStore] Seed persist failed:', err)
 		);
+		// Fill in missing app refs in background so stack cards show icons
+		(async () => {
+			const relayUrls = DEFAULT_CATALOG_RELAYS;
+			const seen = new Set();
+			for (const ev of events) {
+				if (ev.kind !== EVENT_KINDS.APP_STACK) continue;
+				const stack = parseAppStack(ev);
+				if (!stack?.appRefs) continue;
+				for (const ref of stack.appRefs) {
+					if (ref.kind !== EVENT_KINDS.APP || !ref.pubkey || !ref.identifier) continue;
+					const key = `${ref.pubkey}:${ref.identifier}`;
+					if (seen.has(key)) continue;
+					seen.add(key);
+					try {
+						const existing = await queryEvents({
+							kinds: [EVENT_KINDS.APP],
+							authors: [ref.pubkey],
+							'#d': [ref.identifier],
+							limit: 1
+						});
+						if (existing.length === 0) {
+							const appEv = await fetchAppFromRelays(relayUrls, ref.pubkey, ref.identifier);
+							if (appEv) await putEvents([appEv]).catch(() => {});
+						}
+					} catch {
+						// ignore
+					}
+				}
+			}
+		})();
+		return p;
 	}
 	return Promise.resolve();
 }
@@ -144,7 +186,7 @@ export function seedStackEvents(events) {
  * @param {string[]} relayUrls - relay URLs to query
  */
 export async function loadMoreStacks(fetchFromRelays, relayUrls) {
-	if (loadingMore || !hasMore || cursor === null) return;
+	if (loadingMore || !hasMore) return;
 	if (typeof window === 'undefined' || !navigator.onLine) return;
 
 	loadingMore = true;
@@ -152,16 +194,47 @@ export async function loadMoreStacks(fetchFromRelays, relayUrls) {
 	try {
 		const filter = {
 			kinds: [EVENT_KINDS.APP_STACK],
-			until: cursor,
 			limit: STACKS_PAGE_SIZE
 		};
+		if (cursor != null) filter.until = cursor;
 		if (platformTag) filter['#f'] = [platformTag];
 		const events = await fetchFromRelays(relayUrls, filter);
 
 		if (events.length > 0) {
+			await putEvents(events).catch((err) =>
+				console.error('[StacksStore] Load more persist failed:', err)
+			);
 			const lastEvent = events[events.length - 1];
 			cursor = lastEvent.created_at - 1;
 			hasMore = events.length >= STACKS_PAGE_SIZE;
+			// Fetch missing app refs in background so stack cards fill in (don't block loading state)
+			(async () => {
+				const seen = new Set();
+				for (const ev of events) {
+					const stack = parseAppStack(ev);
+					if (!stack?.appRefs) continue;
+					for (const ref of stack.appRefs) {
+						if (ref.kind !== EVENT_KINDS.APP || !ref.pubkey || !ref.identifier) continue;
+						const key = `${ref.pubkey}:${ref.identifier}`;
+						if (seen.has(key)) continue;
+						seen.add(key);
+						try {
+							const existing = await queryEvents({
+								kinds: [EVENT_KINDS.APP],
+								authors: [ref.pubkey],
+								'#d': [ref.identifier],
+								limit: 1
+							});
+							if (existing.length === 0) {
+								const appEv = await fetchAppFromRelays(relayUrls, ref.pubkey, ref.identifier);
+								if (appEv) await putEvents([appEv]).catch(() => {});
+							}
+						} catch {
+							// ignore per-ref failures
+						}
+					}
+				}
+			})();
 		} else {
 			hasMore = false;
 		}

@@ -9,11 +9,22 @@
  * - Message content below
  */
 import { onMount } from "svelte";
+import { nip19 } from "nostr-tools";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import { Loader2 } from "lucide-svelte";
 import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString, } from "$lib/utils/color.js";
 let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, light = false, children, headerActions, } = $props();
+function formatNpubDisplay(npubStr) {
+    if (!npubStr || typeof npubStr !== "string") return "";
+    const s = npubStr.trim();
+    if (s.length < 14) return s;
+    const afterPrefix = s.startsWith("npub1") ? s.slice(5, 8) : s.slice(0, 3);
+    return s.startsWith("npub1") ? `npub1${afterPrefix}......${s.slice(-6)}` : `${afterPrefix}......${s.slice(-6)}`;
+}
+const displayName = $derived(
+    name?.trim() ? name : (pubkey ? formatNpubDisplay(nip19.npubEncode(pubkey)) : "")
+);
 let isDarkMode = $state(true);
 onMount(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -51,11 +62,11 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     <div class="bubble-header">
       {#if profileUrl}
         <a href={profileUrl} class="author-name" style="color: {nameColorStyle};">
-          {name || "Anonymous"}
+          {displayName}
         </a>
       {:else}
         <span class="author-name" style="color: {nameColorStyle};">
-          {name || "Anonymous"}
+          {displayName}
         </span>
       {/if}
       {#if !pending}
