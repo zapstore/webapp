@@ -9,7 +9,7 @@
  * - Optional text pill on the right with white8 background
  */
 import ProfilePic from "./ProfilePic.svelte";
-let { profiles = [], text = "", size = "sm", className = "", maxDisplay = 3, onclick, } = $props();
+let { profiles = [], text = "", suffix = "", size = "sm", className = "", maxDisplay = 3, onclick, } = $props();
 // Size mappings for overlap and pill height
 const sizeMap = {
     xs: { overlap: 6, height: 20 },
@@ -48,9 +48,14 @@ function handleClick() {
     </div>
   {/if}
 
-  {#if text}
+  {#if text || suffix}
     <div class="text-pill" style="height: {pillHeight}px;">
-      <span class="text-content">{text}</span>
+      {#if text}
+        <span class="text-content">{text}</span>
+      {/if}
+      {#if suffix}
+        <span class="text-suffix">{suffix}</span>
+      {/if}
     </div>
   {/if}
 </button>
@@ -89,10 +94,12 @@ function handleClick() {
   .text-pill {
     display: flex;
     align-items: center;
+    gap: 6px;
     padding: 0 12px 0 16px;
     margin-left: var(--overlap, -8px);
     background-color: hsl(var(--white8));
     border-radius: 9999px;
+    min-width: 0;
   }
 
   .text-content {
@@ -100,5 +107,15 @@ function handleClick() {
     font-weight: 500;
     color: hsl(var(--white66));
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .text-suffix {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: hsl(var(--white33));
+    flex-shrink: 0;
   }
 </style>

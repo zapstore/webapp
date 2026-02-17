@@ -323,9 +323,9 @@ async function handleSignIn() {
 										onclick={closeMenu}>Quickstart</a
 									>
 									<a
-										href="/studio/reachkit"
+										href="/docs/publish"
 										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}>ReachKit</a
+										onclick={closeMenu}>Docs</a
 									>
 								</nav>
 							</div>

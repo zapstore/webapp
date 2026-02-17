@@ -1721,13 +1721,13 @@ function toggleReleaseNotesExpanded(releaseId) {
 
   .release-panel-row.release-panel-notes {
     display: block;
-    padding: 12px 16px 12px;
+    padding: 12px 16px 6px;
     overflow: visible;
   }
 
   @media (min-width: 768px) {
     .release-panel-row.release-panel-notes {
-      padding: 12px 20px 12px;
+      padding: 12px 20px 6px;
     }
   }
 
@@ -1781,7 +1781,7 @@ function toggleReleaseNotesExpanded(releaseId) {
     line-height: 1.5;
     color: hsl(var(--foreground) / 0.9);
     margin: 0;
-    padding-top: 0;
+    padding-top: 8px;
   }
 
   .release-notes :global(p:first-child) {
