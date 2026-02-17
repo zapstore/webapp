@@ -65,13 +65,21 @@ const hasReplies = $derived(uniqueRepliers.length > 0);
 const featuredReplier = $derived(uniqueRepliers[0]);
 const otherRepliersCount = $derived(uniqueRepliers.length - 1);
 const displayedRepliers = $derived(uniqueRepliers.slice(0, 3));
-/** Profile stack text: "X & N Others" or just "X", no zap count. */
+const REPLY_NAME_MAX = 18;
+function trimName(name) {
+    if (!name || typeof name !== "string") return "";
+    const s = name.trim();
+    if (s.length <= REPLY_NAME_MAX) return s;
+    return s.slice(0, REPLY_NAME_MAX) + "...";
+}
+/** Profile stack text: 1 = "Name", 2 = "Name & Name", 3+ = "Name & Others". Long names trimmed with "...". */
 const replyIndicatorText = $derived.by(() => {
-    if (uniqueRepliers.length === 0)
-        return "";
-    return otherRepliersCount > 0
-        ? `${featuredReplier?.displayName || "Someone"} & ${otherRepliersCount} ${otherRepliersCount === 1 ? "Other" : "Others"}`
-        : (featuredReplier?.displayName || "Someone");
+    if (uniqueRepliers.length === 0) return "";
+    const n = uniqueRepliers.length;
+    const a = trimName(uniqueRepliers[0]?.displayName) || "Someone";
+    if (n === 1) return a;
+    if (n === 2) return `${a} & ${trimName(uniqueRepliers[1]?.displayName) || "Someone"}`;
+    return `${a} & Others`;
 });
 const replyCount = $derived(isZapRoot ? threadComments.length : (replies?.length ?? 0));
 const sortedReplies = $derived([...replies].sort((a, b) => {
@@ -322,10 +330,10 @@ function handleOptions() {
             pubkey: r.pubkey,
           }))}
           text={replyIndicatorText}
+          suffix={replyCount != null ? String(replyCount) : ""}
           size="sm"
           onclick={openThread}
         />
-        <span class="repliers-comment-count">{replyCount}</span>
       </div>
     </div>
   {/if}
@@ -465,7 +473,7 @@ function handleOptions() {
   {/snippet}
 
   {#snippet footer()}
-    {#if showThreadActions}
+    {#if showThreadActions && getIsSignedIn()}
       <div class="thread-footer-wrap" class:child-modal-open={childModalOpen}>
         <div class="thread-modal-child-overlay" aria-hidden="true"></div>
       <div class="thread-bottom-bar" class:expanded={commentExpanded}>
@@ -602,20 +610,6 @@ function handleOptions() {
     padding-top: 4px;
     flex: 1;
     min-width: 0;
-  }
-
-  .repliers-comment-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 28px;
-    min-width: 28px;
-    padding: 0 8px;
-    margin-left: 8px;
-    background-color: hsl(var(--white4));
-    border-radius: 9999px;
-    color: hsl(var(--white33));
-    font-size: 0.8125rem;
   }
 
   .thread-content-wrap {

@@ -179,7 +179,7 @@ $effect(() => {
 			max-height 0.3s cubic-bezier(0.33, 1, 0.68, 1);
 	}
 	.bottom-bar.guest {
-		padding: 18px 16px;
+		padding: 18px 16px 18px 20px;
 		min-height: 56px;
 		box-shadow: 0 -6px 28px hsl(var(--black) / 0.5);
 	}
@@ -308,7 +308,7 @@ $effect(() => {
 			box-shadow: 0 40px 64px 12px hsl(var(--black));
 		}
 		.bottom-bar.guest {
-			padding: 18px 16px;
+			padding: 18px 16px 18px 20px;
 			min-height: 64px;
 			box-shadow: 0 48px 72px 16px hsl(var(--black) / 0.5);
 		}
