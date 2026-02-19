@@ -10,6 +10,8 @@
 import { onMount } from 'svelte';
 import { browser } from '$app/environment';
 import { Menu, Cross } from '$lib/components/icons';
+import BackButton from '$lib/components/common/BackButton.svelte';
+import { handleBack } from '$lib/utils/back.js';
 import { Search } from 'lucide-svelte';
 import { cn } from '$lib/utils';
 import { nip19 } from 'nostr-tools';
@@ -59,7 +61,6 @@ let scrollY = $state(0);
 let menuOpen = $state(false);
 let menuContainer = $state(null);
 let menuContainerFloating = $state(null);
-let menuButton = $state(null);
 let catalogDropdownOpen = $state(false);
 let catalogDropdownContainer = $state(null);
 let searchOpen = $state(false);
@@ -205,35 +206,23 @@ async function handleSignIn() {
 			: 'bg-transparent border-b border-transparent'
 	)}
 >
-	<nav class="container mx-auto pl-1 pr-4 sm:pl-3 sm:pr-6 md:pl-5 md:pr-8 h-full">
+	<nav class="container mx-auto px-3 sm:px-6 lg:px-8 h-full">
 		<div class="flex items-center justify-between gap-3 h-full">
-			<!-- Left: Menu button + Publisher info -->
+			<!-- Left: Back button (click = back, right-click/long-press = menu) + Publisher info -->
 			<div class="flex items-center gap-2 min-w-0 flex-1">
-				<!-- Menu button with dropdown -->
 				<div
 					class="menu-container"
 					bind:this={menuContainer}
 					role="navigation"
-					aria-label="Main menu"
+					aria-label="Back and menu"
 				>
-					<button
-						type="button"
-						class="menu-button"
-						class:menu-button-open={menuOpen}
-						bind:this={menuButton}
-						onclick={(e) => {
-							e.stopPropagation();
-							toggleMenu();
-						}}
-						aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-						aria-expanded={menuOpen}
-					>
-						{#if menuOpen}
-							<Cross variant="outline" color="hsl(var(--white33))" size={14} />
-						{:else}
-							<Menu variant="outline" color="hsl(var(--white33))" size={16} />
-						{/if}
-					</button>
+					<BackButton
+						onBack={handleBack}
+						onOpenMenu={() => { menuOpen = true; }}
+						onCloseMenu={closeMenu}
+						menuOpen={menuOpen}
+						showExplainer={true}
+					/>
 
 					<!-- Menu backdrop (mobile only) -->
 					{#if menuOpen}
@@ -398,7 +387,7 @@ async function handleSignIn() {
 							size="sm"
 						/>
 						<span class="publisher-name">
-							{publisherDisplayName}
+							By {publisherDisplayName}
 						</span>
 						{#if timestamp}
 							<Timestamp {timestamp} size="xs" className="publisher-timestamp" />
@@ -444,25 +433,15 @@ async function handleSignIn() {
 				class="menu-container"
 				bind:this={menuContainerFloating}
 				role="navigation"
-				aria-label="Main menu"
+				aria-label="Back and menu"
 			>
-				<button
-					type="button"
-					class="menu-button"
-					class:menu-button-open={menuOpen}
-					onclick={(e) => {
-						e.stopPropagation();
-						toggleMenu();
-					}}
-					aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-					aria-expanded={menuOpen}
-				>
-					{#if menuOpen}
-						<Cross variant="outline" color="hsl(var(--white33))" size={14} />
-					{:else}
-						<Menu variant="outline" color="hsl(var(--white33))" size={16} />
-					{/if}
-				</button>
+				<BackButton
+					onBack={handleBack}
+					onOpenMenu={() => { menuOpen = true; }}
+					onCloseMenu={closeMenu}
+					menuOpen={menuOpen}
+					showExplainer={true}
+				/>
 				{#if menuOpen}
 					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 					<div
@@ -628,27 +607,20 @@ async function handleSignIn() {
 		width: 100%;
 		max-width: 1280px;
 		margin: 0 auto;
-		padding-left: 0.25rem;
-		padding-right: 1rem;
+		padding-left: 12px;
+		padding-right: 12px;
 	}
 
 	@media (min-width: 640px) {
 		.floating-menu-nav {
-			padding-left: 0.75rem;
-			padding-right: 1.5rem;
-		}
-	}
-
-	@media (min-width: 768px) {
-		.floating-menu-nav {
-			padding-left: 1.25rem;
+			padding-left: 1.5rem;
 			padding-right: 1.5rem;
 		}
 	}
 
 	@media (min-width: 1024px) {
 		.floating-menu-nav {
-			padding-left: 1.25rem;
+			padding-left: 2rem;
 			padding-right: 2rem;
 		}
 	}

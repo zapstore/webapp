@@ -2,6 +2,7 @@
 import { onMount } from 'svelte';
 import { browser, dev } from '$app/environment';
 import { page } from '$app/stores';
+import { afterNavigate } from '$app/navigation';
 import { initAuth } from '$lib/stores/auth.svelte.js';
 import { initCatalogs } from '$lib/stores/catalogs.svelte.js';
 import { initOnlineStatus, isOnline } from '$lib/stores/online.svelte.js';
@@ -9,6 +10,7 @@ import { startProfileSearchBackground } from '$lib/services/profile-search';
 import { startLiveSubscriptions, stopLiveSubscriptions } from '$lib/nostr/service';
 import { evictOldEvents } from '$lib/nostr/dexie';
 import { IDB_NAME } from '$lib/config';
+import { setBackGoesHomeIfLandedFromOutside, clearBackGoesHome } from '$lib/utils/back.js';
 import Header from '$lib/components/layout/Header.svelte';
 import Footer from '$lib/components/layout/Footer.svelte';
 import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
@@ -49,6 +51,8 @@ let pageTitle = $derived(path === '/discover'
                             : '');
 onMount(() => {
     if (browser) {
+        // When user landed from another site or direct, back button will go to / instead of leaving the app
+        setBackGoesHomeIfLandedFromOutside();
         // Restore auth from localStorage so "logged in" persists across reloads/navigation
         initAuth();
         // Initialize online/offline detection
@@ -65,6 +69,13 @@ onMount(() => {
     return () => {
         stopLiveSubscriptions();
     };
+});
+
+afterNavigate(({ from }) => {
+    if (browser && from) {
+        // User navigated within the app; back should use history again
+        clearBackGoesHome();
+    }
 });
 
 function deleteIndexedDb(name) {
@@ -155,7 +166,8 @@ async function clearAllLocalCaches() {
 				<Footer />
 			{/if}
 
-			{#if dev && !isReachKit}
+			{#if false && dev && !isReachKit}
+				<!-- Bust local cache overlay (commented out) -->
 				<div class="cache-bust-control">
 					<button
 						type="button"

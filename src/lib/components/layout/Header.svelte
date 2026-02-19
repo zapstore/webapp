@@ -3,6 +3,8 @@ import { page } from "$app/stores";
 import { assets } from "$app/paths";
 import { Search, User, Loader2, LogOut } from "lucide-svelte";
 import { Menu, Cross } from "$lib/components/icons";
+import BackButton from "$lib/components/common/BackButton.svelte";
+import { handleBack } from "$lib/utils/back.js";
 import { cn } from "$lib/utils";
 import { onMount } from "svelte";
 import { nip19 } from "nostr-tools";
@@ -167,30 +169,23 @@ function toggleDropdown(e) {
   <nav
     class={cn(
       "container mx-auto h-full",
-      "pl-1 pr-4 sm:pl-3 sm:pr-6 md:pl-5 md:pr-8"
+      "px-3 sm:px-6 lg:px-8"
     )}
   >
     <div class="flex items-center justify-between gap-2 sm:gap-6 h-full">
       <!-- Left: Logo or Menu + Page Title -->
       <div class="header-side flex items-center flex-shrink-0 min-w-0">
         {#if variant === "browse" || variant === "studio"}
-          <!-- Browse/Studio variant: Menu button + Page title (wrapper so click-outside sees both) -->
-          <div class="menu-trigger-wrap flex items-center min-w-0" bind:this={menuContainer} role="navigation" aria-label="Main menu">
+          <!-- Browse/Studio variant: Back button (click=back, right-click/long-press=menu) + Page title -->
+          <div class="menu-trigger-wrap flex items-center min-w-0" bind:this={menuContainer} role="navigation" aria-label="Back and menu">
             <div class="menu-container">
-            <button
-              type="button"
-              class="menu-button"
-              class:menu-button-open={menuOpen}
-              onclick={(e) => { e.stopPropagation(); toggleMenu(); }}
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={menuOpen}
-            >
-              {#if menuOpen}
-                <Cross variant="outline" color="hsl(var(--white33))" size={14} />
-              {:else}
-                <Menu variant="outline" color="hsl(var(--white33))" size={16} />
-              {/if}
-            </button>
+            <BackButton
+              onBack={handleBack}
+              onOpenMenu={() => { menuOpen = true; }}
+              onCloseMenu={closeMenu}
+              menuOpen={menuOpen}
+              showExplainer={true}
+            />
 
             {#if menuOpen}
               <div class="menu-backdrop" role="button" tabindex="0" aria-label="Close menu" onclick={closeMenu} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); closeMenu(); } }}></div>
@@ -270,7 +265,7 @@ function toggleDropdown(e) {
           {#if pageTitle && pageTitle !== "Profile"}
             <button
               type="button"
-              class="page-title-tap flex items-center gap-3 ml-1"
+              class="page-title-tap flex items-center gap-3 page-title-spacing"
               onclick={(e) => { e.stopPropagation(); toggleMenu(); }}
               aria-label="Open menu"
             >
@@ -288,32 +283,17 @@ function toggleDropdown(e) {
               <span class="page-title font-semibold text-lg lg:text-xl tracking-tight">{pageTitle}</span>
             </button>
           {:else if pageTitle}
-            <span class="page-title font-semibold text-lg lg:text-xl tracking-tight ml-2">{pageTitle}</span>
+            <span class="page-title font-semibold text-lg lg:text-xl tracking-tight page-title-spacing">{pageTitle}</span>
           {/if}
           </div>
         {:else}
-          <!-- Landing variant: Menu icon + Logo in same row (like Studio/Browse) -->
+          <!-- Landing variant: Logo + text only (clickable to open menu), no menu/back button -->
           <div class="menu-trigger-wrap flex items-center min-w-0" bind:this={menuContainer} role="navigation" aria-label="Main menu">
             <div class="menu-container flex items-center">
             <button
               type="button"
-              class="menu-button"
-              class:menu-button-open={menuOpen}
               onclick={(e) => { e.stopPropagation(); toggleMenu(); }}
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={menuOpen}
-            >
-              {#if menuOpen}
-                <Cross variant="outline" color="hsl(var(--white33))" size={14} />
-              {:else}
-                <Menu variant="outline" color="hsl(var(--white33))" size={16} />
-              {/if}
-            </button>
-
-            <button
-              type="button"
-              onclick={(e) => { e.stopPropagation(); toggleMenu(); }}
-              class="logo-button flex items-center gap-2 sm:gap-3 ml-1"
+              class="logo-button flex items-center gap-2 sm:gap-3"
               aria-label="Open menu"
             >
               <svg width="19" height="32" viewBox="0 0 19 32" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-6 lg:h-7 w-auto flex-shrink-0">
@@ -562,6 +542,10 @@ function toggleDropdown(e) {
 
   .page-title-tap:hover {
     opacity: 0.85;
+  }
+
+  .page-title-spacing {
+    margin-left: 12px;
   }
 
   /* Studio: search bar 16px from CTA (nav has gap-6 = 24px; -8px gives 16px) */
