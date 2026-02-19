@@ -147,8 +147,7 @@ const highlightedJson = $derived(highlightJson(formattedJson));
   </div>
 
   {#if rawData}
-    <div class="section-divider"></div>
-    <h3 class="eyebrow-label section-title">RAW DATA</h3>
+    <h3 class="eyebrow-label section-title raw-data-title">RAW DATA</h3>
     <div class="code-block">
       <button type="button" class="code-copy-btn" onclick={copyJson} aria-label="Copy JSON">
         {#if jsonCopied}
@@ -176,6 +175,10 @@ const highlightedJson = $derived(highlightJson(formattedJson));
   .section-title {
     padding-left: 12px;
     margin-bottom: 8px;
+  }
+
+  .section-title.raw-data-title {
+    margin-top: 12px;
   }
 
   .section-divider {
