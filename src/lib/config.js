@@ -23,6 +23,9 @@ export const POLL_INTERVAL_MS = 60_000;
 export const EOSE_TIMEOUT = 2500;
 // Dexie database name (used for clear-local-data fallback)
 export const IDB_NAME = 'zapstore';
+// Reserved d-tag for private "Saved Apps" stack (kind 30267). Excluded from public discover/stacks/profile listings.
+export const SAVED_APPS_STACK_D_TAG = 'zapstore-bookmarks';
+
 // Event kinds
 export const EVENT_KINDS = {
     PROFILE: 0,

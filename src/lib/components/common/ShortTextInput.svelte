@@ -14,6 +14,9 @@ import { hexToColor, rgbToCssString } from "$lib/utils/color.js";
 import * as nip19 from "nostr-tools/nip19";
 import { Camera, EmojiFill, Gif, Plus, Send, ChevronDown, Cross } from "$lib/components/icons";
 let { placeholder = "Write something...", searchProfiles = async () => [], searchEmojis = async () => [], autoFocus = false, size = "small", className = "", showActionRow = true, onCameraTap = () => { }, onEmojiTap = () => { }, onGifTap = () => { }, onAddTap = () => { }, onChevronTap = () => { }, onchange, onsubmit, allowEmptySubmit = false, onClose, showCloseWhen = 'always', aboveEditor, } = $props();
+/** Getters so suggestion plugins always receive current search functions (called when editor is created in onMount). */
+function getSearchProfiles() { return searchProfiles; }
+function getSearchEmojis() { return searchEmojis; }
 const sizeMap = {
     small: { minHeight: 40, maxHeight: 120 },
     medium: { minHeight: 80, maxHeight: 200 },
@@ -49,7 +52,8 @@ function checkScrollable() {
         }
     }
 }
-function updateSuggestionContent(container, type, items, selected, command, isSelectionOnlyUpdate = false) {
+const SPINNER_SVG = '<svg class="suggestion-tab-spinner-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="hsl(0 0% 100% / 0.44)" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke-dasharray="47.12 15.71" class="suggestion-tab-spinner-arc"/></svg>';
+function updateSuggestionContent(container, type, items, selected, command, isSelectionOnlyUpdate = false, onSelectIndex = null, listOnly = false) {
     if (!container)
         return;
     if (isSelectionOnlyUpdate) {
@@ -60,7 +64,7 @@ function updateSuggestionContent(container, type, items, selected, command, isSe
     if (items.length === 0) {
         container.innerHTML = `
         <div class="suggestion-menu suggestion-menu-empty">
-          <span class="suggestion-empty-text">No ${type === "profile" ? "profiles" : "emojis"} found</span>
+          <span class="suggestion-empty-text">No ${type === "profile" ? "profiles" : type === "gif" ? "GIFs" : "emojis"} found</span>
         </div>
       `;
         return;
@@ -84,6 +88,17 @@ function updateSuggestionContent(container, type, items, selected, command, isSe
             </button>
           `;
         }
+        else if (type === "gif") {
+            const g = item;
+            const thumb = g.preview?.url ?? g.url ?? "";
+            const label = g.title ?? g.slug ?? "";
+            return `
+            <button type="button" class="suggestion-item ${index === selected ? "selected" : ""}" data-index="${index}">
+              ${thumb ? `<img src="${escapeAttr(thumb)}" alt="" class="suggestion-gif-thumb" />` : ""}
+              <span class="suggestion-gif-label">${escapeAttr(label) || "GIF"}</span>
+            </button>
+          `;
+        }
         else {
             const e = item;
             return `
@@ -95,34 +110,135 @@ function updateSuggestionContent(container, type, items, selected, command, isSe
         }
     })
         .join("");
-    container.innerHTML = `<div class="suggestion-menu suggestion-menu-${type}">${itemsHtml}</div>`;
+    const wrapperClass = listOnly ? `suggestion-list suggestion-list-${type}` : `suggestion-menu suggestion-menu-${type}`;
+    container.innerHTML = `<div class="${wrapperClass}">${itemsHtml}</div>`;
     container.querySelectorAll(".suggestion-item").forEach((btn, idx) => {
         btn.addEventListener("click", () => command(items[idx]));
         btn.addEventListener("mouseenter", () => {
-            selectedIndex = idx;
-            updateSuggestionContent(container, type, items, idx, command, true);
+            if (onSelectIndex) {
+                onSelectIndex(idx);
+                updateSuggestionContent(container, type, items, idx, command, true);
+            } else {
+                selectedIndex = idx;
+                updateSuggestionContent(container, type, items, idx, command, true);
+            }
         });
     });
 }
-function createProfileSuggestion() {
+/** Update the two emoji tab buttons (inside the styled menu box). */
+function updateEmojiTabButtons(btnEmoji, btnGifs, state) {
+    const { activeTab, emojiLoading, emojiItems } = state;
+    const showEmojiSpinner = activeTab === "emoji" && emojiLoading && emojiItems.length === 0;
+    btnEmoji.className = `suggestion-tab ${activeTab === "emoji" ? "suggestion-tab-selected" : ""}`;
+    btnEmoji.innerHTML = `Emoji${showEmojiSpinner ? `<span class="suggestion-tab-spinner">${SPINNER_SVG}</span>` : ""}`;
+    btnGifs.className = `suggestion-tab ${activeTab === "gifs" ? "suggestion-tab-selected" : ""}`;
+    btnGifs.textContent = "GIFs";
+}
+/** Update the two profile tab buttons (inside the styled menu box). */
+function updateProfileTabButtons(btnProfiles, btnPubs, state) {
+    const { activeTab, profileLoading, profileItems } = state;
+    const showProfileSpinner = activeTab === "profiles" && profileLoading && profileItems.length === 0;
+    btnProfiles.className = `suggestion-tab ${activeTab === "profiles" ? "suggestion-tab-selected" : ""}`;
+    btnProfiles.innerHTML = `Profiles${showProfileSpinner ? `<span class="suggestion-tab-spinner">${SPINNER_SVG}</span>` : ""}`;
+    btnPubs.className = `suggestion-tab ${activeTab === "publications" ? "suggestion-tab-selected" : ""}`;
+    btnPubs.textContent = "Publications";
+}
+function createProfileSuggestion(getSearchProfilesFn) {
     return {
         char: "@",
         allowSpaces: false,
         items: async ({ query }) => {
-            const results = await searchProfiles(query);
+            const search = getSearchProfilesFn();
+            const results = await search(query ?? "");
             return results.slice(0, 8);
         },
         render: () => {
             let popup;
             let container;
+            let headerDiv;
+            let contentDiv;
+            const state = {
+                activeTab: "profiles",
+                profileItems: [],
+                profileLoading: false,
+                publicationItems: [],
+                selectedIndex: 0,
+                command: null,
+                onTabChange(tab) {
+                    state.activeTab = tab;
+                    updateProfileTabButtons(btnProfiles, btnPubs, state);
+                    refreshProfilePopupContent();
+                },
+            };
+            let menuBox;
+            let btnProfiles;
+            let btnPubs;
+            function refreshProfilePopupContent() {
+                if (!contentDiv)
+                    return;
+                const items = state.activeTab === "profiles" ? state.profileItems : state.publicationItems;
+                if (state.activeTab === "publications") {
+                    contentDiv.innerHTML = `<div class="suggestion-menu-empty"><span class="suggestion-empty-text">Publications coming soon</span></div>`;
+                    return;
+                }
+                if (state.profileLoading && state.profileItems.length === 0) {
+                    contentDiv.innerHTML = `<div class="suggestion-menu-empty"><span class="suggestion-empty-text">Loading…</span></div>`;
+                    return;
+                }
+                if (items.length === 0) {
+                    contentDiv.innerHTML = `<div class="suggestion-menu-empty"><span class="suggestion-empty-text">No profiles found</span></div>`;
+                    return;
+                }
+                if (!state.command)
+                    return;
+                const onSelectIndex = (idx) => { state.selectedIndex = idx; };
+                updateSuggestionContent(contentDiv, "profile", items, state.selectedIndex, state.command, false, onSelectIndex, true);
+            }
+            function refreshProfilePopupFull() {
+                updateProfileTabButtons(btnProfiles, btnPubs, state);
+                refreshProfilePopupContent();
+            }
             return {
                 onStart: (props) => {
                     currentSuggestionType = "profile";
-                    suggestionItems = props.items ?? [];
-                    selectedIndex = 0;
+                    state.command = props.command;
+                    state.selectedIndex = 0;
+                    state.profileLoading = true;
+                    state.profileItems = [];
                     container = document.createElement("div");
                     container.className = "suggestion-container";
-                    updateSuggestionContent(container, "profile", suggestionItems, selectedIndex, props.command);
+                    menuBox = document.createElement("div");
+                    menuBox.className = "suggestion-menu suggestion-menu-with-tabs";
+                    const tabsRow = document.createElement("div");
+                    tabsRow.className = "suggestion-tabs-row";
+                    btnProfiles = document.createElement("button");
+                    btnProfiles.type = "button";
+                    btnProfiles.setAttribute("data-tab", "profiles");
+                    btnPubs = document.createElement("button");
+                    btnPubs.type = "button";
+                    btnPubs.setAttribute("data-tab", "publications");
+                    contentDiv = document.createElement("div");
+                    contentDiv.className = "suggestion-popup-content";
+                    tabsRow.appendChild(btnProfiles);
+                    tabsRow.appendChild(btnPubs);
+                    menuBox.appendChild(tabsRow);
+                    menuBox.appendChild(contentDiv);
+                    container.appendChild(menuBox);
+                    btnProfiles.addEventListener("click", (e) => { e.stopPropagation(); state.onTabChange("profiles"); });
+                    btnPubs.addEventListener("click", (e) => { e.stopPropagation(); state.onTabChange("publications"); });
+                    updateProfileTabButtons(btnProfiles, btnPubs, state);
+                    refreshProfilePopupContent();
+                    getSearchProfilesFn()("").then((results) => {
+                        state.profileItems = (results ?? []).slice(0, 8);
+                        state.profileLoading = false;
+                        updateProfileTabButtons(btnProfiles, btnPubs, state);
+                        refreshProfilePopupContent();
+                    }).catch(() => {
+                        state.profileLoading = false;
+                        state.profileItems = [];
+                        updateProfileTabButtons(btnProfiles, btnPubs, state);
+                        refreshProfilePopupContent();
+                    });
                     popup = tippy("body", {
                         getReferenceClientRect: props.clientRect ? () => props.clientRect?.() ?? new DOMRect() : undefined,
                         appendTo: () => document.body,
@@ -139,9 +255,12 @@ function createProfileSuggestion() {
                     suggestionPopup = popup[0] ?? null;
                 },
                 onUpdate: (props) => {
-                    suggestionItems = props.items ?? [];
-                    selectedIndex = 0;
-                    updateSuggestionContent(container, "profile", suggestionItems, selectedIndex, props.command);
+                    state.selectedIndex = 0;
+                    if ((props.items?.length ?? 0) > 0) {
+                        state.profileItems = props.items ?? [];
+                        state.profileLoading = false;
+                    }
+                    refreshProfilePopupFull();
                     if (props.clientRect)
                         popup[0]?.setProps({ getReferenceClientRect: () => props.clientRect?.() ?? new DOMRect() });
                 },
@@ -150,25 +269,27 @@ function createProfileSuggestion() {
                         popup[0]?.hide();
                         return true;
                     }
+                    const items = state.activeTab === "profiles" ? state.profileItems : state.publicationItems;
                     if (props.event.key === "ArrowUp") {
-                        selectedIndex = (selectedIndex - 1 + suggestionItems.length) % suggestionItems.length;
-                        updateSuggestionContent(container, "profile", suggestionItems, selectedIndex, props.command, true);
+                        state.selectedIndex = (state.selectedIndex - 1 + items.length) % Math.max(items.length, 1);
+                        refreshProfilePopupContent();
                         return true;
                     }
                     if (props.event.key === "ArrowDown") {
-                        selectedIndex = (selectedIndex + 1) % suggestionItems.length;
-                        updateSuggestionContent(container, "profile", suggestionItems, selectedIndex, props.command, true);
+                        state.selectedIndex = (state.selectedIndex + 1) % Math.max(items.length, 1);
+                        refreshProfilePopupContent();
                         return true;
                     }
                     if (props.event.key === "Enter" || props.event.key === "Tab") {
-                        const item = suggestionItems[selectedIndex];
+                        const item = items[state.selectedIndex];
                         if (item)
-                            props.command(item);
+                            state.command(item);
                         return true;
                     }
                     return false;
                 },
                 onExit: () => {
+                    popup[0]?.hide();
                     popup[0]?.destroy();
                     suggestionPopup = null;
                     currentSuggestionType = null;
@@ -213,7 +334,7 @@ const EmojiNode = Node.create({
         };
     },
 });
-function createEmojiExtension() {
+function createEmojiExtension(getSearchEmojisFn) {
     return EmojiNode.extend({
         addProseMirrorPlugins() {
             return [
@@ -222,13 +343,16 @@ function createEmojiExtension() {
                     char: ":",
                     allowSpaces: false,
                     items: async ({ query }) => {
-                        const results = await searchEmojis(query ?? "");
+                        const q = (query ?? "").trim();
+                        const search = getSearchEmojisFn();
+                        const results = await search(q);
                         return results.slice(0, 12);
                     },
                     command: ({ editor: ed, range, props }) => {
                         ed.chain()
                             .focus()
-                            .insertContentAt(range, [
+                            .deleteRange(range)
+                            .insertContentAt(range.from, [
                             { type: "emoji", attrs: { id: props.shortcode, url: props.url, source: props.source } },
                             { type: "text", text: " " },
                         ])
@@ -237,14 +361,98 @@ function createEmojiExtension() {
                     render: () => {
                         let popup;
                         let container;
+                        let menuBox;
+                        let btnEmoji;
+                        let btnGifs;
+                        let contentDiv;
+                        const state = {
+                            activeTab: "emoji",
+                            emojiLoading: true,
+                            emojiItems: [],
+                            gifItems: [],
+                            gifLoading: false,
+                            gifLoaded: false,
+                            selectedIndex: 0,
+                            command: null,
+                            lastQuery: "",
+                            async onTabChange(tab) {
+                                state.activeTab = tab;
+                                if (tab === "gifs" && !state.gifLoaded) {
+                                    state.gifLoaded = true;
+                                    state.gifLoading = true;
+                                    refreshEmojiPopupContent();
+                                    state.gifLoading = false;
+                                    state.gifItems = [];
+                                    refreshEmojiPopupContent();
+                                }
+                                updateEmojiTabButtons(btnEmoji, btnGifs, state);
+                            },
+                        };
+                        function refreshEmojiPopupContent() {
+                            if (!contentDiv)
+                                return;
+                            const loading = state.activeTab === "emoji" ? state.emojiLoading && state.emojiItems.length === 0 : state.gifLoading && state.gifItems.length === 0;
+                            const items = state.activeTab === "emoji" ? state.emojiItems : state.gifItems;
+                            const type = state.activeTab === "emoji" ? "emoji" : "gif";
+                            if (loading) {
+                                contentDiv.innerHTML = `<div class="suggestion-menu-empty"><span class="suggestion-empty-text">Loading…</span></div>`;
+                                return;
+                            }
+                            if (items.length === 0) {
+                                contentDiv.innerHTML = `<div class="suggestion-menu-empty"><span class="suggestion-empty-text">${state.activeTab === "gifs" ? "GIFs coming soon" : "No emojis found"}</span></div>`;
+                                return;
+                            }
+                            if (!state.command)
+                                return;
+                            const onSelectIndex = (idx) => { state.selectedIndex = idx; };
+                            updateSuggestionContent(contentDiv, type, items, state.selectedIndex, state.command, false, onSelectIndex, true);
+                        }
+                        function refreshEmojiPopupFull() {
+                            updateEmojiTabButtons(btnEmoji, btnGifs, state);
+                            refreshEmojiPopupContent();
+                        }
                         return {
                             onStart: (props) => {
                                 currentSuggestionType = "emoji";
-                                suggestionItems = props.items ?? [];
-                                selectedIndex = 0;
+                                state.command = props.command;
+                                state.selectedIndex = 0;
+                                state.lastQuery = props.query ?? "";
+                                state.emojiLoading = true;
+                                state.emojiItems = [];
                                 container = document.createElement("div");
                                 container.className = "suggestion-container";
-                                updateSuggestionContent(container, "emoji", suggestionItems, selectedIndex, props.command);
+                                menuBox = document.createElement("div");
+                                menuBox.className = "suggestion-menu suggestion-menu-with-tabs";
+                                const tabsRow = document.createElement("div");
+                                tabsRow.className = "suggestion-tabs-row";
+                                btnEmoji = document.createElement("button");
+                                btnEmoji.type = "button";
+                                btnEmoji.setAttribute("data-tab", "emoji");
+                                btnGifs = document.createElement("button");
+                                btnGifs.type = "button";
+                                btnGifs.setAttribute("data-tab", "gifs");
+                                contentDiv = document.createElement("div");
+                                contentDiv.className = "suggestion-popup-content";
+                                tabsRow.appendChild(btnEmoji);
+                                tabsRow.appendChild(btnGifs);
+                                menuBox.appendChild(tabsRow);
+                                menuBox.appendChild(contentDiv);
+                                container.appendChild(menuBox);
+                                btnEmoji.addEventListener("click", (e) => { e.stopPropagation(); state.onTabChange("emoji"); });
+                                btnGifs.addEventListener("click", (e) => { e.stopPropagation(); state.onTabChange("gifs"); });
+                                updateEmojiTabButtons(btnEmoji, btnGifs, state);
+                                refreshEmojiPopupContent();
+                                getSearchEmojisFn()("").then((results) => {
+                                    state.emojiItems = (results ?? []).slice(0, 12);
+                                    state.emojiLoading = false;
+                                    updateEmojiTabButtons(btnEmoji, btnGifs, state);
+                                    refreshEmojiPopupContent();
+                                }).catch(() => {
+                                    state.emojiLoading = false;
+                                    state.emojiItems = [];
+                                    updateEmojiTabButtons(btnEmoji, btnGifs, state);
+                                    refreshEmojiPopupContent();
+                                });
                                 popup = tippy("body", {
                                     getReferenceClientRect: props.clientRect ? () => props.clientRect?.() ?? new DOMRect() : undefined,
                                     appendTo: () => document.body,
@@ -260,9 +468,13 @@ function createEmojiExtension() {
                                 suggestionPopup = popup[0] ?? null;
                             },
                             onUpdate: (props) => {
-                                suggestionItems = props.items ?? [];
-                                selectedIndex = 0;
-                                updateSuggestionContent(container, "emoji", suggestionItems, selectedIndex, props.command);
+                                state.selectedIndex = 0;
+                                state.lastQuery = props.query ?? "";
+                                if (state.activeTab === "emoji" && (props.items?.length ?? 0) > 0) {
+                                    state.emojiItems = props.items ?? [];
+                                    state.emojiLoading = false;
+                                }
+                                refreshEmojiPopupFull();
                                 if (props.clientRect)
                                     popup[0]?.setProps({ getReferenceClientRect: () => props.clientRect?.() ?? new DOMRect() });
                             },
@@ -271,25 +483,27 @@ function createEmojiExtension() {
                                     popup[0]?.hide();
                                     return true;
                                 }
+                                const items = state.activeTab === "emoji" ? state.emojiItems : state.gifItems;
                                 if (props.event.key === "ArrowUp") {
-                                    selectedIndex = (selectedIndex - 1 + suggestionItems.length) % suggestionItems.length;
-                                    updateSuggestionContent(container, "emoji", suggestionItems, selectedIndex, props.command, true);
+                                    state.selectedIndex = (state.selectedIndex - 1 + items.length) % Math.max(items.length, 1);
+                                    refreshEmojiPopupContent();
                                     return true;
                                 }
                                 if (props.event.key === "ArrowDown") {
-                                    selectedIndex = (selectedIndex + 1) % suggestionItems.length;
-                                    updateSuggestionContent(container, "emoji", suggestionItems, selectedIndex, props.command, true);
+                                    state.selectedIndex = (state.selectedIndex + 1) % Math.max(items.length, 1);
+                                    refreshEmojiPopupContent();
                                     return true;
                                 }
                                 if (props.event.key === "Enter" || props.event.key === "Tab") {
-                                    const item = suggestionItems[selectedIndex];
+                                    const item = items[state.selectedIndex];
                                     if (item)
-                                        props.command(item);
+                                        state.command(item);
                                     return true;
                                 }
                                 return false;
                             },
                             onExit: () => {
+                                popup[0]?.hide();
                                 popup[0]?.destroy();
                                 suggestionPopup = null;
                                 currentSuggestionType = null;
@@ -409,7 +623,7 @@ onMount(() => {
             }).configure({
                 HTMLAttributes: { class: "mention" },
                 suggestion: {
-                    ...createProfileSuggestion(),
+                    ...createProfileSuggestion(getSearchProfiles),
                     command: ({ editor: ed, range, props }) => {
                         const pubkey = "pubkey" in props ? props.pubkey : (props.id ?? "") || "";
                         const label = "displayName" in props
@@ -417,7 +631,8 @@ onMount(() => {
                             : ("label" in props ? (props.label ?? "") : "") || pubkey?.slice(0, 8);
                         ed.chain()
                             .focus()
-                            .insertContentAt(range, [
+                            .deleteRange(range)
+                            .insertContentAt(range.from, [
                             {
                                 type: "mention",
                                 attrs: {
@@ -432,7 +647,7 @@ onMount(() => {
                 },
                 renderLabel: ({ node }) => `@${node.attrs.label}`,
             }),
-            createEmojiExtension(),
+            createEmojiExtension(getSearchEmojis),
         ],
         editorProps: {
             attributes: { class: "short-text-editor-content" },
@@ -660,6 +875,73 @@ export { getContent, getSerializedContent, isEmpty };
     margin: 0 2px;
     display: inline;
   }
+  :global(.suggestion-popup-content) {
+    flex: 1;
+    min-height: 60px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  :global(.suggestion-menu-with-tabs) {
+    display: block;
+  }
+  :global(.suggestion-tabs-row) {
+    padding: 8px;
+    display: flex;
+    gap: 4px;
+  }
+  :global(.suggestion-tabs-row .suggestion-tab) {
+    flex: 1;
+    margin-right: 0;
+  }
+  :global(.suggestion-tab) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 26px;
+    padding: 0 10px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: transparent;
+    color: hsl(var(--white66));
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  :global(.suggestion-tab:hover) {
+    color: hsl(var(--white));
+  }
+  :global(.suggestion-tab-selected) {
+    background: hsl(var(--white16));
+    color: hsl(var(--white));
+  }
+  :global(.suggestion-list) {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  :global(.suggestion-tab-spinner) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 2px;
+  }
+  :global(.suggestion-tab-spinner-svg) {
+    display: block;
+    width: 14px;
+    height: 14px;
+  }
+  :global(.suggestion-tab-spinner-arc) {
+    transform-origin: 12px 12px;
+    animation: suggestion-spinner-rotate 0.8s linear infinite;
+  }
+  @keyframes suggestion-spinner-rotate {
+    to { transform: rotate(360deg); }
+  }
   :global(.suggestion-menu) {
     background: hsl(var(--gray33));
     backdrop-filter: blur(14px);
@@ -667,14 +949,18 @@ export { getContent, getSerializedContent, isEmpty };
     border: 0.33px solid hsl(var(--white33));
     border-radius: 12px;
     overflow: hidden;
-    min-width: 200px;
-    max-width: 280px;
-    max-height: 200px;
+    min-width: 240px;
+    max-width: 320px;
+    max-height: 280px;
     overflow-y: auto;
   }
   :global(.suggestion-menu-empty) {
     padding: 12px 16px;
     text-align: center;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   :global(.suggestion-empty-text) {
     font-size: 13px;
@@ -694,7 +980,7 @@ export { getContent, getSerializedContent, isEmpty };
   }
   :global(.suggestion-item:hover),
   :global(.suggestion-item.selected) {
-    background: hsl(var(--white16));
+    background: hsl(var(--white8));
   }
   :global(.suggestion-item:not(:last-child)) {
     border-bottom: 0.33px solid hsl(var(--white8));
@@ -758,6 +1044,20 @@ export { getContent, getSerializedContent, isEmpty };
   :global(.emoji-shortcode) {
     font-size: 13px;
     color: hsl(var(--white66));
+  }
+  :global(.suggestion-gif-thumb) {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  :global(.suggestion-gif-label) {
+    font-size: 13px;
+    color: hsl(var(--white66));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   :global(.tippy-box) {
     background: transparent !important;

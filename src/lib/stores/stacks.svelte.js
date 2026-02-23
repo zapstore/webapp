@@ -13,7 +13,7 @@ import { liveQuery } from 'dexie';
 import { putEvents, queryEvents } from '$lib/nostr/dexie';
 import { parseApp, parseAppStack } from '$lib/nostr/models';
 import { fetchAppFromRelays } from '$lib/nostr/service';
-import { EVENT_KINDS, PLATFORM_FILTER, DEFAULT_CATALOG_RELAYS } from '$lib/config';
+import { EVENT_KINDS, PLATFORM_FILTER, DEFAULT_CATALOG_RELAYS, SAVED_APPS_STACK_D_TAG } from '$lib/config';
 import { STACKS_PAGE_SIZE } from '$lib/constants';
 
 const platformTag = PLATFORM_FILTER['#f']?.[0];
@@ -59,11 +59,11 @@ export function createStacksQuery() {
 
 		if (stackEvents.length === 0) return [];
 
-		// Parse stacks and keep only the latest event per (pubkey, dTag)
+		// Parse stacks and keep only the latest event per (pubkey, dTag); exclude private Saved Apps stack
 		const parsed = stackEvents.map(parseAppStack);
 		const stacksByKey = new Map();
 		for (const stack of parsed) {
-			if (!stack?.pubkey || !stack?.dTag) continue;
+			if (!stack?.pubkey || !stack?.dTag || stack.dTag === SAVED_APPS_STACK_D_TAG) continue;
 			const key = `${stack.pubkey}:${stack.dTag}`;
 			const existing = stacksByKey.get(key);
 			if (!existing || (stack.createdAt != null && stack.createdAt > (existing.createdAt ?? 0))) {
@@ -129,9 +129,15 @@ export function createStacksQuery() {
  */
 export function seedStackEvents(events) {
 	if (events && events.length > 0) {
+		// Exclude private Saved Apps stack from seed (don't persist for public listings)
+		const publicEvents = events.filter(
+			(e) =>
+				e.kind !== EVENT_KINDS.APP_STACK ||
+				e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG
+		);
 		// Initialize cursor from oldest seeded stack (for relay-based load-more)
 		if (cursor === null) {
-			const stackEvents = events.filter((e) => e.kind === EVENT_KINDS.APP_STACK);
+			const stackEvents = publicEvents.filter((e) => e.kind === EVENT_KINDS.APP_STACK);
 			if (stackEvents.length > 0) {
 				const sorted = [...stackEvents].sort((a, b) => b.created_at - a.created_at);
 				const oldest = sorted[sorted.length - 1];
@@ -140,14 +146,14 @@ export function seedStackEvents(events) {
 			}
 		}
 
-		const p = putEvents(events).catch((err) =>
+		const p = putEvents(publicEvents).catch((err) =>
 			console.error('[StacksStore] Seed persist failed:', err)
 		);
 		// Fill in missing app refs in background so stack cards show icons
 		(async () => {
 			const relayUrls = DEFAULT_CATALOG_RELAYS;
 			const seen = new Set();
-			for (const ev of events) {
+			for (const ev of publicEvents) {
 				if (ev.kind !== EVENT_KINDS.APP_STACK) continue;
 				const stack = parseAppStack(ev);
 				if (!stack?.appRefs) continue;
@@ -199,18 +205,22 @@ export async function loadMoreStacks(fetchFromRelays, relayUrls) {
 		if (cursor != null) filter.until = cursor;
 		if (platformTag) filter['#f'] = [platformTag];
 		const events = await fetchFromRelays(relayUrls, filter);
+		// Exclude private Saved Apps stack (don't persist for public listings)
+		const publicEvents = events.filter(
+			(e) => e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG
+		);
 
-		if (events.length > 0) {
-			await putEvents(events).catch((err) =>
+		if (publicEvents.length > 0) {
+			await putEvents(publicEvents).catch((err) =>
 				console.error('[StacksStore] Load more persist failed:', err)
 			);
-			const lastEvent = events[events.length - 1];
+			const lastEvent = publicEvents[publicEvents.length - 1];
 			cursor = lastEvent.created_at - 1;
-			hasMore = events.length >= STACKS_PAGE_SIZE;
+			hasMore = publicEvents.length >= STACKS_PAGE_SIZE;
 			// Fetch missing app refs in background so stack cards fill in (don't block loading state)
 			(async () => {
 				const seen = new Set();
-				for (const ev of events) {
+				for (const ev of publicEvents) {
 					const stack = parseAppStack(ev);
 					if (!stack?.appRefs) continue;
 					for (const ref of stack.appRefs) {

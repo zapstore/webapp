@@ -532,8 +532,16 @@ export function parseZapReceipt(event) {
 /**
  * Publish a NIP-22 comment (kind 1111).
  * Writes to Dexie after successful publish.
+ * @param {string} content - Comment text (may include nostr:npub… and :shortcode:)
+ * @param {object} target - { contentType, pubkey, identifier }
+ * @param {function} signEvent - NIP-07 signer
+ * @param {Array<{ shortcode: string, url: string }>} [emojiTags] - Custom emoji tags for the event
+ * @param {string} [parentEventId] - Parent comment/event id for replies
+ * @param {string} [replyToPubkey] - Pubkey being replied to (p tag on reply)
+ * @param {number} [parentKind] - Kind of parent (e.g. 1111 or 9735)
+ * @param {string[]} [mentions] - Pubkeys mentioned in content (p tags for notifications)
  */
-export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind) {
+export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions) {
 	if (!content?.trim()) throw new Error('Comment content is required');
 	if (!target?.pubkey?.trim() || !target?.identifier?.trim()) {
 		throw new Error('Comment target (pubkey, identifier) is required');
@@ -574,6 +582,17 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 		}
 	}
 
+	const mentionPubkeys = mentions ?? [];
+	const seenP = new Set([target.pubkey.trim().toLowerCase()]);
+	if (replyToPubkey) seenP.add(replyToPubkey.trim().toLowerCase());
+	for (const pk of mentionPubkeys) {
+		const normalized = String(pk).trim().toLowerCase();
+		if (/^[a-f0-9]{64}$/.test(normalized) && !seenP.has(normalized)) {
+			seenP.add(normalized);
+			tags.push(['p', normalized]);
+		}
+	}
+
 	const template = {
 		kind: 1111,
 		content: content.trim(),
@@ -590,6 +609,313 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 	// Write to Dexie
 	await putEvents([signed]);
 
+	return signed;
+}
+
+/**
+ * Publish a kind 30267 App Stack.
+ * Creates a new stack with the given apps as references.
+ */
+export async function publishStack(name, description, apps, signEvent) {
+	if (!name?.trim()) throw new Error('Stack name is required');
+
+	// Generate a unique identifier from name + timestamp
+	const identifier = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now();
+
+	const tags = [
+		['d', identifier],
+		['title', name.trim()],
+		['f', PLATFORM_FILTER['#f'][0]] // android-arm64-v8a
+	];
+
+	// Add app references as 'a' tags (format: "kind:pubkey:identifier")
+	for (const app of apps) {
+		if (app?.pubkey && app?.dTag) {
+			tags.push(['a', `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`]);
+		}
+	}
+
+	const template = {
+		kind: EVENT_KINDS.APP_STACK,
+		content: description?.trim() || '',
+		tags,
+		created_at: Math.floor(Date.now() / 1000)
+	};
+
+	console.log('[publishStack] Template:', template);
+	const signed = await signEvent(template);
+	console.log('[publishStack] Signed event:', signed);
+	
+	const p = getPool();
+
+	// Publish to catalog relays
+	console.log('[publishStack] Publishing to relays:', DEFAULT_CATALOG_RELAYS);
+	const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
+	console.log('[publishStack] Relay publish results:', results);
+
+	// Write to Dexie
+	console.log('[publishStack] Writing to Dexie...');
+	await putEvents([signed]);
+	console.log('[publishStack] Saved to Dexie');
+
+	return signed;
+}
+
+/**
+ * Update an existing stack by adding or removing an app.
+ * Since stacks are replaceable events (kind 30267), we create a new event with the same 'd' tag.
+ */
+export async function updateStackApps(stackEvent, app, action, signEvent) {
+	console.log('[updateStackApps] Starting with:', { stackEvent, app, action });
+	
+	if (!stackEvent?.id) throw new Error('Stack event is required');
+	if (!app?.pubkey || !app?.dTag) throw new Error('App with pubkey and dTag is required');
+	
+	const dTag = stackEvent.tags.find(t => t[0] === 'd')?.[1];
+	if (!dTag) throw new Error('Stack must have a d tag');
+	
+	const appATag = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
+	console.log('[updateStackApps] App a-tag:', appATag);
+	
+	// Get existing 'a' tags (app references)
+	const existingATags = stackEvent.tags.filter(t => t[0] === 'a');
+	console.log('[updateStackApps] Existing a-tags:', existingATags);
+	
+	let newATags;
+	
+	if (action === 'add') {
+		const alreadyExists = existingATags.some(t => t[1] === appATag);
+		if (alreadyExists) {
+			console.log('[updateStackApps] App already in stack, returning early');
+			return stackEvent;
+		}
+		newATags = [...existingATags, ['a', appATag]];
+		console.log('[updateStackApps] Adding app, new a-tags:', newATags);
+	} else if (action === 'remove') {
+		newATags = existingATags.filter(t => t[1] !== appATag);
+		console.log('[updateStackApps] Removing app, new a-tags:', newATags);
+	} else {
+		throw new Error('Action must be "add" or "remove"');
+	}
+	
+	// Preserve all non-'a' tags from original event, then add new 'a' tags
+	const preservedTags = stackEvent.tags.filter(t => t[0] !== 'a');
+	const tags = [...preservedTags, ...newATags];
+	
+	// Ensure we have the platform filter tag
+	if (!tags.some(t => t[0] === 'f')) {
+		tags.push(['f', PLATFORM_FILTER['#f'][0]]);
+	}
+	
+	const template = {
+		kind: EVENT_KINDS.APP_STACK,
+		content: stackEvent.content || '',
+		tags,
+		created_at: Math.floor(Date.now() / 1000)
+	};
+	
+	console.log('[updateStackApps] Template:', template);
+	
+	let signed;
+	try {
+		signed = await signEvent(template);
+		console.log('[updateStackApps] Signed event:', signed);
+	} catch (signErr) {
+		console.error('[updateStackApps] SIGNING FAILED:', signErr);
+		throw signErr;
+	}
+	
+	if (!signed || !signed.id) {
+		console.error('[updateStackApps] SIGNING RETURNED NULL OR INVALID EVENT');
+		throw new Error('Signing failed - no valid event returned');
+	}
+	
+	const p = getPool();
+	
+	// Publish to catalog relays
+	console.log('[updateStackApps] Publishing to relays:', DEFAULT_CATALOG_RELAYS);
+	try {
+		const publishResults = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
+		console.log('[updateStackApps] Publish results:', publishResults);
+		
+		// Check if any succeeded
+		const succeeded = publishResults.filter(r => r.status === 'fulfilled');
+		const failed = publishResults.filter(r => r.status === 'rejected');
+		console.log('[updateStackApps] Publish succeeded:', succeeded.length, 'failed:', failed.length);
+		if (failed.length > 0) {
+			console.warn('[updateStackApps] Some publishes failed:', failed.map(f => f.reason));
+		}
+	} catch (pubErr) {
+		console.error('[updateStackApps] PUBLISH FAILED:', pubErr);
+	}
+	
+	// Write to Dexie
+	console.log('[updateStackApps] Writing to Dexie...');
+	try {
+		await putEvents([signed]);
+		console.log('[updateStackApps] Dexie write SUCCESS');
+	} catch (dexieErr) {
+		console.error('[updateStackApps] DEXIE WRITE FAILED:', dexieErr);
+		throw dexieErr;
+	}
+	
+	console.log('[updateStackApps] ===== COMPLETE =====');
+	return signed;
+}
+
+/**
+ * Update an existing stack with new name, description, and/or apps list.
+ * Since stacks are replaceable events (kind 30267), we create a new event with the same 'd' tag.
+ */
+export async function updateStack(stackEvent, newName, newDescription, newApps, signEvent) {
+	console.log('[updateStack] Starting with:', { stackEvent, newName, newDescription, appsCount: newApps?.length });
+	
+	if (!stackEvent?.id) throw new Error('Stack event is required');
+	
+	const dTag = stackEvent.tags.find(t => t[0] === 'd')?.[1];
+	if (!dTag) throw new Error('Stack must have a d tag');
+	
+	// Build tags list, preserving d tag and platform filter
+	const tags = [
+		['d', dTag],
+		['f', PLATFORM_FILTER['#f'][0]]
+	];
+	
+	// Add title tag if name is provided
+	if (newName?.trim()) {
+		tags.push(['title', newName.trim()]);
+	}
+	
+	// Build app 'a' tags from the new apps list
+	for (const app of (newApps || [])) {
+		if (app?.pubkey && app?.dTag) {
+			tags.push(['a', `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`]);
+		}
+	}
+	
+	const template = {
+		kind: EVENT_KINDS.APP_STACK,
+		content: newDescription?.trim() || '',
+		tags,
+		created_at: Math.floor(Date.now() / 1000)
+	};
+	
+	console.log('[updateStack] Template:', template);
+	
+	let signed;
+	try {
+		signed = await signEvent(template);
+		console.log('[updateStack] Signed event:', signed);
+	} catch (signErr) {
+		console.error('[updateStack] SIGNING FAILED:', signErr);
+		throw signErr;
+	}
+	
+	if (!signed || !signed.id) {
+		console.error('[updateStack] SIGNING RETURNED NULL OR INVALID EVENT');
+		throw new Error('Signing failed - no valid event returned');
+	}
+	
+	const p = getPool();
+	
+	// Publish to catalog relays
+	console.log('[updateStack] Publishing to relays:', DEFAULT_CATALOG_RELAYS);
+	try {
+		const publishResults = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
+		console.log('[updateStack] Publish results:', publishResults);
+		
+		const succeeded = publishResults.filter(r => r.status === 'fulfilled');
+		const failed = publishResults.filter(r => r.status === 'rejected');
+		console.log('[updateStack] Publish succeeded:', succeeded.length, 'failed:', failed.length);
+		if (failed.length > 0) {
+			console.warn('[updateStack] Some publishes failed:', failed.map(f => f.reason));
+		}
+	} catch (pubErr) {
+		console.error('[updateStack] PUBLISH FAILED:', pubErr);
+	}
+	
+	// Write to Dexie
+	console.log('[updateStack] Writing to Dexie...');
+	try {
+		await putEvents([signed]);
+		console.log('[updateStack] Dexie write SUCCESS');
+	} catch (dexieErr) {
+		console.error('[updateStack] DEXIE WRITE FAILED:', dexieErr);
+		throw dexieErr;
+	}
+	
+	console.log('[updateStack] ===== COMPLETE =====');
+	return signed;
+}
+
+/**
+ * Delete a stack by publishing a kind 5 deletion event.
+ * NIP-09: Event Deletion
+ */
+export async function deleteStack(stackEvent, signEvent) {
+	console.log('[deleteStack] Starting with:', { stackEvent });
+	
+	if (!stackEvent?.id) throw new Error('Stack event is required');
+	
+	const dTag = stackEvent.tags.find(t => t[0] === 'd')?.[1];
+	if (!dTag) throw new Error('Stack must have a d tag');
+	
+	// Build the deletion event (kind 5)
+	// Reference the event by id with 'e' tag and by address with 'a' tag
+	const aTagValue = `${EVENT_KINDS.APP_STACK}:${stackEvent.pubkey}:${dTag}`;
+	
+	const template = {
+		kind: 5,
+		content: 'Stack deleted',
+		tags: [
+			['e', stackEvent.id],
+			['a', aTagValue],
+			['k', String(EVENT_KINDS.APP_STACK)]
+		],
+		created_at: Math.floor(Date.now() / 1000)
+	};
+	
+	console.log('[deleteStack] Template:', template);
+	
+	let signed;
+	try {
+		signed = await signEvent(template);
+		console.log('[deleteStack] Signed event:', signed);
+	} catch (signErr) {
+		console.error('[deleteStack] SIGNING FAILED:', signErr);
+		throw signErr;
+	}
+	
+	if (!signed || !signed.id) {
+		console.error('[deleteStack] SIGNING RETURNED NULL OR INVALID EVENT');
+		throw new Error('Signing failed - no valid event returned');
+	}
+	
+	const p = getPool();
+	
+	// Publish to catalog relays
+	console.log('[deleteStack] Publishing to relays:', DEFAULT_CATALOG_RELAYS);
+	try {
+		const publishResults = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
+		console.log('[deleteStack] Publish results:', publishResults);
+		
+		const succeeded = publishResults.filter(r => r.status === 'fulfilled');
+		const failed = publishResults.filter(r => r.status === 'rejected');
+		console.log('[deleteStack] Publish succeeded:', succeeded.length, 'failed:', failed.length);
+	} catch (pubErr) {
+		console.error('[deleteStack] PUBLISH FAILED:', pubErr);
+	}
+	
+	// Remove from Dexie
+	console.log('[deleteStack] Removing from Dexie...');
+	try {
+		await db.events.delete(stackEvent.id);
+		console.log('[deleteStack] Dexie delete SUCCESS');
+	} catch (dexieErr) {
+		console.error('[deleteStack] DEXIE DELETE FAILED:', dexieErr);
+	}
+	
+	console.log('[deleteStack] ===== COMPLETE =====');
 	return signed;
 }
 

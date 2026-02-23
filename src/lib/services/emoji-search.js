@@ -8,7 +8,7 @@
  *
  * Based on Grimoire's implementation
  */
-import { queryEvents } from '$lib/nostr';
+import { queryEvents, fetchFromRelays } from '$lib/nostr';
 import { DEFAULT_SOCIAL_RELAYS } from '$lib/config';
 const KIND_USER_EMOJI_LIST = 10030;
 const KIND_EMOJI_SET = 30030;
@@ -285,20 +285,26 @@ export function createEmojiSearch(userPubkey = null) {
         initPromise = (async () => {
             try {
                 console.log('[EmojiSearch] Initializing for user:', userPubkey);
-                // Fetch user's emoji list (kind 10030)
+                // Fetch user's emoji list (kind 10030) — local-first, relay fallback
                 const emojiListFilter = {
                     kinds: [KIND_USER_EMOJI_LIST],
                     authors: [userPubkey],
                     limit: 1
                 };
-                const userEmojiListEvents = await queryEvents(emojiListFilter);
-                // Fetch user's emoji sets (kind 30030)
+                let userEmojiListEvents = await queryEvents(emojiListFilter);
+                if ((!userEmojiListEvents || userEmojiListEvents.length === 0) && typeof window !== 'undefined') {
+                    userEmojiListEvents = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, emojiListFilter, { timeout: 5000 });
+                }
+                // Fetch user's emoji sets (kind 30030) — local-first, relay fallback
                 const emojiSetFilter = {
                     kinds: [KIND_EMOJI_SET],
                     authors: [userPubkey],
                     limit: 50
                 };
-                const userEmojiSets = await queryEvents(emojiSetFilter);
+                let userEmojiSets = await queryEvents(emojiSetFilter);
+                if ((!userEmojiSets || userEmojiSets.length === 0) && typeof window !== 'undefined') {
+                    userEmojiSets = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, emojiSetFilter, { timeout: 5000 });
+                }
                 // Process user emoji list
                 if (userEmojiListEvents && userEmojiListEvents.length > 0) {
                     const userEmojiList = userEmojiListEvents[0];
@@ -324,7 +330,11 @@ export function createEmojiSearch(userPubkey = null) {
                                     '#d': [coord.identifier],
                                     limit: 1
                                 };
-                                const setEvents = await queryEvents(setFilter);
+                                // Local-first: try Dexie, then relay fallback
+                                let setEvents = await queryEvents(setFilter);
+                                if ((!setEvents || setEvents.length === 0) && typeof window !== 'undefined') {
+                                    setEvents = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, setFilter, { timeout: 5000 });
+                                }
                                 if (setEvents && setEvents.length > 0) {
                                     addEmojiSet(setEvents[0]);
                                 }
@@ -356,9 +366,21 @@ export function createEmojiSearch(userPubkey = null) {
      * Search emojis by shortcode
      */
     async function search(query) {
-        // Ensure initialized
+        const emptyQuery = !query || query.length < 1;
+        // Fast path: empty query before init — return unicode-only so suggestion menu opens immediately
+        if (emptyQuery && !isInitialized) {
+            const quick = [];
+            for (const emoji of emojis.values()) {
+                if (emoji.source === 'unicode') {
+                    quick.push(emoji);
+                    if (quick.length >= 24)
+                        break;
+                }
+            }
+            return quick.slice(0, 24);
+        }
         await init();
-        if (!query || query.length < 1) {
+        if (emptyQuery) {
             // Return a mix: user emojis first, then custom, then unicode (common emoji for new users)
             const results = [];
             const userEmojis = [];
@@ -438,14 +460,14 @@ export function clearEmojiSearchCache() {
 }
 /**
  * Convenience function to create a search function for use with CommentInput.
- * Empty query returns instantly with DEFAULT_EMOJIS; otherwise runs async search.
+ * Empty query runs async service.search('') so user + custom + unicode load; non-empty runs search(query).
+ * Pass a getter (e.g. () => getCurrentPubkey()) so the current user's emoji (kind 10030, 30030) load after sign-in.
  */
-export function createSearchEmojisFunction(userPubkey = null) {
-    const service = getEmojiSearch(userPubkey);
+export function createSearchEmojisFunction(userPubkeyOrGetter = null) {
     return async (query) => {
-        if (!query?.trim())
-            return DEFAULT_EMOJIS;
-        return service.search(query);
+        const userPubkey = typeof userPubkeyOrGetter === 'function' ? userPubkeyOrGetter() : userPubkeyOrGetter;
+        const service = getEmojiSearch(userPubkey ?? null);
+        return service.search((query ?? '').trim());
     };
 }
 /**

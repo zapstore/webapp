@@ -140,9 +140,7 @@ export async function putEvents(events) {
 	const valid = events.filter(
 		(e) =>
 			e?.id &&
-			typeof e.kind === 'number' &&
-			// Discard encrypted app stacks (non-empty content means encrypted)
-			!(e.kind === EVENT_KINDS.APP_STACK && e.content)
+			typeof e.kind === 'number'
 	);
 	if (valid.length === 0) return;
 

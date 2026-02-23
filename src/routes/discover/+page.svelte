@@ -78,8 +78,8 @@
 	});
 
 	// Data: always from liveQuery (Dexie). Skeleton until first emission.
-	// Limit to first 20 apps for discover page display
-	const apps = $derived(liveApps !== null && liveApps.length > 0 ? liveApps.slice(0, 20) : []);
+	// Show all apps so horizontal scroll can load more (like /apps vertical scroll).
+	const apps = $derived(liveApps !== null && liveApps.length > 0 ? liveApps : []);
 	const rawStacks = $derived(liveStacks !== null && liveStacks.length > 0 ? liveStacks : []);
 
 	// Resolved stacks with creator profiles (fetched as side effect)

@@ -239,7 +239,7 @@ function handleResize() {
 
   .modal-title-block {
     flex-shrink: 0;
-    padding: 24px 16px 0;
+    padding: 32px 16px 0;
   }
   .modal-title {
     margin: 0;
@@ -256,7 +256,7 @@ function handleResize() {
   }
   @media (min-width: 768px) {
     .modal-title-block {
-      padding: 20px 20px 0;
+      padding: 28px 20px 0;
     }
     .modal-title-block:has(.modal-description) .modal-description {
       margin-bottom: 24px;

@@ -13,7 +13,13 @@ function formatShareableId(id) {
         return id || "";
     return `${id.slice(0, 16)}...${id.slice(-8)}`;
 }
-const formattedJson = $derived(rawData ? JSON.stringify(rawData, null, 2) : "");
+// Strip internal Dexie fields (_tags) to show the actual Nostr event
+const cleanedRawData = $derived.by(() => {
+    if (!rawData) return null;
+    const { _tags, ...nostrEvent } = rawData;
+    return nostrEvent;
+});
+const formattedJson = $derived(cleanedRawData ? JSON.stringify(cleanedRawData, null, 2) : "");
 async function copyPublicationId() {
     if (!shareableId)
         return;

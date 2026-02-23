@@ -159,7 +159,8 @@ export function parseAppStack(event) {
         image,
         appRefs,
         createdAt: event.created_at,
-        naddr
+        naddr,
+        event
     };
 }
 // =============================================================================
