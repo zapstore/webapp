@@ -371,9 +371,26 @@ export async function queryCommentsFromStore(pubkey, identifier, aTagKind = 3226
  * Fetch comments from relays and store in Dexie.
  */
 export async function fetchComments(pubkey, identifier, options = {}) {
-	const { timeout = 5000, signal, relays = SOCIAL_RELAYS, aTagKind = 32267 } = options;
-	if (signal?.aborted || !pubkey || !identifier) return [];
+	const { timeout = 5000, signal, relays = SOCIAL_RELAYS, aTagKind = 32267, eventId = null } = options;
+	if (signal?.aborted) return [];
 
+	// Non-replaceable event root: filter by #e / #E tags
+	if (eventId) {
+		const filterLower = { kinds: [1111], '#e': [eventId], limit: 500 };
+		const filterUpper = { kinds: [1111], '#E': [eventId], limit: 500 };
+		const [eventsLower, eventsUpper] = await Promise.all([
+			fetchFromRelays(relays, filterLower, { timeout, signal }),
+			fetchFromRelays(relays, filterUpper, { timeout, signal })
+		]);
+		const byId = new Map();
+		for (const e of [...eventsLower, ...eventsUpper]) {
+			if (!byId.has(e.id)) byId.set(e.id, e);
+		}
+		return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+	}
+
+	// Replaceable/addressable event root: filter by #a / #A tags
+	if (!pubkey || !identifier) return [];
 	const aTagValue = `${aTagKind}:${pubkey}:${identifier}`;
 	const filterLower = { kinds: [1111], '#a': [aTagValue], limit: 500 };
 	const filterUpper = { kinds: [1111], '#A': [aTagValue], limit: 500 };
@@ -533,7 +550,7 @@ export function parseZapReceipt(event) {
  * Publish a NIP-22 comment (kind 1111).
  * Writes to Dexie after successful publish.
  * @param {string} content - Comment text (may include nostr:npub… and :shortcode:)
- * @param {object} target - { contentType, pubkey, identifier }
+ * @param {object} target - Replaceable: { contentType, pubkey, identifier } | Non-replaceable: { contentType, pubkey, id, kind }
  * @param {function} signEvent - NIP-07 signer
  * @param {Array<{ shortcode: string, url: string }>} [emojiTags] - Custom emoji tags for the event
  * @param {string} [parentEventId] - Parent comment/event id for replies
@@ -543,32 +560,56 @@ export function parseZapReceipt(event) {
  */
 export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions) {
 	if (!content?.trim()) throw new Error('Comment content is required');
-	if (!target?.pubkey?.trim() || !target?.identifier?.trim()) {
-		throw new Error('Comment target (pubkey, identifier) is required');
+	if (!target?.pubkey?.trim()) throw new Error('Comment target pubkey is required');
+
+	// Non-replaceable events (e.g. forum posts, kind 11) use e/E root tags.
+	// Replaceable/addressable events (apps kind 32267, stacks kind 30267) use a/A root tags.
+	const isNonReplaceable = !!target.id && !target.identifier;
+
+	if (!isNonReplaceable && !target?.identifier?.trim()) {
+		throw new Error('Comment target (pubkey, identifier) is required for replaceable events');
 	}
 
-	const kind = 32267;
-	const stackKind = 30267;
-	const aTagValue = target.contentType === 'app'
-		? `${kind}:${target.pubkey}:${target.identifier}`
-		: `${stackKind}:${target.pubkey}:${target.identifier}`;
+	let rootKind;
+	let tags;
 
-	const rootKind = target.contentType === 'app' ? kind : stackKind;
-	const tags = [
-		['a', aTagValue],
-		['A', aTagValue],
-		['K', String(rootKind)],
-		['P', target.pubkey.trim().toLowerCase()]
-	];
+	// Root scope: one tag only — E (event id) or A (address). Parent scope uses lowercase e/a later.
+	if (isNonReplaceable) {
+		rootKind = target.kind ?? 11;
+		const eId = target.id.trim().toLowerCase();
+		tags = [
+			['E', eId],
+			['K', String(rootKind)],
+			['P', target.pubkey.trim().toLowerCase()]
+		];
+	} else {
+		const kind = 32267;
+		const stackKind = 30267;
+		const aTagValue = target.contentType === 'app'
+			? `${kind}:${target.pubkey}:${target.identifier}`
+			: `${stackKind}:${target.pubkey}:${target.identifier}`;
 
+		rootKind = target.contentType === 'app' ? kind : stackKind;
+		tags = [
+			['A', aTagValue],
+			['K', String(rootKind)],
+			['P', target.pubkey.trim().toLowerCase()]
+		];
+	}
+
+	// Parent item (when replying to a comment): e, k, p — spec requires parent author in p tag
 	if (parentEventId) {
-		const eId = parentEventId.trim().toLowerCase();
-		if (!/^[a-f0-9]{64}$/.test(eId)) {
+		const parentId = parentEventId.trim().toLowerCase();
+		if (!/^[a-f0-9]{64}$/.test(parentId)) {
 			throw new Error(`Invalid parent event id: ${parentEventId.slice(0, 20)}...`);
 		}
-		tags.push(['e', eId]);
+		const parentPubkey = replyToPubkey?.trim();
+		if (!parentPubkey || !/^[a-f0-9]{64}$/.test(parentPubkey.toLowerCase())) {
+			throw new Error('replyToPubkey (parent comment author) is required when replying to a comment');
+		}
+		tags.push(['e', parentId]);
 		tags.push(['k', String(parentKind ?? 1111)]);
-		if (replyToPubkey) tags.push(['p', replyToPubkey.trim().toLowerCase()]);
+		tags.push(['p', parentPubkey.toLowerCase()]);
 	}
 
 	const emojiList = emojiTags ?? [];

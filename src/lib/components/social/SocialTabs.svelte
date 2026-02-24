@@ -16,24 +16,46 @@ import Spinner from "$lib/components/common/Spinner.svelte";
 import { Zap } from "$lib/components/icons";
 import { queryEvent } from "$lib/nostr";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
-let { app = {}, stack = null, version = "", publisherProfile = null, zaps = [], zapperProfiles = new Map(), className = "", comments = [], commentsLoading = false, commentsError = "", zapsLoading = false, profiles = {}, profilesLoading = false, getAppSlug = () => "", getStackSlug = () => "", pubkeyToNpub = () => "", searchProfiles = async () => [], searchEmojis = async () => [], onCommentSubmit, onZapReceived, onGetStarted, mainEventIds = [], } = $props();
-const staticTabs = [
+let {
+    app = {}, stack = null, version = "", publisherProfile = null,
+    zaps = [], zapperProfiles = new Map(), className = "",
+    comments = [], commentsLoading = false, commentsError = "",
+    zapsLoading = false, profiles = {}, profilesLoading = false,
+    getAppSlug = () => "", getStackSlug = () => "",
+    pubkeyToNpub = () => "", searchProfiles = async () => [],
+    searchEmojis = async () => [], onCommentSubmit, onZapReceived, onGetStarted,
+    mainEventIds = [],
+    // Details tab overrides — when provided, skip Dexie auto-fetch.
+    // Accepts the same props as chateau-web's SocialTabs for a unified API.
+    detailsRawData: detailsRawDataProp = null,
+    detailsShareableId = "",
+    detailsPublicationLabel = "",
+    detailsNpub = "",
+    detailsPubkey = "",
+    showDetailsTab = true,
+} = $props();
+const tabs = $derived([
     { id: "comments", label: "Comments" },
     { id: "zaps", label: "Zaps" },
     { id: "labels", label: "Labels" },
-    { id: "details", label: "Details" },
-];
+    ...(showDetailsTab ? [{ id: "details", label: "Details" }] : []),
+]);
 let activeTab = $state("comments");
-/** Full Nostr event fetched only when Details tab is opened (perf: avoid loading full event until needed). */
-let detailsRawData = $state(null);
+/** Full Nostr event auto-fetched from Dexie when no detailsRawData prop is supplied. */
+let autoFetchedDetails = $state(null);
 $effect(() => {
     if (activeTab !== "details") {
-        detailsRawData = null;
+        autoFetchedDetails = null;
+        return;
+    }
+    // If a pre-fetched event was supplied as a prop, skip the Dexie lookup.
+    if (detailsRawDataProp) {
+        autoFetchedDetails = null;
         return;
     }
     const target = stack ?? app;
     if (!target?.pubkey || !target?.dTag) {
-        detailsRawData = null;
+        autoFetchedDetails = null;
         return;
     }
     // Always fetch from Dexie — no rawEvent embedded in models
@@ -44,15 +66,12 @@ $effect(() => {
         "#d": [target.dTag],
         ...(kind === EVENT_KINDS.APP ? PLATFORM_FILTER : {}),
     };
-    // queryEvent is async (Dexie) — fire and update state when resolved
     queryEvent(filter).then((fromStore) => {
-        if (fromStore) {
-            detailsRawData = fromStore;
-        } else {
-            detailsRawData = null;
-        }
+        autoFetchedDetails = fromStore ?? null;
     });
 });
+/** Resolved details data: explicit prop wins over Dexie auto-fetch. */
+const resolvedDetailsRawData = $derived(detailsRawDataProp ?? autoFetchedDetails);
 const totalZapAmount = $derived(zaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0));
 const zapsWithComments = $derived(zaps.filter((z) => z.comment && z.comment.trim()));
 const totalCommentCount = $derived(comments.length + zapsWithComments.length);
@@ -99,9 +118,10 @@ function enrichComment(comment) {
     };
 }
 const commentIds = $derived(new Set(comments.map((c) => c.id)));
-// Model: main feed = zaps on the main event (app/stack) + root comments. For each item in the feed we have zaps (and comments) on that event; when you open its modal we reuse that same data.
-// Only top-level comments (no parent) are roots in the main feed. Replies to comments or zaps must never appear as roots, so we require !c.parentId. This also avoids zap-thread replies flashing in the main feed before zaps are loaded.
-const isRoot = (c) => !c.parentId;
+// Model: main feed = zaps on the main event + root comments.
+// A comment is a root if it has no parentId, OR if its parentId is not another comment's ID
+// (e.g. for forum posts, root comments have parentId = post.id which is not in commentIds).
+const isRoot = (c) => !c.parentId || !commentIds.has(c.parentId);
 const rootComments = $derived(comments
     .filter(isRoot)
     .map(enrichComment));
@@ -252,7 +272,7 @@ const combinedFeed = $derived.by(() => {
 
 <div class="social-tabs {className}">
   <div class="tab-row" use:wheelScroll>
-    {#each staticTabs as tab}
+    {#each tabs as tab}
       <button
         type="button"
         class={activeTab === tab.id ? "btn-primary-small tab-selected" : "btn-secondary-small"}
@@ -396,13 +416,13 @@ const combinedFeed = $derived.by(() => {
       <EmptyState message="Labels coming soon" minHeight={600} />
     {:else if activeTab === "details"}
       <DetailsTab
-        shareableId={stack
+        shareableId={detailsShareableId || (stack
           ? (stack.pubkey && stack.dTag ? getStackSlug(stack.pubkey, stack.dTag) : "")
-          : (app?.pubkey && app?.dTag ? getAppSlug(app.pubkey, app.dTag) : "")}
-        publicationLabel={stack ? "Stack" : "App"}
-        npub={safeNpubFromPubkey(stack?.pubkey ?? app?.pubkey)}
-        pubkey={stack?.pubkey ?? app?.pubkey ?? ""}
-        rawData={detailsRawData}
+          : (app?.pubkey && app?.dTag ? getAppSlug(app.pubkey, app.dTag) : ""))}
+        publicationLabel={detailsPublicationLabel || (stack ? "Stack" : "App")}
+        npub={detailsNpub || safeNpubFromPubkey(stack?.pubkey ?? app?.pubkey)}
+        pubkey={detailsPubkey || stack?.pubkey || app?.pubkey || ""}
+        rawData={resolvedDetailsRawData}
       />
     {/if}
   </div>
@@ -420,6 +440,8 @@ const combinedFeed = $derived.by(() => {
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    padding: 4px 2px;
+    margin: -4px -2px;
   }
 
   .tab-row::-webkit-scrollbar {

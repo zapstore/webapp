@@ -224,7 +224,7 @@ async function handleReplySubmit(event) {
         onReplySubmit?.({
             ...event,
             parentId,
-            ...(replyingToComment?.pubkey ? { replyToPubkey: replyingToComment.pubkey } : {}),
+            replyToPubkey: replyingToComment?.pubkey ?? pubkey ?? undefined,
             ...(isZapRoot && (replyingToComment?.pubkey ?? pubkey) ? { rootPubkey: replyingToComment?.pubkey ?? pubkey ?? undefined, parentKind: 9735 } : {}),
         });
         replyInput?.clear?.();

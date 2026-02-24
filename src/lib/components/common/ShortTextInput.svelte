@@ -10,7 +10,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Suggestion from "@tiptap/suggestion";
 import tippy from "tippy.js";
 import "tippy.js/dist/tippy.css";
-import { hexToColor, rgbToCssString } from "$lib/utils/color.js";
+import { hexToColor, rgbToCssString, getProfileTextColor } from "$lib/utils/color.js";
 import * as nip19 from "nostr-tools/nip19";
 import { Camera, EmojiFill, Gif, Plus, Send, ChevronDown, Cross } from "$lib/components/icons";
 let { placeholder = "Write something...", searchProfiles = async () => [], searchEmojis = async () => [], autoFocus = false, size = "small", className = "", showActionRow = true, onCameraTap = () => { }, onEmojiTap = () => { }, onGifTap = () => { }, onAddTap = () => { }, onChevronTap = () => { }, onchange, onsubmit, allowEmptySubmit = false, onClose, showCloseWhen = 'always', aboveEditor, } = $props();
@@ -77,10 +77,18 @@ function updateSuggestionContent(container, type, items, selected, command, isSe
             const name = p.displayName || p.name || p.pubkey?.slice(0, 8);
             const rgb = hexToColor(p.pubkey);
             const nameColor = rgbToCssString(rgb);
+            const bgColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.24)`;
+            const textRgb = getProfileTextColor(rgb, true);
+            const textColor = rgbToCssString(textRgb);
+            const isNpub = name && name.toLowerCase().startsWith('npub');
+            const isHex = name && /^[a-f0-9]{64}$/i.test(name);
+            const initial = (name && !isNpub && !isHex) ? name.trim()[0]?.toUpperCase() ?? '' : '';
+            const userIconSvg = `<svg viewBox="0 0 16 20" fill="currentColor" class="profile-user-icon"><path d="M16 16.2353C16 18.3145 12.4183 20 8 20C3.58172 20 0 18.3145 0 16.2353C0 14.1561 3.58172 12.4706 8 12.4706C12.4183 12.4706 16 14.1561 16 16.2353Z"/><path d="M12.8 4.70588C12.8 7.30487 10.651 9.41177 8 9.41177C5.34903 9.41177 3.2 7.30487 3.2 4.70588C3.2 2.1069 5.34903 0 8 0C10.651 0 12.8 2.1069 12.8 4.70588Z"/></svg>`;
             return `
             <button type="button" class="suggestion-item ${index === selected ? "selected" : ""}" data-index="${index}">
-              <div class="suggestion-profile-pic">
-                ${p.picture ? `<img src="${escapeAttr(p.picture)}" alt="${escapeAttr(name)}" class="profile-img" decoding="async" />` : `<div class="profile-fallback">${name?.[0]?.toUpperCase() ?? "?"}</div>`}
+              <div class="suggestion-profile-pic" style="--pic-bg: ${bgColor}; --pic-text: ${textColor};">
+                <span class="profile-fallback-layer">${initial ? escapeAttr(initial) : userIconSvg}</span>
+                ${p.picture ? `<img src="${escapeAttr(p.picture)}" alt="" class="profile-img profile-img-loading" loading="lazy" onload="this.classList.remove('profile-img-loading')" onerror="this.style.display='none'" />` : ''}
               </div>
               <div class="suggestion-profile-info">
                 <span class="suggestion-profile-name" style="color: ${escapeAttr(nameColor)}">${escapeAttr(name)}</span>
@@ -255,6 +263,7 @@ function createProfileSuggestion(getSearchProfilesFn) {
                     suggestionPopup = popup[0] ?? null;
                 },
                 onUpdate: (props) => {
+                    state.command = props.command;
                     state.selectedIndex = 0;
                     if ((props.items?.length ?? 0) > 0) {
                         state.profileItems = props.items ?? [];
@@ -468,6 +477,7 @@ function createEmojiExtension(getSearchEmojisFn) {
                                 suggestionPopup = popup[0] ?? null;
                             },
                             onUpdate: (props) => {
+                                state.command = props.command;
                                 state.selectedIndex = 0;
                                 state.lastQuery = props.query ?? "";
                                 if (state.activeTab === "emoji" && (props.items?.length ?? 0) > 0) {
@@ -988,26 +998,44 @@ export { getContent, getSerializedContent, isEmpty };
   :global(.suggestion-profile-pic) {
     width: 28px;
     height: 28px;
+    min-width: 28px;
     border-radius: 50%;
+    border: 0.33px solid hsl(var(--white16));
     overflow: hidden;
     flex-shrink: 0;
-    background: hsl(var(--gray66));
-  }
-  :global(.suggestion-profile-pic .profile-img) {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  :global(.suggestion-profile-pic .profile-fallback) {
-    width: 100%;
-    height: 100%;
+    background-color: var(--pic-bg, hsl(var(--white16)));
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    font-weight: 600;
-    color: hsl(var(--white66));
-    background: hsl(var(--white16));
+  }
+  :global(.suggestion-profile-pic .profile-fallback-layer) {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--pic-text, hsl(var(--white)));
+    user-select: none;
+  }
+  :global(.suggestion-profile-pic .profile-user-icon) {
+    width: 56%;
+    height: 56%;
+    color: var(--pic-text, hsl(var(--white)));
+  }
+  :global(.suggestion-profile-pic .profile-img) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 1;
+    transition: opacity 0.15s ease;
+  }
+  :global(.suggestion-profile-pic .profile-img-loading) {
+    opacity: 0;
   }
   :global(.suggestion-profile-info) {
     flex: 1;

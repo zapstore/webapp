@@ -3,6 +3,8 @@
  * ActionsModal - Actions sheet for content (add labels, add to stacks, report).
  * Opened from BottomBar when signed in. Content type (app, stack, etc.) drives report label.
  */
+import { fly } from "svelte/transition";
+import { cubicOut } from "svelte/easing";
 import { browser } from "$app/environment";
 import Modal from "$lib/components/common/Modal.svelte";
 import InputLabel from "$lib/components/common/InputLabel.svelte";
@@ -21,6 +23,7 @@ let {
 } = $props();
 
 const contentTypeLabel = $derived(contentType.charAt(0).toUpperCase() + contentType.slice(1));
+const showStacksSection = $derived(contentType === 'app');
 const isSignedIn = $derived(getIsSignedIn());
 const currentPubkey = $derived(getCurrentPubkey());
 let labelValue = $state("");
@@ -36,12 +39,22 @@ let stacksLoaded = $state(false);
 // Track which stacks are being updated
 let updatingStacks = $state(new Set());
 
-// Step: "main" or "createStack"
-let step = $state("main");
+let createStackOpen = $state(false);
 let stackName = $state("");
 let stackDescription = $state("");
 let saving = $state(false);
 let error = $state("");
+/** @type {HTMLInputElement | null} */
+let stackNameInput = $state(null);
+/** @type {HTMLTextAreaElement | null} */
+let stackDescInput = $state(null);
+
+$effect(() => {
+	if (createStackOpen) {
+		const t = setTimeout(() => stackNameInput?.focus(), 80);
+		return () => clearTimeout(t);
+	}
+});
 
 // Check if target app is in a stack
 function stackContainsApp(stack) {
@@ -147,14 +160,7 @@ async function handleStackClick(stack) {
 }
 
 function openCreateStack() {
-	step = "createStack";
-	error = "";
-}
-
-function goBack() {
-	step = "main";
-	stackName = "";
-	stackDescription = "";
+	createStackOpen = true;
 	error = "";
 }
 
@@ -178,8 +184,10 @@ async function handleSaveStack() {
 		const signed = await publishStack(stackName.trim(), stackDescription.trim(), apps, signEvent);
 		console.log('[ActionsModal] Stack published:', signed);
 		
-		// Go back to main view (stacks will update via liveQuery)
-		goBack();
+		// Close overlay; stacks update via liveQuery
+		createStackOpen = false;
+		stackName = "";
+		stackDescription = "";
 	} catch (err) {
 		console.error('Failed to create stack:', err);
 		error = err instanceof Error ? err.message : 'Failed to create stack';
@@ -188,10 +196,10 @@ async function handleSaveStack() {
 	}
 }
 
-// Reset step when modal closes
+// Reset when modal closes
 $effect(() => {
 	if (!isOpen) {
-		step = "main";
+		createStackOpen = false;
 		stackName = "";
 		stackDescription = "";
 		error = "";
@@ -201,17 +209,18 @@ $effect(() => {
 });
 </script>
 
-<Modal bind:open={isOpen} align="bottom" wide={true} ariaLabel="Content actions">
+<Modal bind:open={isOpen} align="bottom" wide={true} ariaLabel="Content actions" class="actions-modal {createStackOpen ? 'actions-modal-child-open' : ''}">
 	<div class="actions-modal-content">
-		{#if step === "main"}
-			<!-- Title section -->
-			<div class="actions-section title-section">
-				<h2 class="modal-title-text">Actions</h2>
-			</div>
+		<div class="child-overlay" class:visible={createStackOpen} aria-hidden="true"></div>
+		<!-- Title section -->
+		<div class="actions-section title-section">
+			<h2 class="modal-title-text">Actions</h2>
+		</div>
 
 			<div class="section-divider"></div>
 
-			<!-- Stacks section -->
+			<!-- Stacks section (apps only) -->
+			{#if showStacksSection}
 			<div class="actions-section">
 				<p class="actions-modal-header">ADD TO STACKS</p>
 				<div class="section-content">
@@ -247,6 +256,7 @@ $effect(() => {
 			</div>
 
 			<div class="section-divider"></div>
+			{/if}
 
 			<!-- Labels section -->
 			<div class="actions-section">
@@ -284,54 +294,128 @@ $effect(() => {
 					</button>
 				</div>
 			</div>
-		{:else if step === "createStack"}
-			<!-- Title section for create stack -->
-			<div class="actions-section title-section">
-				<h2 class="modal-title-text">New Stack</h2>
-			</div>
-
-			<div class="create-stack-view">
-				{#if error}
-					<div class="error-message">{error}</div>
-				{/if}
-				<div class="stack-form-box">
-					<input
-						type="text"
-						class="stack-name-input"
-						placeholder="Stack Name"
-						bind:value={stackName}
-					/>
-					<div class="stack-form-divider"></div>
-					<textarea
-						class="stack-description-input"
-						placeholder="Add a description..."
-						bind:value={stackDescription}
-						rows="3"
-					></textarea>
-				</div>
-				<div class="stack-button-row">
-					<button type="button" class="back-button" onclick={goBack} disabled={saving}>
-						Back
-					</button>
-					<button 
-						type="button" 
-						class="save-stack-button"
-						onclick={handleSaveStack}
-						disabled={!stackName.trim() || saving}
-					>
-						{saving ? 'Saving...' : 'Save Stack'}
-					</button>
-				</div>
-			</div>
-		{/if}
 	</div>
 </Modal>
 
+{#if createStackOpen}
+	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+	<div class="new-stack-overlay" onclick={() => { createStackOpen = false; }} role="presentation"></div>
+
+	<div class="new-stack-wrapper" role="dialog" aria-modal="true" aria-label="New stack">
+		<div class="new-stack-sheet" transition:fly={{ y: 80, duration: 200, easing: cubicOut }}>
+			{#if error}
+				<div class="error-message">{error}</div>
+			{/if}
+			<div class="stack-form-box">
+				<input
+					type="text"
+					class="stack-name-input"
+					placeholder="Stack Name"
+					bind:value={stackName}
+					bind:this={stackNameInput}
+					disabled={saving}
+					onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); stackDescInput?.focus(); } }}
+				/>
+				<div class="stack-form-divider"></div>
+				<textarea
+					class="stack-description-input"
+					placeholder="Add a description..."
+					bind:value={stackDescription}
+					bind:this={stackDescInput}
+					rows="3"
+					disabled={saving}
+				></textarea>
+			</div>
+			<div class="stack-button-row">
+				<button
+					type="button"
+					class="save-stack-button"
+					onclick={handleSaveStack}
+					disabled={!stackName.trim() || saving}
+				>
+					{saving ? 'Creating...' : 'Create Stack'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <style>
+	/* Scale + darken ActionsModal when NewStack overlay is open */
+	:global(.actions-modal) {
+		transition: transform 0.25s cubic-bezier(0.33, 1, 0.68, 1);
+		transform-origin: top center;
+	}
+	:global(.actions-modal.actions-modal-child-open) {
+		transform: scale(0.96) translateY(8px);
+	}
+
 	.actions-modal-content {
 		display: flex;
 		flex-direction: column;
 		box-sizing: border-box;
+		position: relative;
+	}
+
+	/* Dark tint that fades over the modal content when overlay is open */
+	.child-overlay {
+		position: absolute;
+		inset: 0;
+		background: hsl(var(--black33));
+		z-index: 10;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.2s ease-out;
+		border-radius: inherit;
+	}
+	.child-overlay.visible {
+		opacity: 1;
+	}
+
+	/* New Stack overlay sheet */
+	.new-stack-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 59;
+		background: transparent;
+	}
+
+	.new-stack-wrapper {
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		z-index: 60;
+		display: flex;
+		justify-content: center;
+		pointer-events: none;
+	}
+
+	.new-stack-sheet {
+		width: 100%;
+		max-width: 100%;
+		margin: 0;
+		background: hsl(var(--gray66));
+		border-radius: var(--radius-32) var(--radius-32) 0 0;
+		border: 0.33px solid hsl(var(--white8));
+		border-bottom: none;
+		padding: 16px;
+		pointer-events: auto;
+		backdrop-filter: blur(24px);
+		-webkit-backdrop-filter: blur(24px);
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	@media (min-width: 768px) {
+		.new-stack-sheet {
+			max-width: 560px;
+			margin-bottom: 16px;
+			border-radius: 24px;
+			border-bottom: 0.33px solid hsl(var(--white8));
+			padding: 12px;
+		}
 	}
 
 	.actions-section {
@@ -464,7 +548,7 @@ $effect(() => {
 	.labels-scroll-row {
 		overflow-x: auto;
 		overflow-y: hidden;
-		padding: 4px 12px 8px 12px;
+		padding: 4px 12px;
 		-webkit-overflow-scrolling: touch;
 	}
 
@@ -510,14 +594,6 @@ $effect(() => {
 		}
 	}
 
-	/* Create Stack View */
-	.create-stack-view {
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-		padding: 12px;
-	}
-
 	.error-message {
 		padding: 12px 16px;
 		background: hsl(var(--destructive) / 0.1);
@@ -538,7 +614,7 @@ $effect(() => {
 
 	.stack-name-input {
 		width: 100%;
-		padding: 12px 16px;
+		padding: 10px 12px;
 		background: transparent;
 		border: none;
 		outline: none;
@@ -562,7 +638,7 @@ $effect(() => {
 
 	.stack-description-input {
 		width: 100%;
-		padding: 12px 16px;
+		padding: 10px 12px;
 		background: transparent;
 		border: none;
 		outline: none;
@@ -582,26 +658,7 @@ $effect(() => {
 
 	.stack-button-row {
 		display: flex;
-		gap: 12px;
 		width: 100%;
-	}
-
-	.back-button {
-		padding: 0 20px;
-		height: 42px;
-		background-color: hsl(var(--black33));
-		border: none;
-		border-radius: var(--radius-16);
-		color: hsl(var(--white66));
-		font-size: 16px;
-		font-weight: 500;
-		cursor: pointer;
-		flex-shrink: 0;
-	}
-
-	.back-button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
 	}
 
 	.save-stack-button {
@@ -632,7 +689,6 @@ $effect(() => {
 	}
 
 	@media (max-width: 767px) {
-		.back-button,
 		.save-stack-button {
 			height: 38px;
 		}

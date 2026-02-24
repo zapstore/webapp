@@ -14,12 +14,12 @@ const textColor = $derived(isSelected || isEmphasized ? "hsl(var(--white))" : "h
   onclick={onTap}
   style="--bg-color: {bgColor}; --text-color: {textColor};"
 >
-  <div class="label-content">
+  <div class="label-content" class:is-selected={isSelected}>
     {#if isSelected}
       <svg
         class="check-icon"
-        width="10"
-        height="10"
+        width="20"
+        height="20"
         viewBox="0 0 10 10"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
@@ -83,6 +83,11 @@ const textColor = $derived(isSelected || isEmphasized ? "hsl(var(--white))" : "h
     border-radius: 12px 0 0 12px;
     max-width: 200px;
     overflow: hidden;
+  }
+
+  .label-content.is-selected {
+    padding-left: 8px;
+    gap: 5px;
   }
 
   .check-icon {
