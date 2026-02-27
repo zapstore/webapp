@@ -28,12 +28,15 @@ export const load = async ({ params }) => {
 	}
 
 	if (!pubkey) {
-		return { npub, pubkey: null, profile: null, apps: [], stacks: [], resolvedStacks: [] };
+		return { npub, pubkey: null, profile: null, apps: [], stacks: [], resolvedStacks: [], appFilterPrefix: null };
 	}
 
-	// Client-side: component queries Dexie for profile data
+	/** When set, profile page must only show apps whose dTag starts with this (e.g. Zapstore: only dev.zapstore.*) */
+	const appFilterPrefix = PROFILE_APP_FILTERS[npub] ?? null;
+
+	// Client-side: component queries Dexie for profile data; needs prefix to apply same filter
 	if (browser) {
-		return { npub, pubkey, profile: null, apps: [], stacks: [], resolvedStacks: [] };
+		return { npub, pubkey, profile: null, apps: [], stacks: [], resolvedStacks: [], appFilterPrefix };
 	}
 
 	// SSR: fetch from server cache
@@ -51,9 +54,8 @@ export const load = async ({ params }) => {
 	const profileEvent = profileMap.get(pubkey) ?? null;
 	const profile = profileEvent ? parseProfile(profileEvent) : null;
 
-	// Apply per-profile app filter (e.g. only show "dev.zapstore.*" apps for certain profiles)
-	const dTagPrefix = PROFILE_APP_FILTERS[npub];
-	const filteredApps = dTagPrefix ? apps.filter((app) => app.dTag?.startsWith(dTagPrefix)) : apps;
+	// Apply per-profile app filter (e.g. only show "dev.zapstore.*" apps for Zapstore — excludes indexed apps)
+	const filteredApps = appFilterPrefix ? apps.filter((app) => app.dTag?.startsWith(appFilterPrefix)) : apps;
 
 	return {
 		npub,
@@ -61,6 +63,7 @@ export const load = async ({ params }) => {
 		profile,
 		apps: filteredApps,
 		stacks: stacksResult.stacks,
-		resolvedStacks: stacksResult.resolvedStacks
+		resolvedStacks: stacksResult.resolvedStacks,
+		appFilterPrefix
 	};
 };

@@ -162,7 +162,10 @@ onMount(async () => {
                 await fetchAppsByAuthorFromRelays(DEFAULT_CATALOG_RELAYS, pubkey, { limit: 50 });
                 events = await queryEvents({ kinds: [32267], authors: [pubkey] });
             }
-            apps = events.map(parseApp);
+            const parsed = events.map(parseApp);
+            // Same filter as SSR: e.g. Zapstore profile only shows authored apps (dev.zapstore.*), not indexed
+            const prefix = data.appFilterPrefix ?? null;
+            apps = prefix ? parsed.filter((a) => a.dTag?.startsWith(prefix)) : parsed;
         }
         finally {
             appsLoading = false;
