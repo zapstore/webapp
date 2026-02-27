@@ -12,8 +12,8 @@ import tippy from "tippy.js";
 import "tippy.js/dist/tippy.css";
 import { hexToColor, rgbToCssString, getProfileTextColor } from "$lib/utils/color.js";
 import * as nip19 from "nostr-tools/nip19";
-import { Camera, EmojiFill, Gif, Plus, Send, ChevronDown, Cross } from "$lib/components/icons";
-let { placeholder = "Write something...", searchProfiles = async () => [], searchEmojis = async () => [], autoFocus = false, size = "small", className = "", showActionRow = true, onCameraTap = () => { }, onEmojiTap = () => { }, onGifTap = () => { }, onAddTap = () => { }, onChevronTap = () => { }, onchange, onsubmit, allowEmptySubmit = false, onClose, showCloseWhen = 'always', aboveEditor, } = $props();
+import { Camera, EmojiFill, Plus, Send, ChevronDown, Cross } from "$lib/components/icons";
+let { placeholder = "Write something...", searchProfiles = async () => [], searchEmojis = async () => [], autoFocus = false, size = "small", className = "", showActionRow = true, onCameraTap = () => { }, onEmojiTap = () => { }, onAddTap = () => { }, onChevronTap = () => { }, onchange, onsubmit, allowEmptySubmit = false, onClose, showCloseWhen = 'always', aboveEditor, } = $props();
 /** Getters so suggestion plugins always receive current search functions (called when editor is created in onMount). */
 function getSearchProfiles() { return searchProfiles; }
 function getSearchEmojis() { return searchEmojis; }
@@ -725,10 +725,7 @@ export { getContent, getSerializedContent, isEmpty };
           <Camera variant="fill" color="hsl(var(--white33))" size={20} />
         </button>
         <button type="button" class="action-btn" onclick={onEmojiTap} aria-label="Add emoji">
-          <EmojiFill variant="fill" color="hsl(var(--white33))" size={20} />
-        </button>
-        <button type="button" class="action-btn" onclick={onGifTap} aria-label="Add GIF">
-          <Gif variant="fill" color="hsl(var(--white33))" size={20} />
+          <EmojiFill variant="fill" color="hsl(var(--white33))" size={18} />
         </button>
         <button type="button" class="action-btn" onclick={onAddTap} aria-label="Add attachment">
           <Plus variant="outline" color="hsl(var(--white33))" size={16} strokeWidth={2.8} />

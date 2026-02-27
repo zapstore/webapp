@@ -636,7 +636,7 @@ function toggleReleaseNotesExpanded(releaseId) {
 </svelte:head>
 
 {#if error}
-  <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
+  <div class="w-full py-16 px-4 sm:px-6 md:px-[38px]">
     <div class="flex items-center justify-center py-24">
       <div class="text-center">
         <div class="rounded-lg bg-destructive/10 border border-destructive/20 p-6 max-w-md">
@@ -668,7 +668,7 @@ function toggleReleaseNotesExpanded(releaseId) {
     bind:getStartedModalOpen
   />
 
-  <div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 pb-24">
+  <div class="w-full pt-4 md:pt-6 pb-24 px-4 sm:px-6 md:px-[38px]">
     <!-- App Header Row -->
     <div class="app-header flex items-center gap-4 sm:gap-6 mb-6">
       <AppPic

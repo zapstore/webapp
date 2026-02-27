@@ -58,7 +58,7 @@
             src={`${assets}/images/android-app-screenshot.png`}
             alt="Zapstore Android app screenshot"
             class="w-full h-full object-cover object-top"
-            style="filter: drop-shadow(0 0 60px hsl(var(--blurpleColor) / 0.05)) drop-shadow(0 0 120px hsl(var(--blurpleColor) / 0.025));"
+            style="filter: drop-shadow(0 0 60px hsl(var(--blurpleColor) / 0.02)) drop-shadow(0 0 120px hsl(var(--blurpleColor) / 0.01));"
             loading="lazy"
           />
         </div>

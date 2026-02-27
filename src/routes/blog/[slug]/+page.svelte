@@ -1,5 +1,6 @@
 <script lang="js">
 import { formatDisplayDate } from '$lib/date';
+import DetailHeader from '$lib/components/layout/DetailHeader.svelte';
 let { data } = $props();
 let title = $derived(data.metadata?.title || 'Blog Post');
 let description = $derived(data.metadata?.description || '');
@@ -18,7 +19,10 @@ let Content = $derived(data.content);
 	{/if}
 </svelte:head>
 
-<article>
+<DetailHeader variant="page" title="Blog" showBack={true} />
+
+<div class="w-full px-4 sm:px-6 md:px-[38px] py-10">
+<article class="max-w-3xl">
 	<!-- Article header -->
 	<header class="mb-12">
 		<div class="flex items-center gap-3 text-sm text-[var(--color-text-tertiary)] mb-4">
@@ -46,3 +50,4 @@ let Content = $derived(data.content);
 		{/if}
 	</div>
 </article>
+</div>

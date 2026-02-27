@@ -377,7 +377,7 @@ const displayDescription = $derived(!stack?.title ||
 {/if}
 
 <section class="stack-page">
-  <div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24">
+  <div class="w-full pt-4 pb-24 px-4 sm:px-6 md:px-[38px]">
     {#if loading}
       <!-- Loading State -->
       <div class="skeleton-publisher-row">

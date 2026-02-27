@@ -188,6 +188,15 @@
     #5C5FFF 0%,
     #4542FF 100%
   );
+
+  /* Blurple bright – for Zapstore logo and Studio icon (edit these two to change both) */
+  --blurple-bright-0: #777afe;
+  --blurple-bright-1: #5d5aff;
+  --gradient-blurple-bright: radial-gradient(
+    circle at top left,
+    var(--blurple-bright-0) 0%,
+    var(--blurple-bright-1) 100%
+  );
   --gradient-blurple-hover: radial-gradient(
     circle at top left,
     #4245FF 0%,
@@ -1686,7 +1695,7 @@ h5, h6 {
 
 .bg-gradient-subtle {
   background: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, hsl(var(--primary) / 0.15), transparent),
+    radial-gradient(ellipse 80% 50% at 50% -20%, hsl(var(--primary) / 0.06), transparent),
     hsl(var(--background));
 }
 

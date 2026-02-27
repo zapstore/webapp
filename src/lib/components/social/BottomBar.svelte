@@ -70,7 +70,7 @@ $effect(() => {
 
 <svelte:window onkeydown={handleCommentKeydown} />
 
-<div class="bottom-bar-wrapper {className}" class:modal-open={barSlidesOut}>
+<div class="bottom-bar-wrapper {className}" class:modal-open={barSlidesOut} class:guest-wrapper={!isSignedIn}>
 	{#if commentExpanded && isSignedIn}
 		<div class="bottom-bar-comment-only">
 			<div class="comment-input-wrap">
@@ -157,10 +157,12 @@ $effect(() => {
 		bottom: 0;
 		left: 0;
 		right: 0;
+		width: 100%;
 		z-index: 40;
 		display: flex;
 		justify-content: center;
 		pointer-events: none;
+		flex-shrink: 0;
 	}
 
 	.bottom-bar {
@@ -307,6 +309,10 @@ $effect(() => {
 	}
 
 	@media (min-width: 768px) {
+		/* Hide the guest "get started" bar on desktop — sidebar has Get Started CTA */
+		.bottom-bar-wrapper.guest-wrapper {
+			display: none;
+		}
 		.bottom-bar {
 			max-width: 560px;
 			margin-bottom: 16px;

@@ -118,10 +118,11 @@ function enrichComment(comment) {
     };
 }
 const commentIds = $derived(new Set(comments.map((c) => c.id)));
+const zapIds = $derived(new Set(zaps.map((z) => (z.id ?? '').toLowerCase())));
 // Model: main feed = zaps on the main event + root comments.
-// A comment is a root if it has no parentId, OR if its parentId is not another comment's ID
-// (e.g. for forum posts, root comments have parentId = post.id which is not in commentIds).
-const isRoot = (c) => !c.parentId || !commentIds.has(c.parentId);
+// A comment is a root if it has no parentId, AND its parentId is not another comment's ID,
+// AND its parentId is not a zap receipt ID (zap-reply comments only appear inside the zap thread).
+const isRoot = (c) => !c.parentId || (!commentIds.has(c.parentId) && !zapIds.has((c.parentId ?? '').toLowerCase()));
 const rootComments = $derived(comments
     .filter(isRoot)
     .map(enrichComment));
@@ -461,6 +462,10 @@ const combinedFeed = $derived.by(() => {
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .tab-row :global(button:hover) {
+    box-shadow: none;
   }
 
   .tab-stats {
