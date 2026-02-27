@@ -28,6 +28,8 @@ import { createSearchProfilesFunction } from "$lib/services/profile-search";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
 import { persistEventsInBackground } from "$lib/nostr/cache-writer.js";
+import EditStackModal from "$lib/components/modals/EditStackModal.svelte";
+import Pen from "$lib/components/icons/Pen.svelte";
 let { data } = $props();
 // Catalog for this stack - currently just Zapstore
 const catalogs = [
@@ -45,10 +47,18 @@ let comments = $state([]);
 let commentsLoading = $state(false);
 let commentsError = $state("");
 let getStartedModalOpen = $state(false);
+let editStackModalOpen = $state(false);
 let profiles = $state({});
 let profilesLoading = $state(false);
+// Check if current user owns this stack
+const isOwner = $derived(
+    getIsSignedIn() && 
+    getCurrentPubkey() && 
+    stack?.pubkey && 
+    getCurrentPubkey() === stack.pubkey
+);
 const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
-const searchEmojis = $derived(createSearchEmojisFunction(getCurrentPubkey()));
+const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
 const stackNaddr = $derived($page.params.naddr);
 // Ref for horizontal scroll container
 let appsScrollContainer = $state(null);
@@ -285,7 +295,7 @@ async function handleCommentSubmit(event) {
     };
     comments = [...comments, optimistic];
     try {
-        const signed = await publishComment(text, { contentType: "stack", pubkey: stack.pubkey, identifier: stack.dTag }, signEvent, submitEmojiTags, parentId, replyToPubkey ?? rootPubkey, parentKind);
+        const signed = await publishComment(text, { contentType: "stack", pubkey: stack.pubkey, identifier: stack.dTag }, signEvent, submitEmojiTags, parentId, replyToPubkey ?? rootPubkey, parentKind, event.mentions);
         const parsed = parseComment(signed);
         parsed.npub = nip19.npubEncode(signed.pubkey);
         comments = comments.filter((c) => c.id !== tempId);
@@ -367,7 +377,7 @@ const displayDescription = $derived(!stack?.title ||
 {/if}
 
 <section class="stack-page">
-  <div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24">
+  <div class="w-full pt-4 pb-24 px-4 sm:px-6 md:px-[38px]">
     {#if loading}
       <!-- Loading State -->
       <div class="skeleton-publisher-row">
@@ -418,7 +428,20 @@ const displayDescription = $derived(!stack?.title ||
     {:else if stack}
       <!-- Stack Header: name in column, then description row (description left, count right) -->
       <div class="stack-header">
-        <h1 class="stack-title">{displayTitle}</h1>
+        <div class="stack-title-row">
+          <h1 class="stack-title">{displayTitle}</h1>
+          {#if isOwner}
+            <button
+              type="button"
+              class="edit-stack-btn"
+              onclick={() => editStackModalOpen = true}
+              aria-label="Edit stack"
+            >
+              <Pen size={14} variant="fill" color="hsl(var(--white66))" />
+              <span class="edit-btn-text">Edit</span>
+            </button>
+          {/if}
+        </div>
         <div class="stack-desc-row">
           <p class="stack-description">{displayDescription}</p>
           {#if apps.length > 0}
@@ -505,6 +528,19 @@ const displayDescription = $derived(!stack?.title ||
   />
 {/if}
 
+<!-- Edit Stack Modal (only for stack owners) -->
+{#if isOwner && stack}
+  <EditStackModal
+    bind:isOpen={editStackModalOpen}
+    {stack}
+    {apps}
+    onSaved={(newEvent) => {
+      // Reload the stack data after save
+      loadStack();
+    }}
+  />
+{/if}
+
 <style>
   .stack-page {
     min-height: 100vh;
@@ -515,7 +551,15 @@ const displayDescription = $derived(!stack?.title ||
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin-top: 8px;
     margin-bottom: 32px;
+  }
+
+  .stack-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
   }
 
   .stack-title {
@@ -524,6 +568,53 @@ const displayDescription = $derived(!stack?.title ||
     color: hsl(var(--foreground));
     margin: 0;
     line-height: 1.2;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .edit-stack-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: var(--gradient-blurple);
+    border: none;
+    border-radius: 50%;
+    color: hsl(var(--primary-foreground));
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .edit-btn-text {
+    display: none;
+  }
+
+  .edit-stack-btn:hover {
+    transform: scale(1.05);
+  }
+
+  .edit-stack-btn:active {
+    transform: scale(0.95);
+  }
+
+  @media (min-width: 768px) {
+    .edit-stack-btn {
+      width: auto;
+      height: auto;
+      padding: 8px 14px;
+      border-radius: var(--radius-12);
+      gap: 8px;
+    }
+
+    .edit-btn-text {
+      display: inline;
+    }
   }
 
   .stack-desc-row {

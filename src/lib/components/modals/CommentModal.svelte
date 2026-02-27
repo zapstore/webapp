@@ -1,11 +1,16 @@
 <script lang="js">
 /**
- * CommentModal - Bottom sheet for writing a comment with TipTap (mentions + emojis)
+ * CommentModal - Bottom sheet for writing a comment with TipTap (mentions + emojis).
+ * Pass getCurrentPubkey so custom emoji packs (kind 10030, 30030) and profile lists (kind 3, 30000) load from Dexie.
  */
 import { fly } from "svelte/transition";
 import { cubicOut } from "svelte/easing";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
-let { isOpen = $bindable(false), target = null, placeholder = "Write a comment...", searchProfiles = async () => [], searchEmojis = async () => [], onsubmit, onclose, } = $props();
+import { createSearchEmojisFunction } from "$lib/services/emoji-search";
+import { createSearchProfilesFunction } from "$lib/services/profile-search";
+let { isOpen = $bindable(false), target = null, placeholder = "Write a comment...", getCurrentPubkey = () => null, searchProfiles: searchProfilesProp = null, searchEmojis: searchEmojisProp = null, onsubmit, onclose, } = $props();
+const searchProfiles = $derived(searchProfilesProp ?? createSearchProfilesFunction(getCurrentPubkey));
+const searchEmojis = $derived(searchEmojisProp ?? createSearchEmojisFunction(getCurrentPubkey));
 let textInput = $state(null);
 let submitting = $state(false);
 function close() {

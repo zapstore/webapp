@@ -92,7 +92,7 @@ function handleLabelTap(label) {
 	<!-- svelte-ignore a11y_click_events_have_key_events a11y_interactive_supports_focus -->
 	<div
 		class="fixed inset-0 z-[100] bg-overlay flex justify-center items-start"
-		style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; margin: 0 !important;"
+		style="position: fixed !important; inset: 0 !important; margin: 0 !important;"
 		transition:fade={{ duration: 150 }}
 		onclick={handleBackdropClick}
 		role="dialog"

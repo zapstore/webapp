@@ -1,6 +1,8 @@
 <script lang="js">
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+	import DetailHeader from '$lib/components/layout/DetailHeader.svelte';
+	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import {
@@ -131,13 +133,14 @@
 		}
 	});
 
+	let scrollContainer = null;
+
 	// Infinite scroll
 	function shouldLoadMore() {
 		if (!browser) return false;
-		const scrollTop = window.scrollY || document.documentElement.scrollTop;
-		const scrollHeight = document.documentElement.scrollHeight;
-		const clientHeight = window.innerHeight;
-		return scrollHeight - scrollTop - clientHeight < SCROLL_THRESHOLD;
+		const el = scrollContainer;
+		if (!el) return false;
+		return el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD;
 	}
 
 	function handleScroll() {
@@ -154,27 +157,59 @@
 		if ((!data.seedEvents || data.seedEvents.length === 0) && navigator.onLine) {
 			await loadMoreStacks(fetchFromRelays, DEFAULT_CATALOG_RELAYS);
 		}
-		// Scroll listener for infinite scroll
-		window.addEventListener('scroll', handleScroll, { passive: true });
+		// Use the app shell's scroll container, fall back to window
+		scrollContainer = document.querySelector('[data-scroll-container]') ?? window;
+		scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
 	});
 
 	onDestroy(() => {
 		if (browser) {
-			window.removeEventListener('scroll', handleScroll);
+			scrollContainer?.removeEventListener('scroll', handleScroll);
 		}
 	});
+
+	let filterPillOpen = $state(false);
+	let filterPillEl = $state(null);
+
+	function handleFilterOutside(e) {
+		if (filterPillOpen && filterPillEl && !filterPillEl.contains(e.target)) {
+			filterPillOpen = false;
+		}
+	}
 </script>
+
+<svelte:document onclick={handleFilterOutside} />
 
 <svelte:head>
 	<title>App Stacks — Zapstore</title>
 	<meta name="description" content="Browse curated app collections on Zapstore" />
 </svelte:head>
 
-<section class="stacks-page">
-	<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-		<div class="page-header">
-			<h1 class="text-2xl md:text-3xl font-bold">Latest Stacks</h1>
+<DetailHeader variant="page" title="Stacks">
+	{#snippet rightContent()}
+		<div class="filter-pill-wrap" bind:this={filterPillEl}>
+			<button
+				type="button"
+				class="filter-pill"
+				onclick={(e) => { e.stopPropagation(); filterPillOpen = !filterPillOpen; }}
+				aria-expanded={filterPillOpen}
+			>
+				Latest
+				<span class="filter-pill-chevron">
+					<ChevronDown size={12} variant="outline" color="hsl(var(--white33))" strokeWidth={1.6} />
+				</span>
+			</button>
+			{#if filterPillOpen}
+				<div class="filter-pill-dropdown" role="tooltip">
+					More sort &amp; filter options are coming soon.
+				</div>
+			{/if}
 		</div>
+	{/snippet}
+</DetailHeader>
+
+<section class="stacks-page">
+	<div class="w-full py-6 px-4 sm:px-6 md:px-[38px]">
 
 		{#if loading && resolvedStacks.length === 0}
 			<div class="stacks-grid">
@@ -236,8 +271,51 @@
 		min-height: 100vh;
 	}
 
-	.page-header {
-		margin-bottom: 24px;
+	/* ── Filter pill (Latest + ChevronDown) ── */
+	.filter-pill-wrap {
+		position: relative;
+	}
+
+	.filter-pill {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		padding: 5px 14px;
+		background: hsl(var(--white8));
+		border: none;
+		border-radius: 20px;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: hsl(var(--white33));
+		cursor: pointer;
+		transition: background-color 0.15s ease;
+		white-space: nowrap;
+	}
+
+	.filter-pill:hover {
+		background: hsl(var(--white16));
+	}
+
+	.filter-pill-chevron {
+		display: flex;
+		align-items: center;
+		padding-top: 2px;
+	}
+
+	.filter-pill-dropdown {
+		position: absolute;
+		top: calc(100% + 8px);
+		right: 0;
+		min-width: 220px;
+		padding: 12px 14px;
+		background: hsl(240, 8%, 13%);
+		border: 0.33px solid hsl(var(--white16));
+		border-radius: 12px;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+		font-size: 0.8125rem;
+		line-height: 1.45;
+		color: hsl(var(--white66));
+		z-index: 200;
 	}
 
 	.stacks-grid {

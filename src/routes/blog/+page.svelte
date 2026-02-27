@@ -1,6 +1,7 @@
 <script lang="js">
 import { formatDisplayDate } from '$lib/date';
 import { ArrowRight } from 'lucide-svelte';
+import DetailHeader from '$lib/components/layout/DetailHeader.svelte';
 let { data } = $props();
 </script>
 
@@ -9,14 +10,10 @@ let { data } = $props();
 	<meta name="description" content="Latest news, updates and insights from the Zapstore team." />
 </svelte:head>
 
-<header class="mb-16">
-	<h1 class="text-4xl sm:text-5xl font-bold mb-4">Blog</h1>
-	<p class="text-lg text-[var(--color-text-secondary)]">
-		Latest news, updates and insights from the Zapstore team.
-	</p>
-</header>
+<DetailHeader variant="page" title="Blog" />
 
-<div class="space-y-12">
+<div class="w-full px-4 sm:px-6 md:px-[38px] py-10">
+<div class="max-w-3xl space-y-12">
 	{#each data.posts as post, i}
 		<article class="group">
 			<a href="/blog/{post.path}" class="block" data-sveltekit-reload>
@@ -73,4 +70,5 @@ let { data } = $props();
 			{/if}
 		</article>
 	{/each}
+</div>
 </div>

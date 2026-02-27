@@ -25,7 +25,11 @@ export {
 	fetchZaps,
 	parseZapReceipt,
 	parseComment,
-	publishComment
+	publishComment,
+	publishStack,
+	updateStackApps,
+	updateStack,
+	deleteStack
 } from './service';
 
 // Models (event parsing)

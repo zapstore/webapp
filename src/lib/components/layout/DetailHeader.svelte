@@ -26,7 +26,13 @@ import SearchModal from '$lib/components/common/SearchModal.svelte';
 import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 import OnboardingBuildingModal from '$lib/components/modals/OnboardingBuildingModal.svelte';
 import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
-let { publisherPic = null, publisherName = null, publisherNameForPic = undefined, publisherPubkey = null, publisherUrl = '#', timestamp = null, catalogs = [], catalogText = 'In Zapstore', showPublisher = true, scrollThreshold, getStartedModalOpen = $bindable(false) } = $props();
+let {
+    variant = 'detail',   // 'detail' | 'page'
+    title = '',            // page variant: header title
+    showBack = false,      // page variant: show back button
+    rightContent,          // page variant: optional snippet rendered right of title
+    publisherPic = null, publisherName = null, publisherNameForPic = undefined, publisherPubkey = null, publisherUrl = '#', timestamp = null, catalogs = [], catalogText = 'In Zapstore', showPublisher = true, scrollThreshold, getStartedModalOpen = $bindable(false)
+} = $props();
 const nameForPic = $derived(publisherNameForPic !== undefined ? publisherNameForPic : publisherName);
 function formatNpubDisplay(npubStr) {
     if (!npubStr || typeof npubStr !== 'string') return '';
@@ -143,14 +149,18 @@ const headerVisible = $derived(scrollThreshold == null ? true : scrollY > scroll
 onMount(() => {
     if (browser)
         startProfileSearchBackground();
+    // Find the nearest scroll container (app shell right pane) or fall back to window
+    const scrollContainer = document.querySelector('[data-scroll-container]');
     const handleScroll = () => {
-        scrollY = window.scrollY;
-        scrolled = window.scrollY > 10;
+        const pos = scrollContainer ? scrollContainer.scrollTop : window.scrollY;
+        scrollY = pos;
+        scrolled = pos > 10;
     };
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    const scrollTarget = scrollContainer ?? window;
+    scrollTarget.addEventListener('scroll', handleScroll, { passive: true });
     document.addEventListener('click', handleClickOutside);
     return () => {
-        window.removeEventListener('scroll', handleScroll);
+        scrollTarget.removeEventListener('scroll', handleScroll);
         document.removeEventListener('click', handleClickOutside);
     };
 });
@@ -197,184 +207,129 @@ async function handleSignIn() {
 }
 </script>
 
+{#if variant === 'page'}
+<!-- ── Page header: sticky title bar for list/section pages ─────────────── -->
 <header
 	class={cn(
-		'detail-header fixed top-0 left-0 right-0 z-50 transition-all duration-300',
+		'page-header sticky top-0 left-0 right-0 w-full z-50 transition-all duration-300',
+		scrolled
+			? 'bg-background/60 border-b border-border/50'
+			: 'bg-transparent border-b border-transparent'
+	)}
+>
+	<nav class="w-full h-full px-4 sm:px-6 md:px-[38px]">
+		<div class="flex items-center justify-between h-full">
+			<div class="flex items-center gap-3">
+				<BackButton onBack={handleBack} />
+				<h1 class="page-header-title">{title}</h1>
+			</div>
+			<!-- Right side: optional content (filter pill etc.) + mobile menu button -->
+			<div class="flex items-center gap-2 flex-shrink-0">
+				{#if rightContent}
+					{@render rightContent()}
+				{/if}
+				<!-- Menu button: only on mobile — on desktop the sidebar handles navigation -->
+				<button
+					type="button"
+					class="page-menu-btn"
+					onclick={toggleMenu}
+					aria-label="Open menu"
+					aria-expanded={menuOpen}
+				>
+					<Menu size={20} strokeWidth={1.5} color="hsl(var(--white33))" />
+				</button>
+			</div>
+		</div>
+	</nav>
+</header>
+
+<!-- Mobile full-screen menu overlay — page variant -->
+{#if menuOpen}
+	<div class="menu-backdrop" onclick={closeMenu} role="button" tabindex="-1" aria-label="Close menu" onkeydown={(e) => e.key === 'Escape' && closeMenu()}></div>
+	<div class="menu-dropdown page-menu-dropdown menu-dropdown-slide">
+		<div class="menu-header-row">
+			<a href="/" class="menu-logo" onclick={closeMenu}>
+				<svg
+					width="19"
+					height="32"
+					viewBox="0 0 19 32"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+					class="menu-logo-icon"
+				>
+					<path
+						d="M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z"
+						fill="white"
+					/>
+				</svg>
+				<span class="menu-logo-text">Zapstore</span>
+			</a>
+		<button type="button" class="menu-close-icon-btn" onclick={closeMenu} aria-label="Close menu">
+			<Cross size={18} strokeWidth={1.5} />
+		</button>
+		</div>
+
+		<button type="button" class="menu-search-btn" onclick={openSearch}>
+			<Search class="h-5 w-5 flex-shrink-0" style="color: hsl(var(--white33));" />
+			<span class="menu-search-text">Search Any App</span>
+		</button>
+
+		<div class="menu-section">
+			<a href="/discover" class="menu-section-link" onclick={closeMenu}>Discover</a>
+			<nav class="menu-subnav">
+				<a href="/apps" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Apps</a>
+				<a href="/stacks" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Stacks</a>
+			</nav>
+		</div>
+
+		<div class="menu-section">
+			<a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
+			<nav class="menu-subnav">
+				<a href="/studio#quickstart" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Quickstart</a>
+				<a href="/docs/publish" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Docs</a>
+			</nav>
+		</div>
+
+		<div class="menu-section">
+			<span class="menu-section-label">Contact</span>
+			<nav class="menu-subnav">
+				<a href="https://github.com/zapstore/zapstore" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">GitHub</a>
+				<a href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">User Support on Signal</a>
+				<a href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Dev Support on Signal</a>
+				<a href="https://npub.world/npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Follow us on Nostr</a>
+				<a href="https://x.com/zapstore_" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Follow us on Twitter</a>
+			</nav>
+		</div>
+
+		{#if !isConnected}
+			<div class="menu-divider"></div>
+			<div class="menu-cta-wrapper">
+				<button type="button" class="btn-primary w-full" onclick={openGetStartedModal}>
+					Get Started
+				</button>
+			</div>
+		{/if}
+	</div>
+{/if}
+
+{:else}
+<!-- ── Detail header: publisher info, catalog, menu ────────────────────── -->
+<header
+	class={cn(
+		'detail-header sticky top-0 left-0 right-0 w-full z-50 transition-all duration-300',
 		!headerVisible && 'detail-header-hidden',
 		scrolled
 			? 'bg-background/60 border-b border-border/50'
 			: 'bg-transparent border-b border-transparent'
 	)}
 >
-	<nav class="container mx-auto px-3 sm:px-6 lg:px-8 h-full">
+	<nav class="w-full h-full px-4 sm:px-6 md:px-[38px]">
 		<div class="flex items-center justify-between gap-3 h-full">
 			<!-- Left: Back button (click = back, right-click/long-press = menu) + Publisher info -->
-			<div class="flex items-center gap-2 min-w-0 flex-1">
-				<div
-					class="menu-container"
-					bind:this={menuContainer}
-					role="navigation"
-					aria-label="Back and menu"
-				>
-					<BackButton
-						onBack={handleBack}
-						onOpenMenu={() => { menuOpen = true; }}
-						onCloseMenu={closeMenu}
-						menuOpen={menuOpen}
-						showExplainer={true}
-					/>
+		<div class="flex items-center gap-2 min-w-0 flex-1">
+			<BackButton onBack={handleBack} />
 
-					<!-- Menu backdrop (mobile only) -->
-					{#if menuOpen}
-						<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-						<div class="menu-backdrop" onclick={closeMenu}></div>
-					{/if}
-
-					<!-- Menu dropdown -->
-					{#if menuOpen}
-						<div class="menu-dropdown">
-							<!-- Logo section with user profile -->
-							<div class="menu-header-row">
-								<a href="/" class="menu-logo" onclick={closeMenu}>
-									<svg
-										width="19"
-										height="32"
-										viewBox="0 0 19 32"
-										fill="none"
-										xmlns="http://www.w3.org/2000/svg"
-										class="menu-logo-icon"
-									>
-										<defs>
-											<linearGradient id="menu-logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-												<stop offset="0%" style="stop-color: hsl(252, 100%, 72%);" />
-												<stop offset="100%" style="stop-color: hsl(241, 100%, 68%);" />
-											</linearGradient>
-										</defs>
-										<path
-											d="M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z"
-											fill="url(#menu-logo-gradient)"
-										/>
-									</svg>
-									<span class="menu-logo-text">Zapstore</span>
-								</a>
-								{#if isConnected}
-									<a href={profileHref} class="menu-user-pic-btn" onclick={closeMenu}>
-										<span class="menu-user-pic-mobile">
-											<ProfilePic
-												{pubkey}
-												pictureUrl={currentUserProfile?.picture || undefined}
-												name={currentUserProfile?.name || undefined}
-												size="md"
-											/>
-										</span>
-										<span class="menu-user-pic-desktop">
-											<ProfilePic
-												{pubkey}
-												pictureUrl={currentUserProfile?.picture || undefined}
-												name={currentUserProfile?.name || undefined}
-												size="sm"
-											/>
-										</span>
-									</a>
-								{/if}
-							</div>
-
-							<!-- Search bar button -->
-							<button type="button" class="menu-search-btn" onclick={openSearch}>
-								<Search class="h-5 w-5 flex-shrink-0" style="color: hsl(var(--white33));" />
-								<span class="menu-search-text">Search Any App</span>
-							</button>
-
-							<!-- Discover section -->
-							<div class="menu-section">
-								<a href="/discover" class="menu-section-link" onclick={closeMenu}>Discover</a>
-								<nav class="menu-subnav">
-									<a
-										href="/apps"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}>Apps</a
-									>
-									<a
-										href="/stacks"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}>Stacks</a
-									>
-								</nav>
-							</div>
-
-							<!-- Studio section -->
-							<div class="menu-section">
-								<a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
-								<nav class="menu-subnav">
-									<a
-										href="/studio#quickstart"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}>Quickstart</a
-									>
-									<a
-										href="/docs/publish"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}>Docs</a
-									>
-								</nav>
-							</div>
-
-							<!-- Contact section -->
-							<div class="menu-section">
-								<span class="menu-section-label">Contact</span>
-								<nav class="menu-subnav">
-									<a
-										href="https://github.com/zapstore/zapstore"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}
-										target="_blank"
-										rel="noopener noreferrer">GitHub</a
-									>
-									<a
-										href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}
-										target="_blank"
-										rel="noopener noreferrer">User Support on Signal</a
-									>
-									<a
-										href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}
-										target="_blank"
-										rel="noopener noreferrer">Dev Support on Signal</a
-									>
-									<a
-										href="https://npub.world/npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}
-										target="_blank"
-										rel="noopener noreferrer">Follow us on Nostr</a
-									>
-									<a
-										href="https://x.com/zapstore_"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}
-										target="_blank"
-										rel="noopener noreferrer">Follow us on Twitter</a
-									>
-								</nav>
-							</div>
-
-							{#if !isConnected}
-								<div class="menu-divider"></div>
-								<!-- Get Started button (only when not logged in) -->
-								<div class="menu-cta-wrapper">
-									<button type="button" class="btn-primary w-full" onclick={openGetStartedModal}>
-										Get Started
-									</button>
-								</div>
-							{/if}
-						</div>
-					{/if}
-				</div>
-
-				{#if showPublisher}
+			{#if showPublisher}
 					<!-- Publisher link -->
 					<a
 						href={publisherUrl}
@@ -425,116 +380,11 @@ async function handleSignIn() {
 	class:header-spacer-zero={scrollThreshold != null && !headerVisible}
 ></div>
 
-<!-- Floating menu button (same position as header) when header is hidden due to scrollThreshold -->
+<!-- Floating back button (same position as header) when header is hidden due to scrollThreshold -->
 {#if scrollThreshold != null && !headerVisible}
 	<div class="floating-menu-bar" role="banner">
 		<nav class="floating-menu-nav">
-			<div
-				class="menu-container"
-				bind:this={menuContainerFloating}
-				role="navigation"
-				aria-label="Back and menu"
-			>
-				<BackButton
-					onBack={handleBack}
-					onOpenMenu={() => { menuOpen = true; }}
-					onCloseMenu={closeMenu}
-					menuOpen={menuOpen}
-					showExplainer={true}
-				/>
-				{#if menuOpen}
-					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-					<div
-						class="menu-backdrop"
-						onclick={closeMenu}
-						role="button"
-						tabindex="-1"
-						aria-label="Close menu"
-					></div>
-					<div class="menu-dropdown floating-menu-dropdown">
-						<div class="menu-header-row">
-							<a href="/" class="menu-logo" onclick={closeMenu}>
-								<svg
-									width="19"
-									height="32"
-									viewBox="0 0 19 32"
-									fill="none"
-									xmlns="http://www.w3.org/2000/svg"
-									class="menu-logo-icon"
-								>
-									<defs>
-										<linearGradient
-											id="menu-logo-gradient-float"
-											x1="0%"
-											y1="0%"
-											x2="100%"
-											y2="100%"
-										>
-											<stop offset="0%" style="stop-color: hsl(252, 100%, 72%);" />
-											<stop offset="100%" style="stop-color: hsl(241, 100%, 68%);" />
-										</linearGradient>
-									</defs>
-									<path
-										d="M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z"
-										fill="url(#menu-logo-gradient-float)"
-									/>
-								</svg>
-								<span class="menu-logo-text">Zapstore</span>
-							</a>
-							{#if isConnected}
-								<a href={profileHref} class="menu-user-pic-btn" onclick={closeMenu}>
-									<span class="menu-user-pic-mobile">
-										<ProfilePic
-											{pubkey}
-											pictureUrl={currentUserProfile?.picture || undefined}
-											name={currentUserProfile?.name || undefined}
-											size="md"
-										/>
-									</span>
-									<span class="menu-user-pic-desktop">
-										<ProfilePic
-											{pubkey}
-											pictureUrl={currentUserProfile?.picture || undefined}
-											name={currentUserProfile?.name || undefined}
-											size="sm"
-										/>
-									</span>
-								</a>
-							{/if}
-						</div>
-						<button type="button" class="menu-search-btn" onclick={openSearch}>
-							<Search class="h-5 w-5 flex-shrink-0" style="color: hsl(var(--white33));" />
-							<span class="menu-search-text">Search Any App</span>
-						</button>
-						<div class="menu-section">
-							<a href="/discover" class="menu-section-link" onclick={closeMenu}>Discover</a>
-							<nav class="menu-subnav">
-								<a
-									href="/apps"
-									class="menu-sublink text-sm font-medium text-white/66"
-									onclick={closeMenu}>Apps</a
-								>
-								<a
-									href="/stacks"
-									class="menu-sublink text-sm font-medium text-white/66"
-									onclick={closeMenu}>Stacks</a
-								>
-							</nav>
-						</div>
-						<div class="menu-section">
-							<a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
-						</div>
-						{#if !isConnected}
-							<div class="menu-divider"></div>
-							<div class="menu-cta-wrapper">
-								<button type="button" class="btn-primary w-full" onclick={openGetStartedModal}
-									>Get Started</button
-								>
-							</div>
-						{/if}
-					</div>
-				{/if}
-			</div>
+			<BackButton onBack={handleBack} />
 		</nav>
 	</div>
 {/if}
@@ -558,14 +408,104 @@ async function handleSignIn() {
 />
 
 <OnboardingBuildingModal bind:open={onboardingBuildingModalOpen} zIndex={56} />
+{/if}
 
 <style>
+	/* ── Page variant ──────────────────────────────────────────────────────── */
+	.page-header {
+		height: 64px;
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+	}
+
+	.page-header-title {
+		font-size: 1.125rem;
+		font-weight: 600;
+		color: hsl(var(--foreground));
+		margin: 0;
+		letter-spacing: -0.02em;
+	}
+
+	/* Mobile menu button: visible on mobile only */
+	.page-menu-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		background: none;
+		border: none;
+		border-radius: 8px;
+		cursor: pointer;
+		color: hsl(var(--foreground));
+		transition: background-color 0.15s ease;
+		flex-shrink: 0;
+	}
+
+	.page-menu-btn:hover {
+		background-color: hsl(var(--accent) / 0.08);
+	}
+
+	/* Hidden on desktop — sidebar handles navigation */
+	@media (min-width: 768px) {
+		.page-menu-btn {
+			display: none;
+		}
+	}
+
+	/* The page variant dropdown: full-screen on mobile, hidden on desktop.
+	   Double-class selector beats the base .menu-dropdown single-class rules. */
+	.menu-dropdown.page-menu-dropdown {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		max-width: 100%;
+		height: 100vh;
+		background-color: hsla(240, 6%, 18%, 0.8);
+		backdrop-filter: blur(24px);
+		-webkit-backdrop-filter: blur(24px);
+		border-radius: 0;
+		border-right: none;
+		box-shadow: none;
+		padding: 12px 20px 24px;
+		overflow-y: auto;
+	}
+
+	@media (min-width: 768px) {
+		.menu-dropdown.page-menu-dropdown {
+			display: none;
+		}
+	}
+
+	.menu-close-icon-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 38px;
+		height: 38px;
+		background: none;
+		border: none;
+		border-radius: 16px;
+		cursor: pointer;
+		color: hsl(var(--white66));
+		transition: background-color 0.15s ease;
+		flex-shrink: 0;
+	}
+
+	.menu-close-icon-btn:hover {
+		background-color: hsl(var(--white8));
+	}
+
+	/* ── Detail variant ────────────────────────────────────────────────────── */
 	/* Fixed header height - exactly 64px to match main header */
 	:global(.detail-header) {
 		height: 64px;
 	}
 
 	:global(.detail-header.detail-header-hidden) {
+		height: 0;
+		overflow: hidden;
 		opacity: 0;
 		pointer-events: none;
 	}
@@ -579,8 +519,9 @@ async function handleSignIn() {
 		z-index: -1;
 	}
 
+	/* Sticky header is in flow — spacer is no longer needed */
 	.header-spacer {
-		height: 64px;
+		height: 0;
 	}
 
 	.header-spacer.header-spacer-zero {
@@ -588,10 +529,11 @@ async function handleSignIn() {
 	}
 
 	.floating-menu-bar {
-		position: fixed;
+		position: sticky;
 		top: 0;
 		left: 0;
 		right: 0;
+		width: 100%;
 		z-index: 51;
 		pointer-events: none;
 	}
@@ -622,25 +564,6 @@ async function handleSignIn() {
 		.floating-menu-nav {
 			padding-left: 2rem;
 			padding-right: 2rem;
-		}
-	}
-
-	.floating-menu-bar .menu-dropdown.floating-menu-dropdown {
-		position: fixed;
-		top: calc(64px + 4px);
-		left: 1rem;
-		right: auto;
-		width: 75%;
-		max-width: 320px;
-	}
-
-	@media (min-width: 768px) {
-		.floating-menu-bar .menu-dropdown.floating-menu-dropdown {
-			position: absolute;
-			top: calc(100% + 4px);
-			left: 0;
-			width: 280px;
-			max-width: none;
 		}
 	}
 

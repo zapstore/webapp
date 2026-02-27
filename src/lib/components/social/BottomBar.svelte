@@ -8,13 +8,15 @@ import { Zap, Reply, Options } from '$lib/components/icons';
 import InputButton from '$lib/components/common/InputButton.svelte';
 import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
+import ActionsModal from '$lib/components/modals/ActionsModal.svelte';
 let { appName = '', publisherName = '', contentType = 'app', className = '', zapTarget = null, otherZaps = [], isSignedIn = true, onGetStarted, searchProfiles = async () => [], searchEmojis = async () => [], oncommentSubmit, onzapReceived, onoptions } = $props();
 let zapModalOpen = $state(false);
+let actionsModalOpen = $state(false);
 let commentExpanded = $state(false);
 let commentInput = $state(null);
 let submitting = $state(false);
-/** Bar slides out only when zap modal is open (comment morphs in place) */
-const barSlidesOut = $derived(zapModalOpen);
+/** Bar slides out when zap or actions modal is open (comment morphs in place) */
+const barSlidesOut = $derived(zapModalOpen || actionsModalOpen);
 function handleZap() {
     zapModalOpen = true;
 }
@@ -68,7 +70,7 @@ $effect(() => {
 
 <svelte:window onkeydown={handleCommentKeydown} />
 
-<div class="bottom-bar-wrapper {className}" class:modal-open={barSlidesOut}>
+<div class="bottom-bar-wrapper {className}" class:modal-open={barSlidesOut} class:guest-wrapper={!isSignedIn}>
 	{#if commentExpanded && isSignedIn}
 		<div class="bottom-bar-comment-only">
 			<div class="comment-input-wrap">
@@ -106,7 +108,7 @@ $effect(() => {
 					<button
 						type="button"
 						class="btn-secondary-large btn-secondary-dark options-button"
-						onclick={onoptions}
+						onclick={() => { actionsModalOpen = true; onoptions?.(); }}
 					>
 						<Options variant="fill" size={20} color="hsl(var(--white33))" />
 					</button>
@@ -143,6 +145,11 @@ $effect(() => {
 	onclose={handleZapClose}
 	onzapReceived={handleZapReceived}
 />
+<ActionsModal
+	bind:isOpen={actionsModalOpen}
+	{contentType}
+	targetApp={zapTarget}
+/>
 
 <style>
 	.bottom-bar-wrapper {
@@ -150,10 +157,12 @@ $effect(() => {
 		bottom: 0;
 		left: 0;
 		right: 0;
+		width: 100%;
 		z-index: 40;
 		display: flex;
 		justify-content: center;
 		pointer-events: none;
+		flex-shrink: 0;
 	}
 
 	.bottom-bar {
@@ -227,6 +236,7 @@ $effect(() => {
 	.bottom-bar-logo-link:hover {
 		color: inherit;
 	}
+	/* 12px desktop, 16px mobile (match zap/actions modal padding) */
 	.bottom-bar-comment-only {
 		align-self: center;
 		width: 100%;
@@ -236,7 +246,7 @@ $effect(() => {
 		border: 0.33px solid hsl(var(--white8));
 		border-bottom: none;
 		box-shadow: 0 -4px 24px hsl(var(--black));
-		padding: 12px 16px 16px;
+		padding: 12px;
 		pointer-events: auto;
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
@@ -299,6 +309,10 @@ $effect(() => {
 	}
 
 	@media (min-width: 768px) {
+		/* Hide the guest "get started" bar on desktop — sidebar has Get Started CTA */
+		.bottom-bar-wrapper.guest-wrapper {
+			display: none;
+		}
 		.bottom-bar {
 			max-width: 560px;
 			margin-bottom: 16px;

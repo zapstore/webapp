@@ -16,7 +16,7 @@ import {
 	parseProfile,
 	parseRelease
 } from './models';
-import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
+import { EVENT_KINDS, PLATFORM_FILTER, SAVED_APPS_STACK_D_TAG } from '$lib/config';
 import { APPS_PAGE_SIZE } from '$lib/constants';
 
 // ============================================================================
@@ -259,12 +259,16 @@ export function fetchStacks(limit = 20, until) {
 	if (until !== undefined) filter.until = until;
 
 	const stackEvents = queryCache(filter);
-	const stacks = stackEvents.map(parseAppStack);
+	// Exclude private Saved Apps stack from public listings
+	const publicStackEvents = stackEvents.filter(
+		(e) => e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG
+	);
+	const stacks = publicStackEvents.map(parseAppStack);
 
 	// Resolve referenced apps — get raw events directly from cache (no duplication)
 	const { appEvents } = resolveMultipleStackAppsFromCache(stacks);
 
-	return dedupeEventsById([...stackEvents, ...appEvents]);
+	return dedupeEventsById([...publicStackEvents, ...appEvents]);
 }
 
 /**
@@ -335,10 +339,10 @@ export function fetchStacksByAuthor(pubkey, limit = 50) {
 
 	const stackEvents = queryCache(filter);
 	const parsed = stackEvents.map(parseAppStack);
-	// Keep only the latest stack per (pubkey, dTag)
+	// Keep only the latest stack per (pubkey, dTag), excluding private Saved Apps stack
 	const stacksByKey = new Map();
 	for (const stack of parsed) {
-		if (!stack?.pubkey || !stack?.dTag) continue;
+		if (!stack?.pubkey || !stack?.dTag || stack.dTag === SAVED_APPS_STACK_D_TAG) continue;
 		const key = `${stack.pubkey}:${stack.dTag}`;
 		const existing = stacksByKey.get(key);
 		if (!existing || (stack.createdAt != null && stack.createdAt > (existing.createdAt ?? 0))) {

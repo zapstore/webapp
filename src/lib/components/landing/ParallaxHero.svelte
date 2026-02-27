@@ -580,13 +580,13 @@
 
 <section
 	bind:this={heroElement}
-	class="relative h-[500px] sm:h-[480px] md:h-[520px] lg:h-[560px] flex items-center justify-center overflow-hidden"
+	class="relative h-[500px] sm:h-[480px] md:h-[560px] lg:h-[600px] flex items-center justify-center overflow-hidden"
 	style="perspective: 2000px; perspective-origin: center center;"
 >
 	<!-- Background gradient orbs -->
 	<div
 		class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] gradient-orb"
-		style="background-color: hsl(var(--primary) / 0.09); filter: blur(280px);"
+		style="background-color: hsl(var(--primary) / 0.07); filter: blur(280px);"
 	></div>
 	<div
 		class="absolute top-40 right-1/3 w-[400px] h-[400px] gradient-orb bg-primary/10"
@@ -752,8 +752,10 @@
 				Released.
 			</span>
 		</h1>
-		<p class="text-lg sm:text-xl text-muted-foreground max-w-[260px] sm:max-w-none mx-auto mb-8">
-			Zapstore is the first truly open app store
+		<p
+			class="text-xl sm:text-2xl text-muted-foreground max-w-[280px] sm:max-w-none mx-auto mb-8 pb-2"
+		>
+			The first truly open app store
 		</p>
 		<a
 			href="/discover"

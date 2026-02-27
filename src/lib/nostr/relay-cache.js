@@ -87,9 +87,6 @@ function removeFromIndex(index, key, eventId) {
 function addEvent(event) {
 	if (!event?.id || typeof event.kind !== 'number') return;
 
-	// Discard encrypted app stacks (non-empty content means encrypted)
-	if (event.kind === EVENT_KINDS.APP_STACK && event.content) return;
-
 	if (isReplaceable(event.kind)) {
 		const key = getReplaceableKey(event);
 		const existingId = replaceableIndex.get(key);

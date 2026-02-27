@@ -5,7 +5,7 @@
 import { onMount } from 'svelte';
 import { browser } from '$app/environment';
 import { fetchProfile, queryEvents, encodeAppNaddr, encodeStackNaddr, parseApp, parseAppStack, fetchAppsByAuthorFromRelays, fetchAppFromRelays } from '$lib/nostr';
-import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
+import { DEFAULT_CATALOG_RELAYS, SAVED_APPS_STACK_D_TAG } from '$lib/config';
 import { nip19 } from 'nostr-tools';
 import { wheelScroll } from '$lib/actions/wheelScroll.js';
 import { parseShortText } from '$lib/utils/short-text-parser.js';
@@ -172,7 +172,9 @@ onMount(async () => {
         stacksLoading = true;
         try {
             const stackEvents = await queryEvents({ kinds: [30267], authors: [pubkey] });
-            const parsedStacks = stackEvents.map(parseAppStack);
+            const parsedStacks = stackEvents
+                .map(parseAppStack)
+                .filter((s) => s.dTag !== SAVED_APPS_STACK_D_TAG);
             stacks = parsedStacks;
             // Resolve apps for each stack from Dexie (batch query)
             const allIds = new Set();

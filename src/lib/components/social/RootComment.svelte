@@ -32,12 +32,14 @@ let actionsModalTarget = $state(null);
 let actionsModalOpen = $state(false);
 /** True when any modal is open on top of the thread (Zap or Comment/Zap options) – drives overlay + scale animation */
 const childModalOpen = $derived(zapModalOpen || actionsModalOpen);
+// Replies only: threadComments excluding the root itself (threadComments includes root as first element)
+const threadReplies = $derived(threadComments.filter((c) => c.id !== id));
 // Unique people in the thread: comment repliers + zappers (by pubkey), same shape as ReplyComment for profile stack. App author first.
+// Use threadReplies (excludes root) to only count actual replies, not the root comment author.
 const uniqueRepliers = $derived.by(() => {
-    const commentSource = isZapRoot ? threadComments : replies;
     const seen = new Set();
     const list = [];
-    for (const r of commentSource) {
+    for (const r of threadReplies) {
         if (seen.has(r.pubkey))
             continue;
         seen.add(r.pubkey);
@@ -81,7 +83,8 @@ const replyIndicatorText = $derived.by(() => {
     if (n === 2) return `${a} & ${trimName(uniqueRepliers[1]?.displayName) || "Someone"}`;
     return `${a} & Others`;
 });
-const replyCount = $derived(isZapRoot ? threadComments.length : (replies?.length ?? 0));
+// Count all nested comments in the thread (excluding the root itself)
+const replyCount = $derived(threadReplies.length);
 const sortedReplies = $derived([...replies].sort((a, b) => {
     const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -221,7 +224,7 @@ async function handleReplySubmit(event) {
         onReplySubmit?.({
             ...event,
             parentId,
-            ...(replyingToComment?.pubkey ? { replyToPubkey: replyingToComment.pubkey } : {}),
+            replyToPubkey: replyingToComment?.pubkey ?? pubkey ?? undefined,
             ...(isZapRoot && (replyingToComment?.pubkey ?? pubkey) ? { rootPubkey: replyingToComment?.pubkey ?? pubkey ?? undefined, parentKind: 9735 } : {}),
         });
         replyInput?.clear?.();

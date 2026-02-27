@@ -26,7 +26,7 @@ import { stripUrlForDisplay } from "$lib/utils/url.js";
 import { Copy, Check } from "$lib/components/icons";
 let { data } = $props();
 const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
-const searchEmojis = $derived(createSearchEmojisFunction(getCurrentPubkey()));
+const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
 // Error is mutable: server may set it, but client can clear it when Dexie has data
 let error = $state(null);
 // Local state - start with prerendered data
@@ -436,7 +436,7 @@ async function handleCommentSubmit(event) {
     };
     comments = [...comments, optimistic];
     try {
-        const signed = await publishComment(text, { contentType: "app", pubkey: app.pubkey, identifier: app.dTag }, signEvent, submitEmojiTags, parentId, replyToPubkey ?? rootPubkey, parentKind);
+        const signed = await publishComment(text, { contentType: "app", pubkey: app.pubkey, identifier: app.dTag }, signEvent, submitEmojiTags, parentId, replyToPubkey ?? rootPubkey, parentKind, event.mentions);
         const parsed = parseComment(signed);
         parsed.npub = nip19.npubEncode(signed.pubkey);
         comments = comments.filter((c) => c.id !== tempId);
@@ -636,7 +636,7 @@ function toggleReleaseNotesExpanded(releaseId) {
 </svelte:head>
 
 {#if error}
-  <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
+  <div class="w-full py-16 px-4 sm:px-6 md:px-[38px]">
     <div class="flex items-center justify-center py-24">
       <div class="text-center">
         <div class="rounded-lg bg-destructive/10 border border-destructive/20 p-6 max-w-md">
@@ -668,7 +668,7 @@ function toggleReleaseNotesExpanded(releaseId) {
     bind:getStartedModalOpen
   />
 
-  <div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 pb-24">
+  <div class="w-full pt-4 md:pt-6 pb-24 px-4 sm:px-6 md:px-[38px]">
     <!-- App Header Row -->
     <div class="app-header flex items-center gap-4 sm:gap-6 mb-6">
       <AppPic
@@ -780,7 +780,7 @@ function toggleReleaseNotesExpanded(releaseId) {
               {/if}
             </div>
             <!-- 2. Open source (check) or Closed-source (line) — step down -->
-            <div class="panel-list-item flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 0.82; transform: scale(0.95); transform-origin: left;">
+            <div class="panel-list-item flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 0.78; transform: scale(0.96); transform-origin: left;">
               {#if hasRepository}
                 <svg class="security-check flex-shrink-0" width="20" height="14" viewBox="-1.5 -1.5 20 14" fill="none" style="overflow: visible;">
                   <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
@@ -792,7 +792,7 @@ function toggleReleaseNotesExpanded(releaseId) {
               {/if}
             </div>
             <!-- 3. Trusted Catalog — step down again -->
-            <div class="panel-list-item panel-list-item-last flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 0.64; transform: scale(0.9); transform-origin: left;">
+            <div class="panel-list-item panel-list-item-last flex items-center gap-2" style="color: hsl(var(--white66)); opacity: 0.56; transform: scale(0.92); transform-origin: left;">
               <svg class="security-check flex-shrink-0" width="20" height="14" viewBox="-1.5 -1.5 20 14" fill="none" style="overflow: visible;">
                 <path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" stroke="hsl(var(--blurpleColor))" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
@@ -817,7 +817,7 @@ function toggleReleaseNotesExpanded(releaseId) {
                 <div
                   class="panel-list-item flex items-center gap-2 min-w-0 w-full text-left"
                   class:panel-list-item-last={i === Math.min(3, releases.length) - 1}
-                  style="opacity: {1 - i * 0.18}; transform: scale({1 - i * 0.05}); transform-origin: left;"
+                  style="opacity: {1 - i * 0.22}; transform: scale({1 - i * 0.04}); transform-origin: left;"
                 >
                   <span class="text-sm font-medium flex-shrink-0" style="color: hsl(var(--white33));">
                     {release.version}

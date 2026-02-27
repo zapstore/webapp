@@ -3,6 +3,7 @@
 	import { browser } from '$app/environment';
 	import { beforeNavigate } from '$app/navigation';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
+	import DetailHeader from '$lib/components/layout/DetailHeader.svelte';
 	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 	import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
@@ -78,8 +79,8 @@
 	});
 
 	// Data: always from liveQuery (Dexie). Skeleton until first emission.
-	// Limit to first 20 apps for discover page display
-	const apps = $derived(liveApps !== null && liveApps.length > 0 ? liveApps.slice(0, 20) : []);
+	// Show all apps so horizontal scroll can load more (like /apps vertical scroll).
+	const apps = $derived(liveApps !== null && liveApps.length > 0 ? liveApps : []);
 	const rawStacks = $derived(liveStacks !== null && liveStacks.length > 0 ? liveStacks : []);
 
 	// Resolved stacks with creator profiles (fetched as side effect)
@@ -291,10 +292,12 @@
 	<meta name="description" content="Discover apps, stacks, communities and more on Zapstore" />
 </svelte:head>
 
+<DetailHeader variant="page" title="Discover" />
+
 <section class="discover-page">
-	<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+	<div class="w-full py-6 px-4 sm:px-6 md:px-[38px]">
 		<!-- Apps Section -->
-		<div class="section-container">
+		<div class="section-container apps-section">
 			<SectionHeader title="Apps" linkText="See more" href="/apps" />
 			{#if apps.length === 0}
 				<!-- Apps loading skeleton -->
@@ -433,7 +436,18 @@
 		margin-bottom: 24px;
 	}
 
-	/* Horizontal scroll container */
+	/* Extra gap under the Apps section header (desktop +4px, mobile +2px) */
+	.apps-section :global(.section-header) {
+		margin-bottom: 20px;
+	}
+
+	@media (max-width: 767px) {
+		.apps-section :global(.section-header) {
+			margin-bottom: 18px;
+		}
+	}
+
+	/* Horizontal scroll container: negative margins bleed to the outer padding edges */
 	.horizontal-scroll {
 		margin-left: -1rem;
 		margin-right: -1rem;
@@ -486,24 +500,24 @@
 		}
 	}
 
-	@media (min-width: 1024px) {
+	@media (min-width: 768px) {
 		.horizontal-scroll {
-			margin-left: -2rem;
-			margin-right: -2rem;
-			padding-left: 2rem;
-			padding-right: 2rem;
+			margin-left: -38px;
+			margin-right: -38px;
+			padding-left: 38px;
+			padding-right: 38px;
 			mask-image: linear-gradient(
 				to right,
 				transparent 0%,
-				black 2rem,
-				black calc(100% - 2rem),
+				black 38px,
+				black calc(100% - 38px),
 				transparent 100%
 			);
 			-webkit-mask-image: linear-gradient(
 				to right,
 				transparent 0%,
-				black 2rem,
-				black calc(100% - 2rem),
+				black 38px,
+				black calc(100% - 38px),
 				transparent 100%
 			);
 		}
