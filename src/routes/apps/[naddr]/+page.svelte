@@ -12,10 +12,13 @@ import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
 import { wheelScroll } from "$lib/actions/wheelScroll.js";
 import AppPic from "$lib/components/common/AppPic.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
-import DetailHeader from "$lib/components/layout/DetailHeader.svelte";
+import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import { SocialTabs, BottomBar } from "$lib/components/social";
 import Modal from "$lib/components/common/Modal.svelte";
 import DownloadModal from "$lib/components/common/DownloadModal.svelte";
+import GetStartedModal from "$lib/components/modals/GetStartedModal.svelte";
+import SpinKeyModal from "$lib/components/modals/SpinKeyModal.svelte";
+import OnboardingBuildingModal from "$lib/components/modals/OnboardingBuildingModal.svelte";
 import { createSearchProfilesFunction, ZAPSTORE_PUBKEY, zapstoreProfileStore } from "$lib/services/profile-search";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
@@ -60,7 +63,21 @@ let releasesModalOpen = $state(false);
 let expandedReleaseId = $state(null);
 let downloadModalOpen = $state(false);
 let getStartedModalOpen = $state(false);
+let spinKeyModalOpen = $state(false);
+let onboardingBuildingModalOpen = $state(false);
+let onboardingProfileName = $state('');
 let securityModalOpen = $state(false);
+function handleGetStartedStart(event) {
+    onboardingProfileName = event.profileName;
+    spinKeyModalOpen = true;
+    setTimeout(() => { getStartedModalOpen = false; }, 80);
+}
+function handleGetStartedConnected() { getStartedModalOpen = false; }
+function handleSpinComplete() {
+    spinKeyModalOpen = false;
+    setTimeout(() => { onboardingBuildingModalOpen = true; }, 150);
+}
+function handleUseExistingKey() { spinKeyModalOpen = false; getStartedModalOpen = true; }
 const appNaddr = $derived($page.params.naddr ?? "");
 const otherZaps = $derived(zaps.map((z) => {
     const prof = z.senderPubkey ? zapperProfiles.get(z.senderPubkey) : undefined;
@@ -636,7 +653,7 @@ function toggleReleaseNotesExpanded(releaseId) {
 </svelte:head>
 
 {#if error}
-  <div class="w-full py-16 px-4 sm:px-6 md:px-[38px]">
+  <div class="container mx-auto py-16 px-3 sm:px-6 lg:px-8">
     <div class="flex items-center justify-center py-24">
       <div class="text-center">
         <div class="rounded-lg bg-destructive/10 border border-destructive/20 p-6 max-w-md">
@@ -654,21 +671,32 @@ function toggleReleaseNotesExpanded(releaseId) {
     </div>
   </div>
 {:else if app}
-  <!-- Contextual header with publisher info and catalog -->
-  <DetailHeader
-    publisherPic={publisherPictureUrl}
-    {publisherName}
-    publisherNameForPic={publisherNameForPic}
-    publisherPubkey={app.pubkey}
-    {publisherUrl}
-    timestamp={app.createdAt}
-    {catalogs}
-    catalogText="In Zapstore"
-    showPublisher={true}
-    bind:getStartedModalOpen
-  />
-
-  <div class="w-full pt-4 md:pt-6 pb-24 px-4 sm:px-6 md:px-[38px]">
+  <div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">
+    <!-- Publisher info row: author + catalog -->
+    <div class="detail-publisher-row">
+      <a
+        href={publisherUrl}
+        class="detail-publisher-link"
+      >
+        <ProfilePic
+          pictureUrl={publisherPictureUrl}
+          name={publisherNameForPic}
+          pubkey={app.pubkey}
+          size="sm"
+        />
+        <span class="detail-publisher-name">By {publisherName}</span>
+        {#if app.createdAt}
+          <Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
+        {/if}
+      </a>
+      {#if effectiveCatalogs.length > 0}
+        <ProfilePicStack
+          profiles={effectiveCatalogs}
+          text="In Zapstore"
+          size="sm"
+        />
+      {/if}
+    </div>
     <!-- App Header Row -->
     <div class="app-header flex items-center gap-4 sm:gap-6 mb-6">
       <AppPic
@@ -1172,9 +1200,63 @@ function toggleReleaseNotesExpanded(releaseId) {
     }}
   />
   {/if}
+
+  <!-- Onboarding modals (for Get Started flow from BottomBar) -->
+  <GetStartedModal
+    bind:open={getStartedModalOpen}
+    onstart={handleGetStartedStart}
+    onconnected={handleGetStartedConnected}
+  />
+  <SpinKeyModal
+    bind:open={spinKeyModalOpen}
+    profileName={onboardingProfileName}
+    zIndex={55}
+    onspinComplete={handleSpinComplete}
+    onuseExistingKey={handleUseExistingKey}
+  />
+  <OnboardingBuildingModal bind:open={onboardingBuildingModalOpen} zIndex={56} />
 {/if}
 
 <style>
+  /* ── Publisher info row (replaces DetailHeader) ── */
+  .detail-publisher-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 1.25rem;
+  }
+
+  .detail-publisher-link {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    min-width: 0;
+    overflow: hidden;
+    transition: opacity 0.15s ease;
+  }
+
+  .detail-publisher-link:hover {
+    opacity: 0.8;
+  }
+
+  .detail-publisher-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: hsl(var(--white66));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :global(.detail-publisher-timestamp) {
+    color: hsl(var(--white33)) !important;
+    flex-shrink: 0;
+  }
+
   /* Info panels container */
   .info-panels-container {
     display: flex;

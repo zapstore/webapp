@@ -3,7 +3,6 @@
 	import { browser } from '$app/environment';
 	import { beforeNavigate } from '$app/navigation';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
-	import DetailHeader from '$lib/components/layout/DetailHeader.svelte';
 	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 	import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
@@ -292,10 +291,8 @@
 	<meta name="description" content="Discover apps, stacks, communities and more on Zapstore" />
 </svelte:head>
 
-<DetailHeader variant="page" title="Discover" />
-
 <section class="discover-page">
-	<div class="w-full py-6 px-4 sm:px-6 md:px-[38px]">
+	<div class="container mx-auto py-6 px-3 sm:px-6 lg:px-8">
 		<!-- Apps Section -->
 		<div class="section-container apps-section">
 			<SectionHeader title="Apps" linkText="See more" href="/apps" />
@@ -414,16 +411,16 @@
 		</div>
 
 		<!-- Catalogs Section (placeholder) -->
-		<div class="section-container">
+		<!-- <div class="section-container">
 			<SectionHeader title="Catalogs" />
 			<EmptyState message="Catalogs coming soon" />
-		</div>
+		</div> -->
 
 		<!-- Labels Section (placeholder) -->
-		<div class="section-container">
+		<!-- <div class="section-container">
 			<SectionHeader title="Labels" />
 			<EmptyState message="Labels coming soon" />
-		</div>
+		</div> -->
 	</div>
 </section>
 

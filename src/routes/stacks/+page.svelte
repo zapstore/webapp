@@ -1,8 +1,7 @@
 <script lang="js">
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import DetailHeader from '$lib/components/layout/DetailHeader.svelte';
-	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
+	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import {
@@ -185,31 +184,21 @@
 	<meta name="description" content="Browse curated app collections on Zapstore" />
 </svelte:head>
 
-<DetailHeader variant="page" title="Stacks">
-	{#snippet rightContent()}
+<section class="stacks-page">
+	<div class="container mx-auto py-6 px-3 sm:px-6 lg:px-8">
 		<div class="filter-pill-wrap" bind:this={filterPillEl}>
-			<button
-				type="button"
-				class="filter-pill"
-				onclick={(e) => { e.stopPropagation(); filterPillOpen = !filterPillOpen; }}
-				aria-expanded={filterPillOpen}
-			>
-				Latest
-				<span class="filter-pill-chevron">
-					<ChevronDown size={12} variant="outline" color="hsl(var(--white33))" strokeWidth={1.6} />
-				</span>
-			</button>
+			<SectionHeader
+				title="Stacks"
+				filterText="Latest"
+				filterOpen={filterPillOpen}
+				onFilter={(e) => { e.stopPropagation(); filterPillOpen = !filterPillOpen; }}
+			/>
 			{#if filterPillOpen}
 				<div class="filter-pill-dropdown" role="tooltip">
 					More sort &amp; filter options are coming soon.
 				</div>
 			{/if}
 		</div>
-	{/snippet}
-</DetailHeader>
-
-<section class="stacks-page">
-	<div class="w-full py-6 px-4 sm:px-6 md:px-[38px]">
 
 		{#if loading && resolvedStacks.length === 0}
 			<div class="stacks-grid">
@@ -271,35 +260,9 @@
 		min-height: 100vh;
 	}
 
-	/* ── Filter pill (Latest + ChevronDown) ── */
+	/* ── Filter dropdown anchor ── */
 	.filter-pill-wrap {
 		position: relative;
-	}
-
-	.filter-pill {
-		display: flex;
-		align-items: center;
-		gap: 7px;
-		padding: 5px 14px;
-		background: hsl(var(--white8));
-		border: none;
-		border-radius: 20px;
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: hsl(var(--white33));
-		cursor: pointer;
-		transition: background-color 0.15s ease;
-		white-space: nowrap;
-	}
-
-	.filter-pill:hover {
-		background: hsl(var(--white16));
-	}
-
-	.filter-pill-chevron {
-		display: flex;
-		align-items: center;
-		padding-top: 2px;
 	}
 
 	.filter-pill-dropdown {

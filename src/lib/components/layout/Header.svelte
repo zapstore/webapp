@@ -44,6 +44,11 @@
 	const isConnecting = $derived(getIsConnecting());
 	const isConnected = $derived(pubkey !== null);
 	const isStudioPage = $derived($page.url.pathname === '/studio');
+	const isDiscoverActive = $derived(
+		$page.url.pathname === '/discover' ||
+			$page.url.pathname === '/apps' ||
+			$page.url.pathname === '/stacks'
+	);
 	// Current user profile (local-first: EventStore then background fetch) for header avatar
 	let currentUserProfile = $state(null);
 	// Close Studio dropdown when navigating to studio page (reopen only after hover away and rehover)
@@ -292,51 +297,54 @@
 									<div class="menu-section">
 										<a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
 										<nav class="menu-subnav">
-											<a href="/docs/publish" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Publish Apps</a>
-											<a href="/docs/publish" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Docs</a>
-											<a href="/docs/faq" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>FAQ</a>
-											<a href="/#pricing" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Pricing</a>
+											<a
+												href="/docs/publish"
+												class="menu-sublink text-sm font-medium text-white/66"
+												onclick={closeMenu}>Publish Apps</a
+											>
+											<a
+												href="/docs/publish"
+												class="menu-sublink text-sm font-medium text-white/66"
+												onclick={closeMenu}>Docs</a
+											>
+											<a
+												href="/docs/faq"
+												class="menu-sublink text-sm font-medium text-white/66"
+												onclick={closeMenu}>FAQ</a
+											>
 										</nav>
 									</div>
 
-									<div class="menu-section">
-										<span class="menu-section-label">Community</span>
-										<nav class="menu-subnav">
-											<a
-												href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
-												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}
-												target="_blank"
-												rel="noopener noreferrer">User support on Signal</a
-											>
-											<a
-												href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
-												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}
-												target="_blank"
-												rel="noopener noreferrer">Dev support on Signal</a
-											>
-											<a href="/blog" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Blog</a>
-										</nav>
-									</div>
-
-									{#if !isConnected}
-										<div class="menu-divider"></div>
-										<div class="menu-cta-wrapper">
-											<button
-												type="button"
-												class="btn-primary w-full"
-												onclick={openGetStartedModal}
-											>
-												Get Started
-											</button>
-										</div>
-									{/if}
+								<div class="menu-section">
+									<span class="menu-section-label">Community</span>
+									<nav class="menu-subnav">
+										<a
+											href="/blog"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}>Blog</a
+										>
+										<a
+											href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}
+											target="_blank"
+											rel="noopener noreferrer">User support on Signal</a
+										>
+										<a
+											href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}
+											target="_blank"
+											rel="noopener noreferrer">Dev support on Signal</a
+										>
+									</nav>
 								</div>
-							{/if}
-						</div>
 
-						{#if pageTitle && pageTitle !== 'Profile'}
+							</div>
+						{/if}
+					</div>
+
+					{#if pageTitle && pageTitle !== 'Profile'}
 							<button
 								type="button"
 								class="page-title-tap flex items-center gap-3 page-title-spacing"
@@ -510,49 +518,56 @@
 								<div class="menu-section">
 									<a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
 									<nav class="menu-subnav">
-										<a href="/docs/publish" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Publish Apps</a>
-										<a href="/docs/publish" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Docs</a>
-										<a href="/docs/faq" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>FAQ</a>
-										<a href="/#pricing" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Pricing</a>
+										<a
+											href="/docs/publish"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}>Publish Apps</a
+										>
+										<a
+											href="/docs/publish"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}>Docs</a
+										>
+										<a
+											href="/docs/faq"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}>FAQ</a
+										>
 									</nav>
 								</div>
 
-								<div class="menu-section">
-									<span class="menu-section-label">Community</span>
-									<nav class="menu-subnav">
-										<a
-											href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}
-											target="_blank"
-											rel="noopener noreferrer">User support on Signal</a
-										>
-										<a
-											href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}
-											target="_blank"
-											rel="noopener noreferrer">Dev support on Signal</a
-										>
-										<a href="/blog" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Blog</a>
-									</nav>
-								</div>
-
-								{#if !isConnected}
-									<div class="menu-divider"></div>
-									<div class="menu-cta-wrapper">
-										<button type="button" class="btn-primary w-full" onclick={openGetStartedModal}>
-											Get Started
-										</button>
-									</div>
-								{/if}
+							<div class="menu-section">
+								<span class="menu-section-label">Community</span>
+								<nav class="menu-subnav">
+									<a
+										href="/blog"
+										class="menu-sublink text-sm font-medium text-white/66"
+										onclick={closeMenu}>Blog</a
+									>
+									<a
+										href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
+										class="menu-sublink text-sm font-medium text-white/66"
+										onclick={closeMenu}
+										target="_blank"
+										rel="noopener noreferrer">User support on Signal</a
+									>
+									<a
+										href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
+										class="menu-sublink text-sm font-medium text-white/66"
+										onclick={closeMenu}
+										target="_blank"
+										rel="noopener noreferrer">Dev support on Signal</a
+									>
+								</nav>
 							</div>
-						{/if}
-					</div>
-				{/if}
-			</div>
 
-			<!-- Non-landing: search bar -->
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+
+		<!-- Non-landing: search bar -->
 			{#if variant !== 'landing'}
 				<div
 					class={cn(
@@ -584,7 +599,7 @@
 			<div class="flex items-center justify-end flex-shrink-0">
 				{#if variant === 'landing'}
 					<!-- Landing: one row — nav items (desktop) + Get Started (+ menu icon on mobile) -->
-					<div class="flex items-center gap-2 md:gap-3 lg:gap-4">
+					<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
 						<!-- Desktop only: Discover, Studio, Community, Pricing, Contact -->
 						<div class="hidden md:flex items-center landing-nav-row gap-4 md:gap-6 lg:gap-8">
 							<div
@@ -598,6 +613,7 @@
 									href="/discover"
 									class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
 									class:landing-nav-btn-open={landingNavOpen === 'discover'}
+									class:landing-nav-studio-selected={isDiscoverActive}
 									style="color: hsl(var(--white66));"
 								>
 									Discover
@@ -607,48 +623,48 @@
 										class="landing-nav-panel landing-nav-panel-centered absolute top-full mt-0 shadow-lg z-50"
 									>
 										<div class="landing-nav-panel-top-pad">
-										<div class="landing-nav-panel-bg">
-										<div class="landing-nav-panel-inner-bg">
-											<div class="landing-nav-grid">
-												<a href="/apps" class="landing-nav-grid-item">
-													<img
-														src={`${assets}/images/emoji/app.png`}
-														alt=""
-														class="landing-nav-grid-emoji"
-													/>
-													<span class="landing-nav-grid-title">Apps</span>
-													<span class="landing-nav-grid-desc">Browse and install apps</span>
-												</a>
-												<a href="/stacks" class="landing-nav-grid-item">
-													<img
-														src={`${assets}/images/emoji/stack.png`}
-														alt=""
-														class="landing-nav-grid-emoji"
-													/>
-													<span class="landing-nav-grid-title">Stacks</span>
-													<span class="landing-nav-grid-desc">Curated app collections</span>
-												</a>
-												<a href="/discover" class="landing-nav-grid-item">
-													<img
-														src={`${assets}/images/emoji/catalog.png`}
-														alt=""
-														class="landing-nav-grid-emoji"
-													/>
-													<span class="landing-nav-grid-title">Catalogs</span>
-													<span class="landing-nav-grid-desc">Open community catalogs</span>
-												</a>
-												<a href="/discover" class="landing-nav-grid-item">
-													<img
-														src={`${assets}/images/emoji/label.png`}
-														alt=""
-														class="landing-nav-grid-emoji"
-													/>
-													<span class="landing-nav-grid-title">Labels</span>
-													<span class="landing-nav-grid-desc">Categories and tags</span>
-												</a>
+											<div class="landing-nav-panel-bg">
+												<div class="landing-nav-panel-inner-bg">
+													<div class="landing-nav-grid">
+														<a href="/apps" class="landing-nav-grid-item">
+															<img
+																src={`${assets}/images/emoji/app.png`}
+																alt=""
+																class="landing-nav-grid-emoji"
+															/>
+															<span class="landing-nav-grid-title">Apps</span>
+															<span class="landing-nav-grid-desc">Browse and install apps</span>
+														</a>
+														<a href="/stacks" class="landing-nav-grid-item">
+															<img
+																src={`${assets}/images/emoji/stack.png`}
+																alt=""
+																class="landing-nav-grid-emoji"
+															/>
+															<span class="landing-nav-grid-title">Stacks</span>
+															<span class="landing-nav-grid-desc">Curated app collections</span>
+														</a>
+														<!-- <a href="/discover" class="landing-nav-grid-item">
+															<img
+																src={`${assets}/images/emoji/catalog.png`}
+																alt=""
+																class="landing-nav-grid-emoji"
+															/>
+															<span class="landing-nav-grid-title">Catalogs</span>
+															<span class="landing-nav-grid-desc">Open community catalogs</span>
+														</a>
+														<a href="/discover" class="landing-nav-grid-item">
+															<img
+																src={`${assets}/images/emoji/label.png`}
+																alt=""
+																class="landing-nav-grid-emoji"
+															/>
+															<span class="landing-nav-grid-title">Labels</span>
+															<span class="landing-nav-grid-desc">Categories and tags</span>
+														</a> -->
+													</div>
+												</div>
 											</div>
-										</div>
-										</div>
 										</div>
 									</div>
 								{/if}
@@ -674,49 +690,52 @@
 										class="landing-nav-panel landing-nav-panel-studio landing-nav-panel-centered absolute top-full mt-0 shadow-lg z-50"
 									>
 										<div class="landing-nav-panel-top-pad">
-										<div class="landing-nav-panel-bg landing-nav-panel-studio">
-										<div class="landing-nav-studio-dropdown">
-											<a href="/studio" class="landing-nav-studio-dropdown-left">
-												<svg
-													width="42"
-													height="42"
-													viewBox="64 64 15 20"
-													fill="none"
-													xmlns="http://www.w3.org/2000/svg"
-													class="landing-nav-studio-icon"
-													aria-hidden="true"
-												>
-													<defs>
-														<linearGradient
-															id="studio-dropdown-logo-gradient"
-															x1="0%"
-															y1="0%"
-															x2="100%"
-															y2="100%"
+											<div class="landing-nav-panel-bg landing-nav-panel-studio">
+												<div class="landing-nav-studio-dropdown">
+													<a href="/studio" class="landing-nav-studio-dropdown-left">
+														<svg
+															width="42"
+															height="42"
+															viewBox="64 64 15 20"
+															fill="none"
+															xmlns="http://www.w3.org/2000/svg"
+															class="landing-nav-studio-icon"
+															aria-hidden="true"
 														>
-															<stop offset="0%" style="stop-color: var(--blurple-bright-0);" />
-															<stop offset="100%" style="stop-color: var(--blurple-bright-1);" />
-														</linearGradient>
-													</defs>
-													<path
-														d="M71.4271 64.0009C71.4756 63.9997 71.5243 63.9997 71.5728 64.0009C71.7346 64.0049 71.8944 64.0799 71.9931 64.2256L74.8616 68.4602C74.8676 68.4691 74.8732 68.4781 74.8785 68.4872C74.9007 68.5253 74.9208 68.5646 74.9462 68.6007L74.9542 68.612C75.1988 68.9609 74.9102 69.4216 74.4734 69.3795L73.3883 69.275C73.0394 69.2414 72.7583 69.5398 72.8303 69.8674L73.4327 73.1352C73.4589 73.2775 73.5317 73.4213 73.6767 73.4593C73.77 73.4838 73.872 73.4837 73.9725 73.4529L78.3235 71.9401C78.7191 71.8192 79.094 72.1663 78.9789 72.547L75.8194 83.6386C75.6627 84.1567 74.8757 84.1035 74.8039 83.57L74.0919 78.907C74.0625 78.7147 73.8297 78.6031 73.6396 78.5368L71.7235 77.8667C71.5791 77.8162 71.4207 77.8162 71.2763 77.8667L69.3604 78.5368C69.1703 78.6031 68.9373 78.7148 68.908 78.9071L68.1961 83.57C68.1243 84.1035 67.3373 84.1567 67.1806 83.6386L64.0211 72.547C63.906 72.1663 64.2808 71.8192 64.6765 71.9401L69.0275 73.4529C69.128 73.4837 69.2299 73.4838 69.3231 73.4593C69.4682 73.4213 69.5409 73.2775 69.5672 73.1352L70.1697 69.8674C70.2417 69.5398 69.9606 69.2414 69.6117 69.275L68.5264 69.3795C68.0897 69.4215 67.8012 68.9608 68.0458 68.612L68.0539 68.6005C68.079 68.5646 68.0989 68.5256 68.121 68.4879C68.1265 68.4786 68.1323 68.4694 68.1384 68.4602L71.0069 64.2256C71.1056 64.0799 71.2653 64.005 71.4271 64.0009Z"
-														fill="url(#studio-dropdown-logo-gradient)"
-													/>
-												</svg>
-												<h3 class="landing-nav-studio-title">Zapstore Studio</h3>
-												<p class="landing-nav-studio-desc">
-													Developer suite for publishing apps and interacting with communities of
-													users.
-												</p>
-											</a>
-											<div class="landing-nav-studio-dropdown-divider" aria-hidden="true"></div>
-											<div class="landing-nav-studio-dropdown-right">
-												<a href="/docs/publish" class="landing-nav-studio-row">Publish Apps</a>
-												<a href="/docs/publish" class="landing-nav-studio-row">Docs</a>
-												<a href="/docs/faq" class="landing-nav-studio-row">FAQ</a>
+															<defs>
+																<linearGradient
+																	id="studio-dropdown-logo-gradient"
+																	x1="0%"
+																	y1="0%"
+																	x2="100%"
+																	y2="100%"
+																>
+																	<stop offset="0%" style="stop-color: var(--blurple-bright-0);" />
+																	<stop
+																		offset="100%"
+																		style="stop-color: var(--blurple-bright-1);"
+																	/>
+																</linearGradient>
+															</defs>
+															<path
+																d="M71.4271 64.0009C71.4756 63.9997 71.5243 63.9997 71.5728 64.0009C71.7346 64.0049 71.8944 64.0799 71.9931 64.2256L74.8616 68.4602C74.8676 68.4691 74.8732 68.4781 74.8785 68.4872C74.9007 68.5253 74.9208 68.5646 74.9462 68.6007L74.9542 68.612C75.1988 68.9609 74.9102 69.4216 74.4734 69.3795L73.3883 69.275C73.0394 69.2414 72.7583 69.5398 72.8303 69.8674L73.4327 73.1352C73.4589 73.2775 73.5317 73.4213 73.6767 73.4593C73.77 73.4838 73.872 73.4837 73.9725 73.4529L78.3235 71.9401C78.7191 71.8192 79.094 72.1663 78.9789 72.547L75.8194 83.6386C75.6627 84.1567 74.8757 84.1035 74.8039 83.57L74.0919 78.907C74.0625 78.7147 73.8297 78.6031 73.6396 78.5368L71.7235 77.8667C71.5791 77.8162 71.4207 77.8162 71.2763 77.8667L69.3604 78.5368C69.1703 78.6031 68.9373 78.7148 68.908 78.9071L68.1961 83.57C68.1243 84.1035 67.3373 84.1567 67.1806 83.6386L64.0211 72.547C63.906 72.1663 64.2808 71.8192 64.6765 71.9401L69.0275 73.4529C69.128 73.4837 69.2299 73.4838 69.3231 73.4593C69.4682 73.4213 69.5409 73.2775 69.5672 73.1352L70.1697 69.8674C70.2417 69.5398 69.9606 69.2414 69.6117 69.275L68.5264 69.3795C68.0897 69.4215 67.8012 68.9608 68.0458 68.612L68.0539 68.6005C68.079 68.5646 68.0989 68.5256 68.121 68.4879C68.1265 68.4786 68.1323 68.4694 68.1384 68.4602L71.0069 64.2256C71.1056 64.0799 71.2653 64.005 71.4271 64.0009Z"
+																fill="url(#studio-dropdown-logo-gradient)"
+															/>
+														</svg>
+														<h3 class="landing-nav-studio-title">Zapstore Studio</h3>
+														<p class="landing-nav-studio-desc">
+															Developer suite for publishing apps and interacting with communities
+															of users.
+														</p>
+													</a>
+													<div class="landing-nav-studio-dropdown-divider" aria-hidden="true"></div>
+													<div class="landing-nav-studio-dropdown-right">
+														<a href="/docs/publish" class="landing-nav-studio-row">Publish Apps</a>
+														<a href="/docs/publish" class="landing-nav-studio-row">Docs</a>
+														<a href="/docs/faq" class="landing-nav-studio-row">FAQ</a>
+													</div>
+												</div>
 											</div>
-										</div>
-										</div>
 										</div>
 									</div>
 								{/if}
@@ -741,59 +760,58 @@
 										class="landing-nav-panel landing-nav-panel-studio landing-nav-panel-centered absolute top-full mt-0 shadow-lg z-50"
 									>
 										<div class="landing-nav-panel-top-pad">
-										<div class="landing-nav-panel-bg landing-nav-panel-studio">
-										<div class="landing-nav-studio-dropdown">
-											<div class="landing-nav-studio-dropdown-left" style="pointer-events: none;">
-												<div class="community-icon-container" aria-hidden="true">
-													<svg width="16" height="27" viewBox="0 0 19 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-														<path d="M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z" fill="white" />
-													</svg>
+											<div class="landing-nav-panel-bg landing-nav-panel-studio">
+												<div class="landing-nav-studio-dropdown">
+													<div
+														class="landing-nav-studio-dropdown-left"
+														style="pointer-events: none;"
+													>
+														<div class="community-icon-container" aria-hidden="true">
+															<svg
+																width="16"
+																height="27"
+																viewBox="0 0 19 32"
+																fill="none"
+																xmlns="http://www.w3.org/2000/svg"
+															>
+																<path
+																	d="M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z"
+																	fill="white"
+																/>
+															</svg>
+														</div>
+														<h3 class="landing-nav-studio-title">Community</h3>
+														<p class="landing-nav-studio-desc">
+															Support, chat and updates from the Zapstore team.
+														</p>
+													</div>
+													<div class="landing-nav-studio-dropdown-divider" aria-hidden="true"></div>
+													<div class="landing-nav-studio-dropdown-right">
+														<a href="/blog" class="landing-nav-studio-row">Blog</a>
+														<a
+															href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
+															class="landing-nav-studio-row"
+															target="_blank"
+															rel="noopener noreferrer">User support on Signal</a
+														>
+														<a
+															href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
+															class="landing-nav-studio-row"
+															target="_blank"
+															rel="noopener noreferrer">Dev support on Signal</a
+														>
+													</div>
 												</div>
-												<h3 class="landing-nav-studio-title">Community</h3>
-												<p class="landing-nav-studio-desc">Support, chat and updates from the Zapstore team.</p>
 											</div>
-											<div class="landing-nav-studio-dropdown-divider" aria-hidden="true"></div>
-											<div class="landing-nav-studio-dropdown-right">
-												<a href="/blog" class="landing-nav-studio-row">Blog</a>
-												<a href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow" class="landing-nav-studio-row" target="_blank" rel="noopener noreferrer">User support on Signal</a>
-												<a href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL" class="landing-nav-studio-row" target="_blank" rel="noopener noreferrer">Dev support on Signal</a>
-											</div>
-										</div>
-										</div>
 										</div>
 									</div>
 								{/if}
 							</div>
-						<div
-							class="landing-nav-dropdown-wrap relative flex-shrink-0"
-							role="group"
-							aria-label="Pricing info"
-							onmouseenter={() => setLandingNavOpen('pricing')}
-							onmouseleave={clearLandingNavOpen}
-						>
-							<button
-								type="button"
-								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 rounded-[12px]"
-								class:landing-nav-btn-open={landingNavOpen === 'pricing'}
-								style="color: hsl(var(--white66));"
-							>
-								Pricing
+							<!-- Search button (replaces Pricing) -->
+							<button type="button" class="nav-search-btn" onclick={openSearch} aria-label="Search">
+								<Search size={16} style="color: hsl(var(--white33));" />
+								<span class="nav-search-text">Search</span>
 							</button>
-							{#if landingNavOpen === 'pricing'}
-								<div class="landing-nav-panel landing-nav-panel-pricing absolute top-full mt-0 shadow-lg z-50">
-									<div class="landing-nav-panel-top-pad">
-										<div class="landing-nav-panel-bg">
-											<div class="landing-nav-panel-inner-bg">
-												<div class="pricing-panel-inner">
-													<p class="pricing-panel-text">Publishing to the Zapstore servers is <strong>free</strong> for now.</p>
-													<p class="pricing-panel-text pricing-panel-text-muted">Paid tiers and premium publisher offers are coming soon.</p>
-												</div>
-											</div>
-										</div>
-									</div>
-								</div>
-							{/if}
-						</div>
 						</div>
 						<!-- CTA: loader, profile, or Get Started (one row with nav) -->
 						{#if isConnecting}
@@ -1059,6 +1077,8 @@
 		z-index: 100;
 		box-shadow: 8px 0 32px hsl(var(--black33));
 		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.menu-dropdown.menu-dropdown-slide {
@@ -1158,6 +1178,7 @@
 			box-shadow: 0 8px 32px hsl(var(--black33));
 			padding: 12px;
 			overflow-y: visible;
+			display: block;
 		}
 	}
 
@@ -1319,10 +1340,21 @@
 	}
 
 	.menu-cta-wrapper {
-		padding: 0 4px;
+		margin-top: auto;
+		padding: 8px 4px calc(env(safe-area-inset-bottom, 0px) + 20px);
+	}
+
+	@media (min-width: 768px) {
+		.menu-cta-wrapper {
+			margin-top: 0;
+			padding: 0 4px 4px;
+		}
 	}
 
 	.profile-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		background: none;
 		border: none;
 		cursor: pointer;
@@ -1350,7 +1382,7 @@
 	}
 
 	.landing-nav-row {
-		gap: 0;
+		gap: 8px;
 	}
 
 	.landing-nav-panel {
@@ -1401,27 +1433,32 @@
 		min-height: 60px;
 	}
 
-	.landing-nav-panel-pricing {
-		min-width: 260px;
-		max-width: 320px;
-	}
-
-	.pricing-panel-inner {
-		padding: 16px 18px;
+	/* Search button in desktop nav (replaces Pricing) */
+	.nav-search-btn {
 		display: flex;
-		flex-direction: column;
-		gap: 6px;
+		align-items: center;
+		gap: 8px;
+		width: 128px;
+		height: 32px;
+		padding: 0 12px 0 8px;
+		margin-left: 14px;
+		background: hsl(var(--white8));
+		border: 0.33px solid hsl(var(--white16));
+		border-radius: 12px;
+		cursor: pointer;
+		transition: border-color 0.15s ease;
+		flex-shrink: 0;
 	}
 
-	.pricing-panel-text {
-		margin: 0;
-		font-size: 0.875rem;
-		line-height: 1.5;
-		color: hsl(var(--white66));
+	.nav-search-btn:hover {
+		border-color: hsl(var(--white33));
 	}
 
-	.pricing-panel-text.pricing-panel-text-muted {
+	.nav-search-text {
+		font-size: 0.8125rem;
+		font-weight: 500;
 		color: hsl(var(--white33));
+		white-space: nowrap;
 	}
 
 	.landing-nav-studio-dropdown {
@@ -1534,7 +1571,9 @@
 		padding: 0 20px;
 		min-height: 44px;
 		border-bottom: 1.4px solid hsl(var(--white11));
-		transition: color 0.15s ease, background-color 0.15s ease;
+		transition:
+			color 0.15s ease,
+			background-color 0.15s ease;
 	}
 
 	.landing-nav-contact-row:last-child {

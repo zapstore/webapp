@@ -23,12 +23,17 @@ import AppSmallCard from "$lib/components/cards/AppSmallCard.svelte";
 import SocialTabs from "$lib/components/social/SocialTabs.svelte";
 import BottomBar from "$lib/components/social/BottomBar.svelte";
 import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
-import DetailHeader from "$lib/components/layout/DetailHeader.svelte";
-import { createSearchProfilesFunction } from "$lib/services/profile-search";
+import ProfilePic from "$lib/components/common/ProfilePic.svelte";
+import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
+import Timestamp from "$lib/components/common/Timestamp.svelte";
+import { createSearchProfilesFunction, ZAPSTORE_PUBKEY, zapstoreProfileStore } from "$lib/services/profile-search";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
 import { persistEventsInBackground } from "$lib/nostr/cache-writer.js";
 import EditStackModal from "$lib/components/modals/EditStackModal.svelte";
+import GetStartedModal from "$lib/components/modals/GetStartedModal.svelte";
+import SpinKeyModal from "$lib/components/modals/SpinKeyModal.svelte";
+import OnboardingBuildingModal from "$lib/components/modals/OnboardingBuildingModal.svelte";
 import Pen from "$lib/components/icons/Pen.svelte";
 let { data } = $props();
 // Catalog for this stack - currently just Zapstore
@@ -39,6 +44,24 @@ const catalogs = [
         pubkey: "78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55f2fe2202182",
     },
 ];
+// Reactive Zapstore profile so catalog image is always fresh
+let zapstoreProfile = $state(null);
+$effect(() => {
+    const unsub = zapstoreProfileStore.subscribe((v) => (zapstoreProfile = v));
+    return unsub;
+});
+const isZapstoreCatalog = $derived(
+    catalogs.length > 0 &&
+    catalogs[0]?.pubkey &&
+    ZAPSTORE_PUBKEY &&
+    (catalogs[0].pubkey.toLowerCase() === ZAPSTORE_PUBKEY.toLowerCase() ||
+        (catalogs[0].name ?? '').toLowerCase() === 'zapstore')
+);
+const effectiveCatalogs = $derived(
+    isZapstoreCatalog && zapstoreProfile
+        ? [{ ...catalogs[0], pictureUrl: zapstoreProfile.picture, name: zapstoreProfile.name }]
+        : [...catalogs]
+);
 let stack = $state(null);
 let apps = $state([]);
 let loading = $state(false); // Start false, only show loading if no cached data
@@ -47,7 +70,21 @@ let comments = $state([]);
 let commentsLoading = $state(false);
 let commentsError = $state("");
 let getStartedModalOpen = $state(false);
+let spinKeyModalOpen = $state(false);
+let onboardingBuildingModalOpen = $state(false);
+let onboardingProfileName = $state('');
 let editStackModalOpen = $state(false);
+function handleGetStartedStart(event) {
+    onboardingProfileName = event.profileName;
+    spinKeyModalOpen = true;
+    setTimeout(() => { getStartedModalOpen = false; }, 80);
+}
+function handleGetStartedConnected() { getStartedModalOpen = false; }
+function handleSpinComplete() {
+    spinKeyModalOpen = false;
+    setTimeout(() => { onboardingBuildingModalOpen = true; }, 150);
+}
+function handleUseExistingKey() { spinKeyModalOpen = false; getStartedModalOpen = true; }
 let profiles = $state({});
 let profilesLoading = $state(false);
 // Check if current user owns this stack
@@ -359,25 +396,37 @@ const displayDescription = $derived(!stack?.title ||
   />
 </svelte:head>
 
-<!-- Contextual header with back button, creator info, and catalog -->
-{#if stack?.creator}
-  <DetailHeader
-    publisherPic={stack.creator.picture}
-    publisherName={stack.creator.name}
-    publisherPubkey={stack.creator.pubkey}
-    publisherUrl={stack.creator?.npub ? `/profile/${stack.creator.npub}` : "#"}
-    timestamp={stack.createdAt}
-    {catalogs}
-    catalogText="In Zapstore"
-    showPublisher={true}
-    bind:getStartedModalOpen
-  />
-{:else if stack}
-  <DetailHeader {catalogs} catalogText="In Zapstore" showPublisher={false} bind:getStartedModalOpen />
-{/if}
-
 <section class="stack-page">
-  <div class="w-full pt-4 pb-24 px-4 sm:px-6 md:px-[38px]">
+  <div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">
+    <!-- Publisher info row: author + catalog -->
+    <div class="detail-publisher-row">
+      {#if stack?.creator}
+        <a
+          href={stack.creator?.npub ? `/profile/${stack.creator.npub}` : "#"}
+          class="detail-publisher-link"
+        >
+          <ProfilePic
+            pictureUrl={stack.creator.picture}
+            name={stack.creator.name}
+            pubkey={stack.creator.pubkey}
+            size="sm"
+          />
+          <span class="detail-publisher-name">By {stack.creator.name || stack.creator.npub?.slice(0, 12) + '...'}</span>
+          {#if stack.createdAt}
+            <Timestamp timestamp={stack.createdAt} size="xs" className="detail-publisher-timestamp" />
+          {/if}
+        </a>
+      {:else}
+        <div></div>
+      {/if}
+      {#if effectiveCatalogs.length > 0}
+        <ProfilePicStack
+          profiles={effectiveCatalogs}
+          text="In Zapstore"
+          size="sm"
+        />
+      {/if}
+    </div>
     {#if loading}
       <!-- Loading State -->
       <div class="skeleton-publisher-row">
@@ -535,15 +584,67 @@ const displayDescription = $derived(!stack?.title ||
     {stack}
     {apps}
     onSaved={(newEvent) => {
-      // Reload the stack data after save
       loadStack();
     }}
   />
 {/if}
 
+<!-- Onboarding modals (for Get Started flow from BottomBar) -->
+<GetStartedModal
+  bind:open={getStartedModalOpen}
+  onstart={handleGetStartedStart}
+  onconnected={handleGetStartedConnected}
+/>
+<SpinKeyModal
+  bind:open={spinKeyModalOpen}
+  profileName={onboardingProfileName}
+  zIndex={55}
+  onspinComplete={handleSpinComplete}
+  onuseExistingKey={handleUseExistingKey}
+/>
+<OnboardingBuildingModal bind:open={onboardingBuildingModalOpen} zIndex={56} />
+
 <style>
   .stack-page {
     min-height: 100vh;
+  }
+
+  /* ── Publisher info row (replaces DetailHeader) ── */
+  .detail-publisher-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 1.25rem;
+  }
+
+  .detail-publisher-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    transition: opacity 0.15s ease;
+  }
+
+  .detail-publisher-link:hover {
+    opacity: 0.8;
+  }
+
+  .detail-publisher-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: hsl(var(--white66));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :global(.detail-publisher-timestamp) {
+    color: hsl(var(--white33)) !important;
+    flex-shrink: 0;
   }
 
   /* Stack Header: column with title, then row with description + count */

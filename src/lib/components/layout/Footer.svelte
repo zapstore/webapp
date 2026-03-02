@@ -82,7 +82,7 @@
               Stacks
             </a>
           </li>
-          <li>
+          <!-- <li>
             <span
               class="text-sm text-muted-foreground inline-flex items-center gap-1.5"
             >
@@ -103,7 +103,7 @@
                 >Soon</span
               >
             </span>
-          </li>
+          </li> -->
         </ul>
       </div>
 
@@ -135,14 +135,6 @@
               FAQ
             </a>
           </li>
-          <li>
-            <a
-              href="/#pricing"
-              class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Pricing
-            </a>
-          </li>
         </ul>
       </div>
 
@@ -150,6 +142,14 @@
       <div>
         <h3 class="font-semibold text-base text-foreground mb-4">Community</h3>
         <ul class="space-y-3">
+          <li>
+            <a
+              href="/blog"
+              class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Blog
+            </a>
+          </li>
           <li>
             <a
               href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
@@ -168,14 +168,6 @@
               rel="noopener noreferrer"
             >
               Dev support on Signal
-            </a>
-          </li>
-          <li>
-            <a
-              href="/blog"
-              class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Blog
             </a>
           </li>
         </ul>
