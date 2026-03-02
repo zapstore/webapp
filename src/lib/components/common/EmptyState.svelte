@@ -2,12 +2,14 @@
 /**
  * EmptyState - Consistent empty state panel (discover-style by default).
  * Use across profile, SocialTabs, discover, etc. Min height can be overridden for tall areas (e.g. SocialTabs).
+ * topAlign: when true, text sits ~200px from the top instead of being vertically centered.
  */
-let { message = '', minHeight } = $props();
+let { message = '', minHeight, topAlign = false } = $props();
 </script>
 
 <div
 	class="empty-state-panel"
+	class:top-align={topAlign}
 	style={minHeight != null ? `min-height: ${typeof minHeight === 'number' ? `${minHeight}px` : minHeight};` : ''}
 >
 	<p class="empty-state-text">{message}</p>
@@ -21,6 +23,16 @@ let { message = '', minHeight } = $props();
 		justify-content: center;
 		background: hsl(var(--gray16));
 		border-radius: var(--radius-16, 16px);
+	}
+
+	.empty-state-panel.top-align {
+		align-items: flex-start;
+		justify-content: center;
+	}
+
+	.empty-state-panel.top-align .empty-state-text {
+		padding-top: 128px;
+		padding-bottom: 50px;
 	}
 
 	.empty-state-text {

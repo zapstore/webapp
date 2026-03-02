@@ -319,7 +319,7 @@ const combinedFeed = $derived.by(() => {
       {#if commentsLoading && combinedFeed.length === 0}
         <BubbleSkeleton />
       {:else if combinedFeed.length === 0}
-        <EmptyState message="No comments yet" minHeight={600} />
+        <EmptyState message="No comments yet" minHeight={600} topAlign={true} />
       {:else}
         <div class="space-y-4">
           {#each combinedFeed as item (item.type === "zap" ? `zap-${item.id}` : item.id)}
@@ -395,7 +395,7 @@ const combinedFeed = $derived.by(() => {
       {#if zapsLoading && enrichedZaps.length === 0}
         <BubbleSkeleton />
       {:else if enrichedZaps.length === 0}
-        <EmptyState message="No zaps yet" minHeight={600} />
+        <EmptyState message="No zaps yet" minHeight={600} topAlign={true} />
       {:else}
         <div class="space-y-4">
           {#each enrichedZaps as zap (zap.id)}
@@ -414,7 +414,7 @@ const combinedFeed = $derived.by(() => {
         </div>
       {/if}
     {:else if activeTab === "labels"}
-      <EmptyState message="Labels coming soon" minHeight={600} />
+      <EmptyState message="Labels coming soon" minHeight={600} topAlign={true} />
     {:else if activeTab === "details"}
       <DetailsTab
         shareableId={detailsShareableId || (stack
