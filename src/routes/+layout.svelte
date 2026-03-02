@@ -24,6 +24,7 @@ let isReachKit = $derived(path.startsWith('/studio/reachkit'));
 // Marketing pages show the footer
 let showFooter = $derived(
 	path === '/' ||
+	path === '/discover' ||
 	path === '/studio' ||
 	path.startsWith('/studio/') ||
 	path === '/blog' ||

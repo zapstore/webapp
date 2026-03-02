@@ -2,8 +2,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { beforeNavigate } from '$app/navigation';
-	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
+	import { ChevronRight, ChevronLeft } from '$lib/components/icons';
 	import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
@@ -52,6 +52,22 @@
 	// Refs for horizontal scroll containers
 	let appsScrollContainer = $state(null);
 	let stacksScrollContainer = $state(null);
+
+	// Track whether each container has been scrolled (to show left button)
+	let appsScrolledRight = $state(false);
+	let stacksScrolledRight = $state(false);
+
+	const SCROLL_STEP = 320;
+
+	function scrollApps(dir) {
+		if (!appsScrollContainer) return;
+		appsScrollContainer.scrollBy({ left: dir * SCROLL_STEP, behavior: 'smooth' });
+	}
+
+	function scrollStacks(dir) {
+		if (!stacksScrollContainer) return;
+		stacksScrollContainer.scrollBy({ left: dir * SCROLL_STEP, behavior: 'smooth' });
+	}
 
 	// Subscribe to Dexie liveQuery for reactive apps
 	$effect(() => {
@@ -153,20 +169,33 @@
 
 	const appColumns = $derived(getAppColumns(apps, 4));
 
+	// Group stacks into columns of 2 for the 2-row horizontal layout
+	function getStackColumns(stackList, itemsPerColumn = 2) {
+		const columns = [];
+		for (let i = 0; i < stackList.length; i += itemsPerColumn) {
+			columns.push(stackList.slice(i, i + itemsPerColumn));
+		}
+		return columns;
+	}
+
+	const stackColumns = $derived(getStackColumns(resolvedDisplayStacks, 2));
+
 	const HORIZONTAL_SCROLL_THRESHOLD = 500;
 
 	function handleAppsScroll() {
-		if (!appsScrollContainer || !appsHasMore || appsLoadingMore) return;
+		if (!appsScrollContainer) return;
 		const { scrollLeft, scrollWidth, clientWidth } = appsScrollContainer;
-		if (scrollWidth - scrollLeft - clientWidth < HORIZONTAL_SCROLL_THRESHOLD) {
+		appsScrolledRight = scrollLeft > 20;
+		if (appsHasMore && !appsLoadingMore && scrollWidth - scrollLeft - clientWidth < HORIZONTAL_SCROLL_THRESHOLD) {
 			loadMoreApps();
 		}
 	}
 
 	function handleStacksScroll() {
-		if (!stacksScrollContainer || !stacksHasMore || stacksLoadingMore) return;
+		if (!stacksScrollContainer) return;
 		const { scrollLeft, scrollWidth, clientWidth } = stacksScrollContainer;
-		if (scrollWidth - scrollLeft - clientWidth < HORIZONTAL_SCROLL_THRESHOLD) {
+		stacksScrolledRight = scrollLeft > 20;
+		if (stacksHasMore && !stacksLoadingMore && scrollWidth - scrollLeft - clientWidth < HORIZONTAL_SCROLL_THRESHOLD) {
 			loadMoreStacks(fetchFromRelays, DEFAULT_CATALOG_RELAYS);
 		}
 	}
@@ -296,118 +325,156 @@
 		<!-- Apps Section -->
 		<div class="section-container apps-section">
 			<SectionHeader title="Apps" linkText="See more" href="/apps" />
-			{#if apps.length === 0}
-				<!-- Apps loading skeleton -->
-				<div class="horizontal-scroll" use:wheelScroll>
-					<div class="scroll-content">
-						{#each Array(4) as _}
-							<div class="app-column">
-								{#each Array(4) as _}
-									<div class="skeleton-card">
-										<div class="skeleton-icon">
-											<SkeletonLoader />
-										</div>
-										<div class="skeleton-info">
-											<div class="skeleton-name">
+			<div class="scroll-wrap">
+				{#if apps.length === 0}
+					<!-- Apps loading skeleton -->
+					<div class="horizontal-scroll">
+						<div class="scroll-content">
+							{#each Array(4) as _}
+								<div class="app-column">
+									{#each Array(4) as _}
+										<div class="skeleton-card">
+											<div class="skeleton-icon">
 												<SkeletonLoader />
 											</div>
-											<div class="skeleton-desc-lines">
-												<div class="skeleton-desc skeleton-desc-1"></div>
-												<div class="skeleton-desc skeleton-desc-2 desktop-only"></div>
+											<div class="skeleton-info">
+												<div class="skeleton-name">
+													<SkeletonLoader />
+												</div>
+												<div class="skeleton-desc-lines">
+													<div class="skeleton-desc skeleton-desc-1"></div>
+													<div class="skeleton-desc skeleton-desc-2 desktop-only"></div>
+												</div>
 											</div>
 										</div>
-									</div>
-								{/each}
-							</div>
-						{/each}
+									{/each}
+								</div>
+							{/each}
+						</div>
 					</div>
-				</div>
-			{:else}
-				<div
-					class="horizontal-scroll"
-					use:wheelScroll
-					bind:this={appsScrollContainer}
-					onscroll={handleAppsScroll}
-				>
-					<div class="scroll-content">
-						{#each appColumns as column}
-							<div class="app-column">
-								{#each column as app}
-									<AppSmallCard {app} href={getAppUrl(app)} />
-								{/each}
-							</div>
-						{/each}
+				{:else}
+					<div
+						class="horizontal-scroll"
+						bind:this={appsScrollContainer}
+						onscroll={handleAppsScroll}
+					>
+						<div class="scroll-content">
+							{#each appColumns as column}
+								<div class="app-column">
+									{#each column as app}
+										<AppSmallCard {app} href={getAppUrl(app)} />
+									{/each}
+								</div>
+							{/each}
 
-						{#if appsLoadingMore}
-							<div class="load-more-column">
-								<div class="spinner"></div>
-							</div>
-						{/if}
+							{#if appsLoadingMore}
+								<div class="load-more-column">
+									<div class="spinner"></div>
+								</div>
+							{/if}
+						</div>
 					</div>
-				</div>
-			{/if}
+				{/if}
+
+				<!-- Fade overlays (replaces mask-image to avoid backdrop-filter conflict) -->
+				{#if appsScrolledRight}
+					<div class="scroll-fade scroll-fade-left" aria-hidden="true"></div>
+				{/if}
+				<div class="scroll-fade scroll-fade-right" aria-hidden="true"></div>
+
+				<!-- Scroll buttons (mouse users, desktop only) -->
+				{#if appsScrolledRight}
+					<button class="scroll-btn scroll-btn-left" onclick={() => scrollApps(-1)} aria-label="Scroll left">
+						<ChevronLeft size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+					</button>
+				{/if}
+				<button class="scroll-btn scroll-btn-right" onclick={() => scrollApps(1)} aria-label="Scroll right">
+					<ChevronRight size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+				</button>
+			</div>
 		</div>
 
 		<!-- Stacks Section -->
 		<div class="section-container">
 			<SectionHeader title="Stacks" linkText="See more" href="/stacks" />
-			{#if resolvedDisplayStacks.length === 0 && (liveStacks === null || stacksLoading)}
-				<div class="horizontal-scroll" use:wheelScroll>
-					<div class="scroll-content">
-						{#each Array(4) as _}
-							<div class="stack-item">
-								<div class="skeleton-stack">
-									<div class="skeleton-stack-grid">
-										<SkeletonLoader />
-									</div>
-									<div class="skeleton-stack-info">
-										<div class="skeleton-stack-text">
-											<div class="skeleton-stack-name"><SkeletonLoader /></div>
-											<div class="skeleton-stack-desc-lines">
-												<div class="skeleton-stack-desc skeleton-stack-desc-1"></div>
-												<div class="skeleton-stack-desc skeleton-stack-desc-2"></div>
-											</div>
-										</div>
-										<div class="skeleton-stack-creator">
-											<div class="skeleton-stack-avatar">
+			<div class="scroll-wrap">
+				{#if resolvedDisplayStacks.length === 0 && (liveStacks === null || stacksLoading)}
+					<div class="horizontal-scroll">
+						<div class="scroll-content">
+							{#each Array(4) as _}
+								<div class="stack-column">
+									{#each Array(2) as _}
+										<div class="skeleton-stack">
+											<div class="skeleton-stack-grid">
 												<SkeletonLoader />
 											</div>
-											<div class="skeleton-stack-creator-name"></div>
+											<div class="skeleton-stack-info">
+												<div class="skeleton-stack-text">
+													<div class="skeleton-stack-name"><SkeletonLoader /></div>
+													<div class="skeleton-stack-desc-lines">
+														<div class="skeleton-stack-desc skeleton-stack-desc-1"></div>
+														<div class="skeleton-stack-desc skeleton-stack-desc-2"></div>
+													</div>
+												</div>
+												<div class="skeleton-stack-creator">
+													<div class="skeleton-stack-avatar">
+														<SkeletonLoader />
+													</div>
+													<div class="skeleton-stack-creator-name"></div>
+												</div>
+											</div>
 										</div>
-									</div>
+									{/each}
 								</div>
-							</div>
-						{/each}
+							{/each}
+						</div>
 					</div>
-				</div>
-			{:else if resolvedDisplayStacks.length > 0}
-				<div
-					class="horizontal-scroll"
-					use:wheelScroll
-					bind:this={stacksScrollContainer}
-					onscroll={handleStacksScroll}
-				>
-					<div class="scroll-content">
-						{#each resolvedDisplayStacks as stack}
-							<div class="stack-item">
-								<AppStackCard {stack} href={getStackUrl(stack)} />
-							</div>
-						{/each}
+				{:else if resolvedDisplayStacks.length > 0}
+					<div
+						class="horizontal-scroll"
+						bind:this={stacksScrollContainer}
+						onscroll={handleStacksScroll}
+					>
+						<div class="scroll-content">
+							{#each stackColumns as column}
+								<div class="stack-column">
+									{#each column as stack}
+										<AppStackCard {stack} href={getStackUrl(stack)} />
+									{/each}
+								</div>
+							{/each}
 
-						{#if stacksLoadingMore}
-							<div class="load-more-column">
-								<div class="spinner"></div>
-							</div>
-						{/if}
+							{#if stacksLoadingMore}
+								<div class="load-more-column">
+									<div class="spinner"></div>
+								</div>
+							{/if}
+						</div>
 					</div>
-				</div>
-			{:else}
-				<div class="placeholder-content">
-					<p class="text-muted-foreground text-sm">
-						No app stacks found yet. Create one in the Zapstore app!
-					</p>
-				</div>
-			{/if}
+				{:else}
+					<div class="placeholder-content">
+						<p class="text-muted-foreground text-sm">
+							No app stacks found yet. Create one in the Zapstore app!
+						</p>
+					</div>
+				{/if}
+
+				<!-- Fade overlays (replaces mask-image to avoid backdrop-filter conflict) -->
+				{#if stacksScrolledRight}
+					<div class="scroll-fade scroll-fade-left" aria-hidden="true"></div>
+				{/if}
+				<div class="scroll-fade scroll-fade-right" aria-hidden="true"></div>
+
+				<!-- Scroll buttons (mouse users, desktop only) -->
+				{#if stacksScrolledRight}
+					<button class="scroll-btn scroll-btn-left" onclick={() => scrollStacks(-1)} aria-label="Scroll left">
+						<ChevronLeft size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+					</button>
+				{/if}
+				<button class="scroll-btn scroll-btn-right" onclick={() => scrollStacks(1)} aria-label="Scroll right">
+					<ChevronRight size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+				</button>
+			</div>
 		</div>
 
 		<!-- Catalogs Section (placeholder) -->
@@ -433,6 +500,63 @@
 		margin-bottom: 24px;
 	}
 
+	/* Wrapper for scroll container + overlay buttons */
+	.scroll-wrap {
+		position: relative;
+	}
+
+	/* Scroll arrow buttons — desktop + mouse only */
+	.scroll-btn {
+		display: none;
+	}
+
+	@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+		.scroll-btn {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			position: absolute;
+			top: 50%;
+			transform: translateY(-50%) scale(1);
+			width: 38px;
+			height: 38px;
+			border-radius: 50%;
+			border: none;
+			background: hsl(var(--white16));
+			backdrop-filter: blur(var(--blur-sm));
+			-webkit-backdrop-filter: blur(var(--blur-sm));
+			cursor: pointer;
+			z-index: 10;
+			transition: transform 0.2s ease;
+		}
+
+		.scroll-btn:hover {
+			transform: translateY(-50%) scale(1.08);
+		}
+
+		.scroll-btn:active {
+			transform: translateY(-50%) scale(0.95);
+		}
+
+		.scroll-btn-right {
+			right: -56px;
+		}
+
+		/* Right button: icon points right → 2px padding on left (opposite side) */
+		.scroll-btn-right :global(svg) {
+			padding-left: 2px;
+		}
+
+		.scroll-btn-left {
+			left: -56px;
+		}
+
+		/* Left button: icon points left → 2px padding on right (opposite side) */
+		.scroll-btn-left :global(svg) {
+			padding-right: 2px;
+		}
+	}
+
 	/* Extra gap under the Apps section header (desktop +4px, mobile +2px) */
 	.apps-section :global(.section-header) {
 		margin-bottom: 20px;
@@ -454,20 +578,6 @@
 		overflow-y: hidden;
 		scrollbar-width: none;
 		-ms-overflow-style: none;
-		mask-image: linear-gradient(
-			to right,
-			transparent 0%,
-			black 1rem,
-			black calc(100% - 1rem),
-			transparent 100%
-		);
-		-webkit-mask-image: linear-gradient(
-			to right,
-			transparent 0%,
-			black 1rem,
-			black calc(100% - 1rem),
-			transparent 100%
-		);
 	}
 
 	.horizontal-scroll::-webkit-scrollbar {
@@ -480,20 +590,6 @@
 			margin-right: -1.5rem;
 			padding-left: 1.5rem;
 			padding-right: 1.5rem;
-			mask-image: linear-gradient(
-				to right,
-				transparent 0%,
-				black 1.5rem,
-				black calc(100% - 1.5rem),
-				transparent 100%
-			);
-			-webkit-mask-image: linear-gradient(
-				to right,
-				transparent 0%,
-				black 1.5rem,
-				black calc(100% - 1.5rem),
-				transparent 100%
-			);
 		}
 	}
 
@@ -503,27 +599,47 @@
 			margin-right: -38px;
 			padding-left: 38px;
 			padding-right: 38px;
-			mask-image: linear-gradient(
-				to right,
-				transparent 0%,
-				black 38px,
-				black calc(100% - 38px),
-				transparent 100%
-			);
-			-webkit-mask-image: linear-gradient(
-				to right,
-				transparent 0%,
-				black 38px,
-				black calc(100% - 38px),
-				transparent 100%
-			);
 		}
+	}
+
+	/*
+	 * Fade overlays — replace mask-image to avoid backdrop-filter compositing conflict.
+	 * mask-image + backdrop-filter sibling = broken compositing in all browsers.
+	 * Plain gradient divs avoid the issue entirely.
+	 */
+	.scroll-fade {
+		position: absolute;
+		top: 0;
+		bottom: 8px; /* stop above scrollbar area */
+		pointer-events: none;
+		z-index: 5;
+	}
+
+	.scroll-fade-left {
+		left: -1rem;
+		width: 1rem;
+		background: linear-gradient(to right, hsl(var(--background)), transparent);
+	}
+
+	.scroll-fade-right {
+		right: -1rem;
+		width: 1rem;
+		background: linear-gradient(to left, hsl(var(--background)), transparent);
+	}
+
+	@media (min-width: 640px) {
+		.scroll-fade-left { left: -1.5rem; width: 1.5rem; }
+		.scroll-fade-right { right: -1.5rem; width: 1.5rem; }
+	}
+
+	@media (min-width: 768px) {
+		.scroll-fade-left { left: -38px; width: 38px; }
+		.scroll-fade-right { right: -38px; width: 38px; }
 	}
 
 	.scroll-content {
 		display: flex;
 		gap: 16px;
-		padding-bottom: 8px;
 	}
 
 	.app-column {
@@ -541,14 +657,18 @@
 		}
 	}
 
-	.stack-item {
+	.stack-column {
 		flex-shrink: 0;
 		width: 280px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
 	}
 
 	@media (min-width: 768px) {
-		.stack-item {
+		.stack-column {
 			width: 320px;
+			gap: 16px;
 		}
 	}
 

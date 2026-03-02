@@ -1,7 +1,7 @@
 <script lang="js">
 import { formatDisplayDate } from '$lib/date';
 import { ArrowRight } from 'lucide-svelte';
-import DetailHeader from '$lib/components/layout/DetailHeader.svelte';
+import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 let { data } = $props();
 </script>
 
@@ -10,65 +10,159 @@ let { data } = $props();
 	<meta name="description" content="Latest news, updates and insights from the Zapstore team." />
 </svelte:head>
 
-<DetailHeader variant="page" title="Blog" />
+<section class="blog-page">
+	<div class="container mx-auto py-6 px-3 sm:px-6 lg:px-8">
+		<SectionHeader title="Blog" />
+		<div class="posts-list">
+			{#each data.posts as post, i}
+				<article class="post-item group">
+					<a href="/blog/{post.path}" class="post-link" data-sveltekit-reload>
+						<div class="post-content">
+							<div class="post-meta">
+								{#if post.meta.date}
+									<time datetime={post.meta.date} class="post-date">
+										{formatDisplayDate(post.meta.date)}
+									</time>
+								{/if}
+								{#if post.meta.draft}
+									<span class="badge badge-draft">Draft</span>
+								{/if}
+								{#if post.meta.category}
+									<span class="badge badge-category">{post.meta.category}</span>
+								{/if}
+							</div>
 
-<div class="w-full px-4 sm:px-6 md:px-[38px] py-10">
-<div class="max-w-3xl space-y-12">
-	{#each data.posts as post, i}
-		<article class="group">
-			<a href="/blog/{post.path}" class="block" data-sveltekit-reload>
-				<div class="flex flex-col gap-3">
-					<!-- Meta -->
-					<div class="flex items-center gap-3 text-sm text-[var(--color-text-tertiary)]">
-						{#if post.meta.date}
-							<time datetime={post.meta.date}>
-								{formatDisplayDate(post.meta.date)}
-							</time>
-						{/if}
-						{#if post.meta.draft}
-							<span
-								class="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs font-medium"
-							>
-								Draft
+							<h2 class="post-title">{post.meta.title}</h2>
+
+							{#if post.meta.description}
+								<p class="post-desc">{post.meta.description}</p>
+							{/if}
+
+							<span class="read-more">
+								Read article
+								<ArrowRight class="read-more-icon" />
 							</span>
-						{/if}
-						{#if post.meta.category}
-							<span
-								class="px-2 py-0.5 bg-[var(--color-accent)]/10 text-[var(--color-accent)] border border-[var(--color-accent)]/20 rounded-full text-xs"
-							>
-								{post.meta.category}
-							</span>
-						{/if}
-					</div>
+						</div>
+					</a>
 
-					<!-- Title -->
-					<h2
-						class="text-2xl font-semibold text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors"
-					>
-						{post.meta.title}
-					</h2>
-
-					<!-- Description -->
-					{#if post.meta.description}
-						<p class="text-[var(--color-text-secondary)] leading-relaxed">
-							{post.meta.description}
-						</p>
+					{#if i < data.posts.length - 1}
+						<div class="post-divider"></div>
 					{/if}
+				</article>
+			{/each}
+		</div>
+	</div>
+</section>
 
-					<!-- Read more -->
-					<span
-						class="inline-flex items-center text-sm font-medium text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent)] transition-colors"
-					>
-						Read article
-						<ArrowRight class="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-					</span>
-				</div>
-			</a>
+<style>
+	.blog-page {
+		min-height: 100vh;
+	}
 
-			{#if i < data.posts.length - 1}
-				<div class="mt-12 border-b border-[var(--color-border)]/50"></div>
-			{/if}
-		</article>
-	{/each}
-</div>
-</div>
+	.posts-list {
+		max-width: 680px;
+	}
+
+	.post-item {
+		padding: 0;
+	}
+
+	.post-link {
+		display: block;
+		text-decoration: none;
+		padding: 24px 0;
+	}
+
+	.post-content {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.post-meta {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		font-size: 0.8125rem;
+		color: hsl(var(--white33));
+	}
+
+	.post-date {
+		color: hsl(var(--white33));
+	}
+
+	.badge {
+		padding: 2px 8px;
+		border-radius: 9999px;
+		font-size: 0.75rem;
+	}
+
+	.badge-draft {
+		background: rgba(245, 158, 11, 0.1);
+		color: rgb(251, 191, 36);
+		border: 1px solid rgba(245, 158, 11, 0.2);
+		font-weight: 500;
+	}
+
+	.badge-category {
+		background: hsl(var(--blurple) / 0.12);
+		color: hsl(var(--blurple-bright-0));
+		border: 1px solid hsl(var(--blurple) / 0.25);
+	}
+
+	.post-title {
+		font-size: 1.25rem;
+		font-weight: 650;
+		color: hsl(var(--foreground));
+		margin: 0;
+		line-height: 1.3;
+		transition: color 0.15s ease;
+	}
+
+	@media (min-width: 768px) {
+		.post-title {
+			font-size: 1.5rem;
+		}
+	}
+
+	.post-item:global(.group):hover .post-title,
+	.post-link:hover .post-title {
+		color: hsl(var(--blurple-bright-0));
+	}
+
+	.post-desc {
+		font-size: 0.9375rem;
+		color: hsl(var(--white66));
+		line-height: 1.6;
+		margin: 0;
+	}
+
+	.read-more {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: hsl(var(--white33));
+		transition: color 0.15s ease;
+	}
+
+	.post-link:hover .read-more {
+		color: hsl(var(--blurple-bright-0));
+	}
+
+	.read-more :global(.read-more-icon) {
+		width: 14px;
+		height: 14px;
+		transition: transform 0.15s ease;
+	}
+
+	.post-link:hover .read-more :global(.read-more-icon) {
+		transform: translateX(2px);
+	}
+
+	.post-divider {
+		height: 1px;
+		background: hsl(var(--white8));
+	}
+</style>
