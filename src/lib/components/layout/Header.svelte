@@ -49,6 +49,7 @@
 			$page.url.pathname === '/apps' ||
 			$page.url.pathname === '/stacks'
 	);
+	const isCommunityActive = $derived($page.url.pathname.startsWith('/blog'));
 	// Current user profile (local-first: EventStore then background fetch) for header avatar
 	let currentUserProfile = $state(null);
 	// Close Studio dropdown when navigating to studio page (reopen only after hover away and rehover)
@@ -747,14 +748,15 @@
 								onmouseenter={() => setLandingNavOpen('community')}
 								onmouseleave={clearLandingNavOpen}
 							>
-								<button
-									type="button"
-									class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4"
-									class:landing-nav-btn-open={landingNavOpen === 'community'}
-									style="color: hsl(var(--white66));"
-								>
-									Community
-								</button>
+							<button
+								type="button"
+								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4"
+								class:landing-nav-btn-open={landingNavOpen === 'community'}
+								class:landing-nav-studio-selected={isCommunityActive}
+								style="color: hsl(var(--white66));"
+							>
+								Community
+							</button>
 								{#if landingNavOpen === 'community'}
 									<div
 										class="landing-nav-panel landing-nav-panel-studio landing-nav-panel-centered absolute top-full mt-0 shadow-lg z-50"
