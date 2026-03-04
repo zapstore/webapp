@@ -205,6 +205,37 @@ export function fetchApp(pubkey, identifier) {
 }
 
 /**
+ * Fetch a single app by d-tag identifier only (no pubkey required).
+ * Picks the first match — suitable for the zapstore relay which has one app per identifier.
+ * Returns { app, seedEvents } or null if not found.
+ */
+export function fetchAppByIdentifier(identifier) {
+	const platformTag = PLATFORM_FILTER['#f']?.[0];
+	const filter = {
+		kinds: [EVENT_KINDS.APP],
+		'#d': [identifier],
+		...(platformTag ? { '#f': [platformTag] } : {}),
+		limit: 1
+	};
+
+	const cached = queryCache(filter);
+	if (cached.length === 0) return null;
+
+	const appEvent = cached[0];
+	const app = parseApp(appEvent);
+
+	const profileResults = queryCache({ kinds: [EVENT_KINDS.PROFILE], authors: [appEvent.pubkey], limit: 1 });
+	const profileEvent = profileResults[0] ?? null;
+
+	const seedEvents = dedupeEventsById([
+		appEvent,
+		...(profileEvent ? [profileEvent] : [])
+	]);
+
+	return { app, seedEvents };
+}
+
+/**
  * Build the 'a' tag value for an app (kind:pubkey:identifier).
  */
 function appATag(pubkey, identifier) {

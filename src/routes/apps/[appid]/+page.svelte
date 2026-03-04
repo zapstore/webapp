@@ -78,7 +78,8 @@ function handleSpinComplete() {
     setTimeout(() => { onboardingBuildingModalOpen = true; }, 150);
 }
 function handleUseExistingKey() { spinKeyModalOpen = false; getStartedModalOpen = true; }
-const appNaddr = $derived($page.params.naddr ?? "");
+const appid = $derived($page.params.appid ?? "");
+// appid may be a plain d-tag or a legacy naddr — the onMount logic handles both
 const otherZaps = $derived(zaps.map((z) => {
     const prof = z.senderPubkey ? zapperProfiles.get(z.senderPubkey) : undefined;
     return {
@@ -151,9 +152,7 @@ const publisherUrl = $derived(app?.npub ? `/profile/${app.npub}` : "#");
 const platforms = $derived(app?.platform ? [app.platform] : ["Android"]);
 const hasRepository = $derived(!!app?.repository);
 const isZapstorePublisher = $derived(!!app?.pubkey && !!ZAPSTORE_PUBKEY && app.pubkey.toLowerCase() === ZAPSTORE_PUBKEY.toLowerCase());
-/** Zapstore app we link to in GetTheAppSection: show "Published by Developer" (Zapstore is the developer) */
-const ZAPSTORE_APP_NADDR = "naddr1qvzqqqr7pvpzq7xwd748yfjrsu5yuerm56fcn9tntmyv04w95etn0e23xrczvvraqqgxgetk9eaxzurnw3hhyefwv9c8qakg5jt";
-const isZapstoreApp = $derived(!!app?.naddr && app.naddr === ZAPSTORE_APP_NADDR);
+const isZapstoreApp = $derived(!!app?.dTag && app.dTag === 'dev.zapstore.app');
 const publishedByDeveloper = $derived(isZapstoreApp || (!isZapstorePublisher && hasRepository));
 // Check if description is truncated
 function checkTruncation(node) {
@@ -528,26 +527,42 @@ async function loadReleases() {
 onMount(async () => {
     if (!browser)
         return;
-    // Decode the naddr to get pubkey + identifier for Dexie queries
-    const pointer = decodeNaddr(appNaddr);
-    const _pubkey = data.app?.pubkey ?? pointer?.pubkey;
-    const _identifier = data.app?.dTag ?? pointer?.identifier;
+    // Resolve pubkey + identifier: appid may be a plain d-tag or a legacy naddr
+    const pointer = decodeNaddr(appid);
+    let _pubkey = data.app?.pubkey ?? pointer?.pubkey;
+    let _identifier = data.app?.dTag ?? pointer?.identifier ?? (pointer ? undefined : appid);
+
+    // 1. Try Dexie first (local-first: IndexedDB is the single client-side source of truth)
+    // When navigating client-side to /apps/:dtag we may only have the identifier (no pubkey yet).
+    let cachedApp = null;
+    if (_pubkey && _identifier) {
+        cachedApp = await queryEvent({
+            kinds: [EVENT_KINDS.APP],
+            authors: [_pubkey],
+            "#d": [_identifier],
+            ...PLATFORM_FILTER,
+        });
+    } else if (_identifier) {
+        // d-tag only — query by tag, pick first result
+        cachedApp = await queryEvent({
+            kinds: [EVENT_KINDS.APP],
+            "#d": [_identifier],
+            ...PLATFORM_FILTER,
+        });
+    }
+    if (cachedApp) {
+        app = parseApp(cachedApp);
+        _pubkey = app.pubkey;
+        _identifier = app.dTag;
+        error = null;
+    }
+
     if (!_pubkey || !_identifier) {
         error = data.error ?? 'Invalid app URL';
         return;
     }
+
     const aTagValue = `${EVENT_KINDS.APP}:${_pubkey}:${_identifier}`;
-    // 1. Try Dexie first (local-first: IndexedDB is the single client-side source of truth)
-    const cachedApp = await queryEvent({
-        kinds: [EVENT_KINDS.APP],
-        authors: [_pubkey],
-        "#d": [_identifier],
-        ...PLATFORM_FILTER,
-    });
-    if (cachedApp) {
-        app = parseApp(cachedApp);
-        error = null;
-    }
     const cachedRelease = await queryEvent({ kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue], ...PLATFORM_FILTER });
     if (cachedRelease) {
         latestRelease = parseRelease(cachedRelease);
@@ -555,19 +570,23 @@ onMount(async () => {
     // 2. Supplement with server data (may be fresher)
     if (data.app && !app) {
         app = data.app;
+        _pubkey = app.pubkey;
+        _identifier = app.dTag;
         error = null;
     }
     // 3. Not in cache or Dexie: try relays once before showing 404 (online only)
     if (!app && isOnline()) {
         const events = await fetchFromRelays(DEFAULT_CATALOG_RELAYS, {
             kinds: [EVENT_KINDS.APP],
-            authors: [_pubkey],
+            ...(_pubkey ? { authors: [_pubkey] } : {}),
             '#d': [_identifier],
             ...PLATFORM_FILTER,
             limit: 1
         });
         if (events.length > 0) {
             app = parseApp(events[0]);
+            _pubkey = app.pubkey;
+            _identifier = app.dTag;
             error = null;
         }
     }
@@ -869,7 +888,7 @@ function toggleReleaseNotesExpanded(releaseId) {
         version={latestRelease?.version}
         mainEventIds={[app?.id, ...(releases ?? []).map((r) => r.id)].filter(Boolean)}
         {publisherProfile}
-        getAppSlug={(p, d) => (app ? (app.naddr || encodeAppNaddr(p, d)) : "")}
+        getAppSlug={(p, d) => (app?.naddr ?? encodeAppNaddr(p, d))}
         pubkeyToNpub={(pk) => nip19.npubEncode(pk)}
         zaps={zaps.map((z) => ({
           id: z.id,

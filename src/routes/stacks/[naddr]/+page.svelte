@@ -346,7 +346,7 @@ async function handleCommentSubmit(event) {
     }
 }
 function getAppUrl(app) {
-    return `/apps/${encodeAppNaddr(app.pubkey, app.dTag)}`;
+    return `/apps/${app.dTag}`;
 }
 // Group apps into columns of 3 for horizontal scroll
 function getAppColumns(appList, itemsPerColumn = 3) {

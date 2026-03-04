@@ -34,7 +34,7 @@
         </p>
         <div class="flex flex-row gap-3">
           <a
-            href="/apps/naddr1qvzqqqr7pvpzq7xwd748yfjrsu5yuerm56fcn9tntmyv04w95etn0e23xrczvvraqqgxgetk9eaxzurnw3hhyefwv9c8qakg5jt"
+            href="/apps/dev.zapstore.app"
             class="btn-secondary-large btn-secondary-light"
             style="color: hsl(var(--white66));"
           >

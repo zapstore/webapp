@@ -6,7 +6,6 @@ import AppPic from "$lib/components/common/AppPic.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import { getCurrentPubkey } from "$lib/stores/auth.svelte.js";
 import { createAppsQuery } from "$lib/stores/nostr.svelte.js";
-import { encodeAppNaddr } from "$lib/nostr/models";
 // Get current user's pubkey
 const userPubkey = $derived(getCurrentPubkey());
 // liveQuery-driven apps from Dexie
@@ -129,7 +128,7 @@ function formatSats(num) {
     return num.toString();
 }
 function getAppUrl(app) {
-    return `/apps/${encodeAppNaddr(app.pubkey, app.dTag)}`;
+    return `/apps/${app.dTag}`;
 }
 let downloadsChartWidth = $state(400);
 let zapsChartWidth = $state(400);

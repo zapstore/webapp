@@ -2,7 +2,7 @@
 let { app } = $props();
 </script>
 
-<a href="/apps/{app.naddr}" class="app-card" data-sveltekit-preload-data="hover">
+<a href="/apps/{app.dTag}" class="app-card" data-sveltekit-preload-data="hover">
   {#if app.icon}
     <img src={app.icon} alt={app.name} class="app-icon" decoding="async" />
   {:else}

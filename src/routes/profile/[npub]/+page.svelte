@@ -4,7 +4,7 @@
  */
 import { onMount } from 'svelte';
 import { browser } from '$app/environment';
-import { fetchProfile, queryEvents, encodeAppNaddr, encodeStackNaddr, parseApp, parseAppStack, fetchAppsByAuthorFromRelays, fetchAppFromRelays } from '$lib/nostr';
+import { fetchProfile, queryEvents, encodeStackNaddr, parseApp, parseAppStack, fetchAppsByAuthorFromRelays, fetchAppFromRelays } from '$lib/nostr';
 import { DEFAULT_CATALOG_RELAYS, SAVED_APPS_STACK_D_TAG } from '$lib/config';
 import { nip19 } from 'nostr-tools';
 import { wheelScroll } from '$lib/actions/wheelScroll.js';
@@ -473,7 +473,6 @@ function stackToCard(s, resolvedApps) {
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
 						{#each apps as app}
-							{@const naddr = app.naddr || encodeAppNaddr(app.pubkey, app.dTag)}
 							<div class="profile-app-item">
 								<AppSmallCard
 									app={{
@@ -482,7 +481,7 @@ function stackToCard(s, resolvedApps) {
 										description: app.description,
 										dTag: app.dTag
 									}}
-									href="/apps/{naddr}"
+									href="/apps/{app.dTag}"
 								/>
 							</div>
 						{/each}

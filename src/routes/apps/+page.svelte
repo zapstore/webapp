@@ -6,7 +6,6 @@
 	import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import { parseApp } from '$lib/nostr/models';
-	import { encodeAppNaddr } from '$lib/nostr/models';
 	import { searchApps } from '$lib/nostr/service';
 	import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
 	import {
@@ -69,8 +68,7 @@
 	});
 
 	function getAppUrl(app) {
-		const naddr = app.naddr || encodeAppNaddr(app.pubkey, app.dTag);
-		return `/apps/${naddr}`;
+		return `/apps/${app.dTag}`;
 	}
 
 	let scrollContainer = null;

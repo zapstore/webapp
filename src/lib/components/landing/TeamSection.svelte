@@ -20,8 +20,7 @@
 	const ZAPPER_SLOT_COUNT = 16;
 	const THREE_MONTHS_SEC = 90 * 24 * 60 * 60;
 	const ZAP_RECEIPTS_LIMIT = 3000;
-	const ZAPSTORE_APP_NADDR =
-		'/apps/naddr1qvzqqqr7pvpzq7xwd748yfjrsu5yuerm56fcn9tntmyv04w95etn0e23xrczvvraqqgxgetk9eaxzurnw3hhyefwv9c8qakg5jt';
+	const ZAPSTORE_APP_NADDR = '/apps/dev.zapstore.app';
 	const FRAN_PRIMAL_URL =
 		'https://primal.net/p/npub1wf4pufsucer5va8g9p0rj5dnhvfeh6d8w0g6eayaep5dhps6rsgs43dgh9';
 	const MAX_ZAPPER_NAME_LEN = 16;

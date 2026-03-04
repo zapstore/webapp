@@ -201,7 +201,7 @@
 	}
 
 	function getAppUrl(app) {
-		return `/apps/${app.naddr}`;
+		return `/apps/${app.dTag}`;
 	}
 
 	function isHexPubkey(value) {
