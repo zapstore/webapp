@@ -1,67 +1,33 @@
 <script>
-	import { onMount } from 'svelte';
 	import LandingSectionTitle from './LandingSectionTitle.svelte';
-	import { ChevronRight } from '$lib/components/icons';
 
 	// Store icons with image paths
 	const stores = [
 		{ name: 'Zapstore', icon: '/images/logo.svg', hasIcon: true, isZapstore: true },
-		{ name: 'App Store', icon: '/images/appstore.svg', hasIcon: true },
+		{ name: 'F-Droid', icon: '/images/fdroid.svg', hasIcon: true },
 		{ name: 'Play Store', icon: '/images/playstore.svg', hasIcon: true },
 		{ name: 'Obtainium', icon: '/images/obtainium.svg', hasIcon: true }
 	];
 
-	// Criteria with values for each store (order: Decentralized, Developer signatures, Zaps, No Review Process, User Communities, Any App)
+	// Criteria with values for each store (order: Zapstore, F-Droid, Play Store, Obtainium)
 	// true = checkmark, false = cross, string = text
 	const criteria = [
-		{ name: 'Decentralized', values: [true, false, false, false] },
-		{ name: 'Developer signatures', values: [true, false, false, false] },
-		{ name: 'Zaps', values: [true, false, false, false] },
-		{ name: 'No Review Process', values: [true, false, false, true] },
-		{ name: 'User Communities', values: [true, false, false, false] },
-		{ name: 'Any App', values: [true, false, false, true] }
+		{ name: 'Open source', values: [true, true, false, true] },
+		{ name: 'Developer signatures', values: [true, false, false, true] },
+		{ name: 'No review process', values: [true, false, false, true] },
+		{ name: 'Any app', values: [true, false, false, true] },
+		{ name: 'User communities', values: [true, false, false, false] },
+		{ name: 'Zaps', values: [true, false, false, false] }
 	];
-
-	/** @type {HTMLButtonElement | undefined} */
-	let readMoreButton;
-	let readMoreDropdownOpen = false;
-	/** @type {HTMLDivElement | undefined} */
-	let readMoreMobileWrap;
-
-	/** @param {MouseEvent} event */
-	function handleReadMoreMouseMove(event) {
-		if (!readMoreButton) return;
-		const rect = readMoreButton.getBoundingClientRect();
-		readMoreButton.style.setProperty('--mouse-x', `${event.clientX - rect.left}px`);
-		readMoreButton.style.setProperty('--mouse-y', `${event.clientY - rect.top}px`);
-	}
-
-	function handleReadMore() {
-		readMoreDropdownOpen = !readMoreDropdownOpen;
-	}
-
-	/** @param {MouseEvent} event */
-	function handleReadMoreClickOutside(event) {
-		const target = /** @type {Node | null} */ (event.target);
-		if (readMoreMobileWrap && target && !readMoreMobileWrap.contains(target)) {
-			readMoreDropdownOpen = false;
-		}
-	}
-
-	onMount(() => {
-		document.addEventListener('click', handleReadMoreClickOutside);
-		return () => document.removeEventListener('click', handleReadMoreClickOutside);
-	});
 </script>
 
-<section class="difference-section border-t border-border/50 pt-8 sm:pt-12 lg:pt-16 pb-0 relative difference-section-root">
+<section
+	class="difference-section border-t border-border/50 pt-8 sm:pt-12 lg:pt-16 pb-0 relative difference-section-root"
+>
 	<LandingSectionTitle
 		title="What's the difference?"
 		description="Let's compare Zapstore to some common alternatives."
-		showSeeMore={true}
-		seeMoreText="Read More"
-		seeMoreDropdownText="More coming soon!"
-		seeMoreAction={handleReadMore}
+		showSeeMore={false}
 		showButtonsOnMobile={false}
 	/>
 
@@ -82,7 +48,7 @@
 				<thead>
 					<tr>
 						<th class="criteria-header"></th>
-						{#each stores as store, i}
+						{#each stores as store, i (store.name)}
 							<th class="store-header">
 								<div class="store-header-content">
 									<div class="store-icon-wrapper" class:zapstore-icon={store.isZapstore}>
@@ -97,10 +63,10 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each criteria as criterion, rowIndex}
+					{#each criteria as criterion, rowIndex (criterion.name)}
 						<tr class:last-row={rowIndex === criteria.length - 1}>
 							<td class="criteria-cell">{criterion.name}</td>
-							{#each criterion.values as value}
+							{#each criterion.values as value, vi (vi)}
 								<td class="value-cell">
 									{#if value === true}
 										<svg
@@ -137,33 +103,6 @@
 				</tbody>
 			</table>
 		</div>
-	</div>
-
-	<!-- Mobile only: Read More overlayed at bottom center of section -->
-	<div
-		class="md:hidden absolute inset-x-0 bottom-0 z-40 read-more-mobile-wrap"
-		bind:this={readMoreMobileWrap}
-	>
-		<button
-			type="button"
-			bind:this={readMoreButton}
-			on:click={handleReadMore}
-			on:mousemove={handleReadMoreMouseMove}
-			class="btn-glass-large btn-glass-with-chevron flex items-center group"
-		>
-			Read More
-			<ChevronRight
-				variant="outline"
-				color="hsl(var(--white33))"
-				size={18}
-				className="transition-transform group-hover:translate-x-0.5"
-			/>
-		</button>
-		{#if readMoreDropdownOpen}
-			<div class="read-more-mobile-panel" role="dialog" aria-label="More info">
-				<p class="read-more-mobile-panel-text">More coming soon!</p>
-			</div>
-		{/if}
 	</div>
 </section>
 
@@ -393,43 +332,6 @@
 	.comparison-table-wrapper {
 		padding-bottom: 0 !important;
 		margin-bottom: 0 !important;
-	}
-
-	.read-more-mobile-wrap {
-		display: flex;
-		justify-content: center;
-		align-items: flex-end;
-		padding-bottom: 32px;
-		pointer-events: none;
-	}
-	.read-more-mobile-wrap > button {
-		pointer-events: auto;
-	}
-	@media (min-width: 768px) {
-		.read-more-mobile-wrap {
-			display: none !important;
-		}
-	}
-
-	.read-more-mobile-panel {
-		position: absolute;
-		bottom: calc(100% + 8px);
-		left: 50%;
-		transform: translateX(-50%);
-		min-width: 200px;
-		max-width: 280px;
-		padding: 12px 14px;
-		background: hsl(241 15% 18%);
-		border: 1px solid hsl(var(--white16));
-		border-radius: 12px;
-		box-shadow: 0 8px 24px hsl(var(--black66) / 0.4);
-	}
-
-	.read-more-mobile-panel-text {
-		margin: 0;
-		font-size: 0.8125rem;
-		line-height: 1.45;
-		color: hsl(var(--white66));
 	}
 
 	@media (max-width: 640px) {

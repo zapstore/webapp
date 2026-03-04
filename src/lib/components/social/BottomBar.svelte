@@ -126,8 +126,7 @@ $effect(() => {
 						<span class="font-semibold text-lg lg:text-xl tracking-tight">Zapstore</span>
 					</a>
 					<button type="button" onclick={() => onGetStarted?.()} class="btn-primary-small h-10 px-4">
-						<span class="sm:hidden">Start</span>
-						<span class="hidden sm:inline">Get Started</span>
+						<span>Sign in</span>
 					</button>
 				{/if}
 			</div>

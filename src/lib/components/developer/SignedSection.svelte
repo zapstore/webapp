@@ -326,6 +326,7 @@ const highlightedJson = highlightJson(formattedJson);
 		font-weight: 650;
 		line-height: 1.1;
 		letter-spacing: -0.02em;
+		padding-bottom: 0.15em;
 		background: var(--gradient-white-blurple);
 		-webkit-background-clip: text;
 		background-clip: text;
@@ -350,11 +351,12 @@ const highlightedJson = highlightJson(formattedJson);
 	}
 
 	.signed-line {
-		margin: 0;
+		margin: 0 0 -0.15em;
 		font-size: 3.5rem;
 		font-weight: 650;
 		line-height: 1.1;
 		letter-spacing: -0.02em;
+		padding-bottom: 0.15em;
 		background: var(--gradient-white-blurple);
 		-webkit-background-clip: text;
 		background-clip: text;

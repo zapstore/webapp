@@ -25,7 +25,7 @@
   export let isZapstore = false;
 
   // Platform options for Zapstore
-  const zapstorePlatforms = ["Android", "iOS", "Mac", "Linux"];
+  const zapstorePlatforms = ["Android", "iOS"];
 
   let selectedPlatform = "Android";
   let showVerifyOverlay = false;

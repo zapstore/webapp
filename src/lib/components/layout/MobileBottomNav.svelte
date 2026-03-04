@@ -61,10 +61,10 @@ function isActive(href) {
 			type="button"
 			class="nav-item"
 			onclick={() => onGetStarted?.()}
-			aria-label="Get started"
+			aria-label="Sign in"
 		>
 			<User size={22} class="nav-icon" />
-			<span class="nav-label">Get Started</span>
+			<span class="nav-label">Sign in</span>
 		</button>
 	{/if}
 </nav>

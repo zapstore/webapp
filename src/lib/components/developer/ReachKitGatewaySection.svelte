@@ -2,28 +2,7 @@
 
 <section class="gateway-section border-b border-border/50">
   <div class="gateway-container">
-    <!-- Left: ReachKit (gold theme) -->
-    <div class="gateway-panel gateway-panel-gold">
-      <div class="gateway-header-row">
-        <h2 class="gateway-panel-title">ReachKit</h2>
-        <div class="gateway-pill gateway-pill-gold">
-          <span class="gateway-pill-dot gateway-pill-dot-gold"></span>
-          Coming Soon
-        </div>
-      </div>
-      <h3
-        class="gateway-question"
-        style="background: var(--gradient-gold); -webkit-background-clip: text; background-clip: text; color: transparent;"
-      >
-        Need to distribute everywhere?
-      </h3>
-      <p class="gateway-desc gateway-desc-large">
-        ReachKit uses AI to predict app store rejections before you submit. Validate once, ship to every major mobile store — App Store, Google Play, F-Droid, Zapstore, and more.
-      </p>
-      <a href="/studio/reachkit" class="btn-secondary gateway-cta">Learn More</a>
-    </div>
-
-    <!-- Right: SkillPub (green theme) -->
+    <!-- SkillPub (green theme) -->
     <div class="gateway-panel gateway-panel-green">
       <div class="gateway-header-row">
         <h2 class="gateway-panel-title">SkillPub</h2>
@@ -78,6 +57,7 @@
       gap: 2.75rem;
     }
   }
+
 
   .gateway-panel {
     display: flex;

@@ -1,43 +1,25 @@
 <script lang="js">
-	/**
-	 * GetStartedModal - Initial onboarding modal for Zapstore
-	 *
-	 * Allows users to either:
-	 * 1. Create a new Nostr key (proceeds to SpinKeyModal)
-	 * 2. Sign in with existing key (uses browser extension)
-	 */
 	import Modal from '$lib/components/common/Modal.svelte';
-	import InputTextField from '$lib/components/common/InputTextField.svelte';
 	import { Nostr } from '$lib/components/icons';
 	import { connect } from '$lib/stores/auth.svelte.js';
-	let { open = $bindable(false), onstart, onconnected } = $props();
-	let profileName = $state('');
-	let inputElement = $state(null);
+	import { ExtensionMissingError } from 'applesauce-signers/signers/extension-signer';
+
+	const PRIMAL_APP_URL =
+		'https://zapstore.dev/apps/naddr1qvzqqqr7pvpzpvysjzqsrnrynzyne3l3f469mn4qk24ksskvfdgj29ty85nj5d6uqqfxuet59ec8y6tdv9kzuctwv3ex76tyudunaw';
+
+	let { open = $bindable(false), onconnected } = $props();
 	let isConnecting = $state(false);
 	let error = $state(null);
-	// Focus input when modal opens
+	let hasExtension = $state(true);
+
 	$effect(() => {
-		if (open && inputElement) {
-			setTimeout(() => inputElement?.focus(), 150);
-		}
-	});
-	// Clear state when modal closes
-	$effect(() => {
-		if (!open) {
-			profileName = '';
+		if (open) {
+			hasExtension = typeof window.nostr !== 'undefined';
+		} else {
 			error = null;
 		}
 	});
-	function handleStart() {
-		if (profileName.trim()) {
-			onstart?.({ profileName: profileName.trim() });
-		}
-	}
-	function handleKeydown(e) {
-		if (e.key === 'Enter' && profileName.trim()) {
-			handleStart();
-		}
-	}
+
 	async function handleExistingKey() {
 		isConnecting = true;
 		error = null;
@@ -50,16 +32,20 @@
 				error = 'Failed to connect to Nostr extension';
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to connect to Nostr extension';
+			if (err instanceof ExtensionMissingError) {
+				hasExtension = false;
+			} else {
+				error = err instanceof Error ? err.message : 'Failed to connect to Nostr extension';
+			}
 		} finally {
 			isConnecting = false;
 		}
 	}
 </script>
 
-<Modal bind:open ariaLabel="Get started with Zapstore">
+<Modal bind:open ariaLabel="Sign in to Zapstore">
 	<div class="modal-content">
-		<!-- Logo - uses actual blurple gradient from CSS variables -->
+		<!-- Logo -->
 		<div class="logo-container pt-4">
 			<svg
 				width="80"
@@ -82,54 +68,52 @@
 			</svg>
 		</div>
 
-		<!-- Title -->
-		<h2 class="text-display text-4xl text-foreground text-center mb-4">Zapstore</h2>
-		<p class="description">
-			Create or add a <button type="button" class="link-text" onclick={handleExistingKey}
-				>Nostr</button
-			> profile to get started
-		</p>
+		{#if !hasExtension}
+			<!-- No Nostr identity -->
+			<h2 class="text-display text-4xl text-foreground text-center mb-3">No extension found</h2>
+			<p class="description">
+				You'll need a Nostr account and a browser extension like <a
+					href="https://getalby.com/alby-extension"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="link-text">Alby</a
+				> to sign in. Get a free account on Primal, then load your key into the extension. Sign-up coming soon.
+			</p>
 
-		<!-- Profile Name Input -->
-		<div class="input-section">
-			<InputTextField
-				bind:value={profileName}
-				bind:inputElement
-				title="Choose a Profile Name"
-				placeholder="Profile Name"
-				singleLine={true}
-				id="profile-name"
-				onkeydown={handleKeydown}
-			/>
-		</div>
+			<a
+				href={PRIMAL_APP_URL}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="btn-primary-large w-full flex items-center justify-center gap-2 no-underline"
+			>
+				<Nostr variant="fill" color="hsl(var(--white66))" size={14} />
+				Get Primal on Zapstore
+			</a>
+		{:else}
+			<!-- Has extension -->
+			<h2 class="text-display text-4xl text-foreground text-center mb-4">Sign in</h2>
+			<p class="description">
+				Connect with your <a
+					href="https://nostr.com"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="link-text">Nostr</a
+				> browser extension
+			</p>
 
-		<!-- Create Profile Button - uses btn-primary-large, no icon -->
-		<button
-			type="button"
-			class="btn-primary-large w-full"
-			disabled={!profileName.trim()}
-			onclick={handleStart}
-		>
-			Create profile
-		</button>
+			<button
+				type="button"
+				class="btn-primary-large w-full flex items-center justify-center gap-3"
+				disabled={isConnecting}
+				onclick={handleExistingKey}
+			>
+				<Nostr variant="fill" color="hsl(var(--white66))" size={16} />
+				<span>{isConnecting ? 'Connecting...' : 'Sign in with extension'}</span>
+			</button>
 
-		<!-- Spacer -->
-		<div class="h-4"></div>
-
-		<!-- Existing Key Button - uses btn-secondary-large with light styling and white66 text -->
-		<button
-			type="button"
-			class="btn-secondary-large btn-secondary-light w-full flex items-center justify-center gap-3"
-			style="color: hsl(var(--white66));"
-			disabled={isConnecting}
-			onclick={handleExistingKey}
-		>
-			<Nostr variant="fill" color="hsl(var(--blurpleColor))" size={16} />
-			<span>{isConnecting ? 'Connecting...' : 'Already have a Nostr profile?'}</span>
-		</button>
-
-		{#if error}
-			<p class="error-message">{error}</p>
+			{#if error}
+				<p class="error-message">{error}</p>
+			{/if}
 		{/if}
 	</div>
 </Modal>
@@ -181,9 +165,8 @@
 		text-decoration-color: hsl(var(--white66));
 	}
 
-	.input-section {
-		width: 100%;
-		margin-bottom: 12px;
+	.no-underline {
+		text-decoration: none;
 	}
 
 	.error-message {

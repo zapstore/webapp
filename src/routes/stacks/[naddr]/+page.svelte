@@ -592,7 +592,6 @@ const displayDescription = $derived(!stack?.title ||
 <!-- Onboarding modals (for Get Started flow from BottomBar) -->
 <GetStartedModal
   bind:open={getStartedModalOpen}
-  onstart={handleGetStartedStart}
   onconnected={handleGetStartedConnected}
 />
 <SpinKeyModal

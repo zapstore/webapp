@@ -6,6 +6,7 @@ import ParallaxHero from '$lib/components/landing/ParallaxHero.svelte';
 import GetTheAppSection from '$lib/components/landing/GetTheAppSection.svelte';
 import TestimonialsSection from '$lib/components/landing/TestimonialsSection.svelte';
 // import ZapTheAppSection from "$lib/components/landing/ZapTheAppSection.svelte";
+import StakesSection from '$lib/components/landing/StakesSection.svelte';
 import ReleaseYourAppsSection from '$lib/components/landing/ReleaseYourAppsSection.svelte';
 import DifferenceSection from '$lib/components/landing/DifferenceSection.svelte';
 import RoadmapSection from '$lib/components/landing/RoadmapSection.svelte';
@@ -68,7 +69,10 @@ $effect(() => {
 <DownloadModal bind:open={showDownloadModal} isZapstore={true} />
 
 <!-- Hero Section -->
-<ParallaxHero />
+<ParallaxHero showDownloadModal={() => (showDownloadModal = true)} />
+
+<!-- Stakes Section: winners/losers beat -->
+<StakesSection />
 
 <!-- Get The App Section -->
 <GetTheAppSection showDownloadModal={() => (showDownloadModal = true)} />

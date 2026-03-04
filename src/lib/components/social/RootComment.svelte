@@ -499,7 +499,7 @@ function handleOptions() {
                 class="thread-get-started-comment-btn"
                 onclick={() => onGetStarted?.()}
               >
-                <span class="get-started-text">Get started with Zapstore to comment</span>
+                <span class="get-started-text">Sign in to comment</span>
               </button>
             {/if}
 

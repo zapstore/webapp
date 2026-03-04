@@ -192,9 +192,9 @@
 					</button>
 				</div>
 			{:else}
-				<!-- Not signed in: Get Started CTA -->
+				<!-- Not signed in: Sign in CTA -->
 				<button type="button" class="btn-primary w-full" onclick={() => onGetStarted?.()}>
-					Get Started
+					Sign in
 				</button>
 			{/if}
 		</div>

@@ -1160,7 +1160,7 @@ h5, h6 {
   gap: 12px;
 }
 
-/* Responsive: Scale down large glass button to 38px on mobile */
+/* Responsive: Scale down large glass button to 42px on mobile */
 @media (max-width: 767px) {
   .btn-glass-large {
     height: 42px;
@@ -1170,6 +1170,20 @@ h5, h6 {
   .btn-glass-large.btn-glass-with-chevron {
     padding-right: 12px;
     gap: 12px;
+  }
+}
+
+/* Extra-small screens: tighter padding and smaller font */
+@media (max-width: 400px) {
+  .btn-glass-large {
+    height: 40px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+
+  .btn-glass-large.btn-glass-with-chevron {
+    padding-right: 10px;
+    gap: 8px;
   }
 }
 
@@ -2121,35 +2135,6 @@ a, button {
   animation: shimmer 1.5s infinite;
 }
 
-/* ========================================
-   REACHKIT THEME OVERRIDES
-   ======================================== */
-
-.reachkit-theme {
-  --primary: 43 100% 50%;           /* #FFB800 amber */
-  --primary-hover: 43 100% 55%;
-  --accent: 43 100% 60%;
-  --ring: 43 100% 50%;
-}
-
-/* ReachKit gradient utilities */
-.reachkit-theme .text-gradient,
-.reachkit-gradient {
-  background: linear-gradient(135deg, #FFB700 0%, #FF7733 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.reachkit-theme .gradient-orb {
-  background: rgb(255 183 0 / 0.2);
-}
-
-.reachkit-theme .bg-gradient-subtle {
-  background: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgb(255 183 0 / 0.15), transparent),
-    hsl(var(--background));
-}
 
 /* ========================================
    DIVIDER UTILITIES
@@ -2175,6 +2160,8 @@ a, button {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  /* Prevent descenders (g, y, p) from being clipped by background-clip */
+  padding-bottom: 0.12em;
 }
 
 /* Section description text style */

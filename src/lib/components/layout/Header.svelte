@@ -153,6 +153,16 @@
 		menuOpen = false;
 		getStartedModalOpen = true;
 	}
+	// Sign in directly via NIP-07 extension — no account creation flow
+	async function handleSignIn() {
+		menuOpen = false;
+		try {
+			await connect();
+		} catch {
+			// If no extension is available, fall back to the modal which shows the error
+			getStartedModalOpen = true;
+		}
+	}
 	function handleGetStartedStart(event) {
 		onboardingProfileName = event.profileName;
 		spinKeyModalOpen = true;
@@ -626,44 +636,26 @@
 										<div class="landing-nav-panel-top-pad">
 											<div class="landing-nav-panel-bg">
 												<div class="landing-nav-panel-inner-bg">
-													<div class="landing-nav-grid">
-														<a href="/apps" class="landing-nav-grid-item">
-															<img
-																src={`${assets}/images/emoji/app.png`}
-																alt=""
-																class="landing-nav-grid-emoji"
-															/>
-															<span class="landing-nav-grid-title">Apps</span>
-															<span class="landing-nav-grid-desc">Browse and install apps</span>
-														</a>
-														<a href="/stacks" class="landing-nav-grid-item">
-															<img
-																src={`${assets}/images/emoji/stack.png`}
-																alt=""
-																class="landing-nav-grid-emoji"
-															/>
-															<span class="landing-nav-grid-title">Stacks</span>
-															<span class="landing-nav-grid-desc">Curated app collections</span>
-														</a>
-														<!-- <a href="/discover" class="landing-nav-grid-item">
-															<img
-																src={`${assets}/images/emoji/catalog.png`}
-																alt=""
-																class="landing-nav-grid-emoji"
-															/>
-															<span class="landing-nav-grid-title">Catalogs</span>
-															<span class="landing-nav-grid-desc">Open community catalogs</span>
-														</a>
-														<a href="/discover" class="landing-nav-grid-item">
-															<img
-																src={`${assets}/images/emoji/label.png`}
-																alt=""
-																class="landing-nav-grid-emoji"
-															/>
-															<span class="landing-nav-grid-title">Labels</span>
-															<span class="landing-nav-grid-desc">Categories and tags</span>
-														</a> -->
-													</div>
+												<div class="landing-nav-grid">
+													<a href="/apps" class="landing-nav-grid-item">
+														<img
+															src={`${assets}/images/emoji/app.png`}
+															alt=""
+															class="landing-nav-grid-emoji"
+														/>
+														<span class="landing-nav-grid-title">Apps</span>
+														<span class="landing-nav-grid-desc">Browse and install apps</span>
+													</a>
+													<a href="/stacks" class="landing-nav-grid-item">
+														<img
+															src={`${assets}/images/emoji/stack.png`}
+															alt=""
+															class="landing-nav-grid-emoji"
+														/>
+														<span class="landing-nav-grid-title">Stacks</span>
+														<span class="landing-nav-grid-desc">Curated app collections</span>
+													</a>
+											</div>
 												</div>
 											</div>
 										</div>
@@ -673,19 +665,19 @@
 							<div
 								class="landing-nav-dropdown-wrap relative flex-shrink-0"
 								role="group"
-								aria-label="Studio menu"
-								onmouseenter={() => setLandingNavOpen('studio')}
-								onmouseleave={clearLandingNavOpen}
+							aria-label="Developers menu"
+							onmouseenter={() => setLandingNavOpen('studio')}
+							onmouseleave={clearLandingNavOpen}
+						>
+							<a
+								href="/studio"
+								class="landing-nav-btn landing-nav-studio-trigger text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+								class:landing-nav-btn-open={landingNavOpen === 'studio'}
+								class:landing-nav-studio-selected={isStudioPage}
+								style="color: hsl(var(--white66));"
 							>
-								<a
-									href="/studio"
-									class="landing-nav-btn landing-nav-studio-trigger text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-									class:landing-nav-btn-open={landingNavOpen === 'studio'}
-									class:landing-nav-studio-selected={isStudioPage}
-									style="color: hsl(var(--white66));"
-								>
-									Studio
-								</a>
+								Developers
+							</a>
 								{#if landingNavOpen === 'studio'}
 									<div
 										class="landing-nav-panel landing-nav-panel-studio landing-nav-panel-centered absolute top-full mt-0 shadow-lg z-50"
@@ -869,14 +861,14 @@
 								</button>
 							</div>
 						{:else}
-							<button
-								type="button"
-								onclick={openGetStartedModal}
-								class="btn-primary-small h-10 px-4 whitespace-nowrap"
-							>
-								<span class="sm:hidden">Start</span>
-								<span class="hidden sm:inline">Get Started</span>
-							</button>
+						<button
+							type="button"
+							onclick={handleSignIn}
+							class="btn-primary-small h-10 px-4 whitespace-nowrap"
+						>
+							<span class="sm:hidden">Sign in</span>
+							<span class="hidden sm:inline">Sign in</span>
+						</button>
 							<!-- Mobile: menu icon to the right of Start -->
 							<button
 								type="button"
@@ -933,11 +925,11 @@
 						{/if}
 					</div>
 				{:else}
-					<!-- Get Started Button -->
-					<button type="button" onclick={openGetStartedModal} class="btn-primary-small h-10 px-4">
-						<span class="sm:hidden">Start</span>
-						<span class="hidden sm:inline">Get Started</span>
-					</button>
+				<!-- Sign in Button -->
+				<button type="button" onclick={handleSignIn} class="btn-primary-small h-10 px-4">
+					<span class="sm:hidden">Sign in</span>
+					<span class="hidden sm:inline">Sign in</span>
+				</button>
 				{/if}
 			</div>
 		</div>
@@ -950,7 +942,6 @@
 <!-- Onboarding Modals -->
 <GetStartedModal
 	bind:open={getStartedModalOpen}
-	onstart={handleGetStartedStart}
 	onconnected={handleGetStartedConnected}
 />
 
@@ -1617,6 +1608,7 @@
 	.landing-nav-grid-item:nth-child(n + 3) {
 		border-bottom: none;
 	}
+
 
 	.landing-nav-grid-emoji {
 		width: 32px;

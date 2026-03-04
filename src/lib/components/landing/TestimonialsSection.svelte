@@ -13,13 +13,9 @@
 	import { onMount } from 'svelte';
 	import LandingSectionTitle from './LandingSectionTitle.svelte';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
-	import { ChevronRight } from '$lib/components/icons';
 
 	/** @type {TestimonialItem[]} */
 	export let testimonials = [];
-
-	/** @type {HTMLButtonElement | undefined} */
-	let seeMoreButton;
 
 	$: visibleTestimonials = testimonials;
 
@@ -173,32 +169,6 @@
 		}
 	}
 
-	let seeMoreDropdownOpen = false;
-	/** @type {HTMLDivElement | undefined} */
-	let seeMoreMobileWrap;
-
-	function handleSeeMore() {
-		seeMoreDropdownOpen = !seeMoreDropdownOpen;
-	}
-
-	/** @param {MouseEvent} event */
-	function handleSeeMoreClickOutside(event) {
-		const target = /** @type {Node | null} */ (event.target);
-		if (seeMoreMobileWrap && target && !seeMoreMobileWrap.contains(target)) {
-			seeMoreDropdownOpen = false;
-		}
-	}
-
-	/** @param {MouseEvent} event */
-	function handleSeeMoreMouseMove(event) {
-		if (!seeMoreButton) return;
-		const rect = seeMoreButton.getBoundingClientRect();
-		const mouseX = event.clientX - rect.left;
-		const mouseY = event.clientY - rect.top;
-		seeMoreButton.style.setProperty('--mouse-x', `${mouseX}px`);
-		seeMoreButton.style.setProperty('--mouse-y', `${mouseY}px`);
-	}
-
 	onMount(() => {
 		const init = () => {
 			const isLargeScreen = window.innerWidth >= 768;
@@ -231,7 +201,6 @@
 		};
 
 		window.addEventListener('resize', handleResize);
-		document.addEventListener('click', handleSeeMoreClickOutside);
 
 		return () => {
 			isAnimating = false;
@@ -240,7 +209,6 @@
 				animationFrameId = undefined;
 			}
 			window.removeEventListener('resize', handleResize);
-			document.removeEventListener('click', handleSeeMoreClickOutside);
 		};
 	});
 </script>
@@ -249,11 +217,8 @@
 	<section class="border-t border-border/50 pt-8 sm:pt-12 lg:pt-16 pb-0 md:pb-10 relative">
 		<LandingSectionTitle
 			title="What people are saying"
-			description="Real posts from the Nostr community"
-			showSeeMore={true}
-			seeMoreText="See More"
-			seeMoreDropdownText="More coming soon!"
-			seeMoreAction={handleSeeMore}
+			description="4,000+ active users. Real posts from around the web."
+			showSeeMore={false}
 			showButtonsOnMobile={false}
 		/>
 
@@ -329,32 +294,6 @@
 			</div>
 		</div>
 
-		<!-- Mobile only: See More overlayed at bottom of section, centered -->
-		<div
-			class="md:hidden absolute inset-x-0 bottom-0 z-40 see-more-mobile-wrap"
-			bind:this={seeMoreMobileWrap}
-		>
-			<button
-				type="button"
-				bind:this={seeMoreButton}
-				on:click={handleSeeMore}
-				on:mousemove={handleSeeMoreMouseMove}
-				class="btn-glass-large btn-glass-with-chevron flex items-center group"
-			>
-				See More
-				<ChevronRight
-					variant="outline"
-					color="hsl(var(--white33))"
-					size={18}
-					className="transition-transform group-hover:translate-x-0.5"
-				/>
-			</button>
-			{#if seeMoreDropdownOpen}
-				<div class="see-more-mobile-panel" role="dialog" aria-label="More info">
-					<p class="see-more-mobile-panel-text">More coming soon!</p>
-				</div>
-			{/if}
-		</div>
 	</section>
 {/if}
 
@@ -387,27 +326,6 @@
 		display: none;
 	}
 
-	/* Mobile: full-width strip so button is truly centered; match Release with Ease spacing (32px) */
-	.see-more-mobile-wrap {
-		position: absolute;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		display: flex;
-		justify-content: center;
-		align-items: flex-end;
-		padding-bottom: 32px;
-		pointer-events: none;
-	}
-	.see-more-mobile-wrap > button {
-		pointer-events: auto;
-	}
-	@media (min-width: 768px) {
-		.see-more-mobile-wrap {
-			display: none !important;
-		}
-	}
-
 	/* Mobile: strong bottom shadow mask over the scrollable testimonies row */
 	.testimonials-mobile-bottom-mask {
 		height: 120px;
@@ -422,24 +340,4 @@
 		);
 	}
 
-	.see-more-mobile-panel {
-		position: absolute;
-		bottom: calc(100% + 8px);
-		left: 50%;
-		transform: translateX(-50%);
-		min-width: 200px;
-		max-width: 280px;
-		padding: 12px 14px;
-		background: hsl(241 15% 18%);
-		border: 1px solid hsl(var(--white16));
-		border-radius: 12px;
-		box-shadow: 0 8px 24px hsl(var(--black66) / 0.4);
-	}
-
-	.see-more-mobile-panel-text {
-		margin: 0;
-		font-size: 0.8125rem;
-		line-height: 1.45;
-		color: hsl(var(--white66));
-	}
 </style>

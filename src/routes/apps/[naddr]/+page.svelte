@@ -1204,7 +1204,6 @@ function toggleReleaseNotesExpanded(releaseId) {
   <!-- Onboarding modals (for Get Started flow from BottomBar) -->
   <GetStartedModal
     bind:open={getStartedModalOpen}
-    onstart={handleGetStartedStart}
     onconnected={handleGetStartedConnected}
   />
   <SpinKeyModal

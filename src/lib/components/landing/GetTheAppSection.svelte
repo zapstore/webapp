@@ -27,10 +27,10 @@
         <h2
           class="section-title text-display-lg text-3xl sm:text-4xl lg:text-4xl xl:text-5xl leading-tight section-title-gradient"
         >
-          Get The App
+          Your apps. Your rules.
         </h2>
         <p class="section-description max-w-xl">
-          Discover apps through communities where builders and users connect, with secure downloads and reliable updates built in.
+          No platform decides what's allowed on your device — just you and the developer, connected directly.
         </p>
         <div class="flex flex-row gap-3">
           <a

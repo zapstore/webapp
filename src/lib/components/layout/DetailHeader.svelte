@@ -304,9 +304,9 @@ async function handleSignIn() {
 		{#if !isConnected}
 			<div class="menu-divider"></div>
 			<div class="menu-cta-wrapper">
-				<button type="button" class="btn-primary w-full" onclick={openGetStartedModal}>
-					Get Started
-				</button>
+			<button type="button" class="btn-primary w-full" onclick={openGetStartedModal}>
+				Sign in
+			</button>
 			</div>
 		{/if}
 	</div>
@@ -395,7 +395,6 @@ async function handleSignIn() {
 <!-- Onboarding Modals -->
 <GetStartedModal
 	bind:open={getStartedModalOpen}
-	onstart={handleGetStartedStart}
 	onconnected={handleGetStartedConnected}
 />
 

@@ -4,7 +4,7 @@
  * Manages user's Nostr identity via NIP-07 extension using applesauce-signers.
  * Persists pubkey across sessions.
  */
-import { ExtensionSigner } from 'applesauce-signers/signers/extension-signer';
+import { ExtensionSigner, ExtensionMissingError } from 'applesauce-signers/signers/extension-signer';
 const STORAGE_KEY = 'zapstore:pubkey';
 // Reactive state
 let pubkey = $state(null);
@@ -69,6 +69,7 @@ export async function connect() {
         return true;
     }
     catch (err) {
+        if (err instanceof ExtensionMissingError) throw err;
         console.error('[Auth] Failed to connect:', err);
         return false;
     }

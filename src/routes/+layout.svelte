@@ -19,8 +19,6 @@ let { children } = $props();
 let online = $derived(isOnline());
 const path = $derived($page.url.pathname);
 let isClearingLocalData = $state(false);
-// ReachKit has its own layout (header + footer)
-let isReachKit = $derived(path.startsWith('/studio/reachkit'));
 // Marketing pages show the footer
 let showFooter = $derived(
 	path === '/' ||
@@ -115,11 +113,6 @@ async function clearAllLocalCaches() {
 }
 </script>
 
-<!--
-  App shell — two layout branches:
-    1. ReachKit  — bare, no chrome
-    2. All other pages — branded Header + content + optional Footer
--->
 <div class="app-root bg-background">
 	<!-- Subtle gradient overlay -->
 	<div class="fixed inset-0 bg-gradient-subtle pointer-events-none z-0"></div>
@@ -129,28 +122,21 @@ async function clearAllLocalCaches() {
 	<div class="relative z-10 app-root-inner">
 		<NavigationProgress />
 
-		{#if isReachKit}
-			<!-- ── ReachKit: bare layout, no chrome ── -->
+		<Header variant="landing" />
+
+		{#if !online}
+			<div class="offline-banner">
+				<span class="offline-icon">📡</span>
+				<span>You're offline — showing cached data</span>
+			</div>
+		{/if}
+
+		<main class="flex-1 main-content has-header">
 			{@render children()}
+		</main>
 
-		{:else}
-			<!-- ── Standard layout: branded Header + content + optional Footer ── -->
-			<Header variant="landing" />
-
-			{#if !online}
-				<div class="offline-banner">
-					<span class="offline-icon">📡</span>
-					<span>You're offline — showing cached data</span>
-				</div>
-			{/if}
-
-			<main class="flex-1 main-content has-header">
-				{@render children()}
-			</main>
-
-			{#if showFooter}
-				<Footer />
-			{/if}
+		{#if showFooter}
+			<Footer />
 		{/if}
 	</div>
 </div>
