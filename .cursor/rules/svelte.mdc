@@ -1,0 +1,68 @@
+---
+description: SvelteKit/Svelte 5 conventions for Zapstore projects
+globs: ["**/*.svelte", "**/*.ts", "**/*.js", "**/+page*", "**/+layout*", "**/+server*"]
+---
+
+# SvelteKit / Svelte 5 Conventions
+
+## Svelte 5 Reactivity
+
+- Use runes (`$state`, `$derived`, `$effect`) — not the legacy `$:` reactive syntax.
+- `$effect` must always return a cleanup function when it sets up subscriptions or timers:
+  ```ts
+  $effect(() => {
+    const sub = store.subscribe(handler);
+    return () => sub.unsubscribe();
+  });
+  ```
+- Prefer `$derived` over `$effect` for computed values — effects are for side effects only.
+
+## Data Loading
+
+- Server data: use `+page.server.js` load functions for SSR seed data.
+- Client data: write to Dexie (IndexedDB) in `+page.js` or components; use `liveQuery` for reactivity.
+- Never fetch data directly in `$effect` on mount — use load functions or a dedicated store.
+- All one-shot relay queries must have a timeout (default 5s).
+
+## Component Structure
+
+- One component per file. Keep components small and focused.
+- Props via `let { prop } = $props()`.
+- Avoid logic in templates — extract to `$derived` or helper functions.
+- Use `{#if}`, `{#each}`, `{#await}` — not ternaries for complex branching.
+
+## Routing
+
+- `+page.svelte` — page UI
+- `+page.server.js` — server-only load (SSR, DB queries)
+- `+page.js` — universal load (runs on server and client)
+- `+layout.svelte` — shared layout
+- `+server.js` — API route (REST endpoint)
+
+## TypeScript
+
+- All files use TypeScript. No `any` — use `unknown` and narrow explicitly.
+- Type route params and load data via generated `$types` from `.svelte-kit/types/`.
+- Run `bun run check` to verify types — fix all errors before committing.
+
+## Styling
+
+- Tailwind CSS utility classes. No custom CSS unless adding to `app.css` tokens.
+- Follow the project's DESIGN_SYSTEM.md — use preset gradients, colors, and component patterns.
+- Never invent new color values or gradients not in the design system.
+
+## Naming
+
+- Components: `PascalCase.svelte`. Routes: SvelteKit conventions (`+page.svelte`).
+- Stores/utilities: `camelCase.ts`. CSS classes: Tailwind utilities only.
+
+## Dependencies
+
+- Run `bun install` after any `package.json` change.
+- Prefer packages already in use over adding new ones.
+
+## Build
+
+- `bun run dev` — development server
+- `bun run build` — production build
+- `bun run check` — TypeScript + Svelte type check

@@ -36,7 +36,7 @@ When in doubt, create a spec. The overhead is low.
 
 ## Work Packet Lifecycle
 
-1. Create `work/WORK-XXX-*.md` when starting non-trivial work
+1. Create `spec/work/WORK-XXX-*.md` when starting non-trivial work
 2. Update tasks and decisions as you work
 3. **Delete after PR merges** — the feature spec remains as the contract
 
@@ -86,3 +86,7 @@ If multiple phases: `WORK-005-a.md`, `WORK-005-b.md` (same feature number).
 - Polling or artificial delays
 - Large refactors unrelated to the task
 - Using `any` to silence TypeScript
+
+## Knowledge Entries
+
+After a work packet merges, promote non-obvious decisions to `spec/knowledge/DEC-XXX-*.md`. See `spec/knowledge/_TEMPLATE.md` for format and criteria.
