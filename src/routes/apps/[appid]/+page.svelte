@@ -557,16 +557,11 @@ onMount(async () => {
         error = null;
     }
 
-    if (!_pubkey || !_identifier) {
+    if (!_identifier) {
         error = data.error ?? 'Invalid app URL';
         return;
     }
 
-    const aTagValue = `${EVENT_KINDS.APP}:${_pubkey}:${_identifier}`;
-    const cachedRelease = await queryEvent({ kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue], ...PLATFORM_FILTER });
-    if (cachedRelease) {
-        latestRelease = parseRelease(cachedRelease);
-    }
     // 2. Supplement with server data (may be fresher)
     if (data.app && !app) {
         app = data.app;
@@ -574,7 +569,9 @@ onMount(async () => {
         _identifier = app.dTag;
         error = null;
     }
+
     // 3. Not in cache or Dexie: try relays once before showing 404 (online only)
+    //    Works with d-tag only — no pubkey required.
     if (!app && isOnline()) {
         const events = await fetchFromRelays(DEFAULT_CATALOG_RELAYS, {
             kinds: [EVENT_KINDS.APP],
@@ -590,10 +587,21 @@ onMount(async () => {
             error = null;
         }
     }
-    // 4. If still no app, show error
+
     if (!app) {
         error = data.error ?? 'App not found';
         return;
+    }
+
+    if (!_pubkey || !_identifier) {
+        error = 'Invalid app URL';
+        return;
+    }
+
+    const aTagValue = `${EVENT_KINDS.APP}:${_pubkey}:${_identifier}`;
+    const cachedRelease = await queryEvent({ kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue], ...PLATFORM_FILTER });
+    if (cachedRelease) {
+        latestRelease = parseRelease(cachedRelease);
     }
     // Seed server events (app + publisher profile) into Dexie so subsequent
     // queries (e.g. loadPublisherProfile) find them locally without relay fetch.
@@ -921,6 +929,7 @@ function toggleReleaseNotesExpanded(releaseId) {
           setTimeout(refetchZapsAndThreads, 2500);
         }}
         onGetStarted={() => (getStartedModalOpen = true)}
+        detailsShareLink={app?.naddr ? `https://zapstore.dev/apps/${app.naddr}` : ""}
       />
     </div>
 

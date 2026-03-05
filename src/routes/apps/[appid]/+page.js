@@ -29,7 +29,8 @@ export const load = async ({ params }) => {
 		const { pubkey, identifier } = pointer;
 		const result = fetchApp(pubkey, identifier);
 		if (!result) {
-			return { app: null, error: 'App not found', seedEvents: [] };
+			// Server cache miss — client will fetch from relays using pubkey+identifier
+			return { app: null, error: null, seedEvents: [] };
 		}
 		return { app: result.app, error: null, seedEvents: result.seedEvents };
 	}
@@ -37,7 +38,8 @@ export const load = async ({ params }) => {
 	// Plain d-tag identifier path
 	const result = fetchAppByIdentifier(appid);
 	if (!result) {
-		return { app: null, error: 'App not found', seedEvents: [] };
+		// Server cache miss — client will fetch from relays using the d-tag
+		return { app: null, error: null, seedEvents: [] };
 	}
 	return { app: result.app, error: null, seedEvents: result.seedEvents };
 };

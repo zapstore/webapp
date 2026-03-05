@@ -318,6 +318,8 @@ Catalog pages use **universal load functions** (`+page.js`), not server-only loa
 
 **Detail pages (apps/[naddr], stacks/[naddr], profile/[npub]):** Same pattern, but components also include **Dexie fallback queries** for when server data is null (client-side nav). They decode the URL param, query Dexie for the event, and parse it locally.
 
+**SSR cache misses return empty, never an error.** If the server cache doesn't have the requested event, return `{ seedEvents: [] }` (not an error). The component always has a relay fallback — returning an error from the load function prevents that fallback from running.
+
 ### When does the server load code run?
 
 | Scenario | Load runs on | Server cache queried? |

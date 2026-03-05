@@ -32,6 +32,7 @@ let {
     detailsPublicationLabel = "",
     detailsNpub = "",
     detailsPubkey = "",
+    detailsShareLink = "",
     showDetailsTab = true,
 } = $props();
 const tabs = $derived([
@@ -424,6 +425,7 @@ const combinedFeed = $derived.by(() => {
         npub={detailsNpub || safeNpubFromPubkey(stack?.pubkey ?? app?.pubkey)}
         pubkey={detailsPubkey || stack?.pubkey || app?.pubkey || ""}
         rawData={resolvedDetailsRawData}
+        shareLink={detailsShareLink}
       />
     {/if}
   </div>
