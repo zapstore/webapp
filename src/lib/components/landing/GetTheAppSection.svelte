@@ -19,12 +19,18 @@
 				<h2
 					class="section-title text-display-lg text-3xl sm:text-4xl lg:text-4xl xl:text-5xl leading-tight section-title-gradient mb-2 text-left"
 				>
-					Get Zapstore
+					The Antidote
 				</h2>
-				<p class="section-description max-w-xl text-left">
-					Fully open & secure app store. Reliable updates for any app. Direct interaction with app
-					builders.
-				</p>
+				<div class="max-w-xl text-left space-y-5">
+					<p class="section-description">
+						No more pay-to-play algorithms, arbitrary app reviews, or closed-source installs you
+						can't verify.
+					</p>
+					<p class="section-description">
+						A truly open app store.
+						<!-- Where users interact with builders directly. -->
+					</p>
+				</div>
 				<div class="flex flex-row gap-3">
 					<a
 						href="/apps/dev.zapstore.app"

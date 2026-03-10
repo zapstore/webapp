@@ -695,7 +695,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		padding: 38px 14px 22px;
+		padding: 20px 14px 22px;
 		gap: 4px;
 	}
 	.fsc-title {
@@ -794,10 +794,14 @@
 			padding-top: 20px;
 		}
 		.fsc-top {
-			padding: 51px 19px 29px;
+			padding: 26px 19px 29px;
 			gap: 5px;
 		}
-		.fsc-top :global(svg) {
+		.fsc-top :global(.inline-flex) {
+			width: 53px !important;
+			height: 53px !important;
+		}
+		.fsc-top :global(.inline-flex svg) {
 			width: 53px !important;
 			height: 53px !important;
 		}
