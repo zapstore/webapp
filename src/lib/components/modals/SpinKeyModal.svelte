@@ -316,7 +316,7 @@ $effect(() => {
   }
 
   .title {
-    font-size: 2.25rem;
+    font-size: 1.875rem;
     font-weight: 650;
     color: hsl(var(--white));
     margin: 0 0 8px;

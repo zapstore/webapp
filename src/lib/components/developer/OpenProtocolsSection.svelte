@@ -132,6 +132,7 @@
     font-size: 2rem;
     line-height: 1.1;
     letter-spacing: -0.025em;
+    text-align: center;
   }
 
   @media (min-width: 640px) {
@@ -143,6 +144,7 @@
   @media (min-width: 768px) {
     .open-protocols-title {
       font-size: 3rem;
+      text-align: left;
     }
   }
 
@@ -161,6 +163,13 @@
   .open-protocols-desc {
     margin: 0;
     max-width: 28em;
+    text-align: center;
+  }
+
+  @media (min-width: 768px) {
+    .open-protocols-desc {
+      text-align: left;
+    }
   }
 
   .open-protocols-panel {

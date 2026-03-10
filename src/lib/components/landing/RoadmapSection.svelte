@@ -93,7 +93,7 @@
 <section class="border-t border-border/50 py-8 sm:py-12 lg:py-16">
 	<LandingSectionTitle
 		title="What's next?"
-		description="Here's what we're working on to make Zapstore even better."
+		description="Here's what we're working on<span class='hidden sm:inline'> to make Zapstore even better.</span>"
 	/>
 
 	<!-- Horizontal Scrolling Tasks -->

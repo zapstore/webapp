@@ -24,6 +24,11 @@ function getPool() {
 	return pool;
 }
 
+export async function publishToRelays(relayUrls, signedEvent) {
+	const p = getPool();
+	await Promise.allSettled(p.publish(relayUrls, signedEvent));
+}
+
 const EOSE_GRACE_MS = 300;
 
 // ============================================================================

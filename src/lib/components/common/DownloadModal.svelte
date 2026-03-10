@@ -161,7 +161,7 @@
       loading="lazy"
     />
     <div class="zapstore-content p-4 md:p-6 relative">
-      <h2 class="text-display text-4xl text-foreground text-center mb-6">
+      <h2 class="modal-title text-display text-4xl text-foreground text-center mb-6">
         Download Zapstore
       </h2>
 
@@ -405,7 +405,7 @@
       </div>
 
       <!-- Header same size as Zapstore modal -->
-      <h2 class="text-display text-4xl text-foreground text-center mb-6">
+      <h2 class="modal-title text-display text-4xl text-foreground text-center mb-6">
         {app?.name || "App"}
       </h2>
 
@@ -610,7 +610,7 @@
             <p class="text-xs text-muted-foreground mb-2">
               Use
               <a
-                href="https://github.com/nicman23/appverifier"
+                href="https://github.com/soupslurpr/AppVerifier"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="text-primary hover:underline">AppVerifier</a
@@ -642,6 +642,10 @@
 {/if}
 
 <style>
+  .modal-title {
+    font-size: 1.875rem;
+  }
+
   /* Gradient background for Zapstore download modal */
   :global(.download-modal-bg) {
     background: linear-gradient(

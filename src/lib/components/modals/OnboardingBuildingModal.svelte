@@ -34,17 +34,11 @@ let { open = $bindable(false), zIndex = 56 } = $props();
   }
 
   .title {
-    font-size: 1.5rem;
+    font-size: 1.875rem;
     font-weight: 650;
     color: hsl(var(--white));
     margin: 0 0 12px;
     text-align: center;
-  }
-
-  @media (min-width: 768px) {
-    .title {
-      font-size: 1.75rem;
-    }
   }
 
   .description {

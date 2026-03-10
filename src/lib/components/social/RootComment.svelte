@@ -74,14 +74,14 @@ function trimName(name) {
     if (s.length <= REPLY_NAME_MAX) return s;
     return s.slice(0, REPLY_NAME_MAX) + "...";
 }
-/** Profile stack text: 1 = "Name", 2 = "Name & Name", 3+ = "Name & Others". Long names trimmed with "...". */
+/** Profile stack text: 1 = "Name", 2 = "Name & Name", 3+ = "Name & N Others". Long names trimmed with "...". */
 const replyIndicatorText = $derived.by(() => {
     if (uniqueRepliers.length === 0) return "";
     const n = uniqueRepliers.length;
     const a = trimName(uniqueRepliers[0]?.displayName) || "Someone";
     if (n === 1) return a;
     if (n === 2) return `${a} & ${trimName(uniqueRepliers[1]?.displayName) || "Someone"}`;
-    return `${a} & Others`;
+    return `${a} & ${n - 1} Others`;
 });
 // Count all nested comments in the thread (excluding the root itself)
 const replyCount = $derived(threadReplies.length);

@@ -19,7 +19,8 @@ import { EVENT_KINDS } from "$lib/config.js";
 let { 
 	isOpen = $bindable(false), 
 	contentType = "app", 
-	targetApp = null
+	targetApp = null,
+	onReport = () => {},
 } = $props();
 
 const contentTypeLabel = $derived(contentType.charAt(0).toUpperCase() + contentType.slice(1));
@@ -285,13 +286,13 @@ $effect(() => {
 			<!-- Report section -->
 			<div class="actions-section">
 				<div class="section-content">
-					<button
-						type="button"
-						class="report-button"
-						onclick={() => {}}
-					>
-						Report this {contentTypeLabel}
-					</button>
+				<button
+					type="button"
+					class="report-button"
+					onclick={() => { isOpen = false; onReport(); }}
+				>
+					Report this {contentTypeLabel}
+				</button>
 				</div>
 			</div>
 	</div>
@@ -433,7 +434,7 @@ $effect(() => {
 	.modal-title-text {
 		margin: 0;
 		font-family: var(--font-display);
-		font-size: 2.25rem;
+		font-size: 1.875rem;
 		font-weight: 600;
 		color: hsl(var(--foreground));
 		text-align: center;

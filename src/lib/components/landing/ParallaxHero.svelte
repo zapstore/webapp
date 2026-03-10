@@ -1,13 +1,185 @@
 <script>
-	import { ChevronRight, Download } from '$lib/components/icons';
-
-	/** @type {() => void} */
-	export let showDownloadModal = () => {};
+	import { onMount, onDestroy, tick } from 'svelte';
+	import { ChevronRight } from '$lib/components/icons';
+	import AppPic from '$lib/components/common/AppPic.svelte';
+	import { queryEvents } from '$lib/nostr/dexie.js';
 
 	/** @type {HTMLAnchorElement | null} */
 	let heroButton = null;
-	/** @type {HTMLButtonElement | null} */
-	let devButton = null;
+
+	/** @type {HTMLHeadingElement | null} */
+	let h1Ref = null;
+
+	/** @type {HTMLSpanElement | null} */
+	let permissionBorderRef = null;
+
+	/** Whether the mouse is within the proximity zone around the permission border */
+	let showProximityCursor = false;
+
+	/** Tracks mobile breakpoint for SVG radius and image count */
+	let isMobile = false;
+	/** @type {() => void} */
+	let mqlCleanup = () => {};
+
+	/** Fixed height captured once after mount so the layout never shifts */
+	let h1MinHeight = 0;
+
+	/**
+	 * State machine for the flip easter egg:
+	 *   default → imploding → transformed → restoring → returning → default
+	 * @type {'default' | 'imploding' | 'transformed' | 'restoring' | 'returning'}
+	 */
+	let permissionState = 'default';
+
+	/** @type {ReturnType<typeof setTimeout>[]} */
+	let flipTimers = [];
+
+	/**
+	 * 5 fixed slots — always present so layout never shifts.
+	 * All start as skeletons. They all flip to real AppPics at once,
+	 * only after every image has been preloaded into the browser cache.
+	 * This prevents any intermediate flicker or wrong-icon flash.
+	 * @type {Array<{skeleton: boolean, name: string, identifier: string, iconUrl?: string}>}
+	 */
+	let appSlots = [
+		{ skeleton: true, name: '', identifier: 'sk-0' },
+		{ skeleton: true, name: '', identifier: 'sk-1' },
+		{ skeleton: true, name: '', identifier: 'sk-2' },
+		{ skeleton: true, name: '', identifier: 'sk-3' },
+		{ skeleton: true, name: '', identifier: 'sk-4' }
+	];
+
+	onMount(async () => {
+		const mql = window.matchMedia('(max-width: 639px)');
+		isMobile = mql.matches;
+		const onMqlChange = (/** @type {MediaQueryListEvent} */ e) => { isMobile = e.matches; };
+		mql.addEventListener('change', onMqlChange);
+		mqlCleanup = () => mql.removeEventListener('change', onMqlChange);
+
+		await tick();
+		if (h1Ref) {
+			h1MinHeight = h1Ref.getBoundingClientRect().height;
+		}
+
+		try {
+			// Fetch Zapstore specifically by d-tag so it's never missed by a limit cap.
+			const [zapstoreEvents, allEvents] = await Promise.all([
+				queryEvents({ kinds: [32267], '#d': ['dev.zapstore.app'], limit: 1 }),
+				queryEvents({ kinds: [32267], limit: 30 })
+			]);
+
+			const zapstoreIcon = zapstoreEvents[0]?.tags.find((t) => t[0] === 'icon')?.[1];
+
+			const others = allEvents
+				.filter((e) => {
+					const id = e.tags.find((t) => t[0] === 'd')?.[1] ?? '';
+					if (id === 'dev.zapstore.app') return false;
+					return !!e.tags.find((t) => t[0] === 'icon')?.[1];
+				})
+				.slice(0, 4);
+
+			// Only include Zapstore slot if we have its real icon from Dexie.
+			// Never fall back to the website logo — keep it as a skeleton instead.
+			/** @type {Array<{skeleton: boolean, name: string, identifier: string, iconUrl?: string}>} */
+			const pendingSlots = [
+				zapstoreIcon
+					? { skeleton: false, name: 'Zapstore', identifier: 'dev.zapstore.app', iconUrl: zapstoreIcon }
+					: { skeleton: true, name: '', identifier: 'sk-0' },
+				...others.map((e, idx) => ({
+					skeleton: false,
+					name: e.tags.find((t) => t[0] === 'name')?.[1] ?? e.tags.find((t) => t[0] === 'd')?.[1] ?? '',
+					identifier: e.tags.find((t) => t[0] === 'd')?.[1] ?? `app-${idx}`,
+					iconUrl: e.tags.find((t) => t[0] === 'icon')?.[1]
+				}))
+			];
+
+			// Preload every image so the browser has them cached before we render AppPic.
+			// AppPic's checkIfCached action will then immediately set imageLoaded = true,
+			// meaning zero internal skeleton flash when the slots flip.
+			const urls = pendingSlots.map((s) => s.iconUrl).filter(Boolean);
+			await Promise.all(
+				urls.map(
+					(url) =>
+						new Promise((resolve) => {
+							const img = new Image();
+							img.onload = resolve;
+							img.onerror = resolve; // don't hang on broken URLs
+							img.src = /** @type {string} */ (url);
+						})
+				)
+			);
+
+			// Atomic swap — all skeletons replaced at once with fully-loaded images.
+			appSlots = pendingSlots;
+		} catch {
+			// silently degrade — skeletons stay
+		}
+	});
+
+	$: visibleApps = isMobile ? appSlots.slice(0, 4) : appSlots.slice(0, 5);
+
+	function clearFlipTimers() {
+		flipTimers.forEach(clearTimeout);
+		flipTimers = [];
+	}
+
+	function handlePermissionClick() {
+		if (permissionState !== 'default') return;
+		clearFlipTimers();
+
+		// ── Forward flip ─────────────────────────────────────────
+		permissionState = 'imploding';
+
+		flipTimers.push(setTimeout(() => {
+			// Midpoint: swap to new text, flip back in
+			permissionState = 'transformed';
+
+			// ── Auto-reverse after 3 s ────────────────────────────
+			flipTimers.push(setTimeout(() => {
+				permissionState = 'restoring';
+
+				flipTimers.push(setTimeout(() => {
+					// Midpoint: swap back to original, flip back in
+					permissionState = 'returning';
+
+					flipTimers.push(setTimeout(() => {
+						permissionState = 'default';
+					}, 300));
+				}, 220));
+			}, 3000));
+		}, 220));
+	}
+
+	onDestroy(() => { clearFlipTimers(); mqlCleanup(); });
+
+	/** @param {KeyboardEvent} e */
+	function handlePermissionKeydown(e) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			handlePermissionClick();
+		}
+	}
+
+	/** @param {MouseEvent} event */
+	function handleSectionMouseMove(event) {
+		if (!permissionBorderRef || permissionState !== 'default') {
+			showProximityCursor = false;
+			return;
+		}
+		const rect = permissionBorderRef.getBoundingClientRect();
+		const prox = 32;
+		showProximityCursor =
+			event.clientX >= rect.left - prox &&
+			event.clientX <= rect.right + prox &&
+			event.clientY >= rect.top - prox &&
+			event.clientY <= rect.bottom + prox &&
+			!(
+				event.clientX >= rect.left &&
+				event.clientX <= rect.right &&
+				event.clientY >= rect.top &&
+				event.clientY <= rect.bottom
+			);
+	}
 
 	/** @param {MouseEvent} event */
 	function handleMouseMove(event) {
@@ -16,574 +188,327 @@
 		heroButton.style.setProperty('--mouse-x', `${event.clientX - rect.left}px`);
 		heroButton.style.setProperty('--mouse-y', `${event.clientY - rect.top}px`);
 	}
-
-	/** @param {MouseEvent} event */
-	function handleDevButtonMouseMove(event) {
-		if (!devButton) return;
-		const rect = devButton.getBoundingClientRect();
-		devButton.style.setProperty('--mouse-x', `${event.clientX - rect.left}px`);
-		devButton.style.setProperty('--mouse-y', `${event.clientY - rect.top}px`);
-	}
 </script>
 
 <section
-	class="relative h-[280px] sm:h-[300px] md:h-[330px] lg:h-[360px] flex items-center justify-center overflow-hidden"
+	class="relative flex items-center justify-center overflow-hidden pt-12 pb-10 sm:pt-14 sm:pb-12 lg:pt-16 lg:pb-14"
+	class:proximity-cursor={showProximityCursor}
+	on:mousemove={handleSectionMouseMove}
+	on:mouseleave={() => (showProximityCursor = false)}
 >
-	<!-- SVG signal-path background -->
-	<div class="absolute inset-0 pointer-events-none" aria-hidden="true" style="opacity: 0.45;">
-		<svg
-			class="signal-svg"
-			viewBox="0 0 1200 600"
-			preserveAspectRatio="xMidYMid slice"
-			xmlns="http://www.w3.org/2000/svg"
-		>
-			<defs>
-				<!-- Blurple gradient for active paths -->
-				<linearGradient id="sg-blurple" x1="0%" y1="0%" x2="100%" y2="0%">
-					<stop offset="0%" stop-color="#777afe" stop-opacity="0" />
-					<stop offset="40%" stop-color="#777afe" stop-opacity="0.9" />
-					<stop offset="100%" stop-color="#5d5aff" stop-opacity="0.5" />
-				</linearGradient>
-				<linearGradient id="sg-blurple-r" x1="100%" y1="0%" x2="0%" y2="0%">
-					<stop offset="0%" stop-color="#777afe" stop-opacity="0" />
-					<stop offset="40%" stop-color="#777afe" stop-opacity="0.9" />
-					<stop offset="100%" stop-color="#5d5aff" stop-opacity="0.5" />
-				</linearGradient>
-				<linearGradient id="sg-blurple-d" x1="0%" y1="0%" x2="0%" y2="100%">
-					<stop offset="0%" stop-color="#777afe" stop-opacity="0" />
-					<stop offset="50%" stop-color="#777afe" stop-opacity="0.8" />
-					<stop offset="100%" stop-color="#5d5aff" stop-opacity="0.3" />
-				</linearGradient>
-				<!-- Dim grid gradient -->
-				<linearGradient id="sg-grid-fade" x1="0%" y1="0%" x2="0%" y2="100%">
-					<stop offset="0%" stop-color="white" stop-opacity="0.04" />
-					<stop offset="60%" stop-color="white" stop-opacity="0.04" />
-					<stop offset="100%" stop-color="white" stop-opacity="0" />
-				</linearGradient>
-				<!-- Glow filter for nodes -->
-				<filter id="sg-glow" x="-50%" y="-50%" width="200%" height="200%">
-					<feGaussianBlur stdDeviation="3" result="blur" />
-					<feMerge>
-						<feMergeNode in="blur" />
-						<feMergeNode in="SourceGraphic" />
-					</feMerge>
-				</filter>
-				<filter id="sg-glow-strong" x="-100%" y="-100%" width="300%" height="300%">
-					<feGaussianBlur stdDeviation="6" result="blur" />
-					<feMerge>
-						<feMergeNode in="blur" />
-						<feMergeNode in="SourceGraphic" />
-					</feMerge>
-				</filter>
-				<!-- Radial fade mask so edges dissolve -->
-				<radialGradient id="sg-mask-grad" cx="50%" cy="50%" r="55%">
-					<stop offset="30%" stop-color="white" stop-opacity="1" />
-					<stop offset="100%" stop-color="white" stop-opacity="0" />
-				</radialGradient>
-				<mask id="sg-mask">
-					<rect width="1200" height="600" fill="url(#sg-mask-grad)" />
-				</mask>
-			</defs>
-
-			<g mask="url(#sg-mask)">
-				<!-- -- Background grid -- -->
-				<!-- Vertical lines -->
-				{#each Array.from({ length: 13 }, (_, i) => i) as i (i)}
-					<line
-						x1={i * 100}
-						y1="0"
-						x2={i * 100}
-						y2="600"
-						stroke="url(#sg-grid-fade)"
-						stroke-width="0.5"
-					/>
-				{/each}
-				<!-- Horizontal lines -->
-				{#each Array.from({ length: 7 }, (_, i) => i) as i (i)}
-					<line
-						x1="0"
-						y1={i * 100}
-						x2="1200"
-						y2={i * 100}
-						stroke="white"
-						stroke-opacity="0.03"
-						stroke-width="0.5"
-					/>
-				{/each}
-
-				<!-- -- Signal paths (circuit traces) -- -->
-				<!-- Left cluster → center hub -->
-				<path
-					class="signal-path path-l1"
-					d="M 80 180 H 260 V 300 H 520"
-					fill="none"
-					stroke="url(#sg-blurple)"
-					stroke-width="1.2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				/>
-				<path
-					class="signal-path path-l2"
-					d="M 80 420 H 200 V 300 H 520"
-					fill="none"
-					stroke="url(#sg-blurple)"
-					stroke-width="1.2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				/>
-				<path
-					class="signal-path path-l3"
-					d="M 0 300 H 520"
-					fill="none"
-					stroke="url(#sg-blurple)"
-					stroke-width="1.5"
-					stroke-linecap="round"
-				/>
-
-				<!-- Right cluster ← center hub -->
-				<path
-					class="signal-path path-r1"
-					d="M 1120 180 H 940 V 300 H 680"
-					fill="none"
-					stroke="url(#sg-blurple-r)"
-					stroke-width="1.2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				/>
-				<path
-					class="signal-path path-r2"
-					d="M 1120 420 H 1000 V 300 H 680"
-					fill="none"
-					stroke="url(#sg-blurple-r)"
-					stroke-width="1.2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				/>
-				<path
-					class="signal-path path-r3"
-					d="M 1200 300 H 680"
-					fill="none"
-					stroke="url(#sg-blurple-r)"
-					stroke-width="1.5"
-					stroke-linecap="round"
-				/>
-
-				<!-- Top/bottom feeders into hub -->
-				<path
-					class="signal-path path-t1"
-					d="M 600 0 V 260"
-					fill="none"
-					stroke="url(#sg-blurple-d)"
-					stroke-width="1.2"
-					stroke-linecap="round"
-				/>
-				<path
-					class="signal-path path-b1"
-					d="M 600 600 V 340"
-					fill="none"
-					stroke="url(#sg-blurple-d)"
-					stroke-width="1.2"
-					stroke-linecap="round"
-				/>
-
-				<!-- -- Animated signal pulses (travel along paths) -- -->
-				<!-- Left pulses -->
-				<circle class="pulse pulse-l1" r="3" fill="#8380ff" filter="url(#sg-glow)">
-					<animateMotion dur="3.2s" repeatCount="indefinite" begin="0s">
-						<mpath href="#mp-l1" />
-					</animateMotion>
-				</circle>
-				<circle class="pulse pulse-l2" r="2.5" fill="#777afe" filter="url(#sg-glow)">
-					<animateMotion dur="3.8s" repeatCount="indefinite" begin="-1.4s">
-						<mpath href="#mp-l2" />
-					</animateMotion>
-				</circle>
-				<circle class="pulse pulse-l3" r="3.5" fill="#9b99ff" filter="url(#sg-glow-strong)">
-					<animateMotion dur="2.8s" repeatCount="indefinite" begin="-0.7s">
-						<mpath href="#mp-l3" />
-					</animateMotion>
-				</circle>
-
-				<!-- Right pulses -->
-				<circle class="pulse pulse-r1" r="3" fill="#8380ff" filter="url(#sg-glow)">
-					<animateMotion dur="3.4s" repeatCount="indefinite" begin="-0.5s">
-						<mpath href="#mp-r1" />
-					</animateMotion>
-				</circle>
-				<circle class="pulse pulse-r2" r="2.5" fill="#777afe" filter="url(#sg-glow)">
-					<animateMotion dur="4s" repeatCount="indefinite" begin="-2s">
-						<mpath href="#mp-r2" />
-					</animateMotion>
-				</circle>
-				<circle class="pulse pulse-r3" r="3.5" fill="#9b99ff" filter="url(#sg-glow-strong)">
-					<animateMotion dur="3s" repeatCount="indefinite" begin="-1.2s">
-						<mpath href="#mp-r3" />
-					</animateMotion>
-				</circle>
-
-				<!-- Top/bottom pulses -->
-				<circle class="pulse" r="2.5" fill="#8380ff" filter="url(#sg-glow)">
-					<animateMotion dur="2.4s" repeatCount="indefinite" begin="-0.3s">
-						<mpath href="#mp-t1" />
-					</animateMotion>
-				</circle>
-				<circle class="pulse" r="2.5" fill="#8380ff" filter="url(#sg-glow)">
-					<animateMotion dur="2.6s" repeatCount="indefinite" begin="-1.8s">
-						<mpath href="#mp-b1" />
-					</animateMotion>
-				</circle>
-
-				<!-- Motion paths (invisible, referenced by animateMotion) -->
-				<defs>
-					<path id="mp-l1" d="M 80 180 H 260 V 300 H 520" />
-					<path id="mp-l2" d="M 80 420 H 200 V 300 H 520" />
-					<path id="mp-l3" d="M 0 300 H 520" />
-					<path id="mp-r1" d="M 1120 180 H 940 V 300 H 680" />
-					<path id="mp-r2" d="M 1120 420 H 1000 V 300 H 680" />
-					<path id="mp-r3" d="M 1200 300 H 680" />
-					<path id="mp-t1" d="M 600 0 V 260" />
-					<path id="mp-b1" d="M 600 600 V 340" />
-				</defs>
-
-				<!-- -- Hub ring (center) -- -->
-				<circle
-					cx="600"
-					cy="300"
-					r="52"
-					fill="none"
-					stroke="#5d5aff"
-					stroke-opacity="0.08"
-					stroke-width="0.5"
-				/>
-				<circle
-					cx="600"
-					cy="300"
-					r="38"
-					fill="none"
-					stroke="#5d5aff"
-					stroke-opacity="0.1"
-					stroke-width="0.5"
-				/>
-				<circle
-					cx="600"
-					cy="300"
-					r="26"
-					fill="none"
-					stroke="#777afe"
-					stroke-opacity="0.14"
-					stroke-width="0.5"
-				/>
-				<circle
-					cx="600"
-					cy="300"
-					r="16"
-					fill="#5d5aff"
-					fill-opacity="0.06"
-					stroke="#8380ff"
-					stroke-opacity="0.28"
-					stroke-width="0.8"
-					filter="url(#sg-glow)"
-				/>
-				<!-- Hub center dot — larger, more transparent -->
-				<circle
-					cx="600"
-					cy="300"
-					r="7"
-					fill="#c4c2ff"
-					fill-opacity="0.55"
-					filter="url(#sg-glow-strong)"
-				>
-					<animate attributeName="r" values="6;9;6" dur="3s" repeatCount="indefinite" />
-					<animate
-						attributeName="fill-opacity"
-						values="0.45;0.65;0.45"
-						dur="3s"
-						repeatCount="indefinite"
-					/>
-				</circle>
-
-				<!-- -- Endpoint nodes -- -->
-				<!-- Left endpoints -->
-				<circle
-					cx="80"
-					cy="180"
-					r="5"
-					fill="#5d5aff"
-					fill-opacity="0.15"
-					stroke="#777afe"
-					stroke-opacity="0.5"
-					stroke-width="0.8"
-					filter="url(#sg-glow)"
-				/>
-				<circle cx="80" cy="180" r="2" fill="#9b99ff" />
-				<circle
-					cx="80"
-					cy="420"
-					r="5"
-					fill="#5d5aff"
-					fill-opacity="0.15"
-					stroke="#777afe"
-					stroke-opacity="0.5"
-					stroke-width="0.8"
-					filter="url(#sg-glow)"
-				/>
-				<circle cx="80" cy="420" r="2" fill="#9b99ff" />
-
-				<!-- Right endpoints -->
-				<circle
-					cx="1120"
-					cy="180"
-					r="5"
-					fill="#5d5aff"
-					fill-opacity="0.15"
-					stroke="#777afe"
-					stroke-opacity="0.5"
-					stroke-width="0.8"
-					filter="url(#sg-glow)"
-				/>
-				<circle cx="1120" cy="180" r="2" fill="#9b99ff" />
-				<circle
-					cx="1120"
-					cy="420"
-					r="5"
-					fill="#5d5aff"
-					fill-opacity="0.15"
-					stroke="#777afe"
-					stroke-opacity="0.5"
-					stroke-width="0.8"
-					filter="url(#sg-glow)"
-				/>
-				<circle cx="1120" cy="420" r="2" fill="#9b99ff" />
-
-				<!-- Junction nodes (path bends) -->
-				<circle
-					cx="260"
-					cy="180"
-					r="3"
-					fill="#5d5aff"
-					fill-opacity="0.2"
-					stroke="#777afe"
-					stroke-opacity="0.4"
-					stroke-width="0.6"
-				/>
-				<circle
-					cx="260"
-					cy="300"
-					r="3"
-					fill="#5d5aff"
-					fill-opacity="0.2"
-					stroke="#777afe"
-					stroke-opacity="0.4"
-					stroke-width="0.6"
-				/>
-				<circle
-					cx="200"
-					cy="420"
-					r="3"
-					fill="#5d5aff"
-					fill-opacity="0.2"
-					stroke="#777afe"
-					stroke-opacity="0.4"
-					stroke-width="0.6"
-				/>
-				<circle
-					cx="200"
-					cy="300"
-					r="3"
-					fill="#5d5aff"
-					fill-opacity="0.2"
-					stroke="#777afe"
-					stroke-opacity="0.4"
-					stroke-width="0.6"
-				/>
-				<circle
-					cx="940"
-					cy="180"
-					r="3"
-					fill="#5d5aff"
-					fill-opacity="0.2"
-					stroke="#777afe"
-					stroke-opacity="0.4"
-					stroke-width="0.6"
-				/>
-				<circle
-					cx="940"
-					cy="300"
-					r="3"
-					fill="#5d5aff"
-					fill-opacity="0.2"
-					stroke="#777afe"
-					stroke-opacity="0.4"
-					stroke-width="0.6"
-				/>
-				<circle
-					cx="1000"
-					cy="420"
-					r="3"
-					fill="#5d5aff"
-					fill-opacity="0.2"
-					stroke="#777afe"
-					stroke-opacity="0.4"
-					stroke-width="0.6"
-				/>
-				<circle
-					cx="1000"
-					cy="300"
-					r="3"
-					fill="#5d5aff"
-					fill-opacity="0.2"
-					stroke="#777afe"
-					stroke-opacity="0.4"
-					stroke-width="0.6"
-				/>
-			</g>
-		</svg>
-	</div>
-
-	<!-- Soft radial glow behind text -->
-	<div
-		class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] pointer-events-none"
-		style="background: radial-gradient(ellipse, hsl(var(--blurpleColor) / 0.07) 0%, transparent 70%); filter: blur(40px);"
-	></div>
-
-	<!-- Central text -->
 	<div class="relative z-10 text-center px-4">
-		<h1 class="text-display-lg text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-tight mb-4">
-			<span
-				style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
+		<!-- Perspective wrapper gives depth to the rotateX flip -->
+		<div class="hero-h1-stage">
+			<!-- Blurple electric flash fires on both the forward and reverse flips -->
+			<div class="hero-electric-flash" class:flashing={permissionState === 'imploding' || permissionState === 'restoring'}></div>
+
+			<!-- h1: flip-out rotates to edge-on, flip-in snaps back revealing new text -->
+			<h1
+				bind:this={h1Ref}
+				class="text-display-lg text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-normal sm:leading-relaxed mb-4"
+				class:hero-flip-out={permissionState === 'imploding' || permissionState === 'restoring'}
+				class:hero-flip-in={permissionState === 'transformed' || permissionState === 'returning'}
+				style="{h1MinHeight > 0 ? `min-height: ${h1MinHeight}px;` : ''} position: relative;"
 			>
-				You shouldn't need
+			<!-- Original text: hidden while new text is showing -->
+			<span class:perm-invisible={permissionState === 'transformed' || permissionState === 'restoring'}>
+				<span
+					style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
+					>You shouldn't need<br /></span
+				><span
+					class="permission-border"
+					role="button"
+					tabindex="0"
+					bind:this={permissionBorderRef}
+					on:click={handlePermissionClick}
+					on:keydown={handlePermissionKeydown}
+				>
+					<!-- SVG gradient dashed border -->
+					<svg
+						class="permission-svg"
+						xmlns="http://www.w3.org/2000/svg"
+						aria-hidden="true"
+						focusable="false"
+					>
+						<defs>
+							<linearGradient id="perm-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+								<stop offset="0%" stop-color="#CDCCFF" />
+								<stop offset="100%" stop-color="#5C5FFF" />
+							</linearGradient>
+						</defs>
+						<rect
+							x="0.75"
+							y="0.75"
+							style="width: calc(100% - 1.5px); height: calc(100% - 1.5px);"
+						rx={isMobile ? 11.25 : 15.25}
+						ry={isMobile ? 11.25 : 15.25}
+							fill="none"
+							stroke="url(#perm-grad)"
+							stroke-width="1.5"
+							stroke-dasharray="9 5"
+						/>
+					</svg>
+					<span
+						style="background: var(--gradient-blurple-light); -webkit-background-clip: text; background-clip: text; color: transparent;"
+						>permission</span
+					></span
+				><!-- Mobile: permission sits on its own line --><br class="sm:hidden" /><span
+					style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
+				>to use apps.</span
+				>
 			</span>
-			<br />
-			<span
-				style="background: var(--gradient-white-blurple); -webkit-background-clip: text; background-clip: text; color: transparent;"
-			>
-				permission
-			</span>
-			<span
-				style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
-			>
-				to use apps.
-			</span>
+
+			<!-- New text: visible during 'transformed' and 'restoring' phases -->
+			{#if permissionState === 'transformed' || permissionState === 'restoring'}
+				<span class="hero-transformed-text">
+					<span
+						style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
+						>You can just use apps.</span
+					>
+				</span>
+			{/if}
 		</h1>
-		<p
-			class="text-base sm:text-lg text-muted-foreground max-w-[360px] sm:max-w-[560px] mx-auto mb-7"
-		>
-			Self-published by developers, curated by communities.
+		</div><!-- /hero-h1-stage -->
+
+		<p class="text-xl sm:text-2xl mx-auto mt-2 sm:mt-8 mb-10" style="color: hsl(var(--white66));">
+			Self-published by developers.<br class="sm:hidden" /> Curated by communities.
 		</p>
-		<div class="flex items-center justify-center gap-2 sm:gap-3">
-			<a
-				href="/discover"
-				bind:this={heroButton}
-				class="btn-glass-large btn-glass-with-chevron flex items-center group"
-				on:mousemove={handleMouseMove}
-			>
-				Browse 3,000+ apps
-				<ChevronRight
-					variant="outline"
-					color="hsl(var(--white33))"
-					size={18}
-					className="transition-transform group-hover:translate-x-0.5"
-				/>
-			</a>
-			<button
-				type="button"
-				bind:this={devButton}
-				on:mousemove={handleDevButtonMouseMove}
-				on:click={showDownloadModal}
-				class="btn-glass-large btn-glass-blurple-hover flex items-center justify-center gap-2 group"
-			>
-				<Download variant="fill" color="hsl(var(--white33))" size={16} />
-				<span class="btn-text-white">Download</span>
-				<span class="platform-badge">Android</span>
-			</button>
+
+		<!-- Browse CTA: stacked app pics + glass pill -->
+		<div class="flex justify-center mt-5">
+			<div class="hero-browse-cta">
+			<div class="hero-browse-pics">
+				{#each visibleApps as app, i}
+					<div
+						class="hero-browse-pic-wrap"
+						style="z-index: {visibleApps.length + 1 - i}; {i > 0 ? `margin-left: ${isMobile ? '-16px' : '-12px'};` : ''}"
+					>
+						{#if app.skeleton}
+							<div class="hero-browse-pic-skeleton"></div>
+						{:else}
+							<AppPic
+								name={app.name}
+								identifier={app.identifier}
+								iconUrl={app.iconUrl}
+								size="md"
+								onClick={() => {}}
+							/>
+						{/if}
+					</div>
+				{/each}
+			</div>
+				<a
+					href="/discover"
+					bind:this={heroButton}
+					class="btn-glass-large btn-glass-with-chevron hero-browse-pill flex items-center gap-2 group"
+					on:mousemove={handleMouseMove}
+				>
+					Browse 3,000+ apps
+					<ChevronRight
+						variant="outline"
+						color="hsl(var(--white33))"
+						size={18}
+						className="transition-transform group-hover:translate-x-0.5"
+					/>
+				</a>
+			</div>
 		</div>
 	</div>
 </section>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
 
 <style>
-	.platform-badge {
-		font-size: 0.625rem;
-		font-weight: 600;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: hsl(var(--white33));
-		background: hsl(var(--white8));
-		border: 1px solid hsl(var(--white11));
-		border-radius: 4px;
-		padding: 1px 5px;
-		line-height: 1.4;
+	/* ── Permission border ─────────────────────────────────────── */
+	.permission-border {
+		display: inline-block;
+		position: relative;
+		padding: 2px 18px 15px;
+		margin-right: 8px;
+		border-radius: 16px;
+		vertical-align: baseline;
+		transition: transform 0.2s ease-out;
+		/*
+		 * Cursor: 32×54 px bolt (viewBox 0 0 19 32, scaled up).
+		 * Fill: white → very light lavender (#FFFFFF → #DDDCFF).
+		 * Shadow: feGaussianBlur on alpha, flooded with black preset (#111111).
+		 * Hotspot at (15, 0) — the tip of the bolt.
+		 */
+		cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='54' viewBox='0 0 19 32'%3E%3Cdefs%3E%3ClinearGradient id='lg' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23FFFFFF'/%3E%3Cstop offset='1' stop-color='%23DDDCFF'/%3E%3C/linearGradient%3E%3Cfilter id='gw' filterUnits='userSpaceOnUse' x='-5' y='-5' width='29' height='42'%3E%3CfeGaussianBlur in='SourceAlpha' stdDeviation='2.8' result='blur'/%3E%3CfeFlood flood-color='%23111111' flood-opacity='0.75' result='color'/%3E%3CfeComposite in='color' in2='blur' operator='in' result='shadow'/%3E%3CfeMerge%3E%3CfeMergeNode in='shadow'/%3E%3CfeMergeNode in='SourceGraphic'/%3E%3C/feMerge%3E%3C/filter%3E%3C/defs%3E%3Cpath filter='url(%23gw)' fill='url(%23lg)' d='M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z'/%3E%3C/svg%3E") 15 0, pointer;
+	}
+
+	/* ── Proximity cursor: activates ~32px before entering the element ── */
+	.proximity-cursor {
+		cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='54' viewBox='0 0 19 32'%3E%3Cdefs%3E%3ClinearGradient id='lg' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23FFFFFF'/%3E%3Cstop offset='1' stop-color='%23DDDCFF'/%3E%3C/linearGradient%3E%3Cfilter id='gw' filterUnits='userSpaceOnUse' x='-5' y='-5' width='29' height='42'%3E%3CfeGaussianBlur in='SourceAlpha' stdDeviation='2.8' result='blur'/%3E%3CfeFlood flood-color='%23111111' flood-opacity='0.75' result='color'/%3E%3CfeComposite in='color' in2='blur' operator='in' result='shadow'/%3E%3CfeMerge%3E%3CfeMergeNode in='shadow'/%3E%3CfeMergeNode in='SourceGraphic'/%3E%3C/feMerge%3E%3C/filter%3E%3C/defs%3E%3Cpath filter='url(%23gw)' fill='url(%23lg)' d='M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z'/%3E%3C/svg%3E") 15 0, pointer;
+	}
+
+	/* On mobile: own line, 12px radius, bigger text, breathing room above/below */
+	@media (max-width: 639px) {
+		.permission-border {
+			padding: 4px 18px 10px;
+			margin-right: 0;
+			margin-top: 12px;
+			margin-bottom: 6px;
+			border-radius: 12px;
+			font-size: 1.3em;
+		}
+	}
+
+	.permission-border:hover {
+		transform: scale(1.025);
+	}
+
+	.permission-svg {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+		overflow: visible;
+	}
+
+	/* ── Stage: provides perspective depth for the 3D flip ─────── */
+	.hero-h1-stage {
+		position: relative;
+		perspective: 900px;
+		perspective-origin: center center;
+		transform: translateZ(0);
+		will-change: transform;
+	}
+
+	/* ── Flip out: h1 rotates backward to edge-on (invisible) ──── */
+	@keyframes hero-flip-out {
+		0%   {
+			transform: rotateX(0deg);
+			filter: brightness(1) drop-shadow(0 0 0px hsl(241 99% 67% / 0));
+		}
+		70%  {
+			/* Electric surge just before vanishing */
+			filter: brightness(2.5)
+				drop-shadow(0 0 24px hsl(241 99% 67%))
+				drop-shadow(0 0 48px hsl(241 99% 67% / 0.7));
+		}
+		100% {
+			transform: rotateX(-90deg);
+			filter: brightness(1.2) drop-shadow(0 0 8px hsl(241 99% 67% / 0.4));
+		}
+	}
+
+	/* ── Flip in: new text arrives from the opposite side ──────── */
+	@keyframes hero-flip-in {
+		0%   {
+			transform: rotateX(90deg);
+			filter: brightness(1.8) drop-shadow(0 0 20px hsl(241 99% 67% / 0.6));
+		}
+		60%  {
+			filter: brightness(1.1) drop-shadow(0 0 6px hsl(241 99% 67% / 0.2));
+		}
+		100% {
+			transform: rotateX(0deg);
+			filter: brightness(1) drop-shadow(0 0 0px hsl(241 99% 67% / 0));
+		}
+	}
+
+	.hero-flip-out {
+		animation: hero-flip-out 0.22s ease-in forwards;
+		transform-origin: center center;
+		will-change: transform, filter;
+		backface-visibility: hidden;
+	}
+
+	.hero-flip-in {
+		animation: hero-flip-in 0.28s ease-out forwards;
+		transform-origin: center center;
+		will-change: transform, filter;
+		backface-visibility: hidden;
+	}
+
+	/* ── Radial blurple flash that expands from centre at midpoint ─ */
+	.hero-electric-flash {
+		position: absolute;
+		inset: -40px;
+		background: radial-gradient(
+			ellipse at center,
+			hsl(241 99% 67% / 0.55) 0%,
+			hsl(241 99% 67% / 0.2) 40%,
+			transparent 70%
+		);
+		pointer-events: none;
+		opacity: 0;
+		z-index: 10;
+		border-radius: 50%;
+	}
+
+	@keyframes electric-flash {
+		0%   { opacity: 0;   transform: scale(0.4); }
+		30%  { opacity: 1;   transform: scale(1); }
+		100% { opacity: 0;   transform: scale(1.6); }
+	}
+
+	.hero-electric-flash.flashing {
+		animation: electric-flash 0.22s ease-out forwards;
+	}
+
+	/* ── Original text hidden once transformed ──────────────────── */
+	.perm-invisible {
+		visibility: hidden;
+		pointer-events: none;
+		user-select: none;
+	}
+
+	/* ── New text materialises (already visible via flip-in glow) ── */
+	.hero-transformed-text {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	/* ── Browse CTA ─────────────────────────────────────────────── */
+	.hero-browse-cta {
+		display: flex;
+		align-items: center;
+		height: 48px;
+	}
+
+	.hero-browse-pics {
+		display: flex;
+		align-items: center;
+		height: 48px;
+		position: relative;
+		z-index: 2;
 		flex-shrink: 0;
 	}
 
-	@media (max-width: 400px) {
-		.platform-badge {
-			display: none;
-		}
+	.hero-browse-pic-wrap {
+		position: relative;
+		display: flex;
+		align-items: center;
+		height: 48px;
 	}
 
-	.signal-svg {
-		width: 100%;
-		height: 100%;
-		display: block;
+	.hero-browse-pic-wrap:not(:last-child) :global(.app-pic) {
+		filter: drop-shadow(3px 0 4px hsl(var(--black66)));
 	}
 
-	/* Subtle fade-in on mount */
-	.signal-svg {
-		animation: svg-fadein 1.2s ease both;
+	.hero-browse-pic-skeleton {
+		width: 48px;
+		height: 48px;
+		border-radius: 16px;
+		background: hsl(var(--gray33));
+		animation: skeleton-pulse 1.6s ease-in-out infinite;
+		flex-shrink: 0;
 	}
 
-	@keyframes svg-fadein {
-		from {
-			opacity: 0;
-		}
-		to {
-			opacity: 1;
-		}
+	@keyframes skeleton-pulse {
+		0%, 100% { opacity: 0.4; }
+		50%       { opacity: 0.8; }
 	}
 
-	/* Reduce motion: freeze pulses */
-	@media (prefers-reduced-motion: reduce) {
-		.pulse {
-			display: none;
-		}
-	}
-
-	.btn-text-white {
-		transition: color 0.3s ease;
-		color: hsl(var(--white66));
-	}
-
-	.btn-glass-blurple-hover:hover .btn-text-white {
-		color: hsl(var(--foreground));
-	}
-
-	.btn-glass-blurple-hover {
-		background-color: rgb(0 0 0 / 0.33);
-		border-radius: 10px;
-		transition:
-			transform 0.2s ease,
-			border-color 0.3s ease,
-			box-shadow 0.3s ease,
-			background 0.3s ease,
-			color 0.3s ease;
-	}
-
-	.btn-glass-blurple-hover:hover {
-		background: radial-gradient(
-			circle at top left,
-			rgb(92 95 255 / 0.08) 0%,
-			rgb(69 66 255 / 0.08) 100%
-		);
-		border-color: rgb(92 95 255 / 0.25);
-		box-shadow:
-			0 0 40px rgb(92 95 255 / 0.15),
-			0 0 80px rgb(92 95 255 / 0.08);
-		color: hsl(var(--foreground));
-	}
-
-	.btn-glass-blurple-hover::before {
-		background: radial-gradient(circle, rgb(92 95 255 / 0.12) 0%, transparent 70%);
+	.hero-browse-pill {
+		position: relative;
+		z-index: 1;
+		height: 48px !important;
+		margin-left: -16px;
+		padding-left: 32px !important;
 	}
 </style>

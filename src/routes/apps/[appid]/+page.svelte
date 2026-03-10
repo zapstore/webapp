@@ -300,33 +300,33 @@ async function loadComments() {
         commentsLoading = false;
     }
 }
-/** Load replies that reference our comments/zaps via #e (e.g. from other apps that don't add #a). Returns all comment ids after merge (so caller can fetch zaps on them). */
+/**
+ * Load replies that reference comments/zaps via #e (fallback for clients that don't include #A).
+ * Iterates until no new replies are found so all nesting depths are covered.
+ * Returns all comment ids after merging (used by caller to fetch zaps on them).
+ */
 async function loadCommentReplies() {
     if (!app?.pubkey || !app?.dTag)
         return comments.map((c) => c.id);
-    const commentIds = comments.map((c) => c.id);
-    const zapIds = zaps.map((z) => z.id);
-    const allIds = [...new Set([...commentIds, ...zapIds])];
-    if (allIds.length === 0)
-        return commentIds;
+    // Start with all current comment + zap ids as the initial frontier.
+    let frontier = [...new Set([...comments.map((c) => c.id), ...zaps.map((z) => z.id)])];
+    if (frontier.length === 0)
+        return comments.map((c) => c.id);
     try {
-        const events = await fetchCommentRepliesByE(allIds);
+        const events = await fetchCommentRepliesByE(frontier);
         const existingIds = new Set(comments.map((c) => c.id.toLowerCase()));
         const newEvents = events.filter((ev) => !existingIds.has(ev.id.toLowerCase()));
-        if (newEvents.length === 0)
-            return comments.map((c) => c.id);
         const newParsed = newEvents.map((ev) => {
             const p = parseComment(ev);
             p.npub = nip19.npubEncode(ev.pubkey);
             return p;
         });
         comments = [...comments, ...newParsed];
-        return comments.map((c) => c.id);
     }
     catch (err) {
         console.error("Failed to load comment replies by #e:", err);
-        return comments.map((c) => c.id);
     }
+    return comments.map((c) => c.id);
 }
 /** 1) Fetch zaps that tag the main app/stack (#a) → main feed zaps. 2) Then fetch zaps that tag any comment or zap in that main feed (#e) and merge. One level only; deeper zaps later. */
 async function loadZaps() {

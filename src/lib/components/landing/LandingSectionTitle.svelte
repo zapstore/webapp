@@ -120,7 +120,7 @@
 	<!-- Description row - full width -->
 	{#if description}
 		<p class="section-description">
-			{description}
+			{@html description}
 		</p>
 	{/if}
 </div>

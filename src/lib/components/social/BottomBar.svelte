@@ -9,14 +9,16 @@ import InputButton from '$lib/components/common/InputButton.svelte';
 import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
 import ActionsModal from '$lib/components/modals/ActionsModal.svelte';
+import ReportModal from '$lib/components/modals/ReportModal.svelte';
 let { appName = '', publisherName = '', contentType = 'app', className = '', zapTarget = null, otherZaps = [], isSignedIn = true, onGetStarted, searchProfiles = async () => [], searchEmojis = async () => [], oncommentSubmit, onzapReceived, onoptions } = $props();
 let zapModalOpen = $state(false);
 let actionsModalOpen = $state(false);
+let reportModalOpen = $state(false);
 let commentExpanded = $state(false);
 let commentInput = $state(null);
 let submitting = $state(false);
-/** Bar slides out when zap or actions modal is open (comment morphs in place) */
-const barSlidesOut = $derived(zapModalOpen || actionsModalOpen);
+/** Bar slides out when zap, actions, or report modal is open */
+const barSlidesOut = $derived(zapModalOpen || actionsModalOpen || reportModalOpen);
 function handleZap() {
     zapModalOpen = true;
 }
@@ -148,6 +150,18 @@ $effect(() => {
 	bind:isOpen={actionsModalOpen}
 	{contentType}
 	targetApp={zapTarget}
+	onReport={() => { reportModalOpen = true; }}
+/>
+
+<ReportModal
+	bind:isOpen={reportModalOpen}
+	appName={appName}
+	authorName={publisherName}
+	{contentType}
+	eventId={zapTarget?.id ?? ''}
+	authorPubkey={zapTarget?.pubkey ?? ''}
+	{searchProfiles}
+	{searchEmojis}
 />
 
 <style>

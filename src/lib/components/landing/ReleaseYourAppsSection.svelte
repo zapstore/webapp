@@ -19,14 +19,16 @@
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-12 lg:pt-16 pb-0">
 		<!-- Center text -->
 		<div class="relative z-20 text-center mb-6 sm:mb-12">
+			<p class="eyebrow-label mb-4" style="color: hsl(var(--white33)); font-size: 1.125rem;">
+				For Developers
+			</p>
 			<h2 class="section-title text-display-lg leading-tight">
 				<span class="text-3xl sm:text-5xl lg:text-6xl xl:text-7xl section-title-gradient">
 					Release with ease
 				</span>
 			</h2>
-			<p class="section-description max-w-2xl mx-auto mt-3 sm:mt-5">
-				A developer toolkit for publishing apps directly to users, high signal insights, honest
-				monetisation and building community.
+			<p class="section-description max-w-2xl sm:max-w-none mx-auto mt-3 sm:mt-5">
+				Publish apps directly to users. Get insights. Monetize honestly. Build community.
 			</p>
 		</div>
 

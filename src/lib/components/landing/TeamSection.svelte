@@ -377,7 +377,7 @@
 <section class="relative border-t border-border/50 pt-8 sm:pt-12 lg:pt-16 pb-0 overflow-hidden">
 	<LandingSectionTitle
 		title="Behind it all"
-		description="Meet the team, collaborators & donors who make Zapstore possible."
+		description="Meet the team, collaborators &amp; donors<span class='hidden sm:inline'> who make Zapstore possible.</span>"
 	/>
 
 	<!-- Team spread display -->

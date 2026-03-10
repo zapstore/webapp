@@ -1,5 +1,5 @@
 <script lang="js">
-import DevStakesSection from '$lib/components/developer/DevStakesSection.svelte';
+import DevFeaturesSection from '$lib/components/developer/DevFeaturesSection.svelte';
 import OpenProtocolsSection from '$lib/components/developer/OpenProtocolsSection.svelte';
 import PublishAppSection from '$lib/components/developer/PublishAppSection.svelte';
 import SkillPubSection from '$lib/components/developer/ReachKitGatewaySection.svelte';
@@ -17,7 +17,7 @@ import StudioToolsSection from '$lib/components/developer/StudioToolsSection.sve
 </svelte:head>
 
 <StudioHero />
-<DevStakesSection />
+<DevFeaturesSection />
 <StudioToolsSection />
 <OpenProtocolsSection />
 <SignedSection />

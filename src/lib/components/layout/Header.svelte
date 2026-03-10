@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { assets } from '$app/paths';
 	import { Search, User, Loader2, LogOut } from 'lucide-svelte';
-	import { Menu, Cross } from '$lib/components/icons';
+	import { Menu, Cross, Download } from '$lib/components/icons';
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import { handleBack } from '$lib/utils/back.js';
 	import { cn } from '$lib/utils';
@@ -16,11 +16,13 @@
 	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 	import OnboardingBuildingModal from '$lib/components/modals/OnboardingBuildingModal.svelte';
 	import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
+	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
 	let { variant = 'landing', pageTitle = '' } = $props();
 	let scrolled = $state(false);
 	let dropdownOpen = $state(false);
 	let menuOpen = $state(false);
 	let landingNavOpen = $state(null); // 'discover' | 'studio' | 'community' | null (desktop hover dropdowns)
+	let downloadModalOpen = $state(false);
 	let searchOpen = $state(false);
 	let searchQuery = $state('');
 	let menuContainer = $state(null);
@@ -305,57 +307,56 @@
 										</nav>
 									</div>
 
+						<div class="menu-section">
+							<a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
+							<nav class="menu-subnav">
+								<a
+									href="/studio"
+									class="menu-sublink text-sm font-medium text-white/66"
+									onclick={closeMenu}>Learn more</a
+								>
+								<a
+									href="/studio#quickstart"
+									class="menu-sublink text-sm font-medium text-white/66"
+									onclick={closeMenu}>Quickstart</a
+								>
+								<a
+									href="/docs/publish"
+									class="menu-sublink text-sm font-medium text-white/66"
+									onclick={closeMenu}>Docs</a
+								>
+							</nav>
+						</div>
+
 									<div class="menu-section">
-										<a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
+										<span class="menu-section-label">Community</span>
 										<nav class="menu-subnav">
 											<a
-												href="/docs/publish"
+												href="/blog"
 												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}>Publish Apps</a
+												onclick={closeMenu}>Blog</a
 											>
 											<a
-												href="/docs/publish"
+												href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
 												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}>Docs</a
+												onclick={closeMenu}
+												target="_blank"
+												rel="noopener noreferrer">User support on Signal</a
 											>
 											<a
-												href="/docs/faq"
+												href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
 												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}>FAQ</a
+												onclick={closeMenu}
+												target="_blank"
+												rel="noopener noreferrer">Dev support on Signal</a
 											>
 										</nav>
 									</div>
-
-								<div class="menu-section">
-									<span class="menu-section-label">Community</span>
-									<nav class="menu-subnav">
-										<a
-											href="/blog"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}>Blog</a
-										>
-										<a
-											href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}
-											target="_blank"
-											rel="noopener noreferrer">User support on Signal</a
-										>
-										<a
-											href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}
-											target="_blank"
-											rel="noopener noreferrer">Dev support on Signal</a
-										>
-									</nav>
 								</div>
+							{/if}
+						</div>
 
-							</div>
-						{/if}
-					</div>
-
-					{#if pageTitle && pageTitle !== 'Profile'}
+						{#if pageTitle && pageTitle !== 'Profile'}
 							<button
 								type="button"
 								class="page-title-tap flex items-center gap-3 page-title-spacing"
@@ -511,74 +512,105 @@
 								</button>
 
 								<div class="menu-section">
-									<a href="/discover" class="menu-section-link" onclick={closeMenu}>Discover</a>
+									<span class="menu-section-label">Download</span>
 									<nav class="menu-subnav">
-										<a
-											href="/apps"
+										<button
+											type="button"
 											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}>Apps</a
+											onclick={() => { downloadModalOpen = true; closeMenu(); }}>Download the app</button
 										>
 										<a
-											href="/stacks"
+											href="/apps/dev.zapstore.app"
 											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}>Stacks</a
+											onclick={closeMenu}>More Info</a
 										>
 									</nav>
 								</div>
+
+							<div class="menu-section">
+								<span class="menu-section-label">Download</span>
+								<nav class="menu-subnav">
+									<button
+										type="button"
+										class="menu-sublink text-sm font-medium text-white/66"
+										onclick={() => { downloadModalOpen = true; closeMenu(); }}>Download the app</button
+									>
+									<a
+										href="/apps/dev.zapstore.app"
+										class="menu-sublink text-sm font-medium text-white/66"
+										onclick={closeMenu}>More Info</a
+									>
+								</nav>
+							</div>
+
+							<div class="menu-section">
+								<a href="/discover" class="menu-section-link" onclick={closeMenu}>Discover</a>
+								<nav class="menu-subnav">
+									<a
+										href="/apps"
+										class="menu-sublink text-sm font-medium text-white/66"
+										onclick={closeMenu}>Apps</a
+									>
+									<a
+										href="/stacks"
+										class="menu-sublink text-sm font-medium text-white/66"
+										onclick={closeMenu}>Stacks</a
+									>
+								</nav>
+							</div>
 
 								<div class="menu-section">
 									<a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
 									<nav class="menu-subnav">
 										<a
-											href="/docs/publish"
+											href="/studio"
 											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}>Publish Apps</a
+											onclick={closeMenu}>Learn more</a
+										>
+										<a
+											href="/studio#quickstart"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}>Quickstart</a
 										>
 										<a
 											href="/docs/publish"
 											class="menu-sublink text-sm font-medium text-white/66"
 											onclick={closeMenu}>Docs</a
 										>
-										<a
-											href="/docs/faq"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}>FAQ</a
-										>
 									</nav>
 								</div>
 
-							<div class="menu-section">
-								<span class="menu-section-label">Community</span>
-								<nav class="menu-subnav">
-									<a
-										href="/blog"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}>Blog</a
-									>
-									<a
-										href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}
-										target="_blank"
-										rel="noopener noreferrer">User support on Signal</a
-									>
-									<a
-										href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}
-										target="_blank"
-										rel="noopener noreferrer">Dev support on Signal</a
-									>
-								</nav>
+								<div class="menu-section">
+									<span class="menu-section-label">Community</span>
+									<nav class="menu-subnav">
+										<a
+											href="/blog"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}>Blog</a
+										>
+										<a
+											href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}
+											target="_blank"
+											rel="noopener noreferrer">User support on Signal</a
+										>
+										<a
+											href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}
+											target="_blank"
+											rel="noopener noreferrer">Dev support on Signal</a
+										>
+									</nav>
+								</div>
 							</div>
+						{/if}
+					</div>
+				{/if}
+			</div>
 
-						</div>
-					{/if}
-				</div>
-			{/if}
-		</div>
-
-		<!-- Non-landing: search bar -->
+			<!-- Non-landing: search bar -->
 			{#if variant !== 'landing'}
 				<div
 					class={cn(
@@ -611,8 +643,17 @@
 				{#if variant === 'landing'}
 					<!-- Landing: one row — nav items (desktop) + Get Started (+ menu icon on mobile) -->
 					<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
-						<!-- Desktop only: Discover, Studio, Community, Pricing, Contact -->
+						<!-- Desktop only: Download, Discover, Studio, Community, Search -->
 						<div class="hidden md:flex items-center landing-nav-row gap-4 md:gap-6 lg:gap-8">
+							<!-- Download button -->
+							<button
+								type="button"
+								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4"
+								style="color: hsl(var(--white66));"
+								onclick={() => (downloadModalOpen = true)}
+							>
+								Download
+							</button>
 							<div
 								class="landing-nav-dropdown-wrap relative flex-shrink-0"
 								role="group"
@@ -723,9 +764,9 @@
 													</a>
 													<div class="landing-nav-studio-dropdown-divider" aria-hidden="true"></div>
 													<div class="landing-nav-studio-dropdown-right">
-														<a href="/docs/publish" class="landing-nav-studio-row">Publish Apps</a>
+														<a href="/studio" class="landing-nav-studio-row">Learn more</a>
+														<a href="/studio#quickstart" class="landing-nav-studio-row">Quickstart</a>
 														<a href="/docs/publish" class="landing-nav-studio-row">Docs</a>
-														<a href="/docs/faq" class="landing-nav-studio-row">FAQ</a>
 													</div>
 												</div>
 											</div>
@@ -740,15 +781,15 @@
 								onmouseenter={() => setLandingNavOpen('community')}
 								onmouseleave={clearLandingNavOpen}
 							>
-							<button
-								type="button"
-								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4"
-								class:landing-nav-btn-open={landingNavOpen === 'community'}
-								class:landing-nav-studio-selected={isCommunityActive}
-								style="color: hsl(var(--white66));"
-							>
-								Community
-							</button>
+								<button
+									type="button"
+									class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4"
+									class:landing-nav-btn-open={landingNavOpen === 'community'}
+									class:landing-nav-studio-selected={isCommunityActive}
+									style="color: hsl(var(--white66));"
+								>
+									Community
+								</button>
 								{#if landingNavOpen === 'community'}
 									<div
 										class="landing-nav-panel landing-nav-panel-studio landing-nav-panel-centered absolute top-full mt-0 shadow-lg z-50"
@@ -938,6 +979,8 @@
 
 <!-- Search Modal -->
 <SearchModal bind:open={searchOpen} bind:searchQuery {categories} {platforms} />
+
+<DownloadModal bind:open={downloadModalOpen} isZapstore={true} />
 
 <!-- Onboarding Modals -->
 <GetStartedModal
@@ -1391,6 +1434,7 @@
 		min-width: 460px;
 		max-width: min(600px, calc(100vw - 32px));
 	}
+
 
 	.landing-nav-panel-bg {
 		background-color: hsl(var(--black66));

@@ -53,8 +53,7 @@
 
   @media (min-width: 768px) {
     .gateway-container {
-      grid-template-columns: 1fr 1fr;
-      gap: 2.75rem;
+      grid-template-columns: 1fr;
     }
   }
 

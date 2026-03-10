@@ -6,9 +6,8 @@ import ParallaxHero from '$lib/components/landing/ParallaxHero.svelte';
 import GetTheAppSection from '$lib/components/landing/GetTheAppSection.svelte';
 import TestimonialsSection from '$lib/components/landing/TestimonialsSection.svelte';
 // import ZapTheAppSection from "$lib/components/landing/ZapTheAppSection.svelte";
-import StakesSection from '$lib/components/landing/StakesSection.svelte';
 import ReleaseYourAppsSection from '$lib/components/landing/ReleaseYourAppsSection.svelte';
-import DifferenceSection from '$lib/components/landing/DifferenceSection.svelte';
+import ComparisonSection from '$lib/components/landing/ComparisonSection.svelte';
 import RoadmapSection from '$lib/components/landing/RoadmapSection.svelte';
 import TeamSection from '$lib/components/landing/TeamSection.svelte';
 import { fetchProfilesBatch } from '$lib/nostr';
@@ -71,20 +70,17 @@ $effect(() => {
 <!-- Hero Section -->
 <ParallaxHero showDownloadModal={() => (showDownloadModal = true)} />
 
-<!-- Stakes Section: winners/losers beat -->
-<StakesSection />
-
 <!-- Get The App Section -->
 <GetTheAppSection showDownloadModal={() => (showDownloadModal = true)} />
+
+<!-- Comparison Section -->
+<ComparisonSection />
 
 <!-- Release with ease Section -->
 <ReleaseYourAppsSection />
 
 <!-- Testimonials Section -->
 <TestimonialsSection {testimonials} />
-
-<!-- What's the difference Section -->
-<DifferenceSection />
 
 <!-- Zap The App Section (commented out for now) -->
 <!-- <ZapTheAppSection /> -->

@@ -56,6 +56,7 @@ onMount(() => {
 </script>
 
 <section
+	id="quickstart"
 	bind:this={sectionElement}
 	class="relative min-h-[50vh] flex items-center justify-center overflow-hidden border-b border-border/50 pt-20 pb-14 sm:py-24"
 >
