@@ -17,11 +17,11 @@
 				style="background-color: hsl(var(--gray33)); border-radius: var(--radius-32);"
 			>
 				<h2
-					class="section-title text-display-lg text-3xl sm:text-4xl lg:text-4xl xl:text-5xl leading-tight section-title-gradient mb-2 text-center lg:text-left"
+					class="section-title text-display-lg text-3xl sm:text-4xl lg:text-4xl xl:text-5xl leading-tight section-title-gradient mb-2 text-left"
 				>
 					Get Zapstore
 				</h2>
-				<p class="section-description max-w-xl text-center lg:text-left">
+				<p class="section-description max-w-xl text-left">
 					Fully open & secure app store. Reliable updates for any app. Direct interaction with app
 					builders.
 				</p>

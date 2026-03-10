@@ -82,7 +82,7 @@
 									<div class="fake-success-screen">
 										<div class="fsc-top">
 											<Check
-												size={33}
+												size={40}
 												color="hsl(var(--blurpleColor))"
 												variant="outline"
 												strokeWidth={2.1}
@@ -95,8 +95,8 @@
 												<svg
 													viewBox="0 0 24 24"
 													fill="none"
-													width="20"
-													height="20"
+													width="24"
+													height="24"
 													aria-hidden="true"
 												>
 													<rect
@@ -313,7 +313,7 @@
 										<div class="fake-success-screen">
 											<div class="fsc-top">
 												<Check
-													size={33}
+													size={40}
 													color="hsl(var(--blurpleColor))"
 													variant="outline"
 													strokeWidth={2.1}
@@ -326,8 +326,8 @@
 													<svg
 														viewBox="0 0 24 24"
 														fill="none"
-														width="20"
-														height="20"
+														width="24"
+														height="24"
 														aria-hidden="true"
 													>
 														<rect
@@ -680,24 +680,6 @@
 	.confirm-scaler {
 		width: 100%;
 	}
-	@media (min-width: 1024px) {
-		.confirm-wrap {
-			display: block;
-			position: relative;
-			padding-top: 0;
-		}
-		.confirm-scaler {
-			position: absolute;
-			left: 50%;
-			top: 14px;
-			width: auto;
-			transform-origin: center top;
-			transform: translateX(-50%) scale(1.52);
-		}
-		.fake-success-screen {
-			width: 318px;
-		}
-	}
 	.fake-success-screen {
 		width: 100%;
 		background: hsl(var(--gray33));
@@ -713,11 +695,11 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		padding: 32px 12px 18px;
-		gap: 3px;
+		padding: 38px 14px 22px;
+		gap: 4px;
 	}
 	.fsc-title {
-		font-size: 1.5rem;
+		font-size: 1.8rem;
 		font-weight: 700;
 		color: hsl(var(--foreground));
 		margin: 0;
@@ -731,15 +713,15 @@
 	.fsc-app-row {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
-		padding: 13px 12px;
+		gap: 0.9rem;
+		padding: 16px 14px;
 		width: 100%;
 		text-align: left;
 	}
 	.fsc-app-icon-wrap {
-		width: 44px;
-		height: 44px;
-		border-radius: 12px;
+		width: 53px;
+		height: 53px;
+		border-radius: 14px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -755,33 +737,33 @@
 		gap: 2px;
 	}
 	.fsc-app-name {
-		font-size: 0.9375rem;
+		font-size: 1.125rem;
 		font-weight: 600;
 		color: hsl(var(--foreground));
 		line-height: 1.25;
 	}
 	.fsc-app-ver {
-		font-size: 0.8125rem;
+		font-size: 0.975rem;
 		color: hsl(var(--white33));
 	}
 	.fsc-checks {
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		padding: 11px 12px 44px;
-		gap: 6px;
+		padding: 13px 14px 53px;
+		gap: 7px;
 	}
 	.fsc-check-item {
 		display: flex;
 		align-items: center;
-		gap: 9px;
-		font-size: 0.875rem;
+		gap: 11px;
+		font-size: 1.05rem;
 		color: hsl(var(--white66));
 		text-align: left;
 	}
 	.fsc-cat-pic {
-		width: 22px;
-		height: 22px;
+		width: 26px;
+		height: 26px;
 		border-radius: 50%;
 		background: hsl(var(--blurpleColor));
 		display: flex;
@@ -795,17 +777,72 @@
 		filter: brightness(0) invert(1);
 	}
 	.fsc-relay-wrap {
-		width: 22px;
-		height: 22px;
+		width: 26px;
+		height: 26px;
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
 	.fsc-relay-emoji {
-		width: 18px;
-		height: 18px;
+		width: 22px;
+		height: 22px;
 		object-fit: contain;
+	}
+	@media (min-width: 1024px) {
+		.confirm-wrap {
+			padding-top: 20px;
+		}
+		.fsc-top {
+			padding: 51px 19px 29px;
+			gap: 5px;
+		}
+		.fsc-top :global(svg) {
+			width: 53px !important;
+			height: 53px !important;
+		}
+		.fsc-title {
+			font-size: 2.4rem;
+		}
+		.fsc-app-row {
+			padding: 21px 19px;
+			gap: 1.2rem;
+		}
+		.fsc-app-icon-wrap {
+			width: 70px;
+			height: 70px;
+			border-radius: 19px;
+		}
+		.fsc-app-icon-wrap svg {
+			width: 32px !important;
+			height: 32px !important;
+		}
+		.fsc-app-name {
+			font-size: 1.5rem;
+		}
+		.fsc-app-ver {
+			font-size: 1.3rem;
+		}
+		.fsc-checks {
+			padding: 18px 19px 70px;
+			gap: 10px;
+		}
+		.fsc-check-item {
+			font-size: 1.4rem;
+			gap: 14px;
+		}
+		.fsc-cat-pic {
+			width: 35px;
+			height: 35px;
+		}
+		.fsc-relay-wrap {
+			width: 35px;
+			height: 35px;
+		}
+		.fsc-relay-emoji {
+			width: 29px;
+			height: 29px;
+		}
 	}
 
 	/* ── Fake zap feed ──────────────────────────────────────────────── */
