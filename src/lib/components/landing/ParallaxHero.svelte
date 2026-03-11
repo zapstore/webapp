@@ -53,7 +53,6 @@
 		if (h1Ref) {
 			h1MinHeight = h1Ref.getBoundingClientRect().height;
 		}
-
 	});
 
 	$: visibleApps = isMobile ? allApps.slice(0, 4) : allApps;
@@ -236,16 +235,16 @@
 		<div class="flex justify-center mt-5">
 			<div class="hero-browse-cta">
 				<div class="hero-browse-pics">
-				{#each visibleApps as app, i}
-					<div
-						class="hero-browse-pic-wrap"
-						style="z-index: {visibleApps.length + 1 - i}; {i > 0
-							? `margin-left: ${isMobile ? '-16px' : '-12px'};`
-							: ''}"
-					>
-						<img src={app.src} alt={app.name} class="hero-app-pic" />
-					</div>
-				{/each}
+					{#each visibleApps as app, i}
+						<div
+							class="hero-browse-pic-wrap"
+							style="z-index: {visibleApps.length + 1 - i}; {i > 0
+								? `margin-left: ${isMobile ? '-16px' : '-12px'};`
+								: ''}"
+						>
+							<img src={app.src} alt={app.name} class="hero-app-pic" />
+						</div>
+					{/each}
 				</div>
 				<a
 					href="/discover"
