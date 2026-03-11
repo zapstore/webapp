@@ -20,7 +20,8 @@ import { building } from '$app/environment';
 import {
 	EVENT_KINDS,
 	PLATFORM_FILTER,
-	POLL_INTERVAL_MS
+	POLL_INTERVAL_MS,
+	SUB_PREFIX
 } from '$lib/config';
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
 
@@ -229,6 +230,7 @@ function queryRelaysRaw(relayUrls, filter, timeoutMs = QUERY_TIMEOUT_MS) {
 		let sub;
 		try {
 			sub = pool.subscribeMany(relayUrls, filter, {
+				label: SUB_PREFIX + 'cache',
 				onevent(event) {
 					if (event?.id) events.push(event);
 				},
@@ -347,9 +349,10 @@ async function warmUp() {
 			}, WARMUP_TIMEOUT_MS),
 
 			// Releases — server-side only, used for ranking apps by latest release
+			// limit < 100 required to pass relay specificity scoring
 			queryRelaysRaw([CATALOG_RELAY], {
 				kinds: [EVENT_KINDS.RELEASE],
-				limit: APPS_POLL_LIMIT * 3
+				limit: 99
 			}, WARMUP_TIMEOUT_MS),
 		]);
 
@@ -397,7 +400,7 @@ async function pollCatalog() {
 			queryRelaysRaw([CATALOG_RELAY], {
 				kinds: [EVENT_KINDS.RELEASE],
 				since,
-				limit: APPS_POLL_LIMIT * 3
+				limit: 99
 			}),
 		]);
 
