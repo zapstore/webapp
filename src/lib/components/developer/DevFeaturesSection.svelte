@@ -127,8 +127,6 @@
 												<div class="fsc-cat-pic">
 													<img
 														src="/images/logo.svg"
-														width="8"
-														height="8"
 														class="fsc-cat-logo"
 														alt=""
 														aria-hidden="true"
@@ -356,14 +354,12 @@
 											<div class="fsc-checks">
 												<div class="fsc-check-item">
 													<div class="fsc-cat-pic">
-														<img
-															src="/images/logo.svg"
-															width="8"
-															height="8"
-															class="fsc-cat-logo"
-															alt=""
-															aria-hidden="true"
-														/>
+													<img
+														src="/images/logo.svg"
+														class="fsc-cat-logo"
+														alt=""
+														aria-hidden="true"
+													/>
 													</div>
 													<span>Accepted in Zapstore catalog</span>
 												</div>
@@ -773,6 +769,8 @@
 		overflow: hidden;
 	}
 	.fsc-cat-logo {
+		width: 62%;
+		height: 62%;
 		object-fit: contain;
 		filter: brightness(0) invert(1);
 	}

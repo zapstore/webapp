@@ -4,6 +4,8 @@ import { browser } from '$app/environment';
 import DownloadModal from '$lib/components/common/DownloadModal.svelte';
 import ParallaxHero from '$lib/components/landing/ParallaxHero.svelte';
 import GetTheAppSection from '$lib/components/landing/GetTheAppSection.svelte';
+// import StatusQuoSection from '$lib/components/landing/StatusQuoSection.svelte';
+import ChatDemoSection from '$lib/components/landing/ChatDemoSection.svelte';
 import TestimonialsSection from '$lib/components/landing/TestimonialsSection.svelte';
 // import ZapTheAppSection from "$lib/components/landing/ZapTheAppSection.svelte";
 import ReleaseYourAppsSection from '$lib/components/landing/ReleaseYourAppsSection.svelte';
@@ -69,6 +71,12 @@ $effect(() => {
 
 <!-- Hero Section -->
 <ParallaxHero showDownloadModal={() => (showDownloadModal = true)} />
+
+<!-- Status Quo Section -->
+<!-- <StatusQuoSection /> -->
+
+<!-- Chat Demo Section -->
+<ChatDemoSection />
 
 <!-- Get The App Section -->
 <GetTheAppSection showDownloadModal={() => (showDownloadModal = true)} />

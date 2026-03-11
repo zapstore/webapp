@@ -511,39 +511,18 @@
 									<span class="menu-search-text">Search Any App</span>
 								</button>
 
-								<div class="menu-section">
-									<span class="menu-section-label">Download</span>
-									<nav class="menu-subnav">
-										<button
-											type="button"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={() => { downloadModalOpen = true; closeMenu(); }}>Download the app</button
-										>
-										<a
-											href="/apps/dev.zapstore.app"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}>More Info</a
-										>
-									</nav>
-								</div>
-
 							<div class="menu-section">
 								<span class="menu-section-label">Download</span>
 								<nav class="menu-subnav">
-									<button
-										type="button"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={() => { downloadModalOpen = true; closeMenu(); }}>Download the app</button
-									>
-									<a
-										href="/apps/dev.zapstore.app"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}>More Info</a
-									>
+								<button
+									type="button"
+									class="menu-sublink text-sm font-medium text-white/66 text-left"
+									onclick={() => { downloadModalOpen = true; closeMenu(); }}>Get Zapstore</button
+								>
 								</nav>
 							</div>
 
-							<div class="menu-section">
+						<div class="menu-section">
 								<a href="/discover" class="menu-section-link" onclick={closeMenu}>Discover</a>
 								<nav class="menu-subnav">
 									<a
@@ -604,6 +583,18 @@
 										>
 									</nav>
 								</div>
+
+								{#if !isConnected && !isConnecting}
+									<div class="menu-cta-wrapper">
+										<button
+											type="button"
+											onclick={handleSignIn}
+											class="btn-primary-large w-full justify-center"
+										>
+											Sign In
+										</button>
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</div>
@@ -902,15 +893,16 @@
 								</button>
 							</div>
 						{:else}
+					<div class="hidden md:block">
 						<button
 							type="button"
 							onclick={handleSignIn}
 							class="btn-primary-small h-10 px-4 whitespace-nowrap"
 						>
-							<span class="sm:hidden">Sign in</span>
-							<span class="hidden sm:inline">Sign in</span>
+							Sign In
 						</button>
-							<!-- Mobile: menu icon to the right of Start -->
+					</div>
+						<!-- Mobile: menu icon to the right of Start -->
 							<button
 								type="button"
 								class="landing-menu-btn flex md:hidden items-center justify-center w-7 h-7 rounded-lg border-none bg-transparent cursor-pointer hover:opacity-80 transition-opacity"
@@ -966,11 +958,10 @@
 						{/if}
 					</div>
 				{:else}
-				<!-- Sign in Button -->
-				<button type="button" onclick={handleSignIn} class="btn-primary-small h-10 px-4">
-					<span class="sm:hidden">Sign in</span>
-					<span class="hidden sm:inline">Sign in</span>
-				</button>
+			<!-- Sign In Button -->
+			<button type="button" onclick={handleSignIn} class="btn-primary-small h-10 px-4">
+				Sign In
+			</button>
 				{/if}
 			</div>
 		</div>

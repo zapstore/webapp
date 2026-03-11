@@ -70,7 +70,7 @@
 
 <div class="container mx-auto px-6 sm:px-6 lg:px-8 {description ? 'mb-8' : 'mb-4'}">
 	<!-- Title row with button -->
-	<div class="flex items-center justify-between gap-4 mb-3">
+	<div class="flex items-center justify-between gap-4 title-row">
 		<h2
 			class="section-title text-display-lg text-3xl sm:text-4xl lg:text-4xl xl:text-5xl leading-tight section-title-gradient flex-1 min-w-0"
 		>
@@ -126,6 +126,14 @@
 </div>
 
 <style>
+	.title-row {
+		margin-bottom: 0.35rem;
+	}
+	@media (min-width: 640px) {
+		.title-row {
+			margin-bottom: 0.75rem;
+		}
+	}
 	.see-more-dropdown-wrap {
 		position: relative;
 		flex-shrink: 0;
