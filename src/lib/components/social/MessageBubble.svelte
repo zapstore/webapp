@@ -14,7 +14,7 @@ import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import { Loader2 } from "lucide-svelte";
 import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString, } from "$lib/utils/color.js";
-let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, light = false, children, headerActions, } = $props();
+let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, light = false, outgoing = false, children, headerActions, } = $props();
 function formatNpubDisplay(npubStr) {
     if (!npubStr || typeof npubStr !== "string") return "";
     const s = npubStr.trim();
@@ -47,41 +47,45 @@ const textColor = $derived(getProfileTextColor(profileColor, isDarkMode));
 const nameColorStyle = $derived(rgbToCssString(textColor));
 </script>
 
-<div class="message-bubble {className}">
-  <div class="profile-column">
-    {#if profileUrl}
-      <a href={profileUrl} class="profile-link">
-        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
-      </a>
-    {:else}
-      <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
-    {/if}
-  </div>
-
-  <div class="bubble" class:bubble-light={light}>
-    <div class="bubble-header">
+<div class="message-bubble {className}" class:message-bubble-outgoing={outgoing}>
+  {#if !outgoing}
+    <div class="profile-column">
       {#if profileUrl}
-        <a href={profileUrl} class="author-name" style="color: {nameColorStyle};">
-          {displayName}
+        <a href={profileUrl} class="profile-link">
+          <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
         </a>
       {:else}
-        <span class="author-name" style="color: {nameColorStyle};">
-          {displayName}
-        </span>
-      {/if}
-      {#if !pending}
-        <Timestamp {timestamp} size="xs" />
-      {:else}
-        <span class="publish-spinner" aria-label="Publishing">
-          <Loader2 class="h-3.5 w-3.5 animate-spin" style="color: hsl(var(--blurpleLightColor));" />
-        </span>
-      {/if}
-      {#if headerActions}
-        <div class="bubble-header-actions">
-          {@render headerActions()}
-        </div>
+        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
       {/if}
     </div>
+  {/if}
+
+  <div class="bubble" class:bubble-light={light} class:bubble-outgoing={outgoing}>
+    {#if !outgoing}
+      <div class="bubble-header">
+        {#if profileUrl}
+          <a href={profileUrl} class="author-name" style="color: {nameColorStyle};">
+            {displayName}
+          </a>
+        {:else}
+          <span class="author-name" style="color: {nameColorStyle};">
+            {displayName}
+          </span>
+        {/if}
+        {#if !pending}
+          <Timestamp {timestamp} size="xs" />
+        {:else}
+          <span class="publish-spinner" aria-label="Publishing">
+            <Loader2 class="h-3.5 w-3.5 animate-spin" style="color: hsl(var(--blurpleLightColor));" />
+          </span>
+        {/if}
+        {#if headerActions}
+          <div class="bubble-header-actions">
+            {@render headerActions()}
+          </div>
+        {/if}
+      </div>
+    {/if}
 
     <div class="bubble-content">
       {@render children?.()}
@@ -94,6 +98,10 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     display: flex;
     gap: 8px;
     align-items: flex-end;
+  }
+
+  .message-bubble-outgoing {
+    flex-direction: row-reverse;
   }
 
   .profile-column {
@@ -138,6 +146,15 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
 
   .bubble-light {
     background-color: hsl(var(--white8));
+  }
+
+  .bubble-outgoing {
+    background: var(--gradient-blurple);
+    margin-left: auto;
+  }
+
+  .bubble-outgoing :global(.bubble-content) {
+    color: hsl(var(--white));
   }
 
   .author-name {

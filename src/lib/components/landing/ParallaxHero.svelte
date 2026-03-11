@@ -1,8 +1,6 @@
 <script>
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { ChevronRight } from '$lib/components/icons';
-	import AppPic from '$lib/components/common/AppPic.svelte';
-	import { queryEvents } from '$lib/nostr/dexie.js';
 
 	/** @type {HTMLAnchorElement | null} */
 	let heroButton = null;
@@ -34,25 +32,20 @@
 	/** @type {ReturnType<typeof setTimeout>[]} */
 	let flipTimers = [];
 
-	/**
-	 * 5 fixed slots — always present so layout never shifts.
-	 * All start as skeletons. They all flip to real AppPics at once,
-	 * only after every image has been preloaded into the browser cache.
-	 * This prevents any intermediate flicker or wrong-icon flash.
-	 * @type {Array<{skeleton: boolean, name: string, identifier: string, iconUrl?: string}>}
-	 */
-	let appSlots = [
-		{ skeleton: true, name: '', identifier: 'sk-0' },
-		{ skeleton: true, name: '', identifier: 'sk-1' },
-		{ skeleton: true, name: '', identifier: 'sk-2' },
-		{ skeleton: true, name: '', identifier: 'sk-3' },
-		{ skeleton: true, name: '', identifier: 'sk-4' }
+	const allApps = [
+		{ src: '/images/parallax-apps/zapstore.png', name: 'Zapstore' },
+		{ src: '/images/parallax-apps/organic-maps.png', name: 'Organic Maps' },
+		{ src: '/images/parallax-apps/mulvad.png', name: 'Mullvad' },
+		{ src: '/images/parallax-apps/newpipe.png', name: 'NewPipe' },
+		{ src: '/images/parallax-apps/antennapod.png', name: 'AntennaPod' }
 	];
 
 	onMount(async () => {
 		const mql = window.matchMedia('(max-width: 639px)');
 		isMobile = mql.matches;
-		const onMqlChange = (/** @type {MediaQueryListEvent} */ e) => { isMobile = e.matches; };
+		const onMqlChange = (/** @type {MediaQueryListEvent} */ e) => {
+			isMobile = e.matches;
+		};
 		mql.addEventListener('change', onMqlChange);
 		mqlCleanup = () => mql.removeEventListener('change', onMqlChange);
 
@@ -60,63 +53,9 @@
 		if (h1Ref) {
 			h1MinHeight = h1Ref.getBoundingClientRect().height;
 		}
-
-		try {
-			// Fetch Zapstore specifically by d-tag so it's never missed by a limit cap.
-			const [zapstoreEvents, allEvents] = await Promise.all([
-				queryEvents({ kinds: [32267], '#d': ['dev.zapstore.app'], limit: 1 }),
-				queryEvents({ kinds: [32267], limit: 30 })
-			]);
-
-			const zapstoreIcon = zapstoreEvents[0]?.tags.find((t) => t[0] === 'icon')?.[1];
-
-			const others = allEvents
-				.filter((e) => {
-					const id = e.tags.find((t) => t[0] === 'd')?.[1] ?? '';
-					if (id === 'dev.zapstore.app') return false;
-					return !!e.tags.find((t) => t[0] === 'icon')?.[1];
-				})
-				.slice(0, 4);
-
-			// Only include Zapstore slot if we have its real icon from Dexie.
-			// Never fall back to the website logo — keep it as a skeleton instead.
-			/** @type {Array<{skeleton: boolean, name: string, identifier: string, iconUrl?: string}>} */
-			const pendingSlots = [
-				zapstoreIcon
-					? { skeleton: false, name: 'Zapstore', identifier: 'dev.zapstore.app', iconUrl: zapstoreIcon }
-					: { skeleton: true, name: '', identifier: 'sk-0' },
-				...others.map((e, idx) => ({
-					skeleton: false,
-					name: e.tags.find((t) => t[0] === 'name')?.[1] ?? e.tags.find((t) => t[0] === 'd')?.[1] ?? '',
-					identifier: e.tags.find((t) => t[0] === 'd')?.[1] ?? `app-${idx}`,
-					iconUrl: e.tags.find((t) => t[0] === 'icon')?.[1]
-				}))
-			];
-
-			// Preload every image so the browser has them cached before we render AppPic.
-			// AppPic's checkIfCached action will then immediately set imageLoaded = true,
-			// meaning zero internal skeleton flash when the slots flip.
-			const urls = pendingSlots.map((s) => s.iconUrl).filter(Boolean);
-			await Promise.all(
-				urls.map(
-					(url) =>
-						new Promise((resolve) => {
-							const img = new Image();
-							img.onload = resolve;
-							img.onerror = resolve; // don't hang on broken URLs
-							img.src = /** @type {string} */ (url);
-						})
-				)
-			);
-
-			// Atomic swap — all skeletons replaced at once with fully-loaded images.
-			appSlots = pendingSlots;
-		} catch {
-			// silently degrade — skeletons stay
-		}
 	});
 
-	$: visibleApps = isMobile ? appSlots.slice(0, 4) : appSlots.slice(0, 5);
+	$: visibleApps = isMobile ? allApps.slice(0, 4) : allApps;
 
 	function clearFlipTimers() {
 		flipTimers.forEach(clearTimeout);
@@ -130,27 +69,38 @@
 		// ── Forward flip ─────────────────────────────────────────
 		permissionState = 'imploding';
 
-		flipTimers.push(setTimeout(() => {
-			// Midpoint: swap to new text, flip back in
-			permissionState = 'transformed';
+		flipTimers.push(
+			setTimeout(() => {
+				// Midpoint: swap to new text, flip back in
+				permissionState = 'transformed';
 
-			// ── Auto-reverse after 3 s ────────────────────────────
-			flipTimers.push(setTimeout(() => {
-				permissionState = 'restoring';
+				// ── Auto-reverse after 3 s ────────────────────────────
+				flipTimers.push(
+					setTimeout(() => {
+						permissionState = 'restoring';
 
-				flipTimers.push(setTimeout(() => {
-					// Midpoint: swap back to original, flip back in
-					permissionState = 'returning';
+						flipTimers.push(
+							setTimeout(() => {
+								// Midpoint: swap back to original, flip back in
+								permissionState = 'returning';
 
-					flipTimers.push(setTimeout(() => {
-						permissionState = 'default';
-					}, 300));
-				}, 220));
-			}, 3000));
-		}, 220));
+								flipTimers.push(
+									setTimeout(() => {
+										permissionState = 'default';
+									}, 300)
+								);
+							}, 220)
+						);
+					}, 3000)
+				);
+			}, 220)
+		);
 	}
 
-	onDestroy(() => { clearFlipTimers(); mqlCleanup(); });
+	onDestroy(() => {
+		clearFlipTimers();
+		mqlCleanup();
+	});
 
 	/** @param {KeyboardEvent} e */
 	function handlePermissionKeydown(e) {
@@ -200,7 +150,10 @@
 		<!-- Perspective wrapper gives depth to the rotateX flip -->
 		<div class="hero-h1-stage">
 			<!-- Blurple electric flash fires on both the forward and reverse flips -->
-			<div class="hero-electric-flash" class:flashing={permissionState === 'imploding' || permissionState === 'restoring'}></div>
+			<div
+				class="hero-electric-flash"
+				class:flashing={permissionState === 'imploding' || permissionState === 'restoring'}
+			></div>
 
 			<!-- h1: flip-out rotates to edge-on, flip-in snaps back revealing new text -->
 			<h1
@@ -210,65 +163,69 @@
 				class:hero-flip-in={permissionState === 'transformed' || permissionState === 'returning'}
 				style="{h1MinHeight > 0 ? `min-height: ${h1MinHeight}px;` : ''} position: relative;"
 			>
-			<!-- Original text: hidden while new text is showing -->
-			<span class:perm-invisible={permissionState === 'transformed' || permissionState === 'restoring'}>
+				<!-- Original text: hidden while new text is showing -->
 				<span
-					style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
-					>You shouldn't need<br /></span
-				><span
-					class="permission-border"
-					role="button"
-					tabindex="0"
-					bind:this={permissionBorderRef}
-					on:click={handlePermissionClick}
-					on:keydown={handlePermissionKeydown}
+					class:perm-invisible={permissionState === 'transformed' ||
+						permissionState === 'restoring'}
 				>
-					<!-- SVG gradient dashed border -->
-					<svg
-						class="permission-svg"
-						xmlns="http://www.w3.org/2000/svg"
-						aria-hidden="true"
-						focusable="false"
-					>
-						<defs>
-							<linearGradient id="perm-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-								<stop offset="0%" stop-color="#CDCCFF" />
-								<stop offset="100%" stop-color="#5C5FFF" />
-							</linearGradient>
-						</defs>
-						<rect
-							x="0.75"
-							y="0.75"
-							style="width: calc(100% - 1.5px); height: calc(100% - 1.5px);"
-						rx={isMobile ? 11.25 : 15.25}
-						ry={isMobile ? 11.25 : 15.25}
-							fill="none"
-							stroke="url(#perm-grad)"
-							stroke-width="1.5"
-							stroke-dasharray="9 5"
-						/>
-					</svg>
-					<span
-						style="background: var(--gradient-blurple-light); -webkit-background-clip: text; background-clip: text; color: transparent;"
-						>permission</span
-					></span
-				><!-- Mobile: permission sits on its own line --><br class="sm:hidden" /><span
-					style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
-				>to use apps.</span
-				>
-			</span>
-
-			<!-- New text: visible during 'transformed' and 'restoring' phases -->
-			{#if permissionState === 'transformed' || permissionState === 'restoring'}
-				<span class="hero-transformed-text">
 					<span
 						style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
-						>You can just use apps.</span
+						>You shouldn't need<br /></span
+					><span
+						class="permission-border"
+						role="button"
+						tabindex="0"
+						bind:this={permissionBorderRef}
+						on:click={handlePermissionClick}
+						on:keydown={handlePermissionKeydown}
+					>
+						<!-- SVG gradient dashed border -->
+						<svg
+							class="permission-svg"
+							xmlns="http://www.w3.org/2000/svg"
+							aria-hidden="true"
+							focusable="false"
+						>
+							<defs>
+								<linearGradient id="perm-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+									<stop offset="0%" stop-color="#CDCCFF" />
+									<stop offset="100%" stop-color="#5C5FFF" />
+								</linearGradient>
+							</defs>
+							<rect
+								x="0.75"
+								y="0.75"
+								style="width: calc(100% - 1.5px); height: calc(100% - 1.5px);"
+								rx={isMobile ? 11.25 : 15.25}
+								ry={isMobile ? 11.25 : 15.25}
+								fill="none"
+								stroke="url(#perm-grad)"
+								stroke-width="1.5"
+								stroke-dasharray="9 5"
+							/>
+						</svg>
+						<span
+							style="background: var(--gradient-blurple-light); -webkit-background-clip: text; background-clip: text; color: transparent;"
+							>permission</span
+						></span
+					><!-- Mobile: permission sits on its own line --><br class="sm:hidden" /><span
+						style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
+						>to use apps.</span
 					>
 				</span>
-			{/if}
-		</h1>
-		</div><!-- /hero-h1-stage -->
+
+				<!-- New text: visible during 'transformed' and 'restoring' phases -->
+				{#if permissionState === 'transformed' || permissionState === 'restoring'}
+					<span class="hero-transformed-text">
+						<span
+							style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
+							>You can just use apps.</span
+						>
+					</span>
+				{/if}
+			</h1>
+		</div>
+		<!-- /hero-h1-stage -->
 
 		<p class="text-xl sm:text-2xl mx-auto mt-2 sm:mt-8 mb-10" style="color: hsl(var(--white66));">
 			Self-published by developers.<br class="sm:hidden" /> Curated by communities.
@@ -277,26 +234,18 @@
 		<!-- Browse CTA: stacked app pics + glass pill -->
 		<div class="flex justify-center mt-5">
 			<div class="hero-browse-cta">
-			<div class="hero-browse-pics">
-				{#each visibleApps as app, i}
-					<div
-						class="hero-browse-pic-wrap"
-						style="z-index: {visibleApps.length + 1 - i}; {i > 0 ? `margin-left: ${isMobile ? '-16px' : '-12px'};` : ''}"
-					>
-						{#if app.skeleton}
-							<div class="hero-browse-pic-skeleton"></div>
-						{:else}
-							<AppPic
-								name={app.name}
-								identifier={app.identifier}
-								iconUrl={app.iconUrl}
-								size="md"
-								onClick={() => {}}
-							/>
-						{/if}
-					</div>
-				{/each}
-			</div>
+				<div class="hero-browse-pics">
+					{#each visibleApps as app, i}
+						<div
+							class="hero-browse-pic-wrap"
+							style="z-index: {visibleApps.length + 1 - i}; {i > 0
+								? `margin-left: ${isMobile ? '-16px' : '-12px'};`
+								: ''}"
+						>
+							<img src={app.src} alt={app.name} class="hero-app-pic" />
+						</div>
+					{/each}
+				</div>
 				<a
 					href="/discover"
 					bind:this={heroButton}
@@ -332,12 +281,18 @@
 		 * Shadow: feGaussianBlur on alpha, flooded with black preset (#111111).
 		 * Hotspot at (15, 0) — the tip of the bolt.
 		 */
-		cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='54' viewBox='0 0 19 32'%3E%3Cdefs%3E%3ClinearGradient id='lg' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23FFFFFF'/%3E%3Cstop offset='1' stop-color='%23DDDCFF'/%3E%3C/linearGradient%3E%3Cfilter id='gw' filterUnits='userSpaceOnUse' x='-5' y='-5' width='29' height='42'%3E%3CfeGaussianBlur in='SourceAlpha' stdDeviation='2.8' result='blur'/%3E%3CfeFlood flood-color='%23111111' flood-opacity='0.75' result='color'/%3E%3CfeComposite in='color' in2='blur' operator='in' result='shadow'/%3E%3CfeMerge%3E%3CfeMergeNode in='shadow'/%3E%3CfeMergeNode in='SourceGraphic'/%3E%3C/feMerge%3E%3C/filter%3E%3C/defs%3E%3Cpath filter='url(%23gw)' fill='url(%23lg)' d='M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z'/%3E%3C/svg%3E") 15 0, pointer;
+		cursor:
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='54' viewBox='0 0 19 32'%3E%3Cdefs%3E%3ClinearGradient id='lg' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23FFFFFF'/%3E%3Cstop offset='1' stop-color='%23DDDCFF'/%3E%3C/linearGradient%3E%3Cfilter id='gw' filterUnits='userSpaceOnUse' x='-5' y='-5' width='29' height='42'%3E%3CfeGaussianBlur in='SourceAlpha' stdDeviation='2.8' result='blur'/%3E%3CfeFlood flood-color='%23111111' flood-opacity='0.75' result='color'/%3E%3CfeComposite in='color' in2='blur' operator='in' result='shadow'/%3E%3CfeMerge%3E%3CfeMergeNode in='shadow'/%3E%3CfeMergeNode in='SourceGraphic'/%3E%3C/feMerge%3E%3C/filter%3E%3C/defs%3E%3Cpath filter='url(%23gw)' fill='url(%23lg)' d='M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z'/%3E%3C/svg%3E")
+				15 0,
+			pointer;
 	}
 
 	/* ── Proximity cursor: activates ~32px before entering the element ── */
 	.proximity-cursor {
-		cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='54' viewBox='0 0 19 32'%3E%3Cdefs%3E%3ClinearGradient id='lg' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23FFFFFF'/%3E%3Cstop offset='1' stop-color='%23DDDCFF'/%3E%3C/linearGradient%3E%3Cfilter id='gw' filterUnits='userSpaceOnUse' x='-5' y='-5' width='29' height='42'%3E%3CfeGaussianBlur in='SourceAlpha' stdDeviation='2.8' result='blur'/%3E%3CfeFlood flood-color='%23111111' flood-opacity='0.75' result='color'/%3E%3CfeComposite in='color' in2='blur' operator='in' result='shadow'/%3E%3CfeMerge%3E%3CfeMergeNode in='shadow'/%3E%3CfeMergeNode in='SourceGraphic'/%3E%3C/feMerge%3E%3C/filter%3E%3C/defs%3E%3Cpath filter='url(%23gw)' fill='url(%23lg)' d='M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z'/%3E%3C/svg%3E") 15 0, pointer;
+		cursor:
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='54' viewBox='0 0 19 32'%3E%3Cdefs%3E%3ClinearGradient id='lg' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23FFFFFF'/%3E%3Cstop offset='1' stop-color='%23DDDCFF'/%3E%3C/linearGradient%3E%3Cfilter id='gw' filterUnits='userSpaceOnUse' x='-5' y='-5' width='29' height='42'%3E%3CfeGaussianBlur in='SourceAlpha' stdDeviation='2.8' result='blur'/%3E%3CfeFlood flood-color='%23111111' flood-opacity='0.75' result='color'/%3E%3CfeComposite in='color' in2='blur' operator='in' result='shadow'/%3E%3CfeMerge%3E%3CfeMergeNode in='shadow'/%3E%3CfeMergeNode in='SourceGraphic'/%3E%3C/feMerge%3E%3C/filter%3E%3C/defs%3E%3Cpath filter='url(%23gw)' fill='url(%23lg)' d='M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z'/%3E%3C/svg%3E")
+				15 0,
+			pointer;
 	}
 
 	/* On mobile: own line, 12px radius, bigger text, breathing room above/below */
@@ -376,14 +331,13 @@
 
 	/* ── Flip out: h1 rotates backward to edge-on (invisible) ──── */
 	@keyframes hero-flip-out {
-		0%   {
+		0% {
 			transform: rotateX(0deg);
 			filter: brightness(1) drop-shadow(0 0 0px hsl(241 99% 67% / 0));
 		}
-		70%  {
+		70% {
 			/* Electric surge just before vanishing */
-			filter: brightness(2.5)
-				drop-shadow(0 0 24px hsl(241 99% 67%))
+			filter: brightness(2.5) drop-shadow(0 0 24px hsl(241 99% 67%))
 				drop-shadow(0 0 48px hsl(241 99% 67% / 0.7));
 		}
 		100% {
@@ -394,11 +348,11 @@
 
 	/* ── Flip in: new text arrives from the opposite side ──────── */
 	@keyframes hero-flip-in {
-		0%   {
+		0% {
 			transform: rotateX(90deg);
 			filter: brightness(1.8) drop-shadow(0 0 20px hsl(241 99% 67% / 0.6));
 		}
-		60%  {
+		60% {
 			filter: brightness(1.1) drop-shadow(0 0 6px hsl(241 99% 67% / 0.2));
 		}
 		100% {
@@ -438,9 +392,18 @@
 	}
 
 	@keyframes electric-flash {
-		0%   { opacity: 0;   transform: scale(0.4); }
-		30%  { opacity: 1;   transform: scale(1); }
-		100% { opacity: 0;   transform: scale(1.6); }
+		0% {
+			opacity: 0;
+			transform: scale(0.4);
+		}
+		30% {
+			opacity: 1;
+			transform: scale(1);
+		}
+		100% {
+			opacity: 0;
+			transform: scale(1.6);
+		}
 	}
 
 	.hero-electric-flash.flashing {
@@ -486,22 +449,27 @@
 		height: 48px;
 	}
 
-	.hero-browse-pic-wrap:not(:last-child) :global(.app-pic) {
+	.hero-browse-pic-wrap:not(:last-child) :global(.app-pic),
+	.hero-browse-pic-wrap:not(:last-child) .hero-app-pic {
 		filter: drop-shadow(3px 0 4px hsl(var(--black66)));
 	}
 
-	.hero-browse-pic-skeleton {
+	.hero-app-pic {
 		width: 48px;
 		height: 48px;
 		border-radius: 16px;
-		background: hsl(var(--gray33));
-		animation: skeleton-pulse 1.6s ease-in-out infinite;
+		object-fit: cover;
 		flex-shrink: 0;
 	}
 
 	@keyframes skeleton-pulse {
-		0%, 100% { opacity: 0.4; }
-		50%       { opacity: 0.8; }
+		0%,
+		100% {
+			opacity: 0.4;
+		}
+		50% {
+			opacity: 0.8;
+		}
 	}
 
 	.hero-browse-pill {

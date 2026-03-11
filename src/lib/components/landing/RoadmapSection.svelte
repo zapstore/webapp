@@ -35,7 +35,7 @@
 		},
 		{
 			id: 5,
-			title: 'Decentralize App Catalogs',
+			title: 'Decentralize Catalogs',
 			description: 'Let users browse and create any app catalog',
 			status: 'inReview',
 			eta: 'NEXT 2 MONTHS'
@@ -61,7 +61,9 @@
 	/** @type {Record<TaskStatus, number>} */
 	const statusOrder = { closed: 0, inReview: 1, inProgress: 2, open: 3 };
 	$: sortedTasks = [...tasks].sort(
-		(a, b) => statusOrder[/** @type {TaskStatus} */ (a.status)] - statusOrder[/** @type {TaskStatus} */ (b.status)]
+		(a, b) =>
+			statusOrder[/** @type {TaskStatus} */ (a.status)] -
+			statusOrder[/** @type {TaskStatus} */ (b.status)]
 	);
 
 	/** @type {HTMLDivElement | null} */
@@ -136,14 +138,29 @@
 
 <style>
 	.task-card {
-		width: 300px;
+		width: 262px;
 		min-height: 160px;
-		padding: 1.25rem;
+		padding: 1rem 1.25rem 0.9rem;
 		background: hsl(var(--gray44));
 		border: 1px solid hsl(var(--border) / 0.4);
 		border-radius: 1.25rem;
 		display: flex;
 		flex-direction: column;
+	}
+	@media (min-width: 640px) {
+		.task-card {
+			width: 300px;
+			padding: 1.25rem;
+		}
+	}
+
+	.task-card > :global(.flex.mb-3) {
+		margin-bottom: 0.4rem;
+	}
+	@media (min-width: 640px) {
+		.task-card > :global(.flex.mb-3) {
+			margin-bottom: 0.75rem;
+		}
 	}
 
 	.task-title {
@@ -167,7 +184,12 @@
 		letter-spacing: 0.12em;
 		color: hsl(var(--white33));
 		margin-top: auto;
-		padding-top: 0.75rem;
+		padding-top: 0.35rem;
+	}
+	@media (min-width: 640px) {
+		.task-eta {
+			padding-top: 0.75rem;
+		}
 	}
 
 	.scrollbar-hide {

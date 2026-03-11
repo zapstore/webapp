@@ -22,8 +22,8 @@
 					Get Zapstore
 				</h2>
 				<p class="section-description max-w-xl text-left">
-					Fully open & secure app store. Reliable updates for any app. Direct interaction with app
-					builders.
+					No platform should decide what's allowed on your device. Your apps, your rules. With
+					reliable updates, straight from the source.
 				</p>
 				<div class="flex flex-row gap-3">
 					<a
