@@ -1,7 +1,7 @@
 <script>
 	const rows = [
 		{
-			bad: 'Big tech, closed source. No way to verify what you\'re actually installing.',
+			bad: "Big tech, closed source. No way to verify what you're actually installing.",
 			good: 'Open source. The app you get is exactly what the developer published. Cryptographically verified.'
 		},
 		{
@@ -10,12 +10,12 @@
 		},
 		{
 			bad: 'Algorithms push promoted apps. Discovery is pay-to-play.',
-			good: 'Communities surface what\'s worth using. Tip developers directly ⚡'
+			good: "Communities surface what's worth using. Tip developers directly."
 		}
 	];
 </script>
 
-<section class="border-t border-border/50 py-12 sm:py-16 lg:py-20">
+<section class="border-t border-border/50 py-8 sm:py-10 lg:py-12">
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8">
 		<div class="table-wrap">
 			<!-- Header row -->
@@ -55,7 +55,7 @@
 		border-bottom: 1px solid hsl(var(--border) / 0.5);
 	}
 	.col-header {
-		padding: 0.75rem 1.25rem;
+		padding: 0.5rem 1.25rem;
 		font-size: 0.75rem;
 		font-weight: 600;
 		text-transform: uppercase;
@@ -63,7 +63,7 @@
 	}
 	@media (min-width: 640px) {
 		.col-header {
-			padding: 0.875rem 1.75rem;
+			padding: 0.5rem 1.75rem;
 			font-size: 0.8125rem;
 		}
 	}
@@ -72,7 +72,7 @@
 		border-right: 1px solid hsl(var(--border) / 0.5);
 	}
 	.col-good {
-		color: hsl(var(--blurpleLightColor));
+		color: hsl(var(--white66));
 	}
 
 	/* ── Rows ── */
@@ -98,10 +98,8 @@
 	}
 	.cell-bad {
 		border-right: 1px solid hsl(var(--border) / 0.5);
-		background-color: hsl(var(--white4));
 	}
 	.cell-good {
-		background-color: hsl(var(--blurpleColor) / 0.06);
 	}
 
 	/* ── Mark ── */
