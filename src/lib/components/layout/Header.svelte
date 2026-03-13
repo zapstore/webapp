@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { assets } from '$app/paths';
 	import { Search, User, Loader2, LogOut } from 'lucide-svelte';
-	import { Menu, Cross, Download } from '$lib/components/icons';
+	import { Menu, Cross } from '$lib/components/icons';
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import { handleBack } from '$lib/utils/back.js';
 	import { cn } from '$lib/utils';
@@ -636,7 +636,8 @@
 					<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
 						<!-- Desktop only: Download, Discover, Studio, Community, Search -->
 						<div class="hidden md:flex items-center landing-nav-row gap-4 md:gap-6 lg:gap-8">
-							<!-- Download button -->
+							<!-- Download button: hidden for logged-in users -->
+							{#if !isConnected}
 							<button
 								type="button"
 								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4"
@@ -645,6 +646,7 @@
 							>
 								Download
 							</button>
+							{/if}
 							<div
 								class="landing-nav-dropdown-wrap relative flex-shrink-0"
 								role="group"
@@ -694,22 +696,32 @@
 									</div>
 								{/if}
 							</div>
-							<div
-								class="landing-nav-dropdown-wrap relative flex-shrink-0"
-								role="group"
-							aria-label="Developers menu"
-							onmouseenter={() => setLandingNavOpen('studio')}
-							onmouseleave={clearLandingNavOpen}
-						>
+							{#if isConnected}
 							<a
 								href="/studio"
-								class="landing-nav-btn landing-nav-studio-trigger text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-								class:landing-nav-btn-open={landingNavOpen === 'studio'}
+								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
 								class:landing-nav-studio-selected={isStudioPage}
 								style="color: hsl(var(--white66));"
 							>
-								Developers
+								Studio
 							</a>
+							{:else}
+							<div
+								class="landing-nav-dropdown-wrap relative flex-shrink-0"
+								role="group"
+								aria-label="Developers menu"
+								onmouseenter={() => setLandingNavOpen('studio')}
+								onmouseleave={clearLandingNavOpen}
+							>
+								<a
+									href="/studio"
+									class="landing-nav-btn landing-nav-studio-trigger text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+									class:landing-nav-btn-open={landingNavOpen === 'studio'}
+									class:landing-nav-studio-selected={isStudioPage}
+									style="color: hsl(var(--white66));"
+								>
+									Developers
+								</a>
 								{#if landingNavOpen === 'studio'}
 									<div
 										class="landing-nav-panel landing-nav-panel-studio landing-nav-panel-centered absolute top-full mt-0 shadow-lg z-50"
@@ -765,6 +777,7 @@
 									</div>
 								{/if}
 							</div>
+							{/if}
 							<div
 								class="landing-nav-dropdown-wrap relative flex-shrink-0"
 								role="group"

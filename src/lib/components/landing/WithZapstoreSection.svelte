@@ -1,5 +1,6 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
+	import Check from '$lib/components/icons/Check.svelte';
 
 	const cards = [
 		{
@@ -78,8 +79,16 @@
 	});
 </script>
 
-<section bind:this={sectionEl} class="border-t border-border/50 pt-4 pb-8 sm:py-10 lg:py-14">
-	<!-- ── MOBILE: horizontal scroll, image on top + panel below ── -->
+<section bind:this={sectionEl} class="border-t border-border/50 pt-0 pb-6 lg:pb-12">
+	<!-- ── MOBILE: eyebrow badge ── -->
+	<div class="lg:hidden">
+		<div class="eyebrow-badge-wrap">
+			<div class="eyebrow-badge">
+				<Check variant="outline" color="hsl(var(--blurpleColor))" size={16} strokeWidth={1.4} />
+				<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">WITH ZAPSTORE</p>
+			</div>
+		</div>
+	</div>
 	<div class="mobile-scroll lg:hidden">
 		<div class="mobile-scroll-inner">
 			{#each cards as card}
@@ -110,9 +119,15 @@
 		</div>
 	</div>
 
-	<!-- ── DESKTOP: two-column animated tabs + image ─────────────── -->
+	<!-- ── DESKTOP: eyebrow badge above + tabs LEFT / image RIGHT ── -->
 	<div class="hidden lg:block">
 		<div class="container mx-auto px-4 sm:px-6 md:px-8 lg:px-8">
+			<div class="eyebrow-badge-wrap">
+				<div class="eyebrow-badge">
+					<Check variant="outline" color="hsl(var(--blurpleColor))" size={16} strokeWidth={1.4} />
+					<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">WITH ZAPSTORE</p>
+				</div>
+			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-stretch">
 				<!-- Left: tab panels -->
 				<div class="feature-tabs lg:py-8 lg:pl-7 lg:pr-8">
@@ -392,15 +407,30 @@
 	.feature-tabs {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 0.375rem;
+		justify-content: flex-start;
+	}
+
+	.eyebrow-badge-wrap {
+		display: flex;
 		justify-content: center;
+		margin-bottom: 1.25rem;
+	}
+
+	.eyebrow-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.625rem;
+		padding: 0.5rem 1.5rem 0.625rem;
+		border-radius: 0 0 0.875rem 0.875rem;
+		background-color: hsl(var(--white4));
 	}
 
 	.feature-tab {
 		position: relative;
 		text-align: left;
 		width: 100%;
-		padding: 1.25rem 1.5rem 1.35rem;
+		padding: 1.25rem 1.5rem 1.125rem;
 		border-radius: 1.125rem;
 		border: none;
 		cursor: pointer;
