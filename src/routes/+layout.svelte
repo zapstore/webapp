@@ -28,7 +28,8 @@ let showFooter = $derived(
 	path === '/blog' ||
 	path.startsWith('/blog/') ||
 	path === '/docs' ||
-	path.startsWith('/docs/')
+	path.startsWith('/docs/') ||
+	path === '/terms'
 );
 onMount(() => {
     if (browser) {

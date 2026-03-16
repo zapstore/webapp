@@ -74,6 +74,7 @@
             <li><a href="/docs/publish" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Publish Apps</a></li>
             <li><a href="/docs/publish" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Docs</a></li>
             <li><a href="/docs/faq" class="text-sm text-muted-foreground hover:text-foreground transition-colors">FAQ</a></li>
+            <li><a href="/terms" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Terms of Service</a></li>
           </ul>
         </div>
 
