@@ -247,7 +247,7 @@
 					{/each}
 				</div>
 				<a
-					href="/discover"
+					href="/apps"
 					bind:this={heroButton}
 					class="btn-glass-large btn-glass-with-chevron hero-browse-pill flex items-center gap-2 group"
 					on:mousemove={handleMouseMove}

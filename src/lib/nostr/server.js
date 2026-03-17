@@ -296,8 +296,8 @@ export function fetchStacks(limit = 20, until) {
 	);
 	const stacks = publicStackEvents.map(parseAppStack);
 
-	// Resolve referenced apps — get raw events directly from cache (no duplication)
-	const { appEvents } = resolveMultipleStackAppsFromCache(stacks);
+	// Resolve preview apps (first 4 refs per stack) — full apps are fetched when entering a stack
+	const { appEvents } = resolveMultipleStackAppsFromCache(stacks, 4);
 
 	return dedupeEventsById([...publicStackEvents, ...appEvents]);
 }
@@ -428,8 +428,11 @@ export function fetchProfilesServer(pubkeys) {
  * Resolve apps referenced by multiple stacks (cache only, single batch query).
  * Returns { appsByStackId: Map<stackId, parsedApp[]>, appEvents: rawEvent[] }.
  * appEvents are the raw cache events — no duplication with parsed models.
+ *
+ * @param {object[]} stacks
+ * @param {number} maxRefsPerStack - max app refs to resolve per stack (use 4 for listing previews)
  */
-function resolveMultipleStackAppsFromCache(stacks) {
+function resolveMultipleStackAppsFromCache(stacks, maxRefsPerStack = Infinity) {
 	const appsByStackId = new Map();
 	if (!stacks || stacks.length === 0) return { appsByStackId, appEvents: [] };
 
@@ -441,8 +444,9 @@ function resolveMultipleStackAppsFromCache(stacks) {
 
 	for (const stack of stacks) {
 		if (!stack?.appRefs) continue;
-		for (const ref of stack.appRefs) {
-			if (ref.kind !== EVENT_KINDS.APP) continue;
+		const refs = stack.appRefs.filter((r) => r.kind === EVENT_KINDS.APP);
+		const limitedRefs = isFinite(maxRefsPerStack) ? refs.slice(0, maxRefsPerStack) : refs;
+		for (const ref of limitedRefs) {
 			allRefKeys.add(`${ref.pubkey}:${ref.identifier}`);
 			allAuthors.add(ref.pubkey);
 			allIdentifiers.add(ref.identifier);
@@ -473,8 +477,9 @@ function resolveMultipleStackAppsFromCache(stacks) {
 	for (const stack of stacks) {
 		const apps = [];
 		if (stack?.appRefs) {
-			for (const ref of stack.appRefs) {
-				if (ref.kind !== EVENT_KINDS.APP) continue;
+			const refs = stack.appRefs.filter((r) => r.kind === EVENT_KINDS.APP);
+			const limitedRefs = isFinite(maxRefsPerStack) ? refs.slice(0, maxRefsPerStack) : refs;
+			for (const ref of limitedRefs) {
 				const key = `${ref.pubkey}:${ref.identifier}`;
 				const event = appEventsByKey.get(key);
 				if (event) apps.push(parseApp(event));

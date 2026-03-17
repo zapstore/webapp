@@ -4,7 +4,7 @@
  * Replaces the duplicate mobile Header on sidebar pages.
  * Only rendered on screens narrower than the md breakpoint (768px).
  *
- * 4 tabs: Apps | Stacks | Discover | Profile (or Get Started)
+ * 4 tabs: Apps | Stacks | Apps | Profile (or Get Started)
  */
 import { page } from '$app/stores';
 import { Package, Layers, Compass, User } from 'lucide-svelte';
@@ -22,7 +22,7 @@ const profileHref = $derived(pubkey ? '/profile/' + nip19.npubEncode(pubkey) : n
 function isActive(href) {
 	if (href === '/apps') return path === '/apps' || path.startsWith('/apps/');
 	if (href === '/stacks') return path === '/stacks' || path.startsWith('/stacks/');
-	if (href === '/discover') return path === '/discover';
+	if (href === '/apps') return path === '/apps';
 	if (href.startsWith('/profile/')) return path.startsWith('/profile/');
 	return path === href;
 }
@@ -39,9 +39,9 @@ function isActive(href) {
 		<span class="nav-label">Stacks</span>
 	</a>
 
-	<a href="/discover" class="nav-item" class:active={isActive('/discover')} aria-label="Discover">
+	<a href="/apps" class="nav-item" class:active={isActive('/apps')} aria-label="Apps">
 		<Compass size={22} class="nav-icon" />
-		<span class="nav-label">Discover</span>
+		<span class="nav-label">Apps</span>
 	</a>
 
 	{#if isConnected && profileHref}

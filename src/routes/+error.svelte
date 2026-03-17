@@ -27,7 +27,7 @@ let isOfflineError = $derived(
 		{/if}
 
 		<div class="error-actions">
-			<a href="/discover" class="btn-primary">Go to Discover</a>
+			<a href="/apps" class="btn-primary">Go to Apps</a>
 			<button type="button" class="btn-secondary" onclick={() => history.back()}>
 				Go back
 			</button>

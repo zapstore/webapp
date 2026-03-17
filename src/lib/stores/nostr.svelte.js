@@ -27,7 +27,7 @@ import { liveQuery } from 'dexie';
 import { putEvents, queryEvents } from '$lib/nostr/dexie';
 import { parseApp } from '$lib/nostr/models';
 import { fetchReleasesFromRelays, fetchAppFromRelays } from '$lib/nostr/service';
-import { EVENT_KINDS, PLATFORM_FILTER, POLL_INTERVAL_MS, DEFAULT_CATALOG_RELAYS } from '$lib/config';
+import { EVENT_KINDS, PLATFORM_FILTER, POLL_INTERVAL_MS, ZAPSTORE_RELAY } from '$lib/config';
 import { APPS_PAGE_SIZE } from '$lib/constants';
 
 const platformTag = PLATFORM_FILTER['#f']?.[0];
@@ -182,7 +182,9 @@ export function seedEvents(events) {
 export function initPagination(cursor, hasMore) {
 	if (_cursor === null) {
 		_cursor = cursor ?? null;
-		_hasMore = hasMore ?? true;
+		// cursor===null + hasMore===false means the server cache was cold (returned nothing).
+		// That's not a real end-of-data signal — keep _hasMore true so the relay fallback runs.
+		_hasMore = (cursor === null && hasMore === false) ? true : (hasMore ?? true);
 	}
 }
 
@@ -215,7 +217,7 @@ export async function loadMoreApps() {
 			// When API says no more, try relays once (server cache may be limited)
 			if (data.hasMore === false && _cursor != null) {
 				try {
-					const releaseEvents = await fetchReleasesFromRelays(DEFAULT_CATALOG_RELAYS, {
+					const releaseEvents = await fetchReleasesFromRelays([ZAPSTORE_RELAY], {
 						limit: APPS_PAGE_SIZE,
 						until: _cursor
 					});
@@ -238,7 +240,7 @@ export async function loadMoreApps() {
 								limit: 1
 							});
 							if (existing.length === 0) {
-								const appEv = await fetchAppFromRelays(DEFAULT_CATALOG_RELAYS, appPubkey, appD);
+								const appEv = await fetchAppFromRelays([ZAPSTORE_RELAY], appPubkey, appD);
 								if (appEv) await putEvents([appEv]).catch(() => {});
 							}
 						}
@@ -254,47 +256,43 @@ export async function loadMoreApps() {
 				}
 			}
 		} else {
-			// API cache exhausted — try relays for next page (releases + ensure apps in Dexie)
-			if (_cursor != null) {
-				try {
-					const releaseEvents = await fetchReleasesFromRelays(DEFAULT_CATALOG_RELAYS, {
-						limit: APPS_PAGE_SIZE,
-						until: _cursor
-					});
-					if (releaseEvents.length > 0) {
-						await putEvents(releaseEvents).catch(() => {});
-						const seen = new Set();
-						for (const ev of releaseEvents) {
-							const aTag = ev.tags?.find((t) => t[0] === 'a')?.[1] ?? '';
-							const parts = aTag.split(':');
-							const appPubkey = parts[1];
-							const appD = parts[2];
-							if (!appPubkey || !appD) continue;
-							const key = `${appPubkey}:${appD}`;
-							if (seen.has(key)) continue;
-							seen.add(key);
-							const existing = await queryEvents({
-								kinds: [32267],
-								authors: [appPubkey],
-								'#d': [appD],
-								limit: 1
-							});
-							if (existing.length === 0) {
-								const appEv = await fetchAppFromRelays(DEFAULT_CATALOG_RELAYS, appPubkey, appD);
-								if (appEv) await putEvents([appEv]).catch(() => {});
-							}
+			// API cache exhausted (or server cache cold) — fall back to relays directly.
+			// Runs even when _cursor is null (first page, server returned nothing).
+			try {
+				const relayFilter = { limit: APPS_PAGE_SIZE };
+				if (_cursor != null) relayFilter.until = _cursor;
+				const releaseEvents = await fetchReleasesFromRelays([ZAPSTORE_RELAY], relayFilter);
+				if (releaseEvents.length > 0) {
+					await putEvents(releaseEvents).catch(() => {});
+					const seen = new Set();
+					for (const ev of releaseEvents) {
+						const aTag = ev.tags?.find((t) => t[0] === 'a')?.[1] ?? '';
+						const parts = aTag.split(':');
+						const appPubkey = parts[1];
+						const appD = parts[2];
+						if (!appPubkey || !appD) continue;
+						const key = `${appPubkey}:${appD}`;
+						if (seen.has(key)) continue;
+						seen.add(key);
+						const existing = await queryEvents({
+							kinds: [32267],
+							authors: [appPubkey],
+							'#d': [appD],
+							limit: 1
+						});
+						if (existing.length === 0) {
+							const appEv = await fetchAppFromRelays([ZAPSTORE_RELAY], appPubkey, appD);
+							if (appEv) await putEvents([appEv]).catch(() => {});
 						}
-						const minCreated = Math.min(...releaseEvents.map((e) => e.created_at));
-						_cursor = minCreated;
-						_hasMore = releaseEvents.length >= APPS_PAGE_SIZE;
-					} else {
-						_hasMore = false;
 					}
-				} catch (e) {
-					console.error('[AppsStore] Relay fallback failed:', e);
+					const minCreated = Math.min(...releaseEvents.map((e) => e.created_at));
+					_cursor = minCreated;
+					_hasMore = releaseEvents.length >= APPS_PAGE_SIZE;
+				} else {
 					_hasMore = false;
 				}
-			} else {
+			} catch (e) {
+				console.error('[AppsStore] Relay fallback failed:', e);
 				_hasMore = false;
 			}
 		}

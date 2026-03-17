@@ -427,5 +427,23 @@ export async function evictOldEvents() {
 	}
 }
 
+/**
+ * Obliterate all local data: Dexie (IndexedDB) + localStorage.
+ * After calling this, reload the page so subscriptions and seed data repopulate.
+ */
+export async function clearLocalData() {
+	try {
+		await db.delete();
+	} catch {
+		// If Dexie can't delete gracefully, try the raw API
+		indexedDB.deleteDatabase('zapstore');
+	}
+	try {
+		localStorage.clear();
+	} catch {
+		// localStorage unavailable — ignore
+	}
+}
+
 // Re-export liveQuery for convenience
 export { liveQuery } from 'dexie';

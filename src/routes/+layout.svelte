@@ -22,7 +22,7 @@ let isClearingLocalData = $state(false);
 // Marketing pages show the footer
 let showFooter = $derived(
 	path === '/' ||
-	path === '/discover' ||
+	path === '/apps' ||
 	path === '/studio' ||
 	path.startsWith('/studio/') ||
 	path === '/blog' ||

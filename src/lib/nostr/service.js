@@ -9,7 +9,7 @@
  * liveQuery handles reactivity — no manual notification needed.
  */
 import { SimplePool } from 'nostr-tools';
-import { DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS, PLATFORM_FILTER, EVENT_KINDS, SUB_PREFIX } from '$lib/config';
+import { ZAPSTORE_RELAY, DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS, PLATFORM_FILTER, EVENT_KINDS, SUB_PREFIX } from '$lib/config';
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
 import { putEvents, queryEvents } from './dexie';
 
@@ -98,16 +98,16 @@ export function startLiveSubscriptions() {
 	// Separate subscriptions per filter (subscribeMany takes a single filter)
 	// Limits = POLL_LIMIT (3 × page size) — load-more handles deeper data
 	activeSubscriptions.push(
-		p.subscribeMany(DEFAULT_CATALOG_RELAYS, { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: APPS_POLL_LIMIT }, { ...subParams, label: SUB_PREFIX + 'apps' })
+		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: APPS_POLL_LIMIT }, { ...subParams, label: SUB_PREFIX + 'apps' })
 	);
 	// Releases: needed for app detail pages + liveQuery reactivity
 	// limit < 100 required to pass relay specificity scoring (kinds + limit < 100 = 2 points)
 	activeSubscriptions.push(
-		p.subscribeMany(DEFAULT_CATALOG_RELAYS, { kinds: [EVENT_KINDS.RELEASE], limit: 50 }, { ...subParams, label: SUB_PREFIX + 'releases' })
+		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.RELEASE], limit: 50 }, { ...subParams, label: SUB_PREFIX + 'releases' })
 	);
 	// Stacks
 	activeSubscriptions.push(
-		p.subscribeMany(DEFAULT_CATALOG_RELAYS, { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER, limit: STACKS_POLL_LIMIT }, { ...subParams, label: SUB_PREFIX + 'stacks' })
+		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER, limit: STACKS_POLL_LIMIT }, { ...subParams, label: SUB_PREFIX + 'stacks' })
 	);
 	console.log('[Service] Live subscriptions started');
 }
@@ -186,15 +186,18 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 		};
 
 		const p = getPool();
+		console.log('[fetchFromRelays] filter:', JSON.stringify(filter), 'relays:', relayUrls);
 		const sub = p.subscribeMany(relayUrls, filter, {
 			label: SUB_PREFIX + 'q',
 			onevent(event) {
 				if (event?.id) events.push(event);
 			},
 			oneose() {
+				console.log('[fetchFromRelays] EOSE, events so far:', events.length);
 				if (!eoseTimer) eoseTimer = setTimeout(finish, EOSE_GRACE_MS);
 			},
-			onclose() {
+			onclose(reasons) {
+				console.log('[fetchFromRelays] onclose:', reasons, 'settled:', settled, 'events:', events.length);
 				if (!settled) finish();
 			}
 		});
@@ -218,6 +221,8 @@ export { db } from './dexie';
 
 /**
  * Search apps using NIP-50 full-text search via relays.
+ * Uses a dedicated pool per search to avoid relay-side response budget
+ * contention with persistent subscriptions or other in-flight queries.
  */
 export async function searchApps(relays, query, options = {}) {
 	const { limit = 50, timeout = 5000, signal } = options;
@@ -230,7 +235,44 @@ export async function searchApps(relays, query, options = {}) {
 		limit
 	};
 
-	return fetchFromRelays(relays, filter, { timeout, signal });
+	const searchPool = new SimplePool();
+
+	return new Promise((resolve) => {
+		const events = [];
+		let settled = false;
+		let eoseTimer = null;
+		let timeoutTimer = null;
+
+		const finish = async () => {
+			if (settled) return;
+			settled = true;
+			if (eoseTimer) clearTimeout(eoseTimer);
+			if (timeoutTimer) clearTimeout(timeoutTimer);
+			try { sub?.close(); } catch { /* noop */ }
+			searchPool.close(relays);
+			if (events.length > 0) {
+				await putEvents(events).catch((err) =>
+					console.error('[Search] Failed to persist events:', err)
+				);
+			}
+			resolve(events);
+		};
+
+		const sub = searchPool.subscribeMany(relays, filter, {
+			onevent(event) {
+				if (event?.id) events.push(event);
+			},
+			oneose() {
+				if (!eoseTimer) eoseTimer = setTimeout(finish, EOSE_GRACE_MS);
+			},
+			onclose() {
+				if (!settled) finish();
+			}
+		});
+
+		signal?.addEventListener('abort', finish, { once: true });
+		timeoutTimer = setTimeout(finish, timeout);
+	});
 }
 
 /**

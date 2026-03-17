@@ -47,8 +47,7 @@
 	const isConnected = $derived(pubkey !== null);
 	const isStudioPage = $derived($page.url.pathname === '/studio');
 	const isDiscoverActive = $derived(
-		$page.url.pathname === '/discover' ||
-			$page.url.pathname === '/apps' ||
+		$page.url.pathname === '/apps' ||
 			$page.url.pathname === '/stacks'
 	);
 	const isCommunityActive = $derived($page.url.pathname.startsWith('/blog'));
@@ -292,13 +291,8 @@
 									</button>
 
 									<div class="menu-section">
-										<a href="/discover" class="menu-section-link" onclick={closeMenu}>Discover</a>
+										<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 										<nav class="menu-subnav">
-											<a
-												href="/apps"
-												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}>Apps</a
-											>
 											<a
 												href="/stacks"
 												class="menu-sublink text-sm font-medium text-white/66"
@@ -523,13 +517,8 @@
 							</div>
 
 						<div class="menu-section">
-								<a href="/discover" class="menu-section-link" onclick={closeMenu}>Discover</a>
+								<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 								<nav class="menu-subnav">
-									<a
-										href="/apps"
-										class="menu-sublink text-sm font-medium text-white/66"
-										onclick={closeMenu}>Apps</a
-									>
 									<a
 										href="/stacks"
 										class="menu-sublink text-sm font-medium text-white/66"
@@ -645,55 +634,14 @@
 							>
 								Download
 							</button>
-							<div
-								class="landing-nav-dropdown-wrap relative flex-shrink-0"
-								role="group"
-								aria-label="Discover menu"
-								onmouseenter={() => setLandingNavOpen('discover')}
-								onmouseleave={clearLandingNavOpen}
+							<a
+								href="/apps"
+								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+								class:landing-nav-studio-selected={isDiscoverActive}
+								style="color: hsl(var(--white66));"
 							>
-								<a
-									href="/discover"
-									class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-									class:landing-nav-btn-open={landingNavOpen === 'discover'}
-									class:landing-nav-studio-selected={isDiscoverActive}
-									style="color: hsl(var(--white66));"
-								>
-									Discover
-								</a>
-								{#if landingNavOpen === 'discover'}
-									<div
-										class="landing-nav-panel landing-nav-panel-centered absolute top-full mt-0 shadow-lg z-50"
-									>
-										<div class="landing-nav-panel-top-pad">
-											<div class="landing-nav-panel-bg">
-												<div class="landing-nav-panel-inner-bg">
-												<div class="landing-nav-grid">
-													<a href="/apps" class="landing-nav-grid-item">
-														<img
-															src={`${assets}/images/emoji/app.png`}
-															alt=""
-															class="landing-nav-grid-emoji"
-														/>
-														<span class="landing-nav-grid-title">Apps</span>
-														<span class="landing-nav-grid-desc">Browse and install apps</span>
-													</a>
-													<a href="/stacks" class="landing-nav-grid-item">
-														<img
-															src={`${assets}/images/emoji/stack.png`}
-															alt=""
-															class="landing-nav-grid-emoji"
-														/>
-														<span class="landing-nav-grid-title">Stacks</span>
-														<span class="landing-nav-grid-desc">Curated app collections</span>
-													</a>
-											</div>
-												</div>
-											</div>
-										</div>
-									</div>
-								{/if}
-							</div>
+								Apps
+							</a>
 							<div
 								class="landing-nav-dropdown-wrap relative flex-shrink-0"
 								role="group"

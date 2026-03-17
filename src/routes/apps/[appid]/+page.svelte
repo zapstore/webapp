@@ -5,7 +5,7 @@ import { page } from "$app/stores";
 import { Package, X } from "lucide-svelte";
 import { queryEvents, queryEvent, queryCommentsFromStore, parseApp, parseRelease, fetchProfile, fetchProfilesBatch, fetchComments, fetchCommentRepliesByE, fetchZaps, parseComment, parseZapReceipt, encodeAppNaddr, publishComment, decodeNaddr, putEvents, } from "$lib/nostr";
 import { fetchFromRelays } from "$lib/nostr/service";
-import { DEFAULT_CATALOG_RELAYS } from "$lib/config";
+import { ZAPSTORE_RELAY } from "$lib/config";
 import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
 import { nip19 } from "nostr-tools";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
@@ -494,7 +494,7 @@ async function loadReleases() {
     try {
         // Fetch releases from relays (server doesn't cache releases)
         const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-        await fetchFromRelays(DEFAULT_CATALOG_RELAYS, {
+        await fetchFromRelays([ZAPSTORE_RELAY], {
             kinds: [EVENT_KINDS.RELEASE],
             '#a': [aTagValue],
             limit: 50
@@ -573,7 +573,7 @@ onMount(async () => {
     // 3. Not in cache or Dexie: try relays once before showing 404 (online only)
     //    Works with d-tag only — no pubkey required.
     if (!app && isOnline()) {
-        const events = await fetchFromRelays(DEFAULT_CATALOG_RELAYS, {
+        const events = await fetchFromRelays([ZAPSTORE_RELAY], {
             kinds: [EVENT_KINDS.APP],
             ...(_pubkey ? { authors: [_pubkey] } : {}),
             '#d': [_identifier],

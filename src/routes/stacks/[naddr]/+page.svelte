@@ -14,7 +14,7 @@ import { browser } from "$app/environment";
 import { beforeNavigate } from "$app/navigation";
 import { fetchProfile, fetchProfilesBatch, queryEvent, queryEvents, queryCommentsFromStore, fetchComments, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, } from "$lib/nostr";
 import { fetchFromRelays } from "$lib/nostr/service";
-import { DEFAULT_CATALOG_RELAYS } from "$lib/config";
+import { ZAPSTORE_RELAY } from "$lib/config";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
 import { isOnline } from "$lib/stores/online.svelte.js";
 import { nip19 } from "nostr-tools";
@@ -176,7 +176,7 @@ async function loadStack() {
         // Not in cache or Dexie: try relays once before showing 404 (online only)
         if (!foundStack && browser && pointer && isOnline()) {
             loading = true;
-            const events = await fetchFromRelays(DEFAULT_CATALOG_RELAYS, {
+            const events = await fetchFromRelays([ZAPSTORE_RELAY], {
                 kinds: [EVENT_KINDS.APP_STACK],
                 authors: [pointer.pubkey],
                 '#d': [pointer.identifier],
@@ -470,7 +470,7 @@ const displayDescription = $derived(!stack?.title ||
               Error Loading Stack
             </h3>
             <p class="text-muted-foreground mb-4">{error}</p>
-            <a href="/discover" class="btn-primary"> Back to Discover </a>
+            <a href="/apps" class="btn-primary"> Back to Apps </a>
           </div>
         </div>
       </div>

@@ -1,11 +1,12 @@
 /**
  * Application configuration
  */
-// Catalog relays — the two sources for app/release/stack data
-export const DEFAULT_CATALOG_RELAYS = [
-    'wss://relay.zapstore.dev',
-    'wss://relay.vertexlab.io'
-];
+// Primary catalog relay — source of app/release/stack events
+export const ZAPSTORE_RELAY = 'wss://relay.zapstore.dev';
+// Profile relay — kind 0 profiles only
+export const VERTEXLAB_RELAY = 'wss://relay.vertexlab.io';
+// Both catalog relays (used for publishing and profile resolution)
+export const DEFAULT_CATALOG_RELAYS = [ZAPSTORE_RELAY, VERTEXLAB_RELAY];
 // Social relays (profiles, comments, zaps) — align with Flutter zapstore app
 export const DEFAULT_SOCIAL_RELAYS = [
     'wss://relay.damus.io',
