@@ -24,6 +24,7 @@ export {
 	fetchCommentRepliesByE,
 	fetchZapReceiptsByPubkeys,
 	fetchZaps,
+	fetchZapsByEventIds,
 	parseZapReceipt,
 	parseComment,
 	publishComment,

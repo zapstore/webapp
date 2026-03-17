@@ -490,7 +490,7 @@
 	}
 
 	.nav-item:hover:not(.active) {
-		background: hsl(var(--white8));
+		background: hsl(var(--white4));
 	}
 
 	.nav-item.active {

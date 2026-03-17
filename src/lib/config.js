@@ -41,10 +41,13 @@ export const EVENT_KINDS = {
     APP_STACK: 30267
 };
 
-// Zapstore community (kind 10222) — enforced relay: only stores events from profile-list members.
-// Since it is enforced, client-side author filtering is not needed.
-export const ZAPSTORE_COMMUNITY_NPUB = 'npub1vcxcc7r9racyslkfhrwu9qlznne9v95nmk3m5frd8lfuprdmwzpsxqzqcr';
+// Zapstore community (kind 10222) — forum posts use #h tag with this pubkey's hex.
+// Must match the community we target; all forum fetch/publish use this.
+export const ZAPSTORE_COMMUNITY_NPUB = 'npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8';
 export const ZAPSTORE_COMMUNITY_RELAY = 'wss://relay.zapstore.dev';
+
+/** Forum relay override — set to a different relay for testing (e.g. Damus). Leave null to use ZAPSTORE_COMMUNITY_RELAY. */
+export const FORUM_RELAY_OVERRIDE = null; // e.g. 'wss://relay.damus.io' for testing
 // Platform filter — only Android arm64 is supported for now.
 // Spread into every APP / RELEASE relay filter so the relay only returns matching events.
 export const PLATFORM_FILTER = { '#f': ['android-arm64-v8a'] };

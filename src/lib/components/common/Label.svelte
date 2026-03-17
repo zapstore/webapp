@@ -1,10 +1,12 @@
 <script lang="js">
 import { stringToColor } from "$lib/utils/color.js";
-let { text = "", isSelected = false, isEmphasized = false, onTap = () => { }, size = "default" } = $props();
+let { text = "", isSelected = false, isEmphasized = false, onTap = () => { }, size = "default", neutral = false } = $props();
 const baseColor = $derived(stringToColor(text));
-const bgColor = $derived(isSelected || isEmphasized
-    ? `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0.40)`
-    : `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0.16)`);
+const bgColor = $derived(neutral
+    ? (isSelected || isEmphasized ? "hsl(var(--gray66))" : "hsl(var(--white16))")
+    : (isSelected || isEmphasized
+        ? `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0.40)`
+        : `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0.16)`));
 const textColor = $derived(isSelected || isEmphasized ? "hsl(var(--white))" : "hsl(var(--white66))");
 </script>
 
@@ -144,6 +146,11 @@ const textColor = $derived(isSelected || isEmphasized ? "hsl(var(--white))" : "h
   .label-content.is-selected {
     padding-left: 8px;
     gap: 5px;
+  }
+
+  .label-container.size-small .label-content.is-selected {
+    padding-left: 6px;
+    gap: 3px;
   }
 
   .check-icon {

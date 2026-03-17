@@ -230,7 +230,7 @@
 		<hr class="hero-divider" />
 
 		<p class="hero-description text-xl sm:text-2xl mx-auto mt-2 sm:mt-8 mb-10" style="color: hsl(var(--white66));">
-			Self-published by developers. Curated by communities.
+			Self-published by developers.<br class="sm:hidden" /> Curated by communities.
 		</p>
 
 		<!-- Browse CTA: stacked app pics + glass pill -->
@@ -285,11 +285,11 @@
 		}
 		.hero-cta-wrap {
 			order: 3;
-			margin-top: 2rem !important;
+			margin-top: 3rem !important;
 		}
 		.hero-description {
 			order: 4;
-			margin-top: 1rem !important;
+			margin-top: 1.25rem !important;
 			margin-bottom: 0 !important;
 		}
 	}

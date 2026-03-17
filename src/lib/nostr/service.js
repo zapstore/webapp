@@ -448,6 +448,29 @@ export async function fetchZapReceiptsByPubkeys(pubkeys, options = {}) {
 }
 
 /**
+ * Fetch zap receipts that target any of the given event ids (#e).
+ */
+export async function fetchZapsByEventIds(eventIds, options = {}) {
+	const { timeout = 5000, signal, relays = SOCIAL_RELAYS } = options;
+	if (signal?.aborted || !Array.isArray(eventIds) || eventIds.length === 0) return [];
+	const ids = eventIds
+		.map((id) => String(id).trim().toLowerCase())
+		.filter((id) => /^[a-f0-9]{64}$/.test(id));
+	if (ids.length === 0) return [];
+	const filterE = { kinds: [9735], '#e': ids, limit: 200 };
+	const filterEUpper = { kinds: [9735], '#E': ids, limit: 200 };
+	const [byELower, byEUpper] = await Promise.all([
+		fetchFromRelays(relays, filterE, { timeout, signal }),
+		fetchFromRelays(relays, filterEUpper, { timeout, signal })
+	]);
+	const byId = new Map();
+	for (const e of [...byELower, ...byEUpper]) {
+		if (!byId.has(e.id)) byId.set(e.id, e);
+	}
+	return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+}
+
+/**
  * Fetch zaps for an app.
  */
 export async function fetchZaps(pubkey, identifier, options = {}) {
