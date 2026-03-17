@@ -16,6 +16,7 @@ export {
 	fetchFromRelays,
 	fetchProfile,
 	fetchProfilesBatch,
+	publishToRelays,
 	cleanup,
 	// Social features
 	queryCommentsFromStore,
@@ -38,6 +39,7 @@ export {
 	parseRelease,
 	parseFileMetadata,
 	parseProfile,
+	parseForumPost,
 	parseAppStack,
 	encodeAppNaddr,
 	encodeStackNaddr,

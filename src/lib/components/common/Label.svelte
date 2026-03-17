@@ -1,6 +1,6 @@
 <script lang="js">
 import { stringToColor } from "$lib/utils/color.js";
-let { text = "", isSelected = false, isEmphasized = false, onTap = () => { } } = $props();
+let { text = "", isSelected = false, isEmphasized = false, onTap = () => { }, size = "default" } = $props();
 const baseColor = $derived(stringToColor(text));
 const bgColor = $derived(isSelected || isEmphasized
     ? `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0.40)`
@@ -11,6 +11,8 @@ const textColor = $derived(isSelected || isEmphasized ? "hsl(var(--white))" : "h
 <button
   type="button"
   class="label-container group"
+  class:size-small={size === "small"}
+  class:size-xs={size === "xs"}
   onclick={onTap}
   style="--bg-color: {bgColor}; --text-color: {textColor};"
 >
@@ -62,6 +64,60 @@ const textColor = $derived(isSelected || isEmphasized ? "hsl(var(--white))" : "h
     background: none;
     border: none;
     padding: 0;
+  }
+
+  .label-container.size-small {
+    height: 24px;
+  }
+
+  .label-container.size-small .label-content {
+    height: 24px;
+    padding-left: 8px;
+    padding-right: 2px;
+    gap: 4px;
+    border-radius: 8px 0 0 8px;
+    max-width: 160px;
+  }
+
+  .label-container.size-small .label-text {
+    font-size: 12px;
+  }
+
+  .label-container.size-small .label-triangle {
+    width: 18px;
+    height: 24px;
+  }
+
+  .label-container.size-small .check-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .label-container.size-xs {
+    height: 20px;
+  }
+
+  .label-container.size-xs .label-content {
+    height: 20px;
+    padding-left: 6px;
+    padding-right: 1px;
+    gap: 3px;
+    border-radius: 5px 0 0 5px;
+    max-width: 120px;
+  }
+
+  .label-container.size-xs .label-text {
+    font-size: 11px;
+  }
+
+  .label-container.size-xs .label-triangle {
+    width: 14px;
+    height: 20px;
+  }
+
+  .label-container.size-xs .check-icon {
+    width: 12px;
+    height: 12px;
   }
 
   .label-container:hover {

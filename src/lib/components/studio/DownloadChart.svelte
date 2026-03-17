@@ -22,12 +22,28 @@
 		glowColor = '#5445FF',
 		glowOpacity = 0.3,
 		dotColor = '#5C5FFF',
+		badgeBg = 'rgba(60,58,80,0.92)',
 		seedA = 1.2,
-		seedB = 3.1
+		seedB = 3.1,
+		// Real data: array of { id, name, icon, counts: number[] } aligned to DAY_LABELS.
+		// null = dummy mode — chart generates wave data from seedA / seedB.
+		appData = null,
+		// Per-app line colors. When provided, each app line uses its color at full weight
+		// instead of faint white, and the total line is hidden.
+		// e.g. ['#636AFF', '#FFB237'] for downloads + zaps.
+		appColors = null,
+		// Per-app hover badge backgrounds, parallel to appColors.
+		// Falls back to badgeBg when not provided.
+		appBadgeBgs = null,
+		// Hide the combined total line (useful when appColors makes individual lines primary).
+		hideTotalLine = false,
+		// Override top padding (default 40). Use 20 for compact layouts.
+		padTop = 40
 	} = $props();
 
 	const DAYS = _DAYS;
 
+	// Used only when appData is null (dummy/fallback mode).
 	function wave(i, seed, base, amp) {
 		const trend = (i / (DAYS - 1)) * amp * 1.5;
 		const s1 = Math.sin(i * 0.9 + seed) * amp * 0.3;
@@ -36,32 +52,37 @@
 		return Math.max(2, Math.round(base * 0.4 + trend + s1 + s2 + s3));
 	}
 
-	const apps = [
-		{
-			id: 'app-a',
-			name: 'App A',
-			icon: '/images/parallax-apps/newpipe.png',
-			data: Array.from({ length: DAYS }, (_, i) => wave(i, seedA, 68, 42))
-		},
-		{
-			id: 'app-b',
-			name: 'App B',
-			icon: '/images/parallax-apps/primal.png',
-			data: Array.from({ length: DAYS }, (_, i) => wave(i, seedB, 36, 24))
-		}
-	];
-
-	const totalData = Array.from({ length: DAYS }, (_, i) =>
-		apps.reduce((sum, a) => sum + a.data[i], 0)
+	// Reactive: re-derives whenever appData prop changes.
+	const apps = $derived(
+		appData
+			? appData.map((a) => ({ id: a.id, name: a.name, icon: a.icon, data: a.counts }))
+			: [
+					{
+						id: 'app-a',
+						name: 'App A',
+						icon: '/images/parallax-apps/newpipe.png',
+						data: Array.from({ length: DAYS }, (_, i) => wave(i, seedA, 68, 42))
+					},
+					{
+						id: 'app-b',
+						name: 'App B',
+						icon: '/images/parallax-apps/primal.png',
+						data: Array.from({ length: DAYS }, (_, i) => wave(i, seedB, 36, 24))
+					}
+				]
 	);
 
-	const maxY = Math.max(...totalData);
+	const totalData = $derived(
+		Array.from({ length: DAYS }, (_, i) => apps.reduce((sum, a) => sum + a.data[i], 0))
+	);
+
+	const maxY = $derived(Math.max(...totalData));
 
 	const dateLabel = DAY_LABELS[DAYS - 1];
 
 	// Layout constants
 	const H = 168;
-	const PAD_T = 40;
+	const PAD_T = $derived(padTop);
 	const PAD_B = 0;
 	const RIGHT_ZONE = 14;
 	const BADGE_H = 24;
@@ -80,10 +101,8 @@
 		return () => ro.disconnect();
 	});
 
-	// Badge width: ~8px per char + 18px padding
-	function bw(val) {
-		return String(val).length * 8 + 18;
-	}
+	// Fixed badge width — large enough for any 3-digit count
+	const BADGE_W = 44;
 
 	// Push-apart: prevent badge labels from overlapping.
 	// Items are [{key, y}]. Returns new objects — originals untouched.
@@ -155,8 +174,7 @@
 		const dateStr = DAY_LABELS[hoverIndex];
 
 		// Flip badges to left when they would overflow the chart right edge
-		const maxBW = Math.max(...appVals.map(bw), bw(totalVal));
-		const badgeLeft = x + 10 + maxBW > cW;
+		const badgeLeft = x + 10 + BADGE_W > cW;
 
 		// De-overlapped badge Y positions (badges nudged; icons stay at data Y)
 		const rawItems = [
@@ -167,7 +185,10 @@
 		const totalBadgeY = adjusted.find((it) => it.key === 'total')?.y ?? totalY;
 		const appBadgeYs = appYs.map((_, i) => adjusted.find((it) => it.key === `app-${i}`)?.y ?? appYs[i]);
 
-		return { x, totalVal, totalY, totalBadgeY, appVals, appYs, appBadgeYs, dateStr, badgeLeft };
+		// Top of the hover line: topmost visible line
+		const lineTopY = hideTotalLine ? Math.min(...appYs) : totalY;
+
+		return { x, totalVal, totalY, totalBadgeY, appVals, appYs, appBadgeYs, dateStr, badgeLeft, lineTopY };
 	});
 
 	// Clamped x for the date pill — avoids overflowing container edges
@@ -184,11 +205,11 @@
 		hoverIndex = null;
 	}
 
-	function badgeRectX(x, val, left) {
-		return left ? x - 10 - bw(val) : x + 10;
+	function badgeRectX(x, left) {
+		return left ? x - 10 - BADGE_W : x + 10;
 	}
-	function badgeTextX(x, val, left) {
-		return left ? x - 10 - bw(val) / 2 : x + 10 + bw(val) / 2;
+	function badgeTextX(x, left) {
+		return left ? x - 10 - BADGE_W / 2 : x + 10 + BADGE_W / 2;
 	}
 </script>
 
@@ -253,23 +274,27 @@
 			{/if}
 		</defs>
 
-		<!-- Per-app lines (white/16) -->
-		{#each chart.appPaths as path, i (i)}
-			<path d={path} stroke="rgba(255,255,255,0.16)" stroke-width="1.4" fill="none" />
-		{/each}
+		<!-- Per-app lines — only when multiple apps (single app = total line already represents it) -->
+		{#if apps.length > 1}
+			{#each chart.appPaths as path, i (i)}
+				{@const lineColor = appColors?.[i] ?? 'rgba(255,255,255,0.16)'}
+				{@const lineWidth = appColors ? '2' : '1.4'}
+				<path d={path} stroke={lineColor} stroke-width={lineWidth} fill="none" />
+			{/each}
+		{/if}
 
-		<!-- Total line glow layer -->
-		<path
-			d={chart.totalPath}
-			stroke={glowColor}
-			stroke-width="6"
-			fill="none"
-			filter="url(#{chartId}-glow)"
-			opacity={glowOpacity}
-		/>
-
-		<!-- Total line (gradient, crisp) -->
-		<path d={chart.totalPath} stroke="url(#{chartId}-line)" stroke-width="2.8" fill="none" />
+		<!-- Total line glow + crisp — hidden when hideTotalLine -->
+		{#if !hideTotalLine}
+			<path
+				d={chart.totalPath}
+				stroke={glowColor}
+				stroke-width="6"
+				fill="none"
+				filter="url(#{chartId}-glow)"
+				opacity={glowOpacity}
+			/>
+			<path d={chart.totalPath} stroke="url(#{chartId}-line)" stroke-width="2.8" fill="none" />
+		{/if}
 
 		<!-- Static vertical end line — always visible -->
 		<line
@@ -283,26 +308,48 @@
 
 		<!-- Static end markers — hidden while hover is active -->
 		{#if hover === null}
-			{#each apps as app, i (app.id)}
-				<image
-					href={app.icon}
-					x={chart.lineX - 6}
-					y={chart.appEndYs[i] - 6}
-					width="12"
-					height="12"
-					clip-path="url(#{chartId}-clip-{i})"
-					preserveAspectRatio="xMidYMid slice"
-				/>
-			{/each}
-			<circle cx={chart.lineX} cy={chart.totalEndY} r="6" fill={dotColor} />
+			{#if apps.length === 1}
+				{#if appColors}
+					<circle cx={chart.lineX} cy={chart.totalEndY} r="5" fill={appColors[0]} />
+				{:else}
+					<image
+						href={apps[0].icon}
+						x={chart.lineX - 6}
+						y={chart.totalEndY - 6}
+						width="12"
+						height="12"
+						clip-path="url(#{chartId}-clip-0)"
+						preserveAspectRatio="xMidYMid slice"
+					/>
+				{/if}
+			{:else}
+				{#each apps as app, i (app.id)}
+					{#if appColors}
+						<circle cx={chart.lineX} cy={chart.appEndYs[i]} r="5" fill={appColors[i] ?? dotColor} />
+					{:else}
+						<image
+							href={app.icon}
+							x={chart.lineX - 6}
+							y={chart.appEndYs[i] - 6}
+							width="12"
+							height="12"
+							clip-path="url(#{chartId}-clip-{i})"
+							preserveAspectRatio="xMidYMid slice"
+						/>
+					{/if}
+				{/each}
+				{#if !hideTotalLine}
+					<circle cx={chart.lineX} cy={chart.totalEndY} r="6" fill={dotColor} />
+				{/if}
+			{/if}
 		{/if}
 
 		<!-- ── Hover crosshair ──────────────────────────────────────────────── -->
 		{#if hover !== null}
-			<!-- Hover vertical line -->
+			<!-- Hover vertical line — starts at topmost visible line -->
 			<line
 				x1={hover.x}
-				y1={PAD_T}
+				y1={hover.lineTopY}
 				x2={hover.x}
 				y2={H - PAD_B}
 				stroke="rgba(255,255,255,0.22)"
@@ -310,68 +357,106 @@
 				pointer-events="none"
 			/>
 
-			<!-- App icons + value badges (badge Y is de-overlapped) -->
-			{#each apps as app, i (app.id)}
-				<image
-					href={app.icon}
-					x={hover.x - 6}
-					y={hover.appYs[i] - 6}
-					width="12"
-					height="12"
-					clip-path="url(#{chartId}-clip-h-{i})"
-					preserveAspectRatio="xMidYMid slice"
-					pointer-events="none"
-				/>
+			{#if apps.length === 1}
+				<!-- Single app: dot or icon + one badge -->
+				{#if appColors}
+					<circle cx={hover.x} cy={hover.totalY} r="5" fill={appColors[0]} pointer-events="none" />
+				{:else}
+					<image
+						href={apps[0].icon}
+						x={hover.x - 6}
+						y={hover.totalY - 6}
+						width="12"
+						height="12"
+						clip-path="url(#{chartId}-clip-h-0)"
+						preserveAspectRatio="xMidYMid slice"
+						pointer-events="none"
+					/>
+				{/if}
 				<rect
-					x={badgeRectX(hover.x, hover.appVals[i], hover.badgeLeft)}
-					y={hover.appBadgeYs[i] - BADGE_H / 2}
-					width={bw(hover.appVals[i])}
+					x={badgeRectX(hover.x, hover.badgeLeft)}
+					y={hover.totalY - BADGE_H / 2}
+					width={BADGE_W}
 					height={BADGE_H}
 					rx="6"
-					fill="rgba(0,0,0,0.82)"
-					stroke="rgba(255,255,255,0.14)"
-					stroke-width="0.5"
+					fill={badgeBg}
 					pointer-events="none"
 				/>
 				<text
-					x={badgeTextX(hover.x, hover.appVals[i], hover.badgeLeft)}
-					y={hover.appBadgeYs[i]}
+					x={badgeTextX(hover.x, hover.badgeLeft)}
+					y={hover.totalY}
 					text-anchor="middle"
 					dominant-baseline="middle"
 					font-size="12"
-					font-weight="600"
+					font-weight="800"
 					font-family="inherit"
 					fill="white"
 					pointer-events="none"
-				>{hover.appVals[i]}</text>
-			{/each}
+				>{hover.totalVal}</text>
+			{:else}
+				<!-- Multi-app: per-app dots/icons + badges -->
+				{#each apps as app, i (app.id)}
+					{#if appColors}
+						<circle cx={hover.x} cy={hover.appYs[i]} r="5" fill={appColors[i] ?? dotColor} pointer-events="none" />
+					{:else}
+						<image
+							href={app.icon}
+							x={hover.x - 6}
+							y={hover.appYs[i] - 6}
+							width="12"
+							height="12"
+							clip-path="url(#{chartId}-clip-h-{i})"
+							preserveAspectRatio="xMidYMid slice"
+							pointer-events="none"
+						/>
+					{/if}
+					<rect
+						x={badgeRectX(hover.x, hover.badgeLeft)}
+						y={hover.appBadgeYs[i] - BADGE_H / 2}
+						width={BADGE_W}
+						height={BADGE_H}
+						rx="6"
+						fill={appBadgeBgs ? (appBadgeBgs[i] ?? badgeBg) : (appColors ? `${appColors[i]}22` : badgeBg)}
+						pointer-events="none"
+					/>
+					<text
+						x={badgeTextX(hover.x, hover.badgeLeft)}
+						y={hover.appBadgeYs[i]}
+						text-anchor="middle"
+						dominant-baseline="middle"
+						font-size="12"
+						font-weight={appBadgeBgs ? '800' : (appColors ? '600' : '400')}
+						font-family="inherit"
+						fill={appBadgeBgs ? 'white' : (appColors ? (appColors[i] ?? 'white') : 'rgba(255,255,255,0.66)')}
+						pointer-events="none"
+					>{hover.appVals[i]}</text>
+				{/each}
 
-			<!-- Total dot -->
-			<circle cx={hover.x} cy={hover.totalY} r="6" fill={dotColor} pointer-events="none" />
-
-			<!-- Total value badge (de-overlapped Y) -->
-			<rect
-				x={badgeRectX(hover.x, hover.totalVal, hover.badgeLeft)}
-				y={hover.totalBadgeY - BADGE_H / 2}
-				width={bw(hover.totalVal)}
-				height={BADGE_H}
-				rx="6"
-				fill="rgba(0,0,0,0.82)"
-				stroke="rgba(255,255,255,0.22)"
-				stroke-width="0.5"
-				pointer-events="none"
-			/>
-			<text
-				x={badgeTextX(hover.x, hover.totalVal, hover.badgeLeft)}
-				y={hover.totalBadgeY}
-				text-anchor="middle"
-				dominant-baseline="middle"
-				font-size="12"
-				font-weight="600"
-				font-family="inherit"
-				fill="white"
-				pointer-events="none"
-			>{hover.totalVal}</text>
+				<!-- Total dot + badge — only when not hidden -->
+				{#if !hideTotalLine}
+					<circle cx={hover.x} cy={hover.totalY} r="6" fill={dotColor} pointer-events="none" />
+					<rect
+						x={badgeRectX(hover.x, hover.badgeLeft)}
+						y={hover.totalBadgeY - BADGE_H / 2}
+						width={BADGE_W}
+						height={BADGE_H}
+						rx="6"
+						fill={badgeBg}
+						pointer-events="none"
+					/>
+					<text
+						x={badgeTextX(hover.x, hover.badgeLeft)}
+						y={hover.totalBadgeY}
+						text-anchor="middle"
+						dominant-baseline="middle"
+						font-size="12"
+						font-weight="800"
+						font-family="inherit"
+						fill="white"
+						pointer-events="none"
+					>{hover.totalVal}</text>
+				{/if}
+			{/if}
 		{/if}
 		</svg>
 
@@ -404,20 +489,20 @@
 	/* Fixed-height row — pill slides inside via absolute positioning */
 	.date-row {
 		position: relative;
-		height: 20px;
+		height: 26px;
 		margin-top: 0;
 	}
 
 	.date-pill {
 		position: absolute;
 		right: 0;
-		height: 20px;
+		height: 26px;
 		background: rgba(255, 255, 255, 0.08);
 		border-radius: 8px;
 		display: inline-flex;
 		align-items: center;
-		padding: 0 10px;
-		font-size: 10px;
+		padding: 0 12px;
+		font-size: 12px;
 		font-weight: 500;
 		color: rgba(255, 255, 255, 0.33);
 		white-space: nowrap;

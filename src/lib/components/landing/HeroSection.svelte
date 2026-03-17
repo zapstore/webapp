@@ -141,12 +141,12 @@
 </script>
 
 <section
-	class="relative flex items-center justify-center overflow-hidden pt-12 pb-10 sm:pt-14 sm:pb-12 lg:pt-16 lg:pb-14"
+	class="relative flex items-center justify-center overflow-hidden pt-12 pb-14 sm:pt-16 sm:pb-16 lg:pt-20 lg:pb-24"
 	class:proximity-cursor={showProximityCursor}
 	on:mousemove={handleSectionMouseMove}
 	on:mouseleave={() => (showProximityCursor = false)}
 >
-	<div class="relative z-10 text-center px-4">
+	<div class="relative z-10 text-center px-4 hero-content">
 		<!-- Perspective wrapper gives depth to the rotateX flip -->
 		<div class="hero-h1-stage">
 			<!-- Blurple electric flash fires on both the forward and reverse flips -->
@@ -227,12 +227,14 @@
 		</div>
 		<!-- /hero-h1-stage -->
 
-		<p class="text-xl sm:text-2xl mx-auto mt-2 sm:mt-8 mb-10" style="color: hsl(var(--white66));">
-			Self-published by developers.<br class="sm:hidden" /> Curated by communities.
+		<hr class="hero-divider" />
+
+		<p class="hero-description text-xl sm:text-2xl mx-auto mt-2 sm:mt-8 mb-10" style="color: hsl(var(--white66));">
+			Self-published by developers. Curated by communities.
 		</p>
 
 		<!-- Browse CTA: stacked app pics + glass pill -->
-		<div class="flex justify-center mt-5">
+		<div class="hero-cta-wrap flex justify-center mt-5">
 			<div class="hero-browse-cta">
 				<div class="hero-browse-pics">
 					{#each visibleApps as app, i}
@@ -266,6 +268,39 @@
 </section>
 
 <style>
+	/* Mobile only: flex for reorder, full-width divider, description under CTA */
+	@media (max-width: 639px) {
+		.hero-content {
+			display: flex;
+			flex-direction: column;
+		}
+		.hero-divider {
+			display: block;
+			width: 100vw;
+			margin-left: calc(-50vw + 50%);
+			border: none;
+			border-top: 1px solid hsl(var(--border));
+			margin-top: 1.5rem;
+			margin-bottom: 0;
+		}
+		.hero-cta-wrap {
+			order: 3;
+			margin-top: 2rem !important;
+		}
+		.hero-description {
+			order: 4;
+			margin-top: 1rem !important;
+			margin-bottom: 0 !important;
+		}
+	}
+
+	/* Desktop: hide divider, natural order */
+	@media (min-width: 640px) {
+		.hero-divider {
+			display: none;
+		}
+	}
+
 	/* ── Permission border ─────────────────────────────────────── */
 	.permission-border {
 		display: inline-block;

@@ -1,5 +1,5 @@
 <script lang="js">
-let { color = "hsl(var(--blurpleColor))", size = 14, className = "", } = $props();
+let { color = "hsl(var(--blurpleColor))", size = 14, strokeWidth = 2.8, className = "", } = $props();
 </script>
 
 <svg
@@ -9,7 +9,7 @@ let { color = "hsl(var(--blurpleColor))", size = 14, className = "", } = $props(
   viewBox="0 0 24 24"
   fill="none"
   stroke={color}
-  stroke-width="2.8"
+  stroke-width={strokeWidth}
   stroke-linecap="round"
   aria-hidden="true"
 >

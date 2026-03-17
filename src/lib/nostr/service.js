@@ -562,8 +562,9 @@ export function parseZapReceipt(event) {
  * @param {string} [replyToPubkey] - Pubkey being replied to (p tag on reply)
  * @param {number} [parentKind] - Kind of parent (e.g. 1111 or 9735)
  * @param {string[]} [mentions] - Pubkeys mentioned in content (p tags for notifications)
+ * @param {string[]} [relays] - Override relay URLs (default: SOCIAL_RELAYS)
  */
-export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions) {
+export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions, relays) {
 	if (!content?.trim()) throw new Error('Comment content is required');
 	if (!target?.pubkey?.trim()) throw new Error('Comment target pubkey is required');
 
@@ -648,9 +649,10 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 
 	const signed = await signEvent(template);
 	const p = getPool();
+	const relayUrls = Array.isArray(relays) && relays.length > 0 ? relays : SOCIAL_RELAYS;
 
 	// Publish to relays — pool.publish returns an array of promises (one per relay)
-	await Promise.allSettled(p.publish(SOCIAL_RELAYS, signed));
+	await Promise.allSettled(p.publish(relayUrls, signed));
 
 	// Write to Dexie
 	await putEvents([signed]);

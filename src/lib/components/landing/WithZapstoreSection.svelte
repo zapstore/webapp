@@ -68,7 +68,7 @@
 				if (entries[0].isIntersecting) startTimer();
 				else stopTimer();
 			},
-			{ threshold: 0.2 }
+			{ threshold: 0.8 }
 		);
 		if (sectionEl) observer.observe(sectionEl);
 	});
@@ -420,8 +420,8 @@
 	.eyebrow-badge {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.625rem;
-		padding: 0.5rem 1.5rem 0.625rem;
+		gap: 0.75rem;
+		padding: 0.5rem 1.375rem 0.625rem 1.375rem;
 		border-radius: 0 0 0.875rem 0.875rem;
 		background-color: hsl(var(--white4));
 	}

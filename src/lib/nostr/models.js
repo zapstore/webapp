@@ -125,6 +125,27 @@ export function parseProfile(event) {
     };
 }
 /**
+ * Parse kind 11 Forum post
+ */
+export function parseForumPost(event) {
+	if (!event?.tags) return null;
+	const communityPubkey = event.tags.find((t) => t[0] === 'h')?.[1] ?? '';
+	const titleTag = event.tags.find((t) => t[0] === 'title');
+	const title = titleTag?.[1] ?? (event.content?.split('\n')[0]?.slice(0, 80) || 'Untitled');
+	const labels = event.tags.filter((t) => t[0] === 't' && t[1]).map((t) => t[1]);
+	return {
+		id: event.id,
+		pubkey: event.pubkey,
+		communityPubkey,
+		title,
+		content: event.content || '',
+		createdAt: event.created_at,
+		labels: labels || [],
+		raw: event
+	};
+}
+
+/**
  * Parse a kind 30267 App Stack event
  */
 export function parseAppStack(event) {

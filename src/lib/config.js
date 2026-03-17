@@ -31,6 +31,8 @@ export const EVENT_KINDS = {
     PROFILE: 0,
     RELAY_LIST: 10002, // NIP-65
     COMMENT: 1111,
+    FORUM_POST: 11,
+    COMMUNITY: 10222,
     FILE_METADATA: 1063,
     ZAP_REQUEST: 9734,
     ZAP_RECEIPT: 9735,
@@ -38,6 +40,11 @@ export const EVENT_KINDS = {
     APP: 32267,
     APP_STACK: 30267
 };
+
+// Zapstore community (kind 10222) — enforced relay: only stores events from profile-list members.
+// Since it is enforced, client-side author filtering is not needed.
+export const ZAPSTORE_COMMUNITY_NPUB = 'npub1vcxcc7r9racyslkfhrwu9qlznne9v95nmk3m5frd8lfuprdmwzpsxqzqcr';
+export const ZAPSTORE_COMMUNITY_RELAY = 'wss://relay.zapstore.dev';
 // Platform filter — only Android arm64 is supported for now.
 // Spread into every APP / RELEASE relay filter so the relay only returns matching events.
 export const PLATFORM_FILTER = { '#f': ['android-arm64-v8a'] };

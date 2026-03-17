@@ -694,6 +694,18 @@ export function clear() {
 export function focus() {
     focusEditor();
 }
+export function insertEmoji(shortcode, url, source) {
+    if (!editor) return;
+    editor.commands.focus();
+    if (source === 'unicode') {
+        editor.chain().focus().insertContent(url).run();
+    } else {
+        editor.chain().focus().insertContent([
+            { type: 'emoji', attrs: { id: shortcode, url, source } },
+            { type: 'text', text: ' ' }
+        ]).run();
+    }
+}
 export { getContent, getSerializedContent, isEmpty };
 </script>
 

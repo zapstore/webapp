@@ -129,6 +129,9 @@
 				<h2 class="app-sidebar-section-title">Our Community</h2>
 				<ul class="app-sidebar-list">
 					<li>
+						<a href="/community" class="app-sidebar-link" class:active={isActive('/community')}>Community</a>
+					</li>
+					<li>
 						<a href="/blog" class="app-sidebar-link" class:active={isActive('/blog')}>Blog</a>
 					</li>
 					<li>

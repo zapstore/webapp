@@ -9,12 +9,24 @@
 	 */
 	import { ChevronDown } from '$lib/components/icons';
 
+	import { onMount } from 'svelte';
+
 	let {
 		value = $bindable(''),
 		placeholder = 'Your label',
 		onAdd = () => {},
-		onOptions = () => {}
+		onOptions = () => {},
+		focusOnMount = false
 	} = $props();
+
+	let inputEl = $state(null);
+
+	onMount(() => {
+		if (focusOnMount) {
+			const t = setTimeout(() => inputEl?.focus(), 150);
+			return () => clearTimeout(t);
+		}
+	});
 
 	const hasText = $derived(value.trim().length > 0);
 </script>
@@ -43,7 +55,7 @@
 		/>
 	</svg>
 
-	<input type="text" class="input-label-input" bind:value {placeholder} />
+	<input type="text" class="input-label-input" bind:value bind:this={inputEl} {placeholder} />
 
 	{#if hasText}
 		<button type="button" class="add-button" onclick={onAdd}> Add </button>
