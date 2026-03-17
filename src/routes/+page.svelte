@@ -2,13 +2,14 @@
 import { onMount } from 'svelte';
 import { browser } from '$app/environment';
 import DownloadModal from '$lib/components/common/DownloadModal.svelte';
-import ParallaxHero from '$lib/components/landing/ParallaxHero.svelte';
+import HeroSection from '$lib/components/landing/HeroSection.svelte';
 import GetTheAppSection from '$lib/components/landing/GetTheAppSection.svelte';
+// import StatusQuoSection from '$lib/components/landing/StatusQuoSection.svelte';
 import OldWaySection from '$lib/components/landing/OldWaySection.svelte';
 import TestimonialsSection from '$lib/components/landing/TestimonialsSection.svelte';
 // import ZapTheAppSection from "$lib/components/landing/ZapTheAppSection.svelte";
 import ReleaseYourAppsSection from '$lib/components/landing/ReleaseYourAppsSection.svelte';
-import ComparisonSection from '$lib/components/landing/ComparisonSection.svelte';
+import WithZapstoreSection from '$lib/components/landing/WithZapstoreSection.svelte';
 import RoadmapSection from '$lib/components/landing/RoadmapSection.svelte';
 import TeamSection from '$lib/components/landing/TeamSection.svelte';
 import { fetchProfilesBatch } from '$lib/nostr';
@@ -69,15 +70,19 @@ $effect(() => {
 <DownloadModal bind:open={showDownloadModal} isZapstore={true} />
 
 <!-- Hero Section -->
-<ParallaxHero showDownloadModal={() => (showDownloadModal = true)} />
+<HeroSection showDownloadModal={() => (showDownloadModal = true)} />
 
+<!-- Status Quo Section -->
+<!-- <StatusQuoSection /> -->
+
+<!-- Missing Out Section -->
 <OldWaySection />
+
+<!-- With Zapstore Section -->
+<WithZapstoreSection />
 
 <!-- Get The App Section -->
 <GetTheAppSection showDownloadModal={() => (showDownloadModal = true)} />
-
-<!-- Comparison Section -->
-<ComparisonSection />
 
 <!-- Release with ease Section -->
 <ReleaseYourAppsSection />

@@ -19,7 +19,7 @@
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-12 lg:pt-16 pb-0">
 		<!-- Center text -->
 		<div class="relative z-20 text-center mb-6 sm:mb-12">
-			<p class="eyebrow-label mb-4" style="color: hsl(var(--white33)); font-size: 1.125rem;">
+			<p class="eyebrow-label release-eyebrow mb-4" style="color: hsl(var(--white33));">
 				For Developers
 			</p>
 			<h2 class="section-title text-display-lg leading-tight">
@@ -87,6 +87,15 @@
 </section>
 
 <style>
+	.release-eyebrow {
+		font-size: 1.125rem;
+	}
+	@media (min-width: 1024px) {
+		.release-eyebrow {
+			font-size: 1.25rem;
+		}
+	}
+
 	.btn-blur-lg {
 		backdrop-filter: blur(var(--blur-lg));
 		-webkit-backdrop-filter: blur(var(--blur-lg));
