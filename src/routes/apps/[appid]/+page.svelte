@@ -699,34 +699,7 @@ function toggleReleaseNotesExpanded(releaseId) {
   </div>
 {:else if app}
   <div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">
-    <!-- Publisher info row: author + timestamp (mobile only; on desktop author is in title row, timestamp in platforms row) -->
-    <div class="detail-publisher-row publisher-row-mobile-only">
-      <a
-        href={publisherUrl}
-        class="detail-publisher-link"
-      >
-        <ProfilePic
-          pictureUrl={publisherPictureUrl}
-          name={publisherNameForPic}
-          pubkey={app.pubkey}
-          size="sm"
-        />
-        <span class="detail-publisher-name">By {publisherName}</span>
-      </a>
-      {#if app.createdAt}
-        <Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
-      {/if}
-      <!-- Catalog ProfilePicStack commented out for now
-      {#if effectiveCatalogs.length > 0}
-        <ProfilePicStack
-          profiles={effectiveCatalogs}
-          text="In Zapstore"
-          size="sm"
-        />
-      {/if}
-      -->
-    </div>
-    <!-- App Header Row -->
+    <!-- App Header: icon + title row (name + platform pills on right) + author/timestamp row -->
     <div class="app-header flex items-center gap-4 sm:gap-6 mb-6">
       <AppPic
         iconUrl={app.icon}
@@ -737,14 +710,30 @@ function toggleReleaseNotesExpanded(releaseId) {
       />
 
       <div class="app-info flex-1 min-w-0">
-        <div class="app-name-row flex items-center justify-between mb-2 sm:mb-3">
-          <h1 class="app-name app-name-flex text-[1.625rem] sm:text-4xl font-black" style="color: hsl(var(--white));">
+        <!-- Title row: app name + platform pills (desktop: next to each other; mobile: pills to the right) -->
+        <div class="app-name-row flex items-center gap-3 mb-2 sm:mb-3">
+          <h1 class="app-name text-[1.625rem] sm:text-4xl font-black min-w-0" style="color: hsl(var(--white));">
             {app.name}
           </h1>
-          <!-- Desktop only: author in title row, vertically centered -->
+          <div class="platforms-row platforms-scroll flex items-center gap-2 flex-shrink-0 overflow-x-auto scrollbar-hide min-w-0" use:wheelScroll>
+            {#each platforms as platform}
+              <div class="platform-pill flex items-center gap-2 flex-shrink-0">
+                <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 00-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 003 18h18a10.78 10.78 0 00-3.4-8.52zM8.5 14c-.83 0-1.5-.67-1.5-1.5S7.67 11 8.5 11s1.5.67 1.5 1.5S9.33 14 8.5 14zm7 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
+                </svg>
+                <span class="platform-text text-sm whitespace-nowrap" style="color: hsl(var(--white66));">
+                  {platform.charAt(0).toUpperCase() + platform.slice(1)}
+                </span>
+              </div>
+            {/each}
+          </div>
+        </div>
+
+        <!-- Author + timestamp row (where platform pills were) -->
+        <div class="detail-publisher-row detail-publisher-row-in-app">
           <a
             href={publisherUrl}
-            class="detail-publisher-link author-in-title-desktop"
+            class="detail-publisher-link"
           >
             <ProfilePic
               pictureUrl={publisherPictureUrl}
@@ -754,39 +743,9 @@ function toggleReleaseNotesExpanded(releaseId) {
             />
             <span class="detail-publisher-name">By {publisherName}</span>
           </a>
-          <!--
-          <button type="button" class="install-btn-desktop btn-primary flex-shrink-0" onclick={() => (downloadModalOpen = true)}>
-            Download
-          </button>
-          -->
-        </div>
-
-        <div class="platforms-row flex items-center gap-3">
-          <div class="platforms-scroll flex-1 overflow-x-auto scrollbar-hide min-w-0" use:wheelScroll>
-            <div class="flex gap-2">
-              {#each platforms as platform}
-                <div class="platform-pill flex items-center gap-2 flex-shrink-0">
-                  <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 00-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 003 18h18a10.78 10.78 0 00-3.4-8.52zM8.5 14c-.83 0-1.5-.67-1.5-1.5S7.67 11 8.5 11s1.5.67 1.5 1.5S9.33 14 8.5 14zm7 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
-                  </svg>
-                  <span class="platform-text text-sm whitespace-nowrap" style="color: hsl(var(--white66));">
-                    {platform.charAt(0).toUpperCase() + platform.slice(1)}
-                  </span>
-                </div>
-              {/each}
-            </div>
-          </div>
-          <!-- Desktop only: timestamp on right of platforms row -->
           {#if app.createdAt}
-            <span class="timestamp-in-platforms-desktop">
-              <Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
-            </span>
+            <Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
           {/if}
-          <!--
-          <button type="button" class="install-btn-mobile btn-primary-small flex-shrink-0" onclick={() => (downloadModalOpen = true)}>
-            Download
-          </button>
-          -->
         </div>
       </div>
     </div>
@@ -949,7 +908,7 @@ function toggleReleaseNotesExpanded(releaseId) {
           setTimeout(refetchZapsAndThreads, 2500);
         }}
         onGetStarted={() => (getStartedModalOpen = true)}
-        detailsShareLink={app?.naddr ? `https://zapstore.dev/apps/${app.naddr}` : ""}
+        detailsShareLink={app?.dTag ? `https://zapstore.dev/apps/${app.dTag}` : (app?.naddr ? `https://zapstore.dev/apps/${app.naddr}` : "")}
       />
     </div>
 
@@ -1274,36 +1233,29 @@ function toggleReleaseNotesExpanded(releaseId) {
     padding-bottom: 1.25rem;
   }
 
-  /* Mobile only: hide on desktop (desktop shows author in title row, timestamp in platforms row) */
+  .detail-publisher-row-in-app {
+    padding-bottom: 0;
+  }
+
+  /* Desktop: author + timestamp next to each other with gap (author link must not grow) */
   @media (min-width: 768px) {
-    .publisher-row-mobile-only {
-      display: none !important;
+    .detail-publisher-row-in-app {
+      justify-content: flex-start;
+      gap: 1rem;
+    }
+    .detail-publisher-row-in-app .detail-publisher-link {
+      flex: 0 0 auto;
     }
   }
 
-  /* Desktop only: author in title row (hidden on mobile), pinned to the right */
-  .author-in-title-desktop {
-    display: none;
-    align-items: center;
-    gap: 10px;
-    flex: 0 0 auto;
-    min-width: 0;
-  }
-  .timestamp-in-platforms-desktop {
-    display: none;
-    flex-shrink: 0;
+  /* Title row: mobile = pills to the right; desktop = pills next to name with gap */
+  .app-name-row {
+    justify-content: space-between;
   }
   @media (min-width: 768px) {
-    .author-in-title-desktop {
-      display: flex;
-    }
-    .timestamp-in-platforms-desktop {
-      display: block;
-    }
-    /* Title takes space so author stays on the right */
-    .app-name-flex {
-      flex: 1;
-      min-width: 0;
+    .app-name-row {
+      justify-content: flex-start;
+      gap: 1.375rem;
     }
   }
 
@@ -1321,11 +1273,6 @@ function toggleReleaseNotesExpanded(releaseId) {
 
   .detail-publisher-link:hover {
     opacity: 0.8;
-  }
-
-  /* Desktop author in title row must not grow (stay on the right) */
-  .detail-publisher-link.author-in-title-desktop {
-    flex: 0 0 auto;
   }
 
   .detail-publisher-name {

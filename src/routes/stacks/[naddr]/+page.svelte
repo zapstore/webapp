@@ -398,37 +398,6 @@ const displayDescription = $derived(!stack?.title ||
 
 <section class="stack-page">
   <div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">
-    <!-- Publisher info row: author (mobile only; on desktop author in title row only when not owner) -->
-    <div class="detail-publisher-row publisher-row-mobile-only">
-      {#if stack?.creator}
-        <a
-          href={stack.creator?.npub ? `/profile/${stack.creator.npub}` : "#"}
-          class="detail-publisher-link"
-        >
-          <ProfilePic
-            pictureUrl={stack.creator.picture}
-            name={stack.creator.name}
-            pubkey={stack.creator.pubkey}
-            size="sm"
-          />
-          <span class="detail-publisher-name">By {stack.creator.name || stack.creator.npub?.slice(0, 12) + '...'}</span>
-        </a>
-      {:else}
-        <div></div>
-      {/if}
-      {#if stack?.createdAt}
-        <Timestamp timestamp={stack.createdAt} size="xs" className="detail-publisher-timestamp" />
-      {/if}
-      <!-- Catalog ProfilePicStack commented out for now
-      {#if effectiveCatalogs.length > 0}
-        <ProfilePicStack
-          profiles={effectiveCatalogs}
-          text="In Zapstore"
-          size="sm"
-        />
-      {/if}
-      -->
-    </div>
     {#if loading}
       <!-- Loading State -->
       <div class="skeleton-publisher-row">
@@ -477,38 +446,43 @@ const displayDescription = $derived(!stack?.title ||
         </div>
       </div>
     {:else if stack}
-      <!-- Stack Header: name in column, then description row (description left, count right). Desktop: author in title row. -->
+      <!-- Publisher row above title (author left, timestamp right) -->
+      <div class="detail-publisher-row">
+        {#if stack?.creator}
+          <a
+            href={stack.creator?.npub ? `/profile/${stack.creator.npub}` : "#"}
+            class="detail-publisher-link"
+          >
+            <ProfilePic
+              pictureUrl={stack.creator.picture}
+              name={stack.creator.name}
+              pubkey={stack.creator.pubkey}
+              size="sm"
+            />
+            <span class="detail-publisher-name">By {stack.creator.name || stack.creator.npub?.slice(0, 12) + '...'}</span>
+          </a>
+        {:else}
+          <div></div>
+        {/if}
+        {#if stack?.createdAt}
+          <Timestamp timestamp={stack.createdAt} size="xs" className="detail-publisher-timestamp" />
+        {/if}
+      </div>
+      <!-- Stack Header: title row, then description row -->
       <div class="stack-header">
         <div class="stack-title-row">
           <h1 class="stack-title">{displayTitle}</h1>
-          <!-- Desktop only: author + edit grouped on the right -->
-          <div class="stack-title-right">
-            {#if stack?.creator && !isOwner}
-              <a
-                href={stack.creator?.npub ? `/profile/${stack.creator.npub}` : "#"}
-                class="detail-publisher-link author-in-title-desktop"
-              >
-                <ProfilePic
-                  pictureUrl={stack.creator.picture}
-                  name={stack.creator.name}
-                  pubkey={stack.creator.pubkey}
-                  size="sm"
-                />
-                <span class="detail-publisher-name">By {stack.creator.name || stack.creator.npub?.slice(0, 12) + '...'}</span>
-              </a>
-            {/if}
-            {#if isOwner}
-              <button
-                type="button"
-                class="edit-stack-btn"
-                onclick={() => editStackModalOpen = true}
-                aria-label="Edit stack"
-              >
-                <Pen size={14} variant="fill" color="hsl(var(--white66))" />
-                <span class="edit-btn-text">Edit</span>
-              </button>
-            {/if}
-          </div>
+          {#if isOwner}
+            <button
+              type="button"
+              class="edit-stack-btn"
+              onclick={() => editStackModalOpen = true}
+              aria-label="Edit stack"
+            >
+              <Pen size={14} variant="fill" color="hsl(var(--white66))" />
+              <span class="edit-btn-text">Edit</span>
+            </button>
+          {/if}
         </div>
         <div class="stack-desc-row">
           <p class="stack-description">{displayDescription}</p>
@@ -633,36 +607,7 @@ const displayDescription = $derived(!stack?.title ||
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding-bottom: 1.25rem;
-  }
-
-  /* Mobile only: hide on desktop (desktop shows author in title row when not owner) */
-  @media (min-width: 768px) {
-    .publisher-row-mobile-only {
-      display: none !important;
-    }
-  }
-
-  /* Right-aligned group: author (when not owner) + edit button */
-  .stack-title-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-  }
-
-  /* Desktop only: author in title row (hidden on mobile), no flex grow */
-  .author-in-title-desktop {
-    display: none;
-    align-items: center;
-    gap: 10px;
-    flex: 0 0 auto;
-    min-width: 0;
-  }
-  @media (min-width: 768px) {
-    .author-in-title-desktop {
-      display: flex;
-    }
+    padding-bottom: 0.5rem;
   }
 
   .detail-publisher-link {
@@ -678,11 +623,6 @@ const displayDescription = $derived(!stack?.title ||
 
   .detail-publisher-link:hover {
     opacity: 0.8;
-  }
-
-  /* Desktop author in title row must not grow (stay on the right) */
-  .detail-publisher-link.author-in-title-desktop {
-    flex: 0 0 auto;
   }
 
   .detail-publisher-name {

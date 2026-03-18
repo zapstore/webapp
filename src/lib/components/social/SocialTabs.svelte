@@ -35,6 +35,7 @@ let {
     detailsNpub = "",
     detailsPubkey = "",
     detailsShareLink = "",
+    detailsRepository = "",
     showDetailsTab = true,
     /** @type {Array<{ label: string, pubkeys: string[] }>} */
     labelEntries = [],
@@ -489,6 +490,7 @@ const combinedFeed = $derived.by(() => {
         pubkey={detailsPubkey || stack?.pubkey || app?.pubkey || ""}
         rawData={resolvedDetailsRawData}
         shareLink={detailsShareLink}
+        repository={detailsRepository || app?.repository || ""}
       />
     {/if}
   </div>

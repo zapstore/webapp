@@ -6,22 +6,21 @@ import { Copy, Check } from "$lib/components/icons";
 import NpubDisplay from "$lib/components/common/NpubDisplay.svelte";
 import CodeBlock from "$lib/components/common/CodeBlock.svelte";
 import { highlightJson } from "$lib/utils/highlight.js";
-let { shareableId = "", publicationLabel = "Publication", npub = "", pubkey = "", rawData = null, className = "", shareLink = "", } = $props();
+let { shareableId = "", publicationLabel = "Publication", npub = "", pubkey = "", rawData = null, className = "", shareLink = "", repository = "", } = $props();
 let publicationCopied = $state(false);
 let profileCopied = $state(false);
 let jsonCopied = $state(false);
 let shareLinkCopied = $state(false);
+let repositoryCopied = $state(false);
 function formatShareableId(id) {
     if (!id || id.length < 30)
         return id || "";
     return `${id.slice(0, 16)}...${id.slice(-8)}`;
 }
-function formatShareLink(url) {
-    if (!url) return "";
-    // Show domain + truncated naddr: "zapstore.dev/apps/naddr1xxxx...yyyy"
-    const withoutProtocol = url.replace(/^https?:\/\//, "");
-    if (withoutProtocol.length <= 36) return withoutProtocol;
-    return `${withoutProtocol.slice(0, 28)}...${withoutProtocol.slice(-6)}`;
+/** Display only: strip https:// for any URL (share link, repo, etc.); copy still gets full URL. */
+function urlDisplayWithoutProtocol(url) {
+    if (!url || typeof url !== "string") return "";
+    return url.replace(/^https?:\/\//, "");
 }
 // Strip internal Dexie fields (_tags) to show the actual Nostr event
 const cleanedRawData = $derived.by(() => {
@@ -64,6 +63,16 @@ async function copyShareLink() {
         console.error("Failed to copy:", e);
     }
 }
+async function copyRepository() {
+    if (!repository) return;
+    try {
+        await navigator.clipboard.writeText(repository);
+        repositoryCopied = true;
+        setTimeout(() => (repositoryCopied = false), 1500);
+    } catch (e) {
+        console.error("Failed to copy:", e);
+    }
+}
 async function copyJson() {
     if (!formattedJson)
         return;
@@ -100,7 +109,7 @@ const highlightedJson = $derived(highlightJson(formattedJson));
       <div class="row-divider"></div>
       <div class="identifier-row">
         <span class="identifier-label">Share link</span>
-        <span class="identifier-value">{formatShareLink(shareLink)}</span>
+        <span class="identifier-value" title={shareLink}>{urlDisplayWithoutProtocol(shareLink)}</span>
         <button type="button" class="copy-btn" onclick={copyShareLink} aria-label="Copy share link">
           {#if shareLinkCopied}
             <span class="check-icon">
@@ -130,6 +139,23 @@ const highlightedJson = $derived(highlightJson(formattedJson));
         {/if}
       </button>
     </div>
+
+    {#if repository}
+      <div class="row-divider"></div>
+      <div class="identifier-row">
+        <span class="identifier-label">Repository</span>
+        <span class="identifier-value" title={repository}>{urlDisplayWithoutProtocol(repository)}</span>
+        <button type="button" class="copy-btn" onclick={copyRepository} aria-label="Copy repository">
+          {#if repositoryCopied}
+            <span class="check-icon">
+              <Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+            </span>
+          {:else}
+            <Copy variant="outline" size={16} color="hsl(var(--white66))" />
+          {/if}
+        </button>
+      </div>
+    {/if}
   </div>
 
   {#if rawData}
