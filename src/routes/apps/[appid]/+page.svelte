@@ -233,7 +233,7 @@ function releaseNotesPreview(notes) {
     const stripped = stripMarkdown(onOneLine);
     if (!stripped)
         return "";
-    const firstSentence = stripped.split(/[.!?]/)[0]?.trim() ?? stripped;
+    const firstSentence = stripped.split(/[.!?](?:\s|$)/)[0]?.trim() ?? stripped;
     return (firstSentence.length > 50 ? firstSentence.slice(0, 50) : firstSentence) || "";
 }
 // Load publisher profile
@@ -492,19 +492,33 @@ async function loadReleases() {
     if (!app?.pubkey || !app?.dTag) return;
     releasesLoading = true;
     try {
-        // Fetch releases from relays (server doesn't cache releases)
+        // Fetch releases from relays (server doesn't cache releases).
+        // Query both #a (older releases) and #i (newer releases that omit #a).
         const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-        await fetchFromRelays([ZAPSTORE_RELAY], {
-            kinds: [EVENT_KINDS.RELEASE],
-            '#a': [aTagValue],
-            limit: 50
-        }, { feature: 'app-detail' });
-        // Read from Dexie (fetchFromRelays wrote them there)
-        const releaseEvents = await queryEvents({
-            kinds: [EVENT_KINDS.RELEASE],
-            '#a': [aTagValue],
-            limit: 50
-        });
+        await Promise.all([
+            fetchFromRelays([ZAPSTORE_RELAY], {
+                kinds: [EVENT_KINDS.RELEASE],
+                '#a': [aTagValue],
+                limit: 50
+            }, { feature: 'app-detail' }),
+            fetchFromRelays([ZAPSTORE_RELAY], {
+                kinds: [EVENT_KINDS.RELEASE],
+                '#i': [app.dTag],
+                limit: 50
+            }, { feature: 'app-detail' }),
+        ]);
+        // Read from Dexie (fetchFromRelays wrote them there); merge and deduplicate.
+        const [byATag, byITag] = await Promise.all([
+            queryEvents({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], limit: 50 }),
+            queryEvents({ kinds: [EVENT_KINDS.RELEASE], '#i': [app.dTag], limit: 50 }),
+        ]);
+        const seen = new Set();
+        const merged = [];
+        for (const e of [...byATag, ...byITag]) {
+            if (!seen.has(e.id)) { seen.add(e.id); merged.push(e); }
+        }
+        merged.sort((a, b) => b.created_at - a.created_at);
+        const releaseEvents = merged.slice(0, 50);
         releases = releaseEvents.map(parseRelease);
         if (releases.length > 0 && !latestRelease) {
             latestRelease = releases[0];
@@ -599,7 +613,12 @@ onMount(async () => {
     }
 
     const aTagValue = `${EVENT_KINDS.APP}:${_pubkey}:${_identifier}`;
-    const cachedRelease = await queryEvent({ kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue], ...PLATFORM_FILTER });
+    // Old format: #a + platform filter. New format: #i only (no #f on release events).
+    const [cachedByA, cachedByI] = await Promise.all([
+        queryEvent({ kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue], ...PLATFORM_FILTER }),
+        queryEvent({ kinds: [EVENT_KINDS.RELEASE], "#i": [_identifier] }),
+    ]);
+    const cachedRelease = [cachedByA, cachedByI].filter(Boolean).sort((a, b) => b.created_at - a.created_at)[0] ?? null;
     if (cachedRelease) {
         latestRelease = parseRelease(cachedRelease);
     }
