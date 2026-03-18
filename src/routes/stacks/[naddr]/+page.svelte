@@ -182,7 +182,7 @@ async function loadStack() {
                 '#d': [pointer.identifier],
                 ...PLATFORM_FILTER,
                 limit: 1
-            });
+            }, { feature: 'stack-detail' });
             if (events.length > 0)
                 foundStack = parseAppStack(events[0]);
         }

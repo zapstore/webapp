@@ -498,7 +498,7 @@ async function loadReleases() {
             kinds: [EVENT_KINDS.RELEASE],
             '#a': [aTagValue],
             limit: 50
-        });
+        }, { feature: 'app-detail' });
         // Read from Dexie (fetchFromRelays wrote them there)
         const releaseEvents = await queryEvents({
             kinds: [EVENT_KINDS.RELEASE],
@@ -579,7 +579,7 @@ onMount(async () => {
             '#d': [_identifier],
             ...PLATFORM_FILTER,
             limit: 1
-        });
+        }, { feature: 'app-detail' });
         if (events.length > 0) {
             app = parseApp(events[0]);
             _pubkey = app.pubkey;

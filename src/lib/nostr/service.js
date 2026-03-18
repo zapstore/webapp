@@ -92,9 +92,7 @@ export function startLiveSubscriptions() {
 		oneose() {
 			// Don't close — keep connection open for live updates
 		},
-		onclose(reasons) {
-			console.log('[Service] Catalog subscription closed:', reasons);
-		}
+		onclose() {}
 	};
 
 	// Separate subscriptions per filter (subscribeMany takes a single filter)
@@ -111,7 +109,6 @@ export function startLiveSubscriptions() {
 	activeSubscriptions.push(
 		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER, limit: STACKS_POLL_LIMIT }, { ...subParams, id: subId('stacks') })
 	);
-	console.log('[Service] Live subscriptions started');
 }
 
 /**
@@ -139,7 +136,6 @@ export function stopLiveSubscriptions() {
 		putEvents(batch).catch(() => {});
 	}
 
-	console.log('[Service] Live subscriptions stopped');
 }
 
 // ============================================================================
@@ -159,7 +155,7 @@ export function stopLiveSubscriptions() {
  * @returns {Promise<import('nostr-tools').Event[]>}
  */
 export async function fetchFromRelays(relayUrls, filter, options = {}) {
-	const { timeout = 5000, signal } = options;
+	const { timeout = 5000, signal, feature = 'q' } = options;
 	if (signal?.aborted) return [];
 
 	return new Promise((resolve) => {
@@ -188,18 +184,15 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 		};
 
 		const p = getPool();
-		console.log('[fetchFromRelays] filter:', JSON.stringify(filter), 'relays:', relayUrls);
 		const sub = p.subscribeMany(relayUrls, filter, {
-			id: subId('q'),
+			id: subId(feature),
 			onevent(event) {
 				if (event?.id) events.push(event);
 			},
 			oneose() {
-				console.log('[fetchFromRelays] EOSE, events so far:', events.length);
 				if (!eoseTimer) eoseTimer = setTimeout(finish, EOSE_GRACE_MS);
 			},
-			onclose(reasons) {
-				console.log('[fetchFromRelays] onclose:', reasons, 'settled:', settled, 'events:', events.length);
+			onclose() {
 				if (!settled) finish();
 			}
 		});
@@ -291,7 +284,7 @@ export async function fetchAppsByAuthorFromRelays(relayUrls, pubkey, options = {
 		...PLATFORM_FILTER,
 		limit
 	};
-	return fetchFromRelays(relayUrls, filter, { timeout, signal });
+	return fetchFromRelays(relayUrls, filter, { timeout, signal, feature: 'profile' });
 }
 
 /**
@@ -308,7 +301,7 @@ export async function fetchAppFromRelays(relayUrls, pubkey, dTag, options = {}) 
 		...PLATFORM_FILTER,
 		limit: 1
 	};
-	const events = await fetchFromRelays(relayUrls, filter, { timeout, signal });
+	const events = await fetchFromRelays(relayUrls, filter, { timeout, signal, feature: 'app-detail' });
 	return events.length > 0 ? events[0] : null;
 }
 
@@ -324,7 +317,7 @@ export async function fetchReleasesFromRelays(relayUrls, options = {}) {
 		limit
 	};
 	if (until != null && !isNaN(until)) filter.until = Number(until);
-	return fetchFromRelays(relayUrls, filter, { timeout, signal });
+	return fetchFromRelays(relayUrls, filter, { timeout, signal, feature: 'releases' });
 }
 
 // ============================================================================
@@ -375,7 +368,7 @@ export async function fetchProfilesBatch(pubkeys, options = {}) {
 			const events = await fetchFromRelays(
 				profileRelays,
 				{ kinds: [0], authors: missingPubkeys, limit: missingPubkeys.length * 2 },
-				{ timeout, signal }
+				{ timeout, signal, feature: 'profile' }
 			);
 
 			// Pick latest profile per pubkey
@@ -431,8 +424,8 @@ export async function fetchComments(pubkey, identifier, options = {}) {
 		const filterLower = { kinds: [1111], '#e': [eventId], limit: 500 };
 		const filterUpper = { kinds: [1111], '#E': [eventId], limit: 500 };
 		const [eventsLower, eventsUpper] = await Promise.all([
-			fetchFromRelays(relays, filterLower, { timeout, signal }),
-			fetchFromRelays(relays, filterUpper, { timeout, signal })
+			fetchFromRelays(relays, filterLower, { timeout, signal, feature: 'comments' }),
+			fetchFromRelays(relays, filterUpper, { timeout, signal, feature: 'comments' })
 		]);
 		const byId = new Map();
 		for (const e of [...eventsLower, ...eventsUpper]) {
@@ -448,8 +441,8 @@ export async function fetchComments(pubkey, identifier, options = {}) {
 	const filterUpper = { kinds: [1111], '#A': [aTagValue], limit: 500 };
 
 	const [eventsLower, eventsUpper] = await Promise.all([
-		fetchFromRelays(relays, filterLower, { timeout, signal }),
-		fetchFromRelays(relays, filterUpper, { timeout, signal })
+		fetchFromRelays(relays, filterLower, { timeout, signal, feature: 'comments' }),
+		fetchFromRelays(relays, filterUpper, { timeout, signal, feature: 'comments' })
 	]);
 
 	const byId = new Map();
@@ -473,7 +466,7 @@ export async function fetchCommentRepliesByE(eventIds, options = {}) {
 	for (let i = 0; i < eventIds.length; i += COMMENT_REPLIES_E_BATCH) {
 		const chunk = eventIds.slice(i, i + COMMENT_REPLIES_E_BATCH);
 		const filter = { kinds: [1111], '#e': chunk, limit: 500 };
-		const events = await fetchFromRelays(relays, filter, { timeout, signal });
+		const events = await fetchFromRelays(relays, filter, { timeout, signal, feature: 'comments' });
 		for (const e of events) byId.set(e.id, e);
 	}
 
@@ -491,7 +484,7 @@ export async function fetchZapReceiptsByPubkeys(pubkeys, options = {}) {
 	if (since !== undefined) filter.since = since;
 	if (limit) filter.limit = limit;
 
-	return fetchFromRelays(SOCIAL_RELAYS, filter, { timeout, signal });
+	return fetchFromRelays(SOCIAL_RELAYS, filter, { timeout, signal, feature: 'zaps' });
 }
 
 /**
@@ -510,7 +503,7 @@ export async function fetchZaps(pubkey, identifier, options = {}) {
 	];
 
 	const mainResults = await Promise.all(
-		filtersMain.map((f) => fetchFromRelays(relays, f, { timeout, signal }))
+		filtersMain.map((f) => fetchFromRelays(relays, f, { timeout, signal, feature: 'zaps' }))
 	);
 	for (const events of mainResults) {
 		for (const e of events) if (!byId.has(e.id)) byId.set(e.id, e);
@@ -525,8 +518,8 @@ export async function fetchZaps(pubkey, identifier, options = {}) {
 		const filterE = { kinds: [9735], '#e': eventIds, limit: 100 };
 		const filterEUpper = { kinds: [9735], '#E': eventIds, limit: 100 };
 		const [byELower, byEUpper] = await Promise.all([
-			fetchFromRelays(relays, filterE, { timeout, signal }),
-			fetchFromRelays(relays, filterEUpper, { timeout, signal })
+			fetchFromRelays(relays, filterE, { timeout, signal, feature: 'zaps' }),
+			fetchFromRelays(relays, filterEUpper, { timeout, signal, feature: 'zaps' })
 		]);
 		for (const e of [...byELower, ...byEUpper]) {
 			if (!byId.has(e.id)) byId.set(e.id, e);
@@ -735,21 +728,10 @@ export async function publishStack(name, description, apps, signEvent) {
 		created_at: Math.floor(Date.now() / 1000)
 	};
 
-	console.log('[publishStack] Template:', template);
 	const signed = await signEvent(template);
-	console.log('[publishStack] Signed event:', signed);
-	
 	const p = getPool();
-
-	// Publish to catalog relays
-	console.log('[publishStack] Publishing to relays:', DEFAULT_CATALOG_RELAYS);
-	const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-	console.log('[publishStack] Relay publish results:', results);
-
-	// Write to Dexie
-	console.log('[publishStack] Writing to Dexie...');
+	await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
 	await putEvents([signed]);
-	console.log('[publishStack] Saved to Dexie');
 
 	return signed;
 }
@@ -759,34 +741,21 @@ export async function publishStack(name, description, apps, signEvent) {
  * Since stacks are replaceable events (kind 30267), we create a new event with the same 'd' tag.
  */
 export async function updateStackApps(stackEvent, app, action, signEvent) {
-	console.log('[updateStackApps] Starting with:', { stackEvent, app, action });
-	
 	if (!stackEvent?.id) throw new Error('Stack event is required');
 	if (!app?.pubkey || !app?.dTag) throw new Error('App with pubkey and dTag is required');
-	
+
 	const dTag = stackEvent.tags.find(t => t[0] === 'd')?.[1];
 	if (!dTag) throw new Error('Stack must have a d tag');
-	
+
 	const appATag = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-	console.log('[updateStackApps] App a-tag:', appATag);
-	
-	// Get existing 'a' tags (app references)
 	const existingATags = stackEvent.tags.filter(t => t[0] === 'a');
-	console.log('[updateStackApps] Existing a-tags:', existingATags);
-	
 	let newATags;
-	
+
 	if (action === 'add') {
-		const alreadyExists = existingATags.some(t => t[1] === appATag);
-		if (alreadyExists) {
-			console.log('[updateStackApps] App already in stack, returning early');
-			return stackEvent;
-		}
+		if (existingATags.some(t => t[1] === appATag)) return stackEvent;
 		newATags = [...existingATags, ['a', appATag]];
-		console.log('[updateStackApps] Adding app, new a-tags:', newATags);
 	} else if (action === 'remove') {
 		newATags = existingATags.filter(t => t[1] !== appATag);
-		console.log('[updateStackApps] Removing app, new a-tags:', newATags);
 	} else {
 		throw new Error('Action must be "add" or "remove"');
 	}
@@ -807,52 +776,31 @@ export async function updateStackApps(stackEvent, app, action, signEvent) {
 		created_at: Math.floor(Date.now() / 1000)
 	};
 	
-	console.log('[updateStackApps] Template:', template);
-	
 	let signed;
 	try {
 		signed = await signEvent(template);
-		console.log('[updateStackApps] Signed event:', signed);
 	} catch (signErr) {
-		console.error('[updateStackApps] SIGNING FAILED:', signErr);
+		console.error('[updateStackApps] signing failed:', signErr);
 		throw signErr;
 	}
-	
-	if (!signed || !signed.id) {
-		console.error('[updateStackApps] SIGNING RETURNED NULL OR INVALID EVENT');
-		throw new Error('Signing failed - no valid event returned');
-	}
-	
+	if (!signed?.id) throw new Error('Signing failed - no valid event returned');
+
 	const p = getPool();
-	
-	// Publish to catalog relays
-	console.log('[updateStackApps] Publishing to relays:', DEFAULT_CATALOG_RELAYS);
 	try {
-		const publishResults = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-		console.log('[updateStackApps] Publish results:', publishResults);
-		
-		// Check if any succeeded
-		const succeeded = publishResults.filter(r => r.status === 'fulfilled');
-		const failed = publishResults.filter(r => r.status === 'rejected');
-		console.log('[updateStackApps] Publish succeeded:', succeeded.length, 'failed:', failed.length);
-		if (failed.length > 0) {
-			console.warn('[updateStackApps] Some publishes failed:', failed.map(f => f.reason));
-		}
+		const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
+		const failed = results.filter(r => r.status === 'rejected');
+		if (failed.length > 0) console.warn('[updateStackApps] some publishes failed:', failed.map(f => f.reason));
 	} catch (pubErr) {
-		console.error('[updateStackApps] PUBLISH FAILED:', pubErr);
+		console.error('[updateStackApps] publish failed:', pubErr);
 	}
-	
-	// Write to Dexie
-	console.log('[updateStackApps] Writing to Dexie...');
+
 	try {
 		await putEvents([signed]);
-		console.log('[updateStackApps] Dexie write SUCCESS');
 	} catch (dexieErr) {
-		console.error('[updateStackApps] DEXIE WRITE FAILED:', dexieErr);
+		console.error('[updateStackApps] Dexie write failed:', dexieErr);
 		throw dexieErr;
 	}
-	
-	console.log('[updateStackApps] ===== COMPLETE =====');
+
 	return signed;
 }
 
@@ -861,7 +809,6 @@ export async function updateStackApps(stackEvent, app, action, signEvent) {
  * Since stacks are replaceable events (kind 30267), we create a new event with the same 'd' tag.
  */
 export async function updateStack(stackEvent, newName, newDescription, newApps, signEvent) {
-	console.log('[updateStack] Starting with:', { stackEvent, newName, newDescription, appsCount: newApps?.length });
 	
 	if (!stackEvent?.id) throw new Error('Stack event is required');
 	
@@ -893,51 +840,31 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
 		created_at: Math.floor(Date.now() / 1000)
 	};
 	
-	console.log('[updateStack] Template:', template);
-	
 	let signed;
 	try {
 		signed = await signEvent(template);
-		console.log('[updateStack] Signed event:', signed);
 	} catch (signErr) {
-		console.error('[updateStack] SIGNING FAILED:', signErr);
+		console.error('[updateStack] signing failed:', signErr);
 		throw signErr;
 	}
-	
-	if (!signed || !signed.id) {
-		console.error('[updateStack] SIGNING RETURNED NULL OR INVALID EVENT');
-		throw new Error('Signing failed - no valid event returned');
-	}
-	
+	if (!signed?.id) throw new Error('Signing failed - no valid event returned');
+
 	const p = getPool();
-	
-	// Publish to catalog relays
-	console.log('[updateStack] Publishing to relays:', DEFAULT_CATALOG_RELAYS);
 	try {
-		const publishResults = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-		console.log('[updateStack] Publish results:', publishResults);
-		
-		const succeeded = publishResults.filter(r => r.status === 'fulfilled');
-		const failed = publishResults.filter(r => r.status === 'rejected');
-		console.log('[updateStack] Publish succeeded:', succeeded.length, 'failed:', failed.length);
-		if (failed.length > 0) {
-			console.warn('[updateStack] Some publishes failed:', failed.map(f => f.reason));
-		}
+		const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
+		const failed = results.filter(r => r.status === 'rejected');
+		if (failed.length > 0) console.warn('[updateStack] some publishes failed:', failed.map(f => f.reason));
 	} catch (pubErr) {
-		console.error('[updateStack] PUBLISH FAILED:', pubErr);
+		console.error('[updateStack] publish failed:', pubErr);
 	}
-	
-	// Write to Dexie
-	console.log('[updateStack] Writing to Dexie...');
+
 	try {
 		await putEvents([signed]);
-		console.log('[updateStack] Dexie write SUCCESS');
 	} catch (dexieErr) {
-		console.error('[updateStack] DEXIE WRITE FAILED:', dexieErr);
+		console.error('[updateStack] Dexie write failed:', dexieErr);
 		throw dexieErr;
 	}
-	
-	console.log('[updateStack] ===== COMPLETE =====');
+
 	return signed;
 }
 
@@ -946,7 +873,6 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
  * NIP-09: Event Deletion
  */
 export async function deleteStack(stackEvent, signEvent) {
-	console.log('[deleteStack] Starting with:', { stackEvent });
 	
 	if (!stackEvent?.id) throw new Error('Stack event is required');
 	
@@ -968,47 +894,28 @@ export async function deleteStack(stackEvent, signEvent) {
 		created_at: Math.floor(Date.now() / 1000)
 	};
 	
-	console.log('[deleteStack] Template:', template);
-	
 	let signed;
 	try {
 		signed = await signEvent(template);
-		console.log('[deleteStack] Signed event:', signed);
 	} catch (signErr) {
-		console.error('[deleteStack] SIGNING FAILED:', signErr);
+		console.error('[deleteStack] signing failed:', signErr);
 		throw signErr;
 	}
-	
-	if (!signed || !signed.id) {
-		console.error('[deleteStack] SIGNING RETURNED NULL OR INVALID EVENT');
-		throw new Error('Signing failed - no valid event returned');
-	}
-	
+	if (!signed?.id) throw new Error('Signing failed - no valid event returned');
+
 	const p = getPool();
-	
-	// Publish to catalog relays
-	console.log('[deleteStack] Publishing to relays:', DEFAULT_CATALOG_RELAYS);
 	try {
-		const publishResults = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-		console.log('[deleteStack] Publish results:', publishResults);
-		
-		const succeeded = publishResults.filter(r => r.status === 'fulfilled');
-		const failed = publishResults.filter(r => r.status === 'rejected');
-		console.log('[deleteStack] Publish succeeded:', succeeded.length, 'failed:', failed.length);
+		await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
 	} catch (pubErr) {
-		console.error('[deleteStack] PUBLISH FAILED:', pubErr);
+		console.error('[deleteStack] publish failed:', pubErr);
 	}
-	
-	// Remove from Dexie
-	console.log('[deleteStack] Removing from Dexie...');
+
 	try {
 		await db.events.delete(stackEvent.id);
-		console.log('[deleteStack] Dexie delete SUCCESS');
 	} catch (dexieErr) {
-		console.error('[deleteStack] DEXIE DELETE FAILED:', dexieErr);
+		console.error('[deleteStack] Dexie delete failed:', dexieErr);
 	}
-	
-	console.log('[deleteStack] ===== COMPLETE =====');
+
 	return signed;
 }
 

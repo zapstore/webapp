@@ -209,7 +209,7 @@ export async function loadMoreStacks(fetchFromRelays, relayUrls) {
 		};
 		if (cursor != null) filter.until = cursor;
 		if (platformTag) filter['#f'] = [platformTag];
-		const events = await fetchFromRelays(relayUrls, filter);
+		const events = await fetchFromRelays(relayUrls, filter, { feature: 'load-more-stacks' });
 		// Exclude private Saved Apps stack (don't persist for public listings)
 		const publicEvents = events.filter(
 			(e) => e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG
