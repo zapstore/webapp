@@ -6,6 +6,7 @@
 		getProfileTextColor,
 		rgbToCssString
 	} from '$lib/utils/color.js';
+	import { nip19 } from 'nostr-tools';
 	import SkeletonLoader from './SkeletonLoader.svelte';
 
 	/**
@@ -29,7 +30,7 @@
 	/** @type {string|null|undefined} - Display name for initial fallback */
 	export let name = null;
 
-	/** @type {string|null|undefined} - Hex pubkey for color generation */
+	/** @type {string|null|undefined} - Hex pubkey or npub for color generation (npub decoded to hex for consistent profile color) */
 	export let pubkey = null;
 
 	/** @type {'xs'|'sm'|'bubble'|'smMd'|'md'|'lg'|'lgXl'|'xl'|'2xl'|'3xl'|'4xl'} - Size preset */
@@ -89,21 +90,27 @@
 	$: profileColor = getProfileColor(pubkey, name);
 
 	/**
-	 * Get profile color based on pubkey or name
-	 * @param {string|null|undefined} pubkey
-	 * @param {string|null|undefined} name
+	 * Get profile color based on pubkey or name (matches chateau: npub decoded to hex for consistent color)
+	 * @param {string|null|undefined} pubkeyVal - Hex pubkey or npub
+	 * @param {string|null|undefined} nameVal - Display name fallback for stringToColor
 	 * @returns {{r: number, g: number, b: number}}
 	 */
-	function getProfileColor(pubkey, name) {
-		if (pubkey && pubkey.trim()) {
-			// Use hexToColor for pubkeys (hex strings)
-			return hexToColor(pubkey);
+	function getProfileColor(pubkeyVal, nameVal) {
+		if (pubkeyVal && pubkeyVal.trim()) {
+			const raw = String(pubkeyVal).trim();
+			if (raw.toLowerCase().startsWith('npub')) {
+				try {
+					const decoded = nip19.decode(raw);
+					if (decoded && decoded.type === 'npub' && typeof decoded.data === 'string')
+						return hexToColor(decoded.data);
+				} catch {
+					/* fall through to gray if decode fails */
+				}
+			} else if (/^[0-9a-fA-F]+$/.test(raw)) {
+				return hexToColor(raw);
+			}
 		}
-		if (name && name.trim()) {
-			// Use stringToColor for names
-			return stringToColor(name);
-		}
-		// Default gray
+		if (nameVal && nameVal.trim()) return stringToColor(nameVal);
 		return { r: 128, g: 128, b: 128 };
 	}
 

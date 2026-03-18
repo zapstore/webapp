@@ -100,6 +100,10 @@
   --goldColor66: 37 100% 61% / 0.66;
   --goldColor33: 37 100% 61% / 0.33;
 
+  /* Rouge (destructive) and green (success) - for diff tickers */
+  --rougeColor66: 344 100% 64% / 0.66;
+  --greenColor66: 152 77% 48% / 0.66;
+
   /* ========================================
      FONT FAMILIES
      ======================================== */
@@ -2176,3 +2180,53 @@ a, button {
     font-size: 1.25rem; /* sm:text-xl */
   }
 }
+
+/* Nostr custom emoji rendered by renderNostrMarkdown / tokenizeNostrMarkdown */
+img.nostr-emoji {
+  display: inline;
+  width: 1.25em;
+  height: 1.25em;
+  vertical-align: -0.2em;
+  object-fit: contain;
+}
+
+/* ── highlight.js theme (CodeBlock, MarkdownBody) ─────────────────────────────
+   Colours for <span class="hljs-*"> from highlightCode().
+   Keys/identifiers → blurpleLightColor, values → near-white,
+   punctuation → white66, braces/brackets → goldColor, comments → white33 italic */
+.hljs                          { color: hsl(var(--foreground)); }
+.hljs-comment,
+.hljs-quote                    { color: hsl(var(--white33)); font-style: italic; }
+.hljs-attr,
+.hljs-attribute,
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-meta-keyword,
+.hljs-title,
+.hljs-section,
+.hljs-built_in,
+.hljs-addition                 { color: hsl(var(--blurpleLightColor)); }
+.hljs-string,
+.hljs-template-variable,
+.hljs-variable,
+.hljs-number,
+.hljs-literal,
+.hljs-meta-string,
+.hljs-deletion                 { color: hsl(0 0% 100% / 0.9); }
+.hljs-type,
+.hljs-tag,
+.hljs-name,
+.hljs-class .hljs-title,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-link                     { color: hsl(var(--goldColor)); }
+.hljs-punctuation,
+.hljs-bullet,
+.hljs-symbol,
+.hljs-subst,
+.hljs-doctag                   { color: hsl(var(--white66)); }
+.hljs-formula                  { background: hsl(var(--white8)); font-style: italic; }
+.hljs-meta                     { color: hsl(var(--white33)); }
+.hljs-emphasis                 { font-style: italic; }
+.hljs-strong                   { font-weight: 700; }

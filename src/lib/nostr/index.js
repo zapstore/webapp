@@ -25,6 +25,7 @@ export {
 	fetchZapReceiptsByPubkeys,
 	fetchZaps,
 	fetchZapsByEventIds,
+	fetchLabelEvents,
 	parseZapReceipt,
 	parseComment,
 	publishComment,
@@ -42,6 +43,7 @@ export {
 	parseProfile,
 	parseForumPost,
 	parseAppStack,
+	getEventOneliner,
 	encodeAppNaddr,
 	encodeStackNaddr,
 	decodeNaddr

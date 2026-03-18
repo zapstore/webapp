@@ -3,6 +3,8 @@
 	import DownloadIcon from '$lib/components/icons/Download.svelte';
 	import ZapIcon from '$lib/components/icons/Zap.svelte';
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
+	import ArrowUpIcon from '$lib/components/icons/ArrowUp.svelte';
+	import ArrowDownIcon from '$lib/components/icons/ArrowDown.svelte';
 
 	let {
 		app,
@@ -16,9 +18,22 @@
 		return arr.reduce((s, v) => s + v, 0);
 	}
 
+	// Compare last 7 days vs previous 7 days for % change
+	function pctChange(counts) {
+		if (!counts || counts.length < 14) return null;
+		const recent = sum(counts.slice(-7));
+		const prior = sum(counts.slice(-14, -7));
+		if (prior === 0) return recent > 0 ? 100 : 0;
+		return Math.round(((recent - prior) / prior) * 100);
+	}
+
 	const dlTotal = $derived(sum(dlCounts));
 	const impTotal = $derived(sum(impCounts));
 	const zapTotal = $derived(sum(zapCounts));
+
+	const dlPct = $derived(pctChange(dlCounts));
+	const impPct = $derived(pctChange(impCounts));
+	const zapPct = $derived(pctChange(zapCounts));
 
 	let timeframeOpen = $state(false);
 	let selectedTimeframe = $state('30 Days');
@@ -88,6 +103,16 @@
 				<DownloadIcon size={24} color="hsl(var(--white33))" strokeWidth={1.4} />
 				<span class="count-num">{dlTotal.toLocaleString('en-US')}</span>
 			</div>
+			{#if dlPct !== null && dlPct !== 0}
+				<span class="count-ticker" class:ticker-up={dlPct > 0} class:ticker-down={dlPct < 0}>
+					{#if dlPct > 0}
+						<ArrowUpIcon size={12} color="hsl(var(--greenColor66))" strokeWidth={1.4} variant="outline" />
+					{:else}
+						<ArrowDownIcon size={12} color="hsl(var(--rougeColor66))" strokeWidth={1.4} variant="outline" />
+					{/if}
+					<span class="ticker-pct">{Math.abs(dlPct)}%</span>
+				</span>
+			{/if}
 		</div>
 		<div class="count-item">
 			<span class="eyebrow-label count-eyebrow">Zaps</span>
@@ -95,12 +120,32 @@
 				<ZapIcon size={24} color="hsl(var(--white33))" strokeWidth={1.4} />
 				<span class="count-num">{zapTotal.toLocaleString('en-US')}</span>
 			</div>
+			{#if zapPct !== null && zapPct !== 0}
+				<span class="count-ticker" class:ticker-up={zapPct > 0} class:ticker-down={zapPct < 0}>
+					{#if zapPct > 0}
+						<ArrowUpIcon size={12} color="hsl(var(--greenColor66))" strokeWidth={1.4} variant="outline" />
+					{:else}
+						<ArrowDownIcon size={12} color="hsl(var(--rougeColor66))" strokeWidth={1.4} variant="outline" />
+					{/if}
+					<span class="ticker-pct">{Math.abs(zapPct)}%</span>
+				</span>
+			{/if}
 		</div>
 		<div class="count-item count-item--last">
 			<span class="eyebrow-label count-eyebrow">Impressions</span>
 			<div class="count-value-row">
 				<span class="count-num">{impTotal.toLocaleString('en-US')}</span>
 			</div>
+			{#if impPct !== null && impPct !== 0}
+				<span class="count-ticker" class:ticker-up={impPct > 0} class:ticker-down={impPct < 0}>
+					{#if impPct > 0}
+						<ArrowUpIcon size={12} color="hsl(var(--greenColor66))" strokeWidth={1.4} variant="outline" />
+					{:else}
+						<ArrowDownIcon size={12} color="hsl(var(--rougeColor66))" strokeWidth={1.4} variant="outline" />
+					{/if}
+					<span class="ticker-pct">{Math.abs(impPct)}%</span>
+				</span>
+			{/if}
 		</div>
 	</div>
 
@@ -201,6 +246,7 @@
 		flex-direction: column;
 		gap: 10px;
 		border-right: 1px solid hsl(var(--border));
+		position: relative;
 	}
 
 	.count-eyebrow {
@@ -215,6 +261,29 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
+	}
+
+	.count-ticker {
+		position: absolute;
+		bottom: 16px;
+		right: 20px;
+		display: inline-flex;
+		align-items: center;
+		gap: 3px;
+		font-size: 12px;
+		font-weight: 500;
+	}
+
+	.count-ticker.ticker-up {
+		color: hsl(var(--greenColor66));
+	}
+
+	.count-ticker.ticker-down {
+		color: hsl(var(--rougeColor66));
+	}
+
+	.ticker-pct {
+		line-height: 1;
 	}
 
 	.count-num {
@@ -330,6 +399,11 @@
 
 		.count-item {
 			padding: 16px;
+		}
+
+		.count-ticker {
+			bottom: 16px;
+			right: 16px;
 		}
 
 		.count-num {

@@ -7,7 +7,7 @@ export default defineConfig({
 
 	// Optimize dependencies
 	optimizeDeps: {
-		include: ['rxjs', 'nostr-tools']
+		include: ['rxjs', 'nostr-tools', 'highlight.js']
 	},
 
 	// Build options

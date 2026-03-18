@@ -10,13 +10,16 @@ import {
 	fetchFromRelays,
 	fetchProfilesBatch,
 	fetchZapsByEventIds,
+	fetchLabelEvents,
 	parseForumPost,
 	parseProfile,
 	parseComment,
 	parseZapReceipt,
 	publishComment
 } from '$lib/nostr';
-import { EVENT_KINDS } from '$lib/config';
+import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB } from '$lib/config';
+import { tokenizeNostrMarkdown } from '$lib/utils/markdown';
+import MarkdownBody from '$lib/components/common/MarkdownBody.svelte';
 import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
@@ -29,7 +32,9 @@ let {
 	post: postProp = null,
 	relays = [],
 	onBack = () => {},
-	getStartedModalOpen = $bindable(false)
+	getStartedModalOpen = $bindable(false),
+	/** When set (e.g. from Activity ?comment=id), SocialTabs opens the thread modal that contains this comment */
+	openCommentId = null
 } = $props();
 
 let post = $state(postProp ? { ...postProp } : null);
@@ -43,6 +48,11 @@ let profiles = $state({});
 let profilesLoading = $state(false);
 let zapperProfiles = $state(new Map());
 let rawPostEvent = $state(postProp?._raw ?? null);
+let descriptionExpanded = $state(false);
+let isTruncated = $state(false);
+/** @type {Array<{ label: string, pubkeys: string[] }>} */
+let labelEntries = $state([]);
+let labelsLoading = $state(false);
 
 const npub = $derived(post?.pubkey ? (() => { try { return nip19.npubEncode(post.pubkey); } catch { return ''; } })() : '');
 const postNevent = $derived(post?.id ? (() => { try { return nip19.neventEncode({ id: post.id }); } catch { return ''; } })() : '');
@@ -50,7 +60,21 @@ const zapTarget = $derived(post ? { name: post.title, pubkey: post.pubkey, id: p
 const publisherName = $derived(authorProfile?.displayName ?? authorProfile?.name ?? 'Author');
 const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
 const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
-const catalogs = $derived([{ name: 'Zapstore', pictureUrl: undefined, pubkey: '' }]);
+const communityPubkey = $derived((() => {
+	try {
+		const d = nip19.decode(ZAPSTORE_COMMUNITY_NPUB);
+		return d?.type === 'npub' ? d.data : '';
+	} catch { return ''; }
+})());
+const catalogs = $derived(communityPubkey ? [{ name: 'Zapstore', pictureUrl: undefined, pubkey: communityPubkey }] : []);
+const postEmojiMap = $derived(Object.fromEntries(
+	(rawPostEvent?.tags ?? [])
+		.filter((t) => t[0] === 'emoji' && t[1] && t[2])
+		.map((t) => [t[1], t[2]])
+));
+const descriptionTokens = $derived(
+	post?.content ? tokenizeNostrMarkdown(post.content, { emojiMap: postEmojiMap }) : []
+);
 
 $effect(() => {
 	const p = postProp;
@@ -162,6 +186,67 @@ $effect(() => {
 	return () => { cancelled = true; };
 });
 
+// Labels: merge self-labels (t tags) with kind 1985 events from relay
+$effect(() => {
+	const pid = post?.id;
+	const postPubkey = post?.pubkey;
+	const selfLabels = post?.labels ?? [];
+	const cpk = communityPubkey;
+	if (!pid || !cpk) {
+		labelEntries = [];
+		return;
+	}
+	labelsLoading = true;
+	(async () => {
+		try {
+			/** @type {Map<string, Set<string>>} */
+			const labelMap = new Map();
+			for (const label of selfLabels) {
+				if (!labelMap.has(label)) labelMap.set(label, new Set());
+				if (postPubkey) labelMap.get(label)?.add(postPubkey);
+			}
+			const labelEvents = await fetchLabelEvents(relays, pid, cpk, { enforced: true });
+			for (const ev of labelEvents) {
+				const lTags = ev.tags.filter((t) => t[0] === 'l' && t[1]);
+				for (const lt of lTags) {
+					const lv = lt[1];
+					if (!labelMap.has(lv)) labelMap.set(lv, new Set());
+					labelMap.get(lv)?.add(ev.pubkey);
+				}
+			}
+			const allLabelerPubkeys = [...new Set([...labelMap.values()].flatMap((s) => [...s]))];
+			if (allLabelerPubkeys.length > 0) {
+				const batch = await fetchProfilesBatch(allLabelerPubkeys, { timeout: 3000 });
+				const next = { ...profiles };
+				for (const [pk, ev] of batch) {
+					if (ev?.content) {
+						try {
+							const j = JSON.parse(ev.content);
+							next[pk] = { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture };
+						} catch {}
+					}
+				}
+				profiles = next;
+			}
+			const entries = [...labelMap.entries()].map(([label, pubkeys]) => ({
+				label,
+				pubkeys: [...pubkeys]
+			}));
+			entries.sort((a, b) => {
+				const aHasSelf = postPubkey ? a.pubkeys.includes(postPubkey) : false;
+				const bHasSelf = postPubkey ? b.pubkeys.includes(postPubkey) : false;
+				if (aHasSelf !== bHasSelf) return aHasSelf ? -1 : 1;
+				return a.label.localeCompare(b.label);
+			});
+			labelEntries = entries;
+		} catch (err) {
+			console.error('[ForumPostDetail] Labels failed:', err);
+		} finally {
+			labelsLoading = false;
+		}
+	})();
+});
+
 async function handleCommentSubmit(e) {
 	if (!post || !e?.text?.trim()) return;
 	const target = { contentType: 'forum', pubkey: post.pubkey, id: post.id, kind: EVENT_KINDS.FORUM_POST };
@@ -196,6 +281,23 @@ function refetchZaps() {
 		});
 	});
 }
+
+/** @param {HTMLElement} node */
+function checkTruncation(node) {
+	const check = () => {
+		isTruncated = node.scrollHeight > node.clientHeight;
+	};
+	setTimeout(check, 0);
+	const ro = new ResizeObserver(() => {
+		if (!descriptionExpanded) check();
+	});
+	ro.observe(node);
+	return {
+		destroy() {
+			ro.disconnect();
+		}
+	};
+}
 </script>
 
 <div class="forum-post-detail">
@@ -212,13 +314,14 @@ function refetchZaps() {
 				publisherUrl={npub ? `/profile/${npub}` : '#'}
 				timestamp={post.createdAt}
 				{catalogs}
-				catalogText="Community"
+				catalogText="Zapstore"
 				showPublisher={true}
 				showMenu={false}
 				showBackButton={true}
 				{onBack}
 				scrollThreshold={undefined}
 				compactPadding={true}
+				catalogDisplayOnly={true}
 				bind:getStartedModalOpen
 			/>
 		</div>
@@ -226,19 +329,28 @@ function refetchZaps() {
 		<div class="content-scroll">
 			<div class="content-inner">
 				<h1 class="post-title">{post.title}</h1>
-				{#if post.labels?.length}
-					<div class="detail-labels">
-						{#each post.labels as label}
-							<span class="detail-label">{label}</span>
-						{/each}
+				<div class="description-container" class:expanded={descriptionExpanded}>
+					<div class="post-description" use:checkTruncation>
+						<MarkdownBody tokens={descriptionTokens} />
 					</div>
-				{/if}
-				<div class="post-content">{post.content}</div>
+					{#if isTruncated && !descriptionExpanded}
+						<div class="description-fade" aria-hidden="true"></div>
+						<button type="button" class="read-more-btn" onclick={() => (descriptionExpanded = true)}>
+							Read more
+						</button>
+					{/if}
+					{#if descriptionExpanded}
+						<button type="button" class="show-less-btn" onclick={() => (descriptionExpanded = false)}>
+							Show less
+						</button>
+					{/if}
+				</div>
 
 				<div class="social-tabs-wrap">
 					<SocialTabs
 						app={{}}
 						mainEventIds={[post.id]}
+						openCommentId={openCommentId}
 						showDetailsTab={true}
 						detailsShareableId={postNevent}
 						detailsPublicationLabel="Post"
@@ -267,8 +379,8 @@ function refetchZaps() {
 						onCommentSubmit={handleCommentSubmit}
 						onZapReceived={refetchZaps}
 						onGetStarted={() => (getStartedModalOpen = true)}
-						labelEntries={post.labels?.map((l) => ({ label: l, pubkeys: [post.pubkey] })) ?? []}
-						labelsLoading={false}
+						{labelEntries}
+						{labelsLoading}
 					/>
 				</div>
 			</div>
@@ -324,27 +436,74 @@ function refetchZaps() {
 		line-height: 1.3;
 		color: hsl(var(--foreground));
 	}
-	.detail-labels {
-		display: flex;
-		gap: 6px;
-		flex-wrap: wrap;
-		margin-bottom: 12px;
+	.description-container {
+		position: relative;
+		margin-bottom: 0.5rem;
 	}
-	.detail-label {
-		font-size: 0.6875rem;
-		font-weight: 500;
-		padding: 2px 10px;
-		border-radius: 99px;
-		background: hsl(var(--primary) / 0.12);
-		color: hsl(var(--primary));
+	.description-container:not(.expanded) .post-description {
+		max-height: 280px;
+		overflow: hidden;
 	}
-	.post-content {
+	.description-container.expanded .post-description {
+		max-height: none;
+	}
+	.post-description {
+		line-height: 1.6;
+		color: hsl(var(--foreground));
 		font-size: 0.9375rem;
-		line-height: 1.7;
-		color: hsl(var(--foreground) / 0.9);
-		white-space: pre-wrap;
-		word-break: break-word;
-		margin-bottom: 16px;
+	}
+	.post-description :global(a) {
+		color: hsl(var(--primary));
+		text-decoration: underline;
+	}
+	.post-description :global(a:hover) {
+		text-decoration-thickness: 2px;
+	}
+	.description-fade {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		height: 100px;
+		background: linear-gradient(to bottom, transparent, hsl(var(--background)));
+		pointer-events: none;
+	}
+	.read-more-btn {
+		position: absolute;
+		bottom: 8px;
+		left: 0;
+		height: 32px;
+		padding: 0 14px;
+		background-color: hsl(var(--white8));
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		border: none;
+		border-radius: 9999px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: hsl(var(--white66));
+		cursor: pointer;
+		transition: transform 0.15s ease;
+	}
+	.read-more-btn:hover {
+		transform: scale(1.025);
+	}
+	.read-more-btn:active {
+		transform: scale(0.98);
+	}
+	.show-less-btn {
+		display: inline-flex;
+		margin-top: 8px;
+		padding: 0;
+		background: none;
+		border: none;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: hsl(var(--white66));
+		cursor: pointer;
+	}
+	.show-less-btn:hover {
+		color: hsl(var(--foreground));
 	}
 	.social-tabs-wrap {
 		margin-top: 16px;

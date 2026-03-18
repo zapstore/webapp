@@ -6,6 +6,7 @@
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import Label from '$lib/components/common/Label.svelte';
 import ProfilePicStack from '$lib/components/common/ProfilePicStack.svelte';
+import { renderNostrMarkdown } from '$lib/utils/markdown';
 
 let {
 	author = { name: '', picture: '', npub: '' },
@@ -13,6 +14,8 @@ let {
 	content = '',
 	timestamp = '',
 	labels = [],
+	/** @type {Record<string, string>} Custom emoji shortcode → URL map from post's emoji tags */
+	emojiMap = {},
 	/** @type {{ pubkey: string; displayName?: string; avatarUrl?: string }[]} */
 	commenters = [],
 	commentCount = 0,
@@ -38,6 +41,9 @@ const stackText = $derived(
 			: commenters?.length > 2
 				? `${commenters[0].displayName || 'Someone'} & ${commenters.length - 1} Others`
 				: ''
+);
+const contentHtml = $derived(
+	content ? renderNostrMarkdown(content, { emojiMap }) : ''
 );
 
 function formatDateTime(ts) {
@@ -88,7 +94,7 @@ function formatDateTime(ts) {
 			{/if}
 			{#if content}
 				<div class="row content-row">
-					<p class="post-content">{content}</p>
+					<p class="post-content">{@html contentHtml}</p>
 				</div>
 			{/if}
 			{#if labels && labels.length > 0}
@@ -243,7 +249,6 @@ function formatDateTime(ts) {
 		font-size: 0.9375rem;
 		line-height: 1.45;
 		margin: 0;
-		white-space: pre-wrap;
 		color: hsl(var(--white66));
 		display: -webkit-box;
 		-webkit-line-clamp: 2;

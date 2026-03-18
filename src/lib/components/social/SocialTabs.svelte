@@ -13,6 +13,8 @@ import BubbleSkeleton from "./BubbleSkeleton.svelte";
 import DetailsTab from "./DetailsTab.svelte";
 import EmptyState from "$lib/components/common/EmptyState.svelte";
 import Spinner from "$lib/components/common/Spinner.svelte";
+import Label from "$lib/components/common/Label.svelte";
+import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import { Zap } from "$lib/components/icons";
 import { queryEvent } from "$lib/nostr";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
@@ -34,7 +36,27 @@ let {
     detailsPubkey = "",
     detailsShareLink = "",
     showDetailsTab = true,
+    /** @type {Array<{ label: string, pubkeys: string[] }>} */
+    labelEntries = [],
+    labelsLoading = false,
+    /** When set (e.g. from Activity ?comment=id), open the thread modal that contains this comment */
+    openCommentId = null,
 } = $props();
+
+/** Root comment id whose thread contains openCommentId; used to open that thread modal on load */
+const openThreadRootId = $derived.by(() => {
+    const cid = openCommentId;
+    const postId = mainEventIds?.[0];
+    if (!cid || !postId || !comments.length) return null;
+    let c = comments.find((x) => x.id === cid);
+    if (!c) return null;
+    while (c.parentId && c.parentId !== postId) {
+        c = comments.find((x) => x.id === c.parentId);
+        if (!c) return null;
+    }
+    return c.parentId === postId ? c.id : null;
+});
+
 const tabs = $derived([
     { id: "comments", label: "Comments" },
     { id: "zaps", label: "Zaps" },
@@ -76,6 +98,7 @@ const resolvedDetailsRawData = $derived(detailsRawDataProp ?? autoFetchedDetails
 const totalZapAmount = $derived(zaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0));
 const zapsWithComments = $derived(zaps.filter((z) => z.comment && z.comment.trim()));
 const totalCommentCount = $derived(comments.length + zapsWithComments.length);
+const totalLabelCount = $derived(labelEntries.length);
 function safeNpubFromPubkey(pubkey) {
     if (typeof pubkey !== "string")
         return "";
@@ -301,6 +324,15 @@ const combinedFeed = $derived.by(() => {
               {totalCommentCount}
             {/if}
           </span>
+        {:else if tab.id === "labels"}
+          <span>Labels</span>
+          <span class="tab-stats">
+            {#if labelsLoading}
+              <Spinner color="hsl(0 0% 100% / 0.44)" size={14} />
+            {:else}
+              {totalLabelCount}
+            {/if}
+          </span>
         {:else}
           {tab.label}
         {/if}
@@ -339,6 +371,7 @@ const combinedFeed = $derived.by(() => {
                 threadComments={threadByZapId.get(item.id) ?? []}
                 threadZaps={threadZapsByZapId.get(item.id) ?? []}
                 authorPubkey={app?.pubkey}
+                openThreadOnMount={false}
                 resolveMentionLabel={(pk) => profiles[pk]?.displayName ?? profiles[pk]?.name}
                 appIconUrl={app?.icon}
                 appName={app?.name}
@@ -376,6 +409,7 @@ const combinedFeed = $derived.by(() => {
                 authorPubkey={app?.pubkey}
                 content={item.content}
                 emojiTags={item.emojiTags}
+                openThreadOnMount={item.id === openThreadRootId}
                 resolveMentionLabel={(pk) => profiles[pk]?.displayName ?? profiles[pk]?.name}
                 appIconUrl={app?.icon}
                 appName={app?.name}
@@ -415,7 +449,36 @@ const combinedFeed = $derived.by(() => {
         </div>
       {/if}
     {:else if activeTab === "labels"}
-      <EmptyState message="Labels coming soon" minHeight={600} topAlign={true} />
+      {#if labelsLoading && labelEntries.length === 0}
+        <BubbleSkeleton />
+      {:else if labelEntries.length === 0}
+        <EmptyState message="No labels yet" minHeight={200} topAlign={true} />
+      {:else}
+        <div class="labels-list">
+          {#each labelEntries as entry (entry.label)}
+            {@const stackProfiles = entry.pubkeys.slice(0, 3).map(pk => ({
+              pubkey: pk,
+              name: profiles[pk]?.displayName ?? profiles[pk]?.name ?? '',
+              pictureUrl: profiles[pk]?.picture ?? undefined
+            }))}
+            {@const stackText = entry.pubkeys.length === 1
+              ? (profiles[entry.pubkeys[0]]?.displayName ?? profiles[entry.pubkeys[0]]?.name ?? 'Someone')
+              : entry.pubkeys.length === 2
+                ? `${profiles[entry.pubkeys[0]]?.displayName ?? 'Someone'} & ${profiles[entry.pubkeys[1]]?.displayName ?? 'Someone'}`
+                : `${profiles[entry.pubkeys[0]]?.displayName ?? 'Someone'} & others`}
+            <div class="label-entry">
+              <Label text={entry.label} isEmphasized={true} />
+              <ProfilePicStack
+                profiles={stackProfiles}
+                text={stackText}
+                suffix={entry.pubkeys.length > 1 ? String(entry.pubkeys.length) : ''}
+                size="sm"
+                onclick={() => {}}
+              />
+            </div>
+          {/each}
+        </div>
+      {/if}
     {:else if activeTab === "details"}
       <DetailsTab
         shareableId={detailsShareableId || (stack
@@ -468,6 +531,27 @@ const combinedFeed = $derived.by(() => {
 
   .tab-row :global(button:hover) {
     box-shadow: none;
+  }
+
+  .labels-list {
+    display: flex;
+    flex-direction: column;
+    background: hsl(var(--gray33));
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .label-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border-bottom: 1px solid hsl(var(--white8));
+  }
+
+  .label-entry:last-child {
+    border-bottom: none;
   }
 
   .tab-stats {

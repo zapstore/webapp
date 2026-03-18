@@ -17,7 +17,8 @@ import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import ZapSliderModal from "$lib/components/modals/ZapSliderModal.svelte";
 import { Zap, Reply, Options } from "$lib/components/icons";
 import { getIsSignedIn } from "$lib/stores/auth.svelte.js";
-let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], onReplySubmit, onZapReceived, onGetStarted, } = $props();
+let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], onReplySubmit, onZapReceived, onGetStarted, /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
+    openThreadOnMount = false, } = $props();
 let modalOpen = $state(false);
 let zapModalOpen = $state(false);
 let commentExpanded = $state(false);
@@ -251,6 +252,9 @@ $effect(() => {
         const t = setTimeout(() => replyInput?.focus?.(), 120);
         return () => clearTimeout(t);
     }
+});
+$effect(() => {
+    if (openThreadOnMount) modalOpen = true;
 });
 function handleZapReceived(event) {
     onZapReceived?.(event);

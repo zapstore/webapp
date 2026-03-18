@@ -31,6 +31,7 @@ export const EVENT_KINDS = {
     PROFILE: 0,
     RELAY_LIST: 10002, // NIP-65
     COMMENT: 1111,
+    LABEL: 1985,
     FORUM_POST: 11,
     COMMUNITY: 10222,
     FILE_METADATA: 1063,
@@ -46,8 +47,9 @@ export const EVENT_KINDS = {
 export const ZAPSTORE_COMMUNITY_NPUB = 'npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8';
 export const ZAPSTORE_COMMUNITY_RELAY = 'wss://relay.zapstore.dev';
 
-/** Forum relay override — set to a different relay for testing (e.g. Damus). Leave null to use ZAPSTORE_COMMUNITY_RELAY. */
-export const FORUM_RELAY_OVERRIDE = null; // e.g. 'wss://relay.damus.io' for testing
+/** Forum relay override — set VITE_FORUM_RELAY_OVERRIDE in .env or leave null to use ZAPSTORE_COMMUNITY_RELAY. Forum posts and comments are published to this relay. */
+const _envOverride = import.meta.env?.VITE_FORUM_RELAY_OVERRIDE;
+export const FORUM_RELAY_OVERRIDE = (typeof _envOverride === 'string' && _envOverride.trim()) ? _envOverride.trim() : null;
 // Platform filter — only Android arm64 is supported for now.
 // Spread into every APP / RELEASE relay filter so the relay only returns matching events.
 export const PLATFORM_FILTER = { '#f': ['android-arm64-v8a'] };

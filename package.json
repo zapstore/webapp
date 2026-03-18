@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "sync": "svelte-kit sync",
+    "prepare": "svelte-kit sync",
     "build": "vite build",
     "preview": "vite preview",
     "start": "bun run build/index.js",
@@ -36,6 +38,7 @@
     "@tiptap/suggestion": "^3.18.0",
     "applesauce-signers": "^5.0.0",
     "dexie": "^4.3.0",
+    "highlight.js": "^11.11.1",
     "lucide-svelte": "^0.511.0",
     "marked": "^17.0.1",
     "mdsvex": "^0.12.6",

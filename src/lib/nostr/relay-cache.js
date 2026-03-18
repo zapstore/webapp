@@ -17,12 +17,24 @@
  */
 import { SimplePool } from 'nostr-tools';
 import { building } from '$app/environment';
+import { nip19 } from 'nostr-tools';
 import {
 	EVENT_KINDS,
 	PLATFORM_FILTER,
-	POLL_INTERVAL_MS
+	POLL_INTERVAL_MS,
+	ZAPSTORE_COMMUNITY_NPUB,
+	ZAPSTORE_COMMUNITY_RELAY
 } from '$lib/config';
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
+
+const FORUM_POLL_LIMIT = 50;
+let COMMUNITY_PUBKEY_HEX = '';
+try {
+	const d = nip19.decode(ZAPSTORE_COMMUNITY_NPUB);
+	if (d?.type === 'npub') COMMUNITY_PUBKEY_HEX = d.data;
+} catch {
+	// noop
+}
 
 const EOSE_GRACE_MS = 300;
 const QUERY_TIMEOUT_MS = 5000;
@@ -51,8 +63,10 @@ const pubkeyIndex = new Map();
 
 let started = false;
 let lastCatalogPollTime = 0;
+let lastForumPollTime = 0;
 let catalogPollTimer = null;
 let profilePollTimer = null;
+let forumPollTimer = null;
 
 function isReplaceable(kind) {
 	return (kind >= 10000 && kind < 20000) || kind >= 30000;
@@ -331,7 +345,7 @@ async function warmUp() {
 	const start = Date.now();
 
 	try {
-		const [, stackResult] = await Promise.allSettled([
+		const [, stackResult, , forumResult] = await Promise.allSettled([
 			// Top apps (APPS_POLL_LIMIT = 72)
 			queryRelaysRaw([CATALOG_RELAY], {
 				kinds: [EVENT_KINDS.APP],
@@ -351,6 +365,15 @@ async function warmUp() {
 				kinds: [EVENT_KINDS.RELEASE],
 				limit: APPS_POLL_LIMIT * 3
 			}, WARMUP_TIMEOUT_MS),
+
+			// Forum posts (kind 11) for Zapstore community — from community relay
+			COMMUNITY_PUBKEY_HEX
+				? queryRelaysRaw([ZAPSTORE_COMMUNITY_RELAY], {
+						kinds: [EVENT_KINDS.FORUM_POST],
+						'#h': [COMMUNITY_PUBKEY_HEX],
+						limit: FORUM_POLL_LIMIT
+					}, WARMUP_TIMEOUT_MS)
+				: Promise.resolve([]),
 		]);
 
 		// Fetch apps referenced by stacks (addEvent deduplicates)
@@ -411,6 +434,25 @@ async function pollCatalog() {
 }
 
 /**
+ * Poll community relay for new forum posts (kind 11, #h = community).
+ */
+async function pollForum() {
+	if (!COMMUNITY_PUBKEY_HEX) return;
+	const since = lastForumPollTime;
+	lastForumPollTime = Math.floor(Date.now() / 1000);
+	try {
+		await queryRelaysRaw([ZAPSTORE_COMMUNITY_RELAY], {
+			kinds: [EVENT_KINDS.FORUM_POST],
+			'#h': [COMMUNITY_PUBKEY_HEX],
+			since,
+			limit: FORUM_POLL_LIMIT
+		});
+	} catch (err) {
+		console.error('[RelayCache] Forum poll failed:', err);
+	}
+}
+
+/**
  * Poll profiles for all cached pubkeys from vertexlab relay.
  * Called every hour — profiles change infrequently.
  */
@@ -448,6 +490,7 @@ export async function startPolling() {
 
 	await warmUp();
 	lastCatalogPollTime = Math.floor(Date.now() / 1000);
+	lastForumPollTime = lastCatalogPollTime;
 
 	// Fetch initial profiles after catalog warm-up
 	await pollProfiles();
@@ -457,6 +500,13 @@ export async function startPolling() {
 	catalogPollTimer = setInterval(() => pollCatalog(), POLL_INTERVAL_MS);
 	catalogPollTimer.unref();
 	console.log(`[RelayCache] Catalog polling started (every ${POLL_INTERVAL_MS / 1000}s)`);
+
+	// Start periodic forum polling (every 60s, same as catalog)
+	if (COMMUNITY_PUBKEY_HEX) {
+		forumPollTimer = setInterval(() => pollForum(), POLL_INTERVAL_MS);
+		forumPollTimer.unref();
+		console.log('[RelayCache] Forum polling started (every 60s)');
+	}
 
 	// Start periodic profile polling (every 6h)
 	profilePollTimer = setInterval(() => pollProfiles(), PROFILE_POLL_INTERVAL_MS);
@@ -476,8 +526,12 @@ export function stopPolling() {
 		clearInterval(profilePollTimer);
 		profilePollTimer = null;
 	}
+	if (forumPollTimer) {
+		clearInterval(forumPollTimer);
+		forumPollTimer = null;
+	}
 	try {
-		pool.close([CATALOG_RELAY, PROFILE_RELAY]);
+		pool.close([CATALOG_RELAY, PROFILE_RELAY, ZAPSTORE_COMMUNITY_RELAY]);
 	} catch {
 		/* already closed */
 	}

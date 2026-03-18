@@ -146,6 +146,33 @@ export function parseForumPost(event) {
 }
 
 /**
+ * One-line label + emoji for an event (Activity feed root label, etc.).
+ * @param {import('nostr-tools').NostrEvent | null | undefined} event
+ * @returns {{ label: string, emoji: string }}
+ */
+export function getEventOneliner(event) {
+	if (!event) return { label: 'Unknown event', emoji: '/images/emoji/forum.png' };
+	const get = (/** @type {string} */ name) => event.tags?.find((t) => t[0] === name)?.[1];
+	const truncate = (/** @type {string|undefined} */ s, n = 80) =>
+		s ? (s.length > n ? s.slice(0, n) + '…' : s) : '';
+
+	switch (event.kind) {
+		case EVENT_KINDS.FORUM_POST: // 11
+			return {
+				label: truncate(get('title') || event.content?.split('\n')[0]) || 'Forum post',
+				emoji: '/images/emoji/forum.png'
+			};
+		case EVENT_KINDS.COMMENT: // 1111
+			return {
+				label: truncate(event.content) || 'Comment',
+				emoji: '/images/emoji/comment.png'
+			};
+		default:
+			return { label: 'Post', emoji: '/images/emoji/forum.png' };
+	}
+}
+
+/**
  * Parse a kind 30267 App Stack event
  */
 export function parseAppStack(event) {

@@ -471,6 +471,29 @@ export async function fetchZapsByEventIds(eventIds, options = {}) {
 }
 
 /**
+ * Fetch kind 1985 label events for a forum post.
+ *
+ * @param {string[]} relayUrls
+ * @param {string} eventId - id of the labeled event (forum post id)
+ * @param {string} communityPubkey - community h-tag value (hex pubkey)
+ * @param {{ timeout?: number, signal?: AbortSignal, allowedPubkeys?: string[], enforced?: boolean }} options
+ */
+export async function fetchLabelEvents(relayUrls, eventId, communityPubkey, options = {}) {
+	const { timeout = 5000, signal, allowedPubkeys = [], enforced = false } = options;
+	if (signal?.aborted || !eventId || !communityPubkey) return [];
+	const filter = {
+		kinds: [EVENT_KINDS.LABEL],
+		'#e': [eventId],
+		'#h': [communityPubkey],
+		limit: 200
+	};
+	if (!enforced && allowedPubkeys.length > 0) {
+		filter.authors = allowedPubkeys;
+	}
+	return fetchFromRelays(relayUrls, filter, { timeout, signal });
+}
+
+/**
  * Fetch zaps for an app.
  */
 export async function fetchZaps(pubkey, identifier, options = {}) {

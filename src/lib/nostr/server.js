@@ -10,13 +10,15 @@
  * Server-only module — never import from client code.
  */
 import { queryCache } from './relay-cache';
+import { nip19 } from 'nostr-tools';
 import {
 	parseApp,
 	parseAppStack,
 	parseProfile,
-	parseRelease
+	parseRelease,
+	parseForumPost
 } from './models';
-import { EVENT_KINDS, PLATFORM_FILTER, SAVED_APPS_STACK_D_TAG } from '$lib/config';
+import { EVENT_KINDS, PLATFORM_FILTER, SAVED_APPS_STACK_D_TAG, ZAPSTORE_COMMUNITY_NPUB } from '$lib/config';
 import { APPS_PAGE_SIZE } from '$lib/constants';
 
 // ============================================================================
@@ -233,6 +235,52 @@ export function fetchAppByIdentifier(identifier) {
 	]);
 
 	return { app, seedEvents };
+}
+
+// ============================================================================
+// Forum (kind 11) — community feed and post detail
+// ============================================================================
+
+function getCommunityPubkeyHex() {
+	try {
+		const d = nip19.decode(ZAPSTORE_COMMUNITY_NPUB);
+		return d?.type === 'npub' ? d.data : '';
+	} catch {
+		return '';
+	}
+}
+
+/**
+ * Fetch forum posts for the Zapstore community from server cache.
+ * Returns sanitized raw events for client Dexie seeding (same pattern as apps).
+ */
+export function fetchForumPosts(limit = 50) {
+	const hex = getCommunityPubkeyHex();
+	if (!hex) return [];
+	const filter = {
+		kinds: [EVENT_KINDS.FORUM_POST],
+		'#h': [hex],
+		limit: Math.min(limit, 100)
+	};
+	const events = queryCache(filter);
+	return dedupeEventsById(events);
+}
+
+/**
+ * Fetch a single forum post by id from server cache.
+ * Returns { post, seedEvents } or null. seedEvents is the raw event for Dexie.
+ */
+export function fetchForumPostById(eventId) {
+	const filter = { kinds: [EVENT_KINDS.FORUM_POST], ids: [eventId], limit: 1 };
+	const events = queryCache(filter);
+	if (events.length === 0) return null;
+	const ev = events[0];
+	const hex = getCommunityPubkeyHex();
+	const hasH = ev.tags?.some((t) => t[0] === 'h' && t[1] === hex);
+	if (!hex || !hasH) return null;
+	const post = parseForumPost(ev);
+	const seedEvents = dedupeEventsById([ev]);
+	return { post, seedEvents };
 }
 
 /**

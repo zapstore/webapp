@@ -31,7 +31,8 @@ let {
     title = '',            // page variant: header title
     showBack = false,      // page variant: show back button
     rightContent,          // page variant: optional snippet rendered right of title
-    publisherPic = null, publisherName = null, publisherNameForPic = undefined, publisherPubkey = null, publisherUrl = '#', timestamp = null, catalogs = [], catalogText = 'In Zapstore', showPublisher = true, scrollThreshold, getStartedModalOpen = $bindable(false)
+    publisherPic = null, publisherName = null, publisherNameForPic = undefined, publisherPubkey = null, publisherUrl = '#', timestamp = null, catalogs = [], catalogText = 'In Zapstore', showPublisher = true, scrollThreshold, getStartedModalOpen = $bindable(false),
+    showBackButton = false, onBack, compactPadding = false, catalogDisplayOnly = false
 } = $props();
 const nameForPic = $derived(publisherNameForPic !== undefined ? publisherNameForPic : publisherName);
 function formatNpubDisplay(npubStr) {
@@ -146,6 +147,7 @@ function handleClickOutside(event) {
     }
 }
 const headerVisible = $derived(scrollThreshold == null ? true : scrollY > scrollThreshold);
+const effectiveBackHandler = $derived(showBackButton && typeof onBack === 'function' ? onBack : handleBack);
 onMount(() => {
     if (browser)
         startProfileSearchBackground();
@@ -323,11 +325,11 @@ async function handleSignIn() {
 			: 'bg-transparent border-b border-transparent'
 	)}
 >
-	<nav class="w-full h-full px-4 sm:px-6 md:px-[38px]">
+	<nav class={cn('w-full h-full', compactPadding ? 'nav-compact' : 'px-4 sm:px-6 md:px-[38px]')}>
 		<div class="flex items-center justify-between gap-3 h-full">
-			<!-- Left: Back button (click = back, right-click/long-press = menu) + Publisher info -->
+			<!-- Left: Back button (when showBackButton) + Publisher info -->
 		<div class="flex items-center gap-2 min-w-0 flex-1">
-			<BackButton onBack={handleBack} />
+			<BackButton onBack={effectiveBackHandler} />
 
 			{#if showPublisher}
 					<!-- Publisher link -->
@@ -351,16 +353,16 @@ async function handleSignIn() {
 				{/if}
 			</div>
 
-			<!-- Right: Catalog profile stack (opens dropdown explainer on click) -->
+			<!-- Right: Catalog profile stack (dropdown only when !catalogDisplayOnly) -->
 			{#if catalogs.length > 0}
-				<div class="catalog-dropdown-wrap" bind:this={catalogDropdownContainer}>
+				<div class="catalog-dropdown-wrap" bind:this={catalogDropdownContainer} class:catalog-display-only={catalogDisplayOnly}>
 					<ProfilePicStack
 						profiles={effectiveCatalogs}
 						text={catalogText}
 						size="sm"
-						onclick={() => (catalogDropdownOpen = !catalogDropdownOpen)}
+						onclick={catalogDisplayOnly ? undefined : () => (catalogDropdownOpen = !catalogDropdownOpen)}
 					/>
-					{#if catalogDropdownOpen}
+					{#if !catalogDisplayOnly && catalogDropdownOpen}
 						<div class="catalog-dropdown-panel" role="dialog" aria-label="Catalog info">
 							<p class="catalog-dropdown-text">
 								For now Zapstore only reads app events from the Zapstore server (relay + Blossom).
@@ -384,7 +386,7 @@ async function handleSignIn() {
 {#if scrollThreshold != null && !headerVisible}
 	<div class="floating-menu-bar" role="banner">
 		<nav class="floating-menu-nav">
-			<BackButton onBack={handleBack} />
+			<BackButton onBack={effectiveBackHandler} />
 		</nav>
 	</div>
 {/if}
@@ -497,6 +499,13 @@ async function handleSignIn() {
 	}
 
 	/* ── Detail variant ────────────────────────────────────────────────────── */
+	/* Compact nav: 16px horizontal padding (forum post detail, etc.) */
+	nav.nav-compact {
+		width: 100%;
+		box-sizing: border-box;
+		padding-left: 16px;
+		padding-right: 16px;
+	}
 	/* Fixed header height - exactly 64px to match main header */
 	:global(.detail-header) {
 		height: 64px;
