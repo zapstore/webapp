@@ -44,5 +44,3 @@ export const EVENT_KINDS = {
 export const PLATFORM_FILTER = { '#f': ['android-arm64-v8a'] };
 // Subscription prefixes (for relay backend identification)
 export const SUB_PREFIX = 'web-';
-// App version injected at build time — sent as "v" in every Nostr filter for relay analytics
-export const APP_VERSION = import.meta.env.APP_VERSION ?? 'web/dev';
