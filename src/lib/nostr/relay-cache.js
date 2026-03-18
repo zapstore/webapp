@@ -25,6 +25,8 @@ import {
 } from '$lib/config';
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
 
+const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
+
 const EOSE_GRACE_MS = 300;
 const QUERY_TIMEOUT_MS = 5000;
 const WARMUP_TIMEOUT_MS = 8000;
@@ -230,7 +232,7 @@ function queryRelaysRaw(relayUrls, filter, timeoutMs = QUERY_TIMEOUT_MS) {
 		let sub;
 		try {
 			sub = pool.subscribeMany(relayUrls, filter, {
-				label: SUB_PREFIX + 'cache',
+				id: subId('cache'),
 				onevent(event) {
 					if (event?.id) events.push(event);
 				},
