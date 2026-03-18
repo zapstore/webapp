@@ -91,6 +91,13 @@
 			: null
 	);
 
+	/** Posts filtered by selected category — only posts with that label in their event */
+	const filteredPosts = $derived(
+		selectedCategory
+			? posts.filter((p) => p.labels?.includes(selectedCategory))
+			: posts
+	);
+
 	$effect(() => {
 		if (!forumQuery) return;
 		const sub = forumQuery.subscribe({
@@ -379,12 +386,15 @@
 				<EmptyState message={postsError} minHeight={400} />
 				<button type="button" class="btn-secondary-large" onclick={syncForumFromRelay}>Retry</button>
 			</div>
-		{:else if posts.length === 0}
+		{:else if filteredPosts.length === 0}
 			<div class="empty-state-wrap">
-				<EmptyState message="No Forum Posts yet" minHeight={280} />
+				<EmptyState
+					message={selectedCategory ? `No posts in ${selectedCategory}` : 'No Forum Posts yet'}
+					minHeight={280}
+				/>
 			</div>
 		{:else}
-			{#each posts as post (post.id)}
+			{#each filteredPosts as post (post.id)}
 				{@const authorProfile = feedProfiles.get(post.pubkey)}
 				{@const postCommenters = commentersByPostId.get(post.id)}
 				{@const rawEv = post._raw}
