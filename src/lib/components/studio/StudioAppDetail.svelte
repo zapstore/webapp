@@ -6,13 +6,7 @@
 	import ArrowUpIcon from '$lib/components/icons/ArrowUp.svelte';
 	import ArrowDownIcon from '$lib/components/icons/ArrowDown.svelte';
 
-	let {
-		app,
-		dlCounts = [],
-		impCounts = [],
-		zapCounts = [],
-		onBack: _onBack
-	} = $props();
+	let { app, dlCounts = [], impCounts = [], zapCounts = [], onBack: _onBack } = $props();
 
 	function sum(arr) {
 		return arr.reduce((s, v) => s + v, 0);
@@ -60,7 +54,6 @@
 </script>
 
 <div class="detail-wrap">
-
 	<!-- App info header — app info left, 30 Days dropdown right -->
 	<div class="app-info">
 		<div class="app-info-left">
@@ -78,7 +71,12 @@
 			<button class="timerange-btn" onclick={() => (timeframeOpen = !timeframeOpen)}>
 				<span class="eyebrow-label tr-label tr-label--white66">{selectedTimeframe}</span>
 				<span class="chevron-wrap">
-					<ChevronDownIcon variant="outline" color="hsl(var(--white16))" size={12} strokeWidth={1.4} />
+					<ChevronDownIcon
+						variant="outline"
+						color="hsl(var(--white16))"
+						size={12}
+						strokeWidth={1.4}
+					/>
 				</span>
 			</button>
 			{#if timeframeOpen}
@@ -87,8 +85,11 @@
 						<button
 							class="tr-option"
 							class:tr-selected={tf === selectedTimeframe}
-							onclick={() => { selectedTimeframe = tf; timeframeOpen = false; }}
-						>{tf}</button>
+							onclick={() => {
+								selectedTimeframe = tf;
+								timeframeOpen = false;
+							}}>{tf}</button
+						>
 					{/each}
 				</div>
 			{/if}
@@ -100,15 +101,25 @@
 		<div class="count-item">
 			<span class="eyebrow-label count-eyebrow">Downloads</span>
 			<div class="count-value-row">
-				<DownloadIcon size={24} color="hsl(var(--white33))" strokeWidth={1.4} />
+				<DownloadIcon size={24} color="hsl(var(--blurpleColor66))" strokeWidth={1.4} />
 				<span class="count-num">{dlTotal.toLocaleString('en-US')}</span>
 			</div>
 			{#if dlPct !== null && dlPct !== 0}
 				<span class="count-ticker" class:ticker-up={dlPct > 0} class:ticker-down={dlPct < 0}>
 					{#if dlPct > 0}
-						<ArrowUpIcon size={12} color="hsl(var(--greenColor66))" strokeWidth={1.4} variant="outline" />
+						<ArrowUpIcon
+							size={12}
+							color="hsl(var(--greenColor66))"
+							strokeWidth={1.4}
+							variant="outline"
+						/>
 					{:else}
-						<ArrowDownIcon size={12} color="hsl(var(--rougeColor66))" strokeWidth={1.4} variant="outline" />
+						<ArrowDownIcon
+							size={12}
+							color="hsl(var(--rougeColor66))"
+							strokeWidth={1.4}
+							variant="outline"
+						/>
 					{/if}
 					<span class="ticker-pct">{Math.abs(dlPct)}%</span>
 				</span>
@@ -117,15 +128,25 @@
 		<div class="count-item">
 			<span class="eyebrow-label count-eyebrow">Zaps</span>
 			<div class="count-value-row">
-				<ZapIcon size={24} color="hsl(var(--white33))" strokeWidth={1.4} />
+				<ZapIcon size={24} color="hsl(var(--goldColor66))" strokeWidth={1.4} />
 				<span class="count-num">{zapTotal.toLocaleString('en-US')}</span>
 			</div>
 			{#if zapPct !== null && zapPct !== 0}
 				<span class="count-ticker" class:ticker-up={zapPct > 0} class:ticker-down={zapPct < 0}>
 					{#if zapPct > 0}
-						<ArrowUpIcon size={12} color="hsl(var(--greenColor66))" strokeWidth={1.4} variant="outline" />
+						<ArrowUpIcon
+							size={12}
+							color="hsl(var(--greenColor66))"
+							strokeWidth={1.4}
+							variant="outline"
+						/>
 					{:else}
-						<ArrowDownIcon size={12} color="hsl(var(--rougeColor66))" strokeWidth={1.4} variant="outline" />
+						<ArrowDownIcon
+							size={12}
+							color="hsl(var(--rougeColor66))"
+							strokeWidth={1.4}
+							variant="outline"
+						/>
 					{/if}
 					<span class="ticker-pct">{Math.abs(zapPct)}%</span>
 				</span>
@@ -139,9 +160,19 @@
 			{#if impPct !== null && impPct !== 0}
 				<span class="count-ticker" class:ticker-up={impPct > 0} class:ticker-down={impPct < 0}>
 					{#if impPct > 0}
-						<ArrowUpIcon size={12} color="hsl(var(--greenColor66))" strokeWidth={1.4} variant="outline" />
+						<ArrowUpIcon
+							size={12}
+							color="hsl(var(--greenColor66))"
+							strokeWidth={1.4}
+							variant="outline"
+						/>
 					{:else}
-						<ArrowDownIcon size={12} color="hsl(var(--rougeColor66))" strokeWidth={1.4} variant="outline" />
+						<ArrowDownIcon
+							size={12}
+							color="hsl(var(--rougeColor66))"
+							strokeWidth={1.4}
+							variant="outline"
+						/>
 					{/if}
 					<span class="ticker-pct">{Math.abs(impPct)}%</span>
 				</span>
@@ -172,7 +203,6 @@
 		<span class="eyebrow-label activity-eyebrow">Activity</span>
 		<div class="activity-empty">Nothing here yet.</div>
 	</section>
-
 </div>
 
 <style>
@@ -357,7 +387,9 @@
 		font-size: 13px;
 		color: hsl(var(--white66));
 		cursor: pointer;
-		transition: background 0.12s, color 0.12s;
+		transition:
+			background 0.12s,
+			color 0.12s;
 	}
 
 	.tr-option:hover {

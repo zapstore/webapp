@@ -346,14 +346,15 @@ async function handleSignIn() {
 						<span class="publisher-name">
 							By {publisherDisplayName}
 						</span>
-						{#if timestamp}
-							<Timestamp {timestamp} size="xs" className="publisher-timestamp" />
-						{/if}
 					</a>
 				{/if}
 			</div>
 
-			<!-- Right: Catalog profile stack (dropdown only when !catalogDisplayOnly) -->
+			<!-- Right: timestamp (catalog ProfilePicStack commented out for now) -->
+			{#if timestamp}
+				<Timestamp {timestamp} size="xs" className="publisher-timestamp" />
+			{/if}
+			<!-- Catalog ProfilePicStack commented out for now
 			{#if catalogs.length > 0}
 				<div class="catalog-dropdown-wrap" bind:this={catalogDropdownContainer} class:catalog-display-only={catalogDisplayOnly}>
 					<ProfilePicStack
@@ -372,6 +373,7 @@ async function handleSignIn() {
 					{/if}
 				</div>
 			{/if}
+			-->
 		</div>
 	</nav>
 </header>

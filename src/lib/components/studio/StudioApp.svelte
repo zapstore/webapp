@@ -67,12 +67,8 @@
 	let selectedApp = $state(null);
 
 	// Header totals — derived from the same appData the charts consume.
-	const formattedTotal = $derived(
-		dlAppData ? totalCount(dlAppData).toLocaleString('en-US') : '—'
-	);
-	const formattedZaps = $derived(
-		zapAppData ? totalCount(zapAppData).toLocaleString('en-US') : '—'
-	);
+	const formattedTotal = $derived(dlAppData ? totalCount(dlAppData).toLocaleString('en-US') : '—');
+	const formattedZaps = $derived(zapAppData ? totalCount(zapAppData).toLocaleString('en-US') : '—');
 
 	// ── Real data loading (only runs when DUMMY_MODE = false) ───────────────
 	$effect(() => {
@@ -201,19 +197,20 @@
 					<button class="mobile-nav-zone" onclick={() => (mobileMenuOpen = false)}>
 						<span class="mobile-nav-label">{activeNavLabel}</span>
 						<span class="mobile-chevron open">
-							<ChevronDownIcon variant="outline" color="hsl(var(--white33))" size={14} strokeWidth={1.4} />
+							<ChevronDownIcon
+								variant="outline"
+								color="hsl(var(--white33))"
+								size={14}
+								strokeWidth={1.4}
+							/>
 						</span>
 					</button>
 					<div class="mobile-nav-content">
-					<nav class="sidebar-nav">
-						{#each navItems as item}
-							{@const isActive = activeNav === item.id && selectedApp === null}
+						<nav class="sidebar-nav">
+							{#each navItems as item}
+								{@const isActive = activeNav === item.id && selectedApp === null}
 								{@const iconColor = isActive ? 'hsl(var(--white66))' : 'hsl(var(--white33))'}
-								<button
-									class="nav-item"
-									class:active={isActive}
-									onclick={() => selectNav(item.id)}
-								>
+								<button class="nav-item" class:active={isActive} onclick={() => selectNav(item.id)}>
 									<span class="icon-wrap">
 										{#if item.id === 'insights'}
 											<InsightsIcon color={iconColor} strokeWidth={1.4} size={18} />
@@ -225,27 +222,33 @@
 								</button>
 							{/each}
 						</nav>
-					<div class="apps-section">
-						<span class="eyebrow-label apps-eyebrow">Your Apps</span>
-						{#each userApps as app (app.id)}
-							<button
-								class="nav-item"
-								class:active={selectedApp?.id === app.id}
-								onclick={() => selectApp(app)}
-							>
-								<span class="icon-wrap">
-									<img src={app.icon} alt={app.name} class="app-img" />
-								</span>
-								<span class="nav-label">{app.name}</span>
-							</button>
-						{/each}
-					</div>
+						<div class="apps-section">
+							<span class="eyebrow-label apps-eyebrow">Your Apps</span>
+							{#each userApps as app (app.id)}
+								<button
+									class="nav-item"
+									class:active={selectedApp?.id === app.id}
+									onclick={() => selectApp(app)}
+								>
+									<span class="icon-wrap">
+										<img src={app.icon} alt={app.name} class="app-img" />
+									</span>
+									<span class="nav-label">{app.name}</span>
+								</button>
+							{/each}
+						</div>
 						<div class="sidebar-section">
 							<span class="eyebrow-label section-eyebrow">Docs &amp; Tools</span>
 							<a href="/docs" class="nav-item" onclick={() => (mobileMenuOpen = false)}>
 								<span class="nav-label">Documentation</span>
 							</a>
-							<a href="https://github.com/zapstore/zsp" class="nav-item" target="_blank" rel="noopener noreferrer" onclick={() => (mobileMenuOpen = false)}>
+							<a
+								href="https://github.com/zapstore/zsp"
+								class="nav-item"
+								target="_blank"
+								rel="noopener noreferrer"
+								onclick={() => (mobileMenuOpen = false)}
+							>
 								<span class="nav-label">ZSP</span>
 							</a>
 						</div>
@@ -256,7 +259,12 @@
 				<button class="mobile-nav-zone" onclick={() => (mobileMenuOpen = true)}>
 					<span class="mobile-nav-label">{activeNavLabel}</span>
 					<span class="mobile-chevron">
-						<ChevronDownIcon variant="outline" color="hsl(var(--white33))" size={14} strokeWidth={1.4} />
+						<ChevronDownIcon
+							variant="outline"
+							color="hsl(var(--white33))"
+							size={14}
+							strokeWidth={1.4}
+						/>
 					</span>
 				</button>
 			{/if}
@@ -268,11 +276,7 @@
 				{#each navItems as item}
 					{@const isActive = activeNav === item.id && selectedApp === null}
 					{@const iconColor = isActive ? 'hsl(var(--white66))' : 'hsl(var(--white33))'}
-					<button
-						class="nav-item"
-						class:active={isActive}
-						onclick={() => selectNav(item.id)}
-					>
+					<button class="nav-item" class:active={isActive} onclick={() => selectNav(item.id)}>
 						<span class="icon-wrap">
 							{#if item.id === 'insights'}
 								<InsightsIcon color={iconColor} strokeWidth={1.4} size={18} />
@@ -308,7 +312,12 @@
 				<a href="/docs" class="nav-item">
 					<span class="nav-label">Documentation</span>
 				</a>
-				<a href="https://github.com/zapstore/zsp" class="nav-item" target="_blank" rel="noopener noreferrer">
+				<a
+					href="https://github.com/zapstore/zsp"
+					class="nav-item"
+					target="_blank"
+					rel="noopener noreferrer"
+				>
 					<span class="nav-label">ZSP</span>
 				</a>
 			</div>
@@ -316,111 +325,121 @@
 
 		<!-- Content area (border-left acts as the column divider) -->
 		<div class="content">
-		{#if selectedApp !== null}
-			<StudioAppDetail
-				app={selectedApp}
-				dlCounts={dlAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
-				impCounts={impAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
-				zapCounts={zapAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
-				onBack={() => (selectedApp = null)}
-			/>
-		{:else}
-			<!-- Downloads section -->
-			<section class="content-section">
-				<div class="section-head">
-					<div class="dl-meta">
-						<DownloadIcon size={24} color="hsl(var(--white33))" />
-						<span class="dl-count">{formattedTotal}</span>
-					</div>
-					<div class="timerange-wrap">
-						<button
-							class="timerange-btn"
-							onclick={() => (dlDropdownOpen = !dlDropdownOpen)}
-						>
-							<span class="eyebrow-label tr-label">{selectedDlTimeframe}</span>
-							<span class="chevron-wrap">
-								<ChevronDownIcon variant="outline" color="hsl(var(--white16))" size={12} strokeWidth={1.4} />
-							</span>
-						</button>
-						{#if dlDropdownOpen}
-							<div class="tr-dropdown">
-								{#each timeframes as tf}
-									<button
-										class="tr-option"
-										class:tr-selected={tf === selectedDlTimeframe}
-										onclick={() => { selectedDlTimeframe = tf; dlDropdownOpen = false; }}
-									>
-										{tf}
-									</button>
-								{/each}
-							</div>
-						{/if}
-					</div>
-				</div>
-			<div class="chart-area">
-				<DownloadChart
-					chartId="dl"
-					color0="#5445FF"
-					color1="#636AFF"
-					glowColor="#5445FF"
-					dotColor="#5C5FFF"
-					appData={dlAppData}
+			{#if selectedApp !== null}
+				<StudioAppDetail
+					app={selectedApp}
+					dlCounts={dlAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
+					impCounts={impAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
+					zapCounts={zapAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
+					onBack={() => (selectedApp = null)}
 				/>
-			</div>
-			</section>
-
-			<!-- Zaps section -->
-			<section class="content-section">
-				<div class="section-head">
-					<div class="dl-meta">
-						<ZapIcon size={24} color="hsl(var(--white33))" />
-						<span class="dl-count">{formattedZaps}</span>
+			{:else}
+				<!-- Downloads section -->
+				<section class="content-section">
+					<div class="section-head">
+						<div class="dl-meta">
+							<DownloadIcon size={24} color="hsl(var(--blurpleColor66))" />
+							<span class="dl-count">{formattedTotal}</span>
+						</div>
+						<div class="timerange-wrap">
+							<button class="timerange-btn" onclick={() => (dlDropdownOpen = !dlDropdownOpen)}>
+								<span class="eyebrow-label tr-label">{selectedDlTimeframe}</span>
+								<span class="chevron-wrap">
+									<ChevronDownIcon
+										variant="outline"
+										color="hsl(var(--white16))"
+										size={12}
+										strokeWidth={1.4}
+									/>
+								</span>
+							</button>
+							{#if dlDropdownOpen}
+								<div class="tr-dropdown">
+									{#each timeframes as tf}
+										<button
+											class="tr-option"
+											class:tr-selected={tf === selectedDlTimeframe}
+											onclick={() => {
+												selectedDlTimeframe = tf;
+												dlDropdownOpen = false;
+											}}
+										>
+											{tf}
+										</button>
+									{/each}
+								</div>
+							{/if}
+						</div>
 					</div>
-					<div class="timerange-wrap">
-						<button
-							class="timerange-btn"
-							onclick={() => (zapDropdownOpen = !zapDropdownOpen)}
-						>
-							<span class="eyebrow-label tr-label">{selectedZapTimeframe}</span>
-							<span class="chevron-wrap">
-								<ChevronDownIcon variant="outline" color="hsl(var(--white16))" size={12} strokeWidth={1.4} />
-							</span>
-						</button>
-						{#if zapDropdownOpen}
-							<div class="tr-dropdown">
-								{#each timeframes as tf}
-									<button
-										class="tr-option"
-										class:tr-selected={tf === selectedZapTimeframe}
-										onclick={() => { selectedZapTimeframe = tf; zapDropdownOpen = false; }}
-									>
-										{tf}
-									</button>
-								{/each}
-							</div>
-						{/if}
+					<div class="chart-area">
+						<DownloadChart
+							chartId="dl"
+							color0="#5445FF"
+							color1="#636AFF"
+							glowColor="#5445FF"
+							dotColor="#5C5FFF"
+							appData={dlAppData}
+						/>
 					</div>
-				</div>
-			<div class="chart-area">
-				<DownloadChart
-					chartId="zap"
-					color0="#CC7A00"
-					color1="#FFB237"
-					glowColor="#FFB237"
-					glowOpacity={0.12}
-					dotColor="#FFB237"
-					badgeBg="rgba(90,55,0,0.92)"
-					appData={zapAppData}
-				/>
-			</div>
-			</section>
+				</section>
 
-		<!-- Activity section -->
-		<section class="activity-section">
-			<span class="eyebrow-label activity-eyebrow">Activity</span>
-			<div class="activity-empty">Nothing here yet.</div>
-		</section>
-		{/if}
+				<!-- Zaps section -->
+				<section class="content-section">
+					<div class="section-head">
+						<div class="dl-meta">
+							<ZapIcon size={24} color="hsl(var(--goldColor66))" />
+							<span class="dl-count">{formattedZaps}</span>
+						</div>
+						<div class="timerange-wrap">
+							<button class="timerange-btn" onclick={() => (zapDropdownOpen = !zapDropdownOpen)}>
+								<span class="eyebrow-label tr-label">{selectedZapTimeframe}</span>
+								<span class="chevron-wrap">
+									<ChevronDownIcon
+										variant="outline"
+										color="hsl(var(--white16))"
+										size={12}
+										strokeWidth={1.4}
+									/>
+								</span>
+							</button>
+							{#if zapDropdownOpen}
+								<div class="tr-dropdown">
+									{#each timeframes as tf}
+										<button
+											class="tr-option"
+											class:tr-selected={tf === selectedZapTimeframe}
+											onclick={() => {
+												selectedZapTimeframe = tf;
+												zapDropdownOpen = false;
+											}}
+										>
+											{tf}
+										</button>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					</div>
+					<div class="chart-area">
+						<DownloadChart
+							chartId="zap"
+							color0="#CC7A00"
+							color1="#FFB237"
+							glowColor="#FFB237"
+							glowOpacity={0.12}
+							dotColor="#FFB237"
+							badgeBg="rgba(90,55,0,0.92)"
+							appData={zapAppData}
+						/>
+					</div>
+				</section>
+
+				<!-- Activity section -->
+				<section class="activity-section">
+					<span class="eyebrow-label activity-eyebrow">Activity</span>
+					<div class="activity-empty">Nothing here yet.</div>
+				</section>
+			{/if}
 		</div>
 	</div>
 </div>
@@ -486,7 +505,9 @@
 		cursor: pointer;
 		text-align: left;
 		width: 100%;
-		transition: color 0.15s, background 0.15s;
+		transition:
+			color 0.15s,
+			background 0.15s;
 	}
 
 	.nav-item:hover:not(.active) {
@@ -737,7 +758,9 @@
 		font-size: 13px;
 		color: hsl(var(--white66));
 		cursor: pointer;
-		transition: background 0.12s, color 0.12s;
+		transition:
+			background 0.12s,
+			color 0.12s;
 	}
 
 	.tr-option:hover {

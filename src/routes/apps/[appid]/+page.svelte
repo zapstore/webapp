@@ -699,8 +699,8 @@ function toggleReleaseNotesExpanded(releaseId) {
   </div>
 {:else if app}
   <div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">
-    <!-- Publisher info row: author + catalog -->
-    <div class="detail-publisher-row">
+    <!-- Publisher info row: author + timestamp (mobile only; on desktop author is in title row, timestamp in platforms row) -->
+    <div class="detail-publisher-row publisher-row-mobile-only">
       <a
         href={publisherUrl}
         class="detail-publisher-link"
@@ -712,10 +712,11 @@ function toggleReleaseNotesExpanded(releaseId) {
           size="sm"
         />
         <span class="detail-publisher-name">By {publisherName}</span>
-        {#if app.createdAt}
-          <Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
-        {/if}
       </a>
+      {#if app.createdAt}
+        <Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
+      {/if}
+      <!-- Catalog ProfilePicStack commented out for now
       {#if effectiveCatalogs.length > 0}
         <ProfilePicStack
           profiles={effectiveCatalogs}
@@ -723,6 +724,7 @@ function toggleReleaseNotesExpanded(releaseId) {
           size="sm"
         />
       {/if}
+      -->
     </div>
     <!-- App Header Row -->
     <div class="app-header flex items-center gap-4 sm:gap-6 mb-6">
@@ -736,9 +738,22 @@ function toggleReleaseNotesExpanded(releaseId) {
 
       <div class="app-info flex-1 min-w-0">
         <div class="app-name-row flex items-center justify-between mb-2 sm:mb-3">
-          <h1 class="app-name text-[1.625rem] sm:text-4xl font-black" style="color: hsl(var(--white));">
+          <h1 class="app-name app-name-flex text-[1.625rem] sm:text-4xl font-black" style="color: hsl(var(--white));">
             {app.name}
           </h1>
+          <!-- Desktop only: author in title row, vertically centered -->
+          <a
+            href={publisherUrl}
+            class="detail-publisher-link author-in-title-desktop"
+          >
+            <ProfilePic
+              pictureUrl={publisherPictureUrl}
+              name={publisherNameForPic}
+              pubkey={app.pubkey}
+              size="sm"
+            />
+            <span class="detail-publisher-name">By {publisherName}</span>
+          </a>
           <!--
           <button type="button" class="install-btn-desktop btn-primary flex-shrink-0" onclick={() => (downloadModalOpen = true)}>
             Download
@@ -747,7 +762,7 @@ function toggleReleaseNotesExpanded(releaseId) {
         </div>
 
         <div class="platforms-row flex items-center gap-3">
-          <div class="platforms-scroll flex-1 overflow-x-auto scrollbar-hide" use:wheelScroll>
+          <div class="platforms-scroll flex-1 overflow-x-auto scrollbar-hide min-w-0" use:wheelScroll>
             <div class="flex gap-2">
               {#each platforms as platform}
                 <div class="platform-pill flex items-center gap-2 flex-shrink-0">
@@ -761,7 +776,12 @@ function toggleReleaseNotesExpanded(releaseId) {
               {/each}
             </div>
           </div>
-
+          <!-- Desktop only: timestamp on right of platforms row -->
+          {#if app.createdAt}
+            <span class="timestamp-in-platforms-desktop">
+              <Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
+            </span>
+          {/if}
           <!--
           <button type="button" class="install-btn-mobile btn-primary-small flex-shrink-0" onclick={() => (downloadModalOpen = true)}>
             Download
@@ -1254,6 +1274,39 @@ function toggleReleaseNotesExpanded(releaseId) {
     padding-bottom: 1.25rem;
   }
 
+  /* Mobile only: hide on desktop (desktop shows author in title row, timestamp in platforms row) */
+  @media (min-width: 768px) {
+    .publisher-row-mobile-only {
+      display: none !important;
+    }
+  }
+
+  /* Desktop only: author in title row (hidden on mobile), pinned to the right */
+  .author-in-title-desktop {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .timestamp-in-platforms-desktop {
+    display: none;
+    flex-shrink: 0;
+  }
+  @media (min-width: 768px) {
+    .author-in-title-desktop {
+      display: flex;
+    }
+    .timestamp-in-platforms-desktop {
+      display: block;
+    }
+    /* Title takes space so author stays on the right */
+    .app-name-flex {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
   .detail-publisher-link {
     flex: 1;
     min-width: 0;
@@ -1268,6 +1321,11 @@ function toggleReleaseNotesExpanded(releaseId) {
 
   .detail-publisher-link:hover {
     opacity: 0.8;
+  }
+
+  /* Desktop author in title row must not grow (stay on the right) */
+  .detail-publisher-link.author-in-title-desktop {
+    flex: 0 0 auto;
   }
 
   .detail-publisher-name {
