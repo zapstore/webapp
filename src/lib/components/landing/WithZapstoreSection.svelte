@@ -16,13 +16,13 @@
 			title: 'Fully Transparent & Secure',
 			description: 'You install exactly what the developer signed. 100% verifiable.'
 		},
-	{
-		img: null,
-		catalogPanel: true,
-		alt: '',
-		title: 'Community Curated Catalogs',
-		description: 'You choose which catalogs to trust. Switch or add your own anytime.'
-	}
+		{
+			img: null,
+			catalogPanel: true,
+			alt: '',
+			title: 'Community Curated Catalogs',
+			description: 'You choose which catalogs to trust. Switch or add your own anytime.'
+		}
 	];
 
 	const INTERVAL = 11000;
@@ -85,7 +85,9 @@
 		<div class="eyebrow-badge-wrap">
 			<div class="eyebrow-badge">
 				<Check variant="outline" color="hsl(var(--blurpleColor))" size={16} strokeWidth={1.4} />
-				<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">WITH ZAPSTORE</p>
+				<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">
+					WITH ZAPSTORE
+				</p>
 			</div>
 		</div>
 	</div>
@@ -93,23 +95,23 @@
 		<div class="mobile-scroll-inner">
 			{#each cards as card}
 				<div class="mob-card">
-				<div
-					class="mob-img-wrap"
-					class:mob-sec-wrap={card.securityPanel}
-					class:mob-cat-wrap={card.catalogPanel}
-				>
-					{#if card.img}
-						<img src={card.img} alt={card.alt} class="mob-img" loading="lazy" />
-					{:else if card.securityPanel}
-						<div class="fake-scaler fake-scaler-mob">
-							{@render fakeSecUI()}
-						</div>
-					{:else if card.catalogPanel}
-						<div class="fake-scaler fake-scaler-cat-mob">
-							{@render fakeCatUI()}
-						</div>
-					{/if}
-				</div>
+					<div
+						class="mob-img-wrap"
+						class:mob-sec-wrap={card.securityPanel}
+						class:mob-cat-wrap={card.catalogPanel}
+					>
+						{#if card.img}
+							<img src={card.img} alt={card.alt} class="mob-img" loading="lazy" />
+						{:else if card.securityPanel}
+							<div class="fake-scaler fake-scaler-mob">
+								{@render fakeSecUI()}
+							</div>
+						{:else if card.catalogPanel}
+							<div class="fake-scaler fake-scaler-cat-mob">
+								{@render fakeCatUI()}
+							</div>
+						{/if}
+					</div>
 					<div class="mob-panel">
 						<h3 class="mob-title">{card.title}</h3>
 						<p class="mob-desc">{card.description}</p>
@@ -125,7 +127,9 @@
 			<div class="eyebrow-badge-wrap">
 				<div class="eyebrow-badge">
 					<Check variant="outline" color="hsl(var(--blurpleColor))" size={16} strokeWidth={1.4} />
-					<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">WITH ZAPSTORE</p>
+					<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">
+						WITH ZAPSTORE
+					</p>
 				</div>
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-stretch">
@@ -146,28 +150,28 @@
 
 				<!-- Right: image / panel display -->
 				<div class="feature-image-wrap">
-				{#each cards as card, i}
-					{#if card.img}
-						<img
-							src={card.img}
-							alt={card.alt}
-							class="feature-img"
-							class:visible={activeIndex === i}
-						/>
-					{:else if card.securityPanel}
-						<div class="feature-sec-panel" class:visible={activeIndex === i}>
-							<div class="fake-scaler fake-scaler-desktop">
-								{@render fakeSecUI()}
+					{#each cards as card, i}
+						{#if card.img}
+							<img
+								src={card.img}
+								alt={card.alt}
+								class="feature-img"
+								class:visible={activeIndex === i}
+							/>
+						{:else if card.securityPanel}
+							<div class="feature-sec-panel" class:visible={activeIndex === i}>
+								<div class="fake-scaler fake-scaler-desktop">
+									{@render fakeSecUI()}
+								</div>
 							</div>
-						</div>
-					{:else if card.catalogPanel}
-						<div class="feature-cat-panel" class:visible={activeIndex === i}>
-							<div class="fake-scaler fake-scaler-cat-desktop">
-								{@render fakeCatUI()}
+						{:else if card.catalogPanel}
+							<div class="feature-cat-panel" class:visible={activeIndex === i}>
+								<div class="fake-scaler fake-scaler-cat-desktop">
+									{@render fakeCatUI()}
+								</div>
 							</div>
-						</div>
-					{/if}
-				{/each}
+						{/if}
+					{/each}
 				</div>
 			</div>
 		</div>
@@ -234,87 +238,122 @@
 			</div>
 		</div>
 
-	<!-- Fake SocialTabs pill row — matches the real tab-row exactly -->
-	<div class="fake-tab-row">
-		<div class="fake-tab-active">
-			<span>Comments</span>
-			<span class="fake-tab-count">121</span>
+		<!-- Fake SocialTabs pill row — matches the real tab-row exactly -->
+		<div class="fake-tab-row">
+			<div class="fake-tab-active">
+				<span>Comments</span>
+				<span class="fake-tab-count">121</span>
+			</div>
+			<div class="fake-tab-inactive">
+				<span>Zaps</span>
+				<span class="fake-tab-count">
+					<svg width="10" height="10" viewBox="0 0 19 32" fill="none"
+						><path
+							d="M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z"
+							fill="currentColor"
+						/></svg
+					>
+					4.2K
+				</span>
+			</div>
+			<div class="fake-tab-inactive">Labels</div>
+			<div class="fake-tab-inactive">Details</div>
 		</div>
-		<div class="fake-tab-inactive">
-			<span>Zaps</span>
-			<span class="fake-tab-count">
-				<svg width="10" height="10" viewBox="0 0 19 32" fill="none"
-					><path
-						d="M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z"
-						fill="currentColor"
-					/></svg
-				>
-				4.2K
-			</span>
-		</div>
-		<div class="fake-tab-inactive">Labels</div>
-		<div class="fake-tab-inactive">Details</div>
 	</div>
-</div>
 {/snippet}
 
 {#snippet fakeCatUI()}
-<div class="fake-ui fake-ui-cat">
-	<div class="fake-cat-card">
-		<div class="fake-cat-hdr">YOUR CATALOGS</div>
-		<!-- Zapstore — checked -->
-		<div class="fake-cat-row">
-			<div class="fake-cat-pic fake-cp-zap">
-				<img src="/images/logo.svg" width="17" height="17" class="fake-cat-logo" alt="" aria-hidden="true"/>
+	<div class="fake-ui fake-ui-cat">
+		<div class="fake-cat-card">
+			<div class="fake-cat-hdr">YOUR CATALOGS</div>
+			<!-- Zapstore — checked -->
+			<div class="fake-cat-row">
+				<div class="fake-cat-pic fake-cp-zap">
+					<img
+						src="/images/logo.svg"
+						width="17"
+						height="17"
+						class="fake-cat-logo"
+						alt=""
+						aria-hidden="true"
+					/>
+				</div>
+				<div class="fake-cat-info">
+					<span class="fake-cat-name">Zapstore</span>
+					<span class="fake-cat-desc">Developer-signed apps.</span>
+				</div>
+				<div class="fake-chkbox fake-chkbox--on">
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+						><path
+							d="M3 8l4 4 6-8"
+							stroke="white"
+							stroke-width="2.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						/></svg
+					>
+				</div>
 			</div>
-			<div class="fake-cat-info">
-				<span class="fake-cat-name">Zapstore</span>
-				<span class="fake-cat-desc">Developer-signed apps.</span>
+			<div class="fake-cat-div"></div>
+			<!-- Alpha Mail — checked -->
+			<div class="fake-cat-row">
+				<div class="fake-cat-pic fake-cp-alpha">
+					<span class="fake-cat-init">A</span>
+				</div>
+				<div class="fake-cat-info">
+					<span class="fake-cat-name">Alpha Mail</span>
+					<span class="fake-cat-desc">Alpha &amp; beta builds for testers.</span>
+				</div>
+				<div class="fake-chkbox fake-chkbox--on">
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+						><path
+							d="M3 8l4 4 6-8"
+							stroke="white"
+							stroke-width="2.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						/></svg
+					>
+				</div>
 			</div>
-			<div class="fake-chkbox fake-chkbox--on">
-				<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8l4 4 6-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+			<div class="fake-cat-div"></div>
+			<!-- Graceful Tools — unchecked -->
+			<div class="fake-cat-row">
+				<div class="fake-cat-pic fake-cp-grace">
+					<svg width="14" height="14" viewBox="0 0 14 14" fill="white" aria-hidden="true"
+						><rect x="6" y="1" width="2" height="12" rx="1" /><rect
+							x="1"
+							y="5"
+							width="12"
+							height="2"
+							rx="1"
+						/></svg
+					>
+				</div>
+				<div class="fake-cat-info">
+					<span class="fake-cat-name">Graceful Tools</span>
+					<span class="fake-cat-desc">Faith-based apps &amp; tools.</span>
+				</div>
+				<div class="fake-chkbox"></div>
 			</div>
-		</div>
-		<div class="fake-cat-div"></div>
-		<!-- Alpha Mail — checked -->
-		<div class="fake-cat-row">
-			<div class="fake-cat-pic fake-cp-alpha">
-				<span class="fake-cat-init">A</span>
+			<div class="fake-cat-div"></div>
+			<!-- Nostr Native — unchecked (partially visible peek row) -->
+			<div class="fake-cat-row">
+				<div class="fake-cat-pic fake-cp-nostr">
+					<svg width="13" height="13" viewBox="0 0 19 32" fill="white" aria-hidden="true"
+						><path
+							d="M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z"
+						/></svg
+					>
+				</div>
+				<div class="fake-cat-info">
+					<span class="fake-cat-name">Nostr Native</span>
+					<span class="fake-cat-desc">Pure Nostr-native apps.</span>
+				</div>
+				<div class="fake-chkbox"></div>
 			</div>
-			<div class="fake-cat-info">
-				<span class="fake-cat-name">Alpha Mail</span>
-				<span class="fake-cat-desc">Alpha &amp; beta builds for testers.</span>
-			</div>
-			<div class="fake-chkbox fake-chkbox--on">
-				<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8l4 4 6-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-			</div>
-		</div>
-		<div class="fake-cat-div"></div>
-		<!-- Graceful Tools — unchecked -->
-		<div class="fake-cat-row">
-			<div class="fake-cat-pic fake-cp-grace">
-				<svg width="14" height="14" viewBox="0 0 14 14" fill="white" aria-hidden="true"><rect x="6" y="1" width="2" height="12" rx="1"/><rect x="1" y="5" width="12" height="2" rx="1"/></svg>
-			</div>
-			<div class="fake-cat-info">
-				<span class="fake-cat-name">Graceful Tools</span>
-				<span class="fake-cat-desc">Faith-based apps &amp; tools.</span>
-			</div>
-			<div class="fake-chkbox"></div>
-		</div>
-		<div class="fake-cat-div"></div>
-		<!-- Nostr Native — unchecked (partially visible peek row) -->
-		<div class="fake-cat-row">
-			<div class="fake-cat-pic fake-cp-nostr">
-				<svg width="13" height="13" viewBox="0 0 19 32" fill="white" aria-hidden="true"><path d="M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z"/></svg>
-			</div>
-			<div class="fake-cat-info">
-				<span class="fake-cat-name">Nostr Native</span>
-				<span class="fake-cat-desc">Pure Nostr-native apps.</span>
-			</div>
-			<div class="fake-chkbox"></div>
 		</div>
 	</div>
-</div>
 {/snippet}
 
 <style>
@@ -372,6 +411,43 @@
 		align-items: center;
 		justify-content: center;
 		padding: 1rem;
+	}
+
+	/* Medium (tablet): fixed width + height so shader masks match mobile/desktop; block centered */
+	@media (min-width: 640px) and (max-width: 767px) {
+		.mob-img-wrap {
+			width: 360px;
+			height: 320px;
+			aspect-ratio: auto;
+			margin-left: auto;
+			margin-right: auto;
+		}
+	}
+	@media (min-width: 768px) and (max-width: 1023px) {
+		.mob-img-wrap {
+			width: 400px;
+			height: 380px;
+			aspect-ratio: auto;
+			margin-left: auto;
+			margin-right: auto;
+		}
+	}
+	/* Center fake UI (security/catalog) on medium so it’s not left-aligned; shader still applies to wrap */
+	@media (min-width: 640px) and (max-width: 767px) {
+		.mob-sec-wrap .fake-scaler-mob,
+		.mob-cat-wrap .fake-scaler-cat-mob {
+			left: 50%;
+			transform: translate(-50%, -50%) scale(0.86);
+			transform-origin: center center;
+		}
+	}
+	@media (min-width: 768px) and (max-width: 1023px) {
+		.mob-sec-wrap .fake-scaler-mob,
+		.mob-cat-wrap .fake-scaler-cat-mob {
+			left: 50%;
+			transform: translate(-50%, -50%) scale(0.95);
+			transform-origin: center center;
+		}
 	}
 
 	.mob-img {
@@ -793,10 +869,18 @@
 		justify-content: center;
 		overflow: hidden;
 	}
-	.fake-cp-zap   { background: hsl(var(--blurpleColor)); }
-	.fake-cp-alpha { background: linear-gradient(135deg, #4f35bb, #8866dd); }
-	.fake-cp-grace { background: linear-gradient(135deg, #1e7a4a, #2fa86b); }
-	.fake-cp-nostr { background: linear-gradient(135deg, #b85c00, #e07820); }
+	.fake-cp-zap {
+		background: hsl(var(--blurpleColor));
+	}
+	.fake-cp-alpha {
+		background: linear-gradient(135deg, #4f35bb, #8866dd);
+	}
+	.fake-cp-grace {
+		background: linear-gradient(135deg, #1e7a4a, #2fa86b);
+	}
+	.fake-cp-nostr {
+		background: linear-gradient(135deg, #b85c00, #e07820);
+	}
 
 	.fake-cat-logo {
 		filter: brightness(0) invert(1);

@@ -153,14 +153,20 @@
 	}
 
 	function psAfterRayaGames() {
-		// Desktop: advance immediately after 500ms; Mobile: backspace first
+		// Desktop: advance after 2200ms. Mobile: shorter delay, then backspace → type Syncthing → loop
+		const rayaDisplayMs = isMobile ? 700 : 2200;
 		psAnimTimer = setTimeout(() => {
 			if (isMobile) {
-				psBackspace(() => { psAnimTimer = setTimeout(() => advance(), 400); });
+				psBackspace(() => psType('Syncthing', 0, psLoopOnMobile));
 			} else {
 				advance();
 			}
-		}, 2200);
+		}, rayaDisplayMs);
+	}
+
+	function psLoopOnMobile() {
+		psState = 'noresults';
+		psAnimTimer = setTimeout(psDelete, 3000);
 	}
 
 	onMount(() => {
@@ -417,6 +423,27 @@
 		align-items: center;
 		justify-content: center;
 		padding: 1.25rem;
+	}
+
+	/* Medium (tablet): fixed height so image area doesn't get huge; cards keep consistent height */
+	@media (min-width: 640px) and (max-width: 767px) {
+		.mob-img-wrap {
+			height: 260px;
+			aspect-ratio: auto;
+		}
+	}
+	@media (min-width: 768px) and (max-width: 1023px) {
+		.mob-img-wrap {
+			height: 300px;
+			aspect-ratio: auto;
+		}
+	}
+
+	@media (max-width: 639px) {
+		.mob-verify-wrap .verify-chain {
+			transform: scale(0.82);
+			transform-origin: center;
+		}
 	}
 
 	.mob-verify-wrap {
@@ -677,6 +704,7 @@
 		mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 90%);
 	}
 
+
 	/* ── Scaler (mirrors .confirm-scaler) ────────────────────── */
 	.ps-scaler {
 		width: 100%;
@@ -687,7 +715,29 @@
 		padding: 0;
 	}
 
-	/* ── Fake Play Store card ─────────────────────────────────── */
+	@media (max-width: 639px) {
+		.mob-ps-wrap .fake-ps-ui {
+			height: 380px;
+		}
+		.mob-ps-wrap .fake-ps-search-icon {
+			width: 28px;
+			height: 28px;
+		}
+		.mob-ps-wrap .fake-ps-query {
+			font-size: 1rem;
+			min-height: 1.2rem;
+		}
+		.mob-ps-wrap .fake-ps-result-box {
+			height: 88px;
+		}
+		.mob-ps-wrap .fake-ps-no-results {
+			font-size: 1.25rem;
+			position: relative;
+			top: -4px;
+		}
+	}
+
+	/* ── Fake Play Store card (gray33 panel): same padding on all screen sizes ── */
 	.fake-ps-ui {
 		width: 100%;
 		height: 440px;
@@ -697,7 +747,17 @@
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		padding: 0.875rem 0.875rem 0;
+		padding: 0.75rem 0.75rem 0;
+	}
+
+	/* Desktop only: bigger padding inside the panel; 4px less above the panel; keep gap under search bar same as mobile */
+	@media (min-width: 1024px) {
+		.feature-ps-panel .ps-wrap {
+			padding-top: 36px;
+		}
+		.feature-ps-panel .fake-ps-ui {
+			padding: 1rem 1rem 0;
+		}
 	}
 
 	.fake-ps-search {
@@ -707,15 +767,9 @@
 		background: hsl(var(--black33));
 		border: 1.4px solid hsl(var(--white16));
 		border-radius: 1rem;
-		padding: 0.55rem 1rem;
+		padding: 0.6rem 1rem;
 		margin-bottom: 0.75rem;
 		flex-shrink: 0;
-	}
-
-	@media (min-width: 1024px) {
-		.fake-ps-search {
-			padding: 0.7rem 1rem;
-		}
 	}
 
 	.fake-ps-search-icon {
