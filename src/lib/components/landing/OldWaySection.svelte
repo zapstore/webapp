@@ -15,7 +15,7 @@
 			alt: 'Play Store showing no results for Syncthing',
 			title: 'A handful of companies decide',
 			description:
-				'They stand between you and the developer. What you can install is their call — and when an app disappears, there\'s no explanation, no appeal, no one to ask.'
+				'They stand between you and the developer. What you can install is their call — no explanation, no appeal when an app disappears.'
 		},
 		{
 			verifyPanel: true,
