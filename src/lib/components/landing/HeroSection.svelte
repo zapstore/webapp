@@ -229,8 +229,11 @@
 
 		<hr class="hero-divider" />
 
-		<p class="hero-description text-xl sm:text-2xl mx-auto mt-2 sm:mt-8 mb-10" style="color: hsl(var(--white66));">
-			Self-published by developers.<br class="sm:hidden" /> Curated by communities.
+		<p
+			class="hero-description text-xl sm:text-2xl mx-auto mt-2 sm:mt-8 mb-10"
+			style="color: hsl(var(--white66));"
+		>
+			Published directly by developers.<br class="sm:hidden" /> Curated by communities.
 		</p>
 
 		<!-- Browse CTA: stacked app pics + glass pill -->

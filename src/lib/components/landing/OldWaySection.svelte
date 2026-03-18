@@ -13,15 +13,16 @@
 		{
 			playstorePanel: true,
 			alt: 'Play Store showing no results for Syncthing',
-			title: "You're Missing Out",
-			description: 'So many great apps rejected. Only those who pay-to-play get through.'
+			title: 'A handful of companies decide',
+			description:
+				'They stand between you and the developer. What you can install is their call — and when an app disappears, there\'s no explanation, no appeal, no one to ask.'
 		},
 		{
 			verifyPanel: true,
 			alt: 'Unknown app installation chain',
-			title: 'No way to verify',
+			title: 'You just have to trust them',
 			description:
-				'You have no idea what you are really installing. And malware often slips through.'
+				'The app on your device passed through hands you never see. You have no way to know it arrived unchanged.'
 		}
 	];
 
@@ -207,7 +208,7 @@
 					strokeWidth={1.4}
 				/>
 				<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">
-					Big Tech is Broken
+					The Old Way
 				</p>
 			</div>
 		</div>
@@ -248,7 +249,7 @@
 						strokeWidth={1.4}
 					/>
 					<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">
-						Big Tech is Broken
+						The Old Way
 					</p>
 				</div>
 			</div>
@@ -805,3 +806,4 @@
 		min-height: unset;
 	}
 </style>
+                                                                                                                                                                                                     
