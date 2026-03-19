@@ -538,6 +538,25 @@
 		overflow: hidden;
 		padding: 1rem;
 	}
+	/* Medium (tablet): fixed width + height so image areas don't grow unbounded; block centered */
+	@media (min-width: 640px) and (max-width: 767px) {
+		.mob-img-wrap {
+			width: 360px;
+			height: 320px;
+			aspect-ratio: auto;
+			margin-left: auto;
+			margin-right: auto;
+		}
+	}
+	@media (min-width: 768px) and (max-width: 1023px) {
+		.mob-img-wrap {
+			width: 400px;
+			height: 380px;
+			aspect-ratio: auto;
+			margin-left: auto;
+			margin-right: auto;
+		}
+	}
 	.mob-panel {
 		padding: 1.25rem 1.5rem 1.5rem;
 		background: hsl(var(--gray33));
