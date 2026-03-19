@@ -387,14 +387,9 @@
 		</div>
 	{:else}
 
-		<!-- Stacks Section (top, no title) -->
+		<!-- App Stacks Section -->
 		<div class="section-container stacks-section">
-			<div class="stacks-see-more-row">
-				<a href="/stacks" class="see-more-link">
-					<span>See more</span>
-					<ChevronRight size={14} strokeWidth={1.4} color="hsl(var(--white33))" />
-				</a>
-			</div>
+			<SectionHeader title="App Stacks" linkText="See more" href="/stacks" />
 			<div class="scroll-wrap">
 				{#if resolvedDisplayStacks.length === 0 && (liveStacks === null || stacksLoading)}
 					<div class="horizontal-scroll">
@@ -471,7 +466,7 @@
 
 		<!-- Apps Section (bottom) -->
 		<div class="section-container apps-section">
-			<SectionHeader title="Apps" />
+			<SectionHeader title="Latest Apps" />
 			<div class="scroll-wrap">
 				{#if apps.length === 0}
 					<div class="horizontal-scroll">
@@ -560,10 +555,8 @@
 		margin-bottom: 24px;
 	}
 
-	/* Stacks section: tight "See more" row at top-right, no title */
-	.stacks-see-more-row {
-		display: flex;
-		justify-content: flex-end;
+	/* Stacks section: SectionHeader margin to match scroll content */
+	.stacks-section :global(.section-header) {
 		margin-bottom: 12px;
 	}
 

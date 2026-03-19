@@ -489,6 +489,12 @@
 		gap: 0.375rem;
 	}
 
+	@media (min-width: 1024px) {
+		.feature-tabs {
+			gap: 0;
+		}
+	}
+
 	.feature-tab {
 		position: relative;
 		text-align: left;

@@ -483,6 +483,12 @@
 		justify-content: flex-start;
 	}
 
+	@media (min-width: 1024px) {
+		.feature-tabs {
+			gap: 0;
+		}
+	}
+
 	.eyebrow-badge-wrap {
 		display: flex;
 		justify-content: center;

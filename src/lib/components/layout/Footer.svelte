@@ -72,7 +72,8 @@
 			</p>
 			<button
 				onclick={handleClearLocalData}
-				class="mt-3 text-xs text-muted-foreground/40 hover:text-destructive transition-colors cursor-pointer"
+				class="mt-3 text-xs cursor-pointer transition-colors hover:text-destructive"
+				style="color: hsl(var(--white33));"
 			>
 				Clear local data
 			</button>
@@ -81,51 +82,17 @@
 			<!-- Full-width horizontal divider: mobile only -->
 			<div class="footer-divider-h"></div>
 
-			<!-- Link columns wrapper: flex row on mobile, display:contents on desktop -->
+			<!-- Link columns: Developers + Community (3 columns on desktop with brand) -->
 			<div class="footer-links-row">
-				<!-- Discover -->
-				<div class="footer-link-col">
-					<h3 class="font-semibold text-base text-foreground mb-4">Discover</h3>
-					<ul class="space-y-3">
-						<li>
-							<a
-								href="/apps"
-								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-								>Apps</a
-							>
-						</li>
-						<li>
-							<a
-								href="/stacks"
-								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-								>Stacks</a
-							>
-						</li>
-					</ul>
-				</div>
-
-				<!-- Studio -->
+				<!-- Developers -->
 				<div class="footer-link-col footer-link-col-mid">
-					<h3 class="font-semibold text-base text-foreground mb-4">Studio</h3>
+					<h3 class="font-semibold text-base text-foreground mb-4">Developers</h3>
 					<ul class="space-y-3">
-						<li>
-							<a
-								href="/docs/publish"
-								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-								>Publish Apps</a
-							>
-						</li>
 						<li>
 							<a
 								href="/docs/publish"
 								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
 								>Docs</a
-							>
-						</li>
-						<li>
-							<a
-								href="/docs/faq"
-								class="text-sm text-muted-foreground hover:text-foreground transition-colors">FAQ</a
 							>
 						</li>
 						<li>
@@ -144,27 +111,16 @@
 					<ul class="space-y-3">
 						<li>
 							<a
+								href="/community/forum"
+								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+								>Forum</a
+							>
+						</li>
+						<li>
+							<a
 								href="/blog"
 								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
 								>Blog</a
-							>
-						</li>
-						<li>
-							<a
-								href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
-								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-								target="_blank"
-								rel="noopener noreferrer"
-								>User support <span class="hidden md:inline"> on Signal</span></a
-							>
-						</li>
-						<li>
-							<a
-								href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
-								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-								target="_blank"
-								rel="noopener noreferrer"
-								>Dev support <span class="hidden md:inline"> on Signal</span></a
 							>
 						</li>
 					</ul>
@@ -183,7 +139,7 @@
 	@media (min-width: 768px) {
 		.footer-inner {
 			display: grid;
-			grid-template-columns: repeat(4, 1fr);
+			grid-template-columns: repeat(3, 1fr);
 			gap: 2rem;
 			align-items: start;
 		}

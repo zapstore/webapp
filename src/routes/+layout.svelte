@@ -11,6 +11,7 @@ import { startLiveSubscriptions, stopLiveSubscriptions } from '$lib/nostr/servic
 import { evictOldEvents } from '$lib/nostr/dexie';
 import { IDB_NAME } from '$lib/config';
 import { setBackGoesHomeIfLandedFromOutside, clearBackGoesHome } from '$lib/utils/back.js';
+import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 import Header from '$lib/components/layout/Header.svelte';
 import Footer from '$lib/components/layout/Footer.svelte';
 import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
@@ -19,17 +20,20 @@ let { children } = $props();
 let online = $derived(isOnline());
 const path = $derived($page.url.pathname);
 let isClearingLocalData = $state(false);
-// Marketing pages show the footer
+// Marketing pages show the footer; studio when logged in has no footer
+const isStudio = $derived(path === '/studio' || path.startsWith('/studio/'));
+const isLoggedInStudio = $derived(isStudio && getCurrentPubkey() !== null);
 let showFooter = $derived(
-	path === '/' ||
-	path === '/apps' ||
-	path === '/studio' ||
-	path.startsWith('/studio/') ||
-	path === '/blog' ||
-	path.startsWith('/blog/') ||
-	path === '/docs' ||
-	path.startsWith('/docs/') ||
-	path === '/terms'
+	(path === '/' ||
+		path === '/apps' ||
+		path === '/studio' ||
+		path.startsWith('/studio/') ||
+		path === '/blog' ||
+		path.startsWith('/blog/') ||
+		path === '/docs' ||
+		path.startsWith('/docs/') ||
+		path === '/terms') &&
+		!isLoggedInStudio
 );
 onMount(() => {
     if (browser) {

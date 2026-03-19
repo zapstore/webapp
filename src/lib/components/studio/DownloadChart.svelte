@@ -276,11 +276,27 @@
 
 		<!-- Per-app lines — only when multiple apps (single app = total line already represents it) -->
 		{#if apps.length > 1}
-			{#each chart.appPaths as path, i (i)}
-				{@const lineColor = appColors?.[i] ?? 'rgba(255,255,255,0.16)'}
-				{@const lineWidth = appColors ? '2' : '1.4'}
-				<path d={path} stroke={lineColor} stroke-width={lineWidth} fill="none" />
-			{/each}
+			{#if appColors}
+				<!-- Glow + crisp line per app (same line+glow style as insights section) -->
+				{#each chart.appPaths as path, i (i)}
+					{@const lineColor = appColors[i] ?? dotColor}
+					<path
+						d={path}
+						stroke={lineColor}
+						stroke-width="6"
+						fill="none"
+						filter="url(#{chartId}-glow)"
+						opacity={glowOpacity}
+					/>
+					<path d={path} stroke={lineColor} stroke-width="2.8" fill="none" />
+				{/each}
+			{:else}
+				{#each chart.appPaths as path, i (i)}
+					{@const lineColor = appColors?.[i] ?? 'rgba(255,255,255,0.16)'}
+					{@const lineWidth = appColors ? '2' : '1.4'}
+					<path d={path} stroke={lineColor} stroke-width={lineWidth} fill="none" />
+				{/each}
+			{/if}
 		{/if}
 
 		<!-- Total line glow + crisp — hidden when hideTotalLine -->
