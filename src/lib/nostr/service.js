@@ -618,14 +618,19 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 	let rootKind;
 	let tags;
 
-	// Root scope: one tag only — E (event id) or A (address). Parent scope uses lowercase e/a later.
+	// Root scope: uppercase tags (E/A, K, P) plus lowercase duplicates (e/a, k, p) per NIP-22.
+	// Other clients filter on lowercase tags, so both are required for interoperability.
 	if (isNonReplaceable) {
 		rootKind = target.kind ?? 11;
 		const eId = target.id.trim().toLowerCase();
+		const pubkey = target.pubkey.trim().toLowerCase();
 		tags = [
 			['E', eId],
+			['e', eId],
 			['K', String(rootKind)],
-			['P', target.pubkey.trim().toLowerCase()]
+			['k', String(rootKind)],
+			['P', pubkey],
+			['p', pubkey]
 		];
 	} else {
 		const kind = 32267;
@@ -635,10 +640,14 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 			: `${stackKind}:${target.pubkey}:${target.identifier}`;
 
 		rootKind = target.contentType === 'app' ? kind : stackKind;
+		const pubkey = target.pubkey.trim().toLowerCase();
 		tags = [
 			['A', aTagValue],
+			['a', aTagValue],
 			['K', String(rootKind)],
-			['P', target.pubkey.trim().toLowerCase()]
+			['k', String(rootKind)],
+			['P', pubkey],
+			['p', pubkey]
 		];
 	}
 
