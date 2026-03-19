@@ -351,9 +351,10 @@ async function warmUp() {
 			}, WARMUP_TIMEOUT_MS),
 
 			// Releases — server-side only, used for ranking apps by latest release
-			// limit < 100 required to pass relay specificity scoring
+			// since: 90 days ago raises relay specificity score to 3
 			queryRelaysRaw([CATALOG_RELAY], {
 				kinds: [EVENT_KINDS.RELEASE],
+				since: Math.floor(Date.now() / 1000) - 90 * 86400,
 				limit: 99
 			}, WARMUP_TIMEOUT_MS),
 		]);

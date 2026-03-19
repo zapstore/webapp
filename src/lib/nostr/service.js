@@ -101,9 +101,9 @@ export function startLiveSubscriptions() {
 		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: APPS_POLL_LIMIT }, { ...subParams, id: subId('apps') })
 	);
 	// Releases: needed for app detail pages + liveQuery reactivity
-	// limit < 100 required to pass relay specificity scoring (kinds + limit < 100 = 2 points)
+	// since:now — live sub only needs future events; also raises relay specificity score to 3
 	activeSubscriptions.push(
-		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.RELEASE], limit: 50 }, { ...subParams, id: subId('releases') })
+		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.RELEASE], since: Math.floor(Date.now() / 1000), limit: 50 }, { ...subParams, id: subId('releases') })
 	);
 	// Stacks
 	activeSubscriptions.push(
@@ -314,9 +314,9 @@ export async function fetchReleasesFromRelays(relayUrls, options = {}) {
 	if (signal?.aborted) return [];
 	const filter = {
 		kinds: [30063],
+		until: until != null && !isNaN(until) ? Number(until) : Math.floor(Date.now() / 1000),
 		limit
 	};
-	if (until != null && !isNaN(until)) filter.until = Number(until);
 	return fetchFromRelays(relayUrls, filter, { timeout, signal, feature: 'releases' });
 }
 
