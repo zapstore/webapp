@@ -437,7 +437,18 @@ export function createEmojiSearch(userPubkey = null) {
     function getCount() {
         return emojis.size;
     }
-    return { init, search, addEmoji, addUserEmojiList, addEmojiSet, getCount };
+    /**
+     * Return all loaded custom (non-unicode) emojis after init.
+     */
+    async function getCustom() {
+        await init();
+        const result = [];
+        for (const emoji of emojis.values()) {
+            if (emoji.source !== 'unicode') result.push(emoji);
+        }
+        return result;
+    }
+    return { init, search, addEmoji, addUserEmojiList, addEmojiSet, getCount, getCustom };
 }
 // Cache for emoji search instances per user
 const emojiSearchCache = new Map();

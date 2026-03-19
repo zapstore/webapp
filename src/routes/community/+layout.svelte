@@ -9,13 +9,13 @@
 
 	const SECTIONS = [
 		{ id: 'forum', label: 'Forum', icon: '/images/emoji/forum.png', href: '/community/forum' },
-		{ id: 'blog', label: 'Blog', icon: '/images/emoji/article.png', href: '/blog' },
+		{ id: 'blog', label: 'Blog', icon: '/images/emoji/article.png', href: '/community/blog' },
 		{ id: 'activity', label: 'Activity', icon: '/images/emoji/activity.png', href: '/community/activity' }
 	];
 
 	const path = $derived($page.url.pathname);
 	const activeSection = $derived(
-		path.startsWith('/community/forum') ? 'forum' : path.startsWith('/community/activity') ? 'activity' : 'blog'
+		path.startsWith('/community/forum') ? 'forum' : path.startsWith('/community/blog') ? 'blog' : path.startsWith('/community/activity') ? 'activity' : 'forum'
 	);
 	const activeSectionLabel = $derived(SECTIONS.find((s) => s.id === activeSection)?.label ?? 'Forum');
 
