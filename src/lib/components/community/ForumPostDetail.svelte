@@ -18,8 +18,6 @@ import {
 	publishComment
 } from '$lib/nostr';
 import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB } from '$lib/config';
-import { tokenizeNostrMarkdown } from '$lib/utils/markdown';
-import MarkdownBody from '$lib/components/common/MarkdownBody.svelte';
 import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
@@ -27,6 +25,8 @@ import DetailHeader from '$lib/components/layout/DetailHeader.svelte';
 import SocialTabs from '$lib/components/social/SocialTabs.svelte';
 import BottomBar from '$lib/components/social/BottomBar.svelte';
 import EmptyState from '$lib/components/common/EmptyState.svelte';
+import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
+import MediaLightboxModal from '$lib/components/modals/MediaLightboxModal.svelte';
 
 let {
 	post: postProp = null,
@@ -53,6 +53,9 @@ let isTruncated = $state(false);
 /** @type {Array<{ label: string, pubkeys: string[] }>} */
 let labelEntries = $state([]);
 let labelsLoading = $state(false);
+let lightboxOpen = $state(false);
+let lightboxUrls = $state([]);
+let lightboxIndex = $state(0);
 
 const npub = $derived(post?.pubkey ? (() => { try { return nip19.npubEncode(post.pubkey); } catch { return ''; } })() : '');
 const postNevent = $derived(post?.id ? (() => { try { return nip19.neventEncode({ id: post.id }); } catch { return ''; } })() : '');
@@ -67,13 +70,10 @@ const communityPubkey = $derived((() => {
 	} catch { return ''; }
 })());
 const catalogs = $derived(communityPubkey ? [{ name: 'Zapstore', pictureUrl: undefined, pubkey: communityPubkey }] : []);
-const postEmojiMap = $derived(Object.fromEntries(
-	(rawPostEvent?.tags ?? [])
+const postEmojiTags = $derived(
+	post?.emojiTags ?? (rawPostEvent?.tags ?? [])
 		.filter((t) => t[0] === 'emoji' && t[1] && t[2])
-		.map((t) => [t[1], t[2]])
-));
-const descriptionTokens = $derived(
-	post?.content ? tokenizeNostrMarkdown(post.content, { emojiMap: postEmojiMap }) : []
+		.map((t) => ({ shortcode: t[1], url: t[2] }))
 );
 
 $effect(() => {
@@ -260,7 +260,8 @@ async function handleCommentSubmit(e) {
 			e.replyToPubkey ?? post.pubkey,
 			e.parentId ? 1111 : EVENT_KINDS.FORUM_POST,
 			e.mentions ?? [],
-			relays
+			relays,
+			e.mediaUrls ?? []
 		);
 		const parsed = parseComment(signed);
 		parsed.npub = nip19.npubEncode(signed.pubkey);
@@ -331,7 +332,18 @@ function checkTruncation(node) {
 				<h1 class="post-title">{post.title}</h1>
 				<div class="description-container" class:expanded={descriptionExpanded}>
 					<div class="post-description" use:checkTruncation>
-						<MarkdownBody tokens={descriptionTokens} />
+						<ShortTextContent
+							content={post.content ?? ''}
+							emojiTags={postEmojiTags}
+							mediaUrls={post.mediaUrls ?? []}
+							onMediaClick={({ url: u, urls: list }) => {
+								const urls = list?.length ? list : (post.mediaUrls ?? []);
+								lightboxUrls = urls;
+								lightboxIndex = Math.max(0, urls.indexOf(u));
+								lightboxOpen = true;
+							}}
+							class="post-detail-body"
+						/>
 					</div>
 					{#if isTruncated && !descriptionExpanded}
 						<div class="description-fade" aria-hidden="true"></div>
@@ -406,6 +418,8 @@ function checkTruncation(node) {
 	{/if}
 </div>
 
+<MediaLightboxModal bind:isOpen={lightboxOpen} urls={lightboxUrls} initialIndex={lightboxIndex} />
+
 <style>
 	.forum-post-detail {
 		display: flex;
@@ -441,7 +455,7 @@ function checkTruncation(node) {
 		margin-bottom: 0.5rem;
 	}
 	.description-container:not(.expanded) .post-description {
-		max-height: 280px;
+		max-height: 420px;
 		overflow: hidden;
 	}
 	.description-container.expanded .post-description {
@@ -494,16 +508,25 @@ function checkTruncation(node) {
 	.show-less-btn {
 		display: inline-flex;
 		margin-top: 8px;
-		padding: 0;
-		background: none;
+		height: 32px;
+		padding: 0 14px;
+		background-color: hsl(var(--white8));
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
 		border: none;
+		border-radius: 9999px;
 		font-size: 0.875rem;
 		font-weight: 500;
 		color: hsl(var(--white66));
 		cursor: pointer;
+		transition: transform 0.15s ease;
 	}
 	.show-less-btn:hover {
 		color: hsl(var(--foreground));
+		transform: scale(1.025);
+	}
+	.show-less-btn:active {
+		transform: scale(0.98);
 	}
 	.social-tabs-wrap {
 		margin-top: 16px;

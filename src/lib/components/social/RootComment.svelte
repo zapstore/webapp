@@ -9,16 +9,26 @@ import ZapBubble from "./ZapBubble.svelte";
 import ThreadZap from "./ThreadZap.svelte";
 import QuotedMessage from "./QuotedMessage.svelte";
 import CommentActionsModal from "./CommentActionsModal.svelte";
-import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
+import ShortTextContent from "$lib/components/common/ShortTextContent.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import Modal from "$lib/components/common/Modal.svelte";
+import MediaLightboxModal from "$lib/components/modals/MediaLightboxModal.svelte";
 import InputButton from "$lib/components/common/InputButton.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import ZapSliderModal from "$lib/components/modals/ZapSliderModal.svelte";
 import { Zap, Reply, Options } from "$lib/components/icons";
 import { getIsSignedIn } from "$lib/stores/auth.svelte.js";
-let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], onReplySubmit, onZapReceived, onGetStarted, /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
+let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], /** @type {string[]} */ mediaUrls = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], onReplySubmit, onZapReceived, onGetStarted, /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
     openThreadOnMount = false, } = $props();
+let lightboxOpen = $state(false);
+let lightboxUrls = $state([]);
+let lightboxIndex = $state(0);
+function openLightbox(url, _type, urls) {
+    const list = urls?.length ? urls : [url];
+    lightboxUrls = list;
+    lightboxIndex = Math.max(0, list.indexOf(url));
+    lightboxOpen = true;
+}
 let modalOpen = $state(false);
 let zapModalOpen = $state(false);
 let commentExpanded = $state(false);
@@ -300,11 +310,13 @@ function handleOptions() {
       {pending}
       {outgoing}
     >
-      {#if content !== undefined && content !== null}
-        <ShortTextRenderer
-          content={content}
-          emojiTags={emojiTags}
-          resolveMentionLabel={resolveMentionLabel}
+      {#if (content != null && content !== undefined) || (mediaUrls?.length ?? 0) > 0}
+        <ShortTextContent
+          content={content ?? ''}
+          emojiTags={emojiTags ?? []}
+          mediaUrls={mediaUrls ?? []}
+          {resolveMentionLabel}
+          onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
           class="root-comment-body"
         />
       {:else}
@@ -393,11 +405,13 @@ function handleOptions() {
               {loading}
               {pending}
             >
-              {#if content !== undefined && content !== null}
-                <ShortTextRenderer
-                  content={content}
-                  emojiTags={emojiTags}
-                  resolveMentionLabel={resolveMentionLabel}
+              {#if content !== undefined && content !== null || (mediaUrls?.length ?? 0) > 0}
+                <ShortTextContent
+                  content={content ?? ''}
+                  emojiTags={emojiTags ?? []}
+                  mediaUrls={mediaUrls ?? []}
+                  {resolveMentionLabel}
+                  onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
                   class="root-comment-body"
                 />
               {:else}
@@ -435,14 +449,19 @@ function handleOptions() {
                   <QuotedMessage
                     authorName={quotedParent.displayName || "Anonymous"}
                     authorPubkey={quotedParent.pubkey}
-                    contentPreview={getContentPreview(quotedParent)}
+                    content={quotedParent.content ?? ""}
+                    emojiTags={quotedParent.emojiTags ?? []}
+                    mediaUrls={quotedParent.mediaUrls ?? []}
+                    resolveMentionLabel={resolveMentionLabel}
                   />
                 {/if}
-                {#if reply.content !== undefined && reply.content !== null}
-                  <ShortTextRenderer
-                    content={reply.content}
+                {#if reply.content !== undefined && reply.content !== null || (reply.mediaUrls?.length ?? 0) > 0}
+                  <ShortTextContent
+                    content={reply.content ?? ''}
                     emojiTags={reply.emojiTags ?? []}
-                    resolveMentionLabel={resolveMentionLabel}
+                    mediaUrls={reply.mediaUrls ?? []}
+                    {resolveMentionLabel}
+                    onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
                     class="reply-comment-body"
                   />
                 {:else}
@@ -536,7 +555,10 @@ function handleOptions() {
                     <QuotedMessage
                       authorName={replyingToComment.displayName || "Anonymous"}
                       authorPubkey={replyingToComment.pubkey}
-                      contentPreview={getContentPreview(replyingToComment)}
+                      content={replyingToComment.content ?? ""}
+                      emojiTags={replyingToComment.emojiTags ?? []}
+                      mediaUrls={replyingToComment.mediaUrls ?? []}
+                      resolveMentionLabel={resolveMentionLabel}
                     />
                   {/if}
                 {/snippet}
@@ -570,6 +592,8 @@ function handleOptions() {
   onclose={handleZapClose}
   onzapReceived={handleZapReceived}
 />
+
+<MediaLightboxModal bind:isOpen={lightboxOpen} urls={lightboxUrls} initialIndex={lightboxIndex} />
 
 <style>
   .root-comment {

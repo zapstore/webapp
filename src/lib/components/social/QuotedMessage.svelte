@@ -1,12 +1,24 @@
 <script lang="js">
 /**
  * QuotedMessage - Compact quote block for displaying inside message bubbles.
- * Used when a comment is a reply to another comment in the thread.
- * Left border (2.8px) in quoted author's profile color; two rows: name (in profile color), one-line content with ellipsis.
+ * One-line content: use ShortTextPreview (content + emojiTags + mediaUrls) when provided, else plain contentPreview string.
  */
 import { onMount } from "svelte";
-import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString, } from "$lib/utils/color.js";
-let { authorName = "Anonymous", authorPubkey = null, contentPreview = "", maxPreviewLength = 80, } = $props();
+import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString } from "$lib/utils/color.js";
+import ShortTextPreview from "$lib/components/common/ShortTextPreview.svelte";
+let {
+	authorName = "Anonymous",
+	authorPubkey = null,
+	/** Legacy: plain string preview when rich props not used */
+	contentPreview = "",
+	maxPreviewLength = 80,
+	/** Rich one-line: same short format as ShortTextContent (emoji at 66%, "Image"/"Video" chips) */
+	content = undefined,
+	emojiTags = [],
+	mediaUrls = [],
+	resolveMentionLabel = null,
+} = $props();
+const useRichPreview = $derived(content != null && content !== undefined);
 function getProfileColor(pk, nm) {
     if (pk && pk.trim()) {
         return hexToColor(pk);
@@ -43,7 +55,18 @@ onMount(() => {
       {authorName}
     </div>
     <div class="quoted-content">
-      {trimmedPreview || " "}
+      {#if useRichPreview}
+        <ShortTextPreview
+          content={content ?? ""}
+          emojiTags={emojiTags ?? []}
+          mediaUrls={mediaUrls ?? []}
+          {resolveMentionLabel}
+          maxLines={1}
+          class="quoted-preview"
+        />
+      {:else}
+        {trimmedPreview || " "}
+      {/if}
     </div>
   </div>
 </div>

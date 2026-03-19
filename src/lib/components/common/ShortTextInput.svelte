@@ -10,6 +10,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Suggestion from "@tiptap/suggestion";
 import tippy from "tippy.js";
 import "tippy.js/dist/tippy.css";
+import { MediaBlockExtension } from "$lib/tiptap/media-block.js";
 import { hexToColor, rgbToCssString, getProfileTextColor } from "$lib/utils/color.js";
 import * as nip19 from "nostr-tools/nip19";
 import { Camera, EmojiFill, Plus, Send, ChevronDown, Cross } from "$lib/components/icons";
@@ -530,56 +531,64 @@ function getContent() {
 }
 function getSerializedContent() {
     if (!editor)
-        return { text: "", emojiTags: [], mentions: [] };
-    let text = "";
+        return { text: "", emojiTags: [], mentions: [], mediaUrls: [] };
     const emojiTags = [];
     const mentions = [];
+    const mediaUrls = [];
     const seenEmojis = new Set();
-    function collectFromNode(node) {
-        if (node.type === "text") {
-            text += node.text ?? "";
-            return;
-        }
-        if (node.type === "hardBreak") {
-            text += "\n";
-            return;
-        }
-        if (node.type === "mention") {
+    function textFromNode(node) {
+        let out = "";
+        const name = node.type?.name;
+        if (name === "text")
+            return node.text ?? "";
+        if (name === "hardBreak")
+            return "\n";
+        if (name === "mention") {
             const pubkey = node.attrs?.id;
             if (pubkey) {
                 mentions.push(pubkey);
                 try {
-                    text += `nostr:${nip19.npubEncode(pubkey)}`;
-                }
-                catch {
-                    text += `@${node.attrs?.label ?? "unknown"}`;
+                    return `nostr:${nip19.npubEncode(pubkey)}`;
+                } catch {
+                    return `@${node.attrs?.label ?? "unknown"}`;
                 }
             }
-            return;
+            return "";
         }
-        if (node.type === "emoji") {
+        if (name === "emoji") {
             const { id, url, source } = (node.attrs ?? {});
-            if (source === "unicode" && url)
-                text += url;
-            else if (id) {
-                text += `:${id}:`;
+            if (source === "unicode" && url) return url;
+            if (id) {
                 if (url && !seenEmojis.has(id)) {
                     seenEmojis.add(id);
                     emojiTags.push({ shortcode: id, url });
                 }
+                return `:${id}:`;
             }
-            return;
+            return "";
         }
-        // Recurse into content so we don't miss emoji in any block structure
-        const content = node.content;
-        content?.forEach((child) => collectFromNode(child));
+        if (node.content) {
+            for (let i = 0; i < node.content.childCount; i++)
+                out += textFromNode(node.content.child(i));
+        }
+        return out;
     }
-    const json = editor.getJSON();
-    json.content?.forEach((block) => {
-        block.content?.forEach((child) => collectFromNode(child));
-        text += "\n";
-    });
-    return { text: text.trim(), emojiTags, mentions };
+    const doc = editor.state.doc;
+    const parts = [];
+    for (let i = 0; i < doc.childCount; i++) {
+        const node = doc.child(i);
+        if (node.type.name === "mediaBlock") {
+            if (node.attrs?.url) {
+                mediaUrls.push(node.attrs.url);
+                parts.push("\n" + node.attrs.url + "\n");
+            } else
+                parts.push("\n");
+        } else if (node.type.name === "paragraph" || node.type.name === "blockquote") {
+            parts.push(textFromNode(node) + "\n");
+        }
+    }
+    const text = parts.join("").trim();
+    return { text, emojiTags, mentions, mediaUrls };
 }
 function clearContent() {
     editor?.commands.clearContent();
@@ -658,6 +667,7 @@ onMount(() => {
                 renderLabel: ({ node }) => `@${node.attrs.label}`,
             }),
             createEmojiExtension(getSearchEmojis),
+            MediaBlockExtension,
         ],
         editorProps: {
             attributes: { class: "short-text-editor-content" },
@@ -706,6 +716,50 @@ export function insertEmoji(shortcode, url, source) {
         ]).run();
     }
 }
+
+/** Insert a block-level media placeholder (pending), then new paragraph so user can type immediately. Returns the node id. */
+export function insertMediaBlock(attrs) {
+    if (!editor) return null;
+    const id = `media-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    editor.commands.focus();
+    editor.chain().focus().insertContent([
+        { type: 'mediaBlock', attrs: { id, pending: true, placeholderUrl: attrs.placeholderUrl ?? null, type: attrs.type ?? 'image' } },
+        { type: 'paragraph', content: [] },
+    ]).run();
+    return id;
+}
+
+/** Update a mediaBlock node by id (e.g. set url and pending: false after upload). */
+export function setMediaBlockUrl(id, url) {
+    if (!editor || !id || !url) return;
+    const { state } = editor;
+    const { doc, tr } = state;
+    let updated = false;
+    doc.descendants((node, pos) => {
+        if (node.type.name === 'mediaBlock' && node.attrs.id === id) {
+            tr.setNodeMarkup(pos, null, { ...node.attrs, url, pending: false, placeholderUrl: null });
+            updated = true;
+            return false;
+        }
+    });
+    if (updated)
+        editor.view.dispatch(tr);
+}
+
+/** Remove a mediaBlock node by id (e.g. after failed upload). */
+export function deleteMediaBlock(id) {
+    if (!editor || !id) return;
+    const { state } = editor;
+    const { doc, tr } = state;
+    doc.descendants((node, pos) => {
+        if (node.type.name === 'mediaBlock' && node.attrs.id === id) {
+            tr.delete(pos, pos + node.nodeSize);
+            return false;
+        }
+    });
+    editor.view.dispatch(tr);
+}
+
 export { getContent, getSerializedContent, isEmpty };
 </script>
 
@@ -810,6 +864,79 @@ export { getContent, getSerializedContent, isEmpty };
   }
   .editor-container.has-close .editor-mount {
     padding-right: 36px;
+  }
+  /* Block-level media in editor: 2/3 of renderer sizes (54–160px height, 54–200px width); hug image; cross button top-right */
+  :global(.media-block-editor) {
+    position: relative;
+    margin: 6px 0;
+    display: inline-block;
+    min-width: 54px;
+    min-height: 54px;
+    max-width: 200px;
+    max-height: 160px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 0.33px solid hsl(var(--white16));
+    background: hsl(var(--gray33));
+  }
+  :global(.media-block-editor-remove) {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: hsl(var(--gray33));
+    color: hsl(var(--white));
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  :global(.media-block-editor-remove:hover) {
+    background: hsl(var(--gray44));
+  }
+  :global(.media-block-editor-remove svg) {
+    width: 12px;
+    height: 12px;
+  }
+  :global(.media-block-editor-pending) {
+    opacity: 0.33;
+  }
+  :global(.media-block-editor-pending .media-block-editor-inner) {
+    position: relative;
+  }
+  :global(.media-block-editor-spinner) {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: hsl(var(--black) / 0.2);
+    color: hsl(var(--white66));
+  }
+  :global(.media-block-editor-spinner svg) {
+    animation: media-block-spin 0.8s linear infinite;
+  }
+  @keyframes media-block-spin {
+    to { transform: rotate(360deg); }
+  }
+  :global(.media-block-editor-inner) {
+    position: relative;
+    min-height: 54px;
+    display: block;
+  }
+  :global(.media-block-editor-preview),
+  :global(.media-block-editor-element) {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
   }
   .inline-close-btn {
     position: absolute;

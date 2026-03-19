@@ -1,8 +1,8 @@
 <script lang="js">
 /**
  * ForumPostModal - Bottom sheet for creating a new forum post.
- * Title input + rich content editor inside a black33/white33 bordered container,
- * with a camera/emoji/gif/+ action row and a "Next" button.
+ * Title input + rich content editor (WYSIWYG) with block-level media like custom emoji.
+ * Camera: pick file → placeholder appears in editor (spinner + 33% opacity) → upload → placeholder becomes image/video.
  */
 import { fly, fade } from 'svelte/transition';
 import { cubicOut } from 'svelte/easing';
@@ -12,6 +12,7 @@ import ForumPostLabelsModal from '$lib/components/modals/ForumPostLabelsModal.sv
 import { Camera, EmojiFill, Plus } from '$lib/components/icons';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search';
 import { createSearchProfilesFunction } from '$lib/services/profile-search';
+import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from '$lib/services/upload-nostr-build';
 
 let {
 	isOpen = $bindable(false),
@@ -19,6 +20,8 @@ let {
 	getCurrentPubkey = () => null,
 	searchProfiles: searchProfilesProp = null,
 	searchEmojis: searchEmojisProp = null,
+	/** NIP-07 signEvent — required for media upload */
+	signEvent = null,
 	onsubmit,
 	onclose
 } = $props();
@@ -37,6 +40,9 @@ let emojiPickerOpen = $state(false);
 let labelsModalOpen = $state(false);
 /** @type {string[]} */
 let selectedLabels = $state([]);
+/** @type {HTMLInputElement | null} */
+let fileInputEl = $state(null);
+let mediaUploading = $state(false);
 
 function handleEmojiTap() {
 	emojiPickerOpen = true;
@@ -60,18 +66,52 @@ function handleLabelsTap() {
 	labelsModalOpen = true;
 }
 
+function handleCameraTap() {
+	fileInputEl?.click();
+}
+
+async function handleFileChange(e) {
+	const files = /** @type {HTMLInputElement} */ (e.target).files;
+	if (!files?.length || !signEvent || !contentInput) return;
+	mediaUploading = true;
+	error = '';
+	const inputEl = /** @type {HTMLInputElement} */ (e.target);
+	for (let i = 0; i < files.length; i++) {
+		const file = files[i];
+		const type = file.type.startsWith('video') ? 'video' : 'image';
+		const placeholderUrl = URL.createObjectURL(file);
+		const id = contentInput.insertMediaBlock?.({ placeholderUrl, type });
+		if (!id) {
+			URL.revokeObjectURL(placeholderUrl);
+			continue;
+		}
+		try {
+			const url = await uploadFileToNostrBuild(file, signEvent);
+			contentInput.setMediaBlockUrl?.(id, url);
+		} catch (err) {
+			console.error('Media upload failed:', err);
+			contentInput.deleteMediaBlock?.(id);
+			error = /** @type {Error} */ (err)?.message ?? 'Upload failed';
+		}
+		URL.revokeObjectURL(placeholderUrl);
+	}
+	mediaUploading = false;
+	inputEl.value = '';
+}
+
 async function handlePublish() {
 	if (!titleValue.trim() || submitting) return;
 	submitting = true;
 	error = '';
 	try {
-		const serialized = contentInput?.getSerializedContent?.() ?? { text: '', emojiTags: [], mentions: [] };
+		const serialized = contentInput?.getSerializedContent?.() ?? { text: '', emojiTags: [], mentions: [], mediaUrls: [] };
 		await onsubmit?.({
 			title: titleValue.trim(),
 			text: serialized.text ?? '',
 			emojiTags: serialized.emojiTags ?? [],
 			mentions: serialized.mentions ?? [],
-			labels: selectedLabels
+			labels: selectedLabels,
+			mediaUrls: serialized.mediaUrls ?? []
 		});
 		titleValue = '';
 		contentInput?.clear?.();
@@ -135,9 +175,25 @@ $effect(() => {
 						aboveEditor={undefined}
 					/>
 				</div>
+				<input
+					type="file"
+					accept={ACCEPTED_MEDIA_TYPES}
+					multiple
+					class="post-file-input"
+					bind:this={fileInputEl}
+					onchange={handleFileChange}
+					aria-hidden="true"
+					tabindex="-1"
+				/>
 				<div class="post-action-row">
 				<div class="action-buttons-left">
-					<button type="button" class="action-btn" aria-label="Add photo" onclick={() => {}}>
+					<button
+						type="button"
+						class="action-btn"
+						aria-label="Add photo or video"
+						onclick={handleCameraTap}
+						disabled={!signEvent || mediaUploading}
+					>
 						<Camera variant="fill" color="hsl(var(--white33))" size={20} />
 					</button>
 				<button type="button" class="action-btn" aria-label="Add emoji" onclick={handleEmojiTap}>
@@ -303,6 +359,14 @@ $effect(() => {
 
 	.post-content-area {
 		min-height: 200px;
+	}
+
+	.post-file-input {
+		position: absolute;
+		width: 0;
+		height: 0;
+		opacity: 0;
+		pointer-events: none;
 	}
 
 	.post-action-row {

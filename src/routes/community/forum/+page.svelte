@@ -291,11 +291,14 @@
 		if (nevent) goto(`/community/forum/${nevent}`);
 	}
 
-	async function handleForumPostSubmit({ title, text, labels = [], emojiTags = [] }) {
+	async function handleForumPostSubmit({ title, text, labels = [], emojiTags = [], mediaUrls = [] }) {
 		if (!isSignedIn) throw new Error('Sign in to post');
 		const emojiTagEntries = (Array.isArray(emojiTags) ? emojiTags : [])
 			.filter((e) => e?.shortcode && e?.url)
 			.map((e) => ['emoji', e.shortcode, e.url]);
+		const mediaTags = (Array.isArray(mediaUrls) ? mediaUrls : [])
+			.filter((u) => typeof u === 'string' && u.trim())
+			.map((u) => ['media', u.trim()]);
 		const ev = await signEvent({
 			kind: EVENT_KINDS.FORUM_POST,
 			content: text,
@@ -303,7 +306,8 @@
 				['h', COMMUNITY_PUBKEY],
 				['title', title],
 				...labels.map((l) => ['t', l]),
-				...emojiTagEntries
+				...emojiTagEntries,
+				...mediaTags
 			],
 			created_at: Math.floor(Date.now() / 1000)
 		});
@@ -407,14 +411,6 @@
 			{#each filteredPosts as post (post.id)}
 				{@const authorProfile = feedProfiles.get(post.pubkey)}
 				{@const postCommenters = commentersByPostId.get(post.id)}
-				{@const rawEv = post._raw}
-				{@const emojiMap = rawEv?.tags
-					? Object.fromEntries(
-							rawEv.tags
-								.filter((t) => t[0] === 'emoji' && t[1] && t[2])
-								.map((t) => [t[1], t[2]])
-						)
-					: {}}
 				<ForumPostCard
 					author={{
 						name: authorProfile?.displayName ?? authorProfile?.name,
@@ -431,7 +427,8 @@
 					content={post.content}
 					timestamp={post.createdAt}
 					labels={post.labels ?? []}
-					{emojiMap}
+					mediaUrls={post.mediaUrls ?? []}
+					emojiTags={post.emojiTags ?? []}
 					commenters={postCommenters?.profiles ?? []}
 					commentCount={postCommenters?.count ?? 0}
 					onClick={() => openPost(post)}
@@ -457,6 +454,7 @@
 	bind:isOpen={addPostModalOpen}
 	communityName="Zapstore"
 	{getCurrentPubkey}
+	{signEvent}
 	onsubmit={handleForumPostSubmit}
 	onclose={() => {
 		addPostModalOpen = false;

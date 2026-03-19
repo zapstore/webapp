@@ -412,6 +412,7 @@ const combinedFeed = $derived.by(() => {
                 authorPubkey={app?.pubkey}
                 content={item.content}
                 emojiTags={item.emojiTags}
+                mediaUrls={item.mediaUrls ?? []}
                 openThreadOnMount={item.id === openThreadRootId}
                 resolveMentionLabel={(pk) => profiles[pk]?.displayName ?? profiles[pk]?.name}
                 appIconUrl={app?.icon}

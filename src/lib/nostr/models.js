@@ -133,6 +133,10 @@ export function parseForumPost(event) {
 	const titleTag = event.tags.find((t) => t[0] === 'title');
 	const title = titleTag?.[1] ?? (event.content?.split('\n')[0]?.slice(0, 80) || 'Untitled');
 	const labels = event.tags.filter((t) => t[0] === 't' && t[1]).map((t) => t[1]);
+	const mediaUrls = event.tags.filter((t) => t[0] === 'media' && t[1]).map((t) => t[1]);
+	const emojiTags = event.tags
+		.filter((t) => t[0] === 'emoji' && t[1] && t[2])
+		.map((t) => ({ shortcode: t[1], url: t[2] }));
 	return {
 		id: event.id,
 		pubkey: event.pubkey,
@@ -141,6 +145,8 @@ export function parseForumPost(event) {
 		content: event.content || '',
 		createdAt: event.created_at,
 		labels: labels || [],
+		mediaUrls: mediaUrls || [],
+		emojiTags: emojiTags || [],
 		raw: event
 	};
 }

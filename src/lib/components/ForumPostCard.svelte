@@ -1,12 +1,12 @@
 <script lang="js">
 /**
- * Forum Post card — matches chateau-web layout: avatar column + content column,
- * optional reply row with ProfilePicStack.
+ * Forum Post card — avatar + content column, optional reply row.
+ * Content preview: one-line ShortTextPreview (same short format as comments).
  */
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import Label from '$lib/components/common/Label.svelte';
 import ProfilePicStack from '$lib/components/common/ProfilePicStack.svelte';
-import { renderNostrMarkdown } from '$lib/utils/markdown';
+import ShortTextPreview from '$lib/components/common/ShortTextPreview.svelte';
 
 let {
 	author = { name: '', picture: '', npub: '' },
@@ -14,13 +14,20 @@ let {
 	content = '',
 	timestamp = '',
 	labels = [],
-	/** @type {Record<string, string>} Custom emoji shortcode → URL map from post's emoji tags */
-	emojiMap = {},
+	/** @type {string[]} Media URLs (images/videos) from post event */
+	mediaUrls = [],
+	/** @type {{ shortcode: string, url: string }[]} From post's emoji tags (same as comments) */
+	emojiTags = [],
 	/** @type {{ pubkey: string; displayName?: string; avatarUrl?: string }[]} */
 	commenters = [],
 	commentCount = 0,
 	onClick = () => {}
 } = $props();
+
+function handleCardClick(e) {
+	if (/** @type {HTMLElement} */ (e.target).closest('[data-short-text-preview]')) return;
+	onClick();
+}
 
 const hasCommenters = $derived(commenters && commenters.length > 0);
 const displayName = $derived(
@@ -42,10 +49,6 @@ const stackText = $derived(
 				? `${commenters[0].displayName || 'Someone'} & ${commenters.length - 1} Others`
 				: ''
 );
-const contentHtml = $derived(
-	content ? renderNostrMarkdown(content, { emojiMap }) : ''
-);
-
 function formatDateTime(ts) {
 	if (ts == null || ts === '') return '';
 	const date = typeof ts === 'number' ? new Date(ts * 1000) : new Date(ts);
@@ -67,7 +70,7 @@ function formatDateTime(ts) {
 	class="forum-post-card"
 	role="button"
 	tabindex="0"
-	onclick={() => onClick()}
+	onclick={handleCardClick}
 	onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), onClick())}
 >
 	<div class="top-row">
@@ -92,9 +95,17 @@ function formatDateTime(ts) {
 			{#if title}
 				<h3 class="row post-title">{title}</h3>
 			{/if}
-			{#if content}
+			{#if content || (mediaUrls && mediaUrls.length > 0)}
 				<div class="row content-row">
-					<p class="post-content">{@html contentHtml}</p>
+					<div class="post-content">
+						<ShortTextPreview
+							content={content ?? ''}
+							emojiTags={emojiTags ?? []}
+							mediaUrls={mediaUrls ?? []}
+							maxLines={1}
+							class="post-preview"
+						/>
+					</div>
 				</div>
 			{/if}
 			{#if labels && labels.length > 0}
@@ -139,6 +150,7 @@ function formatDateTime(ts) {
 		</div>
 	{/if}
 </div>
+
 
 <style>
 	.forum-post-card {

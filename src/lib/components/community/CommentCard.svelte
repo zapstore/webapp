@@ -6,7 +6,7 @@
 import { nip19 } from 'nostr-tools';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import Timestamp from '$lib/components/common/Timestamp.svelte';
-import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
+import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
 import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
 import { getEventOneliner } from '$lib/nostr/models.js';
 import { hexToColor, getProfileTextColor, rgbToCssString } from '$lib/utils/color.js';
@@ -44,6 +44,10 @@ const emojiTags = $derived(
 	(event?.tags ?? [])
 		.filter((t) => t[0] === 'emoji' && t[1] && t[2])
 		.map((t) => ({ shortcode: t[1], url: t[2] }))
+);
+/** Media URLs from event 'media' tags (NIP-94 style) */
+const mediaUrls = $derived(
+	(event?.tags ?? []).filter((t) => t[0] === 'media' && t[1]).map((t) => t[1])
 );
 
 function formatNpub(pk) {
@@ -147,7 +151,12 @@ const contentText = $derived(event?.content ?? '');
 			{/if}
 
 			<div class="bubble-content">
-				<ShortTextRenderer content={contentText} {emojiTags} {resolveMentionLabel} />
+				<ShortTextContent
+					content={contentText}
+					{emojiTags}
+					mediaUrls={mediaUrls}
+					{resolveMentionLabel}
+				/>
 			</div>
 		</div>
 	</div>

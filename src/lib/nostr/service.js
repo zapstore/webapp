@@ -667,8 +667,9 @@ export function parseZapReceipt(event) {
  * @param {number} [parentKind] - Kind of parent (e.g. 1111 or 9735)
  * @param {string[]} [mentions] - Pubkeys mentioned in content (p tags for notifications)
  * @param {string[]} [relays] - Override relay URLs (default: SOCIAL_RELAYS)
+ * @param {string[]} [mediaUrls] - Media URLs (images/videos) as 'media' tags
  */
-export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions, relays) {
+export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions, relays, mediaUrls) {
 	if (!content?.trim()) throw new Error('Comment content is required');
 	if (!target?.pubkey?.trim()) throw new Error('Comment target pubkey is required');
 
@@ -742,6 +743,11 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 			seenP.add(normalized);
 			tags.push(['p', normalized]);
 		}
+	}
+
+	const mediaList = mediaUrls ?? [];
+	for (const u of mediaList) {
+		if (typeof u === 'string' && u.trim()) tags.push(['media', u.trim()]);
 	}
 
 	const template = {
@@ -1000,6 +1006,8 @@ export function parseComment(event) {
 		}
 	}
 
+	const mediaUrls = event.tags.filter((t) => t[0] === 'media' && t[1]).map((t) => t[1]);
+
 	const contentHtml = event.content
 		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')
@@ -1012,6 +1020,7 @@ export function parseComment(event) {
 		content: event.content,
 		contentHtml: `<p>${contentHtml}</p>`,
 		emojiTags,
+		mediaUrls: mediaUrls || [],
 		createdAt: event.created_at,
 		parentId,
 		isReply: parentId !== null

@@ -1,29 +1,68 @@
 <script lang="js">
 /**
- * CommentModal - Bottom sheet for writing a comment with TipTap (mentions + emojis).
- * Pass getCurrentPubkey so custom emoji packs (kind 10030, 30030) and profile lists (kind 3, 30000) load from Dexie.
+ * CommentModal - Bottom sheet for writing a comment (WYSIWYG with block-level media).
+ * Camera: pick file → placeholder in editor (spinner + 33% opacity) → upload → becomes image/video.
  */
 import { fly } from "svelte/transition";
 import { cubicOut } from "svelte/easing";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { createSearchProfilesFunction } from "$lib/services/profile-search";
-let { isOpen = $bindable(false), target = null, placeholder = "Write a comment...", getCurrentPubkey = () => null, searchProfiles: searchProfilesProp = null, searchEmojis: searchEmojisProp = null, onsubmit, onclose, } = $props();
+import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
+let { isOpen = $bindable(false), target = null, placeholder = "Write a comment...", getCurrentPubkey = () => null, searchProfiles: searchProfilesProp = null, searchEmojis: searchEmojisProp = null, signEvent = null, onsubmit, onclose, } = $props();
 const searchProfiles = $derived(searchProfilesProp ?? createSearchProfilesFunction(getCurrentPubkey));
 const searchEmojis = $derived(searchEmojisProp ?? createSearchEmojisFunction(getCurrentPubkey));
 let textInput = $state(null);
 let submitting = $state(false);
+/** @type {HTMLInputElement | null} */
+let fileInputEl = $state(null);
+let mediaUploading = $state(false);
 function close() {
     isOpen = false;
     onclose?.();
 }
+function handleCameraTap() {
+    fileInputEl?.click();
+}
+async function handleFileChange(e) {
+    const files = /** @type {HTMLInputElement} */ (e.target).files;
+    if (!files?.length || !signEvent || !textInput) return;
+    mediaUploading = true;
+    const inputEl = /** @type {HTMLInputElement} */ (e.target);
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const type = file.type.startsWith("video") ? "video" : "image";
+        const placeholderUrl = URL.createObjectURL(file);
+        const id = textInput.insertMediaBlock?.({ placeholderUrl, type });
+        if (!id) {
+            URL.revokeObjectURL(placeholderUrl);
+            continue;
+        }
+        try {
+            const url = await uploadFileToNostrBuild(file, signEvent);
+            textInput.setMediaBlockUrl?.(id, url);
+        } catch (err) {
+            console.error("Comment media upload failed:", err);
+            textInput.deleteMediaBlock?.(id);
+        }
+        URL.revokeObjectURL(placeholderUrl);
+    }
+    mediaUploading = false;
+    inputEl.value = "";
+}
 async function handleSubmit(event) {
-    if (submitting || !event.text.trim())
+    if (submitting || !event.text?.trim())
         return;
     submitting = true;
     try {
-        onsubmit?.({ text: event.text, emojiTags: event.emojiTags ?? [], mentions: event.mentions, target });
-        textInput?.clear();
+        onsubmit?.({
+            text: event.text ?? "",
+            emojiTags: event.emojiTags ?? [],
+            mentions: event.mentions ?? [],
+            mediaUrls: event.mediaUrls ?? [],
+            target
+        });
+        textInput?.clear?.();
         close();
     }
     catch (err) {
@@ -59,6 +98,16 @@ $effect(() => {
   >
     <div class="comment-sheet" transition:fly={{ y: 100, duration: 200, easing: cubicOut }}>
       <div class="input-container">
+        <input
+          type="file"
+          accept={ACCEPTED_MEDIA_TYPES}
+          multiple
+          class="comment-file-input"
+          bind:this={fileInputEl}
+          onchange={handleFileChange}
+          aria-hidden="true"
+          tabindex="-1"
+        />
         <ShortTextInput
           bind:this={textInput}
           {placeholder}
@@ -67,7 +116,7 @@ $effect(() => {
           {searchEmojis}
           autoFocus={true}
           showActionRow={true}
-          onCameraTap={() => {}}
+          onCameraTap={handleCameraTap}
           onEmojiTap={() => {}}
           onGifTap={() => {}}
           onAddTap={() => {}}
@@ -127,5 +176,12 @@ $effect(() => {
     border-radius: var(--radius-16);
     border: 0.33px solid hsl(var(--white33));
     width: 100%;
+  }
+  .comment-file-input {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
   }
 </style>
