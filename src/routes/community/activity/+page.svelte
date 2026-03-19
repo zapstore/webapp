@@ -15,7 +15,7 @@
 		liveQuery
 	} from '$lib/nostr';
 	import { parseProfile } from '$lib/nostr/models';
-	import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB, ZAPSTORE_COMMUNITY_RELAY, FORUM_RELAY_OVERRIDE } from '$lib/config';
+	import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB, FORUM_RELAY } from '$lib/config';
 	import { goto } from '$app/navigation';
 	import CommentCard from '$lib/components/community/CommentCard.svelte';
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
@@ -30,7 +30,7 @@
 		}
 	})();
 
-	const RELAYS = [FORUM_RELAY_OVERRIDE ?? ZAPSTORE_COMMUNITY_RELAY];
+	const RELAYS = [FORUM_RELAY];
 
 	const FORUM_FILTER = { kinds: [EVENT_KINDS.FORUM_POST], '#h': [COMMUNITY_PUBKEY], limit: 500 };
 
@@ -293,7 +293,7 @@
 	.activity-list {
 		display: flex;
 		flex-direction: column;
-		padding: 16px 0;
+		padding: 0 0 16px;
 	}
 
 	.activity-item {

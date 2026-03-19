@@ -1,7 +1,7 @@
 <script lang="js">
 	/**
 	 * Community Blog — same posts as /blog, displayed in the community right-hand content area.
-	 * Posts come from src/content/blog (same as main blog).
+	 * Card layout matches ForumPostCard: author + timestamp in one row, title in the next (no pic, no comments).
 	 */
 	import { formatDisplayDate } from '$lib/date';
 
@@ -16,38 +16,16 @@
 <div class="blog-page-wrap">
 	<div class="panel-content">
 		<div class="blog-list">
-			{#each data.posts as post, i (post.path)}
-				<article class="post-item group">
-					<a href="/community/blog/{post.path}" class="post-link">
-						<div class="post-content">
-							<div class="post-meta">
-								{#if post.meta.date}
-									<time datetime={post.meta.date} class="post-date">
-										{formatDisplayDate(post.meta.date)}
-									</time>
-								{/if}
-								{#if post.meta.draft}
-									<span class="badge badge-draft">Draft</span>
-								{/if}
-								{#if post.meta.category}
-									<span class="badge badge-category">{post.meta.category}</span>
-								{/if}
-							</div>
-
-							<h2 class="post-title">{post.meta.title}</h2>
-
-							{#if post.meta.description}
-								<p class="post-desc">{post.meta.description}</p>
-							{/if}
-
-							<span class="read-more">Read article</span>
-						</div>
-					</a>
-
-					{#if i < data.posts.length - 1}
-						<div class="post-divider"></div>
-					{/if}
-				</article>
+			{#each data.posts as post (post.path)}
+				<a href="/community/blog/{post.path}" class="blog-article-card">
+					<div class="row row-meta">
+						<span class="author-name">Zapstore</span>
+						{#if post.meta.date}
+							<time datetime={post.meta.date} class="timestamp">{formatDisplayDate(post.meta.date)}</time>
+						{/if}
+					</div>
+					<h3 class="row post-title">{post.meta.title}</h3>
+				</a>
 			{/each}
 		</div>
 	</div>
@@ -76,103 +54,67 @@
 		flex-direction: column;
 		padding: 0;
 		gap: 0;
-		max-width: 680px;
 	}
 
-	.post-item {
-		padding: 0;
-	}
-
-	.post-link {
-		display: block;
-		text-decoration: none;
-		padding: 24px 16px;
-		transition: background 0.15s ease;
-	}
-
-	.post-link:hover {
-		background: hsl(var(--white4));
-	}
-
-	.post-content {
+	.blog-article-card {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		align-items: stretch;
+		text-align: left;
+		background: transparent;
+		border: none;
+		border-radius: 0;
+		border-bottom: 1.4px solid hsl(var(--white11));
+		cursor: pointer;
+		padding: 16px;
+		gap: 5px;
+		text-decoration: none;
 	}
 
-	.post-meta {
+	.blog-article-card:focus {
+		outline: none;
+	}
+
+	.blog-article-card .row {
+		margin: 0;
+	}
+
+	.row-meta {
 		display: flex;
 		align-items: center;
-		gap: 10px;
-		font-size: 0.8125rem;
-		color: hsl(var(--white33));
+		justify-content: space-between;
+		gap: 8px;
 	}
 
-	.post-date {
-		color: hsl(var(--white33));
-	}
-
-	.badge {
-		padding: 2px 8px;
-		border-radius: 9999px;
-		font-size: 0.75rem;
-	}
-
-	.badge-draft {
-		background: rgba(245, 158, 11, 0.1);
-		color: rgb(251, 191, 36);
-		border: 1px solid rgba(245, 158, 11, 0.2);
+	.author-name {
 		font-weight: 500;
+		font-size: 0.9375rem;
+		color: hsl(var(--white66));
 	}
 
-	.badge-category {
-		background: hsl(var(--blurple) / 0.12);
-		color: hsl(var(--blurple-bright-0));
-		border: 1px solid hsl(var(--blurple) / 0.25);
+	.timestamp {
+		font-size: 0.75rem;
+		white-space: nowrap;
+		flex-shrink: 0;
+		color: hsl(var(--white33));
 	}
 
 	.post-title {
-		font-size: 1.25rem;
-		font-weight: 650;
-		color: hsl(var(--foreground));
-		margin: 0;
+		font-size: 1.1875rem;
+		font-weight: 600;
 		line-height: 1.3;
-		transition: color 0.15s ease;
-	}
-
-	@media (min-width: 768px) {
-		.post-title {
-			font-size: 1.5rem;
-		}
-	}
-
-	.post-item:global(.group):hover .post-title,
-	.post-link:hover .post-title {
-		color: hsl(var(--blurple-bright-0));
-	}
-
-	.post-desc {
-		font-size: 0.9375rem;
-		color: hsl(var(--white66));
-		line-height: 1.6;
+		color: hsl(var(--white));
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+		padding: 0;
 		margin: 0;
 	}
 
-	.read-more {
-		display: inline-block;
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: hsl(var(--white33));
-		transition: color 0.15s ease;
-	}
-
-	.post-link:hover .read-more {
+	.blog-article-card:hover .post-title,
+	.blog-article-card:focus .post-title {
 		color: hsl(var(--blurple-bright-0));
-	}
-
-	.post-divider {
-		height: 1px;
-		background: hsl(var(--white8));
-		margin: 0 16px;
 	}
 </style>

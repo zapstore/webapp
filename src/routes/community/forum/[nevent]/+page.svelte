@@ -8,12 +8,7 @@
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
 	import { queryEvent, fetchFromRelays, parseForumPost, putEvents } from '$lib/nostr';
-	import {
-		EVENT_KINDS,
-		ZAPSTORE_COMMUNITY_NPUB,
-		ZAPSTORE_COMMUNITY_RELAY,
-		FORUM_RELAY_OVERRIDE
-	} from '$lib/config';
+	import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB, FORUM_RELAY } from '$lib/config';
 	import ForumPostDetail from '$lib/components/community/ForumPostDetail.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 
@@ -39,7 +34,7 @@
 		}
 	})();
 
-	const RELAYS = [FORUM_RELAY_OVERRIDE ?? ZAPSTORE_COMMUNITY_RELAY];
+	const RELAYS = [FORUM_RELAY];
 
 	/** When set (from Activity ?comment=id), open the thread modal that contains this comment */
 	const openCommentId = $derived($page.url.searchParams.get('comment') ?? null);

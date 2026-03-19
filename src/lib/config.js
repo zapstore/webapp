@@ -48,9 +48,9 @@ export const EVENT_KINDS = {
 export const ZAPSTORE_COMMUNITY_NPUB = 'npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8';
 export const ZAPSTORE_COMMUNITY_RELAY = 'wss://relay.zapstore.dev';
 
-/** Forum relay override — set VITE_FORUM_RELAY_OVERRIDE in .env or leave null to use ZAPSTORE_COMMUNITY_RELAY. Forum posts and comments are published to this relay. */
-const _envOverride = import.meta.env?.VITE_FORUM_RELAY_OVERRIDE;
-export const FORUM_RELAY_OVERRIDE = (typeof _envOverride === 'string' && _envOverride.trim()) ? _envOverride.trim() : null;
+/** Forum relay (kind 11 posts/comments). Edit this to point to your relay. */
+export const FORUM_RELAY = 'wss://relay.damus.io';
+
 // Platform filter — only Android arm64 is supported for now.
 // Spread into every APP / RELEASE relay filter so the relay only returns matching events.
 export const PLATFORM_FILTER = { '#f': ['android-arm64-v8a'] };

@@ -26,9 +26,28 @@ function getPool() {
 	return pool;
 }
 
+/**
+ * Publish a signed event to the given relays.
+ * @throws {Error} If all relays reject (so callers can surface "not published" to the user).
+ */
 export async function publishToRelays(relayUrls, signedEvent) {
+	if (!relayUrls?.length) throw new Error('No relays to publish to');
 	const p = getPool();
-	await Promise.allSettled(p.publish(relayUrls, signedEvent));
+	const promises = p.publish(relayUrls, signedEvent);
+	const results = await Promise.allSettled(promises);
+	const rejected = results.filter((r) => r.status === 'rejected');
+	if (rejected.length === results.length) {
+		// Log so user can see which relay was used and why it failed (e.g. wrong relay if override not set)
+		const errors = results.map((r, i) => {
+			const url = relayUrls[i] ?? '?';
+			const reason = r.status === 'rejected' ? (r.reason instanceof Error ? r.reason.message : String(r.reason)) : 'ok';
+			return `${url} → ${reason}`;
+		});
+		console.error('[publishToRelays] All relays rejected. Relays tried:', relayUrls, 'Errors:', errors);
+		const firstReason = rejected[0]?.reason;
+		const msg = firstReason instanceof Error ? firstReason.message : String(firstReason ?? 'relay rejected');
+		throw new Error(`Failed to publish to any relay: ${msg}`);
+	}
 }
 
 const EOSE_GRACE_MS = 300;
@@ -391,7 +410,6 @@ export async function fetchProfilesBatch(pubkeys, options = {}) {
 // ============================================================================
 // Social Features: Comments and Zaps
 // ============================================================================
-
 const SOCIAL_RELAYS = [...DEFAULT_SOCIAL_RELAYS];
 
 /**

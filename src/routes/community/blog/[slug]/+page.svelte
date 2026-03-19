@@ -1,9 +1,12 @@
 <script lang="js">
 	/**
 	 * Community Blog article — same content and rendering as /blog/[slug].
-	 * Loads from src/content/blog; renders the compiled markdown component.
+	 * Header matches forum post detail: back button + author text (Zapstore) + timestamp, no profile pic.
+	 * Content padding 16px to match forum.
 	 */
 	import { formatDisplayDate } from '$lib/date';
+	import BackButton from '$lib/components/common/BackButton.svelte';
+	import { handleBack } from '$lib/utils/back.js';
 
 	let { data } = $props();
 
@@ -24,68 +27,103 @@
 	{/if}
 </svelte:head>
 
-<section class="article-page">
-	<div class="article-body">
-		<article>
-			<header class="article-header">
-				<div class="article-meta">
-					{#if date}
-						<time datetime={date} class="article-date">{formatDisplayDate(date)}</time>
-					{/if}
+<div class="article-page">
+	<header class="detail-header-bar">
+		<div class="detail-header-inner">
+			<BackButton onBack={handleBack} />
+			<span class="author-text">Zapstore</span>
+			{#if date}
+				<time datetime={date} class="header-timestamp">{formatDisplayDate(date)}</time>
+			{/if}
+		</div>
+	</header>
+
+	<div class="content-scroll">
+		<div class="content-inner">
+			<article>
+				<header class="article-header">
 					{#if draft}
 						<span class="badge-draft">Draft</span>
 					{/if}
+					<h1 class="article-title">{title}</h1>
+					{#if description}
+						<p class="article-desc">{description}</p>
+					{/if}
+				</header>
+
+				<div class="prose">
+					{#if Content}
+						<Content />
+					{/if}
 				</div>
-				<h1 class="article-title">{title}</h1>
-				{#if description}
-					<p class="article-desc">{description}</p>
-				{/if}
-			</header>
 
-			<div class="prose">
-				{#if Content}
-					<Content />
-				{/if}
-			</div>
-
-			<footer class="article-footer">
-				<a href="/community/blog" class="back-link">← Back to Blog</a>
-			</footer>
-		</article>
+				<footer class="article-footer">
+					<a href="/community/blog" class="back-link">← Back to Blog</a>
+				</footer>
+			</article>
+		</div>
 	</div>
-</section>
+</div>
 
 <style>
 	.article-page {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+		background: hsl(var(--background));
+	}
+
+	.detail-header-bar {
+		flex-shrink: 0;
+		height: 64px;
+		display: flex;
+		align-items: center;
+		padding: 0 16px;
+		border-bottom: 1px solid hsl(var(--border));
+	}
+
+	.detail-header-inner {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		min-width: 0;
+		flex: 1;
+	}
+
+	.author-text {
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: hsl(var(--white66));
+	}
+
+	.header-timestamp {
+		font-size: 0.75rem;
+		color: hsl(var(--white33));
+		margin-left: auto;
+		flex-shrink: 0;
+	}
+
+	.content-scroll {
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
-		background: hsl(var(--background));
-		padding: 24px 16px 48px;
+		padding-top: 16px;
+		padding-bottom: 80px;
 	}
 
-	.article-body {
+	.content-inner {
+		padding: 0 16px 16px;
 		max-width: 680px;
 		margin: 0 auto;
 	}
 
 	.article-header {
-		margin-bottom: 2.5rem;
+		margin-bottom: 1.5rem;
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
-	}
-
-	.article-meta {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		font-size: 0.8125rem;
-		color: hsl(var(--white33));
-	}
-
-	.article-date {
-		color: hsl(var(--white33));
+		gap: 8px;
 	}
 
 	.badge-draft {
@@ -96,26 +134,21 @@
 		background: rgba(245, 158, 11, 0.1);
 		color: rgb(251, 191, 36);
 		border: 1px solid rgba(245, 158, 11, 0.2);
+		align-self: flex-start;
 	}
 
 	.article-title {
-		font-size: 1.75rem;
+		font-size: 1.5rem;
 		font-weight: 700;
 		color: hsl(var(--foreground));
 		margin: 0;
-		line-height: 1.25;
+		line-height: 1.3;
 		letter-spacing: -0.02em;
 	}
 
 	@media (min-width: 640px) {
 		.article-title {
 			font-size: 2.25rem;
-		}
-	}
-
-	@media (min-width: 1024px) {
-		.article-title {
-			font-size: 2.75rem;
 		}
 	}
 

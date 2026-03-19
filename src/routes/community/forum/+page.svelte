@@ -16,12 +16,7 @@
 		parseForumPost
 	} from '$lib/nostr';
 	import { parseProfile } from '$lib/nostr/models';
-	import {
-		EVENT_KINDS,
-		ZAPSTORE_COMMUNITY_RELAY,
-		ZAPSTORE_COMMUNITY_NPUB,
-		FORUM_RELAY_OVERRIDE
-	} from '$lib/config';
+	import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB, FORUM_RELAY } from '$lib/config';
 	import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { goto } from '$app/navigation';
@@ -45,7 +40,7 @@
 		}
 	})();
 
-	const RELAYS = [FORUM_RELAY_OVERRIDE ?? ZAPSTORE_COMMUNITY_RELAY];
+	const RELAYS = [FORUM_RELAY];
 
 	const FORUM_CATEGORIES = [
 		'General',
@@ -69,6 +64,8 @@
 	/** @type {Map<string, { profiles: any[], count: number }>} */
 	let commentersByPostId = $state(new Map());
 	let addPostModalOpen = $state(false);
+	/** Shown when a post was saved locally but relay publish failed (so other browsers won't see it) */
+	let publishError = $state('');
 	// Defer Dexie/liveQuery until after mount so first paint isn't blocked by DB
 	let forumReady = $state(false);
 
@@ -315,9 +312,16 @@
 		if (parsed) {
 			posts = [{ ...parsed, _raw: ev }, ...posts];
 		}
-		// Publish to forum relay (override or community relay) so others see the post
-		publishToRelays(RELAYS, ev).catch((err) => console.error('[Community] Publish failed:', err));
-		setTimeout(() => syncForumFromRelay(), 1200);
+		// Publish to forum relay so other browsers/devices see the post
+		publishError = '';
+		try {
+			await publishToRelays(RELAYS, ev);
+			setTimeout(() => syncForumFromRelay(), 1200);
+		} catch (err) {
+			console.error('[Community] Publish failed:', err);
+			const relayLabel = RELAYS[0] ?? 'relay';
+			publishError = `Post is saved here but could not reach the relay (${relayLabel}). Other browsers won't see it. Check the console for details or try again.`;
+		}
 	}
 
 	onMount(async () => {
@@ -375,6 +379,12 @@
 			</span>
 		</button>
 	</div>
+	{#if publishError}
+		<div class="forum-publish-error" role="alert">
+			{publishError}
+			<button type="button" class="forum-publish-error-dismiss" onclick={() => (publishError = '')} aria-label="Dismiss">×</button>
+		</div>
+	{/if}
 	<div class="forum-list">
 		{#if (!forumReady || postsLoading) && posts.length === 0}
 			<div class="loading-wrap">
@@ -541,6 +551,38 @@
 	.forum-all-btn.selected {
 		background: hsl(var(--gray66));
 		color: hsl(var(--white));
+	}
+
+	.forum-publish-error {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 10px 14px;
+		margin: 0 12px 12px;
+		background: hsl(var(--destructive) / 0.15);
+		border: 1px solid hsl(var(--destructive) / 0.4);
+		border-radius: 10px;
+		font-size: 0.875rem;
+		color: hsl(var(--destructive));
+	}
+
+	.forum-publish-error-dismiss {
+		flex-shrink: 0;
+		width: 24px;
+		height: 24px;
+		padding: 0;
+		border: none;
+		background: transparent;
+		color: inherit;
+		font-size: 1.25rem;
+		line-height: 1;
+		cursor: pointer;
+		opacity: 0.85;
+	}
+
+	.forum-publish-error-dismiss:hover {
+		opacity: 1;
 	}
 
 	.forum-list {
