@@ -21,6 +21,7 @@ export {
 	// Social features
 	queryCommentsFromStore,
 	fetchComments,
+	fetchCommentsByRootATags,
 	fetchCommentRepliesByE,
 	fetchZapReceiptsByPubkeys,
 	fetchZaps,

@@ -173,6 +173,21 @@ export function getEventOneliner(event) {
 				label: truncate(event.content) || 'Comment',
 				emoji: '/images/emoji/comment.png'
 			};
+		case EVENT_KINDS.APP: {
+			// Kind 32267 — activity / thread root label
+			let content = {};
+			try {
+				content = JSON.parse(event.content || '{}');
+			} catch {
+				content = {};
+			}
+			const dTag = get('d') ?? '';
+			const name = get('name') ?? content.name ?? dTag;
+			return {
+				label: truncate(name) || 'App',
+				emoji: '/images/emoji/forum.png'
+			};
+		}
 		default:
 			return { label: 'Post', emoji: '/images/emoji/forum.png' };
 	}

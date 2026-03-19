@@ -5,6 +5,7 @@
  */
 import { nip19 } from 'nostr-tools';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
+import AppPic from '$lib/components/common/AppPic.svelte';
 import Timestamp from '$lib/components/common/Timestamp.svelte';
 import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
 import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
@@ -26,7 +27,12 @@ let {
 	profileUrl = '',
 	className = '',
 	/** @type {((pubkey: string) => string) | undefined} */
-	resolveMentionLabel = undefined
+	resolveMentionLabel = undefined,
+	/**
+	 * When set, shows an app icon in the top badge instead of the root emoji (e.g. studio activity).
+	 * @type {{ iconUrl?: string | null, name?: string | null, identifier?: string | null } | null}
+	 */
+	appBadge = null
 } = $props();
 
 const isReply = $derived.by(() => {
@@ -95,8 +101,21 @@ const contentText = $derived(event?.content ?? '');
 
 <div class="comment-card {className}">
 	<div class="left-col">
-		<div class="emoji-badge" aria-hidden="true">
-			<img src={rootOneliner.emoji} alt="" width="14" height="14" />
+		<div class="emoji-badge" class:emoji-badge--app={!!appBadge} aria-hidden="true">
+			{#if appBadge}
+				<div class="app-badge-pic-wrap">
+					<AppPic
+						iconUrl={appBadge.iconUrl ?? null}
+						name={appBadge.name ?? null}
+						identifier={appBadge.identifier ?? null}
+						size="xs"
+						className="comment-card-app-pic"
+						onClick={() => {}}
+					/>
+				</div>
+			{:else}
+				<img src={rootOneliner.emoji} alt="" width="14" height="14" />
+			{/if}
 		</div>
 		{#if isReply}
 			<div class="line-dotted"></div>
@@ -186,6 +205,31 @@ const contentText = $derived(event?.content ?? '');
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
+	}
+
+	.emoji-badge--app {
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		overflow: hidden;
+		background: transparent;
+		border: none;
+	}
+
+	.app-badge-pic-wrap {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
+	}
+
+	.app-badge-pic-wrap :global(.comment-card-app-pic) {
+		cursor: inherit;
+	}
+
+	.app-badge-pic-wrap :global(.comment-card-app-pic:hover),
+	.app-badge-pic-wrap :global(.comment-card-app-pic:active) {
+		transform: none;
 	}
 
 	.line-dotted {

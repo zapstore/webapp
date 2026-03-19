@@ -471,6 +471,33 @@ export async function fetchComments(pubkey, identifier, options = {}) {
 	return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
 }
 
+/**
+ * Fetch kind 1111 comments whose root is any of the given NIP-33 `a` values (e.g. `32267:pubkey:dTag`).
+ * Uses social relays only. Caller should persist via putEvents.
+ */
+export async function fetchCommentsByRootATags(aTagValues, options = {}) {
+	const { timeout = 7000, signal, relays = SOCIAL_RELAYS, limit = 500 } = options;
+	if (signal?.aborted || !aTagValues?.length) return [];
+
+	const uniq = [...new Set(aTagValues.map((v) => String(v).trim()).filter(Boolean))];
+	if (uniq.length === 0) return [];
+
+	const filterLower = { kinds: [EVENT_KINDS.COMMENT], '#a': uniq, limit };
+	const filterUpper = { kinds: [EVENT_KINDS.COMMENT], '#A': uniq, limit };
+
+	const [eventsLower, eventsUpper] = await Promise.all([
+		fetchFromRelays(relays, filterLower, { timeout, signal, feature: 'comments' }),
+		fetchFromRelays(relays, filterUpper, { timeout, signal, feature: 'comments' })
+	]);
+
+	const byId = new Map();
+	for (const e of [...eventsLower, ...eventsUpper]) {
+		if (!byId.has(e.id)) byId.set(e.id, e);
+	}
+
+	return Array.from(byId.values());
+}
+
 const COMMENT_REPLIES_E_BATCH = 100;
 
 /**

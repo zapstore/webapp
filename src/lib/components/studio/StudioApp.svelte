@@ -6,6 +6,7 @@
 	import InboxIcon from '$lib/components/icons/Inbox.svelte';
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import StudioAppDetail from './StudioAppDetail.svelte';
+	import StudioAppActivity from './StudioAppActivity.svelte';
 	import {
 		DUMMY_MODE,
 		TEST_PUBKEY,
@@ -62,6 +63,9 @@
 	// Sidebar app list — real apps when signed in, dummies in DUMMY_MODE.
 	let userApps = $state(DUMMY_MODE ? DUMMY_APPS : []);
 
+	/** Hex pubkey for the studio dashboard (TEST_PUBKEY or NIP-07); drives activity feed filters. */
+	let studioPubkey = $state(/** @type {string | null} */ (null));
+
 	// ── App detail view ──────────────────────────────────────────────────────
 	// When set, show the app detail panel instead of the overview charts.
 	let selectedApp = $state(null);
@@ -91,6 +95,8 @@
 			if (!window.nostr) throw new Error('NIP-07 extension not found');
 			pubkey = await window.nostr.getPublicKey();
 		}
+
+		studioPubkey = pubkey;
 
 		// 1. Fetch this developer's published apps — Dexie first, relay fallback.
 		let events = await queryEvents({ kinds: [32267], authors: [pubkey] });
@@ -333,8 +339,13 @@
 					zapCounts={zapAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
 					onBack={() => (selectedApp = null)}
 				/>
+			{:else if activeNav === 'inbox'}
+				<!-- Inbox: comments on your apps (no header) -->
+				<section class="activity-section inbox-section">
+					<StudioAppActivity devPubkey={studioPubkey} apps={userApps} />
+				</section>
 			{:else}
-				<!-- Downloads section -->
+				<!-- Insights: downloads + zaps + placeholder for future active-discussions summary -->
 				<section class="content-section">
 					<div class="section-head">
 						<div class="dl-meta">
@@ -434,10 +445,10 @@
 					</div>
 				</section>
 
-				<!-- Activity section -->
+				<!-- Placeholder for future: summary of active discussions -->
 				<section class="activity-section">
 					<span class="eyebrow-label activity-eyebrow">Activity</span>
-					<div class="activity-empty">Nothing here yet.</div>
+					<p class="activity-empty">Nothing here yet.</p>
 				</section>
 			{/if}
 		</div>
@@ -784,6 +795,10 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
+	}
+
+	.inbox-section {
+		padding: 16px 20px;
 	}
 
 	.activity-eyebrow {
