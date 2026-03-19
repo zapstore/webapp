@@ -4,7 +4,7 @@
  * Matches apps page carousel: fixed inset 0, dark backdrop, close top-right, prev/next + dots when multiple.
  */
 import { fade } from 'svelte/transition';
-import Cross from '$lib/components/icons/Cross.svelte';
+import { X } from 'lucide-svelte';
 
 function inferMediaType(u) {
 	if (!u) return 'image';
@@ -88,8 +88,8 @@ $effect(() => {
 		onclick={handleBackdropClick}
 		transition:fade={{ duration: 150 }}
 	>
-		<button type="button" class="media-lightbox-close" aria-label="Close" onclick={close}>
-			<Cross variant="outline" color="currentColor" size={16} strokeWidth={2} />
+		<button type="button" class="carousel-close-btn" aria-label="Close carousel" onclick={(e) => { e.stopPropagation(); close(); }}>
+			<X class="h-5 w-5" />
 		</button>
 
 		{#if hasMultiple}
@@ -102,7 +102,7 @@ $effect(() => {
 		{/if}
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="media-lightbox-content" onclick={(e) => e.stopPropagation()}>
+		<div class="media-lightbox-content" onclick={(e) => { e.stopPropagation(); }}>
 			<div class="media-lightbox-wrapper">
 				{#if isVideo}
 					<!-- svelte-ignore a11y_media_has_caption -->
@@ -141,16 +141,15 @@ $effect(() => {
 		background: hsl(var(--black) / 0.92);
 		backdrop-filter: blur(8px);
 		-webkit-backdrop-filter: blur(8px);
+		overflow: hidden;
 	}
-	.media-lightbox-close {
+	/* Same as apps page carousel close button */
+	.carousel-close-btn {
 		position: absolute;
 		top: 16px;
 		right: 16px;
 		z-index: 10;
 		padding: 8px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
 		border-radius: 50%;
 		background-color: hsl(var(--white16));
 		color: white;
@@ -158,7 +157,7 @@ $effect(() => {
 		cursor: pointer;
 		transition: background-color 0.15s ease;
 	}
-	.media-lightbox-close:hover {
+	.carousel-close-btn:hover {
 		background-color: hsl(var(--white33));
 	}
 	.media-lightbox-nav {
@@ -191,19 +190,23 @@ $effect(() => {
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		width: 100%;
-		height: 100%;
-		max-width: 100vw;
-		max-height: 100vh;
-		padding: 60px 56px 24px;
+		max-width: min(90vw, 100%);
+		max-height: 90vh;
+		min-width: 0;
+		padding: 16px;
 		box-sizing: border-box;
+		pointer-events: none;
+	}
+	.media-lightbox-content > * {
+		pointer-events: auto;
 	}
 	.media-lightbox-wrapper {
 		position: relative;
 		width: max-content;
 		height: max-content;
-		max-width: 90vw;
-		max-height: calc(90vh - 48px - 24px);
+		max-width: 100%;
+		max-height: calc(100% - 48px);
+		min-width: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -220,7 +223,7 @@ $effect(() => {
 	}
 	.media-lightbox-element {
 		display: block;
-		max-width: 90vw;
+		max-width: 100%;
 		max-height: calc(90vh - 48px - 24px);
 		width: auto;
 		height: auto;

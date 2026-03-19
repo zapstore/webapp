@@ -3,6 +3,7 @@
  * BottomBar - Fixed bottom action bar for detail pages.
  * Morphs in place into the comment form when Comment is tapped (no separate modal).
  * Slides out only when ZapSliderModal is open.
+ * Camera: pick file → placeholder in editor → upload to nostr.build → embed; requires signEvent.
  */
 import { Zap, Reply, Options } from '$lib/components/icons';
 import InputButton from '$lib/components/common/InputButton.svelte';
@@ -10,13 +11,43 @@ import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
 import ActionsModal from '$lib/components/modals/ActionsModal.svelte';
 import ReportModal from '$lib/components/modals/ReportModal.svelte';
-let { appName = '', publisherName = '', contentType = 'app', className = '', zapTarget = null, otherZaps = [], isSignedIn = true, onGetStarted, searchProfiles = async () => [], searchEmojis = async () => [], oncommentSubmit, onzapReceived, onoptions } = $props();
+import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from '$lib/services/upload-nostr-build';
+let { appName = '', publisherName = '', contentType = 'app', className = '', zapTarget = null, otherZaps = [], isSignedIn = true, onGetStarted, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, oncommentSubmit, onzapReceived, onoptions } = $props();
 let zapModalOpen = $state(false);
 let actionsModalOpen = $state(false);
 let reportModalOpen = $state(false);
 let commentExpanded = $state(false);
 let commentInput = $state(null);
 let submitting = $state(false);
+/** @type {HTMLInputElement | null} */
+let fileInputEl = $state(null);
+function handleCameraTap() {
+	fileInputEl?.click();
+}
+async function handleFileChange(e) {
+	const files = /** @type {HTMLInputElement} */ (e.target).files;
+	if (!files?.length || !signEvent || !commentInput) return;
+	const inputEl = /** @type {HTMLInputElement} */ (e.target);
+	for (let i = 0; i < files.length; i++) {
+		const file = files[i];
+		const type = file.type.startsWith('video') ? 'video' : 'image';
+		const placeholderUrl = URL.createObjectURL(file);
+		const id = commentInput.insertMediaBlock?.({ placeholderUrl, type });
+		if (!id) {
+			URL.revokeObjectURL(placeholderUrl);
+			continue;
+		}
+		try {
+			const url = await uploadFileToNostrBuild(file, signEvent);
+			commentInput.setMediaBlockUrl?.(id, url);
+		} catch (err) {
+			console.error('BottomBar media upload failed:', err);
+			commentInput.deleteMediaBlock?.(id);
+		}
+		URL.revokeObjectURL(placeholderUrl);
+	}
+	inputEl.value = '';
+}
 /** Bar slides out when zap, actions, or report modal is open */
 const barSlidesOut = $derived(zapModalOpen || actionsModalOpen || reportModalOpen);
 function handleZap() {
@@ -38,20 +69,17 @@ function closeComment() {
     commentExpanded = false;
 }
 async function handleCommentSubmit(event) {
-    if (submitting || !event.text.trim())
-        return;
-    submitting = true;
-    try {
-        oncommentSubmit?.({ ...event, target: zapTarget });
-        commentInput?.clear?.();
-        closeComment();
-    }
-    catch (err) {
-        console.error('Failed to submit comment:', err);
-    }
-    finally {
-        submitting = false;
-    }
+	if (submitting || !event.text?.trim()) return;
+	submitting = true;
+	try {
+		oncommentSubmit?.({ ...event, target: zapTarget });
+		commentInput?.clear?.();
+		closeComment();
+	} catch (err) {
+		console.error('Failed to submit comment:', err);
+	} finally {
+		submitting = false;
+	}
 }
 function handleCommentKeydown(e) {
     if (!commentExpanded)
@@ -76,6 +104,16 @@ $effect(() => {
 	{#if commentExpanded && isSignedIn}
 		<div class="bottom-bar-comment-only">
 			<div class="comment-input-wrap">
+				<input
+					type="file"
+					accept={ACCEPTED_MEDIA_TYPES}
+					multiple
+					class="sr-only"
+					bind:this={fileInputEl}
+					onchange={handleFileChange}
+					aria-hidden="true"
+					tabindex="-1"
+				/>
 				<ShortTextInput
 					bind:this={commentInput}
 					placeholder="Comment on {zapTarget?.name ?? 'this'}"
@@ -85,7 +123,7 @@ $effect(() => {
 					autoFocus={true}
 					showActionRow={true}
 					onClose={closeComment}
-					onCameraTap={() => {}}
+					onCameraTap={handleCameraTap}
 					onEmojiTap={() => {}}
 					onGifTap={() => {}}
 					onAddTap={() => {}}
@@ -288,11 +326,19 @@ $effect(() => {
 	}
 
 	.comment-input-wrap {
+		position: relative;
 		background: hsl(var(--black33));
 		border-radius: var(--radius-16);
 		border: 0.33px solid hsl(var(--white33));
 		min-height: 0;
 		flex: 1;
+	}
+	.comment-input-wrap .sr-only {
+		position: absolute;
+		width: 0;
+		height: 0;
+		opacity: 0;
+		pointer-events: none;
 	}
 
 	.zap-button {

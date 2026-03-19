@@ -27,8 +27,9 @@ let {
 const type = $derived(typeProp ?? inferMediaType(url));
 const isVideo = $derived(type === 'video');
 
-function handleMediaClick() {
+function handleMediaClick(e) {
 	if (removable) return;
+	e?.stopPropagation?.();
 	onClick?.({ url, type });
 }
 
@@ -46,7 +47,7 @@ function handleRemove(e) {
 			aria-label="Remove media"
 			onclick={handleRemove}
 		>
-			<Cross variant="outline" color="hsl(var(--white))" size={14} strokeWidth={2} />
+			<Cross variant="outline" color="hsl(var(--white66))" size={14} strokeWidth={2} />
 		</button>
 	{/if}
 	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions a11y_no_noninteractive_tabindex -->

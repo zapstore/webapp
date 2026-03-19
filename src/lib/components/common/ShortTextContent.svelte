@@ -85,8 +85,9 @@ const orderedMediaUrls = $derived(segments.filter((s) => s.type === "media").map
 	.short-text-content-media {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 8px;
+		gap: 4px;
 		align-items: flex-start;
+		margin-bottom: -6px;
 	}
 	.short-text-content-media-slot {
 		flex-shrink: 0;

@@ -316,7 +316,7 @@ async function handleCommentSubmit(event) {
     const userPubkey = getCurrentPubkey();
     if (!userPubkey || !stack)
         return;
-    const { text, emojiTags: submitEmojiTags, parentId, replyToPubkey, rootPubkey, parentKind } = event;
+    const { text, emojiTags: submitEmojiTags, parentId, replyToPubkey, rootPubkey, parentKind, mediaUrls: submitMediaUrls } = event;
     const tempId = `pending-${Date.now()}`;
     const optimistic = {
         id: tempId,
@@ -324,6 +324,7 @@ async function handleCommentSubmit(event) {
         content: text,
         contentHtml: "",
         emojiTags: submitEmojiTags ?? [],
+        mediaUrls: submitMediaUrls ?? [],
         createdAt: Math.floor(Date.now() / 1000),
         parentId: parentId ?? null,
         isReply: parentId != null,
@@ -332,11 +333,28 @@ async function handleCommentSubmit(event) {
     };
     comments = [...comments, optimistic];
     try {
-        const signed = await publishComment(text, { contentType: "stack", pubkey: stack.pubkey, identifier: stack.dTag }, signEvent, submitEmojiTags, parentId, replyToPubkey ?? rootPubkey, parentKind, event.mentions);
+        const signed = await publishComment(text, { contentType: "stack", pubkey: stack.pubkey, identifier: stack.dTag }, signEvent, submitEmojiTags, parentId, replyToPubkey ?? rootPubkey, parentKind, event.mentions, undefined, submitMediaUrls);
         const parsed = parseComment(signed);
         parsed.npub = nip19.npubEncode(signed.pubkey);
         comments = comments.filter((c) => c.id !== tempId);
         comments = [...comments, parsed];
+        // Ensure current user's profile is loaded for the new comment
+        if (!profiles[userPubkey]) {
+            try {
+                const existing = await queryEvent({ kinds: [0], authors: [userPubkey], limit: 1 });
+                if (existing?.content) {
+                    const c = JSON.parse(existing.content);
+                    profiles = { ...profiles, [userPubkey]: { displayName: c.display_name ?? c.displayName, name: c.name, picture: c.picture } };
+                } else {
+                    const batch = await fetchProfilesBatch([userPubkey], { timeout: 3000 });
+                    const ev = batch.get(userPubkey);
+                    if (ev?.content) {
+                        const c = JSON.parse(ev.content);
+                        profiles = { ...profiles, [userPubkey]: { displayName: c.display_name ?? c.displayName, name: c.name, picture: c.picture } };
+                    }
+                }
+            } catch (_) {}
+        }
     }
     catch (err) {
         console.error("Failed to publish comment:", err);
@@ -520,6 +538,7 @@ const displayDescription = $derived(!stack?.title ||
         <SocialTabs
           stack={stack}
           app={{ pubkey: stack.pubkey, dTag: stack.dTag }}
+          signEvent={signEvent}
           getStackSlug={encodeStackNaddr}
           getAppSlug={(p, d) => encodeAppNaddr(p, d)}
           pubkeyToNpub={(pk) => nip19.npubEncode(pk)}
@@ -562,10 +581,11 @@ const displayDescription = $derived(!stack?.title ||
     otherZaps={[]}
     isSignedIn={getIsSignedIn()}
     onGetStarted={() => (getStartedModalOpen = true)}
+    signEvent={signEvent}
     searchProfiles={searchProfiles}
     searchEmojis={searchEmojis}
     oncommentSubmit={(e) =>
-      handleCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, parentId: undefined })}
+      handleCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, mediaUrls: e.mediaUrls, parentId: undefined })}
     onzapReceived={() => {}}
   />
 {/if}

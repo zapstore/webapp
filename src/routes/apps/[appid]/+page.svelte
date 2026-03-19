@@ -436,7 +436,7 @@ async function handleCommentSubmit(event) {
     const userPubkey = getCurrentPubkey();
     if (!userPubkey || !app)
         return;
-    const { text, emojiTags: submitEmojiTags, parentId, replyToPubkey, rootPubkey, parentKind } = event;
+    const { text, emojiTags: submitEmojiTags, parentId, replyToPubkey, rootPubkey, parentKind, mediaUrls: submitMediaUrls } = event;
     const tempId = `pending-${Date.now()}`;
     const optimistic = {
         id: tempId,
@@ -444,6 +444,7 @@ async function handleCommentSubmit(event) {
         content: text,
         contentHtml: "",
         emojiTags: submitEmojiTags ?? [],
+        mediaUrls: submitMediaUrls ?? [],
         createdAt: Math.floor(Date.now() / 1000),
         parentId: parentId ?? null,
         isReply: parentId != null,
@@ -452,7 +453,7 @@ async function handleCommentSubmit(event) {
     };
     comments = [...comments, optimistic];
     try {
-        const signed = await publishComment(text, { contentType: "app", pubkey: app.pubkey, identifier: app.dTag }, signEvent, submitEmojiTags, parentId, replyToPubkey ?? rootPubkey, parentKind, event.mentions);
+        const signed = await publishComment(text, { contentType: "app", pubkey: app.pubkey, identifier: app.dTag }, signEvent, submitEmojiTags, parentId, replyToPubkey ?? rootPubkey, parentKind, event.mentions, undefined, submitMediaUrls);
         const parsed = parseComment(signed);
         parsed.npub = nip19.npubEncode(signed.pubkey);
         comments = comments.filter((c) => c.id !== tempId);
@@ -894,6 +895,7 @@ function toggleReleaseNotesExpanded(releaseId) {
         version={latestRelease?.version}
         mainEventIds={[app?.id, ...(releases ?? []).map((r) => r.id)].filter(Boolean)}
         {publisherProfile}
+        signEvent={signEvent}
         getAppSlug={(p, d) => (app?.naddr ?? encodeAppNaddr(p, d))}
         pubkeyToNpub={(pk) => nip19.npubEncode(pk)}
         zaps={zaps.map((z) => ({
@@ -1219,8 +1221,9 @@ function toggleReleaseNotesExpanded(releaseId) {
     onGetStarted={() => (getStartedModalOpen = true)}
     searchProfiles={searchProfiles}
     searchEmojis={searchEmojis}
+    signEvent={signEvent}
     oncommentSubmit={(e) =>
-      handleCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, parentId: undefined })}
+      handleCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, mediaUrls: e.mediaUrls, parentId: undefined })}
     onzapReceived={() => {
       loadZaps();
     }}

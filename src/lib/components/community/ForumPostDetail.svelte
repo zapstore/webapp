@@ -267,6 +267,24 @@ async function handleCommentSubmit(e) {
 		parsed.npub = nip19.npubEncode(signed.pubkey);
 		if (e.parentId) parsed.parentId = e.parentId;
 		comments = [...comments, parsed];
+		// Ensure current user's profile is loaded so name/pic show on the new comment
+		const myPk = signed.pubkey;
+		if (myPk && !profiles[myPk]) {
+			try {
+				const existing = await queryEvent({ kinds: [0], authors: [myPk], limit: 1 });
+				if (existing?.content) {
+					const j = JSON.parse(existing.content);
+					profiles = { ...profiles, [myPk]: { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture } };
+				} else {
+					const batch = await fetchProfilesBatch([myPk], { timeout: 3000 });
+					const ev = batch.get(myPk);
+					if (ev?.content) {
+						const j = JSON.parse(ev.content);
+						profiles = { ...profiles, [myPk]: { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture } };
+					}
+				}
+			} catch (_) {}
+		}
 	} catch (err) {
 		console.error('[ForumPostDetail] Comment failed:', err);
 	}
@@ -363,6 +381,7 @@ function checkTruncation(node) {
 						app={{}}
 						mainEventIds={[post.id]}
 						openCommentId={openCommentId}
+						signEvent={signEvent}
 						showDetailsTab={true}
 						detailsShareableId={postNevent}
 						detailsPublicationLabel="Post"
@@ -408,6 +427,7 @@ function checkTruncation(node) {
 				isMember={true}
 				onJoinRequired={() => {}}
 				onGetStarted={() => {}}
+				signEvent={signEvent}
 				{searchProfiles}
 				{searchEmojis}
 				oncommentSubmit={handleCommentSubmit}

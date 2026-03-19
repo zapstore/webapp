@@ -884,12 +884,12 @@ export { getContent, getSerializedContent, isEmpty };
     top: 8px;
     right: 8px;
     z-index: 2;
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     border: none;
     background: hsl(var(--gray33));
-    color: hsl(var(--white));
+    color: hsl(var(--white66));
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -898,10 +898,11 @@ export { getContent, getSerializedContent, isEmpty };
   }
   :global(.media-block-editor-remove:hover) {
     background: hsl(var(--gray44));
+    color: hsl(var(--white));
   }
   :global(.media-block-editor-remove svg) {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
   }
   :global(.media-block-editor-pending) {
     opacity: 0.33;

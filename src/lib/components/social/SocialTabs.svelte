@@ -27,7 +27,7 @@ let {
     zapsLoading = false, profiles = {}, profilesLoading = false,
     getAppSlug = () => "", getStackSlug = () => "",
     pubkeyToNpub = () => "", searchProfiles = async () => [],
-    searchEmojis = async () => [], onCommentSubmit, onZapReceived, onGetStarted,
+    searchEmojis = async () => [], signEvent = null, onCommentSubmit, onZapReceived, onGetStarted,
     mainEventIds = [],
     // Details tab overrides — when provided, skip Dexie auto-fetch.
     // Accepts the same props as chateau-web's SocialTabs for a unified API.
@@ -382,11 +382,13 @@ const combinedFeed = $derived.by(() => {
                 {version}
                 {searchProfiles}
                 {searchEmojis}
+                signEvent={signEvent}
                 onReplySubmit={onCommentSubmit
                   ? (e) => onCommentSubmit({
                       text: e.text,
                       emojiTags: e.emojiTags,
                       mentions: e.mentions,
+                      mediaUrls: e.mediaUrls,
                       parentId: e.parentId,
                       replyToPubkey: e.replyToPubkey,
                       rootPubkey: e.rootPubkey,
@@ -421,7 +423,8 @@ const combinedFeed = $derived.by(() => {
                 {version}
                 {searchProfiles}
                 {searchEmojis}
-                onReplySubmit={onCommentSubmit ? (e) => onCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, parentId: e.parentId, replyToPubkey: e.replyToPubkey }) : undefined}
+                signEvent={signEvent}
+                onReplySubmit={onCommentSubmit ? (e) => onCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, mediaUrls: e.mediaUrls, parentId: e.parentId, replyToPubkey: e.replyToPubkey, rootPubkey: e.rootPubkey, parentKind: e.parentKind }) : undefined}
                 onZapReceived={onZapReceived}
                 onGetStarted={onGetStarted}
               >

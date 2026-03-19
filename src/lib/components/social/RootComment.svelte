@@ -18,7 +18,8 @@ import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import ZapSliderModal from "$lib/components/modals/ZapSliderModal.svelte";
 import { Zap, Reply, Options } from "$lib/components/icons";
 import { getIsSignedIn } from "$lib/stores/auth.svelte.js";
-let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], /** @type {string[]} */ mediaUrls = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], onReplySubmit, onZapReceived, onGetStarted, /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
+import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
+let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], /** @type {string[]} */ mediaUrls = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, onReplySubmit, onZapReceived, onGetStarted, /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
     openThreadOnMount = false, } = $props();
 let lightboxOpen = $state(false);
 let lightboxUrls = $state([]);
@@ -38,6 +39,35 @@ let replyingToComment = $state(null);
 let zapTargetOverride = $state(null);
 let replyInput = $state(null);
 let submitting = $state(false);
+/** @type {HTMLInputElement | null} */
+let replyFileInputEl = $state(null);
+function handleReplyCameraTap() {
+	replyFileInputEl?.click();
+}
+async function handleReplyFileChange(e) {
+	const files = /** @type {HTMLInputElement} */ (e.target).files;
+	if (!files?.length || !signEvent || !replyInput) return;
+	const inputEl = /** @type {HTMLInputElement} */ (e.target);
+	for (let i = 0; i < files.length; i++) {
+		const file = files[i];
+		const type = file.type.startsWith("video") ? "video" : "image";
+		const placeholderUrl = URL.createObjectURL(file);
+		const id = replyInput.insertMediaBlock?.({ placeholderUrl, type });
+		if (!id) {
+			URL.revokeObjectURL(placeholderUrl);
+			continue;
+		}
+		try {
+			const url = await uploadFileToNostrBuild(file, signEvent);
+			replyInput.setMediaBlockUrl?.(id, url);
+		} catch (err) {
+			console.error("Reply media upload failed:", err);
+			replyInput.deleteMediaBlock?.(id);
+		}
+		URL.revokeObjectURL(placeholderUrl);
+	}
+	inputEl.value = "";
+}
 /** Which item the actions modal is for: 'root', a comment reply, or a zap (zap on zap) */
 let actionsModalTarget = $state(null);
 let actionsModalOpen = $state(false);
@@ -534,6 +564,16 @@ function handleOptions() {
         {:else}
           <div class="thread-reply-form">
             <div class="thread-reply-input-wrap">
+              <input
+                type="file"
+                accept={ACCEPTED_MEDIA_TYPES}
+                multiple
+                class="thread-reply-file-input"
+                bind:this={replyFileInputEl}
+                onchange={handleReplyFileChange}
+                aria-hidden="true"
+                tabindex="-1"
+              />
               <ShortTextInput
                 bind:this={replyInput}
                 placeholder="Comment on {replyingToComment?.displayName ?? name ?? 'this'}"
@@ -543,7 +583,7 @@ function handleOptions() {
                 autoFocus={true}
                 showActionRow={true}
                 onClose={closeReply}
-                onCameraTap={() => {}}
+                onCameraTap={handleReplyCameraTap}
                 onEmojiTap={() => {}}
                 onGifTap={() => {}}
                 onAddTap={() => {}}
@@ -749,11 +789,19 @@ function handleOptions() {
   }
 
   .thread-reply-input-wrap {
+    position: relative;
     background: hsl(var(--black33));
     border-radius: var(--radius-16);
     border: 0.33px solid hsl(var(--white33));
     min-height: 0;
     flex: 1;
+  }
+  .thread-reply-file-input {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .zap-button {
