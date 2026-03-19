@@ -230,7 +230,7 @@
 		<hr class="hero-divider" />
 
 		<p class="hero-description text-xl sm:text-2xl mx-auto mt-2 sm:mt-8 mb-10" style="color: hsl(var(--white66));">
-			Self-published by developers.<br class="sm:hidden" /> Curated by communities.
+			Published by developers.<br class="sm:hidden" /> Curated by communities.
 		</p>
 
 		<!-- Browse CTA: stacked app pics + glass pill -->
@@ -249,7 +249,7 @@
 					{/each}
 				</div>
 				<a
-					href="/discover"
+					href="/apps"
 					bind:this={heroButton}
 					class="btn-glass-large btn-glass-with-chevron hero-browse-pill flex items-center gap-2 group"
 					on:mousemove={handleMouseMove}

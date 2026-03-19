@@ -91,7 +91,7 @@ function startFetchUserContacts(userPubkey) {
 			// Local-first: try Dexie, then relay fallback so contacts load on first visit
 			let kind3 = await queryEvents({ kinds: [KIND_CONTACT_LIST], authors: [userPubkey], limit: 1 });
 			if ((!kind3 || kind3.length === 0) && typeof window !== 'undefined') {
-				kind3 = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, { kinds: [KIND_CONTACT_LIST], authors: [userPubkey], limit: 1 }, { timeout: 5000 });
+				kind3 = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, { kinds: [KIND_CONTACT_LIST], authors: [userPubkey], limit: 1 }, { timeout: 5000, feature: 'profile-search' });
 			}
 			const pubkeys = new Set();
 
@@ -101,7 +101,7 @@ function startFetchUserContacts(userPubkey) {
 
 			let kind30k = await queryEvents({ kinds: [KIND_FOLLOW_SET], authors: [userPubkey], limit: 50 });
 			if ((!kind30k || kind30k.length === 0) && typeof window !== 'undefined') {
-				kind30k = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, { kinds: [KIND_FOLLOW_SET], authors: [userPubkey], limit: 50 }, { timeout: 5000 });
+				kind30k = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, { kinds: [KIND_FOLLOW_SET], authors: [userPubkey], limit: 50 }, { timeout: 5000, feature: 'profile-search' });
 			}
 			for (const ev of kind30k) {
 				ev.tags.filter((t) => t[0] === 'p' && t[1]?.length === 64).forEach((t) => pubkeys.add(t[1]));

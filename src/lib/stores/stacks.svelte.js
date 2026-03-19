@@ -13,7 +13,7 @@ import { liveQuery } from 'dexie';
 import { putEvents, queryEvents } from '$lib/nostr/dexie';
 import { parseApp, parseAppStack } from '$lib/nostr/models';
 import { fetchAppFromRelays } from '$lib/nostr/service';
-import { EVENT_KINDS, PLATFORM_FILTER, DEFAULT_CATALOG_RELAYS, SAVED_APPS_STACK_D_TAG } from '$lib/config';
+import { EVENT_KINDS, PLATFORM_FILTER, ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG } from '$lib/config';
 import { STACKS_PAGE_SIZE } from '$lib/constants';
 
 const platformTag = PLATFORM_FILTER['#f']?.[0];
@@ -71,16 +71,17 @@ export function createStacksQuery() {
 			}
 		}
 		const stacks = [...stacksByKey.values()];
-		const allIdentifiers = new Set();
+	const allIdentifiers = new Set();
 
-		for (const stack of stacks) {
-			if (!stack?.appRefs) continue;
-			for (const ref of stack.appRefs) {
-				if (ref.kind === EVENT_KINDS.APP && ref.identifier) {
-					allIdentifiers.add(ref.identifier);
-				}
-			}
+	for (const stack of stacks) {
+		if (!stack?.appRefs) continue;
+		const previewRefs = stack.appRefs
+			.filter((r) => r.kind === EVENT_KINDS.APP && r.identifier)
+			.slice(0, 4);
+		for (const ref of previewRefs) {
+			allIdentifiers.add(ref.identifier);
 		}
+	}
 
 		// Query 2: apps matching stack references (NIP-01 filter with #d tag)
 		let appsByKey = new Map();
@@ -101,21 +102,23 @@ export function createStacksQuery() {
 			}
 		}
 
-		// Resolve each stack's apps
-		return stacks.map((stack) => {
-			const apps = [];
-			if (stack.appRefs) {
-				for (const ref of stack.appRefs) {
-					if (ref.kind !== EVENT_KINDS.APP) continue;
-					const key = `${ref.pubkey}:${ref.identifier}`;
-					const appEvent = appsByKey.get(key);
-					if (appEvent) {
-						apps.push(parseApp(appEvent));
-					}
+		// Resolve each stack's apps (preview: first 4 only)
+	return stacks.map((stack) => {
+		const apps = [];
+		if (stack.appRefs) {
+			const previewRefs = stack.appRefs
+				.filter((r) => r.kind === EVENT_KINDS.APP)
+				.slice(0, 4);
+			for (const ref of previewRefs) {
+				const key = `${ref.pubkey}:${ref.identifier}`;
+				const appEvent = appsByKey.get(key);
+				if (appEvent) {
+					apps.push(parseApp(appEvent));
 				}
 			}
-			return { stack, apps };
-		});
+		}
+		return { stack, apps };
+	});
 	});
 }
 
@@ -149,16 +152,18 @@ export function seedStackEvents(events) {
 		const p = putEvents(publicEvents).catch((err) =>
 			console.error('[StacksStore] Seed persist failed:', err)
 		);
-		// Fill in missing app refs in background so stack cards show icons
+		// Fill in missing preview app refs in background so stack cards show icons (first 4 only)
 		(async () => {
-			const relayUrls = DEFAULT_CATALOG_RELAYS;
+			const relayUrls = [ZAPSTORE_RELAY];
 			const seen = new Set();
 			for (const ev of publicEvents) {
 				if (ev.kind !== EVENT_KINDS.APP_STACK) continue;
 				const stack = parseAppStack(ev);
 				if (!stack?.appRefs) continue;
-				for (const ref of stack.appRefs) {
-					if (ref.kind !== EVENT_KINDS.APP || !ref.pubkey || !ref.identifier) continue;
+				const previewRefs = stack.appRefs
+					.filter((r) => r.kind === EVENT_KINDS.APP && r.pubkey && r.identifier)
+					.slice(0, 4);
+				for (const ref of previewRefs) {
 					const key = `${ref.pubkey}:${ref.identifier}`;
 					if (seen.has(key)) continue;
 					seen.add(key);
@@ -204,7 +209,7 @@ export async function loadMoreStacks(fetchFromRelays, relayUrls) {
 		};
 		if (cursor != null) filter.until = cursor;
 		if (platformTag) filter['#f'] = [platformTag];
-		const events = await fetchFromRelays(relayUrls, filter);
+		const events = await fetchFromRelays(relayUrls, filter, { feature: 'load-more-stacks' });
 		// Exclude private Saved Apps stack (don't persist for public listings)
 		const publicEvents = events.filter(
 			(e) => e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG
@@ -217,14 +222,16 @@ export async function loadMoreStacks(fetchFromRelays, relayUrls) {
 			const lastEvent = publicEvents[publicEvents.length - 1];
 			cursor = lastEvent.created_at - 1;
 			hasMore = publicEvents.length >= STACKS_PAGE_SIZE;
-			// Fetch missing app refs in background so stack cards fill in (don't block loading state)
+			// Fetch missing preview app refs in background so stack cards fill in (first 4 only)
 			(async () => {
 				const seen = new Set();
 				for (const ev of publicEvents) {
 					const stack = parseAppStack(ev);
 					if (!stack?.appRefs) continue;
-					for (const ref of stack.appRefs) {
-						if (ref.kind !== EVENT_KINDS.APP || !ref.pubkey || !ref.identifier) continue;
+					const previewRefs = stack.appRefs
+						.filter((r) => r.kind === EVENT_KINDS.APP && r.pubkey && r.identifier)
+						.slice(0, 4);
+					for (const ref of previewRefs) {
 						const key = `${ref.pubkey}:${ref.identifier}`;
 						if (seen.has(key)) continue;
 						seen.add(key);

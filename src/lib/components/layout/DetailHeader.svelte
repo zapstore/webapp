@@ -277,7 +277,7 @@ async function handleSignIn() {
 		</button>
 
 		<div class="menu-section">
-			<a href="/discover" class="menu-section-link" onclick={closeMenu}>Discover</a>
+			<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 			<nav class="menu-subnav">
 				<a href="/apps" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Apps</a>
 				<a href="/stacks" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Stacks</a>

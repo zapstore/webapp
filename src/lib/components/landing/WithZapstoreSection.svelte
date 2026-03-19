@@ -6,22 +6,22 @@
 		{
 			img: '/images/direct-line.png',
 			alt: 'Direct messaging between users and developers',
-			title: 'Direct Line to Developers',
-			description: 'Ask questions, pitch ideas, tip the builders directly. No middlemen.'
+			title: 'A direct line to developers',
+			description: 'Ask questions, pitch ideas, tip the builders directly. No middlemen between you and the people who made your tools.'
 		},
 		{
 			img: null,
 			securityPanel: true,
 			alt: '',
-			title: 'Fully Transparent & Secure',
-			description: 'You install exactly what the developer signed. 100% verifiable.'
+			title: 'Every app is tamper-proof',
+			description: 'Each release is cryptographically signed by its developer. What you install is exactly what they shipped. Anyone can verify it.'
 		},
 		{
 			img: null,
 			catalogPanel: true,
 			alt: '',
-			title: 'Community Curated Catalogs',
-			description: 'You choose which catalogs to trust. Switch or add your own anytime.'
+			title: 'Built on open rails',
+			description: 'Anyone can run a catalog. You pick which ones to trust — and switch anytime. No single entity can make an app disappear.'
 		}
 	];
 
@@ -85,9 +85,7 @@
 		<div class="eyebrow-badge-wrap">
 			<div class="eyebrow-badge">
 				<Check variant="outline" color="hsl(var(--blurpleColor))" size={16} strokeWidth={1.4} />
-				<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">
-					WITH ZAPSTORE
-				</p>
+				<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">A Better Way</p>
 			</div>
 		</div>
 	</div>
@@ -127,9 +125,7 @@
 			<div class="eyebrow-badge-wrap">
 				<div class="eyebrow-badge">
 					<Check variant="outline" color="hsl(var(--blurpleColor))" size={16} strokeWidth={1.4} />
-					<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">
-						WITH ZAPSTORE
-					</p>
+					<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">A Better Way</p>
 				</div>
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-stretch">

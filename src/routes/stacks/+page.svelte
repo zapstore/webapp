@@ -14,7 +14,7 @@
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { nip19 } from 'nostr-tools';
 	import { fetchProfilesBatch, fetchFromRelays } from '$lib/nostr/service';
-	import { DEFAULT_CATALOG_RELAYS } from '$lib/config';
+	import { ZAPSTORE_RELAY } from '$lib/config';
 	import { parseProfile, encodeStackNaddr } from '$lib/nostr/models';
 
 	const SCROLL_THRESHOLD = 800;
@@ -144,7 +144,7 @@
 
 	function handleScroll() {
 		if (hasMore && !loadingMore && shouldLoadMore()) {
-			loadMoreStacks(fetchFromRelays, DEFAULT_CATALOG_RELAYS);
+			loadMoreStacks(fetchFromRelays, [ZAPSTORE_RELAY]);
 		}
 	}
 
@@ -154,7 +154,7 @@
 		seedStackEvents(data.seedEvents ?? []);
 		// If no seed (client-side nav), fetch first page from relays
 		if ((!data.seedEvents || data.seedEvents.length === 0) && navigator.onLine) {
-			await loadMoreStacks(fetchFromRelays, DEFAULT_CATALOG_RELAYS);
+			await loadMoreStacks(fetchFromRelays, [ZAPSTORE_RELAY]);
 		}
 		// Use the app shell's scroll container, fall back to window
 		scrollContainer = document.querySelector('[data-scroll-container]') ?? window;

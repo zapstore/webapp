@@ -1,6 +1,6 @@
 ---
 title: FAQ
-weight: 5
+weight: 99
 ---
 
 ## General
@@ -11,7 +11,7 @@ Zapstore is an open Android app store built on Nostr. Apps are discovered throug
 
 ### How is Zapstore different from Google Play?
 
-Zapstore has no central gatekeeper. Anyone can publish without app-store approval, and trust comes from signatures, social context, and reputation instead of a single platform operator.
+Zapstore has no central gatekeeper. Trust comes from cryptographic signatures, social context, and reputation instead of a single platform operator.
 Developers receive payments directly. No ads, no forced tracking, and no platform cut.
 
 ### Is Zapstore open source?
@@ -35,6 +35,10 @@ Zapstore uses your Nostr social graph. While browsing, you can see usage and rec
 Apps are signed by developers, and signatures are verified before install, so you can confirm who published a release.
 Zapstore is still permissionless, so use normal software safety habits: check developer reputation, read community feedback, and prefer developers you trust.
 
+### How do I suggest an app for the store?
+
+Search for the full repository URL (e.g. `https://github.com/user/repo`). If the app is in the store it will be returned, otherwise search miss is recorded and the repository is queued for background indexing. The repository **must have releases with APK files**, make sure you check `/releases` or similar before requesting it. If it has valid APK releases, it should appear shortly. Otherwise it will be ignored.
+
 ### How do I support developers?
 
 You can send Bitcoin directly via Lightning zaps through your Nostr identity. No separate account or payment processor is required.
@@ -45,28 +49,19 @@ You can send Bitcoin directly via Lightning zaps through your Nostr identity. No
 
 ### How do I publish an app?
 
-Use `zsp` and run the wizard:
-
-```bash
-zsp publish --wizard
-```
-
-The wizard walks you through source, metadata, signing, and publishing. See the [publishing guide](/docs/publish) for details.
+See the [publishing guide](/docs/publish) — the interactive wizard handles source, metadata, signing, and publishing.
 
 ### Do I need to pay or register?
 
-No. Publishing is free and requires no registration. You just need a Nostr keypair to sign your releases.
+No. Publishing is free and requires no registration. You need a Nostr keypair to sign your releases. See [getting whitelisted](/docs/publish#getting-whitelisted) for how the relay verifies new developers.
+
+### What if the relay rejects my event?
+
+See [What happens if your event is rejected](/docs/trust-model#what-happens-if-your-event-is-rejected) in the Trust model.
 
 ### How do I receive payments?
 
 Add a Lightning address to your Nostr profile. Users can zap you in the app, and you receive 100% of each payment.
-
-### What signing methods are supported?
-
-`zsp` supports:
-- `nsec` or hex private key
-- Browser signing (`NIP-07`)
-- Bunker URLs (`NIP-46`)
 
 ---
 

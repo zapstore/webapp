@@ -5,7 +5,7 @@
 import { onMount } from 'svelte';
 import { browser } from '$app/environment';
 import { fetchProfile, queryEvents, encodeStackNaddr, parseApp, parseAppStack, fetchAppsByAuthorFromRelays, fetchAppFromRelays } from '$lib/nostr';
-import { DEFAULT_CATALOG_RELAYS, SAVED_APPS_STACK_D_TAG } from '$lib/config';
+import { ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG } from '$lib/config';
 import { nip19 } from 'nostr-tools';
 import { wheelScroll } from '$lib/actions/wheelScroll.js';
 import { parseShortText } from '$lib/utils/short-text-parser.js';
@@ -159,7 +159,7 @@ onMount(async () => {
         try {
             let events = await queryEvents({ kinds: [32267], authors: [pubkey] });
             if (events.length === 0) {
-                await fetchAppsByAuthorFromRelays(DEFAULT_CATALOG_RELAYS, pubkey, { limit: 50 });
+                await fetchAppsByAuthorFromRelays([ZAPSTORE_RELAY], pubkey, { limit: 50 });
                 events = await queryEvents({ kinds: [32267], authors: [pubkey] });
             }
             const parsed = events.map(parseApp);
@@ -206,7 +206,7 @@ onMount(async () => {
                     const key = `${ref.pubkey}:${ref.identifier}`;
                     if (seen.has(key)) continue;
                     seen.add(key);
-                    const ev = await fetchAppFromRelays(DEFAULT_CATALOG_RELAYS, ref.pubkey, ref.identifier);
+                    const ev = await fetchAppFromRelays([ZAPSTORE_RELAY], ref.pubkey, ref.identifier);
                     if (ev) {
                         const a = parseApp(ev);
                         if (a.pubkey && a.dTag) byPubkeyAndD.set(`${a.pubkey}:${a.dTag}`, a);

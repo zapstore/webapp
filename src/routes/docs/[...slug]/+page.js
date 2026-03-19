@@ -1,6 +1,15 @@
 import { error } from '@sveltejs/kit';
+export const prerender = true;
 // Eager load all docs at build time - instant lookups
 const modules = import.meta.glob('/src/content/docs/**/*.md', { eager: true });
+export function entries() {
+    return [
+        { slug: 'quickstart' },
+        { slug: 'publish' },
+        { slug: 'faq' },
+        { slug: 'trust-model' },
+    ];
+}
 export function load({ params }) {
     const slug = params.slug ? (Array.isArray(params.slug) ? params.slug.join('/') : params.slug) : '';
     let targetPath;

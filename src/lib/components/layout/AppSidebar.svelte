@@ -69,7 +69,7 @@
 
 	function isActive(href) {
 		if (href === '/') return path === '/';
-		if (href === '/discover') return path === '/discover';
+		if (href === '/apps') return path === '/apps';
 		if (href === '/apps') return path === '/apps' || path.startsWith('/apps/');
 		if (href === '/stacks') return path === '/stacks' || path.startsWith('/stacks/');
 		if (href === '/blog') return path === '/blog' || path.startsWith('/blog/');
@@ -113,7 +113,7 @@
 			<div class="app-sidebar-section">
 				<ul class="app-sidebar-list">
 					<li>
-						<a href="/discover" class="app-sidebar-link" class:active={isActive('/discover')}>Discover</a>
+						<a href="/apps" class="app-sidebar-link" class:active={isActive('/apps')}>Apps</a>
 					</li>
 					<li>
 						<a href="/apps" class="app-sidebar-link" class:active={isActive('/apps')}>Apps</a>

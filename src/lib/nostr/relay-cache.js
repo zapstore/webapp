@@ -22,10 +22,13 @@ import {
 	EVENT_KINDS,
 	PLATFORM_FILTER,
 	POLL_INTERVAL_MS,
+	SUB_PREFIX,
 	ZAPSTORE_COMMUNITY_NPUB,
 	ZAPSTORE_COMMUNITY_RELAY
 } from '$lib/config';
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
+
+const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 
 const FORUM_POLL_LIMIT = 50;
 let COMMUNITY_PUBKEY_HEX = '';
@@ -243,6 +246,7 @@ function queryRelaysRaw(relayUrls, filter, timeoutMs = QUERY_TIMEOUT_MS) {
 		let sub;
 		try {
 			sub = pool.subscribeMany(relayUrls, filter, {
+				id: subId('cache'),
 				onevent(event) {
 					if (event?.id) events.push(event);
 				},
@@ -361,9 +365,10 @@ async function warmUp() {
 			}, WARMUP_TIMEOUT_MS),
 
 			// Releases — server-side only, used for ranking apps by latest release
+			// limit < 100 required to pass relay specificity scoring
 			queryRelaysRaw([CATALOG_RELAY], {
 				kinds: [EVENT_KINDS.RELEASE],
-				limit: APPS_POLL_LIMIT * 3
+				limit: 99
 			}, WARMUP_TIMEOUT_MS),
 
 			// Forum posts (kind 11) for Zapstore community — from community relay
@@ -420,7 +425,7 @@ async function pollCatalog() {
 			queryRelaysRaw([CATALOG_RELAY], {
 				kinds: [EVENT_KINDS.RELEASE],
 				since,
-				limit: APPS_POLL_LIMIT * 3
+				limit: 99
 			}),
 		]);
 

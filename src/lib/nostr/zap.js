@@ -9,7 +9,9 @@ import { SimplePool } from 'nostr-tools';
 import { resolveLightningAddress, fetchInvoiceFromCallback, validateZapSupport } from '$lib/lnurl';
 import { fetchProfile } from './service';
 import { putEvents } from './dexie';
-import { DEFAULT_SOCIAL_RELAYS } from '$lib/config';
+import { DEFAULT_SOCIAL_RELAYS, SUB_PREFIX } from '$lib/config';
+
+const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 
 /**
  * Create a zap request (NIP-57), fetch Lightning invoice from LNURL callback,
@@ -133,6 +135,7 @@ export function subscribeToZapReceipt(recipientPubkey, zapRequestId, onReceipt, 
 
 	const run = () => {
 		sub = pool.subscribeMany([...DEFAULT_SOCIAL_RELAYS], { kinds: [9735], '#p': [recipientPubkey] }, {
+			id: subId('zap'),
 			onevent(event) {
 				const descTag = event.tags?.find((t) => t[0] === 'description')?.[1];
 				if (descTag) {

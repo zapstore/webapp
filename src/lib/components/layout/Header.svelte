@@ -47,8 +47,7 @@
 	const isConnected = $derived(pubkey !== null);
 	const isStudioPage = $derived($page.url.pathname === '/studio');
 	const isDiscoverActive = $derived(
-		$page.url.pathname === '/discover' ||
-			$page.url.pathname === '/apps' ||
+		$page.url.pathname === '/apps' ||
 			$page.url.pathname === '/stacks'
 	);
 	const isCommunityActive = $derived(
@@ -294,13 +293,8 @@
 									</button>
 
 									<div class="menu-section">
-										<a href="/discover" class="menu-section-link" onclick={closeMenu}>Discover</a>
+										<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 										<nav class="menu-subnav">
-											<a
-												href="/apps"
-												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}>Apps</a
-											>
 											<a
 												href="/stacks"
 												class="menu-sublink text-sm font-medium text-white/66"
@@ -528,13 +522,8 @@
 								</div>
 
 								<div class="menu-section">
-									<a href="/discover" class="menu-section-link" onclick={closeMenu}>Discover</a>
+									<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 									<nav class="menu-subnav">
-										<a
-											href="/apps"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}>Apps</a
-										>
 										<a
 											href="/stacks"
 											class="menu-sublink text-sm font-medium text-white/66"
@@ -641,59 +630,92 @@
 					<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
 						<!-- Desktop only: Download, Discover, Studio, Community, Search -->
 						<div class="hidden md:flex items-center landing-nav-row gap-4 md:gap-6 lg:gap-8">
-							<!-- Download button: hidden for logged-in users -->
-							{#if !isConnected}
-								<button
-									type="button"
-									class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4"
-									style="color: hsl(var(--white66));"
-									onclick={() => (downloadModalOpen = true)}
-								>
-									Download
-								</button>
-							{/if}
+							<!-- Download button -->
+							<button
+								type="button"
+								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4"
+								style="color: hsl(var(--white66));"
+								onclick={() => (downloadModalOpen = true)}
+							>
+								Download
+							</button>
+							<a
+								href="/apps"
+								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+								class:landing-nav-studio-selected={isDiscoverActive}
+								style="color: hsl(var(--white66));"
+							>
+								Apps
+							</a>
 							<div
 								class="landing-nav-dropdown-wrap relative flex-shrink-0"
 								role="group"
-								aria-label="Discover menu"
-								onmouseenter={() => setLandingNavOpen('discover')}
+								aria-label="Developers menu"
+								onmouseenter={() => setLandingNavOpen('studio')}
 								onmouseleave={clearLandingNavOpen}
 							>
 								<a
-									href="/discover"
-									class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-									class:landing-nav-btn-open={landingNavOpen === 'discover'}
-									class:landing-nav-studio-selected={isDiscoverActive}
+									href="/studio"
+									class="landing-nav-btn landing-nav-studio-trigger text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+									class:landing-nav-btn-open={landingNavOpen === 'studio'}
+									class:landing-nav-studio-selected={isStudioPage}
 									style="color: hsl(var(--white66));"
 								>
-									Discover
+									Developers
 								</a>
-								{#if landingNavOpen === 'discover'}
+								{#if landingNavOpen === 'studio'}
 									<div
-										class="landing-nav-panel landing-nav-panel-centered absolute top-full mt-0 shadow-lg z-50"
+										class="landing-nav-panel landing-nav-panel-studio landing-nav-panel-centered absolute top-full mt-0 shadow-lg z-50"
 									>
 										<div class="landing-nav-panel-top-pad">
-											<div class="landing-nav-panel-bg">
-												<div class="landing-nav-panel-inner-bg">
-													<div class="landing-nav-grid">
-														<a href="/apps" class="landing-nav-grid-item">
-															<img
-																src={`${assets}/images/emoji/app.png`}
-																alt=""
-																class="landing-nav-grid-emoji"
+											<div class="landing-nav-panel-bg landing-nav-panel-studio">
+												<div class="landing-nav-studio-dropdown">
+													<a href="/studio" class="landing-nav-studio-dropdown-left">
+														<svg
+															width="42"
+															height="42"
+															viewBox="64 64 15 20"
+															fill="none"
+															xmlns="http://www.w3.org/2000/svg"
+															class="landing-nav-studio-icon"
+															aria-hidden="true"
+														>
+															<defs>
+																<linearGradient
+																	id="studio-dropdown-logo-gradient"
+																	x1="0%"
+																	y1="0%"
+																	x2="100%"
+																	y2="100%"
+																>
+																	<stop offset="0%" style="stop-color: var(--blurple-bright-0);" />
+																	<stop
+																		offset="100%"
+																		style="stop-color: var(--blurple-bright-1);"
+																	/>
+																</linearGradient>
+															</defs>
+															<path
+																d="M71.4271 64.0009C71.4756 63.9997 71.5243 63.9997 71.5728 64.0009C71.7346 64.0049 71.8944 64.0799 71.9931 64.2256L74.8616 68.4602C74.8676 68.4691 74.8732 68.4781 74.8785 68.4872C74.9007 68.5253 74.9208 68.5646 74.9462 68.6007L74.9542 68.612C75.1988 68.9609 74.9102 69.4216 74.4734 69.3795L73.3883 69.275C73.0394 69.2414 72.7583 69.5398 72.8303 69.8674L73.4327 73.1352C73.4589 73.2775 73.5317 73.4213 73.6767 73.4593C73.77 73.4838 73.872 73.4837 73.9725 73.4529L78.3235 71.9401C78.7191 71.8192 79.094 72.1663 78.9789 72.547L75.8194 83.6386C75.6627 84.1567 74.8757 84.1035 74.8039 83.57L74.0919 78.907C74.0625 78.7147 73.8297 78.6031 73.6396 78.5368L71.7235 77.8667C71.5791 77.8162 71.4207 77.8162 71.2763 77.8667L69.3604 78.5368C69.1703 78.6031 68.9373 78.7148 68.908 78.9071L68.1961 83.57C68.1243 84.1035 67.3373 84.1567 67.1806 83.6386L64.0211 72.547C63.906 72.1663 64.2808 71.8192 64.6765 71.9401L69.0275 73.4529C69.128 73.4837 69.2299 73.4838 69.3231 73.4593C69.4682 73.4213 69.5409 73.2775 69.5672 73.1352L70.1697 69.8674C70.2417 69.5398 69.9606 69.2414 69.6117 69.275L68.5264 69.3795C68.0897 69.4215 67.8012 68.9608 68.0458 68.612L68.0539 68.6005C68.079 68.5646 68.0989 68.5256 68.121 68.4879C68.1265 68.4786 68.1323 68.4694 68.1384 68.4602L71.0069 64.2256C71.1056 64.0799 71.2653 64.005 71.4271 64.0009Z"
+																fill="url(#studio-dropdown-logo-gradient)"
 															/>
-															<span class="landing-nav-grid-title">Apps</span>
-															<span class="landing-nav-grid-desc">Browse and install apps</span>
-														</a>
-														<a href="/stacks" class="landing-nav-grid-item">
-															<img
-																src={`${assets}/images/emoji/stack.png`}
-																alt=""
-																class="landing-nav-grid-emoji"
-															/>
-															<span class="landing-nav-grid-title">Stacks</span>
-															<span class="landing-nav-grid-desc">Curated app collections</span>
-														</a>
+														</svg>
+														<h3 class="landing-nav-studio-title">Zapstore Studio</h3>
+														<p class="landing-nav-studio-desc">
+															Developer suite for publishing apps and interacting with communities
+															of users.
+														</p>
+													</a>
+													<div
+														class="landing-nav-studio-dropdown-divider"
+														aria-hidden="true"
+													></div>
+													<div class="landing-nav-studio-dropdown-right">
+														<a href="/studio" class="landing-nav-studio-row">Learn more</a>
+														<a href="/studio#quickstart" class="landing-nav-studio-row"
+															>Quickstart</a
+														>
+														<a href="/docs/publish" class="landing-nav-studio-row">Docs</a>
 													</div>
 												</div>
 											</div>
@@ -701,96 +723,6 @@
 									</div>
 								{/if}
 							</div>
-							{#if isConnected}
-								<a
-									href="/studio"
-									class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-									class:landing-nav-studio-selected={isStudioPage}
-									style="color: hsl(var(--white66));"
-								>
-									Studio
-								</a>
-							{:else}
-								<div
-									class="landing-nav-dropdown-wrap relative flex-shrink-0"
-									role="group"
-									aria-label="Developers menu"
-									onmouseenter={() => setLandingNavOpen('studio')}
-									onmouseleave={clearLandingNavOpen}
-								>
-									<a
-										href="/studio"
-										class="landing-nav-btn landing-nav-studio-trigger text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-										class:landing-nav-btn-open={landingNavOpen === 'studio'}
-										class:landing-nav-studio-selected={isStudioPage}
-										style="color: hsl(var(--white66));"
-									>
-										Developers
-									</a>
-									{#if landingNavOpen === 'studio'}
-										<div
-											class="landing-nav-panel landing-nav-panel-studio landing-nav-panel-centered absolute top-full mt-0 shadow-lg z-50"
-										>
-											<div class="landing-nav-panel-top-pad">
-												<div class="landing-nav-panel-bg landing-nav-panel-studio">
-													<div class="landing-nav-studio-dropdown">
-														<a href="/studio" class="landing-nav-studio-dropdown-left">
-															<svg
-																width="42"
-																height="42"
-																viewBox="64 64 15 20"
-																fill="none"
-																xmlns="http://www.w3.org/2000/svg"
-																class="landing-nav-studio-icon"
-																aria-hidden="true"
-															>
-																<defs>
-																	<linearGradient
-																		id="studio-dropdown-logo-gradient"
-																		x1="0%"
-																		y1="0%"
-																		x2="100%"
-																		y2="100%"
-																	>
-																		<stop
-																			offset="0%"
-																			style="stop-color: var(--blurple-bright-0);"
-																		/>
-																		<stop
-																			offset="100%"
-																			style="stop-color: var(--blurple-bright-1);"
-																		/>
-																	</linearGradient>
-																</defs>
-																<path
-																	d="M71.4271 64.0009C71.4756 63.9997 71.5243 63.9997 71.5728 64.0009C71.7346 64.0049 71.8944 64.0799 71.9931 64.2256L74.8616 68.4602C74.8676 68.4691 74.8732 68.4781 74.8785 68.4872C74.9007 68.5253 74.9208 68.5646 74.9462 68.6007L74.9542 68.612C75.1988 68.9609 74.9102 69.4216 74.4734 69.3795L73.3883 69.275C73.0394 69.2414 72.7583 69.5398 72.8303 69.8674L73.4327 73.1352C73.4589 73.2775 73.5317 73.4213 73.6767 73.4593C73.77 73.4838 73.872 73.4837 73.9725 73.4529L78.3235 71.9401C78.7191 71.8192 79.094 72.1663 78.9789 72.547L75.8194 83.6386C75.6627 84.1567 74.8757 84.1035 74.8039 83.57L74.0919 78.907C74.0625 78.7147 73.8297 78.6031 73.6396 78.5368L71.7235 77.8667C71.5791 77.8162 71.4207 77.8162 71.2763 77.8667L69.3604 78.5368C69.1703 78.6031 68.9373 78.7148 68.908 78.9071L68.1961 83.57C68.1243 84.1035 67.3373 84.1567 67.1806 83.6386L64.0211 72.547C63.906 72.1663 64.2808 71.8192 64.6765 71.9401L69.0275 73.4529C69.128 73.4837 69.2299 73.4838 69.3231 73.4593C69.4682 73.4213 69.5409 73.2775 69.5672 73.1352L70.1697 69.8674C70.2417 69.5398 69.9606 69.2414 69.6117 69.275L68.5264 69.3795C68.0897 69.4215 67.8012 68.9608 68.0458 68.612L68.0539 68.6005C68.079 68.5646 68.0989 68.5256 68.121 68.4879C68.1265 68.4786 68.1323 68.4694 68.1384 68.4602L71.0069 64.2256C71.1056 64.0799 71.2653 64.005 71.4271 64.0009Z"
-																	fill="url(#studio-dropdown-logo-gradient)"
-																/>
-															</svg>
-															<h3 class="landing-nav-studio-title">Zapstore Studio</h3>
-															<p class="landing-nav-studio-desc">
-																Developer suite for publishing apps and interacting with communities
-																of users.
-															</p>
-														</a>
-														<div
-															class="landing-nav-studio-dropdown-divider"
-															aria-hidden="true"
-														></div>
-														<div class="landing-nav-studio-dropdown-right">
-															<a href="/studio" class="landing-nav-studio-row">Learn more</a>
-															<a href="/studio#quickstart" class="landing-nav-studio-row"
-																>Quickstart</a
-															>
-															<a href="/docs/publish" class="landing-nav-studio-row">Docs</a>
-														</div>
-													</div>
-												</div>
-											</div>
-										</div>
-									{/if}
-								</div>
-							{/if}
 							<div
 								class="landing-nav-dropdown-wrap relative flex-shrink-0"
 								role="group"

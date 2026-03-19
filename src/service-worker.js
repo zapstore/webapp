@@ -15,6 +15,16 @@ const PRECACHE_ASSETS = [
     ...build, // Built app files (JS, CSS)
     ...files // Static files
 ];
+// Wrap a response with immutable Cache-Control so hash-based CDN images are never re-fetched
+function withImmutableHeaders(response) {
+    const headers = new Headers(response.headers);
+    headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers
+    });
+}
 // Check if a request is for an image
 function isImageRequest(request) {
     const accept = request.headers.get('accept') || '';
@@ -76,8 +86,8 @@ sw.addEventListener('fetch', (event) => {
                 if (response.ok && response.status === 200) {
                     const clone = response.clone();
                     caches.open(IMAGE_CACHE_NAME).then((cache) => {
-                        cache.put(event.request, clone);
-                        // Trim cache in background (don't block response)
+                        // Store with immutable headers — hash-based CDN URLs never change
+                        cache.put(event.request, withImmutableHeaders(clone));
                         trimImageCache();
                     });
                 }
