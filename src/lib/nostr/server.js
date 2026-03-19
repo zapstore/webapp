@@ -335,7 +335,10 @@ export function fetchStack(pubkey, identifier) {
 		...(profileEvent ? [profileEvent] : [])
 	]);
 
-	return { stack, apps, creator, seedEvents };
+	// Strip the raw event reference (has Symbol keys from nostr-tools that break serialization)
+	const { event: _event, ...stackData } = stack;
+
+	return { stack: stackData, apps, creator, seedEvents };
 }
 
 /**
@@ -380,7 +383,7 @@ export function fetchStacksByAuthor(pubkey, limit = 50) {
 			stacksByKey.set(key, stack);
 		}
 	}
-	const stacks = [...stacksByKey.values()];
+	const stacks = [...stacksByKey.values()].map(({ event: _event, ...rest }) => rest);
 
 	const { appsByStackId } = resolveMultipleStackAppsFromCache(stacks);
 	const resolvedStacks = [];
