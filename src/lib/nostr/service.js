@@ -9,7 +9,14 @@
  * liveQuery handles reactivity — no manual notification needed.
  */
 import { SimplePool } from 'nostr-tools';
-import { ZAPSTORE_RELAY, DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS, PLATFORM_FILTER, EVENT_KINDS, SUB_PREFIX } from '$lib/config';
+import {
+	ZAPSTORE_RELAY,
+	DEFAULT_CATALOG_RELAYS,
+	DEFAULT_SOCIAL_RELAYS,
+	PLATFORM_FILTER,
+	EVENT_KINDS,
+	SUB_PREFIX
+} from '$lib/config';
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
@@ -98,16 +105,28 @@ export function startLiveSubscriptions() {
 	// Separate subscriptions per filter (subscribeMany takes a single filter)
 	// Limits = POLL_LIMIT (3 × page size) — load-more handles deeper data
 	activeSubscriptions.push(
-		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: APPS_POLL_LIMIT }, { ...subParams, id: subId('apps') })
+		p.subscribeMany(
+			[ZAPSTORE_RELAY],
+			{ kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: APPS_POLL_LIMIT },
+			{ ...subParams, id: subId('apps') }
+		)
 	);
 	// Releases: needed for app detail pages + liveQuery reactivity
 	// since:now — live sub only needs future events; also raises relay specificity score to 3
 	activeSubscriptions.push(
-		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.RELEASE], since: Math.floor(Date.now() / 1000), limit: 50 }, { ...subParams, id: subId('releases') })
+		p.subscribeMany(
+			[ZAPSTORE_RELAY],
+			{ kinds: [EVENT_KINDS.RELEASE], since: Math.floor(Date.now() / 1000), limit: 50 },
+			{ ...subParams, id: subId('releases') }
+		)
 	);
 	// Stacks
 	activeSubscriptions.push(
-		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER, limit: STACKS_POLL_LIMIT }, { ...subParams, id: subId('stacks') })
+		p.subscribeMany(
+			[ZAPSTORE_RELAY],
+			{ kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER, limit: STACKS_POLL_LIMIT },
+			{ ...subParams, id: subId('stacks') }
+		)
 	);
 }
 
@@ -135,7 +154,6 @@ export function stopLiveSubscriptions() {
 		pendingEvents = [];
 		putEvents(batch).catch(() => {});
 	}
-
 }
 
 // ============================================================================
@@ -243,7 +261,11 @@ export async function searchApps(relays, query, options = {}) {
 			settled = true;
 			if (eoseTimer) clearTimeout(eoseTimer);
 			if (timeoutTimer) clearTimeout(timeoutTimer);
-			try { sub?.close(); } catch { /* noop */ }
+			try {
+				sub?.close();
+			} catch {
+				/* noop */
+			}
 			searchPool.close(relays);
 			if (events.length > 0) {
 				await putEvents(events).catch((err) =>
@@ -301,7 +323,11 @@ export async function fetchAppFromRelays(relayUrls, pubkey, dTag, options = {}) 
 		...PLATFORM_FILTER,
 		limit: 1
 	};
-	const events = await fetchFromRelays(relayUrls, filter, { timeout, signal, feature: 'app-detail' });
+	const events = await fetchFromRelays(relayUrls, filter, {
+		timeout,
+		signal,
+		feature: 'app-detail'
+	});
 	return events.length > 0 ? events[0] : null;
 }
 
@@ -345,9 +371,7 @@ export async function fetchProfilesBatch(pubkeys, options = {}) {
 
 	const uniquePubkeys = [
 		...new Set(
-			pubkeys
-				.map((pk) => String(pk).trim().toLowerCase())
-				.filter((pk) => /^[a-f0-9]{64}$/.test(pk))
+			pubkeys.map((pk) => String(pk).trim().toLowerCase()).filter((pk) => /^[a-f0-9]{64}$/.test(pk))
 		)
 	];
 
@@ -416,7 +440,13 @@ export async function queryCommentsFromStore(pubkey, identifier, aTagKind = 3226
  * Fetch comments from relays and store in Dexie.
  */
 export async function fetchComments(pubkey, identifier, options = {}) {
-	const { timeout = 5000, signal, relays = SOCIAL_RELAYS, aTagKind = 32267, eventId = null } = options;
+	const {
+		timeout = 5000,
+		signal,
+		relays = SOCIAL_RELAYS,
+		aTagKind = 32267,
+		eventId = null
+	} = options;
 	if (signal?.aborted) return [];
 
 	// Non-replaceable event root: filter by #e / #E tags
@@ -554,11 +584,21 @@ export function parseZapReceipt(event) {
 			const num = parseInt(amountMatch[1], 10);
 			const unit = amountMatch[2] || '';
 			switch (unit) {
-				case 'm': result.amountSats = num * 100000; break;
-				case 'u': result.amountSats = num * 100; break;
-				case 'n': result.amountSats = Math.round(num / 10); break;
-				case 'p': result.amountSats = Math.round(num / 10000); break;
-				default: result.amountSats = num * 100000000; break;
+				case 'm':
+					result.amountSats = num * 100000;
+					break;
+				case 'u':
+					result.amountSats = num * 100;
+					break;
+				case 'n':
+					result.amountSats = Math.round(num / 10);
+					break;
+				case 'p':
+					result.amountSats = Math.round(num / 10000);
+					break;
+				default:
+					result.amountSats = num * 100000000;
+					break;
 			}
 		}
 	}
@@ -603,7 +643,16 @@ export function parseZapReceipt(event) {
  * @param {number} [parentKind] - Kind of parent (e.g. 1111 or 9735)
  * @param {string[]} [mentions] - Pubkeys mentioned in content (p tags for notifications)
  */
-export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions) {
+export async function publishComment(
+	content,
+	target,
+	signEvent,
+	emojiTags,
+	parentEventId,
+	replyToPubkey,
+	parentKind,
+	mentions
+) {
 	if (!content?.trim()) throw new Error('Comment content is required');
 	if (!target?.pubkey?.trim()) throw new Error('Comment target pubkey is required');
 
@@ -618,48 +667,61 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 	let rootKind;
 	let tags;
 
-	// Root scope: uppercase tags (E/A, K, P) plus lowercase duplicates (e/a, k, p) per NIP-22.
-	// Other clients filter on lowercase tags, so both are required for interoperability.
+	// NIP-22: uppercase tags (E/A, K, P) always point to the root scope.
+	// Lowercase tags (e/a, k, p) always point to the parent item.
+	// For top-level comments the parent IS the root, so lowercase duplicates the uppercase values.
+	// For replies to comments, lowercase tags point to the parent comment instead.
+	const isReply = !!parentEventId;
+
 	if (isNonReplaceable) {
 		rootKind = target.kind ?? 11;
 		const eId = target.id.trim().toLowerCase();
 		const pubkey = target.pubkey.trim().toLowerCase();
 		tags = [
 			['E', eId],
-			['e', eId],
 			['K', String(rootKind)],
-			['k', String(rootKind)],
-			['P', pubkey],
-			['p', pubkey]
+			['P', pubkey]
 		];
+		// Top-level comment: parent = root
+		if (!isReply) {
+			tags.push(['e', eId]);
+			tags.push(['k', String(rootKind)]);
+			tags.push(['p', pubkey]);
+		}
 	} else {
 		const kind = 32267;
 		const stackKind = 30267;
-		const aTagValue = target.contentType === 'app'
-			? `${kind}:${target.pubkey}:${target.identifier}`
-			: `${stackKind}:${target.pubkey}:${target.identifier}`;
+		const aTagValue =
+			target.contentType === 'app'
+				? `${kind}:${target.pubkey}:${target.identifier}`
+				: `${stackKind}:${target.pubkey}:${target.identifier}`;
 
 		rootKind = target.contentType === 'app' ? kind : stackKind;
 		const pubkey = target.pubkey.trim().toLowerCase();
 		tags = [
 			['A', aTagValue],
-			['a', aTagValue],
 			['K', String(rootKind)],
-			['k', String(rootKind)],
-			['P', pubkey],
-			['p', pubkey]
+			['P', pubkey]
 		];
+		// Top-level comment: parent = root
+		if (!isReply) {
+			tags.push(['a', aTagValue]);
+			tags.push(['k', String(rootKind)]);
+			tags.push(['p', pubkey]);
+		}
 	}
 
-	// Parent item (when replying to a comment): e, k, p — spec requires parent author in p tag
-	if (parentEventId) {
+	// Reply to a comment: lowercase tags point to the parent comment
+	if (isReply) {
 		const parentId = parentEventId.trim().toLowerCase();
 		if (!/^[a-f0-9]{64}$/.test(parentId)) {
 			throw new Error(`Invalid parent event id: ${parentEventId.slice(0, 20)}...`);
 		}
 		const parentPubkey = replyToPubkey?.trim();
 		if (!parentPubkey || !/^[a-f0-9]{64}$/.test(parentPubkey.toLowerCase())) {
-			throw new Error('replyToPubkey (parent comment author) is required when replying to a comment');
+			throw new Error(
+				'replyToPubkey (parent comment author) is required when replying to a comment'
+			);
 		}
 		tags.push(['e', parentId]);
 		tags.push(['k', String(parentKind ?? 1111)]);
@@ -715,7 +777,13 @@ export async function publishStack(name, description, apps, signEvent) {
 	if (!name?.trim()) throw new Error('Stack name is required');
 
 	// Generate a unique identifier from name + timestamp
-	const identifier = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now();
+	const identifier =
+		name
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-|-$/g, '') +
+		'-' +
+		Date.now();
 
 	const tags = [
 		['d', identifier],
@@ -753,38 +821,38 @@ export async function updateStackApps(stackEvent, app, action, signEvent) {
 	if (!stackEvent?.id) throw new Error('Stack event is required');
 	if (!app?.pubkey || !app?.dTag) throw new Error('App with pubkey and dTag is required');
 
-	const dTag = stackEvent.tags.find(t => t[0] === 'd')?.[1];
+	const dTag = stackEvent.tags.find((t) => t[0] === 'd')?.[1];
 	if (!dTag) throw new Error('Stack must have a d tag');
 
 	const appATag = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-	const existingATags = stackEvent.tags.filter(t => t[0] === 'a');
+	const existingATags = stackEvent.tags.filter((t) => t[0] === 'a');
 	let newATags;
 
 	if (action === 'add') {
-		if (existingATags.some(t => t[1] === appATag)) return stackEvent;
+		if (existingATags.some((t) => t[1] === appATag)) return stackEvent;
 		newATags = [...existingATags, ['a', appATag]];
 	} else if (action === 'remove') {
-		newATags = existingATags.filter(t => t[1] !== appATag);
+		newATags = existingATags.filter((t) => t[1] !== appATag);
 	} else {
 		throw new Error('Action must be "add" or "remove"');
 	}
-	
+
 	// Preserve all non-'a' tags from original event, then add new 'a' tags
-	const preservedTags = stackEvent.tags.filter(t => t[0] !== 'a');
+	const preservedTags = stackEvent.tags.filter((t) => t[0] !== 'a');
 	const tags = [...preservedTags, ...newATags];
-	
+
 	// Ensure we have the platform filter tag
-	if (!tags.some(t => t[0] === 'f')) {
+	if (!tags.some((t) => t[0] === 'f')) {
 		tags.push(['f', PLATFORM_FILTER['#f'][0]]);
 	}
-	
+
 	const template = {
 		kind: EVENT_KINDS.APP_STACK,
 		content: stackEvent.content || '',
 		tags,
 		created_at: Math.floor(Date.now() / 1000)
 	};
-	
+
 	let signed;
 	try {
 		signed = await signEvent(template);
@@ -797,8 +865,12 @@ export async function updateStackApps(stackEvent, app, action, signEvent) {
 	const p = getPool();
 	try {
 		const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-		const failed = results.filter(r => r.status === 'rejected');
-		if (failed.length > 0) console.warn('[updateStackApps] some publishes failed:', failed.map(f => f.reason));
+		const failed = results.filter((r) => r.status === 'rejected');
+		if (failed.length > 0)
+			console.warn(
+				'[updateStackApps] some publishes failed:',
+				failed.map((f) => f.reason)
+			);
 	} catch (pubErr) {
 		console.error('[updateStackApps] publish failed:', pubErr);
 	}
@@ -818,37 +890,36 @@ export async function updateStackApps(stackEvent, app, action, signEvent) {
  * Since stacks are replaceable events (kind 30267), we create a new event with the same 'd' tag.
  */
 export async function updateStack(stackEvent, newName, newDescription, newApps, signEvent) {
-	
 	if (!stackEvent?.id) throw new Error('Stack event is required');
-	
-	const dTag = stackEvent.tags.find(t => t[0] === 'd')?.[1];
+
+	const dTag = stackEvent.tags.find((t) => t[0] === 'd')?.[1];
 	if (!dTag) throw new Error('Stack must have a d tag');
-	
+
 	// Build tags list, preserving d tag and platform filter
 	const tags = [
 		['d', dTag],
 		['f', PLATFORM_FILTER['#f'][0]]
 	];
-	
+
 	// Add title tag if name is provided
 	if (newName?.trim()) {
 		tags.push(['title', newName.trim()]);
 	}
-	
+
 	// Build app 'a' tags from the new apps list
-	for (const app of (newApps || [])) {
+	for (const app of newApps || []) {
 		if (app?.pubkey && app?.dTag) {
 			tags.push(['a', `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`]);
 		}
 	}
-	
+
 	const template = {
 		kind: EVENT_KINDS.APP_STACK,
 		content: newDescription?.trim() || '',
 		tags,
 		created_at: Math.floor(Date.now() / 1000)
 	};
-	
+
 	let signed;
 	try {
 		signed = await signEvent(template);
@@ -861,8 +932,12 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
 	const p = getPool();
 	try {
 		const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-		const failed = results.filter(r => r.status === 'rejected');
-		if (failed.length > 0) console.warn('[updateStack] some publishes failed:', failed.map(f => f.reason));
+		const failed = results.filter((r) => r.status === 'rejected');
+		if (failed.length > 0)
+			console.warn(
+				'[updateStack] some publishes failed:',
+				failed.map((f) => f.reason)
+			);
 	} catch (pubErr) {
 		console.error('[updateStack] publish failed:', pubErr);
 	}
@@ -882,16 +957,15 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
  * NIP-09: Event Deletion
  */
 export async function deleteStack(stackEvent, signEvent) {
-	
 	if (!stackEvent?.id) throw new Error('Stack event is required');
-	
-	const dTag = stackEvent.tags.find(t => t[0] === 'd')?.[1];
+
+	const dTag = stackEvent.tags.find((t) => t[0] === 'd')?.[1];
 	if (!dTag) throw new Error('Stack must have a d tag');
-	
+
 	// Build the deletion event (kind 5)
 	// Reference the event by id with 'e' tag and by address with 'a' tag
 	const aTagValue = `${EVENT_KINDS.APP_STACK}:${stackEvent.pubkey}:${dTag}`;
-	
+
 	const template = {
 		kind: 5,
 		content: 'Stack deleted',
@@ -902,7 +976,7 @@ export async function deleteStack(stackEvent, signEvent) {
 		],
 		created_at: Math.floor(Date.now() / 1000)
 	};
-	
+
 	let signed;
 	try {
 		signed = await signEvent(template);
@@ -934,7 +1008,7 @@ export async function deleteStack(stackEvent, signEvent) {
 export function parseComment(event) {
 	const eTags = event.tags.filter((t) => (t[0] === 'e' || t[0] === 'E') && !!t[1]);
 	const replyTag = eTags.find((t) => t[3] === 'reply');
-	const parentId = (replyTag?.[1] ?? eTags[eTags.length - 1]?.[1]) ?? null;
+	const parentId = replyTag?.[1] ?? eTags[eTags.length - 1]?.[1] ?? null;
 
 	const emojiTags = [];
 	for (const tag of event.tags) {
