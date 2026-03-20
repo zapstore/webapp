@@ -10,6 +10,7 @@ export { db, putEvents, queryEvents, queryEvent, liveQuery } from './dexie';
 // Service layer (client-side)
 export {
 	searchApps,
+	searchForumPosts,
 	fetchAppsByAuthorFromRelays,
 	fetchAppFromRelays,
 	fetchReleasesFromRelays,

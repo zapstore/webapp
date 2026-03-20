@@ -51,6 +51,20 @@ export const ZAPSTORE_COMMUNITY_RELAY = 'wss://relay.zapstore.dev';
 /** Forum relay (kind 11 posts/comments). Edit this to point to your relay. */
 export const FORUM_RELAY = 'wss://relay.damus.io';
 
+/** Forum feed categories / post labels — same list for feed filter chips and ForumPostLabelsModal. */
+export const FORUM_CATEGORIES = [
+	'General',
+	'Dev Support',
+	'User Support',
+	'Feature Request',
+	'Ideas',
+	'Bugs',
+	'Announcements',
+	'News',
+	'Showcase',
+	'Off-Topic'
+];
+
 // Platform filter — only Android arm64 is supported for now.
 // Spread into every APP / RELEASE relay filter so the relay only returns matching events.
 export const PLATFORM_FILTER = { '#f': ['android-arm64-v8a'] };

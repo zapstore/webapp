@@ -12,19 +12,13 @@ import { cubicOut } from 'svelte/easing';
 import Label from '$lib/components/common/Label.svelte';
 import InputLabel from '$lib/components/common/InputLabel.svelte';
 import { wheelScroll } from '$lib/actions/wheelScroll.js';
-
-// 18 items — split evenly into 3 rows of 6.
-// First 6 → row 1 (always visible), next 6 → row 2, last 6 → row 3.
-const DEFAULT_SUGGESTIONS = [
-	'Discussion', 'Question', 'Help', 'Announcement', 'Feature', 'Bug',
-	'General', 'News', 'Tutorial', 'Idea', 'Feedback', 'Off-topic',
-	'Event', 'Showcase', 'Resource', 'Review', 'Meta', 'Poll'
-];
+import { FORUM_CATEGORIES } from '$lib/config';
 
 let {
 	isOpen = $bindable(false),
 	selectedLabels = $bindable(/** @type {string[]} */ ([])),
-	suggestions = DEFAULT_SUGGESTIONS,
+	/** Same as forum feed categories by default */
+	suggestions = FORUM_CATEGORIES,
 	onclose = () => {}
 } = $props();
 

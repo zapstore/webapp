@@ -16,7 +16,7 @@
 		parseForumPost
 	} from '$lib/nostr';
 	import { parseProfile } from '$lib/nostr/models';
-	import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB, FORUM_RELAY } from '$lib/config';
+	import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB, FORUM_RELAY, FORUM_CATEGORIES } from '$lib/config';
 	import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { goto } from '$app/navigation';
@@ -24,6 +24,7 @@
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
 	import CommunityBottomBar from '$lib/components/community/CommunityBottomBar.svelte';
 	import ForumPostModal from '$lib/components/modals/ForumPostModal.svelte';
+	import ForumSearchModal from '$lib/components/modals/ForumSearchModal.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Label from '$lib/components/common/Label.svelte';
 	import { ChevronDown } from '$lib/components/icons';
@@ -42,20 +43,10 @@
 
 	const RELAYS = [FORUM_RELAY];
 
-	const FORUM_CATEGORIES = [
-		'General',
-		'Dev Support',
-		'User Support',
-		'Feature Request',
-		'Ideas',
-		'Bugs',
-		'Announcements',
-		'News',
-		'Showcase',
-		'Off-Topic'
-	];
-
 	let selectedCategory = $state(/** @type {string | null} */ (null));
+	let latestDropdownOpen = $state(false);
+	/** @type {HTMLDivElement | null} */
+	let latestDropdownWrap = $state(null);
 	// Initialize from cache so back navigation from post detail shows list immediately (apps pattern)
 	let posts = $state(/** @type {any[]} */ (getCached('forum_posts') ?? []));
 	let postsLoading = $state(false);
@@ -64,6 +55,7 @@
 	/** @type {Map<string, { profiles: any[], count: number }>} */
 	let commentersByPostId = $state(new Map());
 	let addPostModalOpen = $state(false);
+	let searchModalOpen = $state(false);
 	/** Shown when a post was saved locally but relay publish failed (so other browsers won't see it) */
 	let publishError = $state('');
 	// Defer Dexie/liveQuery until after mount so first paint isn't blocked by DB
@@ -94,6 +86,17 @@
 			? posts.filter((p) => p.labels?.includes(selectedCategory))
 			: posts
 	);
+
+	$effect(() => {
+		if (!latestDropdownOpen || !latestDropdownWrap) return;
+		function handleClick(e) {
+			if (latestDropdownWrap && !latestDropdownWrap.contains(/** @type {Node} */ (e.target))) {
+				latestDropdownOpen = false;
+			}
+		}
+		document.addEventListener('click', handleClick, true);
+		return () => document.removeEventListener('click', handleClick, true);
+	});
 
 	$effect(() => {
 		if (!forumQuery) return;
@@ -368,20 +371,28 @@
 				{/each}
 			</div>
 		</div>
-		<button
-			type="button"
-			class="forum-all-btn"
-			class:selected={selectedCategory === null}
-			onclick={() => {
-				selectedCategory = null;
-			}}
-			aria-label="All categories"
-		>
-			<span>All</span>
-			<span class="forum-all-btn-icon">
-				<ChevronDown variant="outline" size={14} strokeWidth={1.4} color="hsl(var(--white33))" />
-			</span>
-		</button>
+		<div class="forum-latest-wrap" bind:this={latestDropdownWrap}>
+			<button
+				type="button"
+				class="forum-all-btn"
+				class:selected={selectedCategory === null}
+				onclick={() => { latestDropdownOpen = !latestDropdownOpen; }}
+				aria-label="Sort order"
+				aria-expanded={latestDropdownOpen}
+			>
+				<span>Latest</span>
+				<span class="forum-all-btn-icon">
+					<ChevronDown variant="outline" size={14} strokeWidth={1.4} color="hsl(var(--white33))" />
+				</span>
+			</button>
+			{#if latestDropdownOpen}
+				<div class="forum-latest-dropdown" role="menu">
+					<button type="button" class="forum-latest-dropdown-item" role="menuitem" onclick={() => { selectedCategory = null; latestDropdownOpen = false; }}>
+						Latest
+					</button>
+				</div>
+			{/if}
+		</div>
 	</div>
 	{#if publishError}
 		<div class="forum-publish-error" role="alert">
@@ -441,12 +452,12 @@
 <CommunityBottomBar
 	showFeedBar={true}
 	selectedSection="forum"
-	modalOpen={addPostModalOpen}
+	modalOpen={addPostModalOpen || searchModalOpen}
 	onAdd={() => {
 		addPostModalOpen = true;
 	}}
 	onSearch={() => {
-		/* TODO */
+		searchModalOpen = true;
 	}}
 />
 
@@ -458,6 +469,14 @@
 	onsubmit={handleForumPostSubmit}
 	onclose={() => {
 		addPostModalOpen = false;
+	}}
+/>
+
+<ForumSearchModal
+	bind:isOpen={searchModalOpen}
+	communityPubkeyHex={COMMUNITY_PUBKEY}
+	onclose={() => {
+		searchModalOpen = false;
 	}}
 />
 </div>
@@ -549,6 +568,42 @@
 	.forum-all-btn.selected {
 		background: hsl(var(--gray66));
 		color: hsl(var(--white));
+	}
+
+	.forum-latest-wrap {
+		position: relative;
+		flex-shrink: 0;
+		margin-right: 16px;
+	}
+
+	.forum-latest-dropdown {
+		position: absolute;
+		top: calc(100% + 4px);
+		right: 0;
+		min-width: 200px;
+		background: hsl(var(--gray));
+		border: 0.33px solid hsl(var(--white8));
+		border-radius: 12px;
+		box-shadow: 0 8px 24px hsl(var(--black));
+		padding: 6px 0;
+		z-index: 20;
+	}
+
+	.forum-latest-dropdown-item {
+		display: block;
+		width: 100%;
+		padding: 8px 16px;
+		border: none;
+		background: none;
+		color: hsl(var(--white));
+		font-size: 14px;
+		font-weight: 500;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.forum-latest-dropdown-item:hover {
+		background: hsl(var(--white8));
 	}
 
 	.forum-publish-error {

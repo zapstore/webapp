@@ -291,6 +291,69 @@ export async function searchApps(relays, query, options = {}) {
 }
 
 /**
+ * Search forum posts (kind 11) by title, content, or tags using NIP-50 full-text search.
+ * Uses a dedicated pool; events are written to Dexie.
+ * @param {string[]} relays - Relay URLs (e.g. FORUM_RELAY)
+ * @param {string} communityPubkeyHex - Community pubkey for #h filter
+ * @param {string} query - Search string
+ * @param {{ limit?: number, timeout?: number, signal?: AbortSignal }} options
+ * @returns {Promise<import('nostr-tools').NostrEvent[]>}
+ */
+export async function searchForumPosts(relays, communityPubkeyHex, query, options = {}) {
+	const { limit = 50, timeout = 5000, signal } = options;
+	if (signal?.aborted || !query.trim()) return [];
+	if (!communityPubkeyHex) return [];
+
+	const filter = {
+		kinds: [EVENT_KINDS.FORUM_POST],
+		'#h': [communityPubkeyHex],
+		search: query.trim(),
+		limit
+	};
+
+	const searchPool = new SimplePool();
+
+	return new Promise((resolve) => {
+		const events = [];
+		let sub = null;
+		let settled = false;
+		let eoseTimer = null;
+		let timeoutTimer = null;
+
+		const finish = async () => {
+			if (settled) return;
+			settled = true;
+			if (eoseTimer) clearTimeout(eoseTimer);
+			if (timeoutTimer) clearTimeout(timeoutTimer);
+			try { sub?.close(); } catch { /* noop */ }
+			searchPool.close(relays);
+			if (events.length > 0) {
+				await putEvents(events).catch((err) =>
+					console.error('[ForumSearch] Failed to persist events:', err)
+				);
+			}
+			resolve(events);
+		};
+
+		sub = searchPool.subscribeMany(relays, filter, {
+			id: subId('forum-search'),
+			onevent(event) {
+				if (event?.id) events.push(event);
+			},
+			oneose() {
+				if (!eoseTimer) eoseTimer = setTimeout(finish, EOSE_GRACE_MS);
+			},
+			onclose() {
+				if (!settled) finish();
+			}
+		});
+
+		signal?.addEventListener('abort', finish, { once: true });
+		timeoutTimer = setTimeout(finish, timeout);
+	});
+}
+
+/**
  * Fetch app events by author from relays (for profile pages, etc.).
  * Events are written to Dexie via fetchFromRelays.
  */
