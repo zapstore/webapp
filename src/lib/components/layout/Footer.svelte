@@ -108,7 +108,7 @@
 							<a
 								href="/terms"
 								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-								>Terms of Service</a
+								><span class="md:hidden">Terms</span><span class="hidden md:inline">Terms of Service</span></a
 							>
 						</li>
 					</ul>

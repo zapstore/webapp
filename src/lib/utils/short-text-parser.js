@@ -62,7 +62,8 @@ export function parseShortText(input) {
                     segment: {
                         type: "nostr_ref",
                         raw,
-                        kind: decoded.type
+                        kind: decoded.type,
+                        naddr: decoded.type === "naddr" ? rest : undefined
                     }
                 });
             }

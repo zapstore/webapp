@@ -15,9 +15,11 @@ import Modal from "$lib/components/common/Modal.svelte";
 import MediaLightboxModal from "$lib/components/modals/MediaLightboxModal.svelte";
 import InputButton from "$lib/components/common/InputButton.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
+import EmojiPickerModal from "$lib/components/modals/EmojiPickerModal.svelte";
+import InsertModal from "$lib/components/modals/InsertModal.svelte";
 import ZapSliderModal from "$lib/components/modals/ZapSliderModal.svelte";
 import { Zap, Reply, Options } from "$lib/components/icons";
-import { getIsSignedIn } from "$lib/stores/auth.svelte.js";
+import { getIsSignedIn, getCurrentPubkey } from "$lib/stores/auth.svelte.js";
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
 let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], /** @type {string[]} */ mediaUrls = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, onReplySubmit, onZapReceived, onGetStarted, /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
     openThreadOnMount = false, } = $props();
@@ -39,10 +41,26 @@ let replyingToComment = $state(null);
 let zapTargetOverride = $state(null);
 let replyInput = $state(null);
 let submitting = $state(false);
+let emojiPickerOpen = $state(false);
+let insertModalOpen = $state(false);
 /** @type {HTMLInputElement | null} */
 let replyFileInputEl = $state(null);
 function handleReplyCameraTap() {
 	replyFileInputEl?.click();
+}
+function handleEmojiTap() {
+	emojiPickerOpen = true;
+}
+function handleEmojiSelect(/** @type {{ shortcode: string; url: string; source: string }} */ emoji) {
+	replyInput?.insertEmoji?.(emoji.shortcode, emoji.url, emoji.source);
+	replyInput?.focus?.();
+}
+function handleInsertTap() {
+	insertModalOpen = true;
+}
+function handleInsertNostrRef(/** @type {{ naddr: string; name?: string | null; iconUrl?: string | null }} */ payload) {
+	replyInput?.insertNostrRef?.(payload);
+	replyInput?.focus?.();
 }
 async function handleReplyFileChange(e) {
 	const files = /** @type {HTMLInputElement} */ (e.target).files;
@@ -71,8 +89,8 @@ async function handleReplyFileChange(e) {
 /** Which item the actions modal is for: 'root', a comment reply, or a zap (zap on zap) */
 let actionsModalTarget = $state(null);
 let actionsModalOpen = $state(false);
-/** True when any modal is open on top of the thread (Zap or Comment/Zap options) – drives overlay + scale animation */
-const childModalOpen = $derived(zapModalOpen || actionsModalOpen);
+/** True when any modal is open on top of the thread (Zap, Comment/Zap options, emoji, insert) – drives overlay + scale animation */
+const childModalOpen = $derived(zapModalOpen || actionsModalOpen || emojiPickerOpen || insertModalOpen);
 // Replies only: threadComments excluding the root itself (threadComments includes root as first element)
 const threadReplies = $derived(threadComments.filter((c) => c.id !== id));
 // Unique people in the thread: comment repliers + zappers (by pubkey), same shape as ReplyComment for profile stack. App author first.
@@ -291,6 +309,12 @@ $effect(() => {
     if (commentExpanded && replyInput) {
         const t = setTimeout(() => replyInput?.focus?.(), 120);
         return () => clearTimeout(t);
+    }
+});
+$effect(() => {
+    if (!commentExpanded) {
+        emojiPickerOpen = false;
+        insertModalOpen = false;
     }
 });
 $effect(() => {
@@ -584,9 +608,9 @@ function handleOptions() {
                 showActionRow={true}
                 onClose={closeReply}
                 onCameraTap={handleReplyCameraTap}
-                onEmojiTap={() => {}}
+                onEmojiTap={handleEmojiTap}
                 onGifTap={() => {}}
-                onAddTap={() => {}}
+                onAddTap={handleInsertTap}
                 onChevronTap={() => {}}
                 onsubmit={handleReplySubmit}
               >
@@ -631,6 +655,21 @@ function handleOptions() {
   {searchEmojis}
   onclose={handleZapClose}
   onzapReceived={handleZapReceived}
+/>
+
+<EmojiPickerModal
+  bind:isOpen={emojiPickerOpen}
+  getCurrentPubkey={getCurrentPubkey}
+  onSelectEmoji={handleEmojiSelect}
+  onclose={() => { emojiPickerOpen = false; }}
+/>
+
+<InsertModal
+  title="Insert"
+  bind:isOpen={insertModalOpen}
+  getCurrentPubkey={getCurrentPubkey}
+  onInsert={handleInsertNostrRef}
+  onclose={() => { insertModalOpen = false; }}
 />
 
 <MediaLightboxModal bind:isOpen={lightboxOpen} urls={lightboxUrls} initialIndex={lightboxIndex} />

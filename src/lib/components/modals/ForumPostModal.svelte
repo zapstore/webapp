@@ -9,6 +9,7 @@ import { cubicOut } from 'svelte/easing';
 import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
 import ForumPostLabelsModal from '$lib/components/modals/ForumPostLabelsModal.svelte';
+import InsertModal from '$lib/components/modals/InsertModal.svelte';
 import { Camera, EmojiFill, Plus } from '$lib/components/icons';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search';
 import { createSearchProfilesFunction } from '$lib/services/profile-search';
@@ -38,6 +39,7 @@ let submitting = $state(false);
 let error = $state('');
 let emojiPickerOpen = $state(false);
 let labelsModalOpen = $state(false);
+let insertModalOpen = $state(false);
 /** @type {string[]} */
 let selectedLabels = $state([]);
 /** @type {HTMLInputElement | null} */
@@ -64,6 +66,15 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 
 function handleLabelsTap() {
 	labelsModalOpen = true;
+}
+
+function handleInsertTap() {
+	insertModalOpen = true;
+}
+
+function handleInsertNostrRef(/** @type {{ naddr: string; name?: string | null; iconUrl?: string | null }} */ payload) {
+	contentInput?.insertNostrRef?.(payload);
+	contentInput?.focus?.();
 }
 
 function handleCameraTap() {
@@ -135,6 +146,7 @@ $effect(() => {
 		submitting = false;
 		emojiPickerOpen = false;
 		labelsModalOpen = false;
+		insertModalOpen = false;
 		selectedLabels = [];
 	}
 });
@@ -147,7 +159,7 @@ $effect(() => {
 	<div class="overlay bg-overlay" onclick={close} role="presentation" transition:fade={{ duration: 180 }}></div>
 
 	<div class="post-sheet-wrapper" role="dialog" aria-modal="true" aria-label="New post">
-		<div class="post-sheet" class:child-modal-open={emojiPickerOpen || labelsModalOpen} transition:fly={{ y: 100, duration: 200, easing: cubicOut }}>
+		<div class="post-sheet" class:child-modal-open={emojiPickerOpen || labelsModalOpen || insertModalOpen} transition:fly={{ y: 100, duration: 200, easing: cubicOut }}>
 			<div class="child-overlay" aria-hidden="true"></div>
 			<div class="post-form-box">
 				<input
@@ -199,7 +211,7 @@ $effect(() => {
 				<button type="button" class="action-btn" aria-label="Add emoji" onclick={handleEmojiTap}>
 					<EmojiFill variant="fill" color="hsl(var(--white33))" size={18} />
 				</button>
-				<button type="button" class="action-btn" aria-label="Add attachment" onclick={() => {}}>
+				<button type="button" class="action-btn" aria-label="Insert app or link" onclick={handleInsertTap}>
 						<Plus variant="outline" color="hsl(var(--white33))" size={16} strokeWidth={2.8} />
 					</button>
 					<button
@@ -247,6 +259,14 @@ $effect(() => {
 	bind:isOpen={labelsModalOpen}
 	bind:selectedLabels
 	onclose={() => { labelsModalOpen = false; }}
+/>
+
+<InsertModal
+	title="Insert"
+	bind:isOpen={insertModalOpen}
+	{getCurrentPubkey}
+	onInsert={handleInsertNostrRef}
+	onclose={() => { insertModalOpen = false; }}
 />
 
 <style>

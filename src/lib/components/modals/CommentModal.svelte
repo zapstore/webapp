@@ -1,11 +1,14 @@
 <script lang="js">
 /**
- * CommentModal - Bottom sheet for writing a comment (WYSIWYG with block-level media).
+ * CommentModal - Bottom sheet for writing a comment (WYSIWYG with block-level media, emoji, insert app).
  * Camera: pick file → placeholder in editor (spinner + 33% opacity) → upload → becomes image/video.
+ * Emoji and Insert (app ref) same as ForumPostModal.
  */
 import { fly } from "svelte/transition";
 import { cubicOut } from "svelte/easing";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
+import EmojiPickerModal from "$lib/components/modals/EmojiPickerModal.svelte";
+import InsertModal from "$lib/components/modals/InsertModal.svelte";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { createSearchProfilesFunction } from "$lib/services/profile-search";
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
@@ -14,12 +17,28 @@ const searchProfiles = $derived(searchProfilesProp ?? createSearchProfilesFuncti
 const searchEmojis = $derived(searchEmojisProp ?? createSearchEmojisFunction(getCurrentPubkey));
 let textInput = $state(null);
 let submitting = $state(false);
+let emojiPickerOpen = $state(false);
+let insertModalOpen = $state(false);
 /** @type {HTMLInputElement | null} */
 let fileInputEl = $state(null);
 let mediaUploading = $state(false);
 function close() {
     isOpen = false;
     onclose?.();
+}
+function handleEmojiTap() {
+    emojiPickerOpen = true;
+}
+function handleEmojiSelect(/** @type {{ shortcode: string; url: string; source: string }} */ emoji) {
+    textInput?.insertEmoji?.(emoji.shortcode, emoji.url, emoji.source);
+    textInput?.focus?.();
+}
+function handleInsertTap() {
+    insertModalOpen = true;
+}
+function handleInsertNostrRef(/** @type {{ naddr: string; name?: string | null; iconUrl?: string | null }} */ payload) {
+    textInput?.insertNostrRef?.(payload);
+    textInput?.focus?.();
 }
 function handleCameraTap() {
     fileInputEl?.click();
@@ -81,6 +100,10 @@ $effect(() => {
         const t = setTimeout(() => textInput?.focus(), 100);
         return () => clearTimeout(t);
     }
+    if (!isOpen) {
+        emojiPickerOpen = false;
+        insertModalOpen = false;
+    }
 });
 </script>
 
@@ -96,7 +119,8 @@ $effect(() => {
     aria-modal="true"
     aria-label="Write a comment"
   >
-    <div class="comment-sheet" transition:fly={{ y: 100, duration: 200, easing: cubicOut }}>
+    <div class="comment-sheet" class:child-modal-open={emojiPickerOpen || insertModalOpen} transition:fly={{ y: 100, duration: 200, easing: cubicOut }}>
+      <div class="child-overlay" aria-hidden="true"></div>
       <div class="input-container">
         <input
           type="file"
@@ -117,9 +141,9 @@ $effect(() => {
           autoFocus={true}
           showActionRow={true}
           onCameraTap={handleCameraTap}
-          onEmojiTap={() => {}}
+          onEmojiTap={handleEmojiTap}
           onGifTap={() => {}}
-          onAddTap={() => {}}
+          onAddTap={handleInsertTap}
           onChevronTap={() => {}}
           onsubmit={handleSubmit}
         />
@@ -127,6 +151,21 @@ $effect(() => {
     </div>
   </div>
 {/if}
+
+<EmojiPickerModal
+  bind:isOpen={emojiPickerOpen}
+  {getCurrentPubkey}
+  onSelectEmoji={handleEmojiSelect}
+  onclose={() => { emojiPickerOpen = false; }}
+/>
+
+<InsertModal
+  title="Insert"
+  bind:isOpen={insertModalOpen}
+  {getCurrentPubkey}
+  onInsert={handleInsertNostrRef}
+  onclose={() => { insertModalOpen = false; }}
+/>
 
 <style>
   .overlay {
@@ -159,6 +198,28 @@ $effect(() => {
     pointer-events: auto;
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
+    position: relative;
+    transition: transform 0.25s cubic-bezier(0.33, 1, 0.68, 1);
+    transform-origin: top center;
+  }
+
+  .comment-sheet.child-modal-open {
+    transform: scale(0.96) translateY(8px);
+  }
+
+  .child-overlay {
+    position: absolute;
+    inset: 0;
+    background: hsl(var(--black33));
+    z-index: 10;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+    border-radius: inherit;
+  }
+
+  .comment-sheet.child-modal-open .child-overlay {
+    opacity: 1;
   }
 
   @media (min-width: 768px) {

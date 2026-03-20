@@ -581,6 +581,7 @@ const displayDescription = $derived(!stack?.title ||
     otherZaps={[]}
     isSignedIn={getIsSignedIn()}
     onGetStarted={() => (getStartedModalOpen = true)}
+    getCurrentPubkey={getCurrentPubkey}
     signEvent={signEvent}
     searchProfiles={searchProfiles}
     searchEmojis={searchEmojis}

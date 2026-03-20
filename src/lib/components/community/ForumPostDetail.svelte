@@ -427,6 +427,7 @@ function checkTruncation(node) {
 				isMember={true}
 				onJoinRequired={() => {}}
 				onGetStarted={() => {}}
+				getCurrentPubkey={getCurrentPubkey}
 				signEvent={signEvent}
 				{searchProfiles}
 				{searchEmojis}

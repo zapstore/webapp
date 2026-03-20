@@ -1219,6 +1219,7 @@ function toggleReleaseNotesExpanded(releaseId) {
     {otherZaps}
     isSignedIn={getIsSignedIn()}
     onGetStarted={() => (getStartedModalOpen = true)}
+    getCurrentPubkey={getCurrentPubkey}
     searchProfiles={searchProfiles}
     searchEmojis={searchEmojis}
     signEvent={signEvent}

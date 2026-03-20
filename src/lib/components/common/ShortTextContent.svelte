@@ -1,15 +1,20 @@
 <script lang="js">
 /**
- * ShortTextContent - Renders short text + media (forum posts and comments).
- * Content string may contain URLs on their own lines (inline where user placed them).
- * We split by newlines: URL lines → MediaBlock; other lines → ShortTextRenderer.
+ * ShortTextContent - Renders short text + media + Nostr refs (forum posts and comments).
+ * Content may contain URL lines → MediaBlock; nostr:naddr/nevent lines → NostrRefCard; else → ShortTextRenderer.
  */
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
 import MediaBlock from "$lib/components/common/MediaBlock.svelte";
+import NostrRefCard from "$lib/components/common/NostrRefCard.svelte";
 
 function isMediaUrl(line) {
 	const t = (line ?? "").trim();
 	return t.startsWith("http://") || t.startsWith("https://");
+}
+
+function isNostrRefLine(line) {
+	const t = (line ?? "").trim();
+	return /^nostr:n(addr|event)[a-z0-9]+$/i.test(t);
 }
 
 let {
@@ -35,6 +40,12 @@ const segments = $derived.by(() => {
 				textBuf = [];
 			}
 			out.push({ type: "media", url: line.trim() });
+		} else if (isNostrRefLine(line)) {
+			if (textBuf.length) {
+				out.push({ type: "text", value: textBuf.join("\n") });
+				textBuf = [];
+			}
+			out.push({ type: "nostr_ref", value: line.trim() });
 		} else {
 			textBuf.push(line);
 		}
@@ -68,6 +79,10 @@ const orderedMediaUrls = $derived(segments.filter((s) => s.type === "media").map
 					/>
 				</div>
 			</div>
+		{:else if segment.type === "nostr_ref"}
+			<div class="short-text-content-nostr-ref">
+				<NostrRefCard naddrRaw={segment.value} />
+			</div>
 		{/if}
 	{/each}
 </div>
@@ -76,7 +91,7 @@ const orderedMediaUrls = $derived(segments.filter((s) => s.type === "media").map
 	.short-text-content {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		gap: 0;
 	}
 	.short-text-content-text {
 		font-size: inherit;
@@ -87,9 +102,13 @@ const orderedMediaUrls = $derived(segments.filter((s) => s.type === "media").map
 		flex-wrap: wrap;
 		gap: 4px;
 		align-items: flex-start;
-		margin-bottom: -6px;
+		margin-top: 4px;
 	}
 	.short-text-content-media-slot {
 		flex-shrink: 0;
+	}
+	.short-text-content-nostr-ref {
+		margin: 0;
+		margin-top: 4px;
 	}
 </style>

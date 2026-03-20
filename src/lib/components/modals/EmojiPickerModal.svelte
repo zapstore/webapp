@@ -7,6 +7,7 @@
  */
 import { fly } from 'svelte/transition';
 import { cubicOut } from 'svelte/easing';
+import { Search } from 'lucide-svelte';
 import EmojiItem from '$lib/components/common/EmojiItem.svelte';
 import { UNICODE_EMOJIS, getEmojiSearch } from '$lib/services/emoji-search';
 
@@ -84,14 +85,17 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	<div class="picker-wrapper" role="dialog" aria-modal="true" aria-label="Pick an emoji">
 		<div class="picker-sheet" transition:fly={{ y: 80, duration: 200, easing: cubicOut }}>
 			<div class="picker-search-row">
-				<input
-					type="search"
-					class="picker-search-input"
-					placeholder="Search emoji"
-					bind:value={query}
-					bind:this={searchInputEl}
-					aria-label="Search emoji"
-				/>
+				<div class="picker-search-inner">
+					<span class="picker-search-icon" aria-hidden="true"><Search /></span>
+					<input
+						type="search"
+						class="picker-search-input"
+						placeholder="Search emoji"
+						bind:value={query}
+						bind:this={searchInputEl}
+						aria-label="Search emoji"
+					/>
+				</div>
 			</div>
 
 			<div class="picker-body">
@@ -171,22 +175,44 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		padding-bottom: 8px;
 	}
 
-	.picker-search-input {
-		width: 100%;
-		height: 36px;
+	.picker-search-inner {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		height: 40px;
 		padding: 0 12px;
 		background: hsl(var(--black33));
-		border: 0.33px solid hsl(var(--white16));
-		border-radius: 10px;
+		border: 0.33px solid hsl(var(--white33));
+		border-radius: 16px;
+	}
+
+	.picker-search-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 18px;
+		height: 18px;
+		flex-shrink: 0;
+		color: hsl(var(--white33));
+	}
+
+	.picker-search-input {
+		flex: 1;
+		min-width: 0;
+		height: 100%;
+		padding: 0;
+		background: none;
+		border: none;
 		outline: none;
 		color: hsl(var(--white));
 		font-family: 'Inter', sans-serif;
-		font-size: 14px;
+		font-size: 16px;
 		box-sizing: border-box;
 	}
 
 	.picker-search-input::placeholder {
 		color: hsl(var(--white33));
+		font-size: 16px;
 	}
 
 	.picker-body {

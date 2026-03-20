@@ -11,16 +11,34 @@ import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
 import ActionsModal from '$lib/components/modals/ActionsModal.svelte';
 import ReportModal from '$lib/components/modals/ReportModal.svelte';
+import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
+import InsertModal from '$lib/components/modals/InsertModal.svelte';
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from '$lib/services/upload-nostr-build';
-let { appName = '', publisherName = '', contentType = 'app', className = '', zapTarget = null, otherZaps = [], isSignedIn = true, onGetStarted, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, oncommentSubmit, onzapReceived, onoptions } = $props();
+let { appName = '', publisherName = '', contentType = 'app', className = '', zapTarget = null, otherZaps = [], isSignedIn = true, onGetStarted, getCurrentPubkey = () => null, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, oncommentSubmit, onzapReceived, onoptions } = $props();
 let zapModalOpen = $state(false);
 let actionsModalOpen = $state(false);
 let reportModalOpen = $state(false);
+let emojiPickerOpen = $state(false);
+let insertModalOpen = $state(false);
 let commentExpanded = $state(false);
 let commentInput = $state(null);
 let submitting = $state(false);
 /** @type {HTMLInputElement | null} */
 let fileInputEl = $state(null);
+function handleEmojiTap() {
+	emojiPickerOpen = true;
+}
+function handleEmojiSelect(/** @type {{ shortcode: string; url: string; source: string }} */ emoji) {
+	commentInput?.insertEmoji?.(emoji.shortcode, emoji.url, emoji.source);
+	commentInput?.focus?.();
+}
+function handleInsertTap() {
+	insertModalOpen = true;
+}
+function handleInsertNostrRef(/** @type {{ naddr: string; name?: string | null; iconUrl?: string | null }} */ payload) {
+	commentInput?.insertNostrRef?.(payload);
+	commentInput?.focus?.();
+}
 function handleCameraTap() {
 	fileInputEl?.click();
 }
@@ -48,8 +66,8 @@ async function handleFileChange(e) {
 	}
 	inputEl.value = '';
 }
-/** Bar slides out when zap, actions, or report modal is open */
-const barSlidesOut = $derived(zapModalOpen || actionsModalOpen || reportModalOpen);
+/** Bar slides out when zap, actions, report, emoji, or insert modal is open */
+const barSlidesOut = $derived(zapModalOpen || actionsModalOpen || reportModalOpen || emojiPickerOpen || insertModalOpen);
 function handleZap() {
     zapModalOpen = true;
 }
@@ -66,7 +84,9 @@ function handleComment() {
     commentExpanded = true;
 }
 function closeComment() {
-    commentExpanded = false;
+	commentExpanded = false;
+	emojiPickerOpen = false;
+	insertModalOpen = false;
 }
 async function handleCommentSubmit(event) {
 	if (submitting || !event.text?.trim()) return;
@@ -124,9 +144,9 @@ $effect(() => {
 					showActionRow={true}
 					onClose={closeComment}
 					onCameraTap={handleCameraTap}
-					onEmojiTap={() => {}}
+					onEmojiTap={handleEmojiTap}
 					onGifTap={() => {}}
-					onAddTap={() => {}}
+					onAddTap={handleInsertTap}
 					onChevronTap={() => {}}
 					onsubmit={handleCommentSubmit}
 				/>
@@ -200,6 +220,19 @@ $effect(() => {
 	authorPubkey={zapTarget?.pubkey ?? ''}
 	{searchProfiles}
 	{searchEmojis}
+/>
+
+<EmojiPickerModal
+	bind:isOpen={emojiPickerOpen}
+	{searchEmojis}
+	onSelect={handleEmojiSelect}
+	onclose={() => { emojiPickerOpen = false; }}
+/>
+<InsertModal
+	bind:isOpen={insertModalOpen}
+	getCurrentPubkey={getCurrentPubkey}
+	onInsert={handleInsertNostrRef}
+	onclose={() => { insertModalOpen = false; }}
 />
 
 <style>

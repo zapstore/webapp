@@ -8,6 +8,7 @@
 	import { parseShortText } from '$lib/utils/short-text-parser.js';
 	import { hexToColor, getProfileTextColor, rgbToCssString } from '$lib/utils/color.js';
 	import Camera from '$lib/components/icons/Camera.svelte';
+	import NostrRefPreviewChip from '$lib/components/common/NostrRefPreviewChip.svelte';
 
 	/** Infer "image" or "video" from URL for chip label */
 	function mediaLabel(url) {
@@ -113,7 +114,7 @@
 						<span class="preview-emoji-fallback">:{part.shortcode}:</span>
 					{/if}
 				{:else if part.type === 'nostr_ref'}
-					<span class="preview-nostr-ref">Nostr ref</span>
+					<NostrRefPreviewChip naddrRaw={part.raw} />
 				{/if}
 			{/each}
 		{:else if segment.type === 'media'}
@@ -167,11 +168,6 @@
 	.preview-emoji-fallback {
 		opacity: 0.66;
 		font-size: 0.95em;
-	}
-	.preview-nostr-ref {
-		font-size: 0.9em;
-		color: hsl(var(--white33));
-		margin: 0 2px;
 	}
 	.preview-media-inline {
 		display: inline;

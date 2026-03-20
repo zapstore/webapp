@@ -11,6 +11,7 @@ import Suggestion from "@tiptap/suggestion";
 import tippy from "tippy.js";
 import "tippy.js/dist/tippy.css";
 import { MediaBlockExtension } from "$lib/tiptap/media-block.js";
+import { NostrRefBlockExtension } from "$lib/tiptap/nostr-ref-block.js";
 import { hexToColor, rgbToCssString, getProfileTextColor } from "$lib/utils/color.js";
 import * as nip19 from "nostr-tools/nip19";
 import { Camera, EmojiFill, Plus, Send, ChevronDown, Cross } from "$lib/components/icons";
@@ -583,6 +584,10 @@ function getSerializedContent() {
                 parts.push("\n" + node.attrs.url + "\n");
             } else
                 parts.push("\n");
+        } else if (node.type.name === "nostrRefBlock") {
+            const naddr = node.attrs?.naddr ?? "";
+            if (naddr) parts.push("\nnostr:" + naddr + "\n");
+            else parts.push("\n");
         } else if (node.type.name === "paragraph" || node.type.name === "blockquote") {
             parts.push(textFromNode(node) + "\n");
         }
@@ -668,6 +673,7 @@ onMount(() => {
             }),
             createEmojiExtension(getSearchEmojis),
             MediaBlockExtension,
+            NostrRefBlockExtension,
         ],
         editorProps: {
             attributes: { class: "short-text-editor-content" },
@@ -758,6 +764,19 @@ export function deleteMediaBlock(id) {
         }
     });
     editor.view.dispatch(tr);
+}
+
+/** Insert a block-level Nostr reference (e.g. app naddr), then new paragraph. Attrs name/iconUrl optional for immediate display. */
+export function insertNostrRef(payload) {
+    const naddr = typeof payload === 'string' ? payload : payload?.naddr;
+    if (!editor || !naddr) return;
+    const name = typeof payload === 'object' && payload ? payload.name ?? null : null;
+    const iconUrl = typeof payload === 'object' && payload ? payload.iconUrl ?? null : null;
+    editor.commands.focus();
+    editor.chain().focus().insertContent([
+        { type: 'nostrRefBlock', attrs: { naddr, name, iconUrl } },
+        { type: 'paragraph', content: [] },
+    ]).run();
 }
 
 export { getContent, getSerializedContent, isEmpty };
@@ -938,6 +957,76 @@ export { getContent, getSerializedContent, isEmpty };
     width: auto;
     height: auto;
     object-fit: contain;
+  }
+  /* Nostr ref block in editor: white4 panel + remove button outside top-right */
+  :global(.nostr-ref-block-editor) {
+    position: relative;
+    margin: 6px 0;
+    display: inline-block;
+  }
+  :global(.nostr-ref-block-editor-inner) {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px 8px 8px;
+    background: hsl(var(--white8));
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    color: hsl(var(--white));
+  }
+  :global(.nostr-ref-block-editor-pic) {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    border: 0.33px solid hsl(var(--white16));
+    background: hsl(var(--gray66));
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  :global(.nostr-ref-block-editor-pic img) {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  :global(.nostr-ref-block-editor-initial) {
+    font-size: 18px;
+    font-weight: 700;
+    color: hsl(var(--white66));
+  }
+  :global(.nostr-ref-block-editor-name) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+  }
+  :global(.nostr-ref-block-editor-remove) {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    z-index: 2;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: none;
+    background: hsl(var(--gray33));
+    color: hsl(var(--white66));
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  :global(.nostr-ref-block-editor-remove:hover) {
+    background: hsl(var(--gray44));
+    color: hsl(var(--white));
+  }
+  :global(.nostr-ref-block-editor-remove svg) {
+    width: 10px;
+    height: 10px;
   }
   .inline-close-btn {
     position: absolute;

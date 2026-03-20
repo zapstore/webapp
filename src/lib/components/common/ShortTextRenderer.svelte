@@ -5,8 +5,9 @@
  * Matches ShortTextInput display: profile-colored @mentions, inline emoji, block cards for nevent/naddr.
  */
 import { onMount } from "svelte";
-import { parseShortText, } from "$lib/utils/short-text-parser.js";
-import { hexToColor, getProfileTextColor, rgbToCssString, } from "$lib/utils/color.js";
+import { parseShortText } from "$lib/utils/short-text-parser.js";
+import { hexToColor, getProfileTextColor, rgbToCssString } from "$lib/utils/color.js";
+import NostrRefCard from "$lib/components/common/NostrRefCard.svelte";
 let { content = "", emojiTags = [], resolveMentionLabel, class: className = "", } = $props();
 let isDarkMode = $state(true);
 onMount(() => {
@@ -53,11 +54,7 @@ function mentionStyle(pubkey) {
         <span class="short-text-emoji-fallback">:{segment.shortcode}:</span>
       {/if}
     {:else if segment.type === "nostr_ref"}
-      <div class="short-text-nostr-card">
-        <span class="short-text-nostr-card-label">Nostr reference</span>
-        <span class="short-text-nostr-card-kind">{segment.kind}</span>
-        <!-- Editable placeholder: replace with kind-specific display later -->
-      </div>
+      <NostrRefCard naddrRaw={segment.raw} />
     {/if}
   {/each}
 </div>
@@ -96,25 +93,5 @@ function mentionStyle(pubkey) {
   .short-text-emoji-fallback {
     font-size: 0.95em;
     color: hsl(var(--foreground) / 0.7);
-  }
-
-  .short-text-nostr-card {
-    display: block;
-    margin: 0.5rem 0;
-    padding: 10px 12px;
-    background: hsl(var(--gray66));
-    border: 1px solid hsl(var(--white16));
-    border-radius: 12px;
-    font-size: 0.875rem;
-  }
-
-  .short-text-nostr-card-label {
-    color: hsl(var(--foreground) / 0.7);
-  }
-
-  .short-text-nostr-card-kind {
-    margin-left: 6px;
-    color: hsl(var(--white33));
-    font-family: var(--font-mono, monospace);
   }
 </style>
