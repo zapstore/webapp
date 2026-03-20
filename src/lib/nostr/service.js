@@ -672,21 +672,22 @@ export async function publishComment(
 	// For top-level comments the parent IS the root, so lowercase duplicates the uppercase values.
 	// For replies to comments, lowercase tags point to the parent comment instead.
 	const isReply = !!parentEventId;
+	const relayHint = ZAPSTORE_RELAY;
 
 	if (isNonReplaceable) {
 		rootKind = target.kind ?? 11;
 		const eId = target.id.trim().toLowerCase();
 		const pubkey = target.pubkey.trim().toLowerCase();
 		tags = [
-			['E', eId],
+			['E', eId, relayHint, pubkey],
 			['K', String(rootKind)],
-			['P', pubkey]
+			['P', pubkey, relayHint]
 		];
 		// Top-level comment: parent = root
 		if (!isReply) {
-			tags.push(['e', eId]);
+			tags.push(['e', eId, relayHint, pubkey]);
 			tags.push(['k', String(rootKind)]);
-			tags.push(['p', pubkey]);
+			tags.push(['p', pubkey, relayHint]);
 		}
 	} else {
 		const kind = 32267;
@@ -699,15 +700,15 @@ export async function publishComment(
 		rootKind = target.contentType === 'app' ? kind : stackKind;
 		const pubkey = target.pubkey.trim().toLowerCase();
 		tags = [
-			['A', aTagValue],
+			['A', aTagValue, relayHint],
 			['K', String(rootKind)],
-			['P', pubkey]
+			['P', pubkey, relayHint]
 		];
 		// Top-level comment: parent = root
 		if (!isReply) {
-			tags.push(['a', aTagValue]);
+			tags.push(['a', aTagValue, relayHint]);
 			tags.push(['k', String(rootKind)]);
-			tags.push(['p', pubkey]);
+			tags.push(['p', pubkey, relayHint]);
 		}
 	}
 
@@ -723,9 +724,9 @@ export async function publishComment(
 				'replyToPubkey (parent comment author) is required when replying to a comment'
 			);
 		}
-		tags.push(['e', parentId]);
+		tags.push(['e', parentId, relayHint, parentPubkey.toLowerCase()]);
 		tags.push(['k', String(parentKind ?? 1111)]);
-		tags.push(['p', parentPubkey.toLowerCase()]);
+		tags.push(['p', parentPubkey.toLowerCase(), relayHint]);
 	}
 
 	const emojiList = emojiTags ?? [];
