@@ -12,6 +12,7 @@ import CommentActionsModal from "./CommentActionsModal.svelte";
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import Modal from "$lib/components/common/Modal.svelte";
+import EmptyState from "$lib/components/common/EmptyState.svelte";
 import InputButton from "$lib/components/common/InputButton.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import ZapSliderModal from "$lib/components/modals/ZapSliderModal.svelte";
@@ -346,8 +347,8 @@ function handleOptions() {
 <Modal
   bind:open={modalOpen}
   ariaLabel="Comment thread"
-  align="bottom"
-  fillHeight={true}
+  align="center"
+  fillHeight={feedItems.length > 0}
   wide={true}
   class="thread-modal {childModalOpen ? 'thread-modal-child-open' : ''}"
 >
@@ -469,7 +470,7 @@ function handleOptions() {
             {/if}
           {/each}
         {:else}
-          <div class="no-comments-text">No comments yet</div>
+          <EmptyState message="No replies yet" compact />
         {/if}
       </div>
     </div>
@@ -680,15 +681,6 @@ function handleOptions() {
     flex-direction: column;
     gap: 16px;
     padding: 12px 16px 16px;
-  }
-
-  .no-comments-text {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: hsl(var(--white16));
-    text-align: center;
-    padding: 48px 0;
-    margin: 0;
   }
 
   .thread-bottom-bar {

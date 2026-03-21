@@ -19,6 +19,7 @@ import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
 import { isOnline } from "$lib/stores/online.svelte.js";
 import { nip19 } from "nostr-tools";
 import { wheelScroll } from "$lib/actions/wheelScroll.js";
+import { ChevronLeft, ChevronRight } from "$lib/components/icons";
 import AppSmallCard from "$lib/components/cards/AppSmallCard.svelte";
 import SocialTabs from "$lib/components/social/SocialTabs.svelte";
 import BottomBar from "$lib/components/social/BottomBar.svelte";
@@ -99,6 +100,25 @@ const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey(
 const stackNaddr = $derived($page.params.naddr);
 // Ref for horizontal scroll container
 let appsScrollContainer = $state(null);
+/** ~one column width + gap — matches apps listing scroll step */
+const STACK_APPS_SCROLL_STEP = 320;
+let stackAppsScrolledRight = $state(false);
+let stackAppsCanScrollRight = $state(false);
+function handleStackAppsScroll() {
+    if (!appsScrollContainer)
+        return;
+    const { scrollLeft, scrollWidth, clientWidth } = appsScrollContainer;
+    stackAppsScrolledRight = scrollLeft > 20;
+    stackAppsCanScrollRight =
+        scrollWidth > clientWidth + 2 && scrollLeft + clientWidth < scrollWidth - 2;
+}
+function scrollStackApps(dir) {
+    if (!appsScrollContainer)
+        return;
+    appsScrollContainer.scrollBy({ left: dir * STACK_APPS_SCROLL_STEP, behavior: 'smooth' });
+    if (dir > 0)
+        setTimeout(handleStackAppsScroll, 350);
+}
 // Save scroll positions before navigating away
 beforeNavigate(() => {
     if (!browser)
@@ -144,6 +164,7 @@ function tryRestoreHorizontalScroll() {
         return;
     if (appsScrollContainer && pendingScrollRestore.appsScrollX > 0) {
         appsScrollContainer.scrollLeft = pendingScrollRestore.appsScrollX;
+        handleStackAppsScroll();
         pendingScrollRestore = null;
     }
     else {
@@ -357,6 +378,19 @@ function getAppColumns(appList, itemsPerColumn = 3) {
     return columns;
 }
 const appColumns = $derived(getAppColumns(apps, 3));
+// Recompute scroll affordances after apps render (container width vs content)
+$effect(() => {
+    if (!browser)
+        return;
+    void apps.length;
+    void appColumns;
+    if (!appsScrollContainer)
+        return;
+    const id = requestAnimationFrame(() => {
+        requestAnimationFrame(handleStackAppsScroll);
+    });
+    return () => cancelAnimationFrame(id);
+});
 // Helper to capitalize a string (first letter uppercase)
 function capitalize(text) {
     if (!text)
@@ -502,16 +536,43 @@ const displayDescription = $derived(!stack?.title ||
       <!-- Apps Section -->
       <div class="section-container">
         {#if apps.length > 0}
-          <div class="horizontal-scroll" use:wheelScroll bind:this={appsScrollContainer}>
-            <div class="scroll-content">
-              {#each appColumns as column, ci (ci)}
-                <div class="app-column">
-                  {#each column as app (app.id)}
-                    <AppSmallCard {app} href={getAppUrl(app)} />
-                  {/each}
-                </div>
-              {/each}
+          <div class="stack-apps-scroll-wrap">
+            <div
+              class="horizontal-scroll"
+              use:wheelScroll
+              bind:this={appsScrollContainer}
+              onscroll={handleStackAppsScroll}
+            >
+              <div class="scroll-content">
+                {#each appColumns as column, ci (ci)}
+                  <div class="app-column">
+                    {#each column as app (app.id)}
+                      <AppSmallCard {app} href={getAppUrl(app)} />
+                    {/each}
+                  </div>
+                {/each}
+              </div>
             </div>
+            {#if stackAppsScrolledRight}
+              <button
+                type="button"
+                class="stack-apps-scroll-btn stack-apps-scroll-btn-left"
+                onclick={() => scrollStackApps(-1)}
+                aria-label="Scroll apps left"
+              >
+                <ChevronLeft size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+              </button>
+            {/if}
+            {#if stackAppsCanScrollRight}
+              <button
+                type="button"
+                class="stack-apps-scroll-btn stack-apps-scroll-btn-right"
+                onclick={() => scrollStackApps(1)}
+                aria-label="Scroll apps right"
+              >
+                <ChevronRight size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+              </button>
+            {/if}
           </div>
         {:else}
           <div class="placeholder-content">
@@ -756,6 +817,61 @@ const displayDescription = $derived(!stack?.title ||
 
   .section-container {
     margin-bottom: 24px;
+    min-width: 0;
+  }
+
+  .stack-apps-scroll-wrap {
+    position: relative;
+  }
+
+  /* Scroll arrows — desktop + fine pointer (same idea as /apps) */
+  .stack-apps-scroll-btn {
+    display: none;
+  }
+
+  @media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+    .stack-apps-scroll-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%) scale(1);
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: none;
+      background: hsl(var(--white16));
+      backdrop-filter: blur(var(--blur-sm));
+      -webkit-backdrop-filter: blur(var(--blur-sm));
+      cursor: pointer;
+      z-index: 10;
+      transition: transform 0.2s ease;
+    }
+
+    .stack-apps-scroll-btn:hover {
+      transform: translateY(-50%) scale(1.08);
+    }
+
+    .stack-apps-scroll-btn:active {
+      transform: translateY(-50%) scale(0.95);
+    }
+
+    .stack-apps-scroll-btn-right {
+      right: -56px;
+    }
+
+    .stack-apps-scroll-btn-right :global(svg) {
+      padding-left: 2px;
+    }
+
+    .stack-apps-scroll-btn-left {
+      left: -56px;
+    }
+
+    .stack-apps-scroll-btn-left :global(svg) {
+      padding-right: 2px;
+    }
   }
 
   /* Horizontal scroll container */
@@ -764,8 +880,12 @@ const displayDescription = $derived(!stack?.title ||
     margin-right: -1rem;
     padding-left: 1rem;
     padding-right: 1rem;
+    width: 100%;
+    min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     -ms-overflow-style: none;
 
@@ -841,6 +961,8 @@ const displayDescription = $derived(!stack?.title ||
     display: flex;
     gap: 16px;
     padding-bottom: 8px;
+    width: max-content;
+    min-width: 100%;
   }
 
   .app-column {
