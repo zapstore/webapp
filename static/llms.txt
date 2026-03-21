@@ -7,6 +7,9 @@
 - [Docs: FAQ](https://zapstore.dev/docs/faq)
 - [Source code](https://github.com/zapstore)
 - [Blog: Can Nostr fix app distribution?](https://zapstore.dev/blog/can-nostr-fix-app-distribution)
+- [NIP-01: Basic protocol](https://raw.githubusercontent.com/nostr-protocol/nips/refs/heads/master/01.md)
+- [NIP-57: Lightning Zaps](https://raw.githubusercontent.com/nostr-protocol/nips/refs/heads/master/57.md)
+- [NIP-47: Nostr Wallet Connect](https://raw.githubusercontent.com/nostr-protocol/nips/refs/heads/master/47.md)
 
 ## Relay
 
