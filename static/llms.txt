@@ -1,0 +1,188 @@
+# Zapstore
+
+> Permissionless Android app store built on Nostr. Developers sign releases with a Nostr keypair, users discover apps through a social web of trust, and all payments flow over Bitcoin Lightning. No registration, no government ID, no fees, no gatekeepers.
+
+- [Docs: Publishing apps](https://zapstore.dev/docs/publish)
+- [Docs: Trust model](https://zapstore.dev/docs/trust-model)
+- [Docs: FAQ](https://zapstore.dev/docs/faq)
+- [Source code](https://github.com/zapstore)
+- [Blog: Can Nostr fix app distribution?](https://zapstore.dev/blog/can-nostr-fix-app-distribution)
+
+## Relay
+
+The canonical data source is a Nostr relay:
+
+```
+wss://relay.zapstore.dev
+```
+
+All data queries use standard NIP-01 filters over WebSocket. The relay also supports NIP-50 full-text search.
+
+## Event Kinds
+
+Zapstore uses these Nostr event kinds:
+
+| Kind | Name | Purpose |
+|------|------|---------|
+| 32267 | Software Application | App metadata: name, description, icon, screenshots, platforms, repository, license |
+| 30063 | Software Release | Release version, changelog, links to asset events via `e` tags |
+| 3063 | Software Asset | Binary metadata: SHA-256 hash, download URL, platform, size, APK certificate hash, version code |
+| 30509 | Identity Proof | Cryptographic link between a Nostr pubkey and an APK signing certificate (SPKI) |
+| 30267 | App Stack | Curated list of apps. `a` tags reference kind 32267 events |
+| 1111 | Comment | App reviews and comments, scoped to an app via `A` tag |
+| 9735 | Zap Receipt | Lightning payment receipts for developer tips |
+| 0 | Profile | Developer profiles |
+
+## Resolution Chain
+
+To go from "find me an app" to a verified binary, resolve this chain:
+
+### 1. Find apps (kind 32267)
+
+Filter by platform — only Android arm64 is currently supported:
+
+```json
+{"kinds": [32267], "#f": ["android-arm64-v8a"]}
+```
+
+To search by text (NIP-50):
+
+```json
+{"kinds": [32267], "#f": ["android-arm64-v8a"], "search": "maps"}
+```
+
+To look up a specific app by identifier:
+
+```json
+{"kinds": [32267], "#d": ["app.organicmaps"]}
+```
+
+The event contains tags for: name (`name`), description (`description`), icon URL (`icon`), repository URL (`repository`), license (`license`), website (`url`), and platforms (`f`).
+
+### 2. Get the latest release (kind 30063)
+
+Filter by the app author's pubkey and the app identifier:
+
+```json
+{"kinds": [30063], "authors": ["<app-author-pubkey>"], "#i": ["app.organicmaps"]}
+```
+
+Returns release events sorted by `created_at`. Each release has a version tag and `e` tags pointing to asset events.
+
+### 3. Resolve assets (kind 3063)
+
+Fetch the asset events referenced by the release's `e` tags:
+
+```json
+{"ids": ["<asset-event-id-1>", "<asset-event-id-2>"]}
+```
+
+Each asset event contains:
+- `x` tag: SHA-256 hash of the binary
+- `url` tag: download URL (typically `https://cdn.zapstore.dev/<sha256>`)
+- `f` tag: platform identifier (e.g., `android-arm64-v8a`)
+- `size` tag: file size in bytes
+- `version_code` tag: Android version code
+
+### 4. Verify developer identity (kind 30509)
+
+Look up the identity proof linking the developer's Nostr pubkey to their APK signing certificate:
+
+```json
+{"kinds": [30509], "authors": ["<app-author-pubkey>"]}
+```
+
+This event cryptographically proves the developer controls both the Nostr key and the APK signing key.
+
+### 5. Browse curated lists (kind 30267)
+
+```json
+{"kinds": [30267]}
+```
+
+Each App Stack event contains `a` tags pointing to kind 32267 app events. Curators are identified by their Nostr pubkey.
+
+### 6. Read reviews (kind 1111)
+
+Comments scoped to an app:
+
+```json
+{"kinds": [1111], "#A": ["32267:<app-author-pubkey>:<app-d-tag>"]}
+```
+
+## Publishing
+
+Install the `zsp` CLI tool:
+
+```bash
+go install github.com/zapstore/zsp@latest
+```
+
+The fastest path is the interactive wizard:
+
+```bash
+zsp publish --wizard
+```
+
+Or publish directly from a repository URL:
+
+```bash
+zsp publish -r github.com/your-org/your-app
+```
+
+The wizard creates a `zapstore.yaml` config. Commit it to your repo for automatic relay whitelisting.
+
+### Signing
+
+Set `SIGN_WITH` before publishing:
+
+| Method | Value |
+|--------|-------|
+| Nostr private key | `SIGN_WITH=nsec1...` |
+| NIP-46 bunker | `SIGN_WITH=bunker://pubkey?relay=...&secret=...` |
+| Browser extension | `SIGN_WITH=browser` |
+
+For CI/CD, use a bunker URL stored as a secret.
+
+### Metadata enrichment
+
+`zsp` pulls metadata from external sources automatically:
+
+```yaml
+metadata_sources:
+  - playstore
+  - github
+  - fdroid
+```
+
+## Desktop CLI
+
+Install the desktop package manager:
+
+```bash
+go install github.com/zapstore/zapstore@latest
+```
+
+Commands:
+
+```bash
+zapstore search <query>        # discover apps (supports --json)
+zapstore install <app-id>      # fetch, verify, install
+zapstore update [<app-id>]     # update one or all
+zapstore list                  # show installed (supports --json)
+zapstore remove <app-id>       # uninstall
+```
+
+## Payments
+
+All payments use Bitcoin Lightning via the Nostr protocol:
+
+- **Zaps (NIP-57):** Users tip developers directly. Developers receive 100% — no platform cut.
+- **Wallet connection (NIP-47):** Nostr Wallet Connect enables wallet-to-app communication for payments.
+
+## Custom NIP Specs
+
+- [Software Releases](https://nostrhub.io/naddr1qvzqqqrcvypzq7xwd748yfjrsu5yuerm56fcn9tntmyv04w95etn0e23xrczvvraqy2hwumn8ghj7un9d3shjtnyd968gmewwp6kyqqzvy6sjzn058)
+- [Software Artifact Attestations](https://nostrhub.io/naddr1qvzqqqrcvypzq7xwd748yfjrsu5yuerm56fcn9tntmyv04w95etn0e23xrczvvraqy2hwumn8ghj7un9d3shjtnyd968gmewwp6kyqqavde8jur5danhyctsdp5kxttfv3jkuarfw3uj6urjdahkvuc2wg0mz)
+- [App Curation](https://nostrhub.io/naddr1qvzqqqrcvypzq7xwd748yfjrsu5yuerm56fcn9tntmyv04w95etn0e23xrczvvraqy2hwumn8ghj7un9d3shjtnyd968gmewwp6kyqqz8qeqp2qk5p)
+- [Identity Verification](https://nostrhub.io/naddr1qvzqqqrcvypzq7xwd748yfjrsu5yuerm56fcn9tntmyv04w95etn0e23xrczvvraqy2hwumn8ghj7un9d3shjtnyd968gmewwp6kyqqvv9nk2mn594ekk6tvd3esftqagq)
