@@ -10,6 +10,7 @@
 - [NIP-01: Basic protocol](https://raw.githubusercontent.com/nostr-protocol/nips/refs/heads/master/01.md)
 - [NIP-57: Lightning Zaps](https://raw.githubusercontent.com/nostr-protocol/nips/refs/heads/master/57.md)
 - [NIP-47: Nostr Wallet Connect](https://raw.githubusercontent.com/nostr-protocol/nips/refs/heads/master/47.md)
+- [NIP-50: Search](https://raw.githubusercontent.com/nostr-protocol/nips/refs/heads/master/50.md)
 
 ## Relay
 
@@ -134,6 +135,23 @@ zsp publish -r github.com/your-org/your-app
 ```
 
 The wizard creates a `zapstore.yaml` config. Commit it to your repo for automatic relay whitelisting.
+
+### Example `zapstore.yaml`
+
+```yaml
+name: Amethyst
+description: The all-in-one Nostr client
+license: MIT
+builder: npub142gywvjkq0dv6nupggyn2euhx4nduwc7yz5f24ah9rpmunr2s39se3xrj0
+repository: https://github.com/vitorpamplona/amethyst
+homepage: https://amethyst.social/
+assets:
+  - amethyst-googleplay.*.apk
+remote_metadata:
+  - github
+```
+
+Real examples: [Amethyst](https://github.com/vitorpamplona/amethyst/blob/main/zapstore.yaml), [Nostrmo](https://github.com/haorendashu/nostrmo/blob/main/zapstore.yaml)
 
 ### Signing
 
