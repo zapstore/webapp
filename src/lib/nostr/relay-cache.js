@@ -8,7 +8,7 @@
  *     + releases (kind 30063) from relay.zapstore.dev only.
  *     Releases are cached server-side ONLY for ranking — never shipped to clients.
  *   - Every 6h: profiles (kind 0) for all cached pubkeys,
- *     from relay.vertexlab.io only
+ *     from relay.zapstore.dev and relay.vertexlab.io
  *
  * On cold start, a full warm-up pull populates the cache. Then polling
  * intervals keep it fresh using `since` to fetch only new events.
@@ -34,7 +34,7 @@ const PROFILE_POLL_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 // Server-side relay sources (distinct from client-side [CATALOG_RELAY])
 const CATALOG_RELAY = 'wss://relay.zapstore.dev';
-const PROFILE_RELAY = 'wss://relay.vertexlab.io';
+const PROFILE_RELAYS = ['wss://relay.zapstore.dev', 'wss://relay.vertexlab.io'];
 
 // ============================================================================
 // In-Memory Event Store
@@ -478,17 +478,17 @@ async function pollCatalog() {
 }
 
 /**
- * Poll profiles for all cached pubkeys from vertexlab relay.
+ * Poll profiles for all cached pubkeys from catalog relays.
  * Called every hour — profiles change infrequently.
  */
 async function pollProfiles() {
 	const pubkeys = collectCachedPubkeys();
 	if (pubkeys.length === 0) return;
 
-	console.log(`[RelayCache] Polling ${pubkeys.length} profiles from ${PROFILE_RELAY}...`);
+	console.log(`[RelayCache] Polling ${pubkeys.length} profiles from ${PROFILE_RELAYS.join(', ')}...`);
 
 	try {
-		await queryRelaysRaw([PROFILE_RELAY], {
+		await queryRelaysRaw(PROFILE_RELAYS, {
 			kinds: [EVENT_KINDS.PROFILE],
 			authors: pubkeys,
 			limit: pubkeys.length
@@ -544,7 +544,7 @@ export function stopPolling() {
 		profilePollTimer = null;
 	}
 	try {
-		pool.close([CATALOG_RELAY, PROFILE_RELAY]);
+		pool.close([...new Set([CATALOG_RELAY, ...PROFILE_RELAYS])]);
 	} catch {
 		/* already closed */
 	}
