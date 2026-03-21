@@ -14,7 +14,7 @@ let { data } = $props();
 	<div class="container mx-auto py-6 px-3 sm:px-6 lg:px-8">
 		<SectionHeader title="Blog" />
 		<div class="posts-list">
-			{#each data.posts as post, i}
+			{#each data.posts as post, i (post.path)}
 				<article class="post-item group">
 					<a href="/blog/{post.path}" class="post-link" data-sveltekit-reload>
 						<div class="post-content">

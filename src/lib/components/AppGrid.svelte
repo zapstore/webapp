@@ -5,7 +5,7 @@ let { apps, loading = false } = $props();
 
 <div class="app-grid">
   {#if loading}
-    {#each Array(6) as _}
+    {#each Array(6) as _, i (i)}
       <div class="skeleton-card">
         <div class="skeleton-icon"></div>
         <div class="skeleton-info">

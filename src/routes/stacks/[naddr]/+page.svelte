@@ -12,7 +12,7 @@ import { page } from "$app/stores";
 import { onMount } from "svelte";
 import { browser } from "$app/environment";
 import { beforeNavigate } from "$app/navigation";
-import { fetchProfile, fetchProfilesBatch, queryEvent, queryEvents, queryCommentsFromStore, fetchComments, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, } from "$lib/nostr";
+import { fetchProfilesBatch, queryEvent, queryEvents, queryCommentsFromStore, fetchComments, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, } from "$lib/nostr";
 import { fetchFromRelays } from "$lib/nostr/service";
 import { ZAPSTORE_RELAY } from "$lib/config";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
@@ -74,8 +74,8 @@ let spinKeyModalOpen = $state(false);
 let onboardingBuildingModalOpen = $state(false);
 let onboardingProfileName = $state('');
 let editStackModalOpen = $state(false);
-function handleGetStartedStart(event) {
-    onboardingProfileName = event.profileName;
+function _handleGetStartedStart(_event) {
+    onboardingProfileName = _event.profileName;
     spinKeyModalOpen = true;
     setTimeout(() => { getStartedModalOpen = false; }, 80);
 }
@@ -132,7 +132,7 @@ function restoreScrollPositions() {
                 tryRestoreHorizontalScroll();
             }
         }
-        catch (e) {
+        catch (_e) {
             // Ignore parse errors
         }
         // Clear after attempting restore
@@ -215,7 +215,7 @@ async function loadStack() {
                     };
                 }
             }
-            catch (e) {
+            catch (_e) {
                 creator = {
                     name: undefined,
                     picture: undefined,
@@ -443,9 +443,9 @@ const displayDescription = $derived(!stack?.title ||
       <div class="section-container">
         <div class="horizontal-scroll" use:wheelScroll>
           <div class="scroll-content">
-            {#each Array(3) as _, colIndex}
+            {#each Array(3) as _, colIndex (colIndex)}
               <div class="app-column">
-                {#each Array(3) as _, cardIndex}
+                {#each Array(3) as _, cardIndex (cardIndex)}
                   <div class="skeleton-card">
                     <div class="skeleton-icon"><SkeletonLoader /></div>
                     <div class="skeleton-info">
@@ -504,9 +504,9 @@ const displayDescription = $derived(!stack?.title ||
         {#if apps.length > 0}
           <div class="horizontal-scroll" use:wheelScroll bind:this={appsScrollContainer}>
             <div class="scroll-content">
-              {#each appColumns as column}
+              {#each appColumns as column, ci (ci)}
                 <div class="app-column">
-                  {#each column as app}
+                  {#each column as app (app.id)}
                     <AppSmallCard {app} href={getAppUrl(app)} />
                   {/each}
                 </div>
@@ -583,7 +583,7 @@ const displayDescription = $derived(!stack?.title ||
     bind:isOpen={editStackModalOpen}
     {stack}
     {apps}
-    onSaved={(newEvent) => {
+    onSaved={(_newEvent) => {
       loadStack();
     }}
   />

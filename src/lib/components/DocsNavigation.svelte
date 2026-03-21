@@ -65,7 +65,7 @@ $effect(() => {
 >
 	<nav class="p-6 lg:p-0">
 		<ul class="space-y-1">
-			{#each navigation as node}
+			{#each navigation as node (node.id)}
 				<DocsNavNode {node} {expanded} {toggle} />
 			{/each}
 		</ul>

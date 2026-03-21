@@ -39,7 +39,7 @@
         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[360px] h-[360px] rounded-full border border-border/20"></div>
 
         <svg class="absolute inset-0 w-full h-full" viewBox="0 0 400 400">
-          {#each primaryPlatforms as _, i}
+          {#each primaryPlatforms as _, i (i)}
             <line
               x1="200"
               y1="200"
@@ -52,7 +52,7 @@
           {/each}
         </svg>
 
-        {#each primaryPlatforms as platform, i}
+        {#each primaryPlatforms as platform, i (platform.name)}
           {@const angle = i * 60 - 90}
           {@const x = 200 + 140 * Math.cos(angle * Math.PI / 180)}
           {@const y = 200 + 140 * Math.sin(angle * Math.PI / 180)}

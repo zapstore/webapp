@@ -108,7 +108,7 @@
 	<div class="icons-grid">
 		<!-- Mobile grid -->
 		<div class="icons-grid-mobile">
-			{#each gridApps as app, i}
+			{#each gridApps as app, i (i)}
 				<div class="icon-slot">
 					{#if app}
 						<AppPic iconUrl={app.icon} name={app.name} identifier={app.dTag} size="xs" />
@@ -121,7 +121,7 @@
 
 		<!-- Desktop grid -->
 		<div class="icons-grid-desktop">
-			{#each gridApps as app, i}
+			{#each gridApps as app, i (i)}
 				<div class="icon-slot">
 					{#if app}
 						<AppPic iconUrl={app.icon} name={app.name} identifier={app.dTag} size="sm" />

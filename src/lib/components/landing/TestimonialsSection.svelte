@@ -11,6 +11,7 @@
 	 * }} TestimonialItem
 	 */
 	import { onMount } from 'svelte';
+	import { SvelteDate } from 'svelte/reactivity';
 	import LandingSectionTitle from './LandingSectionTitle.svelte';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 
@@ -86,7 +87,7 @@
 			return `Today ${hours}:${minutes}`;
 		}
 
-		const yesterday = new Date(now);
+		const yesterday = new SvelteDate(now);
 		yesterday.setDate(yesterday.getDate() - 1);
 		const isYesterday = date.toDateString() === yesterday.toDateString();
 		if (isYesterday) return 'Yesterday';

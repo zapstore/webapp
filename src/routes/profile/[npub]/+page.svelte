@@ -3,6 +3,7 @@
  * Profile page - header (pic, name, npub, Add button) + Published Apps & Stacks
  */
 import { onMount } from 'svelte';
+import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 import { browser } from '$app/environment';
 import { fetchProfile, queryEvents, encodeStackNaddr, parseApp, parseAppStack, fetchAppsByAuthorFromRelays, fetchAppFromRelays } from '$lib/nostr';
 import { ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG } from '$lib/config';
@@ -41,7 +42,7 @@ const profileName = $derived(profile?.displayName || profile?.name || displayNpu
 /** Real name only (for ProfilePic: show icon until we have a name) */
 const profileNameForPic = $derived(profile?.displayName || profile?.name || null);
 const profilePictureUrl = $derived(profile?.picture ?? '');
-const isConnected = $derived(getCurrentPubkey() !== null);
+const _isConnected = $derived(getCurrentPubkey() !== null);
 const profileColor = $derived(pubkey ? hexToColor(pubkey) : { r: 128, g: 128, b: 128 });
 const profileColorHex = $derived(
 	`#${profileColor.r.toString(16).padStart(2, '0')}${profileColor.g.toString(16).padStart(2, '0')}${profileColor.b.toString(16).padStart(2, '0')}`.toUpperCase()
@@ -180,7 +181,7 @@ onMount(async () => {
                 .filter((s) => s.dTag !== SAVED_APPS_STACK_D_TAG);
             stacks = parsedStacks;
             // Resolve apps for each stack from Dexie (batch query)
-            const allIds = new Set();
+            const allIds = new SvelteSet();
             for (const s of parsedStacks) {
                 for (const ref of s.appRefs || []) {
                     if (ref.kind === 32267)
@@ -189,7 +190,7 @@ onMount(async () => {
             }
             if (allIds.size > 0) {
                 const appEvents = await queryEvents({ kinds: [32267], '#d': [...allIds] });
-                const byPubkeyAndD = new Map();
+                const byPubkeyAndD = new SvelteMap();
                 for (const e of appEvents) {
                     const a = parseApp(e);
                     if (a.pubkey && a.dTag) byPubkeyAndD.set(`${a.pubkey}:${a.dTag}`, a);
@@ -201,7 +202,7 @@ onMount(async () => {
                             missingRefs.push(r);
                     }
                 }
-                const seen = new Set();
+                const seen = new SvelteSet();
                 for (const ref of missingRefs) {
                     const key = `${ref.pubkey}:${ref.identifier}`;
                     if (seen.has(key)) continue;
@@ -298,7 +299,7 @@ function stackToCard(s, resolvedApps) {
 							loading={profileLoading}
 						/>
 					</div>
-					{#if false && isConnected}
+					{#if false}
 						<button
 							type="button"
 							class="add-btn install-btn-mobile btn-primary-small flex items-center justify-center gap-2 w-full"
@@ -320,12 +321,12 @@ function stackToCard(s, resolvedApps) {
 						>
 							{profileName}
 						</h1>
-						{#if false && isConnected}
-							<button
-								type="button"
-								class="add-btn install-btn-desktop btn-primary flex items-center gap-2 flex-shrink-0"
-								onclick={handleAddClick}
-								disabled={addButtonDisabled}
+					{#if false}
+						<button
+							type="button"
+							class="add-btn install-btn-desktop btn-primary flex items-center gap-2 flex-shrink-0"
+							onclick={handleAddClick}
+							disabled={addButtonDisabled}
 								aria-label={addButtonLabel}
 							>
 								<Plus variant="outline" color="white" size={18} strokeWidth={2.5} />
@@ -447,7 +448,7 @@ function stackToCard(s, resolvedApps) {
 			{#if appsLoading}
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
-						{#each Array(5) as _}
+						{#each Array(5) as _, i (i)}
 							<div class="profile-app-item">
 								<div class="skeleton-card">
 									<div class="skeleton-icon">
@@ -472,8 +473,8 @@ function stackToCard(s, resolvedApps) {
 			{:else}
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
-						{#each apps as app}
-							<div class="profile-app-item">
+					{#each apps as app (app.id)}
+						<div class="profile-app-item">
 								<AppSmallCard
 									app={{
 										name: app.name,
@@ -496,7 +497,7 @@ function stackToCard(s, resolvedApps) {
 			{#if stacksLoading}
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
-						{#each Array(4) as _}
+						{#each Array(4) as _, i (i)}
 							<div class="profile-stack-item">
 								<div class="skeleton-stack">
 									<div class="skeleton-stack-grid">
@@ -527,7 +528,7 @@ function stackToCard(s, resolvedApps) {
 			{:else}
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
-						{#each resolvedStacks as { stack, apps: resolvedApps }}
+						{#each resolvedStacks as { stack, apps: resolvedApps } (stack.id)}
 							{@const href = '/stacks/' + encodeStackNaddr(stack.pubkey, stack.dTag)}
 							<div class="profile-stack-item">
 								<AppStackCard stack={stackToCard(stack, resolvedApps)} {href} />

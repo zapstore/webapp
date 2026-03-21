@@ -13,7 +13,8 @@ import "tippy.js/dist/tippy.css";
 import { hexToColor, rgbToCssString, getProfileTextColor } from "$lib/utils/color.js";
 import * as nip19 from "nostr-tools/nip19";
 import { Camera, EmojiFill, Plus, Send, ChevronDown, Cross } from "$lib/components/icons";
-let { placeholder = "Write something...", searchProfiles = async () => [], searchEmojis = async () => [], autoFocus = false, size = "small", className = "", showActionRow = true, onCameraTap = () => { }, onEmojiTap = () => { }, onAddTap = () => { }, onChevronTap = () => { }, onchange, onsubmit, allowEmptySubmit = false, onClose, showCloseWhen = 'always', aboveEditor, } = $props();
+import { SvelteSet } from "svelte/reactivity";
+let { placeholder = "Write something...", searchProfiles = async () => [], searchEmojis = async () => [], autoFocus = false, size = "small", className = "", showActionRow = true, onCameraTap = () => { }, onEmojiTap = () => { }, onAddTap = () => { }, onChevronTap: _onChevronTap = () => { }, onchange, onsubmit, allowEmptySubmit = false, onClose, showCloseWhen = 'always', aboveEditor, } = $props();
 /** Getters so suggestion plugins always receive current search functions (called when editor is created in onMount). */
 function getSearchProfiles() { return searchProfiles; }
 function getSearchEmojis() { return searchEmojis; }
@@ -29,9 +30,9 @@ let editorFocused = $state(false);
 let hasContent = $state(false);
 const showClose = $derived(!!onClose && (showCloseWhen === 'always' || (showCloseWhen === 'focusedOrContent' && (editorFocused || hasContent))));
 let suggestionPopup = null;
-let currentSuggestionType = $state(null);
-let suggestionItems = $state([]);
-let selectedIndex = $state(0);
+let _currentSuggestionType = $state(null);
+let _suggestionItems = $state([]);
+let _selectedIndex = $state(0);
 let isScrollable = $state(false);
 let sendOptionsWrap = $state(null);
 let sendOptionsExplainerOpen = $state(false);
@@ -127,7 +128,7 @@ function updateSuggestionContent(container, type, items, selected, command, isSe
                 onSelectIndex(idx);
                 updateSuggestionContent(container, type, items, idx, command, true);
             } else {
-                selectedIndex = idx;
+                _selectedIndex = idx;
                 updateSuggestionContent(container, type, items, idx, command, true);
             }
         });
@@ -163,7 +164,6 @@ function createProfileSuggestion(getSearchProfilesFn) {
         render: () => {
             let popup;
             let container;
-            let headerDiv;
             let contentDiv;
             const state = {
                 activeTab: "profiles",
@@ -208,7 +208,7 @@ function createProfileSuggestion(getSearchProfilesFn) {
             }
             return {
                 onStart: (props) => {
-                    currentSuggestionType = "profile";
+                    _currentSuggestionType = "profile";
                     state.command = props.command;
                     state.selectedIndex = 0;
                     state.profileLoading = true;
@@ -301,7 +301,7 @@ function createProfileSuggestion(getSearchProfilesFn) {
                     popup[0]?.hide();
                     popup[0]?.destroy();
                     suggestionPopup = null;
-                    currentSuggestionType = null;
+                    _currentSuggestionType = null;
                 },
             };
         },
@@ -422,7 +422,7 @@ function createEmojiExtension(getSearchEmojisFn) {
                         }
                         return {
                             onStart: (props) => {
-                                currentSuggestionType = "emoji";
+                                _currentSuggestionType = "emoji";
                                 state.command = props.command;
                                 state.selectedIndex = 0;
                                 state.lastQuery = props.query ?? "";
@@ -516,7 +516,7 @@ function createEmojiExtension(getSearchEmojisFn) {
                                 popup[0]?.hide();
                                 popup[0]?.destroy();
                                 suggestionPopup = null;
-                                currentSuggestionType = null;
+                                _currentSuggestionType = null;
                             },
                         };
                     },
@@ -534,7 +534,7 @@ function getSerializedContent() {
     let text = "";
     const emojiTags = [];
     const mentions = [];
-    const seenEmojis = new Set();
+    const seenEmojis = new SvelteSet();
     function collectFromNode(node) {
         if (node.type === "text") {
             text += node.text ?? "";

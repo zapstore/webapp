@@ -17,7 +17,7 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-20">
-      {#each features as feature, i}
+      {#each features as feature, i (feature.icon)}
         <div class="relative rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-8 card-glow overflow-hidden transition-all hover:-translate-y-1 group">
           <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
 

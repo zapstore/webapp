@@ -1,13 +1,14 @@
 <script lang="js">
 import { onMount } from 'svelte';
-import { browser, dev } from '$app/environment';
+import { browser } from '$app/environment';
 import { page } from '$app/stores';
 import { afterNavigate } from '$app/navigation';
 import { initAuth } from '$lib/stores/auth.svelte.js';
 import { initCatalogs } from '$lib/stores/catalogs.svelte.js';
 import { initOnlineStatus, isOnline } from '$lib/stores/online.svelte.js';
 import { startProfileSearchBackground } from '$lib/services/profile-search';
-import { startLiveSubscriptions, stopLiveSubscriptions } from '$lib/nostr/service';
+import { startLiveSubscriptions, stopLiveSubscriptions, syncDeletions } from '$lib/nostr/service';
+import { ZAPSTORE_RELAY } from '$lib/config';
 import { evictOldEvents } from '$lib/nostr/dexie';
 import { IDB_NAME } from '$lib/config';
 import { setBackGoesHomeIfLandedFromOutside, clearBackGoesHome } from '$lib/utils/back.js';
@@ -41,6 +42,8 @@ onMount(() => {
         initOnlineStatus();
         // Start persistent relay connections for live catalog updates
         startLiveSubscriptions();
+        // Fetch NIP-09 deletions since last check and bust Dexie cache
+        syncDeletions([ZAPSTORE_RELAY]);
         // Evict old non-replaceable events to prevent unbounded IndexedDB growth
         evictOldEvents();
         // Start background load of default profiles for @ mention suggestions (local-first)
@@ -78,7 +81,7 @@ function deleteIndexedDb(name) {
     });
 }
 
-async function clearAllLocalCaches() {
+async function _clearAllLocalCaches() {
     if (!browser || isClearingLocalData) return;
 
     const confirmed = window.confirm('Clear all IndexedDB and Cache Storage data for this app?');

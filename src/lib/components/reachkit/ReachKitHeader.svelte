@@ -60,7 +60,7 @@
       </div>
 
       <div class="hidden md:flex md:items-center md:gap-1">
-        {#each navigation as item}
+        {#each navigation as item (item.href)}
           <a
             href={item.href}
             class="relative px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:text-foreground"
@@ -99,7 +99,7 @@
   {#if mobileMenuOpen}
     <div class="md:hidden border-t border-border/50 bg-background/95 backdrop-blur-xl">
       <div class="space-y-1 px-4 py-4">
-        {#each navigation as item}
+        {#each navigation as item (item.href)}
           <a
             href={item.href}
             class="block rounded-lg px-4 py-2.5 text-base font-medium transition-colors text-muted-foreground hover:bg-white/5 hover:text-foreground"

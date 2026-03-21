@@ -7,7 +7,6 @@
 	import Modal from '$lib/components/common/Modal.svelte';
 	import { Zap, Send } from '$lib/components/icons';
 	import { fetchZapReceiptsByPubkeys, parseZapReceipt, fetchProfile } from '$lib/nostr';
-	import { DEFAULT_SOCIAL_RELAYS } from '$lib/config';
 	import {
 		hexToColor,
 		stringToColor,
@@ -16,7 +15,7 @@
 	} from '$lib/utils/color.js';
 
 	const ZAPSTORE_NPUB = 'npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8';
-	const FRAN_NPUB = 'npub1wf4pufsucer5va8g9p0rj5dnhvfeh6d8w0g6eayaep5dhps6rsgs43dgh9';
+	const _FRAN_NPUB = 'npub1wf4pufsucer5va8g9p0rj5dnhvfeh6d8w0g6eayaep5dhps6rsgs43dgh9';
 	// All fixed-position team/donor npubs — excluded from top zappers list
 	const FIXED_NPUBS = [
 		'npub1t5u3wp5kj78jwnuphpf5mhx00nwwtfwq56d6j8atnu89gd454wcs6aj4c2', // And Other Stuff
@@ -281,12 +280,12 @@
 			try {
 				const d = nip19.decode(ZAPSTORE_NPUB);
 				if (d.type === 'npub') out.push(d.data);
-			} catch {}
+			} catch { /* ignore */ }
 			for (const { npub } of CENTER_NPUBS) {
 				try {
 					const d = nip19.decode(npub);
 					if (d.type === 'npub') out.push(d.data);
-				} catch {}
+				} catch { /* ignore */ }
 			}
 			return out;
 		})()
@@ -391,7 +390,7 @@
 
 		<div class="team-spread-scaler">
 			<div class="team-spread">
-				{#each teamMembers as member, i}
+				{#each teamMembers as member, i (member.npub ?? i)}
 					{@const scale = (member.size ?? 120) / BASE_PIC_SIZE}
 					{@const initial = getMemberInitial(member)}
 					{@const colors = getMemberColorStyles(member)}

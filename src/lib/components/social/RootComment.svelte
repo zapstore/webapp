@@ -16,6 +16,7 @@ import InputButton from "$lib/components/common/InputButton.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import ZapSliderModal from "$lib/components/modals/ZapSliderModal.svelte";
 import { Zap, Reply, Options } from "$lib/components/icons";
+import { SvelteSet, SvelteMap } from "svelte/reactivity";
 import { getIsSignedIn } from "$lib/stores/auth.svelte.js";
 let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], onReplySubmit, onZapReceived, onGetStarted, } = $props();
 let modalOpen = $state(false);
@@ -37,7 +38,7 @@ const threadReplies = $derived(threadComments.filter((c) => c.id !== id));
 // Unique people in the thread: comment repliers + zappers (by pubkey), same shape as ReplyComment for profile stack. App author first.
 // Use threadReplies (excludes root) to only count actual replies, not the root comment author.
 const uniqueRepliers = $derived.by(() => {
-    const seen = new Set();
+    const seen = new SvelteSet();
     const list = [];
     for (const r of threadReplies) {
         if (seen.has(r.pubkey))
@@ -64,8 +65,8 @@ const uniqueRepliers = $derived.by(() => {
     return list;
 });
 const hasReplies = $derived(uniqueRepliers.length > 0);
-const featuredReplier = $derived(uniqueRepliers[0]);
-const otherRepliersCount = $derived(uniqueRepliers.length - 1);
+const _featuredReplier = $derived(uniqueRepliers[0]);
+const _otherRepliersCount = $derived(uniqueRepliers.length - 1);
 const displayedRepliers = $derived(uniqueRepliers.slice(0, 3));
 const REPLY_NAME_MAX = 18;
 function trimName(name) {
@@ -105,7 +106,7 @@ const feedItems = $derived.by(() => {
     return [...commentItems, ...zapItems].sort((a, b) => (a.data.createdAt ?? 0) - (b.data.createdAt ?? 0));
 });
 const threadById = $derived.by(() => {
-    const map = new Map();
+    const map = new SvelteMap();
     for (const c of threadComments) {
         map.set(c.id, c);
     }
@@ -310,7 +311,6 @@ function handleOptions() {
   {/if}
 
   {#if hasReplies}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div class="reply-indicator" role="button" tabindex="0" onclick={(e) => e.stopPropagation()} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && e.stopPropagation()}>
       <div class="connector-column">
         <div class="connector-vertical"></div>
@@ -351,8 +351,7 @@ function handleOptions() {
   wide={true}
   class="thread-modal {childModalOpen ? 'thread-modal-child-open' : ''}"
 >
-  {#snippet children()}
-    <div class="thread-content-wrap" class:child-modal-open={childModalOpen}>
+  <div class="thread-content-wrap" class:child-modal-open={childModalOpen}>
       <div class="thread-modal-child-overlay" aria-hidden="true"></div>
       <div class="thread-content">
       <div class="thread-root">
@@ -442,6 +441,7 @@ function handleOptions() {
                     class="reply-comment-body"
                   />
                 {:else}
+                  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                   {@html reply.contentHtml || "<p class='text-muted-foreground italic'>No content</p>"}
                 {/if}
                 </MessageBubble>
@@ -474,7 +474,6 @@ function handleOptions() {
       </div>
     </div>
     </div>
-  {/snippet}
 
   {#snippet footer()}
     {#if showThreadActions && getIsSignedIn()}

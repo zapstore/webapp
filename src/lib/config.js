@@ -30,6 +30,7 @@ export const SAVED_APPS_STACK_D_TAG = 'zapstore-bookmarks';
 // Event kinds
 export const EVENT_KINDS = {
     PROFILE: 0,
+    DELETION: 5, // NIP-09
     RELAY_LIST: 10002, // NIP-65
     COMMENT: 1111,
     FILE_METADATA: 1063,

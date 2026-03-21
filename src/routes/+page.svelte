@@ -12,6 +12,7 @@ import ReleaseYourAppsSection from '$lib/components/landing/ReleaseYourAppsSecti
 import WithZapstoreSection from '$lib/components/landing/WithZapstoreSection.svelte';
 import RoadmapSection from '$lib/components/landing/RoadmapSection.svelte';
 import TeamSection from '$lib/components/landing/TeamSection.svelte';
+import { SvelteMap } from 'svelte/reactivity';
 import { fetchProfilesBatch } from '$lib/nostr';
 let { data } = $props();
 const initialTestimonials = $derived(data?.testimonials ?? []);
@@ -23,7 +24,7 @@ if (browser) {
         testimonials = raw;
         if (raw.length === 0)
             return;
-        const profilesByPubkey = new Map();
+        const profilesByPubkey = new SvelteMap();
         const pubkeys = [...new Set(raw.map((t) => t.pubkey).filter(Boolean))].slice(0, 30);
         const fetched = await fetchProfilesBatch(pubkeys);
         for (const pubkey of pubkeys) {

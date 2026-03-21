@@ -10,6 +10,7 @@
  *   - Actions that write to Dexie (liveQuery updates UI automatically)
  */
 import { liveQuery } from 'dexie';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { putEvents, queryEvents } from '$lib/nostr/dexie';
 import { parseApp, parseAppStack } from '$lib/nostr/models';
 import { fetchAppFromRelays } from '$lib/nostr/service';
@@ -61,7 +62,7 @@ export function createStacksQuery() {
 
 		// Parse stacks and keep only the latest event per (pubkey, dTag); exclude private Saved Apps stack
 		const parsed = stackEvents.map(parseAppStack);
-		const stacksByKey = new Map();
+		const stacksByKey = new SvelteMap();
 		for (const stack of parsed) {
 			if (!stack?.pubkey || !stack?.dTag || stack.dTag === SAVED_APPS_STACK_D_TAG) continue;
 			const key = `${stack.pubkey}:${stack.dTag}`;
@@ -71,7 +72,7 @@ export function createStacksQuery() {
 			}
 		}
 		const stacks = [...stacksByKey.values()];
-	const allIdentifiers = new Set();
+	const allIdentifiers = new SvelteSet();
 
 	for (const stack of stacks) {
 		if (!stack?.appRefs) continue;
@@ -84,7 +85,7 @@ export function createStacksQuery() {
 	}
 
 		// Query 2: apps matching stack references (NIP-01 filter with #d tag)
-		let appsByKey = new Map();
+		let appsByKey = new SvelteMap();
 		if (allIdentifiers.size > 0) {
 			const appFilter = { kinds: [EVENT_KINDS.APP], '#d': [...allIdentifiers] };
 			if (platformTag) appFilter['#f'] = [platformTag];
@@ -155,7 +156,7 @@ export function seedStackEvents(events) {
 		// Fill in missing preview app refs in background so stack cards show icons (first 4 only)
 		(async () => {
 			const relayUrls = [ZAPSTORE_RELAY];
-			const seen = new Set();
+			const seen = new SvelteSet();
 			for (const ev of publicEvents) {
 				if (ev.kind !== EVENT_KINDS.APP_STACK) continue;
 				const stack = parseAppStack(ev);
@@ -224,7 +225,7 @@ export async function loadMoreStacks(fetchFromRelays, relayUrls) {
 			hasMore = publicEvents.length >= STACKS_PAGE_SIZE;
 			// Fetch missing preview app refs in background so stack cards fill in (first 4 only)
 			(async () => {
-				const seen = new Set();
+				const seen = new SvelteSet();
 				for (const ev of publicEvents) {
 					const stack = parseAppStack(ev);
 					if (!stack?.appRefs) continue;

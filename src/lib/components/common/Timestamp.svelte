@@ -12,6 +12,7 @@
   /**
    * @type {number|string|Date|null} - Unix timestamp (seconds or ms), ISO string, or Date object
    */
+  import { SvelteDate } from "svelte/reactivity";
   export let timestamp = null;
 
   /**
@@ -80,7 +81,7 @@
       return `Today ${hours}:${minutes}`;
     }
 
-    const yesterday = new Date(now);
+    const yesterday = new SvelteDate(now);
     yesterday.setDate(yesterday.getDate() - 1);
     const isYesterday = date.toDateString() === yesterday.toDateString();
     if (isYesterday) return "Yesterday";

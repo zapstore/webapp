@@ -84,11 +84,58 @@ function removeFromIndex(index, key, eventId) {
 }
 
 /**
+ * Remove a single event from all in-memory indexes.
+ */
+function removeEvent(event) {
+	eventsById.delete(event.id);
+	removeFromIndex(kindIndex, event.kind, event.id);
+	removeFromIndex(pubkeyIndex, event.pubkey, event.id);
+	if (isReplaceable(event.kind)) {
+		const key = getReplaceableKey(event);
+		if (replaceableIndex.get(key) === event.id) {
+			replaceableIndex.delete(key);
+		}
+	}
+}
+
+/**
+ * Process a NIP-09 deletion event (kind 5).
+ * Removes targeted events from the in-memory store where pubkeys match.
+ */
+function processDeletion(deletionEvent) {
+	for (const tag of deletionEvent.tags ?? []) {
+		if (tag[0] === 'e' && tag[1]) {
+			const target = eventsById.get(tag[1]);
+			if (target && target.pubkey === deletionEvent.pubkey) {
+				removeEvent(target);
+			}
+		} else if (tag[0] === 'a' && tag[1]) {
+			const parts = tag[1].split(':');
+			if (parts.length < 3) continue;
+			const kind = parseInt(parts[0], 10);
+			const pubkey = parts[1];
+			const dTag = parts.slice(2).join(':');
+			if (isNaN(kind) || !pubkey || pubkey !== deletionEvent.pubkey) continue;
+			const existingId = replaceableIndex.get(`${kind}:${pubkey}:${dTag}`);
+			if (existingId) {
+				const target = eventsById.get(existingId);
+				if (target) removeEvent(target);
+			}
+		}
+	}
+}
+
+/**
  * Add an event to the in-memory store.
- * Handles replaceable event deduplication.
+ * Handles replaceable event deduplication and NIP-09 deletions.
  */
 function addEvent(event) {
 	if (!event?.id || typeof event.kind !== 'number') return;
+
+	if (event.kind === 5) {
+		processDeletion(event);
+		return;
+	}
 
 	if (isReplaceable(event.kind)) {
 		const key = getReplaceableKey(event);
@@ -357,6 +404,13 @@ async function warmUp() {
 				since: Math.floor(Date.now() / 1000) - 90 * 86400,
 				limit: 99
 			}, WARMUP_TIMEOUT_MS),
+
+			// NIP-09 deletions for apps and stacks
+			queryRelaysRaw([CATALOG_RELAY], {
+				kinds: [EVENT_KINDS.DELETION],
+				'#k': [String(EVENT_KINDS.APP), String(EVENT_KINDS.APP_STACK)],
+				limit: 100
+			}, WARMUP_TIMEOUT_MS),
 		]);
 
 		// Fetch apps referenced by stacks (addEvent deduplicates)
@@ -404,6 +458,13 @@ async function pollCatalog() {
 				kinds: [EVENT_KINDS.RELEASE],
 				since,
 				limit: 99
+			}),
+			// NIP-09 deletions for apps and stacks
+			queryRelaysRaw([CATALOG_RELAY], {
+				kinds: [EVENT_KINDS.DELETION],
+				'#k': [String(EVENT_KINDS.APP), String(EVENT_KINDS.APP_STACK)],
+				since,
+				limit: 100
 			}),
 		]);
 

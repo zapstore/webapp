@@ -14,7 +14,7 @@ function handleScroll() {
     const rect = sectionElement.getBoundingClientRect();
     const windowHeight = window.innerHeight;
     const sectionTop = rect.top;
-    const sectionHeight = rect.height;
+    const _sectionHeight = rect.height;
     // Calculate scroll progress (0 to 1) as section enters viewport
     // Start animation when section top reaches 80% of viewport
     // Complete animation when section top reaches 20% of viewport

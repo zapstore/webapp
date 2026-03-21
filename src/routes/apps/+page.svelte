@@ -377,8 +377,8 @@
 				</div>
 			{:else if searchResults && searchResults.length > 0}
 				<div class="search-results-grid">
-					{#each searchResults as app}
-						<AppSmallCard {app} href={getAppUrl(app)} />
+				{#each searchResults as app (app.id)}
+					<AppSmallCard {app} href={getAppUrl(app)} />
 					{/each}
 				</div>
 			{:else if searchResults !== null}
@@ -399,9 +399,9 @@
 				{#if resolvedDisplayStacks.length === 0 && (liveStacks === null || stacksLoading)}
 					<div class="horizontal-scroll">
 						<div class="scroll-content">
-							{#each Array(4) as _}
-								<div class="stack-column">
-									{#each Array(2) as _}
+						{#each Array(4) as _, i (i)}
+							<div class="stack-column">
+								{#each Array(2) as _, j (j)}
 										<div class="skeleton-stack">
 											<div class="skeleton-stack-grid"><SkeletonLoader /></div>
 											<div class="skeleton-stack-info">
@@ -430,9 +430,9 @@
 						onscroll={handleStacksScroll}
 					>
 						<div class="scroll-content">
-							{#each stackColumns as column}
-								<div class="stack-column">
-									{#each column as stack}
+						{#each stackColumns as column, ci (ci)}
+							<div class="stack-column">
+								{#each column as stack (`${stack.pubkey}:${stack.dTag}`)}
 										<AppStackCard {stack} href={getStackUrl(stack)} />
 									{/each}
 								</div>
@@ -476,9 +476,9 @@
 				{#if apps.length === 0}
 					<div class="horizontal-scroll">
 						<div class="scroll-content">
-							{#each Array(3) as _}
-								<div class="app-column">
-									{#each Array(4) as _}
+						{#each Array(3) as _, i (i)}
+							<div class="app-column">
+								{#each Array(4) as _, j (j)}
 										<div class="skeleton-card">
 											<div class="skeleton-icon"><SkeletonLoader /></div>
 											<div class="skeleton-info">
@@ -501,9 +501,9 @@
 						onscroll={handleAppsScroll}
 					>
 						<div class="scroll-content">
-							{#each appColumns as column}
-								<div class="app-column">
-									{#each column as app}
+						{#each appColumns as column, ci (ci)}
+							<div class="app-column">
+								{#each column as app (app.id)}
 										<AppSmallCard {app} href={getAppUrl(app)} />
 									{/each}
 								</div>

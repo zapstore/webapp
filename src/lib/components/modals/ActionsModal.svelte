@@ -12,6 +12,7 @@ import AppSmallStackCard from "$lib/components/cards/AppSmallStackCard.svelte";
 import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
 import { Plus } from "$lib/components/icons";
 import Label from "$lib/components/common/Label.svelte";
+import { SvelteSet, SvelteMap } from "svelte/reactivity";
 import { publishStack, queryEvents, parseAppStack, parseApp, liveQuery, updateStackApps } from "$lib/nostr";
 import { signEvent, getIsSignedIn, getCurrentPubkey } from "$lib/stores/auth.svelte.js";
 import { EVENT_KINDS } from "$lib/config.js";
@@ -38,7 +39,7 @@ let stacksLoading = $state(false);
 let stacksLoaded = $state(false);
 
 // Track which stacks are being updated
-let updatingStacks = $state(new Set());
+let updatingStacks = new SvelteSet();
 
 let createStackOpen = $state(false);
 let stackName = $state("");
@@ -85,14 +86,14 @@ $effect(() => {
 			console.log('[ActionsModal] Parsed stacks:', parsedStacks);
 			
 			// Resolve app details for each stack
-			const allIds = new Set();
+			const allIds = new SvelteSet();
 			for (const s of parsedStacks) {
 				for (const ref of s.appRefs || []) {
 					if (ref.kind === EVENT_KINDS.APP) allIds.add(ref.identifier);
 				}
 			}
 			
-			let appsByKey = new Map();
+			let appsByKey = new SvelteMap();
 			if (allIds.size > 0) {
 				const appEvents = await queryEvents({ kinds: [EVENT_KINDS.APP], '#d': [...allIds] });
 				for (const e of appEvents) {
@@ -144,19 +145,19 @@ async function handleStackClick(stack) {
 	const hasApp = stackContainsApp(stack);
 	const action = hasApp ? 'remove' : 'add';
 	
-	updatingStacks = new Set([...updatingStacks, stack.id]);
+	updatingStacks.add(stack.id);
 	
 	try {
 		// Convert Svelte 5 Proxy objects to plain objects
 		const plainEvent = JSON.parse(JSON.stringify(stack.event));
 		const plainApp = { pubkey: targetApp.pubkey, dTag: targetApp.dTag };
 		
-		const result = await updateStackApps(plainEvent, plainApp, action, signEvent);
+		await updateStackApps(plainEvent, plainApp, action, signEvent);
 		console.log(`[ActionsModal] ${action === 'add' ? 'Added to' : 'Removed from'} stack:`, stack.name);
 	} catch (err) {
 		console.error('[ActionsModal] Failed:', err);
 	} finally {
-		updatingStacks = new Set([...updatingStacks].filter(id => id !== stack.id));
+		updatingStacks.delete(stack.id);
 	}
 }
 
@@ -205,7 +206,7 @@ $effect(() => {
 		stackDescription = "";
 		error = "";
 		saving = false;
-		updatingStacks = new Set();
+		updatingStacks = new SvelteSet();
 	}
 });
 </script>
@@ -267,7 +268,7 @@ $effect(() => {
 				</div>
 				<div class="labels-scroll-row">
 					<div class="labels-row-inner">
-						{#each defaultLabels as label}
+						{#each defaultLabels as label (label)}
 							<button
 								type="button"
 								class="label-tap"
@@ -299,7 +300,6 @@ $effect(() => {
 </Modal>
 
 {#if createStackOpen}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 	<div class="new-stack-overlay" onclick={() => { createStackOpen = false; }} role="presentation"></div>
 
 	<div class="new-stack-wrapper" role="dialog" aria-modal="true" aria-label="New stack">

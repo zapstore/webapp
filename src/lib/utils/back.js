@@ -32,7 +32,9 @@ export function setBackGoesHomeIfLandedFromOutside() {
 export function clearBackGoesHome() {
 	try {
 		sessionStorage.removeItem(BACK_GOES_HOME_KEY);
-	} catch {}
+	} catch {
+		// ignore
+	}
 }
 
 /**
@@ -45,6 +47,8 @@ export function handleBack() {
 			goto('/');
 			return;
 		}
-	} catch {}
+	} catch {
+		// ignore
+	}
 	history.back();
 }

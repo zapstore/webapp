@@ -5,6 +5,7 @@
  * Displays tabs for: Comments, Zaps, Labels, Stacks, Details
  * Only loads content for the currently selected tab.
  */
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { AlertCircle } from "lucide-svelte";
 import { wheelScroll } from "$lib/actions/wheelScroll.js";
 import RootComment from "./RootComment.svelte";
@@ -17,14 +18,14 @@ import { Zap } from "$lib/components/icons";
 import { queryEvent } from "$lib/nostr";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
 let {
-    app = {}, stack = null, version = "", publisherProfile = null,
-    zaps = [], zapperProfiles = new Map(), className = "",
+    app = {}, stack = null, version = "", publisherProfile: _publisherProfile = null,
+    zaps = [], zapperProfiles = new SvelteMap(), className = "",
     comments = [], commentsLoading = false, commentsError = "",
     zapsLoading = false, profiles = {}, profilesLoading = false,
     getAppSlug = () => "", getStackSlug = () => "",
     pubkeyToNpub = () => "", searchProfiles = async () => [],
     searchEmojis = async () => [], onCommentSubmit, onZapReceived, onGetStarted,
-    mainEventIds = [],
+    mainEventIds: _mainEventIds = [],
     // Details tab overrides — when provided, skip Dexie auto-fetch.
     // Accepts the same props as chateau-web's SocialTabs for a unified API.
     detailsRawData: detailsRawDataProp = null,
@@ -118,8 +119,8 @@ function enrichComment(comment) {
         profileLoading: profilesLoading && !hasProfile,
     };
 }
-const commentIds = $derived(new Set(comments.map((c) => c.id)));
-const zapIds = $derived(new Set(zaps.map((z) => (z.id ?? '').toLowerCase())));
+const commentIds = $derived(new SvelteSet(comments.map((c) => c.id)));
+const zapIds = $derived(new SvelteSet(zaps.map((z) => (z.id ?? '').toLowerCase())));
 // Model: main feed = zaps on the main event + root comments.
 // A comment is a root if it has no parentId, AND its parentId is not another comment's ID,
 // AND its parentId is not a zap receipt ID (zap-reply comments only appear inside the zap thread).
@@ -128,7 +129,7 @@ const rootComments = $derived(comments
     .filter(isRoot)
     .map(enrichComment));
 const repliesByParent = $derived.by(() => {
-    const map = new Map();
+    const map = new SvelteMap();
     comments
         .filter((c) => c.parentId && commentIds.has(c.parentId))
         .forEach((reply) => {
@@ -146,7 +147,7 @@ const rootCommentsWithReplies = $derived(rootComments.map((comment) => ({
 })));
 /** Full thread (root + all descendants) per root id, chronological, for the thread modal */
 const threadByRootId = $derived.by(() => {
-    const map = new Map();
+    const map = new SvelteMap();
     for (const root of rootCommentsWithReplies) {
         const collected = [root];
         const queue = [root.id];
@@ -165,15 +166,15 @@ const threadByRootId = $derived.by(() => {
 });
 /** Replies (and their descendants) per zap id, for zap thread modal. Zaps are not in comments, so key by zap id. */
 const threadByZapId = $derived.by(() => {
-    const allZapIds = new Set(zaps.map((z) => z.id.toLowerCase()));
-    const map = new Map();
+    const allZapIds = new SvelteSet(zaps.map((z) => z.id.toLowerCase()));
+    const map = new SvelteMap();
     const norm = (id) => (id ?? "").toLowerCase();
     for (const zap of enrichedZaps) {
         const zapIdNorm = zap.id.toLowerCase();
         if (!allZapIds.has(zapIdNorm))
             continue;
         const direct = comments.filter((c) => norm(c.parentId) === zapIdNorm);
-        const allIds = new Set(direct.map((c) => c.id));
+        const allIds = new SvelteSet(direct.map((c) => c.id));
         let queue = [...direct.map((c) => c.id)];
         while (queue.length) {
             const parentId = queue.shift();
@@ -192,7 +193,7 @@ const threadByZapId = $derived.by(() => {
 /** For each root zap in the feed: zaps on that zap (e-tag = this receipt id). Modal shows these when opened. */
 const threadZapsByZapId = $derived.by(() => {
     const norm = (id) => (id ?? "").toLowerCase();
-    const byParent = new Map();
+    const byParent = new SvelteMap();
     for (const z of enrichedZaps) {
         const pid = norm(z.zappedEventId);
         if (!pid)
@@ -201,7 +202,7 @@ const threadZapsByZapId = $derived.by(() => {
             byParent.set(pid, []);
         byParent.get(pid).push(z);
     }
-    const map = new Map();
+    const map = new SvelteMap();
     function collectDescendants(rootId) {
         const out = [];
         let queue = [rootId.toLowerCase()];
@@ -225,9 +226,9 @@ const threadZapsByZapId = $derived.by(() => {
 /** For each root comment in the feed: zaps on any event in that thread. Used when opening the modal for that root comment. */
 const threadZapsByRootId = $derived.by(() => {
     const norm = (id) => (id ?? "").toLowerCase();
-    const map = new Map();
+    const map = new SvelteMap();
     for (const root of rootCommentsWithReplies) {
-        const threadCommentIds = new Set();
+        const threadCommentIds = new SvelteSet();
         let queue = [root.id];
         while (queue.length) {
             const cid = queue.shift();
@@ -274,7 +275,7 @@ const combinedFeed = $derived.by(() => {
 
 <div class="social-tabs {className}">
   <div class="tab-row" use:wheelScroll>
-    {#each tabs as tab}
+    {#each tabs as tab (tab.id)}
       <button
         type="button"
         class={activeTab === tab.id ? "btn-primary-small tab-selected" : "btn-secondary-small"}

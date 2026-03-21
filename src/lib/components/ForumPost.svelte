@@ -31,7 +31,7 @@
 
   {#if labels.length > 0}
     <div class="labels">
-      {#each labels as label}
+      {#each labels as label (label)}
         <span>{label}</span>
       {/each}
     </div>

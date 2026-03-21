@@ -1,5 +1,6 @@
 import js from '@eslint/js';
 import svelte from 'eslint-plugin-svelte';
+import globals from 'globals';
 import svelteConfig from './svelte.config.js';
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -9,28 +10,19 @@ export default [
 	{
 		languageOptions: {
 			globals: {
-				// Browser and Node (SvelteKit) globals – install "globals" and spread globals.browser/node for full set
-				window: 'readonly',
-				document: 'readonly',
-				navigator: 'readonly',
-				console: 'readonly',
-				Promise: 'readonly',
-				Set: 'readonly',
-				Map: 'readonly',
-				URL: 'readonly',
-				URLSearchParams: 'readonly',
-				fetch: 'readonly',
-				FormData: 'readonly',
-				AbortController: 'readonly',
-				__dirname: 'readonly',
-				__filename: 'readonly',
-				module: 'readonly',
-				require: 'readonly',
-				process: 'readonly',
-				Buffer: 'readonly',
-				exports: 'readonly',
-				global: 'readonly'
+				...globals.browser,
+				...globals.node
 			}
+		},
+		rules: {
+			// App does not use onNavigate/resolve() view-transition pattern; rule is a false positive here
+			'svelte/no-navigation-without-resolve': 'off',
+			// Allow intentionally-unused variables/args/caught-errors when prefixed with _
+			'no-unused-vars': ['error', {
+				varsIgnorePattern: '^_',
+				argsIgnorePattern: '^_',
+				caughtErrorsIgnorePattern: '^_'
+			}]
 		}
 	},
 	{
@@ -39,6 +31,15 @@ export default [
 			parserOptions: {
 				extraFileExtensions: ['.svelte'],
 				svelteConfig
+			}
+		}
+	},
+	{
+		files: ['src/service-worker.js'],
+		languageOptions: {
+			globals: {
+				...globals.browser,
+				...globals.serviceworker
 			}
 		}
 	},

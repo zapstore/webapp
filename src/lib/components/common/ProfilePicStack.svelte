@@ -32,7 +32,7 @@ function handleClick() {
 >
   {#if displayedProfiles.length > 0}
     <div class="stacked-pics" style="--overlap: -{overlapPx}px;">
-      {#each displayedProfiles as profile, i}
+      {#each displayedProfiles as profile, i (i)}
         <div
           class="stacked-pic"
           style="z-index: {displayedProfiles.length - i};"

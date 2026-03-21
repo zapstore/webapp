@@ -15,7 +15,7 @@ import { cubicOut } from "svelte/easing";
 import { browser } from "$app/environment";
 let { open = $bindable(false), ariaLabel = "Modal dialog", ariaLabelledby = null, align = "center", zIndex = 50, maxWidth = "max-w-lg", wide = false, class: className = "", maxHeight = 80, fillHeight = false, closeOnBackdropClick = true, closeOnEscape = true, noBackdrop = false, title = "", description = "", closeButtonMobile = false, children, footer, } = $props();
 let modalElement = $state(null);
-let isBottomAligned = $state(false);
+let _isBottomAligned = $state(false);
 let isMobile = $state(false);
 const effectiveMaxWidth = $derived(wide ? "modal-wide" : maxWidth);
 const actualAlignment = $derived(align === "top"
@@ -32,7 +32,7 @@ function checkContentHeight() {
     if (browser && modalElement && isMobile) {
         const threshold = window.innerHeight * (maxHeight / 100);
         const contentHeight = modalElement.scrollHeight;
-        isBottomAligned = contentHeight > threshold;
+        _isBottomAligned = contentHeight > threshold;
     }
 }
 function lockBodyScroll() {
@@ -69,7 +69,7 @@ $effect(() => {
         }
         else {
             unlockBodyScroll();
-            isBottomAligned = false;
+            _isBottomAligned = false;
         }
     }
 });

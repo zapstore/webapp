@@ -30,7 +30,7 @@
 <section class="border-t border-border/50 pt-10 sm:pt-14 lg:pt-16 pb-0">
 	<div class="scroll-track">
 		<div class="scroll-inner">
-			{#each cards as card}
+			{#each cards as card (card.headline)}
 				<div class="card">
 					<p class="card-headline">{card.headline}</p>
 					<p class="card-body">{card.body}</p>

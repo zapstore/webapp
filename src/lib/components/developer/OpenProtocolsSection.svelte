@@ -51,7 +51,7 @@
 
     <!-- Right: panel with three rows, full-width dividers -->
     <div class="open-protocols-panel">
-      {#each protocols as protocol, i}
+      {#each protocols as protocol (protocol.href)}
         <a
           href={protocol.href}
           target="_blank"

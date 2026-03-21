@@ -29,7 +29,7 @@ function mentionStyle(pubkey) {
 </script>
 
 <div class="short-text-renderer {className}" data-short-text>
-  {#each segments as segment}
+  {#each segments as segment, i (i)}
     {#if segment.type === "text"}
       <span class="short-text-text">{segment.value}</span>
     {:else if segment.type === "mention"}

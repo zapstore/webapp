@@ -35,10 +35,8 @@ export function parseShortText(input) {
     // Find all nostr:... mentions and refs
     let m;
     NOSTR_REGEX.lastIndex = 0;
-    const lower = text.toLowerCase();
     while ((m = NOSTR_REGEX.exec(text)) !== null) {
         const raw = m[0];
-        const prefix = raw.slice(0, 6); // "nostr:"
         const rest = raw.slice(6);
         try {
             const decoded = nip19.decode(rest);

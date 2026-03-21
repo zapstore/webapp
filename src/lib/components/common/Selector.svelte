@@ -20,7 +20,7 @@
     ? "background: linear-gradient(to right, hsl(var(--white4)), hsl(0 0% 100% / 0.02));"
     : "background-color: hsl(var(--black33));"}
 >
-  {#each options as option}
+  {#each options as option (option)}
     {@const isSelected = selectedOption === option}
     {#if size === "large"}
       <button

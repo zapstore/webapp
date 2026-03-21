@@ -13,7 +13,7 @@ import { ZAPSTORE_RELAY, DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS, PLATFORM
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
-import { putEvents, queryEvents } from './dexie';
+import { putEvents, queryEvents, db } from './dexie';
 
 // ============================================================================
 // Relay Pool
@@ -108,6 +108,10 @@ export function startLiveSubscriptions() {
 	// Stacks
 	activeSubscriptions.push(
 		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER, limit: STACKS_POLL_LIMIT }, { ...subParams, id: subId('stacks') })
+	);
+	// NIP-09 deletions for apps and stacks — live updates only (past deletions handled by syncDeletions)
+	activeSubscriptions.push(
+		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.DELETION], '#k': [String(EVENT_KINDS.APP), String(EVENT_KINDS.APP_STACK)], since: Math.floor(Date.now() / 1000), limit: 50 }, { ...subParams, id: subId('deletions') })
 	);
 }
 
@@ -950,6 +954,39 @@ export function parseComment(event) {
 		parentId,
 		isReply: parentId !== null
 	};
+}
+
+// ============================================================================
+// NIP-09 Deletion Sync
+// ============================================================================
+
+const DELETION_CHECK_KEY = 'zapstore_deletion_check_at';
+
+/**
+ * One-shot fetch for NIP-09 deletion events (kind 5) since last check.
+ * Stores a timestamp in localStorage so each startup only fetches new deletions.
+ * The fetched events flow through putEvents → applyDeletions, busting Dexie cache.
+ *
+ * Call on app startup after startLiveSubscriptions(). Fire-and-forget.
+ *
+ * @param {string[]} relayUrls
+ */
+export async function syncDeletions(relayUrls) {
+	if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+	const now = Math.floor(Date.now() / 1000);
+	const stored = localStorage.getItem(DELETION_CHECK_KEY);
+	const since = stored ? parseInt(stored, 10) : undefined;
+
+	const filter = /** @type {object} */ ({
+		kinds: [EVENT_KINDS.DELETION],
+		'#k': [String(EVENT_KINDS.APP), String(EVENT_KINDS.APP_STACK)],
+		limit: 200
+	});
+	if (since !== undefined) filter.since = since;
+
+	await fetchFromRelays(relayUrls, filter, { timeout: 5000, feature: 'deletions' });
+	localStorage.setItem(DELETION_CHECK_KEY, String(now));
 }
 
 /**

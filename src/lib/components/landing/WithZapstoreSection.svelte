@@ -91,7 +91,7 @@
 	</div>
 	<div class="mobile-scroll lg:hidden">
 		<div class="mobile-scroll-inner">
-			{#each cards as card}
+			{#each cards as card (card.title)}
 				<div class="mob-card">
 				<div
 					class="mob-img-wrap"
@@ -131,7 +131,7 @@
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-stretch">
 				<!-- Left: tab panels -->
 				<div class="feature-tabs lg:py-8 lg:pl-7 lg:pr-8">
-					{#each cards as card, i}
+					{#each cards as card, i (card.title)}
 						<button
 							class="feature-tab"
 							class:active={activeIndex === i}
@@ -146,8 +146,8 @@
 
 				<!-- Right: image / panel display -->
 				<div class="feature-image-wrap">
-				{#each cards as card, i}
-					{#if card.img}
+			{#each cards as card, i (card.title)}
+				{#if card.img}
 						<img
 							src={card.img}
 							alt={card.alt}

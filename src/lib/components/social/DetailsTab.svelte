@@ -24,7 +24,7 @@ function formatShareLink(url) {
 // Strip internal Dexie fields (_tags) to show the actual Nostr event
 const cleanedRawData = $derived.by(() => {
     if (!rawData) return null;
-    const { _tags, ...nostrEvent } = rawData;
+    const { _tags: _tagsField, ...nostrEvent } = rawData;
     return nostrEvent;
 });
 const formattedJson = $derived(cleanedRawData ? JSON.stringify(cleanedRawData, null, 2) : "");
@@ -201,7 +201,8 @@ const highlightedJson = $derived(highlightJson(formattedJson));
       </button>
       <span class="eyebrow-label code-language">JSON</span>
       <div class="code-scroll">
-        <pre><code>{@html highlightedJson}</code></pre>
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+      <pre><code>{@html highlightedJson}</code></pre>
       </div>
     </div>
   {/if}

@@ -73,10 +73,10 @@
 	<!-- ── MOBILE ─────────────────────────────────────────────────────── -->
 	<div class="mobile-scroll lg:hidden">
 		<div class="mobile-scroll-inner">
-			{#each cards as card}
-				<div class="mob-card">
-					<div class="mob-img-wrap">
-						{#if card.id === 'ship'}
+		{#each cards as card (card.id)}
+			<div class="mob-card">
+				<div class="mob-img-wrap">
+					{#if card.id === 'ship'}
 							<div class="confirm-wrap">
 								<div class="confirm-scaler">
 									<div class="fake-success-screen">
@@ -289,7 +289,7 @@
 		<div class="container mx-auto px-4 sm:px-6 md:px-8 lg:px-8">
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-stretch">
 				<div class="feature-tabs lg:py-8 lg:pl-7 lg:pr-8">
-					{#each cards as card, i}
+					{#each cards as card, i (card.id)}
 						<button
 							class="feature-tab"
 							class:active={activeIndex === i}
@@ -303,7 +303,7 @@
 				</div>
 
 				<div class="feature-visual-wrap">
-					{#each cards as card, i}
+					{#each cards as card, i (card.id)}
 						<div class="feature-visual-panel" class:visible={activeIndex === i}>
 							{#if card.id === 'ship'}
 								<div class="confirm-wrap">
