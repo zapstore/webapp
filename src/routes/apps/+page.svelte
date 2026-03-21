@@ -102,7 +102,7 @@
 
 	// Resolved stacks with creator profiles
 	let resolvedDisplayStacks = $state(getCached('apps:resolvedStacks') ?? []);
-	let stacksLoading = $state(false);
+	let stacksSettled = $state(resolvedDisplayStacks.length > 0);
 	let resolvedStackKeys = $state('');
 
 	// ── Search ──────────────────────────────────────────────────────────────
@@ -291,7 +291,6 @@
 	// Fetch creator profiles when stacks change
 	async function resolveCreatorsForStacks(stacksWithApps) {
 		if (!browser || stacksWithApps.length === 0) return;
-		stacksLoading = true;
 		try {
 			const creatorPubkeys = [
 				...new Set(stacksWithApps.map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk)))
@@ -324,7 +323,7 @@
 		} catch (err) {
 			console.error('[Apps] Error resolving stack creators:', err);
 		} finally {
-			stacksLoading = false;
+			stacksSettled = true;
 		}
 	}
 
@@ -365,7 +364,7 @@
 </svelte:head>
 
 <section class="apps-page">
-	<div class="container mx-auto py-6 px-3 sm:px-6 lg:px-8">
+	<div class="container mx-auto py-3 px-3 sm:px-6 lg:px-8 mt-4">
 
 	{#if searchQ}
 		<!-- Search Results -->
@@ -387,19 +386,13 @@
 		</div>
 	{:else}
 
-		<!-- Stacks Section (top, no title) -->
-		<div class="section-container stacks-section">
-			<div class="stacks-see-more-row">
-				<a href="/stacks" class="see-more-link">
-					<span>See more</span>
-					<ChevronRight size={14} strokeWidth={1.4} color="hsl(var(--white33))" />
-				</a>
-			</div>
-			<div class="scroll-wrap">
-				{#if resolvedDisplayStacks.length === 0 && (liveStacks === null || stacksLoading)}
+	<!-- Stacks Section (top, no title) -->
+	<div class="section-container stacks-section">
+		<div class="scroll-wrap">
+				{#if resolvedDisplayStacks.length === 0 && !stacksSettled}
 					<div class="horizontal-scroll">
 						<div class="scroll-content">
-						{#each Array(4) as _, i (i)}
+						{#each Array(6) as _, i (i)}
 							<div class="stack-column">
 								{#each Array(2) as _, j (j)}
 										<div class="skeleton-stack">
@@ -445,13 +438,7 @@
 							{/if}
 						</div>
 					</div>
-				{:else}
-					<div class="placeholder-content">
-						<p class="text-muted-foreground text-sm">
-							No app stacks found yet. Create one in the Zapstore app!
-						</p>
-					</div>
-				{/if}
+			{/if}
 
 				{#if stacksScrolledRight}
 					<div class="scroll-fade scroll-fade-left" aria-hidden="true"></div>
@@ -467,16 +454,22 @@
 					<ChevronRight size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
 				</button>
 			</div>
+		<div class="stacks-see-more-row">
+			<a href="/stacks" class="see-more-link">
+				<span>See more</span>
+				<ChevronRight size={14} strokeWidth={1.4} color="hsl(var(--white33))" />
+			</a>
+		</div>
 		</div>
 
 		<!-- Apps Section (bottom) -->
 		<div class="section-container apps-section">
-			<SectionHeader title="Apps" />
+			<SectionHeader title="Latest updates" />
 			<div class="scroll-wrap">
-				{#if apps.length === 0}
-					<div class="horizontal-scroll">
-						<div class="scroll-content">
-						{#each Array(3) as _, i (i)}
+			{#if apps.length === 0}
+				<div class="horizontal-scroll">
+					<div class="scroll-content">
+					{#each Array(6) as _, i (i)}
 							<div class="app-column">
 								{#each Array(4) as _, j (j)}
 										<div class="skeleton-card">
@@ -560,11 +553,11 @@
 		margin-bottom: 24px;
 	}
 
-	/* Stacks section: tight "See more" row at top-right, no title */
+	/* Stacks section: tight "See more" row at bottom-right, no title */
 	.stacks-see-more-row {
 		display: flex;
 		justify-content: flex-end;
-		margin-bottom: 12px;
+		margin-top: 8px;
 	}
 
 	.see-more-link {
@@ -769,13 +762,6 @@
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
-	}
-
-	.placeholder-content {
-		padding: 24px;
-		background-color: hsl(var(--gray66));
-		border-radius: 16px;
-		text-align: center;
 	}
 
 	/* Skeleton styles */

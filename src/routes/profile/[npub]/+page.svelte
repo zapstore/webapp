@@ -18,7 +18,6 @@ import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 import Modal from '$lib/components/common/Modal.svelte';
-import EmptyState from '$lib/components/common/EmptyState.svelte';
 import { hexToColor } from '$lib/utils/color.js';
 import { Plus, Copy, Check } from '$lib/components/icons';
 let { data } = $props();
@@ -443,6 +442,7 @@ function stackToCard(s, resolvedApps) {
 
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-8 md:pt-10 pb-8">
 		<!-- Published Apps (one row, horizontal scroll like discover) -->
+		{#if appsLoading || apps.length > 0}
 		<section class="profile-section">
 			<SectionHeader title="Apps" />
 			{#if appsLoading}
@@ -468,8 +468,6 @@ function stackToCard(s, resolvedApps) {
 						{/each}
 					</div>
 				</div>
-			{:else if apps.length === 0}
-				<EmptyState message="No published apps" />
 			{:else}
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
@@ -490,8 +488,10 @@ function stackToCard(s, resolvedApps) {
 				</div>
 			{/if}
 		</section>
+		{/if}
 
 		<!-- Published Stacks (one row, horizontal scroll like discover) -->
+		{#if stacksLoading || resolvedStacks.length > 0}
 		<section class="profile-section">
 			<SectionHeader title="Stacks" />
 			{#if stacksLoading}
@@ -523,8 +523,6 @@ function stackToCard(s, resolvedApps) {
 						{/each}
 					</div>
 				</div>
-			{:else if resolvedStacks.length === 0}
-				<EmptyState message="No published stacks" />
 			{:else}
 				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
 					<div class="scroll-content">
@@ -538,6 +536,7 @@ function stackToCard(s, resolvedApps) {
 				</div>
 			{/if}
 		</section>
+		{/if}
 	</div>
 
 	{#if profile?.about?.trim()}

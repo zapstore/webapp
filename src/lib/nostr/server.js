@@ -292,7 +292,9 @@ export function fetchStacks(limit = 20, until) {
 	const stackEvents = queryCache(filter);
 	// Exclude private Saved Apps stack from public listings
 	const publicStackEvents = stackEvents.filter(
-		(e) => e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG
+		(e) =>
+			e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG &&
+			!e.content
 	);
 	const stacks = publicStackEvents.map(parseAppStack);
 
@@ -376,7 +378,7 @@ export function fetchStacksByAuthor(pubkey, limit = 50) {
 	// Keep only the latest stack per (pubkey, dTag), excluding private Saved Apps stack
 	const stacksByKey = new Map();
 	for (const stack of parsed) {
-		if (!stack?.pubkey || !stack?.dTag || stack.dTag === SAVED_APPS_STACK_D_TAG) continue;
+		if (!stack?.pubkey || !stack?.dTag || stack.dTag === SAVED_APPS_STACK_D_TAG || !!stack.event?.content) continue;
 		const key = `${stack.pubkey}:${stack.dTag}`;
 		const existing = stacksByKey.get(key);
 		if (!existing || (stack.createdAt != null && stack.createdAt > (existing.createdAt ?? 0))) {

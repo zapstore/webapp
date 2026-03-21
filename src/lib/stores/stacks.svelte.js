@@ -64,7 +64,7 @@ export function createStacksQuery() {
 		const parsed = stackEvents.map(parseAppStack);
 		const stacksByKey = new SvelteMap();
 		for (const stack of parsed) {
-			if (!stack?.pubkey || !stack?.dTag || stack.dTag === SAVED_APPS_STACK_D_TAG) continue;
+			if (!stack?.pubkey || !stack?.dTag || stack.dTag === SAVED_APPS_STACK_D_TAG || !!stack.event?.content) continue;
 			const key = `${stack.pubkey}:${stack.dTag}`;
 			const existing = stacksByKey.get(key);
 			if (!existing || (stack.createdAt != null && stack.createdAt > (existing.createdAt ?? 0))) {
@@ -137,7 +137,8 @@ export function seedStackEvents(events) {
 		const publicEvents = events.filter(
 			(e) =>
 				e.kind !== EVENT_KINDS.APP_STACK ||
-				e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG
+				(e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG &&
+					!e.content)
 		);
 		// Initialize cursor from oldest seeded stack (for relay-based load-more)
 		if (cursor === null) {
@@ -213,7 +214,9 @@ export async function loadMoreStacks(fetchFromRelays, relayUrls) {
 		const events = await fetchFromRelays(relayUrls, filter, { feature: 'load-more-stacks' });
 		// Exclude private Saved Apps stack (don't persist for public listings)
 		const publicEvents = events.filter(
-			(e) => e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG
+			(e) =>
+				e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG &&
+				!e.content
 		);
 
 		if (publicEvents.length > 0) {
