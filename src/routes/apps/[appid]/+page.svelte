@@ -24,7 +24,7 @@ import { createSearchProfilesFunction, ZAPSTORE_PUBKEY, zapstoreProfileStore } f
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
 import { isOnline } from "$lib/stores/online.svelte.js";
-import { renderMarkdown } from "$lib/utils/markdown";
+import { markdownToPlainTextLine, renderMarkdown } from "$lib/utils/markdown";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import { stripUrlForDisplay } from "$lib/utils/url.js";
 import { Copy, Check } from "$lib/components/icons";
@@ -209,29 +209,11 @@ function handleKeydown(event) {
         prevImage();
     }
 }
-// Strip markdown formatting
-function stripMarkdown(text) {
-    if (!text)
-        return "";
-    return text
-        .replace(/^#{1,6}\s*/gm, "")
-        .replace(/\*\*(.+?)\*\*/g, "$1")
-        .replace(/\*(.+?)\*/g, "$1")
-        .replace(/__(.+?)__/g, "$1")
-        .replace(/_(.+?)_/g, "$1")
-        .replace(/~~(.+?)~~/g, "$1")
-        .replace(/`(.+?)`/g, "$1")
-        .replace(/^\s*[-*+]\s+/gm, "")
-        .replace(/^\s*\d+\.\s+/gm, "")
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-        .trim();
-}
 // Release notes preview: strip markdown first, then take first sentence or first 50 chars
 function releaseNotesPreview(notes) {
     if (!notes)
         return "";
-    const onOneLine = notes.replace(/\n/g, " ").trim();
-    const stripped = stripMarkdown(onOneLine);
+    const stripped = markdownToPlainTextLine(notes);
     if (!stripped)
         return "";
     const firstSentence = stripped.split(/[.!?](?:\s|$)/)[0]?.trim() ?? stripped;
@@ -686,7 +668,7 @@ function toggleReleaseNotesExpanded(releaseId) {
 <svelte:head>
   {#if app}
     <title>{app.name} - Zapstore</title>
-    <meta name="description" content={app.description.slice(0, 160)} />
+    <meta name="description" content={markdownToPlainTextLine(app.description).slice(0, 160)} />
     {#if app.icon}
       <meta property="og:image" content={app.icon} />
     {/if}
