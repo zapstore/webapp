@@ -14,7 +14,7 @@ import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import { Loader2 } from "lucide-svelte";
 import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString, } from "$lib/utils/color.js";
-let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, light = false, outgoing = false, children, headerActions, } = $props();
+let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, light = false, outgoing = false, children, headerActions, actionRail, } = $props();
 function formatNpubDisplay(npubStr) {
     if (!npubStr || typeof npubStr !== "string") return "";
     const s = npubStr.trim();
@@ -60,6 +60,7 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     </div>
   {/if}
 
+  <div class="bubble-trailing">
   <div class="bubble" class:bubble-light={light} class:bubble-outgoing={outgoing}>
     {#if !outgoing}
       <div class="bubble-header">
@@ -91,6 +92,12 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
       {@render children?.()}
     </div>
   </div>
+  {#if actionRail}
+    <div class="bubble-action-rail-host">
+      {@render actionRail()}
+    </div>
+  {/if}
+  </div>
 </div>
 
 <style>
@@ -102,6 +109,19 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
 
   .message-bubble-outgoing {
     flex-direction: row-reverse;
+  }
+
+  .bubble-trailing {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .bubble-action-rail-host {
+    flex-shrink: 0;
+    align-self: flex-end;
   }
 
   .profile-column {

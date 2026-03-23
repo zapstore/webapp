@@ -8,7 +8,7 @@ import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
 import { Zap } from "$lib/components/icons";
-let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", className = "", loading = false, message = "", emojiTags = [], resolveMentionLabel, } = $props();
+let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", className = "", loading = false, message = "", emojiTags = [], resolveMentionLabel, actionRail, } = $props();
 function formatNpubDisplay(npubStr) {
     if (!npubStr || typeof npubStr !== "string") return "";
     const s = npubStr.trim();
@@ -39,6 +39,7 @@ function formatAmount(val) {
     {/if}
   </div>
 
+  <div class="bubble-trailing">
   <div class="bubble">
     <div class="bubble-header">
       <div class="header-left">
@@ -70,6 +71,12 @@ function formatAmount(val) {
       </div>
     {/if}
   </div>
+  {#if actionRail}
+    <div class="bubble-action-rail-host">
+      {@render actionRail()}
+    </div>
+  {/if}
+  </div>
 </div>
 
 <!-- SVG gradient definition for zap icon -->
@@ -93,6 +100,19 @@ function formatAmount(val) {
     display: flex;
     gap: 8px;
     align-items: flex-end;
+  }
+
+  .bubble-trailing {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .bubble-action-rail-host {
+    flex-shrink: 0;
+    align-self: flex-end;
   }
 
   .profile-column {

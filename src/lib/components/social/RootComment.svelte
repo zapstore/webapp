@@ -9,6 +9,7 @@ import ZapBubble from "./ZapBubble.svelte";
 import ThreadZap from "./ThreadZap.svelte";
 import QuotedMessage from "./QuotedMessage.svelte";
 import CommentActionsModal from "./CommentActionsModal.svelte";
+import CommentBubbleActionRail from "./CommentBubbleActionRail.svelte";
 import ShortTextContent from "$lib/components/common/ShortTextContent.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import Modal from "$lib/components/common/Modal.svelte";
@@ -339,8 +340,29 @@ function handleOptions() {
 
 <svelte:window onkeydown={handleReplyKeydown} />
 
+{#snippet feedDesktopRail()}
+  <CommentBubbleActionRail
+    onReply={() => {
+      modalOpen = true;
+      handleReply();
+    }}
+    onZap={() => {
+      modalOpen = true;
+      handleZap();
+    }}
+    onOptions={() => {
+      modalOpen = true;
+      openActionsModal("root");
+    }}
+  />
+{/snippet}
+
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<div class="root-comment {className}" onclick={openThread}>
+<div
+  class="root-comment {className}"
+  class:desktop-bubble-actions-target={showThreadActions}
+  onclick={openThread}
+>
   {#if isZapRoot}
     <ZapBubble
       {pictureUrl}
@@ -352,6 +374,7 @@ function handleOptions() {
       amount={zapAmount}
       {emojiTags}
       {resolveMentionLabel}
+      actionRail={showThreadActions ? feedDesktopRail : undefined}
     />
   {:else}
     <MessageBubble
@@ -363,6 +386,7 @@ function handleOptions() {
       {loading}
       {pending}
       {outgoing}
+      actionRail={showThreadActions ? feedDesktopRail : undefined}
     >
       {#if (content != null && content !== undefined) || (mediaUrls?.length ?? 0) > 0}
         <ShortTextContent
@@ -426,52 +450,64 @@ function handleOptions() {
       <div class="thread-modal-child-overlay" aria-hidden="true"></div>
       <div class="thread-content">
       <div class="thread-root">
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
         <div
-          class="thread-bubble-click-wrap"
-          class:clickable={showThreadActions}
-          onclick={(e) => onBubbleClick(e, "root")}
+          class="thread-bubble-with-rail desktop-bubble-actions-target"
+          class:thread-bubble-with-rail--solo={!showThreadActions}
         >
-          {#if isZapRoot}
-            <ThreadZap
-              {pictureUrl}
-              {name}
-              {pubkey}
-              amount={zapAmount}
-              {timestamp}
-              {profileUrl}
-              {version}
-              content={content ?? ""}
-              {emojiTags}
-              {resolveMentionLabel}
+          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+          <div
+            class="thread-bubble-click-wrap thread-bubble-with-rail__main"
+            class:clickable={showThreadActions}
+            onclick={(e) => onBubbleClick(e, "root")}
+          >
+            {#if isZapRoot}
+              <ThreadZap
+                {pictureUrl}
+                {name}
+                {pubkey}
+                amount={zapAmount}
+                {timestamp}
+                {profileUrl}
+                {version}
+                content={content ?? ""}
+                {emojiTags}
+                {resolveMentionLabel}
+              />
+            {:else}
+              <ThreadComment
+                {appIconUrl}
+                {appName}
+                {appIdentifier}
+                {version}
+                {pictureUrl}
+                {name}
+                {pubkey}
+                {timestamp}
+                {profileUrl}
+                {loading}
+                {pending}
+              >
+                {#if content !== undefined && content !== null || (mediaUrls?.length ?? 0) > 0}
+                  <ShortTextContent
+                    content={content ?? ''}
+                    emojiTags={emojiTags ?? []}
+                    mediaUrls={mediaUrls ?? []}
+                    {resolveMentionLabel}
+                    onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
+                    class="root-comment-body"
+                  />
+                {:else}
+                  {@render children?.()}
+                {/if}
+              </ThreadComment>
+            {/if}
+          </div>
+          {#if showThreadActions}
+            <CommentBubbleActionRail
+              onReply={() => handleReply()}
+              onZap={() => handleZap()}
+              onOptions={() => openActionsModal("root")}
             />
-          {:else}
-            <ThreadComment
-              {appIconUrl}
-              {appName}
-              {appIdentifier}
-              {version}
-              {pictureUrl}
-              {name}
-              {pubkey}
-              {timestamp}
-              {profileUrl}
-              {loading}
-              {pending}
-            >
-              {#if content !== undefined && content !== null || (mediaUrls?.length ?? 0) > 0}
-                <ShortTextContent
-                  content={content ?? ''}
-                  emojiTags={emojiTags ?? []}
-                  mediaUrls={mediaUrls ?? []}
-                  {resolveMentionLabel}
-                  onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
-                  class="root-comment-body"
-                />
-              {:else}
-                {@render children?.()}
-              {/if}
-            </ThreadComment>
           {/if}
         </div>
       </div>
@@ -484,64 +520,88 @@ function handleOptions() {
             {#if item.type === 'comment'}
               {@const reply = item.data}
               {@const quotedParent = reply.parentId && reply.parentId !== id ? threadById.get(reply.parentId) : null}
-              <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
               <div
-                class="thread-bubble-click-wrap"
-                class:clickable={showThreadActions}
-                onclick={(e) => onBubbleClick(e, reply)}
+                class="thread-bubble-with-rail desktop-bubble-actions-target"
+                class:thread-bubble-with-rail--solo={!showThreadActions}
               >
-                <MessageBubble
-                  pictureUrl={reply.avatarUrl}
-                  name={reply.displayName}
-                  pubkey={reply.pubkey}
-                  timestamp={reply.createdAt}
-                  profileUrl={reply.profileUrl}
-                  loading={reply.profileLoading}
-                  light={true}
+                <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                <div
+                  class="thread-bubble-click-wrap thread-bubble-with-rail__main"
+                  class:clickable={showThreadActions}
+                  onclick={(e) => onBubbleClick(e, reply)}
                 >
-                  {#if quotedParent}
-                  <QuotedMessage
-                    authorName={quotedParent.displayName || "Anonymous"}
-                    authorPubkey={quotedParent.pubkey}
-                    content={quotedParent.content ?? ""}
-                    emojiTags={quotedParent.emojiTags ?? []}
-                    mediaUrls={quotedParent.mediaUrls ?? []}
-                    resolveMentionLabel={resolveMentionLabel}
+                  <MessageBubble
+                    pictureUrl={reply.avatarUrl}
+                    name={reply.displayName}
+                    pubkey={reply.pubkey}
+                    timestamp={reply.createdAt}
+                    profileUrl={reply.profileUrl}
+                    loading={reply.profileLoading}
+                    light={true}
+                  >
+                    {#if quotedParent}
+                      <QuotedMessage
+                        authorName={quotedParent.displayName || "Anonymous"}
+                        authorPubkey={quotedParent.pubkey}
+                        content={quotedParent.content ?? ""}
+                        emojiTags={quotedParent.emojiTags ?? []}
+                        mediaUrls={quotedParent.mediaUrls ?? []}
+                        resolveMentionLabel={resolveMentionLabel}
+                      />
+                    {/if}
+                    {#if reply.content !== undefined && reply.content !== null || (reply.mediaUrls?.length ?? 0) > 0}
+                      <ShortTextContent
+                        content={reply.content ?? ''}
+                        emojiTags={reply.emojiTags ?? []}
+                        mediaUrls={reply.mediaUrls ?? []}
+                        {resolveMentionLabel}
+                        onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
+                        class="reply-comment-body"
+                      />
+                    {:else}
+                      {@html reply.contentHtml || "<p class='text-muted-foreground italic'>No content</p>"}
+                    {/if}
+                  </MessageBubble>
+                </div>
+                {#if showThreadActions}
+                  <CommentBubbleActionRail
+                    onReply={() => openReplyToComment(reply)}
+                    onZap={() => handleZapComment(reply)}
+                    onOptions={() => openActionsModal(reply)}
                   />
                 {/if}
-                {#if reply.content !== undefined && reply.content !== null || (reply.mediaUrls?.length ?? 0) > 0}
-                  <ShortTextContent
-                    content={reply.content ?? ''}
-                    emojiTags={reply.emojiTags ?? []}
-                    mediaUrls={reply.mediaUrls ?? []}
-                    {resolveMentionLabel}
-                    onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
-                    class="reply-comment-body"
-                  />
-                {:else}
-                  {@html reply.contentHtml || "<p class='text-muted-foreground italic'>No content</p>"}
-                {/if}
-                </MessageBubble>
               </div>
             {:else}
               {@const zap = item.data}
-              <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
               <div
-                class="thread-bubble-click-wrap"
-                class:clickable={showThreadActions}
-                onclick={(e) => onBubbleClick(e, zap)}
+                class="thread-bubble-with-rail desktop-bubble-actions-target"
+                class:thread-bubble-with-rail--solo={!showThreadActions}
               >
-                <ZapBubble
-                  pictureUrl={zap.avatarUrl}
-                  name={zap.displayName}
-                  pubkey={zap.senderPubkey ?? zap.pubkey}
-                  amount={zap.amountSats ?? 0}
-                  timestamp={zap.timestamp ?? zap.createdAt}
-                  profileUrl={zap.profileUrl}
-                  message={zap.comment ?? ""}
-                  emojiTags={zap.emojiTags ?? []}
-                  {resolveMentionLabel}
-                />
+                <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                <div
+                  class="thread-bubble-click-wrap thread-bubble-with-rail__main"
+                  class:clickable={showThreadActions}
+                  onclick={(e) => onBubbleClick(e, zap)}
+                >
+                  <ZapBubble
+                    pictureUrl={zap.avatarUrl}
+                    name={zap.displayName}
+                    pubkey={zap.senderPubkey ?? zap.pubkey}
+                    amount={zap.amountSats ?? 0}
+                    timestamp={zap.timestamp ?? zap.createdAt}
+                    profileUrl={zap.profileUrl}
+                    message={zap.comment ?? ""}
+                    emojiTags={zap.emojiTags ?? []}
+                    {resolveMentionLabel}
+                  />
+                </div>
+                {#if showThreadActions}
+                  <CommentBubbleActionRail
+                    onReply={() => openReplyToZap(zap)}
+                    onZap={() => handleZapComment(zap)}
+                    onOptions={() => openActionsModal(zap)}
+                  />
+                {/if}
               </div>
             {/if}
           {/each}
@@ -775,6 +835,33 @@ function handleOptions() {
   }
   .thread-bubble-click-wrap.clickable {
     cursor: pointer;
+  }
+
+  /* Shrink-wrap so the action rail sits beside the bubble, not at the modal’s far right */
+  .thread-bubble-with-rail {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 12px;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .thread-bubble-with-rail__main {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .thread-bubble-with-rail__main.thread-bubble-click-wrap {
+    width: auto;
+    max-width: 100%;
+  }
+
+  @media (max-width: 767px) {
+    .thread-bubble-with-rail--solo {
+      gap: 0;
+    }
   }
 
   .thread-divider {
