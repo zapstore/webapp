@@ -194,23 +194,27 @@
 
 <div class="dashboard-outer container mx-auto px-0 sm:px-6 lg:px-8">
 	<div class="dashboard">
-		<!-- Mobile nav zone — replaces sidebar on small screens -->
+		<!-- Mobile nav — sheet from below header; does not cover site navbar -->
 		<div class="mobile-nav">
+			<button
+				type="button"
+				class="mobile-nav-zone"
+				onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
+				aria-expanded={mobileMenuOpen}
+				aria-haspopup="true"
+			>
+				<span class="mobile-nav-label">{activeNavLabel}</span>
+				<span class="mobile-chevron" class:open={mobileMenuOpen}>
+					<ChevronDownIcon
+						variant="outline"
+						color="hsl(var(--white33))"
+						size={14}
+						strokeWidth={1.4}
+					/>
+				</span>
+			</button>
 			{#if mobileMenuOpen}
-				<!-- Full-screen overlay when open -->
-				<div class="mobile-nav-panel">
-					<!-- Close zone at top (mirrors the closed state) -->
-					<button class="mobile-nav-zone" onclick={() => (mobileMenuOpen = false)}>
-						<span class="mobile-nav-label">{activeNavLabel}</span>
-						<span class="mobile-chevron open">
-							<ChevronDownIcon
-								variant="outline"
-								color="hsl(var(--white33))"
-								size={14}
-								strokeWidth={1.4}
-							/>
-						</span>
-					</button>
+				<div class="mobile-nav-panel" role="dialog" aria-modal="true" aria-label="Studio navigation">
 					<div class="mobile-nav-content">
 						<nav class="sidebar-nav">
 							{#each navItems as item}
@@ -259,20 +263,13 @@
 							</a>
 						</div>
 					</div>
+					<button
+						type="button"
+						class="mobile-nav-rest"
+						onclick={() => (mobileMenuOpen = false)}
+						aria-label="Close menu"
+					></button>
 				</div>
-			{:else}
-				<!-- Collapsed zone trigger -->
-				<button class="mobile-nav-zone" onclick={() => (mobileMenuOpen = true)}>
-					<span class="mobile-nav-label">{activeNavLabel}</span>
-					<span class="mobile-chevron">
-						<ChevronDownIcon
-							variant="outline"
-							color="hsl(var(--white33))"
-							size={14}
-							strokeWidth={1.4}
-						/>
-					</span>
-				</button>
 			{/if}
 		</div>
 
@@ -480,11 +477,6 @@
 			margin-left: 0;
 			margin-right: 0;
 		}
-
-		/* Remove the column divider border that creates a visible left line */
-		.content {
-			border-left: none;
-		}
 	}
 
 	/* ── Sidebar ──────────────────────────────────────────────────────────── */
@@ -595,12 +587,21 @@
 	}
 
 	@media (max-width: 767px) {
+		.dashboard-outer {
+			overflow-x: hidden;
+			max-width: 100%;
+		}
+
 		.sidebar {
 			display: none;
 		}
 
 		.mobile-nav {
 			display: block;
+			position: relative;
+			z-index: 90;
+			overflow-x: hidden;
+			max-width: 100%;
 		}
 
 		/* Collapsed trigger zone */
@@ -632,37 +633,61 @@
 			transform: rotate(180deg);
 		}
 
-		/* Full-screen overlay panel */
+		/* Sheet from below switcher row to bottom; site header stays visible */
 		.mobile-nav-panel {
 			position: fixed;
-			inset: 0;
-			z-index: 100;
-			background: hsl(var(--background));
+			z-index: 89;
+			left: 0;
+			right: 0;
+			top: calc(64px + 2.625rem);
+			bottom: 0;
 			display: flex;
 			flex-direction: column;
-			overflow-y: auto;
-		}
-
-		/* The close-zone inside the panel mirrors the collapsed zone */
-		.mobile-nav-panel .mobile-nav-zone {
-			flex-shrink: 0;
+			background: hsl(var(--background));
+			border-top: 1px solid hsl(var(--border));
+			box-shadow: 0 12px 40px hsl(var(--black) / 0.35);
+			overflow: hidden;
+			overflow-x: hidden;
+			max-width: 100%;
 		}
 
 		.mobile-nav-content {
-			flex: 1;
-			padding: 8px 4px 24px;
+			flex-shrink: 0;
+			max-height: 55dvh;
+			overflow-y: auto;
+			overflow-x: hidden;
+			padding: 8px 4px 8px;
 			display: flex;
 			flex-direction: column;
+			max-width: 100%;
 		}
 
-		/* Docs & Tools inside mobile panel also pins to bottom */
+		.mobile-nav-rest {
+			flex: 1;
+			min-height: 0;
+			width: 100%;
+			margin: 0;
+			padding: 0;
+			border: none;
+			background: hsl(var(--black) / 0.35);
+			cursor: default;
+		}
+
+		/* Docs & Tools: natural flow inside scrollable nav (no pin-to-bottom in sheet) */
 		.mobile-nav-content .sidebar-section {
-			margin-top: auto;
+			margin-top: 16px;
+			/* Desktop sidebar uses negative horizontal margins; those overflow the mobile sheet */
+			margin-left: 0;
+			margin-right: 0;
+			padding-left: 12px;
+			padding-right: 12px;
 		}
 
 		/* On mobile the dashboard stacks vertically */
 		.dashboard {
 			flex-direction: column;
+			overflow-x: hidden;
+			max-width: 100%;
 		}
 	}
 
@@ -673,6 +698,12 @@
 		display: flex;
 		flex-direction: column;
 		border-left: 1px solid hsl(var(--border));
+	}
+
+	@media (max-width: 767px) {
+		.content {
+			border-left: none;
+		}
 	}
 
 	.content-section {

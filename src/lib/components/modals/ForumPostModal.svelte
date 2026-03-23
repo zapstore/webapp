@@ -14,6 +14,7 @@ import { Camera, EmojiFill, Plus } from '$lib/components/icons';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search';
 import { createSearchProfilesFunction } from '$lib/services/profile-search';
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from '$lib/services/upload-nostr-build';
+import { FORUM_CATEGORIES } from '$lib/config.js';
 
 let {
 	isOpen = $bindable(false),
@@ -258,6 +259,7 @@ $effect(() => {
 <ForumPostLabelsModal
 	bind:isOpen={labelsModalOpen}
 	bind:selectedLabels
+	suggestions={FORUM_CATEGORIES}
 	onclose={() => { labelsModalOpen = false; }}
 />
 

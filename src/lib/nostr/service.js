@@ -9,11 +9,18 @@
  * liveQuery handles reactivity — no manual notification needed.
  */
 import { SimplePool } from 'nostr-tools';
-import { ZAPSTORE_RELAY, DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS, PLATFORM_FILTER, EVENT_KINDS, SUB_PREFIX } from '$lib/config';
+import {
+	ZAPSTORE_RELAY,
+	DEFAULT_CATALOG_RELAYS,
+	DEFAULT_SOCIAL_RELAYS,
+	PLATFORM_FILTER,
+	EVENT_KINDS,
+	SUB_PREFIX
+} from '$lib/config';
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
-import { putEvents, queryEvents } from './dexie';
+import { db, putEvents, queryEvents } from './dexie';
 
 // ============================================================================
 // Relay Pool
@@ -858,6 +865,191 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 	await putEvents([signed]);
 
 	return signed;
+}
+
+const APP_LABEL_NAMESPACE = 'app';
+/** Nostr topic labels (kind 1985): L + l mark `#t` per label spec */
+const TOPIC_LABEL_NAMESPACE = '#t';
+
+/**
+ * Fetch kind 1985 label events targeting an addressable entity (#a / #A).
+ * Persists to Dexie via fetchFromRelays.
+ * @param {string} pubkey - hex pubkey
+ * @param {string} identifier - d-tag
+ * @param {{ timeout?: number, signal?: AbortSignal, relays?: string[], aTagKind?: number }} [options]
+ */
+export async function fetchLabelsForAddressable(pubkey, identifier, options = {}) {
+	const { timeout = 5000, signal, relays = SOCIAL_RELAYS, aTagKind = EVENT_KINDS.APP } = options;
+	if (signal?.aborted || !pubkey?.trim() || !identifier?.trim()) return [];
+	const pk = pubkey.trim().toLowerCase();
+	const id = identifier.trim();
+	const aTagValue = `${aTagKind}:${pk}:${id}`;
+	const filterLower = { kinds: [EVENT_KINDS.LABEL], '#a': [aTagValue], limit: 300 };
+	const filterUpper = { kinds: [EVENT_KINDS.LABEL], '#A': [aTagValue], limit: 300 };
+	const [eventsLower, eventsUpper] = await Promise.all([
+		fetchFromRelays(relays, filterLower, { timeout, signal, feature: 'labels' }),
+		fetchFromRelays(relays, filterUpper, { timeout, signal, feature: 'labels' })
+	]);
+	const byId = new Map();
+	for (const e of [...eventsLower, ...eventsUpper]) {
+		if (e?.id && !byId.has(e.id)) byId.set(e.id, e);
+	}
+	return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+}
+
+/**
+ * Group kind 1985 (or any) events with `l` tags into display rows: unique label string → pubkeys who published.
+ * @param {Array<{ pubkey?: string, tags?: string[][] }>} events
+ * @returns {Array<{ label: string, pubkeys: string[] }>}
+ */
+export function groupLabelEventsToEntries(events) {
+	const labelMap = new Map();
+	for (const ev of events) {
+		const pk = ev?.pubkey;
+		if (!pk) continue;
+		for (const t of ev.tags ?? []) {
+			if (t[0] === 'l' && t[1]) {
+				const lv = String(t[1]);
+				if (!labelMap.has(lv)) labelMap.set(lv, new Set());
+				labelMap.get(lv).add(pk);
+			}
+		}
+	}
+	return [...labelMap.entries()]
+		.map(([label, pubkeys]) => ({ label, pubkeys: [...pubkeys] }))
+		.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/**
+ * Publish kind 1985 labeling an addressable app or stack (`a` tag).
+ * Structured values `alternative:*`, `reads:*`, `writes:*` use L=app and l mark app per Nostr label spec.
+ * Topic / freeform labels use `L` + `l` mark `#t`. Plain `l` without `L` is not used here.
+ */
+export async function publishAddressableLabel(signEvent, params) {
+	if (typeof signEvent !== 'function') throw new Error('signEvent is required');
+	const {
+		pubkey,
+		identifier,
+		contentType = 'app',
+		labelValue: rawLabel,
+		relays = SOCIAL_RELAYS
+	} = params;
+	if (!pubkey?.trim() || !identifier?.trim()) throw new Error('Label target (pubkey, identifier) is required');
+	const trimmed = String(rawLabel ?? '').trim();
+	if (!trimmed) throw new Error('Label text is required');
+
+	const aKind = contentType === 'stack' ? EVENT_KINDS.APP_STACK : EVENT_KINDS.APP;
+	const aTagValue = `${aKind}:${pubkey.trim().toLowerCase()}:${identifier.trim()}`;
+	const relayHint = relays[0] ?? 'wss://relay.damus.io';
+
+	const structured = /^(alternative|reads|writes):(.+)$/i.exec(trimmed);
+	const rest = structured?.[2]?.trim() ?? '';
+	const tags =
+		structured && rest
+			? [
+					['L', APP_LABEL_NAMESPACE],
+					['l', `${structured[1].toLowerCase()}:${rest}`, APP_LABEL_NAMESPACE],
+					['a', aTagValue, relayHint]
+				]
+			: [
+					['L', TOPIC_LABEL_NAMESPACE],
+					['l', trimmed, TOPIC_LABEL_NAMESPACE],
+					['a', aTagValue, relayHint]
+				];
+
+	const template = {
+		kind: EVENT_KINDS.LABEL,
+		content: '',
+		tags,
+		created_at: Math.floor(Date.now() / 1000)
+	};
+
+	const signed = await signEvent(template);
+	await publishToRelays(relays, signed);
+	await putEvents([signed]);
+	return signed;
+}
+
+/**
+ * Publish kind 1985 labeling a forum post (`#e` root + `#h` community), matching {@link fetchLabelEvents}.
+ */
+export async function publishForumPostLabel(signEvent, params) {
+	if (typeof signEvent !== 'function') throw new Error('signEvent is required');
+	const { eventId, communityPubkey, labelValue: rawLabel, relays } = params;
+	const relayUrls = Array.isArray(relays) && relays.length > 0 ? relays : SOCIAL_RELAYS;
+	if (!eventId?.trim() || !communityPubkey?.trim()) {
+		throw new Error('Forum label target (eventId, communityPubkey) is required');
+	}
+	const trimmed = String(rawLabel ?? '').trim();
+	if (!trimmed) throw new Error('Label text is required');
+
+	const id = eventId.trim().toLowerCase();
+	const h = communityPubkey.trim().toLowerCase();
+
+	const tags = [
+		['L', TOPIC_LABEL_NAMESPACE],
+		['l', trimmed, TOPIC_LABEL_NAMESPACE],
+		['e', id],
+		['h', h]
+	];
+
+	const template = {
+		kind: EVENT_KINDS.LABEL,
+		content: '',
+		tags,
+		created_at: Math.floor(Date.now() / 1000)
+	};
+
+	const signed = await signEvent(template);
+	await publishToRelays(relayUrls, signed);
+	await putEvents([signed]);
+	return signed;
+}
+
+/**
+ * NIP-09: publish kind 5 deletion request for an event, then remove it from Dexie.
+ * @param {{ eventId: string, eventKind: number, aTagValue?: string, relays?: string[] }} opts
+ */
+export async function publishDeletionRequest(signEvent, opts) {
+	if (typeof signEvent !== 'function') throw new Error('signEvent is required');
+	const { eventId, eventKind, aTagValue, relays } = opts;
+	const relayUrls = Array.isArray(relays) && relays.length > 0 ? relays : SOCIAL_RELAYS;
+	const id = String(eventId ?? '').trim().toLowerCase();
+	if (!/^[a-f0-9]{64}$/.test(id)) throw new Error('Invalid event id');
+	const tags = [
+		['e', id],
+		['k', String(eventKind)]
+	];
+	if (aTagValue?.trim()) tags.push(['a', aTagValue.trim()]);
+
+	const template = {
+		kind: 5,
+		content: '',
+		tags,
+		created_at: Math.floor(Date.now() / 1000)
+	};
+	const signed = await signEvent(template);
+	await publishToRelays(relayUrls, signed);
+	await putEvents([signed]);
+	try {
+		await db.events.delete(id);
+	} catch (dexieErr) {
+		console.error('[publishDeletionRequest] Dexie delete failed:', dexieErr);
+	}
+	return signed;
+}
+
+/**
+ * Delete a kind 1985 label the user published (NIP-09).
+ */
+export async function publishLabelDeletion(signEvent, labelEventId, relays) {
+	const id = String(labelEventId ?? '').trim().toLowerCase();
+	if (!/^[a-f0-9]{64}$/.test(id)) throw new Error('Invalid label event id');
+	return publishDeletionRequest(signEvent, {
+		eventId: id,
+		eventKind: EVENT_KINDS.LABEL,
+		relays: Array.isArray(relays) && relays.length > 0 ? relays : SOCIAL_RELAYS
+	});
 }
 
 /**

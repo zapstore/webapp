@@ -13,7 +13,7 @@ import Checkbox from "$lib/components/common/Checkbox.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import { signEvent } from "$lib/stores/auth.svelte.js";
 import { publishToRelays } from "$lib/nostr/service.js";
-import { DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS } from "$lib/config.js";
+import { ACTIONS_DELETABLE_CONTENT_LABELS, DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS } from "$lib/config.js";
 
 // Zapstore receives all reports so the team can act on them.
 const ZAPSTORE_PUBKEY = "78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55f2fe2202182";
@@ -39,6 +39,12 @@ const VIOLATIONS_BY_TYPE = {
 		{ id: "illegal", label: "Illegal content" },
 		{ id: "other", label: "Other" },
 	],
+	stack: [
+		{ id: "spam", label: "Spam" },
+		{ id: "impersonation", label: "Impersonation" },
+		{ id: "illegal", label: "Illegal content" },
+		{ id: "other", label: "Other" },
+	],
 	profile: [
 		{ id: "spam", label: "Spam" },
 		{ id: "impersonation", label: "Impersonation" },
@@ -54,13 +60,20 @@ const VIOLATIONS_BY_TYPE = {
 		{ id: "spam", label: "Spam" },
 		{ id: "other", label: "Other" },
 	],
+	forum: [
+		{ id: "nudity", label: "Nudity or explicit content" },
+		{ id: "profanity", label: "Hateful speech or profanity" },
+		{ id: "illegal", label: "Illegal content" },
+		{ id: "spam", label: "Spam" },
+		{ id: "other", label: "Other" },
+	],
 };
 
 /** @type {Record<string, string>} */
 const CONTENT_TYPE_LABELS = {
-	app: "App",
+	...ACTIONS_DELETABLE_CONTENT_LABELS,
 	profile: "Profile",
-	post: "Post",
+	post: "Post"
 };
 
 const violations = $derived(VIOLATIONS_BY_TYPE[contentType] ?? VIOLATIONS_BY_TYPE.app);

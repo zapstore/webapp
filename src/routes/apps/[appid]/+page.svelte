@@ -1,9 +1,11 @@
 <script lang="js">
 import { onMount } from "svelte";
 import { browser } from "$app/environment";
+import { goto } from "$app/navigation";
+import { resolve } from "$app/paths";
 import { page } from "$app/stores";
 import { Package, X } from "lucide-svelte";
-import { queryEvents, queryEvent, queryCommentsFromStore, parseApp, parseRelease, fetchProfile, fetchProfilesBatch, fetchComments, fetchCommentRepliesByE, fetchZaps, parseComment, parseZapReceipt, encodeAppNaddr, publishComment, decodeNaddr, putEvents, } from "$lib/nostr";
+import { queryEvents, queryEvent, queryCommentsFromStore, parseApp, parseRelease, fetchProfile, fetchProfilesBatch, fetchComments, fetchCommentRepliesByE, fetchZaps, fetchLabelsForAddressable, groupLabelEventsToEntries, parseComment, parseZapReceipt, encodeAppNaddr, publishComment, decodeNaddr, putEvents, } from "$lib/nostr";
 import { fetchFromRelays } from "$lib/nostr/service";
 import { ZAPSTORE_RELAY } from "$lib/config";
 import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
@@ -56,6 +58,9 @@ let profilesLoading = $state(false);
 let zaps = $state([]);
 let zapsLoading = $state(false);
 let zapperProfiles = $state(new Map());
+/** @type {Array<{ label: string, pubkeys: string[] }>} */
+let labelEntries = $state([]);
+let labelsLoading = $state(false);
 let releases = $state([]);
 let releasesLoading = $state(false);
 let releasesModalOpen = $state(false);
@@ -226,6 +231,11 @@ function stripMarkdown(text) {
         .trim();
 }
 // Release notes preview: strip markdown first, then take first sentence or first 50 chars
+const VERSION_MAX_LEN = 12;
+function trimVersion(version) {
+    if (version == null || typeof version !== "string") return version ?? "";
+    return version.length > VERSION_MAX_LEN ? version.slice(0, VERSION_MAX_LEN) + "..." : version;
+}
 function releaseNotesPreview(notes) {
     if (!notes)
         return "";
@@ -354,6 +364,59 @@ async function loadZaps() {
     }
     finally {
         zapsLoading = false;
+    }
+}
+async function loadLabels() {
+    if (!app?.pubkey || !app?.dTag)
+        return;
+    const pk = app.pubkey.toLowerCase();
+    const d = app.dTag;
+    const aVal = `${EVENT_KINDS.APP}:${pk}:${d}`;
+    labelsLoading = true;
+    try {
+        const [lo, up] = await Promise.all([
+            queryEvents({ kinds: [EVENT_KINDS.LABEL], "#a": [aVal], limit: 300 }),
+            queryEvents({ kinds: [EVENT_KINDS.LABEL], "#A": [aVal], limit: 300 }),
+        ]);
+        const byId = new Map();
+        for (const e of [...lo, ...up]) {
+            if (e?.id && !byId.has(e.id))
+                byId.set(e.id, e);
+        }
+        labelEntries = groupLabelEventsToEntries(Array.from(byId.values()));
+        const remote = await fetchLabelsForAddressable(pk, d, { aTagKind: EVENT_KINDS.APP });
+        for (const e of remote) {
+            if (e?.id && !byId.has(e.id))
+                byId.set(e.id, e);
+        }
+        labelEntries = groupLabelEventsToEntries(Array.from(byId.values()));
+        const allLabelers = [...new Set(labelEntries.flatMap((en) => en.pubkeys))];
+        if (allLabelers.length > 0) {
+            const batch = await fetchProfilesBatch(allLabelers, { timeout: 3000 });
+            const next = { ...profiles };
+            for (const [pkey, ev] of batch) {
+                if (ev?.content) {
+                    try {
+                        const j = JSON.parse(ev.content);
+                        next[pkey] = {
+                            displayName: j.display_name ?? j.displayName,
+                            name: j.name,
+                            picture: j.picture,
+                        };
+                    }
+                    catch {
+                        /* ignore */
+                    }
+                }
+            }
+            profiles = next;
+        }
+    }
+    catch (err) {
+        console.error("[AppDetail] Labels failed:", err);
+    }
+    finally {
+        labelsLoading = false;
     }
 }
 /** Fetch zaps that tag any of the given event ids (#e) and merge into zaps. Used for zaps on main-feed comments and zaps. */
@@ -657,7 +720,7 @@ onMount(async () => {
     // Load publisher profile
     loadPublisherProfile(_pubkey);
     // Background cascade: comments, zaps, then replies by #e
-    Promise.all([loadComments(), loadZaps()]).then(async () => {
+    Promise.all([loadComments(), loadZaps(), loadLabels()]).then(async () => {
         const mainFeedZapIds = zaps.filter((z) => !z.zappedEventId).map((z) => z.id);
         const allCommentIds = await loadCommentReplies();
         loadZapsByMainFeedIds([...allCommentIds, ...mainFeedZapIds]);
@@ -874,7 +937,7 @@ function toggleReleaseNotesExpanded(releaseId) {
                   style="opacity: {1 - i * 0.22}; transform: scale({1 - i * 0.04}); transform-origin: left;"
                 >
                   <span class="text-sm font-medium flex-shrink-0" style="color: hsl(var(--white33));">
-                    {release.version}
+                    {trimVersion(release.version)}
                   </span>
                   <span class="text-sm truncate" style="color: hsl(var(--white66)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     {preview || "No notes"}
@@ -914,6 +977,8 @@ function toggleReleaseNotesExpanded(releaseId) {
         zapsLoading={zapsLoading}
         {profiles}
         {profilesLoading}
+        {labelEntries}
+        {labelsLoading}
         searchProfiles={searchProfiles}
         searchEmojis={searchEmojis}
         onCommentSubmit={handleCommentSubmit}
@@ -1059,7 +1124,7 @@ function toggleReleaseNotesExpanded(releaseId) {
               {@const notesExpanded = expandedReleaseId === releaseId}
               <div class="release-panel">
                 <div class="release-panel-row release-panel-head">
-                  <span class="release-panel-version" style="color: hsl(var(--foreground));">{release.version}</span>
+                  <span class="release-panel-version" style="color: hsl(var(--foreground));">{trimVersion(release.version)}</span>
                   <Timestamp timestamp={release.createdAt} size="sm" className="release-timestamp" />
                 </div>
                 <div class="release-panel-divider"></div>
@@ -1210,7 +1275,7 @@ function toggleReleaseNotesExpanded(releaseId) {
 
   <!-- Bottom Bar: shown for everyone; guests see "Get started to comment" and can zap with anon keypair. -->
   {#if app}
-  {@const zapTarget = app ? { name: app.name, pubkey: app.pubkey, dTag: app.dTag, id: latestRelease?.id ?? app.id, pictureUrl: publisherPictureUrl } : null}
+  {@const zapTarget = app ? { name: app.name, pubkey: app.pubkey, dTag: app.dTag, id: latestRelease?.id ?? app.id, ownContentEventId: app.id, pictureUrl: publisherPictureUrl } : null}
   <BottomBar
     appName={app.name || ""}
     {publisherName}
@@ -1227,6 +1292,12 @@ function toggleReleaseNotesExpanded(releaseId) {
       handleCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, mediaUrls: e.mediaUrls, parentId: undefined })}
     onzapReceived={() => {
       loadZaps();
+    }}
+    onLabelPublished={() => {
+      loadLabels();
+    }}
+    onOwnContentDeleted={() => {
+      goto(resolve("/apps"));
     }}
   />
   {/if}

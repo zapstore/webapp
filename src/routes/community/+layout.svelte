@@ -21,6 +21,14 @@
 
 	let sectionMenuOpen = $state(false);
 
+	function toggleSectionMenu() {
+		sectionMenuOpen = !sectionMenuOpen;
+	}
+
+	function closeSectionMenu() {
+		sectionMenuOpen = false;
+	}
+
 	function onKeydown(e) {
 		if (e.key === 'Escape') {
 			sectionMenuOpen = false;
@@ -31,24 +39,30 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="dashboard-outer container mx-auto px-0 sm:px-6 lg:px-8">
-	<div class="dashboard" style="background: hsl(var(--background));">
-		<!-- Section switcher — mobile only -->
+	<div class="dashboard">
+		<!-- Section switcher — mobile only: anchored dropdown below header, does not cover site nav -->
 		<div class="section-switcher">
+			<button
+				type="button"
+				class="section-switcher-zone"
+				onclick={toggleSectionMenu}
+				aria-expanded={sectionMenuOpen}
+				aria-haspopup="true"
+			>
+				<span class="section-switcher-label">{activeSectionLabel}</span>
+				<span class="section-chevron" class:open={sectionMenuOpen}>
+					<ChevronDown variant="outline" color="hsl(var(--white33))" size={14} strokeWidth={1.4} />
+				</span>
+			</button>
 			{#if sectionMenuOpen}
-				<div class="section-switcher-panel">
-					<a href={SECTIONS.find((s) => s.id === activeSection)?.href ?? '/community/forum'} class="section-switcher-zone">
-						<span class="section-switcher-label">{activeSectionLabel}</span>
-						<span class="section-chevron open">
-							<ChevronDown variant="outline" color="hsl(var(--white33))" size={14} strokeWidth={1.4} />
-						</span>
-					</a>
+				<div class="section-switcher-dropdown" role="dialog" aria-modal="true" aria-label="Community sections">
 					<div class="section-switcher-content">
 						{#each SECTIONS as section}
 							<a
 								href={section.href}
 								class="section-item"
 								class:active={activeSection === section.id}
-								onclick={() => { sectionMenuOpen = false; }}
+								onclick={closeSectionMenu}
 							>
 								{#if section.icon}
 									<img src={section.icon} alt="" class="section-item-icon" />
@@ -57,14 +71,13 @@
 							</a>
 						{/each}
 					</div>
+					<button
+						type="button"
+						class="section-switcher-rest"
+						onclick={closeSectionMenu}
+						aria-label="Close menu"
+					></button>
 				</div>
-			{:else}
-				<button type="button" class="section-switcher-zone" onclick={() => { sectionMenuOpen = true; }}>
-					<span class="section-switcher-label">{activeSectionLabel}</span>
-					<span class="section-chevron">
-						<ChevronDown variant="outline" color="hsl(var(--white33))" size={14} strokeWidth={1.4} />
-					</span>
-				</button>
 			{/if}
 		</div>
 
@@ -135,6 +148,8 @@
 		.section-switcher {
 			display: block;
 			flex-shrink: 0;
+			position: relative;
+			z-index: 90;
 		}
 	}
 
@@ -169,26 +184,40 @@
 		transform: rotate(180deg);
 	}
 
-	.section-switcher-panel {
+	/* Sheet from below switcher row to bottom; site header (64px) stays visible */
+	.section-switcher-dropdown {
 		position: fixed;
-		inset: 0;
-		z-index: 100;
-		background: hsl(var(--background));
+		z-index: 89;
+		left: 0;
+		right: 0;
+		top: calc(64px + 2.625rem);
+		bottom: 0;
 		display: flex;
 		flex-direction: column;
-		overflow-y: auto;
-	}
-
-	.section-switcher-panel .section-switcher-zone {
-		flex-shrink: 0;
+		background: hsl(var(--background));
+		border-top: 1px solid hsl(var(--border));
+		box-shadow: 0 12px 40px hsl(var(--black) / 0.35);
+		overflow: hidden;
 	}
 
 	.section-switcher-content {
-		flex: 1;
-		padding: 8px 4px 24px;
+		flex-shrink: 0;
+		padding: 8px 4px 8px;
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
+	}
+
+	/* Tap below links to close (dimmed) */
+	.section-switcher-rest {
+		flex: 1;
+		min-height: 0;
+		width: 100%;
+		margin: 0;
+		padding: 0;
+		border: none;
+		background: hsl(var(--black) / 0.35);
+		cursor: default;
 	}
 
 	.section-item {
@@ -316,7 +345,6 @@
 		display: flex;
 		flex-direction: column;
 		border-left: 1px solid hsl(var(--border));
-		background: hsl(var(--background));
 		min-height: 0;
 	}
 

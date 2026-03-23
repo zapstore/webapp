@@ -4,8 +4,9 @@
  * Renders as a stacked bottom sheet over ForumPostModal.
  * Selection syncs back to the parent via bind:selectedLabels.
  *
- * Labels are split into 3 equal rows. Each row is a nowrap flex line
- * with a consistent 8px gap. All rows share one horizontal scroll container.
+ * Category chips use the same order and single-row horizontal scroll as
+ * /community/forum (see forum-categories-inner). Custom labels (not in
+ * suggestions) appear in a separate row above when present.
  */
 import { fly } from 'svelte/transition';
 import { cubicOut } from 'svelte/easing';
@@ -24,18 +25,9 @@ let {
 
 let labelInputValue = $state('');
 
-// Custom labels (user-added) prepend so they land in row 1
-const allLabels = $derived([
-	...selectedLabels.filter(/** @param {string} l */ (l) => !suggestions.includes(l)),
-	...suggestions
-]);
-
-// Split into 3 equal rows for reading-order left-to-right display
-const chipRows = $derived(
-	[0, 1, 2].map(i => {
-		const perRow = Math.ceil(allLabels.length / 3);
-		return allLabels.slice(i * perRow, (i + 1) * perRow);
-	})
+/** Labels the user added that are not in the canonical suggestion list */
+const customLabelsOnly = $derived(
+	selectedLabels.filter(/** @param {string} l */ (l) => !suggestions.includes(l))
 );
 
 const selectedSet = $derived(new Set(selectedLabels));
@@ -87,12 +79,12 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 				focusOnMount={isOpen}
 			/>
 
-			<!-- Edge-to-edge horizontal scroll with fade masks -->
-			<div class="labels-chips-scroll" use:wheelScroll>
-				<div class="chips-rows">
-					{#each chipRows as row}
-						<div class="chips-row">
-							{#each row as label}
+			<!-- Match forum feed: one nowrap row per band, same order as FORUM_CATEGORIES -->
+			<div class="labels-chips-stack">
+				{#if customLabelsOnly.length > 0}
+					<div class="labels-chips-scroll labels-chips-scroll-custom" use:wheelScroll>
+						<div class="labels-chips-inner">
+							{#each customLabelsOnly as label}
 								<Label
 									text={label}
 									isSelected={selectedSet.has(label)}
@@ -101,7 +93,19 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 								/>
 							{/each}
 						</div>
-					{/each}
+					</div>
+				{/if}
+				<div class="labels-chips-scroll labels-chips-scroll-categories" use:wheelScroll>
+					<div class="labels-chips-inner">
+						{#each suggestions as label}
+							<Label
+								text={label}
+								isSelected={selectedSet.has(label)}
+								isEmphasized={false}
+								onTap={() => toggle(label)}
+							/>
+						{/each}
+					</div>
 				</div>
 			</div>
 
@@ -155,7 +159,13 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		}
 	}
 
-	/* Negative margin lets the scroll area go edge-to-edge so fade masks align with the modal border */
+	.labels-chips-stack {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	/* Edge-to-edge horizontal scroll; categories row uses forum-style right-edge fade */
 	.labels-chips-scroll {
 		overflow-x: auto;
 		overflow-y: hidden;
@@ -180,6 +190,11 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		);
 	}
 
+	.labels-chips-scroll-categories {
+		mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+		-webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+	}
+
 	@media (min-width: 768px) {
 		.labels-chips-scroll {
 			margin: 0 -12px;
@@ -199,23 +214,25 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 				transparent 100%
 			);
 		}
+
+		.labels-chips-scroll-categories {
+			mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+			-webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+		}
 	}
 
 	.labels-chips-scroll::-webkit-scrollbar {
 		display: none;
 	}
 
-	/* Three stacked rows, each a single nowrap flex line → consistent 8px gap everywhere */
-	.chips-rows {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
-	.chips-row {
+	/* Same as .forum-categories-inner — single row, 8px gap, stable category order */
+	.labels-chips-inner {
 		display: flex;
 		flex-wrap: nowrap;
 		gap: 8px;
+		align-items: center;
+		width: max-content;
+		min-height: 36px;
 	}
 
 	.btn-primary-large {

@@ -11,8 +11,8 @@
 import { page } from "$app/stores";
 import { onMount } from "svelte";
 import { browser } from "$app/environment";
-import { beforeNavigate } from "$app/navigation";
-import { fetchProfile, fetchProfilesBatch, queryEvent, queryEvents, queryCommentsFromStore, fetchComments, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, } from "$lib/nostr";
+import { beforeNavigate, goto } from "$app/navigation";
+import { fetchProfile, fetchProfilesBatch, queryEvent, queryEvents, queryCommentsFromStore, fetchComments, fetchLabelsForAddressable, groupLabelEventsToEntries, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, } from "$lib/nostr";
 import { fetchFromRelays } from "$lib/nostr/service";
 import { ZAPSTORE_RELAY } from "$lib/config";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
@@ -21,6 +21,7 @@ import { nip19 } from "nostr-tools";
 import { wheelScroll } from "$lib/actions/wheelScroll.js";
 import AppSmallCard from "$lib/components/cards/AppSmallCard.svelte";
 import SocialTabs from "$lib/components/social/SocialTabs.svelte";
+import { resolve } from "$app/paths";
 import BottomBar from "$lib/components/social/BottomBar.svelte";
 import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
@@ -87,6 +88,9 @@ function handleSpinComplete() {
 function handleUseExistingKey() { spinKeyModalOpen = false; getStartedModalOpen = true; }
 let profiles = $state({});
 let profilesLoading = $state(false);
+/** @type {Array<{ label: string, pubkeys: string[] }>} */
+let labelEntries = $state([]);
+let labelsLoading = $state(false);
 // Check if current user owns this stack
 const isOwner = $derived(
     getIsSignedIn() && 
@@ -251,6 +255,7 @@ async function loadStack() {
             profiles = nextProfiles;
         }
         loadCommentsForStack(foundStack.pubkey, foundStack.dTag);
+        loadLabelsForStack(foundStack.pubkey, foundStack.dTag);
         // Resolve apps: use server data or query Dexie
         if (data.apps?.length > 0) {
             apps = data.apps;
@@ -310,6 +315,56 @@ async function loadCommentsForStack(pubkey, dTag) {
     finally {
         commentsLoading = false;
         profilesLoading = false;
+    }
+}
+async function loadLabelsForStack(pubkey, dTag) {
+    labelsLoading = true;
+    try {
+        const pk = pubkey.toLowerCase();
+        const aVal = `${EVENT_KINDS.APP_STACK}:${pk}:${dTag}`;
+        const [lo, up] = await Promise.all([
+            queryEvents({ kinds: [EVENT_KINDS.LABEL], "#a": [aVal], limit: 300 }),
+            queryEvents({ kinds: [EVENT_KINDS.LABEL], "#A": [aVal], limit: 300 }),
+        ]);
+        const byId = new Map();
+        for (const e of [...lo, ...up]) {
+            if (e?.id && !byId.has(e.id))
+                byId.set(e.id, e);
+        }
+        labelEntries = groupLabelEventsToEntries(Array.from(byId.values()));
+        const remote = await fetchLabelsForAddressable(pk, dTag, { aTagKind: EVENT_KINDS.APP_STACK });
+        for (const e of remote) {
+            if (e?.id && !byId.has(e.id))
+                byId.set(e.id, e);
+        }
+        labelEntries = groupLabelEventsToEntries(Array.from(byId.values()));
+        const allLabelers = [...new Set(labelEntries.flatMap((en) => en.pubkeys))];
+        if (allLabelers.length > 0) {
+            const batch = await fetchProfilesBatch(allLabelers, { timeout: 3000 });
+            const next = { ...profiles };
+            for (const [pkey, ev] of batch) {
+                if (ev?.content) {
+                    try {
+                        const j = JSON.parse(ev.content);
+                        next[pkey] = {
+                            displayName: j.display_name ?? j.displayName,
+                            name: j.name,
+                            picture: j.picture,
+                        };
+                    }
+                    catch {
+                        /* ignore */
+                    }
+                }
+            }
+            profiles = next;
+        }
+    }
+    catch (err) {
+        console.error("[StackDetail] Labels failed:", err);
+    }
+    finally {
+        labelsLoading = false;
     }
 }
 async function handleCommentSubmit(event) {
@@ -554,6 +609,8 @@ const displayDescription = $derived(!stack?.title ||
           {commentsError}
           {profiles}
           {profilesLoading}
+          {labelEntries}
+          {labelsLoading}
           searchProfiles={searchProfiles}
           searchEmojis={searchEmojis}
           onCommentSubmit={handleCommentSubmit}
@@ -588,6 +645,13 @@ const displayDescription = $derived(!stack?.title ||
     oncommentSubmit={(e) =>
       handleCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, mediaUrls: e.mediaUrls, parentId: undefined })}
     onzapReceived={() => {}}
+    onLabelPublished={() => {
+      if (stack?.pubkey && stack?.dTag)
+        loadLabelsForStack(stack.pubkey, stack.dTag);
+    }}
+    onOwnContentDeleted={() => {
+      goto(resolve("/stacks"));
+    }}
   />
 {/if}
 

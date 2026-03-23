@@ -48,8 +48,18 @@ export const EVENT_KINDS = {
 export const ZAPSTORE_COMMUNITY_NPUB = 'npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8';
 export const ZAPSTORE_COMMUNITY_RELAY = 'wss://relay.zapstore.dev';
 
-/** Forum relay (kind 11 posts/comments). Edit this to point to your relay. */
-export const FORUM_RELAY = 'wss://relay.damus.io';
+/** Forum relay (kind 11 posts/comments) — same as community relay. */
+export const FORUM_RELAY = ZAPSTORE_COMMUNITY_RELAY;
+
+/**
+ * Human-readable noun for “Delete your …” / reporting copy on own content (ActionsModal, etc.).
+ * Keys match BottomBar `contentType` for app, stack, forum.
+ */
+export const ACTIONS_DELETABLE_CONTENT_LABELS = {
+	app: 'App',
+	stack: 'Stack',
+	forum: 'Forum Post'
+};
 
 /** Forum feed categories / post labels — same list for feed filter chips and ForumPostLabelsModal. */
 export const FORUM_CATEGORIES = [

@@ -30,6 +30,9 @@
 	import { ChevronDown } from '$lib/components/icons';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 
+	/** Stable reference for use:wheelScroll (avoid re-instantiating the action each render) */
+	const forumCategoriesWheelOpts = { scrollRoot: '.forum-categories-scroll' };
+
 	let { data = {} } = $props();
 
 	const COMMUNITY_PUBKEY = (() => {
@@ -355,9 +358,13 @@
 </svelte:head>
 
 <div class="forum-page-wrap">
-<div class="panel-content" class:has-bottom-bar={true}>
-	<div class="forum-categories-wrap">
-		<div class="forum-categories-scroll" use:wheelScroll>
+<div class="panel-content">
+	<header class="forum-feed-header">
+	<div
+		class="forum-categories-wrap"
+		use:wheelScroll={forumCategoriesWheelOpts}
+	>
+		<div class="forum-categories-scroll">
 			<div class="forum-categories-inner">
 				{#each FORUM_CATEGORIES as category}
 					<Label
@@ -394,12 +401,14 @@
 			{/if}
 		</div>
 	</div>
+	</header>
 	{#if publishError}
 		<div class="forum-publish-error" role="alert">
 			{publishError}
 			<button type="button" class="forum-publish-error-dismiss" onclick={() => (publishError = '')} aria-label="Dismiss">×</button>
 		</div>
 	{/if}
+	<div class="forum-list-viewport">
 	<div class="forum-list">
 		{#if (!forumReady || postsLoading) && posts.length === 0}
 			<div class="loading-wrap">
@@ -446,6 +455,7 @@
 				/>
 			{/each}
 		{/if}
+	</div>
 	</div>
 </div>
 
@@ -498,9 +508,10 @@
 		overflow: hidden;
 	}
 
-	.panel-content.has-bottom-bar {
-		overflow-y: auto;
-		padding: 0 0 100px;
+	.forum-feed-header {
+		flex-shrink: 0;
+		background: hsl(var(--background));
+		z-index: 5;
 	}
 
 	.forum-categories-wrap {
@@ -509,6 +520,9 @@
 		align-items: center;
 		gap: 0;
 		border-bottom: 1px solid hsl(var(--border));
+		overflow-x: hidden;
+		overflow-y: hidden;
+		overscroll-behavior-y: none;
 	}
 
 	.forum-categories-scroll {
@@ -516,9 +530,12 @@
 		min-width: 0;
 		overflow-x: auto;
 		overflow-y: hidden;
+		overscroll-behavior-x: contain;
+		overscroll-behavior-y: none;
 		scrollbar-width: none;
 		-ms-overflow-style: none;
 		-webkit-overflow-scrolling: touch;
+		touch-action: pan-x;
 		mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
 		-webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
 	}
@@ -543,7 +560,6 @@
 		gap: 8px;
 		height: 32px;
 		padding: 0 12px 0 16px;
-		margin-right: 16px;
 		font-size: 14px;
 		font-weight: 500;
 		color: hsl(var(--white66));
@@ -574,6 +590,15 @@
 		position: relative;
 		flex-shrink: 0;
 		margin-right: 16px;
+	}
+
+	.forum-list-viewport {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
+		-webkit-overflow-scrolling: touch;
+		padding-bottom: 100px;
 	}
 
 	.forum-latest-dropdown {

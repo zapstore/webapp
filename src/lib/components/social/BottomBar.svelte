@@ -14,7 +14,7 @@ import ReportModal from '$lib/components/modals/ReportModal.svelte';
 import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
 import InsertModal from '$lib/components/modals/InsertModal.svelte';
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from '$lib/services/upload-nostr-build';
-let { appName = '', publisherName = '', contentType = 'app', className = '', zapTarget = null, otherZaps = [], isSignedIn = true, onGetStarted, getCurrentPubkey = () => null, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, oncommentSubmit, onzapReceived, onoptions } = $props();
+let { appName = '', publisherName = '', contentType = 'app', className = '', zapTarget = null, otherZaps = [], isSignedIn = true, onGetStarted, getCurrentPubkey = () => null, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, oncommentSubmit, onzapReceived, onoptions, onLabelPublished = () => {}, onOwnContentDeleted = () => {} } = $props();
 let zapModalOpen = $state(false);
 let actionsModalOpen = $state(false);
 let reportModalOpen = $state(false);
@@ -209,6 +209,8 @@ $effect(() => {
 	{contentType}
 	targetApp={zapTarget}
 	onReport={() => { reportModalOpen = true; }}
+	onLabelPublished={() => { onLabelPublished?.(); }}
+	onOwnContentDeleted={() => { onOwnContentDeleted?.(); }}
 />
 
 <ReportModal

@@ -187,45 +187,27 @@
 			<div class="fake-panel fake-panel-sec">
 				<div class="fake-panel-hdr">Security</div>
 				<div class="fake-sec-item" style="opacity:1;transform:scale(1);">
-					<svg class="fake-chk" viewBox="-1.5 -1.5 20 14" fill="none"
-						><path
-							d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z"
-							stroke="hsl(var(--blurpleColor))"
-							stroke-width="2.8"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						/></svg
-					>
+					<svg class="fake-chk" viewBox="-1.5 -1.5 20 14" fill="none" aria-hidden="true">
+						<path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" />
+					</svg>
 					<span>Published by Developer</span>
 				</div>
 				<div
 					class="fake-sec-item"
 					style="opacity:0.78;transform:scale(0.96);transform-origin:left;"
 				>
-					<svg class="fake-chk" viewBox="-1.5 -1.5 20 14" fill="none"
-						><path
-							d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z"
-							stroke="hsl(var(--blurpleColor))"
-							stroke-width="2.8"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						/></svg
-					>
+					<svg class="fake-chk" viewBox="-1.5 -1.5 20 14" fill="none" aria-hidden="true">
+						<path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" />
+					</svg>
 					<span>Open Source</span>
 				</div>
 				<div
 					class="fake-sec-item"
 					style="opacity:0.56;transform:scale(0.92);transform-origin:left;"
 				>
-					<svg class="fake-chk" viewBox="-1.5 -1.5 20 14" fill="none"
-						><path
-							d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z"
-							stroke="hsl(var(--blurpleColor))"
-							stroke-width="2.8"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						/></svg
-					>
+					<svg class="fake-chk" viewBox="-1.5 -1.5 20 14" fill="none" aria-hidden="true">
+						<path d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z" />
+					</svg>
 					<span>Trusted Catalog</span>
 				</div>
 			</div>
@@ -594,6 +576,10 @@
 	.mob-sec-wrap {
 		padding: 0;
 		position: relative;
+		/* iOS WebKit: promote layer so dual-mask composite rasterizes reliably (no geometry change). */
+		transform: translateZ(0);
+		-webkit-backface-visibility: hidden;
+		backface-visibility: hidden;
 		-webkit-mask-image:
 			linear-gradient(to bottom, transparent 0%, black 24%, black 68%, transparent 100%),
 			linear-gradient(to right, black 0%, black 54%, transparent 89%);
@@ -697,6 +683,15 @@
 		overflow: visible;
 	}
 
+	/* Stroke via CSS so hsl(var(--blurpleColor)) resolves on WebKit (presentation attrs often do not). */
+	.fake-chk path {
+		fill: none;
+		stroke: hsl(var(--blurpleColor));
+		stroke-width: 2.8;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
 	/* Fake SocialTabs pill row — matches .tab-row exactly */
 	.fake-tab-row {
 		display: flex;
@@ -748,9 +743,11 @@
 		position: absolute;
 		inset: 0;
 		overflow: hidden;
+		-webkit-backface-visibility: hidden;
+		backface-visibility: hidden;
 		opacity: 0;
 		filter: blur(10px);
-		transform: scale(0.97);
+		transform: translateZ(0) scale(0.97);
 		transition:
 			opacity 0.6s ease,
 			filter 0.6s ease,
@@ -769,7 +766,7 @@
 	.feature-sec-panel.visible {
 		opacity: 1;
 		filter: blur(0);
-		transform: scale(1);
+		transform: translateZ(0) scale(1);
 		pointer-events: auto;
 	}
 
@@ -777,6 +774,9 @@
 	.mob-cat-wrap {
 		padding: 0;
 		position: relative;
+		transform: translateZ(0);
+		-webkit-backface-visibility: hidden;
+		backface-visibility: hidden;
 		-webkit-mask-image:
 			linear-gradient(to bottom, transparent 0%, black 20%, black 68%, transparent 100%),
 			linear-gradient(to right, black 0%, black 60%, transparent 88%);
@@ -791,9 +791,11 @@
 		position: absolute;
 		inset: 0;
 		overflow: hidden;
+		-webkit-backface-visibility: hidden;
+		backface-visibility: hidden;
 		opacity: 0;
 		filter: blur(10px);
-		transform: scale(0.97);
+		transform: translateZ(0) scale(0.97);
 		transition:
 			opacity 0.6s ease,
 			filter 0.6s ease,
@@ -811,7 +813,7 @@
 	.feature-cat-panel.visible {
 		opacity: 1;
 		filter: blur(0);
-		transform: scale(1);
+		transform: translateZ(0) scale(1);
 		pointer-events: auto;
 	}
 

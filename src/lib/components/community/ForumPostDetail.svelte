@@ -17,7 +17,9 @@ import {
 	parseZapReceipt,
 	publishComment
 } from '$lib/nostr';
-import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB } from '$lib/config';
+import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
+import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB, DEFAULT_SOCIAL_RELAYS } from '$lib/config';
 import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
@@ -53,22 +55,34 @@ let isTruncated = $state(false);
 /** @type {Array<{ label: string, pubkeys: string[] }>} */
 let labelEntries = $state([]);
 let labelsLoading = $state(false);
+/** Bumped when ActionsModal publishes/removes a label so the labels effect re-fetches */
+let labelFetchNonce = $state(0);
 let lightboxOpen = $state(false);
 let lightboxUrls = $state([]);
 let lightboxIndex = $state(0);
 
 const npub = $derived(post?.pubkey ? (() => { try { return nip19.npubEncode(post.pubkey); } catch { return ''; } })() : '');
 const postNevent = $derived(post?.id ? (() => { try { return nip19.neventEncode({ id: post.id }); } catch { return ''; } })() : '');
-const zapTarget = $derived(post ? { name: post.title, pubkey: post.pubkey, id: post.id, pictureUrl: authorProfile?.picture } : null);
-const publisherName = $derived(authorProfile?.displayName ?? authorProfile?.name ?? 'Author');
-const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
-const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
 const communityPubkey = $derived((() => {
 	try {
 		const d = nip19.decode(ZAPSTORE_COMMUNITY_NPUB);
 		return d?.type === 'npub' ? d.data : '';
 	} catch { return ''; }
 })());
+const zapTarget = $derived(
+	post && communityPubkey
+		? {
+				name: post.title,
+				pubkey: post.pubkey,
+				id: post.id,
+				pictureUrl: authorProfile?.picture,
+				communityPubkey
+			}
+		: null
+);
+const publisherName = $derived(authorProfile?.displayName ?? authorProfile?.name ?? 'Author');
+const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
+const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
 const catalogs = $derived(communityPubkey ? [{ name: 'Zapstore', pictureUrl: undefined, pubkey: communityPubkey }] : []);
 const postEmojiTags = $derived(
 	post?.emojiTags ?? (rawPostEvent?.tags ?? [])
@@ -188,6 +202,7 @@ $effect(() => {
 
 // Labels: merge self-labels (t tags) with kind 1985 events from relay
 $effect(() => {
+	labelFetchNonce;
 	const pid = post?.id;
 	const postPubkey = post?.pubkey;
 	const selfLabels = post?.labels ?? [];
@@ -205,7 +220,8 @@ $effect(() => {
 				if (!labelMap.has(label)) labelMap.set(label, new Set());
 				if (postPubkey) labelMap.get(label)?.add(postPubkey);
 			}
-			const labelEvents = await fetchLabelEvents(relays, pid, cpk, { enforced: true });
+			const labelRelays = [...new Set([...(relays ?? []), ...DEFAULT_SOCIAL_RELAYS])];
+			const labelEvents = await fetchLabelEvents(labelRelays, pid, cpk, { enforced: true });
 			for (const ev of labelEvents) {
 				const lTags = ev.tags.filter((t) => t[0] === 'l' && t[1]);
 				for (const lt of lTags) {
@@ -434,6 +450,12 @@ function checkTruncation(node) {
 				oncommentSubmit={handleCommentSubmit}
 				onzapReceived={refetchZaps}
 				onoptions={() => {}}
+				onLabelPublished={() => {
+					labelFetchNonce += 1;
+				}}
+				onOwnContentDeleted={() => {
+					goto(resolve('/community/forum'));
+				}}
 			/>
 		{/if}
 	{/if}
