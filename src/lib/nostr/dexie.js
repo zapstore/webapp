@@ -126,23 +126,95 @@ function findSelectiveTagFilter(filter) {
 // ============================================================================
 
 /**
+ * Process NIP-09 deletion events (kind 5).
+ * Removes targeted events from Dexie where the deletor's pubkey matches the target's pubkey.
+ * Only app (32267) and stack (30267) targets are acted on.
+ *
+ * @param {import('nostr-tools').Event[]} deletionEvents
+ */
+async function applyDeletions(deletionEvents) {
+	if (deletionEvents.length === 0) return;
+
+	const eRefs = /** @type {{ id: string, deletorPubkey: string }[]} */ ([]);
+	const aRefs = /** @type {{ kind: number, pubkey: string, dTag: string }[]} */ ([]);
+
+	for (const del of deletionEvents) {
+		for (const tag of del.tags ?? []) {
+			if (tag[0] === 'e' && tag[1]) {
+				eRefs.push({ id: tag[1], deletorPubkey: del.pubkey });
+			} else if (tag[0] === 'a' && tag[1]) {
+				const parts = tag[1].split(':');
+				if (parts.length < 3) continue;
+				const kind = parseInt(parts[0], 10);
+				const pubkey = parts[1];
+				const dTag = parts.slice(2).join(':');
+				// Only honor if the deletor authored the target
+				if (isNaN(kind) || !pubkey || pubkey !== del.pubkey) continue;
+				aRefs.push({ kind, pubkey, dTag });
+			}
+		}
+	}
+
+	if (eRefs.length === 0 && aRefs.length === 0) return;
+
+	await db.transaction('rw', db.events, async () => {
+		const idsToDelete = new Set();
+
+		if (eRefs.length > 0) {
+			const deletorById = new Map(eRefs.map((r) => [r.id, r.deletorPubkey]));
+			const targets = await db.events.where('id').anyOf([...deletorById.keys()]).toArray();
+			for (const target of targets) {
+				if (target.pubkey === deletorById.get(target.id)) {
+					idsToDelete.add(target.id);
+				}
+			}
+		}
+
+		if (aRefs.length > 0) {
+			const kindPubkeyPairs = aRefs.map((r) => [r.kind, r.pubkey]);
+			const candidates = await db.events
+				.where('[kind+pubkey]')
+				.anyOf(kindPubkeyPairs)
+				.toArray();
+			const refSet = new Set(aRefs.map((r) => `${r.kind}:${r.pubkey}:${r.dTag}`));
+			for (const event of candidates) {
+				const dTag = event.tags?.find((t) => t[0] === 'd')?.[1] ?? '';
+				if (refSet.has(`${event.kind}:${event.pubkey}:${dTag}`)) {
+					idsToDelete.add(event.id);
+				}
+			}
+		}
+
+		if (idsToDelete.size > 0) {
+			await db.events.bulkDelete([...idsToDelete]);
+			console.log(`[Dexie] NIP-09: deleted ${idsToDelete.size} events`);
+		}
+	});
+}
+
+/**
  * Write events to Dexie. Deduplicates by id.
  * For replaceable events (kind >= 10000 or kind >= 30000), keeps only the latest
  * by (kind, pubkey, dTag).
  *
  * Computes the _tags field for each event before writing.
+ * NIP-09 kind 5 deletion events are processed and discarded (not stored).
  *
  * @param {import('nostr-tools').Event[]} events
  */
 export async function putEvents(events) {
 	if (!events || events.length === 0) return;
 
-	const valid = events.filter(
-		(e) =>
-			e?.id &&
-			typeof e.kind === 'number'
-	);
+	const valid = events.filter((e) => e?.id && typeof e.kind === 'number');
 	if (valid.length === 0) return;
+
+	// NIP-09: process deletions first, then discard kind 5 events
+	const deletionEvents = valid.filter((e) => e.kind === 5);
+	const contentEvents = valid.filter((e) => e.kind !== 5);
+	if (deletionEvents.length > 0) {
+		await applyDeletions(deletionEvents);
+	}
+	if (contentEvents.length === 0) return;
 
 	// Separate replaceable and non-replaceable per NIP-01:
 	//   kind 0, 3        → replaceable (one per pubkey, no dTag)
@@ -151,7 +223,7 @@ export async function putEvents(events) {
 	const nonReplaceable = [];
 	const replaceableByKey = new Map();
 
-	for (const event of valid) {
+	for (const event of contentEvents) {
 		const isReplaceable =
 			event.kind === 0 ||
 			event.kind === 3 ||

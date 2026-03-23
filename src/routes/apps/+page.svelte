@@ -133,7 +133,7 @@
 
 	// Resolved stacks with creator profiles
 	let resolvedDisplayStacks = $state(getCached('apps:resolvedStacks') ?? []);
-	let stacksLoading = $state(false);
+	let stacksSettled = $state(resolvedDisplayStacks.length > 0);
 	let resolvedStackKeys = $state('');
 
 	// ── Search ──────────────────────────────────────────────────────────────
@@ -334,7 +334,6 @@
 	// Fetch creator profiles when stacks change
 	async function resolveCreatorsForStacks(stacksWithApps) {
 		if (!browser || stacksWithApps.length === 0) return;
-		stacksLoading = true;
 		try {
 			const creatorPubkeys = [
 				...new Set(stacksWithApps.map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk)))
@@ -367,7 +366,7 @@
 		} catch (err) {
 			console.error('[Apps] Error resolving stack creators:', err);
 		} finally {
-			stacksLoading = false;
+			stacksSettled = true;
 		}
 	}
 
@@ -420,8 +419,8 @@
 				</div>
 			{:else if searchResults && searchResults.length > 0}
 				<div class="search-results-grid">
-					{#each searchResults as app}
-						<AppSmallCard {app} href={getAppUrl(app)} />
+				{#each searchResults as app (app.id)}
+					<AppSmallCard {app} href={getAppUrl(app)} />
 					{/each}
 				</div>
 			{:else if searchResults !== null}
@@ -464,12 +463,12 @@
 		<div class="section-container stacks-section">
 			<SectionHeader title="App Stacks" linkText="See more" href="/stacks" />
 			<div class="scroll-wrap">
-				{#if resolvedDisplayStacks.length === 0 && (liveStacks === null || stacksLoading)}
+				{#if resolvedDisplayStacks.length === 0 && !stacksSettled}
 					<div class="horizontal-scroll">
 						<div class="scroll-content">
-							{#each Array(4) as _}
-								<div class="stack-column">
-									{#each Array(2) as _}
+						{#each Array(6) as _, i (i)}
+							<div class="stack-column">
+								{#each Array(2) as _, j (j)}
 										<div class="skeleton-stack">
 											<div class="skeleton-stack-grid"><SkeletonLoader /></div>
 											<div class="skeleton-stack-info">
@@ -498,9 +497,9 @@
 						onscroll={handleStacksScroll}
 					>
 						<div class="scroll-content">
-							{#each stackColumns as column}
-								<div class="stack-column">
-									{#each column as stack}
+						{#each stackColumns as column, ci (ci)}
+							<div class="stack-column">
+								{#each column as stack (`${stack.pubkey}:${stack.dTag}`)}
 										<AppStackCard {stack} href={getStackUrl(stack)} />
 									{/each}
 								</div>
@@ -512,12 +511,6 @@
 								</div>
 							{/if}
 						</div>
-					</div>
-				{:else}
-					<div class="placeholder-content">
-						<p class="text-muted-foreground text-sm">
-							No app stacks found yet. Create one in the Zapstore app!
-						</p>
 					</div>
 				{/if}
 
@@ -544,9 +537,9 @@
 				{#if apps.length === 0}
 					<div class="horizontal-scroll">
 						<div class="scroll-content">
-							{#each Array(4) as _}
+							{#each Array(4) as _, i (i)}
 								<div class="app-column">
-									{#each Array(4) as _}
+									{#each Array(4) as _, j (j)}
 										<div class="skeleton-card">
 											<div class="skeleton-icon"><SkeletonLoader /></div>
 											<div class="skeleton-info">
@@ -569,9 +562,9 @@
 						onscroll={handleAppsScroll}
 					>
 						<div class="scroll-content">
-							{#each appColumns as column}
-								<div class="app-column">
-									{#each column as app}
+						{#each appColumns as column, ci (ci)}
+							<div class="app-column">
+								{#each column as app (app.id)}
 										<AppSmallCard {app} href={getAppUrl(app)} />
 									{/each}
 								</div>
@@ -924,13 +917,6 @@
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
-	}
-
-	.placeholder-content {
-		padding: 24px;
-		background-color: hsl(var(--gray66));
-		border-radius: 16px;
-		text-align: center;
 	}
 
 	/* Skeleton styles */

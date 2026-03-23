@@ -1,5 +1,7 @@
 <script lang="js">
+import { markdownToPlainTextLine } from '$lib/utils/markdown';
 let { app } = $props();
+const descriptionPlain = $derived(app.description ? markdownToPlainTextLine(app.description) : '');
 </script>
 
 <a href="/apps/{app.dTag}" class="app-card" data-sveltekit-preload-data="hover">
@@ -13,8 +15,8 @@ let { app } = $props();
   
   <div class="app-info">
     <h3 class="app-name">{app.name}</h3>
-    {#if app.description}
-      <p class="app-description">{app.description}</p>
+    {#if descriptionPlain}
+      <p class="app-description">{descriptionPlain}</p>
     {/if}
   </div>
 </a>

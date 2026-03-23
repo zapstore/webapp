@@ -12,7 +12,7 @@ export async function load() {
                 npub = nip19.npubEncode(t.pubkey);
                 nevent = nip19.neventEncode({ id: t.id, author: t.pubkey });
             }
-            catch (e) {
+            catch {
                 npub = t.pubkey.slice(0, 12) + '...';
                 nevent = t.id;
             }

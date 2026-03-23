@@ -24,6 +24,7 @@
  *   - getHasMore() / isLoadingMore()   — pagination state
  */
 import { liveQuery } from 'dexie';
+import { SvelteMap, SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 import { putEvents, queryEvents } from '$lib/nostr/dexie';
 import { parseApp } from '$lib/nostr/models';
 import { fetchReleasesFromRelays, fetchAppFromRelays } from '$lib/nostr/service';
@@ -95,7 +96,7 @@ export function createAppsQuery() {
 
 		// Extract app identifiers from releases
 		const identifiers = [];
-		const seen = new Set();
+		const seen = new SvelteSet();
 		for (const release of releases) {
 			const id = getReleaseIdentifier(release);
 			if (id && !seen.has(id)) {
@@ -112,7 +113,7 @@ export function createAppsQuery() {
 		const appEvents = await queryEvents(appFilter);
 
 		// Index apps by (pubkey:dTag) — keep latest per key
-		const appsByKey = new Map();
+		const appsByKey = new SvelteMap();
 		for (const app of appEvents) {
 			const dTag = app.tags?.find((t) => t[0] === 'd')?.[1];
 			if (!dTag) continue;
@@ -124,7 +125,7 @@ export function createAppsQuery() {
 		}
 
 		// Also index by dTag only (for fallback matching)
-		const appsByDTag = new Map();
+		const appsByDTag = new SvelteMap();
 		for (const [key, app] of appsByKey) {
 			const dTag = key.split(':').slice(1).join(':');
 			if (!appsByDTag.has(dTag)) {
@@ -133,7 +134,7 @@ export function createAppsQuery() {
 		}
 
 		// Order apps by release recency
-		const seenApps = new Set();
+		const seenApps = new SvelteSet();
 		const result = [];
 
 		for (const release of releases) {
@@ -201,7 +202,7 @@ export async function loadMoreApps() {
 	_loadingMore = true;
 
 	try {
-		const params = new URLSearchParams({ limit: String(APPS_PAGE_SIZE) });
+		const params = new SvelteURLSearchParams({ limit: String(APPS_PAGE_SIZE) });
 		if (_cursor != null) params.set('cursor', String(_cursor));
 
 		const res = await fetch(`/api/apps?${params}`);
@@ -221,37 +222,37 @@ export async function loadMoreApps() {
 						limit: APPS_PAGE_SIZE,
 						until: _cursor
 					});
-					if (releaseEvents.length > 0) {
-						await putEvents(releaseEvents).catch(() => {});
-						const seen = new Set();
-						for (const ev of releaseEvents) {
-							const aTag = ev.tags?.find((t) => t[0] === 'a')?.[1] ?? '';
-							const parts = aTag.split(':');
-							const appPubkey = parts[1];
-							const appD = parts[2];
-							if (!appPubkey || !appD) continue;
-							const key = `${appPubkey}:${appD}`;
-							if (seen.has(key)) continue;
-							seen.add(key);
-							const existing = await queryEvents({
-								kinds: [32267],
-								authors: [appPubkey],
-								'#d': [appD],
-								limit: 1
-							});
-							if (existing.length === 0) {
-								const appEv = await fetchAppFromRelays([ZAPSTORE_RELAY], appPubkey, appD);
-								if (appEv) await putEvents([appEv]).catch(() => {});
-							}
+				if (releaseEvents.length > 0) {
+					await putEvents(releaseEvents).catch(() => {});
+					const seen = new SvelteSet();
+					for (const ev of releaseEvents) {
+						const aTag = ev.tags?.find((t) => t[0] === 'a')?.[1] ?? '';
+						const parts = aTag.split(':');
+						const appPubkey = parts[1];
+						const appD = parts[2];
+						if (!appPubkey || !appD) continue;
+						const key = `${appPubkey}:${appD}`;
+						if (seen.has(key)) continue;
+						seen.add(key);
+						const existing = await queryEvents({
+							kinds: [32267],
+							authors: [appPubkey],
+							'#d': [appD],
+							limit: 1
+						});
+						if (existing.length === 0) {
+							const appEv = await fetchAppFromRelays([ZAPSTORE_RELAY], appPubkey, appD);
+							if (appEv) await putEvents([appEv]).catch(() => {});
 						}
-						const minCreated = Math.min(...releaseEvents.map((e) => e.created_at));
-						_cursor = minCreated;
-						_hasMore = releaseEvents.length >= APPS_PAGE_SIZE;
-					} else {
-						_hasMore = false;
 					}
-				} catch (e) {
-					console.error('[AppsStore] Relay fallback (after API hasMore false) failed:', e);
+					const minCreated = Math.min(...releaseEvents.map((e) => e.created_at));
+					_cursor = minCreated;
+					_hasMore = releaseEvents.length >= APPS_PAGE_SIZE;
+				} else {
+					_hasMore = false;
+				}
+			} catch (e) {
+				console.error('[AppsStore] Relay fallback (after API hasMore false) failed:', e);
 					_hasMore = false;
 				}
 			}
@@ -262,10 +263,10 @@ export async function loadMoreApps() {
 				const relayFilter = { limit: APPS_PAGE_SIZE };
 				if (_cursor != null) relayFilter.until = _cursor;
 				const releaseEvents = await fetchReleasesFromRelays([ZAPSTORE_RELAY], relayFilter);
-				if (releaseEvents.length > 0) {
-					await putEvents(releaseEvents).catch(() => {});
-					const seen = new Set();
-					for (const ev of releaseEvents) {
+			if (releaseEvents.length > 0) {
+				await putEvents(releaseEvents).catch(() => {});
+				const seen = new SvelteSet();
+				for (const ev of releaseEvents) {
 						const aTag = ev.tags?.find((t) => t[0] === 'a')?.[1] ?? '';
 						const parts = aTag.split(':');
 						const appPubkey = parts[1];

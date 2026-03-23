@@ -23,7 +23,7 @@ let { className = "" } = $props();
 </script>
 
 <div class="bubble-skeleton-list {className}" style="opacity: 0.33;">
-  {#each ROWS as { bubbleWidth, bubbleHeight }}
+  {#each ROWS as { bubbleWidth, bubbleHeight }, i (i)}
     <div class="bubble-skeleton-row">
       <div class="avatar-skeleton overflow-hidden rounded-full">
         <SkeletonLoader />

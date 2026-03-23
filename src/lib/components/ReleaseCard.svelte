@@ -18,6 +18,7 @@ function formatDate(timestamp) {
   
   {#if release.releaseNotes}
     <div class="release-notes prose prose-invert max-w-none">
+      <!-- eslint-disable-next-line svelte/no-at-html-tags -->
       {@html renderMarkdown(release.releaseNotes)}
     </div>
   {/if}

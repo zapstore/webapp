@@ -1,5 +1,6 @@
 <script lang="js">
 import { onMount } from "svelte";
+import { SvelteSet, SvelteMap } from "svelte/reactivity";
 import { browser } from "$app/environment";
 import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
@@ -25,7 +26,7 @@ import { createSearchProfilesFunction, ZAPSTORE_PUBKEY, zapstoreProfileStore } f
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
 import { isOnline } from "$lib/stores/online.svelte.js";
-import { renderMarkdown } from "$lib/utils/markdown";
+import { markdownToPlainTextLine, renderMarkdown } from "$lib/utils/markdown";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import { stripUrlForDisplay } from "$lib/utils/url.js";
 import { Copy, Check } from "$lib/components/icons";
@@ -37,7 +38,7 @@ let error = $state(null);
 // Local state - start with prerendered data
 let app = $state(null);
 let latestRelease = $state(null);
-let refreshing = $state(false);
+let _refreshing = $state(false);
 // Publisher profile
 let publisherProfile = $state(null);
 // Description expand state
@@ -48,7 +49,7 @@ let carouselOpen = $state(false);
 let currentImageIndex = $state(0);
 let carouselImageLoaded = $state(false);
 // Track which thumbnail screenshots have loaded
-let thumbsLoaded = $state(new Set());
+let thumbsLoaded = new SvelteSet();
 // Comments and zaps state (comments may have pending + npub for display)
 let comments = $state([]);
 let commentsLoading = $state(false);
@@ -57,7 +58,7 @@ let profiles = $state({});
 let profilesLoading = $state(false);
 let zaps = $state([]);
 let zapsLoading = $state(false);
-let zapperProfiles = $state(new Map());
+let zapperProfiles = new SvelteMap();
 /** @type {Array<{ label: string, pubkeys: string[] }>} */
 let labelEntries = $state([]);
 let labelsLoading = $state(false);
@@ -72,8 +73,8 @@ let spinKeyModalOpen = $state(false);
 let onboardingBuildingModalOpen = $state(false);
 let onboardingProfileName = $state('');
 let securityModalOpen = $state(false);
-function handleGetStartedStart(event) {
-    onboardingProfileName = event.profileName;
+function _handleGetStartedStart(_event) {
+    onboardingProfileName = _event.profileName;
     spinKeyModalOpen = true;
     setTimeout(() => { getStartedModalOpen = false; }, 80);
 }
@@ -213,23 +214,6 @@ function handleKeydown(event) {
         prevImage();
     }
 }
-// Strip markdown formatting
-function stripMarkdown(text) {
-    if (!text)
-        return "";
-    return text
-        .replace(/^#{1,6}\s*/gm, "")
-        .replace(/\*\*(.+?)\*\*/g, "$1")
-        .replace(/\*(.+?)\*/g, "$1")
-        .replace(/__(.+?)__/g, "$1")
-        .replace(/_(.+?)_/g, "$1")
-        .replace(/~~(.+?)~~/g, "$1")
-        .replace(/`(.+?)`/g, "$1")
-        .replace(/^\s*[-*+]\s+/gm, "")
-        .replace(/^\s*\d+\.\s+/gm, "")
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-        .trim();
-}
 // Release notes preview: strip markdown first, then take first sentence or first 50 chars
 const VERSION_MAX_LEN = 12;
 function trimVersion(version) {
@@ -239,8 +223,7 @@ function trimVersion(version) {
 function releaseNotesPreview(notes) {
     if (!notes)
         return "";
-    const onOneLine = notes.replace(/\n/g, " ").trim();
-    const stripped = stripMarkdown(onOneLine);
+    const stripped = markdownToPlainTextLine(notes);
     if (!stripped)
         return "";
     const firstSentence = stripped.split(/[.!?](?:\s|$)/)[0]?.trim() ?? stripped;
@@ -440,7 +423,7 @@ async function loadZapsByMainFeedIds(mainFeedEventIds) {
         };
         const newZaps = newEvents.map(parseOne);
         const merged = [...zaps];
-        const mergedIds = new Set(merged.map((z) => z.id.toLowerCase()));
+        const mergedIds = new SvelteSet(merged.map((z) => z.id.toLowerCase()));
         for (const z of newZaps) {
             if (!mergedIds.has(z.id.toLowerCase())) {
                 merged.push(z);
@@ -455,14 +438,13 @@ async function loadZapsByMainFeedIds(mainFeedEventIds) {
     }
 }
 async function hydrateZapperProfiles() {
-    const uniqueSenders = [...new Set(zaps.map((z) => z.senderPubkey).filter(Boolean))];
-    const nextZapperProfiles = new Map(zapperProfiles);
+    const uniqueSenders = [...new SvelteSet(zaps.map((z) => z.senderPubkey).filter(Boolean))];
     for (const pk of uniqueSenders) {
         const ev = await queryEvent({ kinds: [0], authors: [pk] });
         if (ev?.content) {
             try {
                 const c = JSON.parse(ev.content);
-                nextZapperProfiles.set(pk, {
+                zapperProfiles.set(pk, {
                     displayName: c.display_name ?? c.name,
                     name: c.name,
                     picture: c.picture,
@@ -473,8 +455,7 @@ async function hydrateZapperProfiles() {
             }
         }
     }
-    zapperProfiles = new Map(nextZapperProfiles);
-    const missing = uniqueSenders.filter((pk) => !nextZapperProfiles.has(pk)).slice(0, 40);
+    const missing = uniqueSenders.filter((pk) => !zapperProfiles.has(pk)).slice(0, 40);
     const fetched = await fetchProfilesBatch(missing);
     for (const pubkey of missing) {
         const event = fetched.get(pubkey);
@@ -482,18 +463,16 @@ async function hydrateZapperProfiles() {
             continue;
         try {
             const content = JSON.parse(event.content);
-            const profile = {
+            zapperProfiles.set(pubkey, {
                 displayName: content.display_name ?? content.name,
                 name: content.name,
                 picture: content.picture,
-            };
-            nextZapperProfiles.set(pubkey, profile);
+            });
         }
         catch {
             /* ignore malformed profile */
         }
     }
-    zapperProfiles = new Map(nextZapperProfiles);
 }
 async function handleCommentSubmit(event) {
     const userPubkey = getCurrentPubkey();
@@ -576,7 +555,7 @@ async function loadReleases() {
             queryEvents({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], limit: 50 }),
             queryEvents({ kinds: [EVENT_KINDS.RELEASE], '#i': [app.dTag], limit: 50 }),
         ]);
-        const seen = new Set();
+        const seen = new SvelteSet();
         const merged = [];
         for (const e of [...byATag, ...byITag]) {
             if (!seen.has(e.id)) { seen.add(e.id); merged.push(e); }
@@ -736,7 +715,7 @@ onMount(async () => {
 function retryLoad() {
     window.location.reload();
 }
-function formatReleaseDate(ts) {
+function _formatReleaseDate(ts) {
     return new Date(ts * 1000).toLocaleDateString(undefined, {
         year: "numeric",
         month: "short",
@@ -753,7 +732,7 @@ function toggleReleaseNotesExpanded(releaseId) {
 <svelte:head>
   {#if app}
     <title>{app.name} - Zapstore</title>
-    <meta name="description" content={app.description.slice(0, 160)} />
+    <meta name="description" content={markdownToPlainTextLine(app.description).slice(0, 160)} />
     {#if app.icon}
       <meta property="og:image" content={app.icon} />
     {/if}
@@ -812,7 +791,7 @@ function toggleReleaseNotesExpanded(releaseId) {
           </div>
         </div>
 
-        <!-- Author + timestamp row (where platform pills were) -->
+        <!-- Author + timestamp row -->
         <div class="detail-publisher-row detail-publisher-row-in-app">
           <a
             href={publisherUrl}
@@ -837,7 +816,7 @@ function toggleReleaseNotesExpanded(releaseId) {
     {#if app.images && app.images.length > 0}
       <div class="screenshots-scroll mb-4" use:wheelScroll>
         <div class="screenshots-content">
-          {#each app.images as image, index}
+          {#each app.images as image, index (index)}
             <button
               type="button"
               onclick={() => openCarousel(index)}
@@ -854,7 +833,7 @@ function toggleReleaseNotesExpanded(releaseId) {
                 class="screenshot-img"
                 class:loaded={thumbsLoaded.has(index)}
                 loading="lazy"
-                onload={() => { thumbsLoaded = new Set(thumbsLoaded).add(index); }}
+                onload={() => { thumbsLoaded.add(index); }}
               />
             </button>
           {/each}
@@ -865,6 +844,7 @@ function toggleReleaseNotesExpanded(releaseId) {
     <!-- Description -->
     <div class="description-container" class:expanded={descriptionExpanded}>
       <div class="app-description prose prose-invert max-w-none" use:checkTruncation>
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
         {@html renderMarkdown(app.description)}
       </div>
       {#if isTruncated && !descriptionExpanded}
@@ -929,7 +909,7 @@ function toggleReleaseNotesExpanded(releaseId) {
             {:else if releases.length === 0}
               <p class="text-sm" style="color: hsl(var(--white33));">No releases found.</p>
             {:else}
-              {#each releases.slice(0, 3) as release, i}
+              {#each releases.slice(0, 3) as release, i (release.id ?? `release-${i}`)}
                 {@const preview = releaseNotesPreview(release.notes)}
                 <div
                   class="panel-list-item flex items-center gap-2 min-w-0 w-full text-left"
@@ -1000,7 +980,6 @@ function toggleReleaseNotesExpanded(releaseId) {
 
     <!-- Screenshot Carousel Modal -->
     {#if carouselOpen && app.images && app.images.length > 0}
-      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
       <div class="carousel-modal bg-overlay" onclick={closeCarousel} role="dialog" aria-modal="true" aria-label="Screenshot carousel" tabindex="-1">
         <button type="button" onclick={closeCarousel} class="carousel-close-btn" aria-label="Close carousel">
           <X class="h-5 w-5" />
@@ -1020,7 +999,6 @@ function toggleReleaseNotesExpanded(releaseId) {
           </button>
         {/if}
 
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="carousel-content" onclick={(e) => e.stopPropagation()}>
           <div class="carousel-image-wrapper">
             {#if !carouselImageLoaded}
@@ -1039,7 +1017,7 @@ function toggleReleaseNotesExpanded(releaseId) {
 
           {#if app.images.length > 1}
             <div class="carousel-dots">
-              {#each app.images as _, index}
+              {#each app.images as _, index (index)}
                 <button
                   type="button"
                   onclick={(e) => { e.stopPropagation(); currentImageIndex = index; carouselImageLoaded = false; }}
@@ -1133,6 +1111,7 @@ function toggleReleaseNotesExpanded(releaseId) {
                     <div class="release-notes-block">
                       <div class="release-notes-text" class:collapsed={!notesExpanded}>
                         <div class="release-notes prose prose-invert max-w-none">
+                          <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                           {@html renderMarkdown(release.notes)}
                         </div>
                       </div>
@@ -1243,7 +1222,7 @@ function toggleReleaseNotesExpanded(releaseId) {
               <p class="security-item-description">
                 This app is listed in the official Zapstore catalog, which is curated and maintained by the Zapstore team.
               </p>
-              {#each catalogProfiles as catalogProfile}
+              {#each catalogProfiles as catalogProfile (catalogProfile.pubkey)}
                 <div class="security-profile-row">
                   <span class="security-inline-label">Catalog</span>
                   <div class="security-profile">

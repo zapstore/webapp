@@ -8,7 +8,7 @@
  *     + releases (kind 30063) from relay.zapstore.dev only.
  *     Releases are cached server-side ONLY for ranking — never shipped to clients.
  *   - Every 6h: profiles (kind 0) for all cached pubkeys,
- *     from relay.vertexlab.io only
+ *     from relay.zapstore.dev and relay.vertexlab.io
  *
  * On cold start, a full warm-up pull populates the cache. Then polling
  * intervals keep it fresh using `since` to fetch only new events.
@@ -46,7 +46,7 @@ const PROFILE_POLL_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 // Server-side relay sources (distinct from client-side [CATALOG_RELAY])
 const CATALOG_RELAY = 'wss://relay.zapstore.dev';
-const PROFILE_RELAY = 'wss://relay.vertexlab.io';
+const PROFILE_RELAYS = ['wss://relay.zapstore.dev', 'wss://relay.vertexlab.io'];
 
 // ============================================================================
 // In-Memory Event Store
@@ -98,11 +98,58 @@ function removeFromIndex(index, key, eventId) {
 }
 
 /**
+ * Remove a single event from all in-memory indexes.
+ */
+function removeEvent(event) {
+	eventsById.delete(event.id);
+	removeFromIndex(kindIndex, event.kind, event.id);
+	removeFromIndex(pubkeyIndex, event.pubkey, event.id);
+	if (isReplaceable(event.kind)) {
+		const key = getReplaceableKey(event);
+		if (replaceableIndex.get(key) === event.id) {
+			replaceableIndex.delete(key);
+		}
+	}
+}
+
+/**
+ * Process a NIP-09 deletion event (kind 5).
+ * Removes targeted events from the in-memory store where pubkeys match.
+ */
+function processDeletion(deletionEvent) {
+	for (const tag of deletionEvent.tags ?? []) {
+		if (tag[0] === 'e' && tag[1]) {
+			const target = eventsById.get(tag[1]);
+			if (target && target.pubkey === deletionEvent.pubkey) {
+				removeEvent(target);
+			}
+		} else if (tag[0] === 'a' && tag[1]) {
+			const parts = tag[1].split(':');
+			if (parts.length < 3) continue;
+			const kind = parseInt(parts[0], 10);
+			const pubkey = parts[1];
+			const dTag = parts.slice(2).join(':');
+			if (isNaN(kind) || !pubkey || pubkey !== deletionEvent.pubkey) continue;
+			const existingId = replaceableIndex.get(`${kind}:${pubkey}:${dTag}`);
+			if (existingId) {
+				const target = eventsById.get(existingId);
+				if (target) removeEvent(target);
+			}
+		}
+	}
+}
+
+/**
  * Add an event to the in-memory store.
- * Handles replaceable event deduplication.
+ * Handles replaceable event deduplication and NIP-09 deletions.
  */
 function addEvent(event) {
 	if (!event?.id || typeof event.kind !== 'number') return;
+
+	if (event.kind === 5) {
+		processDeletion(event);
+		return;
+	}
 
 	if (isReplaceable(event.kind)) {
 		const key = getReplaceableKey(event);
@@ -365,9 +412,10 @@ async function warmUp() {
 			}, WARMUP_TIMEOUT_MS),
 
 			// Releases — server-side only, used for ranking apps by latest release
-			// limit < 100 required to pass relay specificity scoring
+			// since: 90 days ago raises relay specificity score to 3
 			queryRelaysRaw([CATALOG_RELAY], {
 				kinds: [EVENT_KINDS.RELEASE],
+				since: Math.floor(Date.now() / 1000) - 90 * 86400,
 				limit: 99
 			}, WARMUP_TIMEOUT_MS),
 
@@ -379,6 +427,12 @@ async function warmUp() {
 						limit: FORUM_POLL_LIMIT
 					}, WARMUP_TIMEOUT_MS)
 				: Promise.resolve([]),
+			// NIP-09 deletions for apps and stacks
+			queryRelaysRaw([CATALOG_RELAY], {
+				kinds: [EVENT_KINDS.DELETION],
+				'#k': [String(EVENT_KINDS.APP), String(EVENT_KINDS.APP_STACK)],
+				limit: 100
+			}, WARMUP_TIMEOUT_MS),
 		]);
 
 		// Fetch apps referenced by stacks (addEvent deduplicates)
@@ -427,6 +481,13 @@ async function pollCatalog() {
 				since,
 				limit: 99
 			}),
+			// NIP-09 deletions for apps and stacks
+			queryRelaysRaw([CATALOG_RELAY], {
+				kinds: [EVENT_KINDS.DELETION],
+				'#k': [String(EVENT_KINDS.APP), String(EVENT_KINDS.APP_STACK)],
+				since,
+				limit: 100
+			}),
 		]);
 
 		// Fetch apps referenced by new stacks
@@ -458,17 +519,17 @@ async function pollForum() {
 }
 
 /**
- * Poll profiles for all cached pubkeys from vertexlab relay.
+ * Poll profiles for all cached pubkeys from catalog relays.
  * Called every hour — profiles change infrequently.
  */
 async function pollProfiles() {
 	const pubkeys = collectCachedPubkeys();
 	if (pubkeys.length === 0) return;
 
-	console.log(`[RelayCache] Polling ${pubkeys.length} profiles from ${PROFILE_RELAY}...`);
+	console.log(`[RelayCache] Polling ${pubkeys.length} profiles from ${PROFILE_RELAYS.join(', ')}...`);
 
 	try {
-		await queryRelaysRaw([PROFILE_RELAY], {
+		await queryRelaysRaw(PROFILE_RELAYS, {
 			kinds: [EVENT_KINDS.PROFILE],
 			authors: pubkeys,
 			limit: pubkeys.length
@@ -536,7 +597,7 @@ export function stopPolling() {
 		forumPollTimer = null;
 	}
 	try {
-		pool.close([CATALOG_RELAY, PROFILE_RELAY, ZAPSTORE_COMMUNITY_RELAY]);
+		pool.close([...new Set([CATALOG_RELAY, ...PROFILE_RELAYS, ZAPSTORE_COMMUNITY_RELAY])]);
 	} catch {
 		/* already closed */
 	}

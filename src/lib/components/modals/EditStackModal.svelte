@@ -108,7 +108,7 @@ async function handleDelete() {
 	}
 }
 
-const hasChanges = $derived(
+const _hasChanges = $derived(
 	editName !== (stack?.title || "") ||
 	editDescription !== (stack?.description || "") ||
 	editApps.length !== apps.length ||

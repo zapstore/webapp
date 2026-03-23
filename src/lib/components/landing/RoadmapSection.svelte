@@ -60,7 +60,7 @@
 	// Sort tasks: closed first (partially visible), then inReview, inProgress, open
 	/** @type {Record<TaskStatus, number>} */
 	const statusOrder = { closed: 0, inReview: 1, inProgress: 2, open: 3 };
-	$: sortedTasks = [...tasks].sort(
+	const sortedTasks = [...tasks].sort(
 		(a, b) =>
 			statusOrder[/** @type {TaskStatus} */ (a.status)] -
 			statusOrder[/** @type {TaskStatus} */ (b.status)]

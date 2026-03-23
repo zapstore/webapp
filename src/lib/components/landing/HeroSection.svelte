@@ -237,7 +237,7 @@
 		<div class="hero-cta-wrap flex justify-center mt-5">
 			<div class="hero-browse-cta">
 				<div class="hero-browse-pics">
-					{#each visibleApps as app, i}
+					{#each visibleApps as app, i (app.src)}
 						<div
 							class="hero-browse-pic-wrap"
 							style="z-index: {visibleApps.length + 1 - i}; {i > 0

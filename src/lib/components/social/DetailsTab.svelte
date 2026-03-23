@@ -9,7 +9,6 @@ import { highlightJson } from "$lib/utils/highlight.js";
 let { shareableId = "", publicationLabel = "Publication", npub = "", pubkey = "", rawData = null, className = "", shareLink = "", repository = "", } = $props();
 let publicationCopied = $state(false);
 let profileCopied = $state(false);
-let jsonCopied = $state(false);
 let shareLinkCopied = $state(false);
 let repositoryCopied = $state(false);
 function formatShareableId(id) {
@@ -25,7 +24,7 @@ function urlDisplayWithoutProtocol(url) {
 // Strip internal Dexie fields (_tags) to show the actual Nostr event
 const cleanedRawData = $derived.by(() => {
     if (!rawData) return null;
-    const { _tags, ...nostrEvent } = rawData;
+    const { _tags: _tagsField, ...nostrEvent } = rawData;
     return nostrEvent;
 });
 const formattedJson = $derived(cleanedRawData ? JSON.stringify(cleanedRawData, null, 2) : "");
@@ -70,18 +69,6 @@ async function copyRepository() {
         repositoryCopied = true;
         setTimeout(() => (repositoryCopied = false), 1500);
     } catch (e) {
-        console.error("Failed to copy:", e);
-    }
-}
-async function copyJson() {
-    if (!formattedJson)
-        return;
-    try {
-        await navigator.clipboard.writeText(formattedJson);
-        jsonCopied = true;
-        setTimeout(() => (jsonCopied = false), 1500);
-    }
-    catch (e) {
         console.error("Failed to copy:", e);
     }
 }

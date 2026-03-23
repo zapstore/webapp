@@ -17,7 +17,7 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-16">
-      {#each painPoints as point, i}
+      {#each painPoints as point, i (point.icon)}
         <div
           class="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-8 card-glow transition-all hover:-translate-y-1"
           style="animation: fadeInUp 0.6s ease-out {i * 0.1}s both"

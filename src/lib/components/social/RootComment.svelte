@@ -14,12 +14,14 @@ import ShortTextContent from "$lib/components/common/ShortTextContent.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import Modal from "$lib/components/common/Modal.svelte";
 import MediaLightboxModal from "$lib/components/modals/MediaLightboxModal.svelte";
+import EmptyState from "$lib/components/common/EmptyState.svelte";
 import InputButton from "$lib/components/common/InputButton.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import EmojiPickerModal from "$lib/components/modals/EmojiPickerModal.svelte";
 import InsertModal from "$lib/components/modals/InsertModal.svelte";
 import ZapSliderModal from "$lib/components/modals/ZapSliderModal.svelte";
 import { Zap, Reply, Options } from "$lib/components/icons";
+import { SvelteSet, SvelteMap } from "svelte/reactivity";
 import { getIsSignedIn, getCurrentPubkey } from "$lib/stores/auth.svelte.js";
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
 let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], /** @type {string[]} */ mediaUrls = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, onReplySubmit, onZapReceived, onGetStarted, /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
@@ -97,7 +99,7 @@ const threadReplies = $derived(threadComments.filter((c) => c.id !== id));
 // Unique people in the thread: comment repliers + zappers (by pubkey), same shape as ReplyComment for profile stack. App author first.
 // Use threadReplies (excludes root) to only count actual replies, not the root comment author.
 const uniqueRepliers = $derived.by(() => {
-    const seen = new Set();
+    const seen = new SvelteSet();
     const list = [];
     for (const r of threadReplies) {
         if (seen.has(r.pubkey))
@@ -124,8 +126,8 @@ const uniqueRepliers = $derived.by(() => {
     return list;
 });
 const hasReplies = $derived(uniqueRepliers.length > 0);
-const featuredReplier = $derived(uniqueRepliers[0]);
-const otherRepliersCount = $derived(uniqueRepliers.length - 1);
+const _featuredReplier = $derived(uniqueRepliers[0]);
+const _otherRepliersCount = $derived(uniqueRepliers.length - 1);
 const displayedRepliers = $derived(uniqueRepliers.slice(0, 3));
 const REPLY_NAME_MAX = 18;
 function trimName(name) {
@@ -165,7 +167,7 @@ const feedItems = $derived.by(() => {
     return [...commentItems, ...zapItems].sort((a, b) => (a.data.createdAt ?? 0) - (b.data.createdAt ?? 0));
 });
 const threadById = $derived.by(() => {
-    const map = new Map();
+    const map = new SvelteMap();
     for (const c of threadComments) {
         map.set(c.id, c);
     }
@@ -404,7 +406,6 @@ function handleOptions() {
   {/if}
 
   {#if hasReplies}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div class="reply-indicator" role="button" tabindex="0" onclick={(e) => e.stopPropagation()} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && e.stopPropagation()}>
       <div class="connector-column">
         <div class="connector-vertical"></div>
@@ -440,13 +441,12 @@ function handleOptions() {
 <Modal
   bind:open={modalOpen}
   ariaLabel="Comment thread"
-  align="bottom"
-  fillHeight={true}
+  align="center"
+  fillHeight={feedItems.length > 0}
   wide={true}
   class="thread-modal {childModalOpen ? 'thread-modal-child-open' : ''}"
 >
-  {#snippet children()}
-    <div class="thread-content-wrap" class:child-modal-open={childModalOpen}>
+  <div class="thread-content-wrap" class:child-modal-open={childModalOpen}>
       <div class="thread-modal-child-overlay" aria-hidden="true"></div>
       <div class="thread-content">
       <div class="thread-root">
@@ -606,12 +606,11 @@ function handleOptions() {
             {/if}
           {/each}
         {:else}
-          <div class="no-comments-text">No comments yet</div>
+          <EmptyState message="No replies yet" compact />
         {/if}
       </div>
     </div>
     </div>
-  {/snippet}
 
   {#snippet footer()}
     {#if showThreadActions && getIsSignedIn()}
@@ -875,15 +874,6 @@ function handleOptions() {
     flex-direction: column;
     gap: 16px;
     padding: 12px 16px 16px;
-  }
-
-  .no-comments-text {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: hsl(var(--white16));
-    text-align: center;
-    padding: 48px 0;
-    margin: 0;
   }
 
   .thread-bottom-bar {

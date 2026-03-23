@@ -71,7 +71,7 @@
 		{/if}
 	</div>
 	<div class="icons-row">
-		{#each gridApps as app}
+		{#each gridApps as app, i (i)}
 			<div class="icon-slot">
 				{#if app}
 					<AppPic iconUrl={app.icon} name={app.name} identifier={app.dTag} size={iconSize} />

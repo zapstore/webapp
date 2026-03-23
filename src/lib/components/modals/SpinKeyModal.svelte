@@ -207,9 +207,9 @@ $effect(() => {
 
       <div class="slot-machine">
         <div class="slots-container">
-          {#each [0, 1, 2] as rowIndex}
+          {#each [0, 1, 2] as rowIndex (rowIndex)}
             <div class="slot-row">
-              {#each [0, 1, 2, 3] as colIndex}
+              {#each [0, 1, 2, 3] as colIndex (colIndex)}
                 {@const slotIndex = rowIndex * 4 + colIndex}
                 <div class="slot">
                   <div class="slot-content">

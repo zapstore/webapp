@@ -1,6 +1,5 @@
 <script lang="js">
 	import { page } from '$app/stores';
-	import { assets } from '$app/paths';
 	import { Search, User, Loader2, LogOut } from 'lucide-svelte';
 	import { Menu, Cross } from '$lib/components/icons';
 	import BackButton from '$lib/components/common/BackButton.svelte';
@@ -159,7 +158,7 @@
 			document.removeEventListener('keydown', handleKeydown);
 		};
 	});
-	function openGetStartedModal() {
+	function _openGetStartedModal() {
 		menuOpen = false;
 		getStartedModalOpen = true;
 	}
@@ -173,8 +172,8 @@
 			getStartedModalOpen = true;
 		}
 	}
-	function handleGetStartedStart(event) {
-		onboardingProfileName = event.profileName;
+	function _handleGetStartedStart(_event) {
+		onboardingProfileName = _event.profileName;
 		spinKeyModalOpen = true;
 		setTimeout(() => {
 			getStartedModalOpen = false;

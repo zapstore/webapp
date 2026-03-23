@@ -7,7 +7,7 @@ import { ChevronRight } from '$lib/components/icons';
 import { wheelScroll } from '$lib/actions/wheelScroll.js';
 import { goto } from '$app/navigation';
 import { zapstoreProfileStore, ZAPSTORE_PUBKEY } from '$lib/services/profile-search';
-let { open = $bindable(false), searchQuery = $bindable(''), categories = [], platforms = [] } = $props();
+let { open = $bindable(false), searchQuery = $bindable(''), categories: _categories = [], platforms: _platforms = [] } = $props();
 let searchInput = $state(undefined);
 // Zapstore profile from EventStore/cache (same as DetailHeader — one of first cached profiles)
 let zapstoreProfile = $state(null);
@@ -89,7 +89,6 @@ function handleLabelTap(label) {
 <svelte:window onkeydown={handleKeydown} />
 
 {#if open}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_interactive_supports_focus -->
 	<div
 		class="fixed inset-0 z-[100] bg-overlay flex justify-center items-start"
 		style="position: fixed !important; inset: 0 !important; margin: 0 !important;"
@@ -172,7 +171,7 @@ function handleLabelTap(label) {
 					</div>
 					<div class="scrollable-row scrollbar-hide" use:wheelScroll>
 						<div class="flex gap-2">
-							{#each commonLabels as label}
+							{#each commonLabels as label (label)}
 								<button
 									type="button"
 									class="label-tap flex-shrink-0 cursor-pointer bg-transparent border-none p-0"

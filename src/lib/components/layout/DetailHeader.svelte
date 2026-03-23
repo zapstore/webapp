@@ -33,7 +33,7 @@ import {
 let {
     variant = 'detail',   // 'detail' | 'page'
     title = '',            // page variant: header title
-    showBack = false,      // page variant: show back button
+    showBack: _showBack = false,      // page variant: show back button
     rightContent,          // page variant: optional snippet rendered right of title
     publisherPic = null, publisherName = null, publisherNameForPic = undefined, publisherPubkey = null, publisherUrl = '#', timestamp = null, catalogs = [], catalogText = 'In Zapstore', showPublisher = true, scrollThreshold, getStartedModalOpen = $bindable(false),
     showBackButton = false, onBack, compactPadding = false, catalogDisplayOnly = false
@@ -91,37 +91,37 @@ const categories = [
 const platforms = ['Android', 'Mac', 'Linux', 'CLI', 'Web', 'iOS'];
 // Reactive auth state
 const pubkey = $derived(getCurrentPubkey());
-const profileHref = $derived(pubkey ? '/profile/' + nip19.npubEncode(pubkey) : '#');
+const _profileHref = $derived(pubkey ? '/profile/' + nip19.npubEncode(pubkey) : '#');
 const isConnected = $derived(pubkey !== null);
 // Current user profile (local-first: EventStore then background fetch) for menu avatar
-let currentUserProfile = $state(null);
+let _currentUserProfile = $state(null);
 $effect(() => {
     const pk = getCurrentPubkey();
     if (!pk) {
-        currentUserProfile = null;
+        _currentUserProfile = null;
         return;
     }
     queryEvent({ kinds: [0], authors: [pk], limit: 1 }).then((ev) => {
         if (ev?.content) {
             try {
                 const p = parseProfile(ev);
-                currentUserProfile = {
+                _currentUserProfile = {
                     picture: p.picture ?? '',
                     name: p.displayName ?? p.name ?? ''
                 };
             }
             catch {
-                currentUserProfile = null;
+                _currentUserProfile = null;
             }
         } else {
-            currentUserProfile = null;
+            _currentUserProfile = null;
         }
-    }).catch(() => { currentUserProfile = null; });
+    }).catch(() => { _currentUserProfile = null; });
     fetchProfile(pk).then((e) => {
         if (e?.content) {
             try {
                 const p = parseProfile(e);
-                currentUserProfile = {
+                _currentUserProfile = {
                     picture: p.picture ?? '',
                     name: p.displayName ?? p.name ?? ''
                 };
@@ -182,8 +182,8 @@ function openGetStartedModal() {
     menuOpen = false;
     getStartedModalOpen = true;
 }
-function handleGetStartedStart(event) {
-    onboardingProfileName = event.profileName;
+function _handleGetStartedStart(_event) {
+    onboardingProfileName = _event.profileName;
     spinKeyModalOpen = true;
     setTimeout(() => {
         getStartedModalOpen = false;
@@ -192,7 +192,7 @@ function handleGetStartedStart(event) {
 function handleGetStartedConnected() {
     getStartedModalOpen = false;
 }
-function handleSpinComplete(event) {
+function handleSpinComplete(_event) {
     spinKeyModalOpen = false;
     // Defer so SpinKeyModal can close and unmount before showing the next modal
     setTimeout(() => {
@@ -203,7 +203,7 @@ function handleUseExistingKey() {
     spinKeyModalOpen = false;
     getStartedModalOpen = true;
 }
-async function handleSignIn() {
+async function _handleSignIn() {
     try {
         await connect();
     }

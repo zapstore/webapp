@@ -100,7 +100,8 @@ const highlightedJson = highlightJson(formattedJson);
 				<div class="signed-code-panel">
 					<div class="signed-code-fixed">
 						<div class="signed-code-spacer" aria-hidden="true"></div>
-						<pre><code>{@html highlightedJson}</code></pre>
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+					<pre><code>{@html highlightedJson}</code></pre>
 					</div>
 				</div>
 			</div>

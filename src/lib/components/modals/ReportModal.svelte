@@ -11,6 +11,7 @@ import { cubicOut } from "svelte/easing";
 import Modal from "$lib/components/common/Modal.svelte";
 import Checkbox from "$lib/components/common/Checkbox.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
+import { SvelteSet } from "svelte/reactivity";
 import { signEvent } from "$lib/stores/auth.svelte.js";
 import { publishToRelays } from "$lib/nostr/service.js";
 import { ACTIONS_DELETABLE_CONTENT_LABELS, DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS } from "$lib/config.js";
@@ -85,7 +86,7 @@ const description = $derived(
 );
 
 /** @type {Set<string>} */
-let selectedIds = $state(new Set());
+let selectedIds = new SvelteSet();
 let submitting = $state(false);
 let submitted = $state(false);
 let error = $state("");
@@ -94,13 +95,11 @@ let textInput = $state(null);
 const allowEmptySubmit = $derived(selectedIds.size > 0);
 
 function toggleViolation(/** @type {string} */ id) {
-	const next = new Set(selectedIds);
-	if (next.has(id)) {
-		next.delete(id);
+	if (selectedIds.has(id)) {
+		selectedIds.delete(id);
 	} else {
-		next.add(id);
+		selectedIds.add(id);
 	}
-	selectedIds = next;
 }
 
 /**
@@ -172,7 +171,7 @@ async function handleSubmit(event) {
 
 $effect(() => {
 	if (!isOpen) {
-		selectedIds = new Set();
+		selectedIds.clear();
 		submitting = false;
 		submitted = false;
 		error = "";
@@ -201,7 +200,6 @@ $effect(() => {
 			<div class="violations-container">
 				<!-- Violation rows -->
 				{#each violations as v (v.id)}
-					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 					<div
 						class="violation-row"
 						class:selected={selectedIds.has(v.id)}

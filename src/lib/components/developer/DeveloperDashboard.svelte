@@ -1,7 +1,6 @@
 <script lang="js">
 import { onMount } from "svelte";
-import { nip19 } from "nostr-tools";
-import { Options, Zap, Download, Home, Mail, List, ChevronDown } from "$lib/components/icons";
+import { Zap, Download, Home, Mail, List, ChevronDown } from "$lib/components/icons";
 import AppPic from "$lib/components/common/AppPic.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import { getCurrentPubkey } from "$lib/stores/auth.svelte.js";
@@ -141,7 +140,7 @@ let zapsChartWidth = $state(400);
       <aside class="sidebar-panel">
         <!-- Main Navigation -->
         <nav class="sidebar-nav">
-          {#each navItems as item}
+          {#each navItems as item (item.id)}
             <button
               type="button"
               class="nav-item {activeTab === item.id ? 'nav-item-active' : ''}"
@@ -164,7 +163,7 @@ let zapsChartWidth = $state(400);
             <div class="sidebar-loading">No apps yet</div>
           {:else}
             <div class="sidebar-apps">
-              {#each userApps as app}
+              {#each userApps as app (app.id)}
                 <a href={getAppUrl(app)} class="sidebar-app-item">
                   <div class="sidebar-app-icon">
                     <AppPic iconUrl={app.icon} name={app.name} size="xs" />
@@ -180,7 +179,7 @@ let zapsChartWidth = $state(400);
         <div class="sidebar-section">
           <h4 class="sidebar-section-title">COMMUNITIES</h4>
           <div class="sidebar-communities">
-            {#each demoCommunities as community}
+            {#each demoCommunities as community (community.name)}
               <button type="button" class="sidebar-community-item">
                 <ProfilePic 
                   name={community.name}
@@ -236,7 +235,7 @@ let zapsChartWidth = $state(400);
                       stroke-width="1"
                     />
 
-                    {#each userApps.slice(0, 3) as app, i}
+                    {#each userApps.slice(0, 3) as app, i (app.id)}
                       {@const appData = chartData.apps[i] ?? chartData.apps[0] ?? []}
                       {@const appEndPoint = getEndPoint(appData, maxDownloads, downloadsChartWidth, chartHeight)}
                       <path

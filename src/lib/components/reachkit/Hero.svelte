@@ -31,7 +31,7 @@
     </svg>
 
     <svg class="absolute top-1/2 left-1/2 w-[120%] h-[120%] -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-1000 delay-300" class:opacity-100={mounted} viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
-      {#each Array(24) as _, i}
+      {#each Array(24) as _, i (i)}
         <line
           x1="500"
           y1="500"

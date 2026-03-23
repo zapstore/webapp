@@ -1,16 +1,12 @@
 <script lang="js">
 import AppPic from '../common/AppPic.svelte';
-import { browser } from '$app/environment';
+import { htmlToPlainTextLine, markdownToPlainTextLine } from '$lib/utils/markdown';
 let { app, href = '', className = '', onclick } = $props();
-// Get plain text description (strip HTML)
 function getPlainDescription(appData) {
     if (appData.description)
-        return appData.description;
-    if (appData.descriptionHtml && browser) {
-        const temp = document.createElement('div');
-        temp.innerHTML = appData.descriptionHtml;
-        return temp.textContent || temp.innerText || '';
-    }
+        return markdownToPlainTextLine(appData.description);
+    if (appData.descriptionHtml)
+        return htmlToPlainTextLine(appData.descriptionHtml);
     return '';
 }
 const description = $derived(getPlainDescription(app));

@@ -127,13 +127,17 @@ export function startLiveSubscriptions() {
 		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: APPS_POLL_LIMIT }, { ...subParams, id: subId('apps') })
 	);
 	// Releases: needed for app detail pages + liveQuery reactivity
-	// limit < 100 required to pass relay specificity scoring (kinds + limit < 100 = 2 points)
+	// since:now — live sub only needs future events; also raises relay specificity score to 3
 	activeSubscriptions.push(
-		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.RELEASE], limit: 50 }, { ...subParams, id: subId('releases') })
+		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.RELEASE], since: Math.floor(Date.now() / 1000), limit: 50 }, { ...subParams, id: subId('releases') })
 	);
 	// Stacks
 	activeSubscriptions.push(
 		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER, limit: STACKS_POLL_LIMIT }, { ...subParams, id: subId('stacks') })
+	);
+	// NIP-09 deletions for apps and stacks — live updates only (past deletions handled by syncDeletions)
+	activeSubscriptions.push(
+		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.DELETION], '#k': [String(EVENT_KINDS.APP), String(EVENT_KINDS.APP_STACK)], since: Math.floor(Date.now() / 1000), limit: 50 }, { ...subParams, id: subId('deletions') })
 	);
 }
 
@@ -403,9 +407,9 @@ export async function fetchReleasesFromRelays(relayUrls, options = {}) {
 	if (signal?.aborted) return [];
 	const filter = {
 		kinds: [30063],
+		until: until != null && !isNaN(until) ? Number(until) : Math.floor(Date.now() / 1000),
 		limit
 	};
-	if (until != null && !isNaN(until)) filter.until = Number(until);
 	return fetchFromRelays(relayUrls, filter, { timeout, signal, feature: 'releases' });
 }
 
@@ -1318,6 +1322,39 @@ export function parseComment(event) {
 		parentId,
 		isReply: parentId !== null
 	};
+}
+
+// ============================================================================
+// NIP-09 Deletion Sync
+// ============================================================================
+
+const DELETION_CHECK_KEY = 'zapstore_deletion_check_at';
+
+/**
+ * One-shot fetch for NIP-09 deletion events (kind 5) since last check.
+ * Stores a timestamp in localStorage so each startup only fetches new deletions.
+ * The fetched events flow through putEvents → applyDeletions, busting Dexie cache.
+ *
+ * Call on app startup after startLiveSubscriptions(). Fire-and-forget.
+ *
+ * @param {string[]} relayUrls
+ */
+export async function syncDeletions(relayUrls) {
+	if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+	const now = Math.floor(Date.now() / 1000);
+	const stored = localStorage.getItem(DELETION_CHECK_KEY);
+	const since = stored ? parseInt(stored, 10) : undefined;
+
+	const filter = /** @type {object} */ ({
+		kinds: [EVENT_KINDS.DELETION],
+		'#k': [String(EVENT_KINDS.APP), String(EVENT_KINDS.APP_STACK)],
+		limit: 200
+	});
+	if (since !== undefined) filter.since = since;
+
+	await fetchFromRelays(relayUrls, filter, { timeout: 5000, feature: 'deletions' });
+	localStorage.setItem(DELETION_CHECK_KEY, String(now));
 }
 
 /**

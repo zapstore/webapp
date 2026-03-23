@@ -126,7 +126,7 @@
   ];
 
   // Organize posts into columns (2 posts per column)
-  $: columns = (() => {
+  const columns = (() => {
     const cols = [];
     const postsPerColumn = 2;
     for (let i = 0; i < dummyPosts.length; i += postsPerColumn) {

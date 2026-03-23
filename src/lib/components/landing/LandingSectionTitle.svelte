@@ -120,7 +120,8 @@
 	<!-- Description row - full width -->
 	{#if description}
 		<p class="section-description">
-			{@html description}
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html description}
 		</p>
 	{/if}
 </div>

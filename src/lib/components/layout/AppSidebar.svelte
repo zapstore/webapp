@@ -5,7 +5,6 @@
 	 * Structure: Zapstore branding | Discover | Community | [spacer] | User profile or Get Started CTA.
 	 */
 	import { page } from '$app/stores';
-	import { assets } from '$app/paths';
 	import { LogOut, User, Search } from 'lucide-svelte';
 	import { nip19 } from 'nostr-tools';
 	import { getCurrentPubkey, signOut } from '$lib/stores/auth.svelte.js';

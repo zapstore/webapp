@@ -382,7 +382,6 @@ export function createEmojiSearch(userPubkey = null) {
         await init();
         if (emptyQuery) {
             // Return a mix: user emojis first, then custom, then unicode (common emoji for new users)
-            const results = [];
             const userEmojis = [];
             const customEmojis = [];
             const unicodeEmojis = [];

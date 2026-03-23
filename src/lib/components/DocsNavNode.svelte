@@ -61,7 +61,7 @@ let isFolder = $derived(Array.isArray(node.children) && node.children.length > 0
 				id={`section-${node.id}`}
 				class="ml-3 pl-3 border-l border-[var(--color-border)]/50 space-y-1 mt-1"
 			>
-				{#each node.children as child}
+				{#each node.children as child (child.id)}
 					<DocsNavNode node={child} {expanded} {toggle} />
 				{/each}
 			</ul>

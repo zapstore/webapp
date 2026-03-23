@@ -12,6 +12,7 @@ import AppSmallStackCard from "$lib/components/cards/AppSmallStackCard.svelte";
 import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
 import { Plus } from "$lib/components/icons";
 import Label from "$lib/components/common/Label.svelte";
+import { SvelteSet, SvelteMap } from "svelte/reactivity";
 import {
 	publishStack,
 	publishAddressableLabel,
@@ -171,7 +172,7 @@ let stacksLoading = $state(false);
 let stacksLoaded = $state(false);
 
 // Track which stacks are being updated
-let updatingStacks = $state(new Set());
+let updatingStacks = new SvelteSet();
 
 let createStackOpen = $state(false);
 let stackName = $state("");
@@ -215,14 +216,14 @@ $effect(() => {
 			const parsedStacks = stackEvents.map(parseAppStack);
 			
 			// Resolve app details for each stack
-			const allIds = new Set();
+			const allIds = new SvelteSet();
 			for (const s of parsedStacks) {
 				for (const ref of s.appRefs || []) {
 					if (ref.kind === EVENT_KINDS.APP) allIds.add(ref.identifier);
 				}
 			}
 			
-			let appsByKey = new Map();
+			let appsByKey = new SvelteMap();
 			if (allIds.size > 0) {
 				const appEvents = await queryEvents({ kinds: [EVENT_KINDS.APP], '#d': [...allIds] });
 				for (const e of appEvents) {
@@ -274,7 +275,7 @@ async function handleStackClick(stack) {
 	const hasApp = stackContainsApp(stack);
 	const action = hasApp ? 'remove' : 'add';
 	
-	updatingStacks = new Set([...updatingStacks, stack.id]);
+	updatingStacks.add(stack.id);
 	
 	try {
 		// Convert Svelte 5 Proxy objects to plain objects
@@ -285,7 +286,7 @@ async function handleStackClick(stack) {
 	} catch (err) {
 		console.error('[ActionsModal] Failed:', err);
 	} finally {
-		updatingStacks = new Set([...updatingStacks].filter(id => id !== stack.id));
+		updatingStacks.delete(stack.id);
 	}
 }
 
@@ -501,7 +502,7 @@ $effect(() => {
 		stackDescription = "";
 		error = "";
 		saving = false;
-		updatingStacks = new Set();
+		updatingStacks = new SvelteSet();
 		labelValue = "";
 		labelStructuredKind = null;
 		labelError = "";
@@ -629,7 +630,6 @@ $effect(() => {
 </Modal>
 
 {#if createStackOpen}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 	<div class="new-stack-overlay" onclick={() => { createStackOpen = false; }} role="presentation"></div>
 
 	<div class="new-stack-wrapper" role="dialog" aria-modal="true" aria-label="New stack">

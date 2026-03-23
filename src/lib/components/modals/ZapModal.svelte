@@ -79,7 +79,7 @@ async function handleZap() {
       <div class="amount-section">
         <label class="amount-label" for="zap-amount-slider">Amount (sats)</label>
         <div class="presets">
-          {#each presets as p}
+          {#each presets as p (p)}
             <button
               type="button"
               class="preset-btn"

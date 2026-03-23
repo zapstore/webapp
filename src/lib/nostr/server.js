@@ -340,7 +340,9 @@ export function fetchStacks(limit = 20, until) {
 	const stackEvents = queryCache(filter);
 	// Exclude private Saved Apps stack from public listings
 	const publicStackEvents = stackEvents.filter(
-		(e) => e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG
+		(e) =>
+			e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG &&
+			!e.content
 	);
 	const stacks = publicStackEvents.map(parseAppStack);
 
@@ -383,7 +385,10 @@ export function fetchStack(pubkey, identifier) {
 		...(profileEvent ? [profileEvent] : [])
 	]);
 
-	return { stack, apps, creator, seedEvents };
+	// Strip the raw event reference (has Symbol keys from nostr-tools that break serialization)
+	const { event: _event, ...stackData } = stack;
+
+	return { stack: stackData, apps, creator, seedEvents };
 }
 
 /**
@@ -421,14 +426,14 @@ export function fetchStacksByAuthor(pubkey, limit = 50) {
 	// Keep only the latest stack per (pubkey, dTag), excluding private Saved Apps stack
 	const stacksByKey = new Map();
 	for (const stack of parsed) {
-		if (!stack?.pubkey || !stack?.dTag || stack.dTag === SAVED_APPS_STACK_D_TAG) continue;
+		if (!stack?.pubkey || !stack?.dTag || stack.dTag === SAVED_APPS_STACK_D_TAG || !!stack.event?.content) continue;
 		const key = `${stack.pubkey}:${stack.dTag}`;
 		const existing = stacksByKey.get(key);
 		if (!existing || (stack.createdAt != null && stack.createdAt > (existing.createdAt ?? 0))) {
 			stacksByKey.set(key, stack);
 		}
 	}
-	const stacks = [...stacksByKey.values()];
+	const stacks = [...stacksByKey.values()].map(({ event: _event, ...rest }) => rest);
 
 	const { appsByStackId } = resolveMultipleStackAppsFromCache(stacks);
 	const resolvedStacks = [];

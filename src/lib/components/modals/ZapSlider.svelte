@@ -46,12 +46,6 @@ function formatMarkerLabel(val) {
         return `${Math.round(val / 1000)}K`;
     return val.toString();
 }
-function valueToAngle(val) {
-    if (val <= 0)
-        return START_ANGLE;
-    const percentage = Math.log(val + 1) / Math.log(MAX_VALUE + 1);
-    return START_ANGLE + percentage * TOTAL_ANGLE;
-}
 function angleToValue(angle) {
     let adjustedAngle = angle - START_ANGLE;
     if (adjustedAngle < 0)
@@ -290,7 +284,7 @@ export function getSerializedContent() {
         ontouchstart={handleTouchStart}
       ></canvas>
 
-      {#each otherZaps as zapData}
+      {#each otherZaps as zapData, i (i)}
         {@const percentage =
           zapData.amount <= 0
             ? 0

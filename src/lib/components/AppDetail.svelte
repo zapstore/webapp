@@ -9,12 +9,11 @@ let { app, initialRelease = null } = $props();
 // Local state (set from initialRelease in onMount to avoid capturing stale reference)
 let latestRelease = $state(null);
 let refreshing = $state(false);
-onMount(() => {
+onMount(async () => {
     if (!browser || !app)
         return;
     latestRelease = initialRelease ?? null;
     const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-    // Async: query Dexie for cached release
     const cachedRelease = await queryEvent({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], ...PLATFORM_FILTER });
     if (cachedRelease) {
         latestRelease = parseRelease(cachedRelease);
@@ -51,6 +50,7 @@ onMount(() => {
 	</header>
 
 	<section class="app-description prose prose-invert max-w-none">
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html renderMarkdown(app.description)}
 	</section>
 
@@ -58,7 +58,7 @@ onMount(() => {
 		<section class="app-screenshots">
 			<h2>Screenshots</h2>
 			<div class="screenshots-scroll">
-				{#each app.images as image}
+				{#each app.images as image, i (i)}
 					<img src={image} alt="Screenshot" class="screenshot" decoding="async" />
 				{/each}
 			</div>

@@ -202,8 +202,8 @@
 
 		{#if loading && resolvedStacks.length === 0}
 			<div class="stacks-grid">
-				{#each [1, 2, 3] as _}
-					<div class="skeleton-stack">
+			{#each [1, 2, 3] as _, i (i)}
+				<div class="skeleton-stack">
 						<div class="skeleton-stack-grid">
 							<SkeletonLoader />
 						</div>
@@ -220,12 +220,12 @@
 			</div>
 		{:else if resolvedStacks.length > 0}
 			<div class="stacks-grid">
-				{#each resolvedStacks as stack}
-					<AppStackCard {stack} href={getStackUrl(stack)} />
+			{#each resolvedStacks as stack (stack.id)}
+				<AppStackCard {stack} href={getStackUrl(stack)} />
 				{/each}
 				{#if loadingMore}
-					{#each [1, 2, 3, 4, 5, 6] as _}
-						<div class="skeleton-stack">
+				{#each [1, 2, 3, 4, 5, 6] as _, i (i)}
+					<div class="skeleton-stack">
 							<div class="skeleton-stack-grid">
 								<SkeletonLoader />
 							</div>

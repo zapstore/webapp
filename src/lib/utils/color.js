@@ -175,7 +175,7 @@ async function getNip19() {
   if (!nip19Module) {
     try {
       nip19Module = await import("nostr-tools/nip19");
-    } catch (e) {
+    } catch {
       console.warn("nostr-tools not available for npub decoding");
       return null;
     }
@@ -211,14 +211,13 @@ async function decodeNpubAsync(npub) {
 function decodeNpub(npub) {
   // Try synchronous decode if nip19 is already loaded
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const nip19 = require("nostr-tools/nip19");
     const decoded = nip19.decode(npub);
     if (decoded.type === "npub") {
       return decoded.data;
     }
     return "";
-  } catch (e) {
+  } catch {
     // If require fails, return empty string (will use fallback color)
     return "";
   }
@@ -239,7 +238,7 @@ export function npubToHexColor(npub) {
     }
     const color = hexToColor(decodedPubkey);
     return rgbToHex(color.r, color.g, color.b);
-  } catch (e) {
+  } catch {
     // Fallback to a default color if any error occurs
     return "#808080"; // Gray color
   }
@@ -260,7 +259,7 @@ export async function npubToHexColorAsync(npub) {
     }
     const color = hexToColor(decodedPubkey);
     return rgbToHex(color.r, color.g, color.b);
-  } catch (e) {
+  } catch {
     // Fallback to a default color if any error occurs
     return "#808080"; // Gray color
   }
@@ -281,7 +280,7 @@ export function npubToColor(npub) {
     }
     const color = hexToColor(decodedPubkey);
     return (0xff << 24) | (color.r << 16) | (color.g << 8) | color.b;
-  } catch (e) {
+  } catch {
     // Fallback to a default color if any error occurs
     return 0xff808080; // Gray color
   }
@@ -302,7 +301,7 @@ export async function npubToColorAsync(npub) {
     }
     const color = hexToColor(decodedPubkey);
     return (0xff << 24) | (color.r << 16) | (color.g << 8) | color.b;
-  } catch (e) {
+  } catch {
     // Fallback to a default color if any error occurs
     return 0xff808080; // Gray color
   }

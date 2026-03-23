@@ -1,46 +1,50 @@
 <script>
 	import { navigating } from '$app/stores';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	
-	let progress = 0;
-	let visible = false;
+	let progress = $state(0);
+	let visible = $state(false);
 	/** @type {ReturnType<typeof setInterval> | null} */
 	let interval = null;
 	let startTime = 0;
 	const MIN_DISPLAY_TIME = 300; // Minimum time to show the bar (ms)
 	
-	$: if ($navigating) {
-		// Navigation started
-		visible = true;
-		progress = 10;
-		startTime = Date.now();
-		
-		// Simulate progress
-		interval = setInterval(() => {
-			if (progress < 90) {
-				progress += Math.random() * 15;
+	$effect(() => {
+		if ($navigating) {
+			untrack(() => {
+				visible = true;
+				progress = 10;
+				startTime = Date.now();
+
+				if (interval) clearInterval(interval);
+				interval = setInterval(() => {
+					if (progress < 90) {
+						progress += Math.random() * 15;
+					}
+				}, 150);
+			});
+		} else {
+			const wasVisible = untrack(() => visible);
+			if (wasVisible) {
+				untrack(() => {
+					progress = 100;
+
+					if (interval) {
+						clearInterval(interval);
+						interval = null;
+					}
+
+					const elapsed = Date.now() - startTime;
+					const remainingTime = Math.max(0, MIN_DISPLAY_TIME - elapsed);
+
+					setTimeout(() => {
+						visible = false;
+						progress = 0;
+					}, remainingTime + 300);
+				});
 			}
-		}, 150);
-	} else if (visible) {
-		// Navigation completed
-		progress = 100;
-		
-		// Clear interval
-		if (interval) {
-			clearInterval(interval);
-			interval = null;
 		}
-		
-		// Ensure minimum display time before hiding
-		const elapsed = Date.now() - startTime;
-		const remainingTime = Math.max(0, MIN_DISPLAY_TIME - elapsed);
-		
-		// Hide after animation completes + minimum display time
-		setTimeout(() => {
-			visible = false;
-			progress = 0;
-		}, remainingTime + 300);
-	}
+	});
 	
 	onMount(() => {
 		return () => {

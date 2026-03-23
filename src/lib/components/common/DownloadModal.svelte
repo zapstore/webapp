@@ -41,9 +41,6 @@
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const npubRegex = /^npub1[ac-hj-np-z0-9]{58}$/i;
 
-  // Image overlap configuration
-  const IMAGE_TOP_HEIGHT = 360;
-
   // Zapstore-specific constants
   const ZAPSTORE_APK_FILENAME = "zapstore-1.0.0.apk";
   const ZAPSTORE_APK_URL =
@@ -54,7 +51,7 @@
     "99e33b0c2d07e75fcd9df7e40e886646ff667e3aa6648e1a1160b036cf2b9320";
 
   // App info helpers
-  $: minAndroidVersion = "Android 8.0+";
+  const minAndroidVersion = "Android 8.0+";
   $: sourceUrl = app?.repository || app?.url || null;
   $: deepLink = app?.dTag ? `zapstore://app/${app.dTag}` : null;
 
@@ -77,7 +74,7 @@
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (err) {
+    } catch {
       window.location.href = ZAPSTORE_APK_URL;
     } finally {
       downloading = false;
@@ -136,7 +133,7 @@
       iosWaitlistStatus = "success";
       iosWaitlistMessage = "Thanks! We'll share more as soon as it's ready.";
       form.reset();
-    } catch (error) {
+    } catch {
       iosWaitlistStatus = "error";
       iosWaitlistMessage = "Something went wrong. Please try again.";
     } finally {
