@@ -210,7 +210,7 @@
 						></span
 					><!-- Mobile: permission sits on its own line --><br class="sm:hidden" /><span
 						style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
-						>to use apps.</span
+						>to use appz.</span
 					>
 				</span>
 
@@ -229,7 +229,10 @@
 
 		<hr class="hero-divider" />
 
-		<p class="hero-description text-xl sm:text-2xl mx-auto mt-2 sm:mt-8 mb-10" style="color: hsl(var(--white66));">
+		<p
+			class="hero-description text-xl sm:text-2xl mx-auto mt-2 sm:mt-8 mb-10"
+			style="color: hsl(var(--white66));"
+		>
 			Published by developers.<br class="sm:hidden" /> Curated by communities.
 		</p>
 
