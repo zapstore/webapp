@@ -6,11 +6,7 @@
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
 import MediaBlock from "$lib/components/common/MediaBlock.svelte";
 import NostrRefCard from "$lib/components/common/NostrRefCard.svelte";
-
-function isMediaUrl(line) {
-	const t = (line ?? "").trim();
-	return t.startsWith("http://") || t.startsWith("https://");
-}
+import { isLikelyDirectMediaUrl } from "$lib/utils/short-text-parser.js";
 
 function isNostrRefLine(line) {
 	const t = (line ?? "").trim();
@@ -20,7 +16,7 @@ function isNostrRefLine(line) {
 let {
 	content = "",
 	emojiTags = [],
-	mediaUrls = [],
+	mediaUrls: _mediaUrls = [],
 	resolveMentionLabel = null,
 	onMediaClick = null,
 	class: className = "",
@@ -34,7 +30,7 @@ const segments = $derived.by(() => {
 	const out = [];
 	let textBuf = [];
 	for (const line of lines) {
-		if (isMediaUrl(line)) {
+		if (isLikelyDirectMediaUrl(line)) {
 			if (textBuf.length) {
 				out.push({ type: "text", value: textBuf.join("\n") });
 				textBuf = [];
@@ -58,7 +54,7 @@ const orderedMediaUrls = $derived(segments.filter((s) => s.type === "media").map
 </script>
 
 <div class="short-text-content {className}" data-short-text-content>
-	{#each segments as segment, i}
+	{#each segments as segment, segIdx (segIdx)}
 		{#if segment.type === "text"}
 			{#if segment.value !== ""}
 				<div class="short-text-content-text">

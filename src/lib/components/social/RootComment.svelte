@@ -441,8 +441,8 @@ function handleOptions() {
 <Modal
   bind:open={modalOpen}
   ariaLabel="Comment thread"
-  align="center"
-  fillHeight={feedItems.length > 0}
+  align="bottom"
+  fillHeight={true}
   wide={true}
   class="thread-modal {childModalOpen ? 'thread-modal-child-open' : ''}"
 >
@@ -450,64 +450,52 @@ function handleOptions() {
       <div class="thread-modal-child-overlay" aria-hidden="true"></div>
       <div class="thread-content">
       <div class="thread-root">
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
         <div
-          class="thread-bubble-with-rail desktop-bubble-actions-target"
-          class:thread-bubble-with-rail--solo={!showThreadActions}
+          class="thread-bubble-click-wrap"
+          class:clickable={showThreadActions}
+          onclick={(e) => onBubbleClick(e, "root")}
         >
-          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-          <div
-            class="thread-bubble-click-wrap thread-bubble-with-rail__main"
-            class:clickable={showThreadActions}
-            onclick={(e) => onBubbleClick(e, "root")}
-          >
-            {#if isZapRoot}
-              <ThreadZap
-                {pictureUrl}
-                {name}
-                {pubkey}
-                amount={zapAmount}
-                {timestamp}
-                {profileUrl}
-                {version}
-                content={content ?? ""}
-                {emojiTags}
-                {resolveMentionLabel}
-              />
-            {:else}
-              <ThreadComment
-                {appIconUrl}
-                {appName}
-                {appIdentifier}
-                {version}
-                {pictureUrl}
-                {name}
-                {pubkey}
-                {timestamp}
-                {profileUrl}
-                {loading}
-                {pending}
-              >
-                {#if content !== undefined && content !== null || (mediaUrls?.length ?? 0) > 0}
-                  <ShortTextContent
-                    content={content ?? ''}
-                    emojiTags={emojiTags ?? []}
-                    mediaUrls={mediaUrls ?? []}
-                    {resolveMentionLabel}
-                    onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
-                    class="root-comment-body"
-                  />
-                {:else}
-                  {@render children?.()}
-                {/if}
-              </ThreadComment>
-            {/if}
-          </div>
-          {#if showThreadActions}
-            <CommentBubbleActionRail
-              onReply={() => handleReply()}
-              onZap={() => handleZap()}
-              onOptions={() => openActionsModal("root")}
+          {#if isZapRoot}
+            <ThreadZap
+              {pictureUrl}
+              {name}
+              {pubkey}
+              amount={zapAmount}
+              {timestamp}
+              {profileUrl}
+              {version}
+              content={content ?? ""}
+              {emojiTags}
+              {resolveMentionLabel}
             />
+          {:else}
+            <ThreadComment
+              {appIconUrl}
+              {appName}
+              {appIdentifier}
+              {version}
+              {pictureUrl}
+              {name}
+              {pubkey}
+              {timestamp}
+              {profileUrl}
+              {loading}
+              {pending}
+            >
+              {#if content !== undefined && content !== null || (mediaUrls?.length ?? 0) > 0}
+                <ShortTextContent
+                  content={content ?? ''}
+                  emojiTags={emojiTags ?? []}
+                  mediaUrls={mediaUrls ?? []}
+                  {resolveMentionLabel}
+                  onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
+                  class="root-comment-body"
+                />
+              {:else}
+                {@render children?.()}
+              {/if}
+            </ThreadComment>
           {/if}
         </div>
       </div>

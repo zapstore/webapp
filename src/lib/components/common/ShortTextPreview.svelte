@@ -5,7 +5,8 @@
 	 * Same parser as ShortTextContent; no block media, no lightbox.
 	 */
 	import { onMount } from 'svelte';
-	import { parseShortText } from '$lib/utils/short-text-parser.js';
+	import { parseShortText, isLikelyDirectMediaUrl, splitTextAutolinkUrls } from '$lib/utils/short-text-parser.js';
+	import { stripUrlForDisplay } from '$lib/utils/url.js';
 	import { hexToColor, getProfileTextColor, rgbToCssString } from '$lib/utils/color.js';
 	import Camera from '$lib/components/icons/Camera.svelte';
 	import NostrRefPreviewChip from '$lib/components/common/NostrRefPreviewChip.svelte';
@@ -24,11 +25,6 @@
 		)
 			return 'Video';
 		return 'Image';
-	}
-
-	function isMediaUrl(line) {
-		const t = (line ?? '').trim();
-		return t.startsWith('http://') || t.startsWith('https://');
 	}
 
 	let {
@@ -57,7 +53,7 @@
 		const out = [];
 		let textBuf = [];
 		for (const line of lines) {
-			if (isMediaUrl(line)) {
+			if (isLikelyDirectMediaUrl(line)) {
 				if (textBuf.length) {
 					out.push({ type: 'text', value: textBuf.join('\n') });
 					textBuf = [];
@@ -72,7 +68,7 @@
 	});
 	/** If no inline URLs in content, append chips from mediaUrls (legacy) */
 	const trailingUrls = $derived.by(() => {
-		const hasInlineUrls = (content ?? '').split('\n').some((l) => isMediaUrl(l));
+		const hasInlineUrls = (content ?? '').split('\n').some((l) => isLikelyDirectMediaUrl(l));
 		return hasInlineUrls ? [] : (mediaUrls ?? []);
 	});
 
@@ -92,11 +88,23 @@
 	data-short-text-preview
 	style={maxLines > 1 ? `-webkit-line-clamp: ${maxLines}; line-clamp: ${maxLines};` : ''}
 >
-	{#each previewSegments as segment}
+	{#each previewSegments as segment, segIdx (segIdx)}
 		{#if segment.type === 'text'}
-			{#each parseShortText({ text: segment.value, emojiTags }) as part}
+			{#each parseShortText({ text: segment.value, emojiTags }) as part, pIdx (pIdx)}
 				{#if part.type === 'text'}
-					<span class="preview-text">{part.value}</span>
+					{#each splitTextAutolinkUrls(part.value) as uchunk, uIdx (`${pIdx}-${uIdx}`)}
+						{#if uchunk.type === 'text'}
+							<span class="preview-text">{uchunk.value}</span>
+						{:else if uchunk.type === 'url'}
+							<a
+								href={uchunk.href}
+								class="preview-url"
+								target="_blank"
+								rel="noopener noreferrer"
+								>{stripUrlForDisplay(uchunk.href)}</a
+							>
+						{/if}
+					{/each}
 				{:else if part.type === 'mention'}
 					<a href="/profile/{part.npub}" class="preview-mention" style={mentionStyle(part.pubkey)}
 						>@{mentionLabel(part)}</a
@@ -149,6 +157,14 @@
 	}
 	.short-text-preview:not(.one-line) {
 		white-space: pre-line;
+	}
+	.preview-url {
+		color: hsl(var(--blurpleLightColor66));
+		text-decoration: none;
+		word-break: break-word;
+	}
+	.preview-url:hover {
+		text-decoration: underline;
 	}
 	.preview-mention {
 		font-weight: 500;

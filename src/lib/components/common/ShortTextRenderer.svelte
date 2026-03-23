@@ -5,7 +5,8 @@
  * Matches ShortTextInput display: profile-colored @mentions, inline emoji, block cards for nevent/naddr.
  */
 import { onMount } from "svelte";
-import { parseShortText } from "$lib/utils/short-text-parser.js";
+import { parseShortText, splitTextAutolinkUrls } from "$lib/utils/short-text-parser.js";
+import { stripUrlForDisplay } from "$lib/utils/url.js";
 import { hexToColor, getProfileTextColor, rgbToCssString } from "$lib/utils/color.js";
 import NostrRefCard from "$lib/components/common/NostrRefCard.svelte";
 let { content = "", emojiTags = [], resolveMentionLabel, class: className = "", } = $props();
@@ -32,7 +33,18 @@ function mentionStyle(pubkey) {
 <div class="short-text-renderer {className}" data-short-text>
   {#each segments as segment, i (i)}
     {#if segment.type === "text"}
-      <span class="short-text-text">{segment.value}</span>
+      {#each splitTextAutolinkUrls(segment.value) as chunk, cIdx (`${i}-${cIdx}`)}
+        {#if chunk.type === "text"}
+          <span class="short-text-text">{chunk.value}</span>
+        {:else if chunk.type === "url"}
+          <a
+            href={chunk.href}
+            class="short-text-url"
+            target="_blank"
+            rel="noopener noreferrer"
+          >{stripUrlForDisplay(chunk.href)}</a>
+        {/if}
+      {/each}
     {:else if segment.type === "mention"}
       <a
         href="/profile/{segment.npub}"
@@ -69,6 +81,17 @@ function mentionStyle(pubkey) {
 
   .short-text-text {
     white-space: pre-line;
+  }
+
+  .short-text-url {
+    color: hsl(var(--blurpleLightColor));
+    text-decoration: none;
+    word-break: break-word;
+  }
+
+  .short-text-url:hover {
+    text-decoration: underline;
+    opacity: 0.9;
   }
 
   .short-text-mention {

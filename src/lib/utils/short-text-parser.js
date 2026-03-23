@@ -24,6 +24,68 @@ const emojiMap = (emojiTags) => {
     }
     return m;
 };
+
+/** Strip punctuation often glued to URLs in prose (closing parens, etc.). */
+function trimTrailingUrlNoise(s) {
+    return s.replace(/[),.;:!?'"`\]]+$/g, '');
+}
+
+/**
+ * True when a whole line is probably a direct image/video embed (MediaBlock), not a generic web link.
+ * Serialized composer media is usually Blossom (nostr.build / void.cat) or has a media file extension.
+ */
+export function isLikelyDirectMediaUrl(raw) {
+    const u = String(raw ?? '').trim();
+    if (!/^https?:\/\//i.test(u))
+        return false;
+    let parsed;
+    try {
+        parsed = new URL(u);
+    }
+    catch {
+        return false;
+    }
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+    if ((host === 'nostr.build' || host.endsWith('.nostr.build')) && path.startsWith('/api/'))
+        return false;
+    const pathOnly = path;
+    if (/\.(mp4|webm|ogg|mov)$/i.test(pathOnly))
+        return true;
+    if (/\.(jpg|jpeg|png|gif|webp|avif|svg|bmp|ico)$/i.test(pathOnly))
+        return true;
+    if (host === 'void.cat')
+        return true;
+    if (host === 'nostr.build' || host.endsWith('.nostr.build'))
+        return true;
+    return false;
+}
+
+const AUTOLINK_URL_RE = /https?:\/\/[^\s<>'"]+/gi;
+
+/**
+ * Split a plain text span into text + https URL chunks for inline autolinks.
+ * @returns {Array<{ type: 'text', value: string } | { type: 'url', href: string }>}
+ */
+export function splitTextAutolinkUrls(text) {
+    if (!text)
+        return [{ type: 'text', value: '' }];
+    const parts = [];
+    let last = 0;
+    AUTOLINK_URL_RE.lastIndex = 0;
+    let m;
+    while ((m = AUTOLINK_URL_RE.exec(text)) !== null) {
+        const href = trimTrailingUrlNoise(m[0]);
+        if (m.index > last)
+            parts.push({ type: 'text', value: text.slice(last, m.index) });
+        parts.push({ type: 'url', href });
+        last = m.index + m[0].length;
+    }
+    if (last < text.length)
+        parts.push({ type: 'text', value: text.slice(last) });
+    return parts.length ? parts : [{ type: 'text', value: text }];
+}
+
 /**
  * Parse short text into segments for rendering.
  * Escapes are not applied here; the renderer must escape text segments.
