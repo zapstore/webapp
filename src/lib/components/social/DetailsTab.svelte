@@ -28,6 +28,18 @@ const cleanedRawData = $derived.by(() => {
     return nostrEvent;
 });
 const formattedJson = $derived(cleanedRawData ? JSON.stringify(cleanedRawData, null, 2) : "");
+
+let highlightedJson = $state('');
+$effect(() => {
+	if (formattedJson) {
+		highlightJson(formattedJson).then(html => {
+			highlightedJson = html;
+		});
+	} else {
+		highlightedJson = '';
+	}
+});
+
 async function copyPublicationId() {
     if (!shareableId)
         return;
@@ -72,7 +84,6 @@ async function copyRepository() {
         console.error("Failed to copy:", e);
     }
 }
-const highlightedJson = $derived(highlightJson(formattedJson));
 </script>
 
 <div class="details-tab {className}">

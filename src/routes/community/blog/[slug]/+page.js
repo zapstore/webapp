@@ -3,6 +3,21 @@ import { dev } from '$app/environment';
 export const prerender = true;
 // Same as /blog/[slug] — load article from src/content/blog
 const modules = import.meta.glob('/src/content/blog/**/*.md', { eager: true });
+
+export function entries() {
+	const slugs = [];
+	for (const path of Object.keys(modules)) {
+		const rel = path.replace('/src/content/blog/', '');
+		const parts = rel.split('/');
+		if (parts.length === 1) {
+			slugs.push({ slug: rel.replace(/\.md$/, '') });
+		} else if (parts.length === 2 && parts[1] === '_index.md') {
+			slugs.push({ slug: parts[0] });
+		}
+	}
+	return slugs;
+}
+
 export function load({ params }) {
 	const slug = params.slug;
 	const targetTopLevel = `/src/content/blog/${slug}.md`;

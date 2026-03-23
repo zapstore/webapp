@@ -9,13 +9,32 @@
  *   const tokens = $derived(tokenizeNostrMarkdown(text, { wikiLinkFn, emojiMap }));
  *   <MarkdownBody {tokens} />
  */
+import { onMount } from 'svelte';
 import MarkdownInline from './MarkdownInline.svelte';
 import MarkdownBody from './MarkdownBody.svelte';
 import CodeBlock from './CodeBlock.svelte';
 import { highlightCode } from '$lib/utils/highlight.js';
 
 let { tokens = [] } = $props();
-</script>
+
+// Pre-highlight code blocks
+let highlightedCode = $state(new Map());
+
+$effect(() => {
+	// Reset when tokens change
+	highlightedCode = new Map();
+	
+	// Highlight all code blocks
+	for (const token of tokens) {
+		if (token.type === 'code') {
+			highlightCode(token.text, token.lang ?? '').then(html => {
+				highlightedCode.set(token, html);
+				highlightedCode = highlightedCode; // trigger reactivity
+			});
+		}
+	}
+});
+
 
 {#each tokens as token}
 	{#if token.type === 'space'}
@@ -24,7 +43,7 @@ let { tokens = [] } = $props();
 	{:else if token.type === 'code'}
 		<div class="code-block-wrap">
 			<CodeBlock
-				html={highlightCode(token.text, token.lang ?? '')}
+				html={highlightedCode.get(token) ?? ''}
 				code={token.text}
 				language={token.lang ? token.lang.toUpperCase() : ''}
 			/>

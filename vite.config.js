@@ -13,7 +13,15 @@ export default defineConfig({
 	// Build options
 	build: {
 		target: 'esnext',
-		minify: 'esbuild'
+		minify: 'esbuild',
+		rollupOptions: {
+			external: (id) => id.startsWith('highlight.js/')
+		}
+	},
+
+	// SSR options
+	ssr: {
+		external: ['highlight.js']
 	},
 
 	// Dev server options
