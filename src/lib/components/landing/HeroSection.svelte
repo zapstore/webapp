@@ -210,7 +210,7 @@
 						></span
 					><!-- Mobile: permission sits on its own line --><br class="sm:hidden" /><span
 						style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
-						>to use appz.</span
+						>to use apps.</span
 					>
 				</span>
 
