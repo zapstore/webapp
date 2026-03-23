@@ -4,20 +4,54 @@
 	 */
 	import { page } from '$app/stores';
 	import { ChevronDown } from '$lib/components/icons';
+	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
 
 	let { children } = $props();
 
-	const SECTIONS = [
-		{ id: 'forum', label: 'Forum', icon: '/images/emoji/forum.png', href: '/community/forum' },
-		{ id: 'blog', label: 'Blog', icon: '/images/emoji/article.png', href: '/community/blog' },
-		{ id: 'activity', label: 'Activity', icon: '/images/emoji/activity.png', href: '/community/activity' }
-	];
+	const SECTIONS = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED
+		? [
+				{
+					id: 'forum',
+					label: 'Forum',
+					icon: '/images/emoji/forum.png',
+					href: '/community/forum'
+				},
+				{ id: 'blog', label: 'Blog', icon: '/images/emoji/article.png', href: '/community/blog' },
+				{
+					id: 'activity',
+					label: 'Activity',
+					icon: '/images/emoji/activity.png',
+					href: '/community/activity'
+				}
+			]
+		: [
+				{
+					id: 'support',
+					label: 'Support',
+					icon: '/images/emoji/activity.png',
+					href: '/community/support'
+				},
+				{ id: 'blog', label: 'Blog', icon: '/images/emoji/article.png', href: '/community/blog' }
+			];
+
+	const defaultSectionId = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? 'forum' : 'support';
 
 	const path = $derived($page.url.pathname);
 	const activeSection = $derived(
-		path.startsWith('/community/forum') ? 'forum' : path.startsWith('/community/blog') ? 'blog' : path.startsWith('/community/activity') ? 'activity' : 'forum'
+		path.startsWith('/community/forum')
+			? 'forum'
+			: path.startsWith('/community/support')
+				? 'support'
+				: path.startsWith('/community/blog')
+					? 'blog'
+					: path.startsWith('/community/activity')
+						? 'activity'
+						: defaultSectionId
 	);
-	const activeSectionLabel = $derived(SECTIONS.find((s) => s.id === activeSection)?.label ?? 'Forum');
+	const activeSectionLabel = $derived(
+		SECTIONS.find((s) => s.id === activeSection)?.label ??
+			(COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? 'Forum' : 'Support')
+	);
 
 	let sectionMenuOpen = $state(false);
 

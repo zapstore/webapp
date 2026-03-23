@@ -781,7 +781,8 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 	let rootKind;
 	let tags;
 
-	// Root scope: one tag only — E (event id) or A (address). Parent scope uses lowercase e/a later.
+	// Root: uppercase A/E + K + P; many indexers also expect lowercase a/e + k + p for the same root.
+	// Replies: keep uppercase root tags; lowercase e/k/p refer to the immediate parent only.
 	if (isNonReplaceable) {
 		rootKind = target.kind ?? 11;
 		const eId = target.id.trim().toLowerCase();
@@ -790,6 +791,11 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 			['K', String(rootKind)],
 			['P', target.pubkey.trim().toLowerCase()]
 		];
+		if (!parentEventId) {
+			tags.push(['e', eId]);
+			tags.push(['k', String(rootKind)]);
+			tags.push(['p', target.pubkey.trim().toLowerCase()]);
+		}
 	} else {
 		const kind = 32267;
 		const stackKind = 30267;
@@ -803,6 +809,11 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 			['K', String(rootKind)],
 			['P', target.pubkey.trim().toLowerCase()]
 		];
+		if (!parentEventId) {
+			tags.push(['a', aTagValue]);
+			tags.push(['k', String(rootKind)]);
+			tags.push(['p', target.pubkey.trim().toLowerCase()]);
+		}
 	}
 
 	// Parent item (when replying to a comment): e, k, p — spec requires parent author in p tag

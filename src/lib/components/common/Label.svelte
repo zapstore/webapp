@@ -1,7 +1,41 @@
 <script lang="js">
 import { stringToColor } from "$lib/utils/color.js";
 let { text = "", isSelected = false, isEmphasized = false, onTap = () => { }, size = "default", neutral = false } = $props();
-const baseColor = $derived(stringToColor(text));
+
+/** @type {{ kind: string, value: string } | null} */
+const structured = $derived.by(() => {
+	const raw = String(text ?? "").trim();
+	const m = /^(alternative|reads|writes):(.+)$/i.exec(raw);
+	if (!m) return null;
+	const value = m[2]?.trim();
+	if (!value) return null;
+	return { kind: m[1].toLowerCase(), value };
+});
+
+const showStructured = $derived(structured != null);
+
+const prefixLabel = $derived(
+	!structured
+		? ""
+		: structured.kind === "alternative"
+			? "Alternative to "
+			: structured.kind === "reads"
+				? "Reads "
+				: structured.kind === "writes"
+					? "Writes "
+					: ""
+);
+
+/** Structured: prefix softer than value. Selected uses white66+white (readable hierarchy; avoids white33 or flat white/white). Emphasized-only: white33+white. */
+const prefixColor = $derived(
+	isSelected ? "hsl(var(--white66))" : isEmphasized ? "hsl(var(--white33))" : "hsl(var(--white66))"
+);
+const valueColor = $derived(
+	isSelected ? "hsl(var(--white))" : isEmphasized ? "hsl(var(--white))" : "hsl(var(--white66))"
+);
+
+const colorKey = $derived(structured?.value ?? text);
+const baseColor = $derived(stringToColor(colorKey));
 const bgColor = $derived(neutral
     ? (isSelected || isEmphasized ? "hsl(var(--gray66))" : "hsl(var(--white16))")
     : (isSelected || isEmphasized
@@ -37,7 +71,14 @@ const textColor = $derived(isSelected || isEmphasized ? "hsl(var(--white))" : "h
         />
       </svg>
     {/if}
-    <span class="label-text">{text}</span>
+    {#if showStructured && structured}
+      <span class="label-text label-text-split">
+        <span class="label-structured-prefix" style:color={prefixColor}>{prefixLabel}</span><span
+          class="label-structured-value" style:color={valueColor}>{structured.value}</span>
+      </span>
+    {:else}
+      <span class="label-text">{text}</span>
+    {/if}
   </div>
 
   <svg
@@ -162,6 +203,27 @@ const textColor = $derived(isSelected || isEmphasized ? "hsl(var(--white))" : "h
     font-size: 14px;
     font-weight: 400;
     color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .label-text-split {
+    display: inline-flex;
+    align-items: baseline;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .label-structured-prefix {
+    flex-shrink: 0;
+    font-weight: 500;
+    white-space: pre;
+  }
+
+  .label-structured-value {
+    min-width: 0;
+    font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

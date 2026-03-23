@@ -72,6 +72,27 @@ const labelChipSuggestions = $derived(
 	contentType === 'forum' ? FORUM_CATEGORIES : DEFAULT_LABEL_CHIPS
 );
 
+/** User-published labels not in the default chip list — show first in the scroll row */
+const userAddedLabelChips = $derived.by(() => {
+	const sug = labelChipSuggestions;
+	const isSuggested = (/** @type {string} */ k) => sug.includes(k);
+	const seen = /** @type {Record<string, true>} */ ({});
+	const out = /** @type {string[]} */ ([]);
+	for (const k of userLabelEventIdsByText.keys()) {
+		if (isSuggested(k) || seen[k]) continue;
+		seen[k] = true;
+		out.push(k);
+	}
+	for (const k of optimisticAddedLabels) {
+		if (isSuggested(k) || seen[k]) continue;
+		seen[k] = true;
+		out.push(k);
+	}
+	return out.sort((a, b) => a.localeCompare(b));
+});
+
+const labelChipsRow = $derived([...userAddedLabelChips, ...labelChipSuggestions]);
+
 /** @type {Map<string, string>} */
 let userLabelEventIdsByText = $state(new Map());
 let optimisticAddedLabels = $state(/** @type {Set<string>} */ (new Set()));
@@ -561,7 +582,7 @@ $effect(() => {
 				</div>
 				<div class="labels-scroll-row" use:wheelScroll>
 					<div class="labels-row-inner">
-						{#each labelChipSuggestions as label (label)}
+						{#each labelChipsRow as label (label)}
 							<button
 								type="button"
 								class="label-tap"

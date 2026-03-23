@@ -2,6 +2,12 @@
 	import { assets } from '$app/paths';
 	import Nostr from '$lib/components/icons/Nostr.svelte';
 	import { browser } from '$app/environment';
+	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
+
+	const communityFirstHref = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED
+		? '/community/forum'
+		: '/community/support';
+	const communityFirstLabel = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? 'Forum' : 'Support';
 
 	async function handleClearLocalData() {
 		if (!browser) return;
@@ -120,9 +126,9 @@
 					<ul class="space-y-3">
 						<li>
 							<a
-								href="/community/forum"
+								href={communityFirstHref}
 								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-								>Forum</a
+								>{communityFirstLabel}</a
 							>
 						</li>
 						<li>

@@ -26,6 +26,10 @@ import SearchModal from '$lib/components/common/SearchModal.svelte';
 import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 import OnboardingBuildingModal from '$lib/components/modals/OnboardingBuildingModal.svelte';
 import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
+import {
+	SIGNAL_DEV_SUPPORT_GROUP_URL,
+	SIGNAL_USER_SUPPORT_GROUP_URL
+} from '$lib/constants.js';
 let {
     variant = 'detail',   // 'detail' | 'page'
     title = '',            // page variant: header title
@@ -296,8 +300,8 @@ async function handleSignIn() {
 			<span class="menu-section-label">Contact</span>
 			<nav class="menu-subnav">
 				<a href="https://github.com/zapstore/zapstore" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">GitHub</a>
-				<a href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">User Support on Signal</a>
-				<a href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Dev Support on Signal</a>
+				<a href={SIGNAL_USER_SUPPORT_GROUP_URL} class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">User Support on Signal</a>
+				<a href={SIGNAL_DEV_SUPPORT_GROUP_URL} class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Dev Support on Signal</a>
 				<a href="https://npub.world/npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Follow us on Nostr</a>
 				<a href="https://x.com/zapstore_" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Follow us on Twitter</a>
 			</nav>

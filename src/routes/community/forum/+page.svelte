@@ -691,11 +691,15 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
+		justify-content: flex-start;
 		gap: 16px;
-		padding: 40px 24px;
-		flex: 1;
-		min-height: 0;
+		padding: 16px 16px 0;
+		width: 100%;
+		box-sizing: border-box;
+	}
+
+	.empty-state-wrap .btn-secondary-large {
+		align-self: center;
 	}
 
 	.btn-secondary-large {

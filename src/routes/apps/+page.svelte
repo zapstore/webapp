@@ -1,9 +1,12 @@
 <script lang="js">
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
+	import Label from '$lib/components/common/Label.svelte';
+	import AlternativeToBrowseTrigger from '$lib/components/common/AlternativeToBrowseTrigger.svelte';
 	import { ChevronRight, ChevronLeft } from '$lib/components/icons';
 	import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
@@ -33,7 +36,33 @@
 	import { fetchProfilesBatch } from '$lib/nostr/service';
 	import { DISCOVER_APPS_INITIAL, DISCOVER_STACKS_INITIAL } from '$lib/constants';
 
+	/** `true` = show category chips + alternative-to row at top of /apps (off for now). */
+	const SHOW_APPS_CATEGORY_ROW = false;
+
+	/** Quick category chips — navigates to relay search (same as typing in header search). */
+	const APP_PAGE_CATEGORIES = [
+		'Social',
+		'Security',
+		'Music',
+		'Productivity',
+		'Wallet',
+		'Privacy',
+		'Email',
+		'Todos',
+		'Photos',
+		'Notes',
+		'News',
+		'Weather',
+		'Fitness',
+		'Developer',
+		'Open Source'
+	];
+
 	let { data } = $props();
+
+	function gotoCategorySearch(/** @type {string} */ label) {
+		goto(`/apps?q=${encodeURIComponent(label)}`);
+	}
 
 	// liveQuery-driven data (local-first, auto-updates)
 	// Initialize from cache to avoid skeleton flash on back navigation.
@@ -53,9 +82,11 @@
 	// Refs for horizontal scroll containers
 	let appsScrollContainer = $state(null);
 	let stacksScrollContainer = $state(null);
+	let categoriesScrollContainer = $state(null);
 
 	let appsScrolledRight = $state(false);
 	let stacksScrolledRight = $state(false);
+	let categoriesScrolledRight = $state(false);
 
 	const SCROLL_STEP = 320;
 
@@ -153,6 +184,7 @@
 			scrollY: window.scrollY,
 			appsScrollX: appsScrollContainer?.scrollLeft ?? 0,
 			stacksScrollX: stacksScrollContainer?.scrollLeft ?? 0,
+			categoriesScrollX: categoriesScrollContainer?.scrollLeft ?? 0,
 			timestamp: Date.now()
 		};
 		sessionStorage.setItem('apps_scroll', JSON.stringify(scrollState));
@@ -185,6 +217,11 @@
 		if (stacksScrollContainer && pendingScrollRestore.stacksScrollX > 0) {
 			stacksScrollContainer.scrollLeft = pendingScrollRestore.stacksScrollX;
 		}
+		const catX = pendingScrollRestore.categoriesScrollX ?? 0;
+		if (categoriesScrollContainer && catX > 0) {
+			categoriesScrollContainer.scrollLeft = catX;
+		}
+		handleCategoriesScroll();
 		if (appsScrollContainer && stacksScrollContainer) {
 			pendingScrollRestore = null;
 		} else {
@@ -251,6 +288,12 @@
 		if (scrollWidth - scrollLeft - clientWidth < HORIZONTAL_SCROLL_THRESHOLD) {
 			handleLoadMoreStacks();
 		}
+	}
+
+	function handleCategoriesScroll() {
+		if (!categoriesScrollContainer) return;
+		const { scrollLeft } = categoriesScrollContainer;
+		categoriesScrolledRight = scrollLeft > 20;
 	}
 
 	function getAppUrl(app) {
@@ -365,7 +408,7 @@
 </svelte:head>
 
 <section class="apps-page">
-	<div class="container mx-auto py-6 px-3 sm:px-6 lg:px-8">
+	<div class="container mx-auto pt-3 pb-6 px-3 sm:px-6 sm:pt-4 lg:px-8">
 
 	{#if searchQ}
 		<!-- Search Results -->
@@ -387,7 +430,37 @@
 		</div>
 	{:else}
 
-		<!-- App Stacks Section -->
+		{#if SHOW_APPS_CATEGORY_ROW}
+			<!-- Categories + alternative-to picker -->
+			<div class="section-container apps-categories-section">
+				<div class="scroll-wrap apps-categories-scroll-wrap">
+					<div
+						class="apps-categories-scroll"
+						use:wheelScroll
+						bind:this={categoriesScrollContainer}
+						onscroll={handleCategoriesScroll}
+					>
+						<div class="apps-categories-inner">
+							<AlternativeToBrowseTrigger />
+							{#each APP_PAGE_CATEGORIES as cat (cat)}
+								<Label
+									text={cat}
+									isSelected={false}
+									isEmphasized={false}
+									onTap={() => gotoCategorySearch(cat)}
+								/>
+							{/each}
+						</div>
+					</div>
+					{#if categoriesScrolledRight}
+						<div class="scroll-fade apps-cat-fade scroll-fade-left" aria-hidden="true"></div>
+					{/if}
+					<div class="scroll-fade apps-cat-fade scroll-fade-right" aria-hidden="true"></div>
+				</div>
+			</div>
+		{/if}
+
+		<!-- App stacks (first main section) -->
 		<div class="section-container stacks-section">
 			<SectionHeader title="App Stacks" linkText="See more" href="/stacks" />
 			<div class="scroll-wrap">
@@ -464,14 +537,14 @@
 			</div>
 		</div>
 
-		<!-- Apps Section (bottom) -->
+		<!-- Latest apps (second main section) -->
 		<div class="section-container apps-section">
 			<SectionHeader title="Latest Apps" />
 			<div class="scroll-wrap">
 				{#if apps.length === 0}
 					<div class="horizontal-scroll">
 						<div class="scroll-content">
-							{#each Array(3) as _}
+							{#each Array(4) as _}
 								<div class="app-column">
 									{#each Array(4) as _}
 										<div class="skeleton-card">
@@ -553,6 +626,95 @@
 
 	.section-container {
 		margin-bottom: 24px;
+	}
+
+	.apps-categories-section {
+		margin-bottom: 16px;
+		margin-top: 0;
+		overflow: visible;
+	}
+
+	.apps-categories-scroll {
+		overflow-x: auto;
+		overflow-y: visible;
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+		margin-left: -0.75rem;
+		margin-right: -0.75rem;
+		padding-left: 0.75rem;
+		padding-right: 0.75rem;
+		padding-bottom: 4px;
+	}
+
+	.apps-categories-scroll::-webkit-scrollbar {
+		display: none;
+	}
+
+	@media (min-width: 640px) {
+		.apps-categories-scroll {
+			margin-left: -1.5rem;
+			margin-right: -1.5rem;
+			padding-left: 1.5rem;
+			padding-right: 1.5rem;
+		}
+	}
+
+	@media (min-width: 768px) {
+		.apps-categories-scroll {
+			margin-left: -38px;
+			margin-right: -38px;
+			padding-left: 38px;
+			padding-right: 38px;
+		}
+	}
+
+	.apps-categories-inner {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 8px;
+		width: max-content;
+		min-height: 36px;
+	}
+
+	/* Edge fades: match .apps-categories-scroll negative margins (not the same as .horizontal-scroll). */
+	.apps-categories-scroll-wrap .apps-cat-fade {
+		bottom: 4px;
+	}
+
+	.apps-categories-scroll-wrap .apps-cat-fade.scroll-fade-left {
+		left: -0.75rem;
+		width: 0.75rem;
+		background: linear-gradient(to right, hsl(var(--background)), transparent);
+	}
+
+	.apps-categories-scroll-wrap .apps-cat-fade.scroll-fade-right {
+		right: -0.75rem;
+		width: 0.75rem;
+		background: linear-gradient(to left, hsl(var(--background)), transparent);
+	}
+
+	@media (min-width: 640px) {
+		.apps-categories-scroll-wrap .apps-cat-fade.scroll-fade-left {
+			left: -1.5rem;
+			width: 1.5rem;
+		}
+		.apps-categories-scroll-wrap .apps-cat-fade.scroll-fade-right {
+			right: -1.5rem;
+			width: 1.5rem;
+		}
+	}
+
+	@media (min-width: 768px) {
+		.apps-categories-scroll-wrap .apps-cat-fade.scroll-fade-left {
+			left: -38px;
+			width: 38px;
+		}
+		.apps-categories-scroll-wrap .apps-cat-fade.scroll-fade-right {
+			right: -38px;
+			width: 38px;
+		}
 	}
 
 	/* Stacks section: SectionHeader margin to match scroll content */

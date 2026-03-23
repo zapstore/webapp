@@ -1,12 +1,15 @@
 <script lang="js">
 	/**
-	 * Community root — redirect to forum.
+	 * Community root — client redirect when SSR is skipped (`+layout.js` ssr: false).
 	 */
 	import { goto } from '$app/navigation';
+	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
 	import { onMount } from 'svelte';
 
+	const target = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? '/community/forum' : '/community/support';
+
 	onMount(() => {
-		goto('/community/forum', { replaceState: true });
+		goto(target, { replaceState: true });
 	});
 </script>
 
@@ -15,7 +18,7 @@
 </svelte:head>
 
 <div class="community-redirect">
-	<p>Redirecting to forum…</p>
+	<p>Redirecting…</p>
 </div>
 
 <style>

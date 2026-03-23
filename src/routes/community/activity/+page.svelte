@@ -273,8 +273,7 @@
 		overflow-y: auto;
 	}
 
-	.loading-wrap,
-	.empty-state-wrap {
+	.loading-wrap {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -284,10 +283,20 @@
 		min-height: 280px;
 	}
 
-	.loading-wrap span,
-	.empty-state-wrap :global(.empty-state-message) {
+	.loading-wrap span {
 		color: hsl(var(--white66));
 		font-size: 0.9375rem;
+	}
+
+	.empty-state-wrap {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 12px;
+		padding: 16px 16px 0;
+		width: 100%;
+		box-sizing: border-box;
 	}
 
 	.activity-list {

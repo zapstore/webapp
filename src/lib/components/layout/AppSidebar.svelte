@@ -12,6 +12,10 @@
 	import { queryEvent, fetchProfile } from '$lib/nostr';
 	import { parseProfile } from '$lib/nostr/models';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
+	import {
+		SIGNAL_DEV_SUPPORT_GROUP_URL,
+		SIGNAL_USER_SUPPORT_GROUP_URL
+	} from '$lib/constants.js';
 
 	let { onGetStarted, onOpenSearch } = $props();
 
@@ -135,10 +139,10 @@
 						<a href="/blog" class="app-sidebar-link" class:active={isActive('/blog')}>Blog</a>
 					</li>
 					<li>
-						<a href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow" class="app-sidebar-link" target="_blank" rel="noopener noreferrer">User support</a>
+						<a href={SIGNAL_USER_SUPPORT_GROUP_URL} class="app-sidebar-link" target="_blank" rel="noopener noreferrer">User support</a>
 					</li>
 					<li>
-						<a href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL" class="app-sidebar-link" target="_blank" rel="noopener noreferrer">Dev support</a>
+						<a href={SIGNAL_DEV_SUPPORT_GROUP_URL} class="app-sidebar-link" target="_blank" rel="noopener noreferrer">Dev support</a>
 					</li>
 				</ul>
 			</div>

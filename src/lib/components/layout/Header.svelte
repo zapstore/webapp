@@ -17,6 +17,13 @@
 	import OnboardingBuildingModal from '$lib/components/modals/OnboardingBuildingModal.svelte';
 	import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
+	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
+
+	const communityFirstHref = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED
+		? '/community/forum'
+		: '/community/support';
+	const communityFirstLabel = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? 'Forum' : 'Support';
+
 	let { variant = 'landing', pageTitle = '' } = $props();
 	let scrolled = $state(false);
 	let dropdownOpen = $state(false);
@@ -330,9 +337,9 @@
 										<span class="menu-section-label">Community</span>
 										<nav class="menu-subnav">
 											<a
-												href="/community/forum"
+												href={communityFirstHref}
 												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}>Forum</a
+												onclick={closeMenu}>{communityFirstLabel}</a
 											>
 											<a
 												href="/blog"
@@ -537,9 +544,9 @@
 									<span class="menu-section-label">Community</span>
 									<nav class="menu-subnav">
 										<a
-											href="/community/forum"
+											href={communityFirstHref}
 											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}>Forum</a
+											onclick={closeMenu}>{communityFirstLabel}</a
 										>
 										<a
 											href="/blog"
