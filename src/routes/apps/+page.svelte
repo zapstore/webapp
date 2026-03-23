@@ -133,7 +133,7 @@
 
 	// Resolved stacks with creator profiles
 	let resolvedDisplayStacks = $state(getCached('apps:resolvedStacks') ?? []);
-	let stacksSettled = $state(resolvedDisplayStacks.length > 0);
+	let stacksSettled = $state(false);
 	let resolvedStackKeys = $state('');
 
 	// ── Search ──────────────────────────────────────────────────────────────
