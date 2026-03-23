@@ -199,7 +199,8 @@
 
 <header
 	class={cn(
-		'header fixed top-0 left-0 right-0 z-50 transition-all duration-300',
+		'header fixed top-0 left-0 right-0 transition-all duration-300',
+		menuOpen ? 'z-[200]' : 'z-50',
 		scrolled
 			? 'bg-background/60 border-b border-border/50'
 			: 'bg-transparent border-b border-transparent'
@@ -293,26 +294,34 @@
 									</button>
 
 									<div class="menu-section">
+										<button
+											type="button"
+											class="menu-section-link"
+											onclick={() => {
+												downloadModalOpen = true;
+												closeMenu();
+											}}
+										>
+											Download
+										</button>
+									</div>
+
+									<div class="menu-section">
 										<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 									</div>
 
 									<div class="menu-section">
-										<a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
+										<span class="menu-section-label">Developers</span>
 										<nav class="menu-subnav">
-											<a
-												href="/studio"
-												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}>Learn more</a
-											>
-											<a
-												href="/studio#quickstart"
-												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}>Quickstart</a
-											>
 											<a
 												href="/docs/publish"
 												class="menu-sublink text-sm font-medium text-white/66"
 												onclick={closeMenu}>Docs</a
+											>
+											<a
+												href="/terms"
+												class="menu-sublink text-sm font-medium text-white/66"
+												onclick={closeMenu}>Terms</a
 											>
 										</nav>
 									</div>
@@ -321,23 +330,14 @@
 										<span class="menu-section-label">Community</span>
 										<nav class="menu-subnav">
 											<a
+												href="/community/forum"
+												class="menu-sublink text-sm font-medium text-white/66"
+												onclick={closeMenu}>Forum</a
+											>
+											<a
 												href="/blog"
 												class="menu-sublink text-sm font-medium text-white/66"
 												onclick={closeMenu}>Blog</a
-											>
-											<a
-												href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
-												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}
-												target="_blank"
-												rel="noopener noreferrer">User support on Signal</a
-											>
-											<a
-												href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
-												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}
-												target="_blank"
-												rel="noopener noreferrer">Dev support on Signal</a
 											>
 										</nav>
 									</div>
@@ -501,17 +501,16 @@
 								</button>
 
 								<div class="menu-section">
-									<span class="menu-section-label">Download</span>
-									<nav class="menu-subnav">
-										<button
-											type="button"
-											class="menu-sublink text-sm font-medium text-white/66 text-left"
-											onclick={() => {
-												downloadModalOpen = true;
-												closeMenu();
-											}}>Get Zapstore</button
-										>
-									</nav>
+									<button
+										type="button"
+										class="menu-section-link"
+										onclick={() => {
+											downloadModalOpen = true;
+											closeMenu();
+										}}
+									>
+										Download
+									</button>
 								</div>
 
 								<div class="menu-section">
@@ -519,22 +518,17 @@
 								</div>
 
 								<div class="menu-section">
-									<a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
+									<span class="menu-section-label">Developers</span>
 									<nav class="menu-subnav">
-										<a
-											href="/studio"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}>Learn more</a
-										>
-										<a
-											href="/studio#quickstart"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}>Quickstart</a
-										>
 										<a
 											href="/docs/publish"
 											class="menu-sublink text-sm font-medium text-white/66"
 											onclick={closeMenu}>Docs</a
+										>
+										<a
+											href="/terms"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}>Terms</a
 										>
 									</nav>
 								</div>
@@ -543,23 +537,14 @@
 									<span class="menu-section-label">Community</span>
 									<nav class="menu-subnav">
 										<a
+											href="/community/forum"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}>Forum</a
+										>
+										<a
 											href="/blog"
 											class="menu-sublink text-sm font-medium text-white/66"
 											onclick={closeMenu}>Blog</a
-										>
-										<a
-											href="https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}
-											target="_blank"
-											rel="noopener noreferrer">User support on Signal</a
-										>
-										<a
-											href="https://signal.group/#CjQKIC0VCHf6gGeeHKcIrKcaI-B5Kjvge2NKw2i4P55tMkCwEhBaOk9B80F3_MhMYVbgj7lL"
-											class="menu-sublink text-sm font-medium text-white/66"
-											onclick={closeMenu}
-											target="_blank"
-											rel="noopener noreferrer">Dev support on Signal</a
 										>
 									</nav>
 								</div>
@@ -884,7 +869,7 @@
 		position: fixed;
 		inset: 0;
 		background-color: hsl(var(--overlay));
-		z-index: 99;
+		z-index: 9998;
 	}
 
 	@media (min-width: 768px) {
@@ -914,7 +899,7 @@
 		border-right: 0.33px solid hsl(var(--white16));
 		border-radius: 0;
 		padding: 12px;
-		z-index: 100;
+		z-index: 9999;
 		box-shadow: 8px 0 32px hsl(var(--black33));
 		overflow-y: auto;
 		display: flex;
@@ -1146,6 +1131,21 @@
 
 	.menu-section-link:hover {
 		background-color: hsl(var(--white8));
+	}
+
+	button.menu-section-link {
+		appearance: none;
+		border: none;
+		background: transparent;
+		width: 100%;
+		text-align: left;
+		cursor: pointer;
+		font-family: var(--font-sans);
+		font-size: 0.9375rem;
+		font-weight: 500;
+		line-height: normal;
+		color: hsl(var(--white));
+		-webkit-tap-highlight-color: transparent;
 	}
 
 	.menu-section-label {

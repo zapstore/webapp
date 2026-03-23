@@ -1,88 +1,125 @@
 /**
- * Svelte action for horizontal scroll with mouse wheel.
+ * Svelte action for horizontal scroll with mouse wheel / trackpad.
  *
- * When the user's cursor is inside the bound element (or a delegated scroll root)
- * and they use the mouse wheel / trackpad, it scrolls horizontally instead of vertically.
+ * Maps wheel motion to scrollLeft on the bound element (or scrollRoot).
+ * Uses the dominant axis (|deltaY| vs |deltaX|) so trackpads work whether
+ * the gesture is mostly vertical or horizontal.
  *
- * IMPORTANT: This action ALWAYS prevents vertical page scrolling when the
- * cursor is inside the horizontal scroll zone. This is intentional for
- * infinite scroll scenarios where more content may be loading at the edges.
+ * Does not call preventDefault when the scroller is already at an edge and
+ * the user keeps scrolling “past” that edge — so vertical page scroll can
+ * still proceed (avoids trackpad “trapped” feeling).
  *
- * Only activates when:
- * - Screen width is >= 768px (desktop only)
- * - The scroll starts within the element (cursor is inside)
- * - The scroller has horizontal overflow (can actually scroll)
+ * Active when:
+ * - Fine pointer (mouse / trackpad), or viewport ≥768px (fallback)
+ * - Pointer is inside the bound element
+ * - The scroller has horizontal overflow
  *
- * @param {HTMLElement} node - Hover hit area (or the scroll element if no scrollRoot)
- * @param {{ scrollRoot?: string }} [params] - Optional CSS selector (descendant of node) for the element that receives scrollLeft
- *
- * Usage:
- * <div use:wheelScroll class="horizontal-scroll">...</div>
- * <div use:wheelScroll={{ scrollRoot: '.inner-scroll' }} class="row">...</div>
+ * @param {HTMLElement} node
+ * @param {{ scrollRoot?: string }} [params]
  */
 
-const DESKTOP_BREAKPOINT = 768;
+const VIEWPORT_BREAKPOINT = 768;
+const EDGE_EPS = 1;
+
+/**
+ * Signed delta in pixel-like units (handles deltaMode).
+ * @param {WheelEvent} e
+ */
+function horizontalWheelDelta(e) {
+	const { deltaX, deltaY, deltaMode } = e;
+	let dx = deltaX;
+	let dy = deltaY;
+	if (deltaMode === 1) {
+		const line = 16;
+		dx *= line;
+		dy *= line;
+	} else if (deltaMode === 2) {
+		const page = typeof window !== 'undefined' ? window.innerHeight : 600;
+		dx *= page;
+		dy *= page;
+	}
+	if (dx === 0 && dy === 0) return 0;
+	// Trackpads often send both; use whichever axis the gesture emphasizes.
+	return Math.abs(dy) >= Math.abs(dx) ? dy : dx;
+}
+
+function shouldActivate() {
+	if (typeof window === 'undefined') return false;
+	try {
+		if (window.matchMedia('(pointer: fine)').matches) return true;
+	} catch {
+		/* ignore */
+	}
+	return window.innerWidth >= VIEWPORT_BREAKPOINT;
+}
 
 /**
  * @param {HTMLElement} node
  * @param {{ scrollRoot?: string } | undefined} params
  */
 export function wheelScroll(node, params = {}) {
-  const scrollRoot =
-    params && typeof params === 'object' && typeof params.scrollRoot === 'string'
-      ? params.scrollRoot
-      : null;
+	const scrollRoot =
+		params && typeof params === 'object' && typeof params.scrollRoot === 'string'
+			? params.scrollRoot
+			: null;
 
-  let isHovering = false;
+	let isHovering = false;
 
-  function onMouseEnter() {
-    isHovering = true;
-  }
+	function onPointerEnter() {
+		isHovering = true;
+	}
 
-  function onMouseLeave() {
-    isHovering = false;
-  }
+	function onPointerLeave() {
+		isHovering = false;
+	}
 
-  /** @returns {HTMLElement | null} */
-  function getScroller() {
-    if (scrollRoot) {
-      const el = node.querySelector(scrollRoot);
-      return el instanceof HTMLElement ? el : null;
-    }
-    return node;
-  }
+	/** @returns {HTMLElement | null} */
+	function getScroller() {
+		if (scrollRoot) {
+			const el = node.querySelector(scrollRoot);
+			return el instanceof HTMLElement ? el : null;
+		}
+		return node;
+	}
 
-  /** @param {WheelEvent} e */
-  function onWheel(e) {
-    if (window.innerWidth < DESKTOP_BREAKPOINT) return;
+	/** @param {WheelEvent} e */
+	function onWheel(e) {
+		if (!shouldActivate()) return;
+		if (!isHovering) return;
 
-    if (!isHovering) return;
+		const scroller = getScroller();
+		if (!scroller) return;
 
-    const scroller = getScroller();
-    if (!scroller) return;
+		const hasHorizontalOverflow = scroller.scrollWidth > scroller.clientWidth + EDGE_EPS;
+		if (!hasHorizontalOverflow) return;
 
-    const hasHorizontalOverflow = scroller.scrollWidth > scroller.clientWidth;
-    if (!hasHorizontalOverflow) return;
+		const delta = horizontalWheelDelta(e);
+		if (delta === 0) return;
 
-    const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-    if (delta === 0) return;
+		const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+		const left = scroller.scrollLeft;
+		const atStart = left <= EDGE_EPS;
+		const atEnd = left >= maxScroll - EDGE_EPS;
 
-    e.preventDefault();
+		// Let the event propagate for page scroll when we can't move further horizontally.
+		if (atStart && delta < 0) return;
+		if (atEnd && delta > 0) return;
 
-    const maxScroll = scroller.scrollWidth - scroller.clientWidth;
-    const newScrollLeft = Math.max(0, Math.min(maxScroll, scroller.scrollLeft + delta));
-    scroller.scrollLeft = newScrollLeft;
-  }
+		e.preventDefault();
 
-  node.addEventListener('mouseenter', onMouseEnter);
-  node.addEventListener('mouseleave', onMouseLeave);
-  node.addEventListener('wheel', onWheel, { passive: false });
+		const next = Math.max(0, Math.min(maxScroll, left + delta));
+		scroller.scrollLeft = next;
+	}
 
-  return {
-    destroy() {
-      node.removeEventListener('mouseenter', onMouseEnter);
-      node.removeEventListener('mouseleave', onMouseLeave);
-      node.removeEventListener('wheel', onWheel);
-    }
-  };
+	node.addEventListener('pointerenter', onPointerEnter);
+	node.addEventListener('pointerleave', onPointerLeave);
+	node.addEventListener('wheel', onWheel, { passive: false });
+
+	return {
+		destroy() {
+			node.removeEventListener('pointerenter', onPointerEnter);
+			node.removeEventListener('pointerleave', onPointerLeave);
+			node.removeEventListener('wheel', onWheel);
+		}
+	};
 }

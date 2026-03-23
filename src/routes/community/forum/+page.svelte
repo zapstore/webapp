@@ -30,9 +30,6 @@
 	import { ChevronDown } from '$lib/components/icons';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 
-	/** Stable reference for use:wheelScroll (avoid re-instantiating the action each render) */
-	const forumCategoriesWheelOpts = { scrollRoot: '.forum-categories-scroll' };
-
 	let { data = {} } = $props();
 
 	const COMMUNITY_PUBKEY = (() => {
@@ -360,11 +357,8 @@
 <div class="forum-page-wrap">
 <div class="panel-content">
 	<header class="forum-feed-header">
-	<div
-		class="forum-categories-wrap"
-		use:wheelScroll={forumCategoriesWheelOpts}
-	>
-		<div class="forum-categories-scroll">
+	<div class="forum-categories-wrap">
+		<div class="forum-categories-scroll" use:wheelScroll>
 			<div class="forum-categories-inner">
 				{#each FORUM_CATEGORIES as category}
 					<Label
@@ -381,15 +375,14 @@
 		<div class="forum-latest-wrap" bind:this={latestDropdownWrap}>
 			<button
 				type="button"
-				class="forum-all-btn"
-				class:selected={selectedCategory === null}
+				class="forum-all-btn forum-latest-btn"
 				onclick={() => { latestDropdownOpen = !latestDropdownOpen; }}
 				aria-label="Sort order"
 				aria-expanded={latestDropdownOpen}
 			>
 				<span>Latest</span>
 				<span class="forum-all-btn-icon">
-					<ChevronDown variant="outline" size={14} strokeWidth={1.4} color="hsl(var(--white33))" />
+					<ChevronDown variant="outline" size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
 				</span>
 			</button>
 			{#if latestDropdownOpen}
@@ -510,8 +503,10 @@
 
 	.forum-feed-header {
 		flex-shrink: 0;
+		position: relative;
+		z-index: 20;
+		overflow: visible;
 		background: hsl(var(--background));
-		z-index: 5;
 	}
 
 	.forum-categories-wrap {
@@ -520,12 +515,15 @@
 		align-items: center;
 		gap: 0;
 		border-bottom: 1px solid hsl(var(--border));
-		overflow-x: hidden;
-		overflow-y: hidden;
-		overscroll-behavior-y: none;
+		/* Let .forum-latest-dropdown extend below the row; horizontal overflow stays in .forum-categories-scroll */
+		overflow: visible;
+		position: relative;
+		isolation: isolate;
 	}
 
 	.forum-categories-scroll {
+		position: relative;
+		z-index: 0;
 		flex: 1;
 		min-width: 0;
 		overflow-x: auto;
@@ -553,6 +551,8 @@
 	}
 
 	.forum-all-btn {
+		position: relative;
+		z-index: 1;
 		flex-shrink: 0;
 		display: inline-flex;
 		align-items: center;
@@ -576,20 +576,27 @@
 		padding-top: 2px;
 	}
 
-	.forum-all-btn:hover:not(.selected) {
+	.forum-all-btn:hover:not(.forum-latest-btn) {
 		background: hsl(var(--white33));
 		color: hsl(var(--white66));
 	}
 
-	.forum-all-btn.selected {
+	/* Strong gray look for Latest only — always on, independent of category chips */
+	.forum-all-btn.forum-latest-btn {
 		background: hsl(var(--gray66));
 		color: hsl(var(--white));
 	}
 
+	.forum-all-btn.forum-latest-btn:hover {
+		filter: brightness(1.08);
+	}
+
 	.forum-latest-wrap {
 		position: relative;
+		z-index: 2;
 		flex-shrink: 0;
 		margin-right: 16px;
+		pointer-events: auto;
 	}
 
 	.forum-list-viewport {
@@ -611,7 +618,7 @@
 		border-radius: 12px;
 		box-shadow: 0 8px 24px hsl(var(--black));
 		padding: 6px 0;
-		z-index: 20;
+		z-index: 50;
 	}
 
 	.forum-latest-dropdown-item {
