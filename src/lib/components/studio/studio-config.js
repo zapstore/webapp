@@ -6,7 +6,7 @@
 //
 //  Flip this when your own keypair has no published apps yet.
 // ═══════════════════════════════════════════════════════════════════════════
-export const DUMMY_MODE = true;
+export const DUMMY_MODE = false;
 
 // ── Test pubkey override ─────────────────────────────────────────────────────
 // When DUMMY_MODE is false and your own keypair has no published apps, set this
@@ -14,7 +14,7 @@ export const DUMMY_MODE = true;
 // Set to null to use the signed-in NIP-07 pubkey.
 //
 // Example: export const TEST_PUBKEY = 'npub1zapsto...';
-export const TEST_PUBKEY = 'npub1wf4pufsucer5va8g9p0rj5dnhvfeh6d8w0g6eayaep5dhps6rsgs43dgh9';
+export const TEST_PUBKEY = null;
 
 // ── Chart window ─────────────────────────────────────────────────────────────
 export const STUDIO_DAYS = 30;

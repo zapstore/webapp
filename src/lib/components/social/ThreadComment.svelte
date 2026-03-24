@@ -6,7 +6,7 @@ import { onMount } from "svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString, } from "$lib/utils/color.js";
-let { version: _version = "", pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending: _pending = false, className = "", appIconUrl: _appIconUrl = null, appName: _appName = "", appIdentifier: _appIdentifier = null, children, headerActions, } = $props();
+let { version = "", pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending: _pending = false, className = "", appIconUrl: _appIconUrl = null, appName: _appName = "", appIdentifier: _appIdentifier = null, children, headerActions, } = $props();
 let isDarkMode = $state(true);
 onMount(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -53,7 +53,12 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
             </span>
           {/if}
         </div>
-        <Timestamp {timestamp} size="xs" className="author-timestamp" />
+        <div class="author-right">
+          {#if version}
+            <span class="version-tag">v{version}</span>
+          {/if}
+          <Timestamp {timestamp} size="xs" className="author-timestamp" />
+        </div>
       </div>
       {#if headerActions}
         <div class="thread-comment-actions">
@@ -130,7 +135,23 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     opacity: 0.8;
   }
 
+  .author-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
   .author-timestamp {
+    flex-shrink: 0;
+  }
+
+  .version-tag {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: hsl(var(--white66));
+    white-space: nowrap;
+    line-height: 1.4;
     flex-shrink: 0;
   }
 

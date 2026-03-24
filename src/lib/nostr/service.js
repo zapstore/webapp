@@ -770,7 +770,7 @@ export function parseZapReceipt(event) {
  * @param {string[]} [relays] - Override relay URLs (default: SOCIAL_RELAYS)
  * @param {string[]} [mediaUrls] - Media URLs (images/videos) as 'media' tags
  */
-export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions, relays, mediaUrls) {
+export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions, relays, mediaUrls, version = null) {
 	if (!content?.trim()) throw new Error('Comment content is required');
 	if (!target?.pubkey?.trim()) throw new Error('Comment target pubkey is required');
 
@@ -787,16 +787,19 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 
 	// Root: uppercase A/E + K + P; many indexers also expect lowercase a/e + k + p for the same root.
 	// Replies: keep uppercase root tags; lowercase e/k/p refer to the immediate parent only.
+	/** Relay hint: catalog + Zapstore community events are expected on relay.zapstore.dev (NIP-22 / NIP-19). */
+	const relayHint = ZAPSTORE_RELAY;
+
 	if (isNonReplaceable) {
 		rootKind = target.kind ?? 11;
 		const eId = target.id.trim().toLowerCase();
 		tags = [
-			['E', eId],
+			['E', eId, relayHint],
 			['K', String(rootKind)],
 			['P', target.pubkey.trim().toLowerCase()]
 		];
 		if (!parentEventId) {
-			tags.push(['e', eId]);
+			tags.push(['e', eId, relayHint]);
 			tags.push(['k', String(rootKind)]);
 			tags.push(['p', target.pubkey.trim().toLowerCase()]);
 		}
@@ -809,12 +812,12 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 
 		rootKind = target.contentType === 'app' ? kind : stackKind;
 		tags = [
-			['A', aTagValue],
+			['A', aTagValue, relayHint],
 			['K', String(rootKind)],
 			['P', target.pubkey.trim().toLowerCase()]
 		];
 		if (!parentEventId) {
-			tags.push(['a', aTagValue]);
+			tags.push(['a', aTagValue, relayHint]);
 			tags.push(['k', String(rootKind)]);
 			tags.push(['p', target.pubkey.trim().toLowerCase()]);
 		}
@@ -830,7 +833,7 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 		if (!parentPubkey || !/^[a-f0-9]{64}$/.test(parentPubkey.toLowerCase())) {
 			throw new Error('replyToPubkey (parent comment author) is required when replying to a comment');
 		}
-		tags.push(['e', parentId]);
+		tags.push(['e', parentId, relayHint]);
 		tags.push(['k', String(parentKind ?? 1111)]);
 		tags.push(['p', parentPubkey.toLowerCase()]);
 	}
@@ -855,6 +858,11 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 			seenP.add(normalized);
 			tags.push(['p', normalized]);
 		}
+	}
+
+	// Version tag: only on root comments for app/stack targets (not on replies)
+	if (version && !parentEventId && !isNonReplaceable) {
+		tags.push(['v', String(version).trim()]);
 	}
 
 	const mediaList = mediaUrls ?? [];
@@ -955,7 +963,7 @@ export async function publishAddressableLabel(signEvent, params) {
 
 	const aKind = contentType === 'stack' ? EVENT_KINDS.APP_STACK : EVENT_KINDS.APP;
 	const aTagValue = `${aKind}:${pubkey.trim().toLowerCase()}:${identifier.trim()}`;
-	const relayHint = relays[0] ?? 'wss://relay.damus.io';
+	const relayHint = ZAPSTORE_RELAY;
 
 	const structured = /^(alternative|reads|writes):(.+)$/i.exec(trimmed);
 	const rest = structured?.[2]?.trim() ?? '';
@@ -1004,7 +1012,7 @@ export async function publishForumPostLabel(signEvent, params) {
 	const tags = [
 		['L', TOPIC_LABEL_NAMESPACE],
 		['l', trimmed, TOPIC_LABEL_NAMESPACE],
-		['e', id],
+		['e', id, ZAPSTORE_RELAY],
 		['h', h]
 	];
 
@@ -1032,10 +1040,10 @@ export async function publishDeletionRequest(signEvent, opts) {
 	const id = String(eventId ?? '').trim().toLowerCase();
 	if (!/^[a-f0-9]{64}$/.test(id)) throw new Error('Invalid event id');
 	const tags = [
-		['e', id],
+		['e', id, ZAPSTORE_RELAY],
 		['k', String(eventKind)]
 	];
-	if (aTagValue?.trim()) tags.push(['a', aTagValue.trim()]);
+	if (aTagValue?.trim()) tags.push(['a', aTagValue.trim(), ZAPSTORE_RELAY]);
 
 	const template = {
 		kind: 5,
@@ -1086,7 +1094,7 @@ export async function publishStack(name, description, apps, signEvent) {
 	// Add app references as 'a' tags (format: "kind:pubkey:identifier")
 	for (const app of apps) {
 		if (app?.pubkey && app?.dTag) {
-			tags.push(['a', `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`]);
+			tags.push(['a', `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`, ZAPSTORE_RELAY]);
 		}
 	}
 
@@ -1118,13 +1126,16 @@ export async function updateStackApps(stackEvent, app, action, signEvent) {
 
 	const appATag = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
 	const existingATags = stackEvent.tags.filter(t => t[0] === 'a');
+	const hintedATags = existingATags.map((t) =>
+		t[1] ? ['a', t[1], ZAPSTORE_RELAY] : t
+	);
 	let newATags;
 
 	if (action === 'add') {
 		if (existingATags.some(t => t[1] === appATag)) return stackEvent;
-		newATags = [...existingATags, ['a', appATag]];
+		newATags = [...hintedATags, ['a', appATag, ZAPSTORE_RELAY]];
 	} else if (action === 'remove') {
-		newATags = existingATags.filter(t => t[1] !== appATag);
+		newATags = hintedATags.filter(t => t[1] !== appATag);
 	} else {
 		throw new Error('Action must be "add" or "remove"');
 	}
@@ -1198,7 +1209,7 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
 	// Build app 'a' tags from the new apps list
 	for (const app of (newApps || [])) {
 		if (app?.pubkey && app?.dTag) {
-			tags.push(['a', `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`]);
+			tags.push(['a', `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`, ZAPSTORE_RELAY]);
 		}
 	}
 	
@@ -1256,8 +1267,8 @@ export async function deleteStack(stackEvent, signEvent) {
 		kind: 5,
 		content: 'Stack deleted',
 		tags: [
-			['e', stackEvent.id],
-			['a', aTagValue],
+			['e', stackEvent.id, ZAPSTORE_RELAY],
+			['a', aTagValue, ZAPSTORE_RELAY],
 			['k', String(EVENT_KINDS.APP_STACK)]
 		],
 		created_at: Math.floor(Date.now() / 1000)
@@ -1320,7 +1331,9 @@ export function parseComment(event) {
 		mediaUrls: mediaUrls || [],
 		createdAt: event.created_at,
 		parentId,
-		isReply: parentId !== null
+		isReply: parentId !== null,
+		/** Version tag from the event (set when the comment was posted on a specific app release). */
+		version: event.tags.find((t) => t[0] === 'v' && t[1])?.[1] ?? null
 	};
 }
 

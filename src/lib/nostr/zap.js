@@ -9,7 +9,7 @@ import { SimplePool } from 'nostr-tools';
 import { resolveLightningAddress, fetchInvoiceFromCallback, validateZapSupport } from '$lib/lnurl';
 import { fetchProfile } from './service';
 import { putEvents } from './dexie';
-import { DEFAULT_SOCIAL_RELAYS, SUB_PREFIX } from '$lib/config';
+import { DEFAULT_SOCIAL_RELAYS, SUB_PREFIX, ZAPSTORE_RELAY } from '$lib/config';
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 
@@ -79,14 +79,14 @@ export async function createZap(target, amountSats, comment, signEvent, emojiTag
 	if (target.id?.trim()) {
 		const eId = target.id.trim().toLowerCase();
 		if (/^[a-f0-9]{64}$/.test(eId)) {
-			tags.push(['e', eId]);
+			tags.push(['e', eId, ZAPSTORE_RELAY]);
 		}
 	}
 
 	if (target.aTag) {
-		tags.push(['a', target.aTag]);
+		tags.push(['a', target.aTag, ZAPSTORE_RELAY]);
 	} else if (target.dTag && recipientHex) {
-		tags.push(['a', `32267:${recipientHex}:${target.dTag}`]);
+		tags.push(['a', `32267:${recipientHex}:${target.dTag}`, ZAPSTORE_RELAY]);
 	}
 
 	if (emojiTags?.length) {

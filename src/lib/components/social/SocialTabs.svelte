@@ -421,7 +421,7 @@ const combinedFeed = $derived.by(() => {
                 appIconUrl={app?.icon}
                 appName={app?.name}
                 appIdentifier={app?.dTag}
-                {version}
+                version={item.version ?? ''}
                 {searchProfiles}
                 {searchEmojis}
                 signEvent={signEvent}

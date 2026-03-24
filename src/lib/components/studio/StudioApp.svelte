@@ -69,6 +69,8 @@
 	// ── App detail view ──────────────────────────────────────────────────────
 	// When set, show the app detail panel instead of the overview charts.
 	let selectedApp = $state(null);
+	/** True while the inbox thread modal is open — used to lock .content scroll. */
+	let inboxThreadOpen = $state(false);
 
 	// Header totals — derived from the same appData the charts consume.
 	const formattedTotal = $derived(dlAppData ? totalCount(dlAppData).toLocaleString('en-US') : '—');
@@ -337,12 +339,13 @@
 					onBack={() => (selectedApp = null)}
 				/>
 			{:else if activeNav === 'inbox'}
-				<!-- Inbox: comments on your apps (no header) -->
-				<section class="activity-section inbox-section">
-					<StudioAppActivity devPubkey={studioPubkey} apps={userApps} />
+				<!-- Inbox: comments on your apps. Scrolls inside .content so modals stay in viewport. -->
+				<section class="activity-section inbox-section inbox-scroll" class:scroll-locked={inboxThreadOpen}>
+					<StudioAppActivity devPubkey={studioPubkey} apps={userApps} bind:threadModalOpen={inboxThreadOpen} />
 				</section>
 			{:else}
-				<!-- Insights: downloads + zaps + placeholder for future active-discussions summary -->
+				<!-- Insights: wrap in scrollable div so .content itself stays overflow:hidden -->
+				<div class="insights-scroll">
 				<section class="content-section">
 					<div class="section-head">
 						<div class="dl-meta">
@@ -447,6 +450,7 @@
 					<span class="eyebrow-label activity-eyebrow">Activity</span>
 					<p class="activity-empty">Nothing here yet.</p>
 				</section>
+				</div><!-- /insights-scroll -->
 			{/if}
 		</div>
 	</div>
@@ -456,7 +460,9 @@
 	/* ── Outer layout ─────────────────────────────────────────────────────── */
 	.dashboard {
 		display: flex;
-		min-height: calc(100dvh - 64px);
+		height: calc(100dvh - 64px);
+		min-height: 0;
+		overflow: hidden;
 		border-left: 1px solid hsl(var(--border));
 		border-right: 1px solid hsl(var(--border));
 		margin-left: -16px;
@@ -476,6 +482,7 @@
 			border-right: none;
 			margin-left: 0;
 			margin-right: 0;
+			flex-direction: column;
 		}
 	}
 
@@ -486,12 +493,15 @@
 		padding: 12px;
 		display: flex;
 		flex-direction: column;
+		min-height: 0;
+		overflow: hidden;
 	}
 
 	.sidebar-nav {
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
+		flex-shrink: 0;
 	}
 
 	.nav-item {
@@ -539,6 +549,13 @@
 		margin-top: 16px;
 	}
 
+	/* Scroll long app lists inside fixed-height sidebar; mobile sheet uses natural height */
+	.sidebar > .apps-section {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+	}
+
 	.apps-eyebrow {
 		padding: 0 10px;
 		margin-bottom: 4px;
@@ -559,6 +576,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
+		flex-shrink: 0;
 		margin-top: auto;
 		/* Negative horizontal margins let the border bleed to full sidebar width */
 		margin-left: -12px;
@@ -683,9 +701,8 @@
 			padding-right: 12px;
 		}
 
-		/* On mobile the dashboard stacks vertically */
+		/* On mobile the dashboard stacks vertically (flex-direction set in base 767px block) */
 		.dashboard {
-			flex-direction: column;
 			overflow-x: hidden;
 			max-width: 100%;
 		}
@@ -695,9 +712,35 @@
 	.content {
 		flex: 1;
 		min-width: 0;
+		min-height: 0;
+		/* overflow:hidden + transform so position:fixed children (thread modal) are
+		   contained to this pane and never scroll with the feed */
+		overflow: hidden;
 		display: flex;
 		flex-direction: column;
 		border-left: 1px solid hsl(var(--border));
+		position: relative;
+		transform: translateZ(0);
+	}
+
+	/* Inbox section fills .content and scrolls internally */
+	.inbox-scroll {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+	}
+
+	.inbox-scroll.scroll-locked {
+		overflow-y: hidden;
+	}
+
+	/* Insights sections scroll inside their own wrapper */
+	.insights-scroll {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
 	}
 
 	@media (max-width: 767px) {
@@ -828,8 +871,9 @@
 		gap: 12px;
 	}
 
+	/* Match community /activity: list has no top padding; first row uses item padding only */
 	.inbox-section {
-		padding: 16px 20px;
+		padding: 0 20px 16px;
 	}
 
 	.activity-eyebrow {

@@ -13,18 +13,29 @@
 		queryEvents,
 		queryEvent,
 		liveQuery,
-		encodeAppNaddr
+		encodeAppNaddr,
+		parseComment,
+		publishComment
 	} from '$lib/nostr';
 	import { parseApp, parseProfile } from '$lib/nostr/models';
-	import { EVENT_KINDS } from '$lib/config';
+	import { EVENT_KINDS, DEFAULT_SOCIAL_RELAYS } from '$lib/config';
 	import { goto } from '$app/navigation';
 	import CommentCard from '$lib/components/community/CommentCard.svelte';
+	import RootComment from '$lib/components/social/RootComment.svelte';
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import { DUMMY_MODE } from './studio-config.js';
+	import { signEvent, getCurrentPubkey, getIsSignedIn } from '$lib/stores/auth.svelte.js';
+	import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
+	import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
 
 	/** @type {{ id: string, name: string, icon: string }[]} */
-	let { devPubkey = null, apps = [] } = $props();
+	let {
+		devPubkey = null,
+		apps = [],
+		/** Bindable — set to true while the thread modal is open so parent can lock its scroll. */
+		threadModalOpen = $bindable(false)
+	} = $props();
 
 	const appAddrs = $derived(
 		devPubkey && apps.length
@@ -82,7 +93,7 @@
 		if (!activityQuery) return;
 		const sub = activityQuery.subscribe({
 			next: (val) => {
-				activityComments = val ?? [];
+				activityComments = (val ?? []).filter((ev) => ev.pubkey !== devPubkey);
 				for (const ev of activityComments) {
 					resolveRootAppEvent(ev);
 					scheduleActivityProfileFetch(ev.pubkey);
@@ -196,7 +207,8 @@
 		};
 	});
 
-	function openAppForComment(aTagValue, commentId = null) {
+	/** Navigate to the app page (root label row click only). */
+	function openAppForComment(aTagValue) {
 		if (!aTagValue) return;
 		const parts = aTagValue.split(':');
 		if (parts.length < 3 || parts[0] !== String(EVENT_KINDS.APP)) return;
@@ -204,11 +216,123 @@
 		const dTag = parts.slice(2).join(':');
 		try {
 			const naddr = encodeAppNaddr(pk, dTag);
-			const base = `/apps/${naddr}`;
-			goto(commentId ? `${base}?comment=${encodeURIComponent(commentId)}` : base);
+			goto(`/apps/${naddr}`);
 		} catch {
 			/* ignore */
 		}
+	}
+
+	// ── In-feed thread modal ─────────────────────────────────────────────────
+	/** ID of the comment whose thread modal is currently open. */
+	let selectedCommentId = $state(/** @type {string | null} */ (null));
+	/** Whether the reply composer should open immediately when the thread modal mounts. */
+	let openReplyOnMount = $state(false);
+	/** Enriched replies for the open thread modal. */
+	let selectedThreadComments = $state(/** @type {any[]} */ ([]));
+
+	const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
+	const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
+
+	function openThread(commentId, withReply = false) {
+		selectedCommentId = commentId;
+		openReplyOnMount = withReply;
+		selectedThreadComments = [];
+		loadThread(commentId);
+	}
+
+	$effect(() => {
+		threadModalOpen = !!selectedCommentId;
+	});
+
+	async function loadThread(commentId) {
+		try {
+			const [lower, upper] = await Promise.all([
+				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': [commentId], limit: 200 }),
+				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': [commentId], limit: 200 })
+			]);
+			const byId = new Map();
+			for (const e of [...lower, ...upper]) byId.set(e.id, e);
+
+			// Background relay fetch
+			const { fetchFromRelays } = await import('$lib/nostr/service.js');
+			fetchFromRelays(
+				DEFAULT_SOCIAL_RELAYS,
+				{ kinds: [EVENT_KINDS.COMMENT], '#e': [commentId], limit: 200 },
+				{ timeout: 5000, feature: 'studio-thread' }
+			).then(async (evs) => {
+				for (const e of evs) byId.set(e.id, e);
+				await putEvents([...byId.values()]).catch(() => {});
+				if (selectedCommentId === commentId) {
+					await enrichAndSetThread(commentId, byId);
+				}
+			}).catch(() => {});
+
+			await enrichAndSetThread(commentId, byId);
+		} catch (err) {
+			console.error('[StudioActivity] thread load failed', err);
+		}
+	}
+
+	async function enrichAndSetThread(commentId, byIdMap) {
+		const evs = Array.from(byIdMap.values()).sort((a, b) => a.created_at - b.created_at);
+		const pks = [...new Set(evs.map((e) => e.pubkey))];
+		const profileResults = await fetchProfilesBatch(pks, { timeout: 4000 }).catch(() => new Map());
+		const profileMap = new Map();
+		for (const [pk, ev] of profileResults) {
+			if (ev?.content) {
+				try {
+					const j = JSON.parse(ev.content);
+					profileMap.set(pk, { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture });
+				} catch { /* ignore */ }
+			}
+		}
+		if (selectedCommentId !== commentId) return;
+		selectedThreadComments = evs.map((e) => {
+			const c = parseComment(e);
+			const p = profileMap.get(e.pubkey) ?? activityProfiles.get(e.pubkey);
+			let npub = '';
+			try { npub = nip19.npubEncode(e.pubkey); } catch { /* ignore */ }
+			return {
+				...c,
+				displayName: p?.displayName ?? p?.name ?? (npub ? `npub1${npub.slice(5, 8)}…${npub.slice(-6)}` : e.pubkey.slice(0, 8)),
+				avatarUrl: p?.picture ?? null,
+				profileUrl: npub ? `/profile/${npub}` : '',
+				profileLoading: false
+			};
+		});
+	}
+
+	async function handleThreadReply(rootATag, e) {
+		if (!rootATag || !e?.text?.trim()) return;
+		const parts = rootATag.split(':');
+		const appPubkey = parts[1];
+		const appDTag = parts.slice(2).join(':');
+		const signed = await publishComment(
+			e.text,
+			{ contentType: 'app', pubkey: appPubkey, identifier: appDTag },
+			signEvent,
+			e.emojiTags ?? [],
+			e.parentId ?? null,
+			e.replyToPubkey ?? null,
+			e.parentKind ?? EVENT_KINDS.COMMENT,
+			e.mentions ?? [],
+			undefined,
+			e.mediaUrls ?? []
+		);
+		const parsed = parseComment(signed);
+		let npub = '';
+		try { npub = nip19.npubEncode(signed.pubkey); } catch { /* ignore */ }
+		const profile = activityProfiles.get(signed.pubkey);
+		selectedThreadComments = [
+			...selectedThreadComments,
+			{
+				...parsed,
+				displayName: profile?.displayName ?? profile?.name ?? (npub ? `npub1${npub.slice(5, 8)}…${npub.slice(-6)}` : signed.pubkey.slice(0, 8)),
+				avatarUrl: profile?.picture ?? null,
+				profileUrl: npub ? `/profile/${npub}` : '',
+				profileLoading: false
+			}
+		];
 	}
 
 	onMount(() => {
@@ -296,31 +420,88 @@
 				}
 				return null;
 			})()}
-			<div
-				class="activity-item"
-				role="button"
-				tabindex="0"
-				onclick={() => openAppForComment(rootATag, isDeeperReply ? commentEv.id : null)}
-				onkeydown={(e) =>
-					e.key === 'Enter' && openAppForComment(rootATag, isDeeperReply ? commentEv.id : null)}
-			>
-				<CommentCard
-					event={commentEv}
-					{authorProfile}
-					{rootEvent}
-					{parentComment}
-					{parentCommentAuthor}
-					{appBadge}
-					profileUrl={authorNpub ? `/profile/${authorNpub}` : ''}
-					resolveMentionLabel={(pk) =>
-						activityProfiles.get(pk)?.displayName ??
-						activityProfiles.get(pk)?.name ??
-						pk?.slice(0, 8) ??
-						''}
-				/>
-			</div>
-		{/each}
+		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+		<div
+			class="activity-item"
+			role="button"
+			tabindex="0"
+			onclick={() => openThread(commentEv.id)}
+			onkeydown={(e) => e.key === 'Enter' && openThread(commentEv.id)}
+		>
+			<CommentCard
+				event={commentEv}
+				{authorProfile}
+				{rootEvent}
+				{parentComment}
+				{parentCommentAuthor}
+				{appBadge}
+				profileUrl={authorNpub ? `/profile/${authorNpub}` : ''}
+				resolveMentionLabel={(pk) =>
+					activityProfiles.get(pk)?.displayName ??
+					activityProfiles.get(pk)?.name ??
+					pk?.slice(0, 8) ??
+					''}
+				onRootClick={rootATag ? () => openAppForComment(rootATag) : null}
+				feedActions={{
+					onReply: () => openThread(commentEv.id, true),
+					onZap: () => openThread(commentEv.id),
+					onOptions: () => openThread(commentEv.id)
+				}}
+			/>
+		</div>
+	{/each}
 	</div>
+{/if}
+
+{#if selectedCommentId}
+	{@const _selectedEv = activityComments.find((c) => c.id === selectedCommentId)}
+	{#if _selectedEv}
+		{#key selectedCommentId}
+			{@const _aRoot = _selectedEv.tags?.find((t) => t[0] === 'A' && t[1])?.[1] ?? null}
+			{@const _appMeta = _aRoot ? appByAddr.get(_aRoot) : null}
+			{@const _authorRaw = activityProfiles.get(_selectedEv.pubkey)}
+			{@const _authorNpub = (() => { try { return nip19.npubEncode(_selectedEv.pubkey); } catch { return ''; } })()}
+			{@const _parts = _aRoot?.split(':') ?? []}
+			{@const _appPubkey = _parts[1] ?? ''}
+			{@const _appDTag = _parts.slice(2).join(':') ?? ''}
+			{@const _appNaddr = (() => { try { return _appPubkey && _appDTag ? encodeAppNaddr(_appPubkey, _appDTag) : null; } catch { return null; } })()}
+			{@const _evVersion = _selectedEv.tags?.find((t) => t[0] === 'v' && t[1])?.[1] ?? ''}
+			<RootComment
+				hideRoot={true}
+				openThreadOnMount={true}
+				openReplyOnMount={openReplyOnMount}
+				id={_selectedEv.id}
+				content={_selectedEv.content ?? ''}
+				version={_evVersion}
+				emojiTags={(_selectedEv.tags ?? []).filter((t) => t[0] === 'emoji' && t[1] && t[2]).map((t) => ({ shortcode: t[1], url: t[2] }))}
+				mediaUrls={(_selectedEv.tags ?? []).filter((t) => t[0] === 'media' && t[1]).map((t) => t[1])}
+				pictureUrl={_authorRaw?.picture ?? null}
+				name={_authorRaw?.displayName ?? _authorRaw?.name ?? ''}
+				pubkey={_selectedEv.pubkey}
+				timestamp={_selectedEv.created_at}
+				profileUrl={_authorNpub ? `/profile/${_authorNpub}` : ''}
+				threadComments={selectedThreadComments}
+				threadZaps={[]}
+				appIconUrl={_appMeta?.icon ?? null}
+				appName={_appMeta?.name ?? ''}
+				appIdentifier={_appMeta?.id ?? _appDTag}
+				rootContext={_appMeta || _appNaddr
+					? {
+							label: _appMeta?.name ?? _appDTag,
+							iconUrl: _appMeta?.icon ?? null,
+							href: _appNaddr ? `/apps/${_appNaddr}` : ''
+						}
+					: null}
+				onModalClose={() => { selectedCommentId = null; selectedThreadComments = []; }}
+				{signEvent}
+				{searchProfiles}
+				{searchEmojis}
+				onReplySubmit={_aRoot ? (e) => handleThreadReply(_aRoot, e) : undefined}
+				onZapReceived={() => {}}
+				onGetStarted={() => {}}
+			/>
+		{/key}
+	{/if}
 {/if}
 
 <style>

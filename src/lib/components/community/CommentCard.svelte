@@ -9,6 +9,7 @@ import AppPic from '$lib/components/common/AppPic.svelte';
 import Timestamp from '$lib/components/common/Timestamp.svelte';
 import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
 import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
+import CommentBubbleActionRail from '$lib/components/social/CommentBubbleActionRail.svelte';
 import { getEventOneliner } from '$lib/nostr/models.js';
 import { hexToColor, getProfileTextColor, rgbToCssString } from '$lib/utils/color.js';
 import { onMount } from 'svelte';
@@ -32,7 +33,18 @@ let {
 	 * When set, shows an app icon in the top badge instead of the root emoji (e.g. studio activity).
 	 * @type {{ iconUrl?: string | null, name?: string | null, identifier?: string | null } | null}
 	 */
-	appBadge = null
+	appBadge = null,
+	/**
+	 * Hover action rail (Reply / Zap / Options). All three open the in-feed thread modal.
+	 * @type {{ onReply?: () => void, onZap?: () => void, onOptions?: () => void } | null}
+	 */
+	feedActions = null,
+	/**
+	 * Called when the root-label-row (app/forum post name) is clicked.
+	 * Only this row navigates; clicking the bubble calls feedActions handlers instead.
+	 * @type {(() => void) | null}
+	 */
+	onRootClick = null
 } = $props();
 
 const isReply = $derived.by(() => {
@@ -144,40 +156,93 @@ const contentText = $derived(event?.content ?? '');
 
 	<div class="right-col">
 		<div class="root-label-row">
-			<span class="root-label">{rootOneliner.label}</span>
+			{#if onRootClick}
+				<button
+					type="button"
+					class="root-label root-label-link"
+					onclick={(e) => { e.stopPropagation(); onRootClick(); }}
+				>{rootOneliner.label}</button>
+			{:else}
+				<span class="root-label">{rootOneliner.label}</span>
+			{/if}
 		</div>
 
-		<div class="bubble" class:bubble--quoted={showQuote}>
-			<div class="bubble-header">
-				{#if profileUrl}
-					<a href={profileUrl} class="author-name" style="color: {nameColorStyle};"
-						>{displayName}</a
-					>
-				{:else}
-					<span class="author-name" style="color: {nameColorStyle};">{displayName}</span>
-				{/if}
-				<Timestamp timestamp={event?.created_at} size="xs" />
-			</div>
+		{#if feedActions}
+			<div class="bubble-with-rail desktop-bubble-actions-target">
+				<div class="bubble-stack">
+					<div class="bubble" class:bubble--quoted={showQuote}>
+						<div class="bubble-header">
+							{#if profileUrl}
+								<a href={profileUrl} class="author-name" style="color: {nameColorStyle};"
+									>{displayName}</a
+								>
+							{:else}
+								<span class="author-name" style="color: {nameColorStyle};">{displayName}</span>
+							{/if}
+							<Timestamp timestamp={event?.created_at} size="xs" />
+						</div>
 
-			{#if showQuote}
-				<div class="quote-wrap">
-					<QuotedMessage
-						authorName={parentDisplayName || 'Anonymous'}
-						authorPubkey={parentComment?.pubkey ?? null}
-						contentPreview={parentContentPreview}
+						{#if showQuote}
+							<div class="quote-wrap">
+								<QuotedMessage
+									authorName={parentDisplayName || 'Anonymous'}
+									authorPubkey={parentComment?.pubkey ?? null}
+									contentPreview={parentContentPreview}
+								/>
+							</div>
+						{/if}
+
+						<div class="bubble-content">
+							<ShortTextContent
+								content={contentText}
+								{emojiTags}
+								mediaUrls={mediaUrls}
+								{resolveMentionLabel}
+							/>
+						</div>
+					</div>
+				</div>
+				<div class="bubble-action-rail-host">
+					<CommentBubbleActionRail
+						onReply={() => feedActions?.onReply?.()}
+						onZap={() => feedActions?.onZap?.()}
+						onOptions={() => feedActions?.onOptions?.()}
 					/>
 				</div>
-			{/if}
-
-			<div class="bubble-content">
-				<ShortTextContent
-					content={contentText}
-					{emojiTags}
-					mediaUrls={mediaUrls}
-					{resolveMentionLabel}
-				/>
 			</div>
-		</div>
+		{:else}
+			<div class="bubble" class:bubble--quoted={showQuote}>
+				<div class="bubble-header">
+					{#if profileUrl}
+						<a href={profileUrl} class="author-name" style="color: {nameColorStyle};"
+							>{displayName}</a
+						>
+					{:else}
+						<span class="author-name" style="color: {nameColorStyle};">{displayName}</span>
+					{/if}
+					<Timestamp timestamp={event?.created_at} size="xs" />
+				</div>
+
+				{#if showQuote}
+					<div class="quote-wrap">
+						<QuotedMessage
+							authorName={parentDisplayName || 'Anonymous'}
+							authorPubkey={parentComment?.pubkey ?? null}
+							contentPreview={parentContentPreview}
+						/>
+					</div>
+				{/if}
+
+				<div class="bubble-content">
+					<ShortTextContent
+						content={contentText}
+						{emojiTags}
+						mediaUrls={mediaUrls}
+						{resolveMentionLabel}
+					/>
+				</div>
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -284,6 +349,39 @@ const contentText = $derived(event?.content ?? '');
 		overflow: hidden;
 		text-overflow: ellipsis;
 		min-width: 0;
+	}
+
+	.root-label-link {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0;
+		text-align: left;
+	}
+
+	.root-label-link:hover {
+		color: hsl(var(--foreground));
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	/* Match MessageBubble + CommentBubbleActionRail (RootComment feed) */
+	.bubble-with-rail {
+		display: flex;
+		align-items: flex-end;
+		gap: 12px;
+		min-width: 0;
+		max-width: 100%;
+	}
+
+	.bubble-stack {
+		min-width: 0;
+		flex: 1;
+	}
+
+	.bubble-action-rail-host {
+		flex-shrink: 0;
+		align-self: flex-end;
 	}
 
 	.bubble {

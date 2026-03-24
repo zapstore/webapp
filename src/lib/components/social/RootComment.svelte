@@ -24,8 +24,20 @@ import { Zap, Reply, Options } from "$lib/components/icons";
 import { SvelteSet, SvelteMap } from "svelte/reactivity";
 import { getIsSignedIn, getCurrentPubkey } from "$lib/stores/auth.svelte.js";
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
-let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], /** @type {string[]} */ mediaUrls = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, onReplySubmit, onZapReceived, onGetStarted, /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
-    openThreadOnMount = false, } = $props();
+let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], /** @type {string[]} */ mediaUrls = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, onReplySubmit, onZapReceived, onGetStarted,     /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
+    openThreadOnMount = false,
+    /** When true, also open the reply composer immediately when the modal mounts. */
+    openReplyOnMount = false,
+    /** When true, the feed-level bubble/rail is hidden; only the thread Modal is rendered. */
+    hideRoot = false,
+    /**
+     * Optional context banner shown at the top of the thread modal (app or forum post this comment is on).
+     * @type {{ label: string, iconUrl?: string | null, href: string } | null}
+     */
+    rootContext = null,
+    /** Called when the thread modal closes (backdrop tap or programmatic close). */
+    onModalClose = null,
+} = $props();
 let lightboxOpen = $state(false);
 let lightboxUrls = $state([]);
 let lightboxIndex = $state(0);
@@ -321,7 +333,19 @@ $effect(() => {
     }
 });
 $effect(() => {
-    if (openThreadOnMount) modalOpen = true;
+    if (openThreadOnMount) {
+        modalOpen = true;
+        if (openReplyOnMount) commentExpanded = true;
+    }
+});
+// Track first open so onModalClose fires when modal closes (but not on initial false state).
+let _didOpen = openThreadOnMount;
+$effect(() => {
+    if (modalOpen) {
+        _didOpen = true;
+    } else if (_didOpen) {
+        onModalClose?.();
+    }
 });
 function handleZapReceived(event) {
     onZapReceived?.(event);
@@ -359,6 +383,7 @@ function handleOptions() {
   />
 {/snippet}
 
+{#if !hideRoot}
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div
   class="root-comment {className}"
@@ -437,6 +462,7 @@ function handleOptions() {
     </div>
   {/if}
 </div>
+{/if}
 
 <Modal
   bind:open={modalOpen}
@@ -449,6 +475,24 @@ function handleOptions() {
   <div class="thread-content-wrap" class:child-modal-open={childModalOpen}>
       <div class="thread-modal-child-overlay" aria-hidden="true"></div>
       <div class="thread-content">
+      {#if rootContext}
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <a
+          href={rootContext.href}
+          class="thread-root-context"
+          onclick={(e) => { e.stopPropagation(); modalOpen = false; }}
+        >
+          {#if rootContext.iconUrl}
+            <img src={rootContext.iconUrl} alt="" class="thread-root-context-icon" />
+          {:else}
+            <span class="thread-root-context-emoji" aria-hidden="true">💬</span>
+          {/if}
+          <span class="thread-root-context-label">{rootContext.label}</span>
+          <svg class="thread-root-context-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </a>
+      {/if}
       <div class="thread-root">
         <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
         <div
@@ -810,6 +854,51 @@ function handleOptions() {
     flex-direction: column;
     flex: 1;
     min-height: 0;
+  }
+
+  .thread-root-context {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid hsl(var(--border));
+    text-decoration: none;
+    color: hsl(var(--white66));
+    font-size: 0.8125rem;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+
+  .thread-root-context:hover {
+    background: hsl(var(--foreground) / 0.025);
+  }
+
+  .thread-root-context-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  .thread-root-context-emoji {
+    font-size: 20px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .thread-root-context-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .thread-root-context-chevron {
+    flex-shrink: 0;
+    opacity: 0.5;
   }
 
   .thread-root {

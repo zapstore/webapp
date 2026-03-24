@@ -525,7 +525,8 @@
 				parentKind,
 				event.mentions,
 				undefined,
-				submitMediaUrls
+				submitMediaUrls,
+				parentId ? null : (latestRelease?.version ?? null)
 			);
 			const parsed = parseComment(signed);
 			parsed.npub = nip19.npubEncode(signed.pubkey);

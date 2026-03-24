@@ -14,6 +14,12 @@
 		}, 222);
 	}
 
+	/** Avoid double-toggle when nested inside another clickable (e.g. row + checkbox both call the same handler). */
+	function handleClick(/** @type {MouseEvent} */ e) {
+		e.stopPropagation();
+		toggle();
+	}
+
 	$effect(() => {
 		if (!animating) {
 			animChecked = checked;
@@ -27,7 +33,7 @@
 	class:checked={animChecked}
 	class:animating
 	disabled={disabled}
-	onclick={toggle}
+	onclick={handleClick}
 	aria-checked={animChecked}
 	aria-label={ariaLabel}
 	role="checkbox"
