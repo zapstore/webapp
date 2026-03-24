@@ -494,8 +494,8 @@
 	}
 
 	/*
-	 * 4-up mobile: default overlap matches original when there is plenty of width
-	 * (e.g. tablet portrait). Tighten only on narrow phones where the pill would wrap.
+	 * 4-up mobile: default overlap when there is plenty of width (e.g. tablet portrait).
+	 * Tighten only on narrow phones where the pill would wrap.
 	 */
 	@media (max-width: 639px) {
 		.hero-browse-pic-wrap.hero-browse-pic-not-first {

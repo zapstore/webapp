@@ -649,6 +649,7 @@ function handleOptions() {
                 bind:this={replyInput}
                 placeholder="Comment on {replyingToComment?.displayName ?? name ?? 'this'}"
                 size="medium"
+                getCurrentPubkey={getCurrentPubkey}
                 {searchProfiles}
                 {searchEmojis}
                 autoFocus={true}

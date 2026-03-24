@@ -2,13 +2,14 @@
 /**
  * EmojiPickerModal - Full emoji picker rendered as a stacked bottom sheet.
  * Opens on top of ForumPostModal (z-index 60) without its own dark backdrop.
- * All custom emojis first (no per-category cap), then all unicode — flat grid,
- * no section headers. Filtering collapses both into one sorted list.
+ * Unicode grid shows immediately; while custom emoji load (signed-in), a slim
+ * black33 row shows "Loading custom emoji…" and custom rows prepend when ready.
  */
 import { fly } from 'svelte/transition';
 import { cubicOut } from 'svelte/easing';
 import { Search } from 'lucide-svelte';
 import EmojiItem from '$lib/components/common/EmojiItem.svelte';
+import Spinner from '$lib/components/common/Spinner.svelte';
 import { UNICODE_EMOJIS, getEmojiSearch } from '$lib/services/emoji-search';
 
 let {
@@ -35,19 +36,29 @@ $effect(() => {
 	if (!isOpen) {
 		query = '';
 		customEmojis = [];
+		loading = false;
 		return;
 	}
-	loading = true;
 	const pubkey = getCurrentPubkey();
+	loading = !!pubkey;
+	let cancelled = false;
 	const service = getEmojiSearch(pubkey ?? null);
-	service.getCustom().then((/** @type {{ shortcode: string; url: string; source: string }[]} */ results) => {
-		customEmojis = results;
-		loading = false;
-	}).catch(() => {
-		loading = false;
-	});
+	service
+		.getCustom()
+		.then((/** @type {{ shortcode: string; url: string; source: string }[]} */ results) => {
+			if (cancelled) return;
+			customEmojis = results;
+			loading = false;
+		})
+		.catch(() => {
+			if (cancelled) return;
+			loading = false;
+		});
 	const t = setTimeout(() => searchInputEl?.focus(), 80);
-	return () => clearTimeout(t);
+	return () => {
+		cancelled = true;
+		clearTimeout(t);
+	};
 });
 
 /** Flat merged list: custom first, unicode after. Filtered by query when set. */
@@ -56,6 +67,8 @@ const displayEmojis = $derived.by(() => {
 	if (!q) return [...customEmojis, ...unicodeItems];
 	return [...customEmojis, ...unicodeItems].filter((e) => e.shortcode.includes(q));
 });
+
+const showCustomEmojiLoadingRow = $derived(loading && !!getCurrentPubkey());
 
 function selectEmoji(/** @type {{ shortcode: string; url: string; source: string }} */ emoji) {
 	onSelectEmoji?.(emoji);
@@ -99,13 +112,13 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 			</div>
 
 			<div class="picker-body">
-				{#if loading}
-					<div class="emoji-grid">
-						{#each { length: 30 } as _}
-							<span class="picker-skeleton-item"></span>
-						{/each}
+				{#if showCustomEmojiLoadingRow}
+					<div class="custom-emoji-loading-banner" role="status" aria-live="polite">
+						<Spinner size={14} color="hsl(var(--white33))" />
+						<span class="custom-emoji-loading-text">Loading custom emoji...</span>
 					</div>
-				{:else if displayEmojis.length === 0}
+				{/if}
+				{#if displayEmojis.length === 0}
 					<p class="picker-empty">No emoji found for "{query}"</p>
 				{:else}
 					<div class="emoji-grid">
@@ -215,6 +228,28 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		font-size: 16px;
 	}
 
+	.custom-emoji-loading-banner {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		width: 100%;
+		min-height: 32px;
+		padding: 6px 12px;
+		margin-bottom: 6px;
+		box-sizing: border-box;
+		background: hsl(var(--black33));
+		border: none;
+		border-radius: 16px;
+		flex-shrink: 0;
+	}
+
+	.custom-emoji-loading-text {
+		font-size: 13px;
+		font-weight: 500;
+		color: hsl(var(--white33));
+	}
+
 	.picker-body {
 		flex: 1;
 		min-height: 0;
@@ -238,25 +273,6 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
 		gap: 2px;
 		padding-top: 4px;
-	}
-
-	.picker-skeleton-item {
-		width: 36px;
-		height: 36px;
-		border-radius: 6px;
-		background: linear-gradient(
-			90deg,
-			hsl(var(--white8)) 25%,
-			hsl(var(--white16)) 50%,
-			hsl(var(--white8)) 75%
-		);
-		background-size: 200% 100%;
-		animation: picker-shimmer 1.4s ease infinite;
-	}
-
-	@keyframes picker-shimmer {
-		0% { background-position: 200% 0; }
-		100% { background-position: -200% 0; }
 	}
 
 	.picker-empty {

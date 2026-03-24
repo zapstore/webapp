@@ -24,8 +24,8 @@ export const DISCOVER_STACKS_INITIAL = 8;
 export const SHOW_STUDIO_SIGNED_IN_DASHBOARD = false;
 
 /**
- * Community sidebar/tabs: when true, Forum + Blog + Activity (default landing `/community/forum`).
- * When false, Support + Blog only; Activity hidden; landing `/community/support`. Forum URLs still work if bookmarked.
+ * Community sidebar/tabs: when true, Forum + Activity (default landing `/community/forum`).
+ * When false, Support only; Activity hidden; landing `/community/support`. Forum URLs still work if bookmarked.
  */
 export const COMMUNITY_FORUM_AND_ACTIVITY_ENABLED = false;
 

@@ -13,10 +13,11 @@ import "tippy.js/dist/tippy.css";
 import { MediaBlockExtension } from "$lib/tiptap/media-block.js";
 import { NostrRefBlockExtension } from "$lib/tiptap/nostr-ref-block.js";
 import { hexToColor, rgbToCssString, getProfileTextColor } from "$lib/utils/color.js";
+import { getEmojiSearch } from "$lib/services/emoji-search.js";
 import * as nip19 from "nostr-tools/nip19";
 import { Camera, EmojiFill, Plus, Send, ChevronDown, Cross } from "$lib/components/icons";
 import { SvelteSet } from "svelte/reactivity";
-let { placeholder = "Write something...", searchProfiles = async () => [], searchEmojis = async () => [], autoFocus = false, size = "small", className = "", showActionRow = true, onCameraTap = () => { }, onEmojiTap = () => { }, onAddTap = () => { }, onChevronTap: _onChevronTap = () => { }, onchange, onsubmit, allowEmptySubmit = false, onClose, showCloseWhen = 'always', aboveEditor, } = $props();
+let { placeholder = "Write something...", searchProfiles = async () => [], searchEmojis = async () => [], getCurrentPubkey = () => null, autoFocus = false, size = "small", className = "", showActionRow = true, onCameraTap = () => { }, onEmojiTap = () => { }, onAddTap = () => { }, onChevronTap: _onChevronTap = () => { }, onchange, onsubmit, allowEmptySubmit = false, onClose, showCloseWhen = 'always', aboveEditor, } = $props();
 /** Getters so suggestion plugins always receive current search functions (called when editor is created in onMount). */
 function getSearchProfiles() { return searchProfiles; }
 function getSearchEmojis() { return searchEmojis; }
@@ -56,7 +57,9 @@ function checkScrollable() {
     }
 }
 const SPINNER_SVG = '<svg class="suggestion-tab-spinner-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="hsl(0 0% 100% / 0.44)" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke-dasharray="47.12 15.71" class="suggestion-tab-spinner-arc"/></svg>';
-function updateSuggestionContent(container, type, items, selected, command, isSelectionOnlyUpdate = false, onSelectIndex = null, listOnly = false) {
+/** Same stroke weight as Spinner.svelte; prepended above emoji grid while custom emoji init runs. */
+const CUSTOM_EMOJI_LOADING_ROW_HTML = `<div class="suggestion-emoji-custom-loading" role="status" aria-live="polite">${SPINNER_SVG}<span class="suggestion-emoji-custom-loading-text">Loading custom emoji...</span></div>`;
+function updateSuggestionContent(container, type, items, selected, command, isSelectionOnlyUpdate = false, onSelectIndex = null, listOnly = false, prefixHtml = "") {
     if (!container)
         return;
     if (isSelectionOnlyUpdate) {
@@ -122,7 +125,7 @@ function updateSuggestionContent(container, type, items, selected, command, isSe
     })
         .join("");
     const wrapperClass = listOnly ? `suggestion-list suggestion-list-${type}` : `suggestion-menu suggestion-menu-${type}`;
-    container.innerHTML = `<div class="${wrapperClass}">${itemsHtml}</div>`;
+    container.innerHTML = `${prefixHtml}<div class="${wrapperClass}">${itemsHtml}</div>`;
     container.querySelectorAll(".suggestion-item").forEach((btn, idx) => {
         btn.addEventListener("click", () => command(items[idx]));
         btn.addEventListener("mouseenter", () => {
@@ -345,7 +348,7 @@ const EmojiNode = Node.create({
         };
     },
 });
-function createEmojiExtension(getSearchEmojisFn) {
+function createEmojiExtension(getSearchEmojisFn, getCurrentPubkeyFn) {
     return EmojiNode.extend({
         addProseMirrorPlugins() {
             return [
@@ -380,6 +383,8 @@ function createEmojiExtension(getSearchEmojisFn) {
                             activeTab: "emoji",
                             emojiLoading: true,
                             emojiItems: [],
+                            /** True while kind 10030/30030 init is in flight for signed-in user (show banner + unicode). */
+                            customEmojiInitPending: false,
                             gifItems: [],
                             gifLoading: false,
                             gifLoaded: false,
@@ -402,21 +407,38 @@ function createEmojiExtension(getSearchEmojisFn) {
                         function refreshEmojiPopupContent() {
                             if (!contentDiv)
                                 return;
-                            const loading = state.activeTab === "emoji" ? state.emojiLoading && state.emojiItems.length === 0 : state.gifLoading && state.gifItems.length === 0;
                             const items = state.activeTab === "emoji" ? state.emojiItems : state.gifItems;
                             const type = state.activeTab === "emoji" ? "emoji" : "gif";
-                            if (loading) {
+                            if (state.activeTab === "gifs") {
+                                const gifLoading = state.gifLoading && state.gifItems.length === 0;
+                                if (gifLoading) {
+                                    contentDiv.innerHTML = `<div class="suggestion-menu-empty"><span class="suggestion-empty-text">Loading…</span></div>`;
+                                    return;
+                                }
+                                if (items.length === 0) {
+                                    contentDiv.innerHTML = `<div class="suggestion-menu-empty"><span class="suggestion-empty-text">GIFs coming soon</span></div>`;
+                                    return;
+                                }
+                                if (!state.command)
+                                    return;
+                                const onSelectIndexGifs = (idx) => { state.selectedIndex = idx; };
+                                updateSuggestionContent(contentDiv, type, items, state.selectedIndex, state.command, false, onSelectIndexGifs, true, "");
+                                return;
+                            }
+                            const emojiStillEmpty = state.emojiLoading && state.emojiItems.length === 0;
+                            if (emojiStillEmpty) {
                                 contentDiv.innerHTML = `<div class="suggestion-menu-empty"><span class="suggestion-empty-text">Loading…</span></div>`;
                                 return;
                             }
                             if (items.length === 0) {
-                                contentDiv.innerHTML = `<div class="suggestion-menu-empty"><span class="suggestion-empty-text">${state.activeTab === "gifs" ? "GIFs coming soon" : "No emojis found"}</span></div>`;
+                                contentDiv.innerHTML = `<div class="suggestion-menu-empty"><span class="suggestion-empty-text">No emojis found</span></div>`;
                                 return;
                             }
                             if (!state.command)
                                 return;
                             const onSelectIndex = (idx) => { state.selectedIndex = idx; };
-                            updateSuggestionContent(contentDiv, type, items, state.selectedIndex, state.command, false, onSelectIndex, true);
+                            const prefix = state.customEmojiInitPending ? CUSTOM_EMOJI_LOADING_ROW_HTML : "";
+                            updateSuggestionContent(contentDiv, type, items, state.selectedIndex, state.command, false, onSelectIndex, true, prefix);
                         }
                         function refreshEmojiPopupFull() {
                             updateEmojiTabButtons(btnEmoji, btnGifs, state);
@@ -430,6 +452,8 @@ function createEmojiExtension(getSearchEmojisFn) {
                                 state.lastQuery = props.query ?? "";
                                 state.emojiLoading = true;
                                 state.emojiItems = [];
+                                const pk = getCurrentPubkeyFn?.() ?? null;
+                                state.customEmojiInitPending = !!pk;
                                 container = document.createElement("div");
                                 container.className = "suggestion-container";
                                 menuBox = document.createElement("div");
@@ -453,6 +477,19 @@ function createEmojiExtension(getSearchEmojisFn) {
                                 btnGifs.addEventListener("click", (e) => { e.stopPropagation(); state.onTabChange("gifs"); });
                                 updateEmojiTabButtons(btnEmoji, btnGifs, state);
                                 refreshEmojiPopupContent();
+                                if (pk) {
+                                    getEmojiSearch(pk).whenInitComplete().then(() => {
+                                        state.customEmojiInitPending = false;
+                                        const q = (state.lastQuery ?? "").trim();
+                                        return getSearchEmojisFn()(q);
+                                    }).then((results) => {
+                                        state.emojiItems = (results ?? []).slice(0, 12);
+                                        refreshEmojiPopupContent();
+                                    }).catch(() => {
+                                        state.customEmojiInitPending = false;
+                                        refreshEmojiPopupContent();
+                                    });
+                                }
                                 getSearchEmojisFn()("").then((results) => {
                                     state.emojiItems = (results ?? []).slice(0, 12);
                                     state.emojiLoading = false;
@@ -461,6 +498,7 @@ function createEmojiExtension(getSearchEmojisFn) {
                                 }).catch(() => {
                                     state.emojiLoading = false;
                                     state.emojiItems = [];
+                                    state.customEmojiInitPending = false;
                                     updateEmojiTabButtons(btnEmoji, btnGifs, state);
                                     refreshEmojiPopupContent();
                                 });
@@ -671,7 +709,7 @@ onMount(() => {
                 },
                 renderLabel: ({ node }) => `@${node.attrs.label}`,
             }),
-            createEmojiExtension(getSearchEmojis),
+            createEmojiExtension(getSearchEmojis, () => getCurrentPubkey()),
             MediaBlockExtension,
             NostrRefBlockExtension,
         ],
@@ -1277,6 +1315,24 @@ export { getContent, getSerializedContent, isEmpty };
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  :global(.suggestion-popup-content .suggestion-emoji-custom-loading) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 12px;
+    box-sizing: border-box;
+    border-bottom: 0.33px solid hsl(var(--white8));
+    flex-shrink: 0;
+  }
+  :global(.suggestion-emoji-custom-loading .suggestion-tab-spinner-svg) {
+    flex-shrink: 0;
+  }
+  :global(.suggestion-emoji-custom-loading-text) {
+    font-size: 13px;
+    color: hsl(var(--white66));
   }
   :global(.suggestion-menu-emoji) {
     min-width: 220px;

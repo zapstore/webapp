@@ -13,11 +13,45 @@ import { liveQuery } from 'dexie';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { putEvents, queryEvents } from '$lib/nostr/dexie';
 import { parseApp, parseAppStack } from '$lib/nostr/models';
-import { fetchAppFromRelays } from '$lib/nostr/service';
+import { fetchFromRelays } from '$lib/nostr/service';
 import { EVENT_KINDS, PLATFORM_FILTER, ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG } from '$lib/config';
 import { STACKS_PAGE_SIZE } from '$lib/constants';
 
 const platformTag = PLATFORM_FILTER['#f']?.[0];
+
+// ============================================================================
+// Reactive app-icon fill — deduped, self-healing
+// ============================================================================
+
+/**
+ * Keys (pubkey:identifier) that have already been dispatched to the relay.
+ * Prevents duplicate fetches across multiple liveQuery re-runs.
+ * Module-scoped so it persists for the lifetime of the page session.
+ */
+const fetchedRefs = new Set();
+
+/**
+ * Fire-and-forget: fetch the given app refs from relay.
+ * fetchFromRelays already writes to Dexie internally, so liveQuery re-fires
+ * automatically once events arrive — no manual putEvents needed here.
+ *
+ * @param {Array<{pubkey: string, identifier: string}>} refs
+ */
+async function fetchMissingApps(refs) {
+	if (typeof window === 'undefined' || !navigator.onLine) return;
+	const events = await fetchFromRelays(
+		[ZAPSTORE_RELAY],
+		{
+			kinds: [EVENT_KINDS.APP],
+			authors: [...new Set(refs.map((r) => r.pubkey))],
+			'#d': [...new Set(refs.map((r) => r.identifier))],
+			...PLATFORM_FILTER,
+			limit: refs.length + 5
+		},
+		{ feature: 'stack-preview-fill' }
+	);
+	return events;
+}
 
 // ============================================================================
 // Reactive State (pagination/UI only — data comes from liveQuery)
@@ -103,29 +137,97 @@ export function createStacksQuery() {
 			}
 		}
 
-		// Resolve each stack's apps (preview: first 4 only)
-	return stacks.map((stack) => {
-		const apps = [];
-		if (stack.appRefs) {
-			const previewRefs = stack.appRefs
-				.filter((r) => r.kind === EVENT_KINDS.APP)
-				.slice(0, 4);
-			for (const ref of previewRefs) {
-				const key = `${ref.pubkey}:${ref.identifier}`;
-				const appEvent = appsByKey.get(key);
-				if (appEvent) {
-					apps.push(parseApp(appEvent));
+		// Resolve each stack's apps (preview: first 4 only).
+		// Collect any refs that didn't resolve so we can backfill them from relay.
+		const unresolvedRefs = [];
+		const result = stacks.map((stack) => {
+			const apps = [];
+			if (stack.appRefs) {
+				const previewRefs = stack.appRefs
+					.filter((r) => r.kind === EVENT_KINDS.APP)
+					.slice(0, 4);
+				for (const ref of previewRefs) {
+					const key = `${ref.pubkey}:${ref.identifier}`;
+					const appEvent = appsByKey.get(key);
+					if (appEvent) {
+						apps.push(parseApp(appEvent));
+					} else if (!fetchedRefs.has(key)) {
+						// Not in Dexie and not yet fetched — queue for backfill
+						fetchedRefs.add(key);
+						unresolvedRefs.push(ref);
+					}
 				}
 			}
+			return { stack, apps };
+		});
+
+		// Backfill unresolved refs in background; fetchFromRelays writes to Dexie
+		// which re-triggers this liveQuery automatically.
+		if (unresolvedRefs.length > 0) {
+			fetchMissingApps(unresolvedRefs).catch(() => {});
 		}
-		return { stack, apps };
-	});
+
+		return result;
 	});
 }
 
 // ============================================================================
 // Actions — write to Dexie, liveQuery handles the rest
 // ============================================================================
+
+/**
+ * Batch-fetch missing preview app icons for a set of stack events.
+ * Collects all unique preview refs (first 4 per stack), checks Dexie in one
+ * query, then fetches any still-missing ones in a single relay request.
+ * No N+1 queries.
+ *
+ * @param {object[]} stackEvents - raw kind 30267 events
+ * @param {string[]} relayUrls
+ */
+async function fillMissingPreviewApps(stackEvents, relayUrls) {
+	// Collect all unique preview refs across all stacks
+	const allRefs = new Map(); // key → ref
+	for (const ev of stackEvents) {
+		if (ev.kind !== EVENT_KINDS.APP_STACK) continue;
+		const stack = parseAppStack(ev);
+		if (!stack?.appRefs) continue;
+		const previewRefs = stack.appRefs
+			.filter((r) => r.kind === EVENT_KINDS.APP && r.pubkey && r.identifier)
+			.slice(0, 4);
+		for (const ref of previewRefs) {
+			const key = `${ref.pubkey}:${ref.identifier}`;
+			if (!allRefs.has(key)) allRefs.set(key, ref);
+		}
+	}
+	if (allRefs.size === 0) return;
+
+	// Single Dexie batch check — must use same platform filter as createStacksQuery so we
+	// don't skip the relay fetch for refs that exist in Dexie without the platform tag.
+	const allIdentifiers = [...new Set([...allRefs.values()].map((r) => r.identifier))];
+	const existing = await queryEvents({
+		kinds: [EVENT_KINDS.APP],
+		'#d': allIdentifiers,
+		...(platformTag ? { '#f': [platformTag] } : {}),
+		limit: allRefs.size * 2 + 20
+	});
+	const existingKeys = new Set(
+		existing.map((e) => {
+			const dTag = e.tags?.find((t) => t[0] === 'd')?.[1] ?? '';
+			return `${e.pubkey}:${dTag}`;
+		})
+	);
+
+	// Only fetch refs that haven't already been scheduled by the reactive fill
+	const missing = [...allRefs.values()].filter(
+		(r) => !existingKeys.has(`${r.pubkey}:${r.identifier}`) && !fetchedRefs.has(`${r.pubkey}:${r.identifier}`)
+	);
+	if (missing.length === 0) return;
+
+	// Mark as fetched before dispatching so reactive fill doesn't double-fetch
+	for (const r of missing) fetchedRefs.add(`${r.pubkey}:${r.identifier}`);
+
+	await fetchMissingApps(missing).catch(() => {});
+}
 
 /**
  * Seed events into Dexie and initialize pagination cursor.
@@ -151,42 +253,11 @@ export function seedStackEvents(events) {
 			}
 		}
 
-		const p = putEvents(publicEvents).catch((err) =>
-			console.error('[StacksStore] Seed persist failed:', err)
-		);
-		// Fill in missing preview app refs in background so stack cards show icons (first 4 only)
-		(async () => {
-			const relayUrls = [ZAPSTORE_RELAY];
-			const seen = new SvelteSet();
-			for (const ev of publicEvents) {
-				if (ev.kind !== EVENT_KINDS.APP_STACK) continue;
-				const stack = parseAppStack(ev);
-				if (!stack?.appRefs) continue;
-				const previewRefs = stack.appRefs
-					.filter((r) => r.kind === EVENT_KINDS.APP && r.pubkey && r.identifier)
-					.slice(0, 4);
-				for (const ref of previewRefs) {
-					const key = `${ref.pubkey}:${ref.identifier}`;
-					if (seen.has(key)) continue;
-					seen.add(key);
-					try {
-						const existing = await queryEvents({
-							kinds: [EVENT_KINDS.APP],
-							authors: [ref.pubkey],
-							'#d': [ref.identifier],
-							limit: 1
-						});
-						if (existing.length === 0) {
-							const appEv = await fetchAppFromRelays(relayUrls, ref.pubkey, ref.identifier);
-							if (appEv) await putEvents([appEv]).catch(() => {});
-						}
-					} catch {
-						// ignore
-					}
-				}
-			}
-		})();
-		return p;
+		// Write seed events first, then fill missing app icons so the Dexie check
+		// is accurate (seed app events are already present before the check runs).
+		putEvents(publicEvents)
+			.then(() => fillMissingPreviewApps(publicEvents, [ZAPSTORE_RELAY]))
+			.catch((err) => console.error('[StacksStore] Seed persist failed:', err));
 	}
 	return Promise.resolve();
 }
@@ -226,36 +297,8 @@ export async function loadMoreStacks(fetchFromRelays, relayUrls) {
 			const lastEvent = publicEvents[publicEvents.length - 1];
 			cursor = lastEvent.created_at - 1;
 			hasMore = publicEvents.length >= STACKS_PAGE_SIZE;
-			// Fetch missing preview app refs in background so stack cards fill in (first 4 only)
-			(async () => {
-				const seen = new SvelteSet();
-				for (const ev of publicEvents) {
-					const stack = parseAppStack(ev);
-					if (!stack?.appRefs) continue;
-					const previewRefs = stack.appRefs
-						.filter((r) => r.kind === EVENT_KINDS.APP && r.pubkey && r.identifier)
-						.slice(0, 4);
-					for (const ref of previewRefs) {
-						const key = `${ref.pubkey}:${ref.identifier}`;
-						if (seen.has(key)) continue;
-						seen.add(key);
-						try {
-							const existing = await queryEvents({
-								kinds: [EVENT_KINDS.APP],
-								authors: [ref.pubkey],
-								'#d': [ref.identifier],
-								limit: 1
-							});
-							if (existing.length === 0) {
-								const appEv = await fetchAppFromRelays(relayUrls, ref.pubkey, ref.identifier);
-								if (appEv) await putEvents([appEv]).catch(() => {});
-							}
-						} catch {
-							// ignore per-ref failures
-						}
-					}
-				}
-			})();
+			// Fill in missing preview app refs in background (single batch query — no N+1)
+			fillMissingPreviewApps(publicEvents, relayUrls).catch(() => {});
 		} else {
 			hasMore = false;
 		}

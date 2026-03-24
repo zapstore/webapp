@@ -172,7 +172,7 @@ let stacksLoading = $state(false);
 let stacksLoaded = $state(false);
 
 // Track which stacks are being updated
-let updatingStacks = new SvelteSet();
+let updatingStacks = $state(new SvelteSet());
 
 let createStackOpen = $state(false);
 let stackName = $state("");

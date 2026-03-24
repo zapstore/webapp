@@ -179,6 +179,7 @@ $effect(() => {
 						bind:this={contentInput}
 						placeholder="Write something{communityName ? ` in ${communityName}` : ''}"
 						size="large"
+						{getCurrentPubkey}
 						{searchProfiles}
 						{searchEmojis}
 						showActionRow={false}
