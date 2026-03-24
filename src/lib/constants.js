@@ -21,13 +21,13 @@ export const DISCOVER_APPS_INITIAL = 16;
 export const DISCOVER_STACKS_INITIAL = 8;
 
 /** `/studio`: when true, signed-in users see the StudioApp dashboard; when false, same marketing page as logged-out. */
-export const SHOW_STUDIO_SIGNED_IN_DASHBOARD = true;
+export const SHOW_STUDIO_SIGNED_IN_DASHBOARD = false;
 
 /**
  * Community sidebar/tabs: when true, Forum + Activity (default landing `/community/forum`).
  * When false, Support only; Activity hidden; landing `/community/support`. Forum URLs still work if bookmarked.
  */
-export const COMMUNITY_FORUM_AND_ACTIVITY_ENABLED = true;
+export const COMMUNITY_FORUM_AND_ACTIVITY_ENABLED = false;
 
 export const SIGNAL_USER_SUPPORT_GROUP_URL =
 	'https://signal.group/#CjQKIK20nMOglqNT8KYw4ZeyChsvA14TTcjtjuC2VF6j6nB5EhDLZ7pQHvOeopr36jq431ow';
