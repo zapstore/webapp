@@ -39,7 +39,7 @@ let {
 	openCommentId = null
 } = $props();
 
-let post = $state(postProp ? { ...postProp } : null);
+let post = $derived.by(() => postProp ? { ...postProp } : null);
 let authorProfile = $state(null);
 let comments = $state([]);
 let commentsLoading = $state(false);
@@ -49,7 +49,7 @@ let zapsLoading = $state(false);
 let profiles = $state({});
 let profilesLoading = $state(false);
 let zapperProfiles = $state(new Map());
-let rawPostEvent = $state(postProp?._raw ?? null);
+let rawPostEvent = $derived(postProp?._raw ?? null);
 let descriptionExpanded = $state(false);
 let isTruncated = $state(false);
 /** @type {Array<{ label: string, pubkeys: string[] }>} */
