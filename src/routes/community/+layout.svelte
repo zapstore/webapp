@@ -16,7 +16,6 @@
 					icon: '/images/emoji/forum.png',
 					href: '/community/forum'
 				},
-				{ id: 'blog', label: 'Blog', icon: '/images/emoji/article.png', href: '/community/blog' },
 				{
 					id: 'activity',
 					label: 'Activity',
@@ -30,8 +29,7 @@
 					label: 'Support',
 					icon: '/images/emoji/activity.png',
 					href: '/community/support'
-				},
-				{ id: 'blog', label: 'Blog', icon: '/images/emoji/article.png', href: '/community/blog' }
+				}
 			];
 
 	const defaultSectionId = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? 'forum' : 'support';
@@ -42,11 +40,9 @@
 			? 'forum'
 			: path.startsWith('/community/support')
 				? 'support'
-				: path.startsWith('/community/blog')
-					? 'blog'
-					: path.startsWith('/community/activity')
-						? 'activity'
-						: defaultSectionId
+				: path.startsWith('/community/activity')
+					? 'activity'
+					: defaultSectionId
 	);
 	const activeSectionLabel = $derived(
 		SECTIONS.find((s) => s.id === activeSection)?.label ??

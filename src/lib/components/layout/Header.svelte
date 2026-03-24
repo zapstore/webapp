@@ -56,9 +56,7 @@
 		$page.url.pathname === '/apps' ||
 			$page.url.pathname === '/stacks'
 	);
-	const isCommunityActive = $derived(
-		$page.url.pathname.startsWith('/blog') || $page.url.pathname.startsWith('/community')
-	);
+	const isCommunityActive = $derived($page.url.pathname.startsWith('/community'));
 	// Current user profile (local-first: EventStore then background fetch) for header avatar
 	let currentUserProfile = $state(null);
 	// Close Studio dropdown when navigating to studio page (reopen only after hover away and rehover)
