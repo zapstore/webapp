@@ -243,9 +243,8 @@
 					{#each visibleApps as app, i (app.src)}
 						<div
 							class="hero-browse-pic-wrap"
-							style="z-index: {visibleApps.length + 1 - i}; {i > 0
-								? `margin-left: ${isMobile ? '-16px' : '-12px'};`
-								: ''}"
+							class:hero-browse-pic-not-first={i > 0}
+							style="z-index: {visibleApps.length + 1 - i};"
 						>
 							<img src={app.src} alt={app.name} class="hero-app-pic" />
 						</div>
@@ -485,6 +484,38 @@
 		display: flex;
 		align-items: center;
 		height: 48px;
+	}
+
+	/* 5-up desktop: modest overlap */
+	@media (min-width: 640px) {
+		.hero-browse-pic-wrap.hero-browse-pic-not-first {
+			margin-left: -12px;
+		}
+	}
+
+	/*
+	 * 4-up mobile: default overlap when there is plenty of width (e.g. tablet portrait).
+	 * Tighten only on narrow phones where the pill would wrap.
+	 */
+	@media (max-width: 639px) {
+		.hero-browse-pic-wrap.hero-browse-pic-not-first {
+			margin-left: -16px;
+		}
+		.hero-browse-pill {
+			white-space: nowrap;
+		}
+	}
+
+	@media (max-width: 400px) {
+		.hero-browse-pic-wrap.hero-browse-pic-not-first {
+			margin-left: -24px;
+		}
+	}
+
+	@media (max-width: 360px) {
+		.hero-browse-pic-wrap.hero-browse-pic-not-first {
+			margin-left: -28px;
+		}
 	}
 
 	.hero-browse-pic-wrap:not(:last-child) :global(.app-pic),
