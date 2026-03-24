@@ -369,6 +369,9 @@ export function createEmojiSearch(userPubkey = null) {
         const emptyQuery = !query || query.length < 1;
         // Fast path: empty query before init — return unicode-only so suggestion menu opens immediately
         if (emptyQuery && !isInitialized) {
+            if (userPubkey) {
+                void init();
+            }
             const quick = [];
             for (const emoji of emojis.values()) {
                 if (emoji.source === 'unicode') {
@@ -447,7 +450,14 @@ export function createEmojiSearch(userPubkey = null) {
         }
         return result;
     }
-    return { init, search, addEmoji, addUserEmojiList, addEmojiSet, getCount, getCustom };
+    /** Resolves when kind 10030 / 30030 (and refs) have been loaded or skipped (no pubkey = immediate). */
+    function whenInitComplete() {
+        if (!userPubkey)
+            return Promise.resolve();
+        const p = init();
+        return p == null ? Promise.resolve() : Promise.resolve(p);
+    }
+    return { init, search, addEmoji, addUserEmojiList, addEmojiSet, getCount, getCustom, whenInitComplete };
 }
 // Cache for emoji search instances per user
 const emojiSearchCache = new Map();

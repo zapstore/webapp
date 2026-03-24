@@ -7,9 +7,13 @@ import { fly } from 'svelte/transition';
 import { cubicOut } from 'svelte/easing';
 import { Search } from 'lucide-svelte';
 import AppPic from '$lib/components/common/AppPic.svelte';
-import { searchApps } from '$lib/nostr/service';
+import {
+	searchApps,
+	queryEvents,
+	fetchAppsByAuthorFromRelays
+} from '$lib/nostr/service';
 import { parseApp } from '$lib/nostr/models';
-import { ZAPSTORE_RELAY } from '$lib/config';
+import { ZAPSTORE_RELAY, PLATFORM_FILTER } from '$lib/config';
 
 let {
 	title = 'Insert',
@@ -23,6 +27,9 @@ let query = $state('');
 let searchLoading = $state(false);
 /** @type {import('nostr-tools').Event[]} */
 let searchResults = $state([]);
+/** @type {import('nostr-tools').Event[]} */
+let myApps = $state([]);
+let myAppsLoading = $state(false);
 /** @type {HTMLInputElement | null} */
 let searchInputEl = $state(null);
 
@@ -32,10 +39,65 @@ $effect(() => {
 	if (!isOpen) {
 		query = '';
 		searchResults = [];
+		myApps = [];
+		myAppsLoading = false;
 		return;
 	}
 	const t = setTimeout(() => searchInputEl?.focus(), 80);
 	return () => clearTimeout(t);
+});
+
+/** Signed-in, empty search: show your apps from Dexie first, relay fallback if empty (local-first). */
+$effect(() => {
+	if (!isOpen || query.trim()) {
+		if (!isOpen) {
+			myApps = [];
+			myAppsLoading = false;
+		}
+		return;
+	}
+	const pubkey = getCurrentPubkey();
+	if (!pubkey) {
+		myApps = [];
+		myAppsLoading = false;
+		return;
+	}
+	myAppsLoading = true;
+	const controller = new AbortController();
+	const filter = {
+		kinds: [32267],
+		authors: [pubkey],
+		...PLATFORM_FILTER,
+		limit: 50
+	};
+	(async () => {
+		try {
+			let events = await queryEvents(filter);
+			if (
+				!controller.signal.aborted &&
+				events.length === 0 &&
+				typeof window !== 'undefined'
+			) {
+				events = await fetchAppsByAuthorFromRelays(catalogRelays, pubkey, {
+					signal: controller.signal,
+					limit: 50,
+					timeout: 5000
+				});
+			}
+			if (!controller.signal.aborted) {
+				myApps = events;
+			}
+		} catch {
+			if (!controller.signal.aborted) {
+				myApps = [];
+			}
+		} finally {
+			if (!controller.signal.aborted) {
+				myAppsLoading = false;
+			}
+		}
+	})();
+	return () => controller.abort();
 });
 
 $effect(() => {
@@ -63,7 +125,10 @@ $effect(() => {
 });
 
 const hasQuery = $derived(query.trim().length > 0);
-const displayResults = $derived(hasQuery ? searchResults : []);
+const displayResults = $derived(hasQuery ? searchResults : myApps);
+const listLoading = $derived(
+	(hasQuery && searchLoading) || (!hasQuery && !!getCurrentPubkey() && myAppsLoading)
+);
 
 function handleInsert(parsed) {
 	const naddr = parsed?.naddr;
@@ -118,40 +183,39 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 			</div>
 
 			<div class="insert-body-wrap">
-				<div class="insert-body-inner" class:insert-body-inner-scroll={displayResults.length > 0}>
-					{#if hasQuery}
-						{#if searchLoading}
-							<div class="insert-empty-state">
-								<div class="insert-spinner" aria-hidden="true">
-									<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-										<circle cx="12" cy="12" r="10" stroke-dasharray="47 15" stroke-linecap="round"/>
-									</svg>
-								</div>
-							</div>
-						{:else if displayResults.length === 0}
-							<div class="insert-empty-state">
-								<p class="insert-empty-text">No apps found</p>
-							</div>
-						{:else}
-							<ul class="insert-list">
-								{#each displayResults as event (event.id)}
-									{@const parsed = parseApp(event)}
-									<li class="insert-row">
-										<div class="insert-app-info">
-											<AppPic iconUrl={parsed.icon} name={parsed.name} identifier={parsed.dTag} size="sm" />
-											<span class="insert-name">{parsed.name || parsed.dTag}</span>
-										</div>
-										<button type="button" class="btn-secondary btn-secondary-small btn-secondary-light" onclick={() => handleInsert(parsed)}>
-											Insert
-										</button>
-									</li>
-								{/each}
-							</ul>
-						{/if}
-					{:else}
+				<div
+					class="insert-body-inner"
+					class:insert-body-inner-scroll={listLoading || displayResults.length > 0}
+				>
+					{#if listLoading}
 						<div class="insert-empty-state">
-							<p class="insert-empty-text">No apps found</p>
+							<div class="insert-spinner" aria-hidden="true">
+								<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<circle cx="12" cy="12" r="10" stroke-dasharray="47 15" stroke-linecap="round"/>
+								</svg>
+							</div>
 						</div>
+					{:else if displayResults.length === 0}
+						<div class="insert-empty-state">
+							<p class="insert-empty-text">
+								{!hasQuery && !getCurrentPubkey() ? 'Search apps' : 'No apps found'}
+							</p>
+						</div>
+					{:else}
+						<ul class="insert-list">
+							{#each displayResults as event (event.id)}
+								{@const parsed = parseApp(event)}
+								<li class="insert-row">
+									<div class="insert-app-info">
+										<AppPic iconUrl={parsed.icon} name={parsed.name} identifier={parsed.dTag} size="sm" />
+										<span class="insert-name">{parsed.name || parsed.dTag}</span>
+									</div>
+									<button type="button" class="btn-secondary btn-secondary-small btn-secondary-light" onclick={() => handleInsert(parsed)}>
+										Insert
+									</button>
+								</li>
+							{/each}
+						</ul>
 					{/if}
 				</div>
 			</div>

@@ -135,6 +135,7 @@ $effect(() => {
           bind:this={textInput}
           {placeholder}
           size="medium"
+          {getCurrentPubkey}
           {searchProfiles}
           {searchEmojis}
           autoFocus={true}

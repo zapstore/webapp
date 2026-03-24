@@ -138,6 +138,7 @@ $effect(() => {
 					bind:this={commentInput}
 					placeholder="Comment on {zapTarget?.name ?? 'this'}"
 					size="medium"
+					{getCurrentPubkey}
 					{searchProfiles}
 					{searchEmojis}
 					autoFocus={true}
@@ -226,8 +227,8 @@ $effect(() => {
 
 <EmojiPickerModal
 	bind:isOpen={emojiPickerOpen}
-	{searchEmojis}
-	onSelect={handleEmojiSelect}
+	getCurrentPubkey={getCurrentPubkey}
+	onSelectEmoji={handleEmojiSelect}
 	onclose={() => { emojiPickerOpen = false; }}
 />
 <InsertModal

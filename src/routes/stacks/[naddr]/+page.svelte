@@ -12,13 +12,13 @@ import { page } from "$app/stores";
 import { onMount } from "svelte";
 import { browser } from "$app/environment";
 import { beforeNavigate, goto } from "$app/navigation";
-import { fetchProfilesBatch, queryEvent, queryEvents, queryCommentsFromStore, fetchComments, fetchLabelsForAddressable, groupLabelEventsToEntries, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, } from "$lib/nostr";
+import { fetchProfilesBatch, queryEvent, queryEvents, putEvents, queryCommentsFromStore, fetchComments, fetchLabelsForAddressable, groupLabelEventsToEntries, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, } from "$lib/nostr";
 import { fetchFromRelays } from "$lib/nostr/service";
 import { ZAPSTORE_RELAY } from "$lib/config";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
 import { isOnline } from "$lib/stores/online.svelte.js";
 import { nip19 } from "nostr-tools";
-import { wheelScroll } from "$lib/actions/wheelScroll.js";
+
 import { ChevronLeft, ChevronRight } from "$lib/components/icons";
 import AppSmallCard from "$lib/components/cards/AppSmallCard.svelte";
 import SocialTabs from "$lib/components/social/SocialTabs.svelte";
@@ -277,15 +277,39 @@ async function loadStack() {
         }
         loadCommentsForStack(foundStack.pubkey, foundStack.dTag);
         loadLabelsForStack(foundStack.pubkey, foundStack.dTag);
-        // Resolve apps: use server data or query Dexie
+        // Resolve apps: use server data → Dexie → relay backfill
         if (data.apps?.length > 0) {
             apps = data.apps;
         }
         else if (foundStack.appRefs?.length > 0) {
-            const ids = foundStack.appRefs.filter((r) => r.kind === 32267).map((r) => r.identifier);
+            const appRefs = foundStack.appRefs.filter((r) => r.kind === EVENT_KINDS.APP);
+            const ids = appRefs.map((r) => r.identifier);
             if (ids.length > 0) {
-                const events = await queryEvents({ kinds: [32267], '#d': ids });
+                const events = await queryEvents({ kinds: [EVENT_KINDS.APP], '#d': ids });
                 apps = events.map(parseApp);
+                // Relay backfill: fetch any refs not yet in Dexie (single batch query)
+                if (browser && isOnline() && apps.length < appRefs.length) {
+                    const foundDTags = new Set(apps.map((a) => a.dTag));
+                    const missing = appRefs.filter((r) => !foundDTags.has(r.identifier));
+                    if (missing.length > 0) {
+                        const missingEvents = await fetchFromRelays(
+                            [ZAPSTORE_RELAY],
+                            {
+                                kinds: [EVENT_KINDS.APP],
+                                authors: [...new Set(missing.map((r) => r.pubkey))],
+                                '#d': missing.map((r) => r.identifier),
+                                ...PLATFORM_FILTER,
+                                limit: missing.length + 5
+                            },
+                            { feature: 'stack-apps-fill' }
+                        );
+                        if (missingEvents.length > 0) {
+                            await putEvents(missingEvents).catch(() => {});
+                            const allEvents = await queryEvents({ kinds: [EVENT_KINDS.APP], '#d': ids });
+                            apps = allEvents.map(parseApp);
+                        }
+                    }
+                }
             }
         }
     }
@@ -519,7 +543,7 @@ const displayDescription = $derived(!stack?.title ||
       </div>
 
       <div class="section-container">
-        <div class="horizontal-scroll" use:wheelScroll>
+        <div class="horizontal-scroll">
           <div class="scroll-content">
             {#each Array(3) as _, colIndex (colIndex)}
               <div class="app-column">
@@ -605,7 +629,6 @@ const displayDescription = $derived(!stack?.title ||
           <div class="stack-apps-scroll-wrap">
             <div
               class="horizontal-scroll"
-              use:wheelScroll
               bind:this={appsScrollContainer}
               onscroll={handleStackAppsScroll}
             >
@@ -952,14 +975,12 @@ const displayDescription = $derived(!stack?.title ||
     }
   }
 
-  /* Horizontal scroll container */
+  /* Horizontal scroll container — mirrors the apps page pattern */
   .horizontal-scroll {
     margin-left: -1rem;
     margin-right: -1rem;
     padding-left: 1rem;
     padding-right: 1rem;
-    width: 100%;
-    min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
     overscroll-behavior-x: contain;
@@ -1011,25 +1032,25 @@ const displayDescription = $derived(!stack?.title ||
     }
   }
 
-  @media (min-width: 1024px) {
+  @media (min-width: 768px) {
     .horizontal-scroll {
-      margin-left: -2rem;
-      margin-right: -2rem;
-      padding-left: 2rem;
-      padding-right: 2rem;
+      margin-left: -38px;
+      margin-right: -38px;
+      padding-left: 38px;
+      padding-right: 38px;
 
       mask-image: linear-gradient(
         to right,
         transparent 0%,
-        black 2rem,
-        black calc(100% - 2rem),
+        black 38px,
+        black calc(100% - 38px),
         transparent 100%
       );
       -webkit-mask-image: linear-gradient(
         to right,
         transparent 0%,
-        black 2rem,
-        black calc(100% - 2rem),
+        black 38px,
+        black calc(100% - 38px),
         transparent 100%
       );
     }
@@ -1039,8 +1060,6 @@ const displayDescription = $derived(!stack?.title ||
     display: flex;
     gap: 16px;
     padding-bottom: 8px;
-    width: max-content;
-    min-width: 100%;
   }
 
   .app-column {
