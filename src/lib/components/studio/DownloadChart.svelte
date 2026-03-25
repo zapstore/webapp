@@ -45,7 +45,12 @@
 		/** When true, line-end / hover markers use the impressions eye glyph instead of app images. */
 		useImpressionMarkers = false,
 		/** Pixels below the y=0 baseline (inside SVG). Vertical rule extends through this band; data is not clipped there. */
-		padBottom = 12
+		padBottom = 12,
+		/**
+		 * Cap faint per-app lines (plus their markers / hover badges) to the top N apps by series total.
+		 * The bold total line always sums every app in `appData`. `null` = show all per-app lines (default).
+		 */
+		maxPerAppLines = null
 	} = $props();
 
 	const DAYS = $derived(Math.max(1, dayCount));
@@ -69,7 +74,7 @@
 	}
 
 	// Reactive: re-derives whenever appData prop changes.
-	const apps = $derived(
+	const allApps = $derived(
 		appData
 			? appData.map((a) => ({
 					id: a.id,
@@ -93,13 +98,31 @@
 				]
 	);
 
+	function seriesTotal(/** @type {{ data: number[] }} */ a) {
+		return a.data.reduce((s, v) => s + v, 0);
+	}
+
+	/** Subset of allApps drawn as faint per-app lines (total still uses all apps). */
+	const lineApps = $derived.by(() => {
+		const list = allApps;
+		const cap = maxPerAppLines;
+		if (cap == null || cap < 1 || list.length <= 1) return list;
+		const sorted = [...list].sort((a, b) => seriesTotal(b) - seriesTotal(a));
+		return sorted.slice(0, Math.min(cap, sorted.length));
+	});
+
 	const totalData = $derived(
-		Array.from({ length: DAYS }, (_, i) => apps.reduce((sum, a) => sum + a.data[i], 0))
+		Array.from({ length: DAYS }, (_, i) => allApps.reduce((sum, a) => sum + a.data[i], 0))
 	);
 
 	const maxY = $derived(Math.max(1, ...totalData));
 
 	const dateLabel = $derived(dayLabels[DAYS - 1]);
+
+	/** Single-app line: use dot when no icon (e.g. aggregated “all apps” series). */
+	const singleAppUseDot = $derived(
+		allApps.length === 1 && !useImpressionMarkers && !appColors && !String(allApps[0]?.icon ?? '').trim()
+	);
 
 	/** Y coordinate of v=0 (plot floor). Chart curves stay above this; padBottom sits below. */
 	const PLOT_FLOOR_Y = 168;
@@ -175,9 +198,9 @@
 		return {
 			lineX,
 			totalPath: buildPath(totalData),
-			appPaths: apps.map((a) => buildPath(a.data)),
+			appPaths: lineApps.map((a) => buildPath(a.data)),
 			totalEndY,
-			appEndYs: apps.map((a) => yp(a.data[DAYS - 1]))
+			appEndYs: lineApps.map((a) => yp(a.data[DAYS - 1]))
 		};
 	});
 
@@ -197,8 +220,8 @@
 		const x = xp(hoverIndex);
 		const totalVal = totalData[hoverIndex];
 		const totalY = yp(totalVal);
-		const appVals = apps.map((a) => a.data[hoverIndex]);
-		const appYs = apps.map((_, i) => yp(appVals[i]));
+		const appVals = lineApps.map((a) => a.data[hoverIndex]);
+		const appYs = appVals.map((v) => yp(v));
 
 		const dateStr = dayLabels[hoverIndex];
 
@@ -273,8 +296,8 @@
 			</filter>
 		</defs>
 
-		<!-- Per-app lines — only when multiple apps (single app = total line already represents it) -->
-		{#if apps.length > 1}
+		<!-- Per-app lines — multi-app only; at most maxPerAppLines (see lineApps) -->
+		{#if allApps.length > 1 && lineApps.length > 0}
 			{#if appColors}
 				<!-- Glow + crisp line per app (same line+glow style as insights section) -->
 				{#each chart.appPaths as path, i (i)}
@@ -323,14 +346,16 @@
 
 		<!-- Static end markers — hidden while hover is active -->
 		{#if hover === null}
-			{#if apps.length === 1}
+			{#if allApps.length === 1}
 				{#if appColors}
 					<circle cx={chart.lineX} cy={chart.totalEndY} r="5" fill={appColors[0]} />
 				{:else if useImpressionMarkers}
 					<circle cx={chart.lineX} cy={chart.totalEndY} r="6" fill="url(#{chartId}-line)" />
+				{:else if singleAppUseDot}
+					<circle cx={chart.lineX} cy={chart.totalEndY} r="6" fill={dotColor} />
 				{:else}
 					<image
-						href={apps[0].icon}
+						href={allApps[0].icon}
 						x={chart.lineX - 6}
 						y={chart.totalEndY - 6}
 						width="12"
@@ -339,7 +364,7 @@
 					/>
 				{/if}
 			{:else}
-				{#each apps as app, i (app.id)}
+				{#each lineApps as app, i (app.id)}
 					{#if appColors}
 						<circle cx={chart.lineX} cy={chart.appEndYs[i]} r="5" fill={appColors[i] ?? dotColor} />
 					{:else if useImpressionMarkers}
@@ -379,7 +404,7 @@
 				pointer-events="none"
 			/>
 
-			{#if apps.length === 1}
+			{#if allApps.length === 1}
 				<!-- Single app: dot or icon + one badge -->
 				{#if appColors}
 					<circle cx={hover.x} cy={hover.totalY} r="5" fill={appColors[0]} pointer-events="none" />
@@ -391,9 +416,17 @@
 						fill="url(#{chartId}-line)"
 						pointer-events="none"
 					/>
+				{:else if singleAppUseDot}
+					<circle
+						cx={hover.x}
+						cy={hover.totalY}
+						r="6"
+						fill={dotColor}
+						pointer-events="none"
+					/>
 				{:else}
 					<image
-						href={apps[0].icon}
+						href={allApps[0].icon}
 						x={hover.x - 6}
 						y={hover.totalY - 6}
 						width="12"
@@ -423,8 +456,8 @@
 					pointer-events="none"
 				>{hover.totalVal}</text>
 			{:else}
-				<!-- Multi-app: per-app dots/icons + badges -->
-				{#each apps as app, i (app.id)}
+				<!-- Multi-app: per-app dots/icons + badges (lineApps only) -->
+				{#each lineApps as app, i (app.id)}
 					{#if appColors}
 						<circle cx={hover.x} cy={hover.appYs[i]} r="5" fill={appColors[i] ?? dotColor} pointer-events="none" />
 					{:else if useImpressionMarkers}

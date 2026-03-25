@@ -14,8 +14,21 @@
 		dlCounts = [],
 		impCounts = [],
 		zapCounts = [],
+		selectedDlTimeframe = $bindable('30 Days'),
+		selectedImpTimeframe = $bindable('30 Days'),
+		selectedZapTimeframe = $bindable('30 Days'),
 		onBack: _onBack
 	} = $props();
+
+	const timeframes = ['7 Days', '30 Days', '90 Days', '1 Year'];
+	let detailRangeOpen = $state(false);
+
+	function applyDetailTimeframe(tf) {
+		selectedDlTimeframe = tf;
+		selectedImpTimeframe = tf;
+		selectedZapTimeframe = tf;
+		detailRangeOpen = false;
+	}
 
 	function sum(arr) {
 		return arr.reduce((s, v) => s + v, 0);
@@ -37,10 +50,6 @@
 	const dlPct = $derived(pctChange(dlCounts));
 	const impPct = $derived(pctChange(impCounts));
 	const zapPct = $derived(pctChange(zapCounts));
-
-	let timeframeOpen = $state(false);
-	let selectedTimeframe = $state('30 Days');
-	const timeframes = ['7 Days', '30 Days', '90 Days', '1 Year'];
 
 	const pad = (/** @type {number[]} */ arr) => {
 		const n = chartDayCount;
@@ -79,21 +88,38 @@
 					iconUrl={app.icon}
 					name={app.name}
 					identifier={app.id}
-					size="md"
+					size="lg"
 					className="studio-detail-app-pic"
 					onClick={() => {}}
 				/>
 			</div>
 			<div class="app-text">
 				<h2 class="app-name">{app.name}</h2>
-				{#if app.description}
-					<p class="app-desc">{app.description}</p>
-				{/if}
+				<div class="app-info-actions">
+					<a
+						class="btn-secondary-xs btn-secondary-light studio-detail-action-btn"
+						href="/apps/{encodeURIComponent(app.id)}"
+					>
+						View
+					</a>
+					<a
+						class="btn-secondary-xs btn-secondary-light studio-detail-action-btn"
+						href="https://docs.zapstore.dev"
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						Edit
+					</a>
+				</div>
 			</div>
 		</div>
 		<div class="timerange-wrap app-info-timerange">
-			<button class="timerange-btn" onclick={() => (timeframeOpen = !timeframeOpen)}>
-				<span class="eyebrow-label tr-label tr-label--white66">{selectedTimeframe}</span>
+			<button
+				type="button"
+				class="timerange-btn"
+				onclick={() => (detailRangeOpen = !detailRangeOpen)}
+			>
+				<span class="eyebrow-label tr-label tr-label--white66">{selectedDlTimeframe}</span>
 				<span class="chevron-wrap">
 					<ChevronDownIcon
 						variant="outline"
@@ -103,16 +129,16 @@
 					/>
 				</span>
 			</button>
-			{#if timeframeOpen}
+			{#if detailRangeOpen}
 				<div class="tr-dropdown">
 					{#each timeframes as tf (tf)}
 						<button
+							type="button"
 							class="tr-option"
-							class:tr-selected={tf === selectedTimeframe}
-							onclick={() => {
-								selectedTimeframe = tf;
-								timeframeOpen = false;
-							}}>{tf}</button
+							class:tr-selected={tf === selectedDlTimeframe &&
+								selectedDlTimeframe === selectedImpTimeframe &&
+								selectedDlTimeframe === selectedZapTimeframe}
+							onclick={() => applyDetailTimeframe(tf)}>{tf}</button
 						>
 					{/each}
 				</div>
@@ -249,7 +275,7 @@
 
 	.app-info-left {
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		gap: 14px;
 		min-width: 0;
 	}
@@ -272,8 +298,21 @@
 	.app-text {
 		display: flex;
 		flex-direction: column;
-		gap: 5px;
+		justify-content: center;
+		gap: 8px;
 		min-width: 0;
+	}
+
+	.app-info-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.studio-detail-action-btn {
+		color: hsl(var(--white33));
+		text-decoration: none;
 	}
 
 	.app-name {
@@ -282,17 +321,6 @@
 		color: hsl(var(--foreground));
 		line-height: 1.2;
 		margin: 0;
-	}
-
-	.app-desc {
-		font-size: 13px;
-		color: hsl(var(--white33));
-		line-height: 1.4;
-		margin: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		min-width: 0;
 	}
 
 	/* ── Counts row ────────────────────────────────────────────────────────── */
@@ -359,7 +387,7 @@
 	/* ── Chart section ─────────────────────────────────────────────────────── */
 	.chart-section {
 		position: relative;
-		padding: 0 20px 20px;
+		padding: 28px 20px 20px;
 		border-bottom: 1px solid hsl(var(--border));
 	}
 
@@ -475,7 +503,7 @@
 		}
 
 		.chart-section {
-			padding: 0 16px 16px;
+			padding: 24px 16px 16px;
 		}
 
 		.activity-section {

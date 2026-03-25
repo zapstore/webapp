@@ -4,8 +4,21 @@
  */
 import Modal from "$lib/components/common/Modal.svelte";
 import QuotedMessage from "./QuotedMessage.svelte";
+import QuotedZapMessage from "./QuotedZapMessage.svelte";
 import { Reply, Zap } from "$lib/components/icons";
-let { open = $bindable(false), authorName = "Anonymous", authorPubkey = null, contentPreview = "", onComment, onZap, } = $props();
+let {
+	open = $bindable(false),
+	authorName = "Anonymous",
+	authorPubkey = null,
+	contentPreview = "",
+	/** When true, preview is a zap receipt (amount + comment) instead of a plain comment quote */
+	isZapPreview = false,
+	zapAmountSats = 0,
+	zapContent = "",
+	zapEmojiTags = [],
+	onComment,
+	onZap,
+} = $props();
 function chooseComment() {
     open = false;
     onComment?.();
@@ -19,7 +32,17 @@ function chooseZap() {
 <Modal bind:open ariaLabel="Comment actions" align="bottom" wide={true} noBackdrop={true} class="comment-actions-modal">
   <div class="actions-content">
     <div class="comment-preview">
-      <QuotedMessage {authorName} {authorPubkey} {contentPreview} />
+      {#if isZapPreview}
+        <QuotedZapMessage
+          {authorName}
+          {authorPubkey}
+          amountSats={zapAmountSats}
+          content={zapContent}
+          emojiTags={zapEmojiTags}
+        />
+      {:else}
+        <QuotedMessage {authorName} {authorPubkey} {contentPreview} />
+      {/if}
     </div>
     <div class="actions-row">
       <button type="button" class="action-btn comment-btn" onclick={chooseComment}>

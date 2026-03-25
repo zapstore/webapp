@@ -8,6 +8,7 @@ import ThreadComment from "./ThreadComment.svelte";
 import ZapBubble from "./ZapBubble.svelte";
 import ThreadZap from "./ThreadZap.svelte";
 import QuotedMessage from "./QuotedMessage.svelte";
+import QuotedZapMessage from "./QuotedZapMessage.svelte";
 import CommentActionsModal from "./CommentActionsModal.svelte";
 import CommentBubbleActionRail from "./CommentBubbleActionRail.svelte";
 import ShortTextContent from "$lib/components/common/ShortTextContent.svelte";
@@ -24,6 +25,7 @@ import { Zap, Reply, Options } from "$lib/components/icons";
 import { SvelteSet, SvelteMap } from "svelte/reactivity";
 import { getIsSignedIn, getCurrentPubkey } from "$lib/stores/auth.svelte.js";
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
+import { EVENT_KINDS } from "$lib/config.js";
 let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], /** @type {string[]} */ mediaUrls = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, onReplySubmit, onZapReceived, onGetStarted,     /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
     openThreadOnMount = false,
     /** When true, also open the reply composer immediately when the modal mounts. */
@@ -187,6 +189,17 @@ const threadById = $derived.by(() => {
     const map = new SvelteMap();
     for (const c of threadComments) {
         map.set(c.id, c);
+        map.set(c.id.toLowerCase(), c);
+    }
+    return map;
+});
+const threadZapById = $derived.by(() => {
+    const map = new SvelteMap();
+    for (const z of threadZaps ?? []) {
+        if (z?.id) {
+            map.set(z.id.toLowerCase(), z);
+            map.set(z.id, z);
+        }
     }
     return map;
 });
@@ -250,6 +263,9 @@ function openReplyToZap(zap) {
         avatarUrl: zap.avatarUrl ?? null,
         content: zap.comment,
         createdAt: zap.timestamp ?? zap.createdAt,
+        quotedAsZap: true,
+        amountSats: zap.amountSats ?? 0,
+        emojiTags: zap.emojiTags ?? [],
     };
     commentExpanded = true;
 }
@@ -298,13 +314,22 @@ async function handleReplySubmit(event) {
     if (submitting || !id)
         return;
     const parentId = replyingToComment ? replyingToComment.id : id;
+    /** @type {number} */
+    let parentKind = EVENT_KINDS.COMMENT;
+    if (!replyingToComment) {
+        if (isZapRoot)
+            parentKind = EVENT_KINDS.ZAP_RECEIPT;
+    }
+    else if (replyingToComment.quotedAsZap === true) {
+        parentKind = EVENT_KINDS.ZAP_RECEIPT;
+    }
     submitting = true;
     try {
         onReplySubmit?.({
             ...event,
             parentId,
             replyToPubkey: replyingToComment?.pubkey ?? pubkey ?? undefined,
-            ...(isZapRoot && (replyingToComment?.pubkey ?? pubkey) ? { rootPubkey: replyingToComment?.pubkey ?? pubkey ?? undefined, parentKind: 9735 } : {}),
+            parentKind,
         });
         replyInput?.clear?.();
         closeReply();
@@ -559,7 +584,10 @@ function handleOptions() {
           {#each feedItems as item (item.type === 'zap' ? `zap-${item.data.id}` : item.data.id)}
             {#if item.type === 'comment'}
               {@const reply = item.data}
-              {@const quotedParent = reply.parentId && reply.parentId !== id ? threadById.get(reply.parentId) : null}
+              {@const pid = reply.parentId ? String(reply.parentId).toLowerCase() : ''}
+              {@const idNorm = id ? String(id).toLowerCase() : ''}
+              {@const quotedParent = reply.parentId && pid !== idNorm ? (threadById.get(pid) ?? threadById.get(reply.parentId)) : null}
+              {@const quotedZap = !quotedParent && reply.parentId && pid !== idNorm ? (threadZapById.get(pid) ?? threadZapById.get(reply.parentId)) : null}
               <div
                 class="thread-bubble-with-rail desktop-bubble-actions-target"
                 class:thread-bubble-with-rail--solo={!showThreadActions}
@@ -586,6 +614,16 @@ function handleOptions() {
                         content={quotedParent.content ?? ""}
                         emojiTags={quotedParent.emojiTags ?? []}
                         mediaUrls={quotedParent.mediaUrls ?? []}
+                        resolveMentionLabel={resolveMentionLabel}
+                      />
+                    {:else if quotedZap}
+                      <QuotedZapMessage
+                        authorName={quotedZap.displayName || "Anonymous"}
+                        authorPubkey={quotedZap.senderPubkey ?? quotedZap.pubkey ?? null}
+                        amountSats={quotedZap.amountSats ?? 0}
+                        content={quotedZap.comment ?? ""}
+                        emojiTags={quotedZap.emojiTags ?? []}
+                        mediaUrls={[]}
                         resolveMentionLabel={resolveMentionLabel}
                       />
                     {/if}
@@ -646,7 +684,7 @@ function handleOptions() {
             {/if}
           {/each}
         {:else}
-          <EmptyState message="No replies yet" compact />
+          <EmptyState message="No comments yet" compact />
         {/if}
       </div>
     </div>
@@ -716,14 +754,26 @@ function handleOptions() {
               >
                 {#snippet aboveEditor()}
                   {#if replyingToComment}
-                    <QuotedMessage
-                      authorName={replyingToComment.displayName || "Anonymous"}
-                      authorPubkey={replyingToComment.pubkey}
-                      content={replyingToComment.content ?? ""}
-                      emojiTags={replyingToComment.emojiTags ?? []}
-                      mediaUrls={replyingToComment.mediaUrls ?? []}
-                      resolveMentionLabel={resolveMentionLabel}
-                    />
+                    {#if replyingToComment.quotedAsZap === true}
+                      <QuotedZapMessage
+                        authorName={replyingToComment.displayName || "Anonymous"}
+                        authorPubkey={replyingToComment.pubkey}
+                        amountSats={replyingToComment.amountSats ?? 0}
+                        content={replyingToComment.content ?? ""}
+                        emojiTags={replyingToComment.emojiTags ?? []}
+                        mediaUrls={replyingToComment.mediaUrls ?? []}
+                        resolveMentionLabel={resolveMentionLabel}
+                      />
+                    {:else}
+                      <QuotedMessage
+                        authorName={replyingToComment.displayName || "Anonymous"}
+                        authorPubkey={replyingToComment.pubkey}
+                        content={replyingToComment.content ?? ""}
+                        emojiTags={replyingToComment.emojiTags ?? []}
+                        mediaUrls={replyingToComment.mediaUrls ?? []}
+                        resolveMentionLabel={resolveMentionLabel}
+                      />
+                    {/if}
                   {/if}
                 {/snippet}
               </ShortTextInput>
@@ -741,6 +791,10 @@ function handleOptions() {
   authorName={actionsModalTarget === "root" ? (name || "Anonymous") : (actionsModalTarget?.displayName ?? "Anonymous")}
   authorPubkey={actionsModalTarget === "root" ? pubkey : (actionsModalTarget ? ("senderPubkey" in actionsModalTarget ? actionsModalTarget.senderPubkey : actionsModalTarget.pubkey) ?? null : null)}
   contentPreview={getActionsModalContentPreview()}
+  isZapPreview={(actionsModalTarget === "root" && isZapRoot) || (actionsModalTarget !== "root" && actionsModalTarget != null && typeof actionsModalTarget === "object" && "amountSats" in actionsModalTarget && "senderPubkey" in actionsModalTarget)}
+  zapAmountSats={actionsModalTarget === "root" && isZapRoot ? (zapAmount ?? 0) : (actionsModalTarget && typeof actionsModalTarget === "object" && "amountSats" in actionsModalTarget ? (actionsModalTarget.amountSats ?? 0) : 0)}
+  zapContent={actionsModalTarget === "root" && isZapRoot ? (content ?? "") : (actionsModalTarget && typeof actionsModalTarget === "object" && "comment" in actionsModalTarget ? (actionsModalTarget.comment ?? "") : "")}
+  zapEmojiTags={actionsModalTarget === "root" && isZapRoot ? (emojiTags ?? []) : (actionsModalTarget && typeof actionsModalTarget === "object" && "emojiTags" in actionsModalTarget ? (actionsModalTarget.emojiTags ?? []) : [])}
   onComment={actionsModalOnComment}
   onZap={actionsModalOnZap}
 />

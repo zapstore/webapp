@@ -32,6 +32,7 @@
 		timeframeToDays
 	} from '$lib/studio/analytics-http.js';
 	import { collectBlobHashesForDeveloper } from '$lib/studio/collect-blob-hashes.js';
+	import { loadZapAppData } from '$lib/studio/zap-series.js';
 
 	let activeNav = $state('insights');
 	let dlDropdownOpen = $state(false);
@@ -77,6 +78,10 @@
 
 	const dlInsightDays = $derived(timeframeToDays(selectedDlTimeframe));
 	const impInsightDays = $derived(timeframeToDays(selectedImpTimeframe));
+	const zapInsightDays = $derived(timeframeToDays(selectedZapTimeframe));
+	const detailChartDays = $derived(
+		Math.max(dlInsightDays, impInsightDays, zapInsightDays, 1)
+	);
 
 	// Sidebar app list — real apps when signed in, dummies in DUMMY_MODE.
 	let userApps = $state(DUMMY_MODE ? DUMMY_APPS : []);
@@ -100,11 +105,13 @@
 		if (DUMMY_MODE) return;
 		selectedImpTimeframe;
 		selectedDlTimeframe;
+		selectedZapTimeframe;
 		const impD = timeframeToDays(selectedImpTimeframe);
 		const dlD = timeframeToDays(selectedDlTimeframe);
+		const zapD = timeframeToDays(selectedZapTimeframe);
 		studioLoadGeneration += 1;
 		const gen = studioLoadGeneration;
-		loadStudioData(gen, impD, dlD).catch((err) => {
+		loadStudioData(gen, impD, dlD, zapD).catch((err) => {
 			console.error('[Studio] data load failed:', err);
 		});
 	});
@@ -139,8 +146,9 @@
 	 * @param {number} gen
 	 * @param {number} impDays
 	 * @param {number} dlDays
+	 * @param {number} zapDays
 	 */
-	async function loadStudioData(gen, impDays, dlDays) {
+	async function loadStudioData(gen, impDays, dlDays, zapDays) {
 		const impRange = buildIsoDateRange(impDays);
 		const dlRange = buildIsoDateRange(dlDays);
 
@@ -154,6 +162,7 @@
 			userApps = [];
 			impAppData = null;
 			dlAppData = null;
+			zapAppData = null;
 			return;
 		}
 
@@ -172,46 +181,68 @@
 			id: a.dTag,
 			name: a.name,
 			icon: a.icon ?? '',
-			description: a.description ?? ''
+			description: a.description ?? '',
+			eventId: a.id
 		}));
 
 		if (parsedApps.length === 0) {
 			impAppData = null;
 			dlAppData = null;
+			zapAppData = null;
 			return;
 		}
 
+		/** Parallel fetch: zaps were last sequentially after slow hash/download work, so `studioLoadGeneration` often advanced before zapAppData was written — Insights + app detail zap charts looked stuck. */
 		let v1ImpressionsOk = false;
 
-		try {
-			const impRows = await fetchImpressions(pubkey, {
-				from: impRange.from,
-				to: impRange.to,
-				groupBy: 'app_id,day'
-			});
-			if (studioLoadStale(gen)) return;
-			impAppData = mapImpressionRowsToAppData(userApps, impRows, impDays);
-			v1ImpressionsOk = true;
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
-			if (msg === 'ANALYTICS_HTTP_DISABLED') {
-				console.warn(
-					'[Studio] v1 analytics proxy disabled. Set STUDIO_ANALYTICS_HTTP_URL in .env (e.g. http://127.0.0.1:3336) and restart the dev server.'
-				);
-			} else {
-				console.warn('[Studio] v1 impressions failed:', err);
+		const impTask = (async () => {
+			try {
+				const impRows = await fetchImpressions(pubkey, {
+					from: impRange.from,
+					to: impRange.to,
+					groupBy: 'app_id,day'
+				});
+				v1ImpressionsOk = true;
+				return mapImpressionRowsToAppData(userApps, impRows, impDays);
+			} catch (err) {
+				const msg = err instanceof Error ? err.message : String(err);
+				if (msg === 'ANALYTICS_HTTP_DISABLED') {
+					console.warn(
+						'[Studio] v1 analytics proxy disabled. Set STUDIO_ANALYTICS_HTTP_URL in .env (e.g. http://127.0.0.1:3336) and restart the dev server.'
+					);
+				} else {
+					console.warn('[Studio] v1 impressions failed:', err);
+				}
+				return null;
 			}
-			if (!studioLoadStale(gen)) impAppData = null;
-		}
+		})();
 
-		try {
-			const hashMap = await collectBlobHashesForDeveloper(pubkey, userApps);
-			if (studioLoadStale(gen)) return;
-			dlAppData = await loadDownloadAppData(userApps, hashMap, dlRange, dlDays);
-		} catch (err) {
-			console.warn('[Studio] v1 downloads failed:', err);
-			if (!studioLoadStale(gen)) dlAppData = null;
-		}
+		const dlTask = (async () => {
+			try {
+				const hashMap = await collectBlobHashesForDeveloper(pubkey, userApps);
+				return await loadDownloadAppData(userApps, hashMap, dlRange, dlDays);
+			} catch (err) {
+				console.warn('[Studio] v1 downloads failed:', err);
+				return null;
+			}
+		})();
+
+		const zapTask = (async () => {
+			try {
+				return await loadZapAppData(pubkey, userApps, zapDays);
+			} catch (err) {
+				console.warn('[Studio] zaps load failed:', err);
+				return null;
+			}
+		})();
+
+		const [impData, dlData, zapData] = await Promise.all([impTask, dlTask, zapTask]);
+
+		if (studioLoadStale(gen)) return;
+
+		impAppData = impData;
+		dlAppData = dlData;
+		zapAppData = zapData;
 
 		if (!v1ImpressionsOk && !studioLoadStale(gen)) {
 			await loadLegacyNip98Impressions(pubkey, impDays, gen);
@@ -416,7 +447,10 @@
 			{#if selectedApp !== null}
 				<StudioAppDetail
 					app={selectedApp}
-					chartDayCount={dlInsightDays}
+					bind:selectedDlTimeframe
+					bind:selectedImpTimeframe
+					bind:selectedZapTimeframe
+					chartDayCount={detailChartDays}
 					dlCounts={dlAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
 					impCounts={impAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
 					zapCounts={zapAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
@@ -475,6 +509,7 @@
 							glowColor="#5445FF"
 							dotColor="#5C5FFF"
 							appData={dlAppData}
+							maxPerAppLines={2}
 						/>
 					</div>
 				</section>
@@ -519,7 +554,7 @@
 					<div class="chart-area">
 						<DownloadChart
 							chartId="zap"
-							dayCount={STUDIO_DAYS}
+							dayCount={DUMMY_MODE ? STUDIO_DAYS : zapInsightDays}
 							color0="#CC7A00"
 							color1="#FFB237"
 							glowColor="#FFB237"
@@ -527,6 +562,7 @@
 							dotColor="#FFB237"
 							badgeBg="rgba(90,55,0,0.92)"
 							appData={zapAppData}
+							maxPerAppLines={2}
 						/>
 					</div>
 				</section>
@@ -579,6 +615,7 @@
 							badgeBg="rgba(52, 52, 58, 0.94)"
 							appData={impAppData}
 							useImpressionMarkers={true}
+							maxPerAppLines={2}
 						/>
 					</div>
 				</section>

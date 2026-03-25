@@ -14,16 +14,23 @@
 		queryEvent,
 		liveQuery,
 		parseComment,
+		parseZapReceipt,
 		publishComment
 	} from '$lib/nostr';
 	import {
 		resolveForumDiscussionRootCommentId,
 		collectCommentSubtree
 	} from '$lib/nostr/thread-discussion.js';
+	import {
+		collectCommentsUnderParent,
+		collectZapReceiptsUnderZap,
+		findEnclosingZapReceiptForComment
+	} from '$lib/nostr/zap-thread.js';
 	import { parseProfile } from '$lib/nostr/models';
 	import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB, FORUM_RELAY } from '$lib/config';
 	import { goto } from '$app/navigation';
 	import CommentCard from '$lib/components/community/CommentCard.svelte';
+	import ZapActivityCard from '$lib/components/community/ZapActivityCard.svelte';
 	import RootComment from '$lib/components/social/RootComment.svelte';
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
@@ -46,6 +53,8 @@
 
 	/** @type {import('nostr-tools').NostrEvent[]} */
 	let activityComments = $state([]);
+	/** @type {import('nostr-tools').NostrEvent[]} */
+	let activityZapEvents = $state([]);
 	/** @type {Map<string, import('nostr-tools').NostrEvent>} root id/addr -> root event */
 	let activityRootEvents = $state(new Map());
 	/** @type {Map<string, { displayName?: string, name?: string, picture?: string }>} */
@@ -53,21 +62,65 @@
 
 	const activityCommentMap = $derived.by(() => {
 		const m = new Map();
-		for (const ev of activityComments) m.set(ev.id, ev);
+		for (const ev of activityComments) {
+			m.set(ev.id, ev);
+			m.set(ev.id.toLowerCase(), ev);
+		}
 		return m;
 	});
+
+	const activityZapMap = $derived.by(() => {
+		const m = new Map();
+		for (const ev of activityZapEvents) {
+			m.set(ev.id, ev);
+			m.set(ev.id.toLowerCase(), ev);
+		}
+		return m;
+	});
+
+	const activityZapsWithComment = $derived.by(() => {
+		const rows = [];
+		for (const ev of activityZapEvents) {
+			let p;
+			try {
+				p = parseZapReceipt(ev);
+			} catch {
+				continue;
+			}
+			if (!p.comment?.trim() || !p.senderPubkey) continue;
+			rows.push({ event: ev, parsed: p });
+		}
+		return rows.sort((a, b) => b.event.created_at - a.event.created_at);
+	});
+
+	const inboxFeedItems = $derived.by(() => {
+		const items = [];
+		for (const ev of activityComments) items.push({ kind: 'comment', ts: ev.created_at, ev });
+		for (const row of activityZapsWithComment) items.push({ kind: 'zap', ts: row.event.created_at, row });
+		return items.sort((a, b) => b.ts - a.ts);
+	});
+
+	function forumPostIdForZapParsed(parsed) {
+		const zid = parsed?.zappedEventId;
+		if (!zid) return null;
+		if (activityRootEvents.has(zid)) return zid;
+		const c = activityCommentMap.get(zid) ?? activityCommentMap.get(zid.toLowerCase());
+		if (c) return c.tags?.find((t) => t[0] === 'E' && t[1])?.[1] ?? null;
+		/* Direct zap on the forum post (e-tag = post id) */
+		return zid;
+	}
 
 	let activityReady = $state(false);
 	let activityLoading = $state(false);
 	let activityError = $state('');
 
-	// liveQuery: get forum post IDs, then comments that reference them (#E tag)
+	// liveQuery: forum comments + zaps whose #e targets a post or comment in this community
 	const activityQuery = $derived(
 		browser && COMMUNITY_PUBKEY && activityReady
 			? liveQuery(async () => {
 					const forumEvs = await queryEvents(FORUM_FILTER);
 					const rootIds = forumEvs.map((e) => e.id).filter(Boolean);
-					if (rootIds.length === 0) return [];
+					if (rootIds.length === 0) return { comments: [], zaps: [] };
 
 					const [commentsE, commentsEUpper] = await Promise.all([
 						queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': rootIds, limit: 300 }),
@@ -75,7 +128,21 @@
 					]);
 					const byId = new Map();
 					for (const ev of [...commentsE, ...commentsEUpper]) byId.set(ev.id, ev);
-					return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+					const commentList = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+
+					const eTargets = [...new Set([...rootIds, ...commentList.map((c) => c.id)])];
+					const zById = new Map();
+					if (eTargets.length > 0) {
+						const [zLo, zUp] = await Promise.all([
+							queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#e': eTargets, limit: 400 }),
+							queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#E': eTargets, limit: 400 })
+						]);
+						for (const z of [...zLo, ...zUp]) zById.set(z.id, z);
+					}
+					return {
+						comments: commentList,
+						zaps: Array.from(zById.values()).sort((a, b) => b.created_at - a.created_at)
+					};
 				})
 			: null
 	);
@@ -84,14 +151,43 @@
 		if (!activityQuery) return;
 		const sub = activityQuery.subscribe({
 			next: (val) => {
-				activityComments = val ?? [];
-				for (const ev of activityComments) {
+				const comments = val?.comments ?? [];
+				const zaps = val?.zaps ?? [];
+				activityComments = comments;
+				activityZapEvents = zaps;
+				const commentById = new Map();
+				for (const c of comments) {
+					commentById.set(c.id, c);
+					commentById.set(c.id.toLowerCase(), c);
+				}
+				for (const ev of comments) {
 					resolveActivityRootEvent(ev);
 					scheduleActivityProfileFetch(ev.pubkey);
 					const parentTag = ev.tags?.find((t) => t[0] === 'e' && t[1]);
 					if (parentTag?.[1]) {
-						const parent = val?.find((c) => c.id === parentTag[1]);
+						const parent = commentById.get(parentTag[1]) ?? commentById.get(parentTag[1].toLowerCase());
 						if (parent?.pubkey) scheduleActivityProfileFetch(parent.pubkey);
+					}
+				}
+				for (const zEv of zaps) {
+					try {
+						const zp = parseZapReceipt(zEv);
+						if (zp.senderPubkey) scheduleActivityProfileFetch(zp.senderPubkey);
+						const zapped = zp.zappedEventId;
+						if (
+							zapped &&
+							!commentById.get(zapped) &&
+							!commentById.get(zapped.toLowerCase()) &&
+							!activityRootEvents.get(zapped)
+						) {
+							void queryEvent({ ids: [zapped] }).then((ev) => {
+								if (ev?.kind === EVENT_KINDS.FORUM_POST) {
+									activityRootEvents = new Map(activityRootEvents).set(zapped, ev);
+								}
+							});
+						}
+					} catch {
+						/* ignore */
 					}
 				}
 			},
@@ -101,6 +197,23 @@
 			}
 		});
 		return () => sub.unsubscribe();
+	});
+
+	$effect(() => {
+		for (const ev of activityComments) {
+			const parentTag = ev.tags?.find((t) => t[0] === 'e' && t[1]);
+			const pid = parentTag?.[1];
+			if (!pid) continue;
+			if (activityCommentMap.get(pid) ?? activityCommentMap.get(pid.toLowerCase())) continue;
+			const z = activityZapMap.get(pid) ?? activityZapMap.get(pid.toLowerCase());
+			if (!z) continue;
+			try {
+				const p = parseZapReceipt(z);
+				if (p.senderPubkey) scheduleActivityProfileFetch(p.senderPubkey);
+			} catch {
+				/* ignore */
+			}
+		}
 	});
 
 	async function resolveActivityRootEvent(commentEvent) {
@@ -166,6 +279,18 @@
 					{ timeout: 7000 }
 				);
 				if (evs?.length) await putEvents(evs).catch(() => {});
+				const byC = new Map();
+				for (const e of evs ?? []) byC.set(e.id, e);
+				const commentIds = [...byC.keys()];
+				const eTargets = [...new Set([...rootIds, ...commentIds])];
+				if (eTargets.length > 0) {
+					const zEvs = await fetchFromRelays(
+						RELAYS,
+						{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#e': eTargets, limit: 400 },
+						{ timeout: 7000 }
+					).catch(() => []);
+					if (zEvs?.length) await putEvents(zEvs).catch(() => {});
+				}
 			}
 		} catch (err) {
 			console.error('[Activity] relay seed failed', err);
@@ -193,6 +318,10 @@
 	let threadLoadGen = 0;
 	let openReplyOnMount = $state(false);
 	let selectedThreadComments = $state(/** @type {any[]} */ ([]));
+	let selectedThreadZaps = $state(/** @type {any[]} */ ([]));
+	let threadModalKind = $state(/** @type {'comment' | 'zap' | null} */ (null));
+	let threadModalZapId = $state(/** @type {string | null} */ (null));
+	let threadModalZapEvent = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
 
 	const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
 	const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
@@ -229,6 +358,10 @@
 		const gen = threadLoadGen;
 		openReplyOnMount = withReply;
 		selectedThreadComments = [];
+		selectedThreadZaps = [];
+		threadModalKind = null;
+		threadModalZapId = null;
+		threadModalZapEvent = null;
 		threadModalRootId = null;
 		threadModalRootEvent = null;
 		initialReplyTargetForModal = null;
@@ -237,6 +370,38 @@
 		for (const c of activityComments) cmap.set(c.id.toLowerCase(), c);
 
 		(async () => {
+			const encZap = await findEnclosingZapReceiptForComment(
+				commentEv,
+				cmap,
+				activityZapMap,
+				(id) => queryEvent({ ids: [id] }).catch(() => null)
+			);
+			if (gen !== threadLoadGen) return;
+
+			if (encZap) {
+				let zp;
+				try {
+					zp = parseZapReceipt(encZap);
+				} catch {
+					return;
+				}
+				const postIdZap = forumPostIdForZapParsed(zp);
+				if (!postIdZap) return;
+
+				threadModalKind = 'zap';
+				threadModalRootId = null;
+				threadModalRootEvent = null;
+				threadModalZapId = encZap.id;
+				threadModalZapEvent = encZap;
+				initialReplyTargetForModal =
+					withReply && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
+						? enrichReplyTargetForModal(commentEv)
+						: null;
+
+				loadZapForumThread(postIdZap, encZap.id, gen);
+				return;
+			}
+
 			const rootId = await resolveForumDiscussionRootCommentId(
 				commentEv,
 				postId,
@@ -252,6 +417,7 @@
 			}
 			if (!rootEv || gen !== threadLoadGen) return;
 
+			threadModalKind = 'comment';
 			threadModalRootId = rootId;
 			threadModalRootEvent = rootEv;
 			initialReplyTargetForModal =
@@ -295,7 +461,7 @@
 					const sub2 = collectCommentSubtree(rootId, pool);
 					const m2 = new Map(sub2.map((e) => [e.id, e]));
 					await putEvents([...m2.values()]).catch(() => {});
-					if (gen !== threadLoadGen) return;
+					if (gen !== threadLoadGen || threadModalKind !== 'comment') return;
 					await enrichAndSetActivityThread(rootId, gen, m2);
 				})
 				.catch(() => {});
@@ -319,7 +485,7 @@
 				} catch { /* ignore */ }
 			}
 		}
-		if (gen !== threadLoadGen || threadModalRootId !== rootId) return;
+		if (gen !== threadLoadGen || threadModalRootId !== rootId || threadModalKind !== 'comment') return;
 		selectedThreadComments = evs.map((e) => {
 			const c = parseComment(e);
 			const p = profileMap.get(e.pubkey) ?? activityProfiles.get(e.pubkey);
@@ -365,6 +531,183 @@
 		];
 	}
 
+	function openZapThreadForum(zapEvent, withReply = false) {
+		let p;
+		try {
+			p = parseZapReceipt(zapEvent);
+		} catch {
+			return;
+		}
+		const postId = forumPostIdForZapParsed(p);
+		if (!postId) return;
+
+		threadLoadGen++;
+		const gen = threadLoadGen;
+		openReplyOnMount = withReply;
+		selectedThreadComments = [];
+		selectedThreadZaps = [];
+		threadModalKind = 'zap';
+		threadModalRootId = null;
+		threadModalRootEvent = null;
+		initialReplyTargetForModal = null;
+		threadModalZapId = zapEvent.id;
+		threadModalZapEvent = zapEvent;
+
+		loadZapForumThread(postId, zapEvent.id, gen);
+	}
+
+	async function loadZapForumThread(postId, zapId, gen) {
+		try {
+			const [lower, upper] = await Promise.all([
+				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': [postId], limit: 300 }),
+				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': [postId], limit: 300 })
+			]);
+			const merged = [];
+			const seen = new Set();
+			for (const e of [...lower, ...upper]) {
+				if (!seen.has(e.id)) {
+					seen.add(e.id);
+					merged.push(e);
+				}
+			}
+			const eTargets = [...new Set([postId, ...merged.map((c) => c.id)])];
+			const [zLo, zUp] = await Promise.all([
+				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#e': eTargets, limit: 400 }),
+				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#E': eTargets, limit: 400 })
+			]);
+			const zMap = new Map();
+			for (const z of [...zLo, ...zUp]) zMap.set(z.id, z);
+			let poolZaps = Array.from(zMap.values());
+
+			const zLower = zapId.toLowerCase();
+			let commThread = collectCommentsUnderParent(zLower, merged);
+			let zapThread = collectZapReceiptsUnderZap(zLower, poolZaps);
+
+			fetchFromRelays(
+				RELAYS,
+				{ kinds: [EVENT_KINDS.COMMENT], '#E': [postId], limit: 300 },
+				{ timeout: 5000 }
+			)
+				.then(async (evs) => {
+					const pool = [...merged];
+					for (const e of evs) {
+						if (!pool.some((x) => x.id === e.id)) pool.push(e);
+					}
+					const et2 = [...new Set([postId, ...pool.map((c) => c.id)])];
+					const [zz1, zz2] = await Promise.all([
+						fetchFromRelays(
+							RELAYS,
+							{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#e': et2, limit: 400 },
+							{ timeout: 5000 }
+						).catch(() => []),
+						fetchFromRelays(
+							RELAYS,
+							{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#E': et2, limit: 400 },
+							{ timeout: 5000 }
+						).catch(() => [])
+					]);
+					for (const z of [...zz1, ...zz2]) {
+						if (!poolZaps.some((x) => x.id === z.id)) poolZaps.push(z);
+					}
+					await putEvents([...pool, ...poolZaps]).catch(() => {});
+					if (gen !== threadLoadGen) return;
+					commThread = collectCommentsUnderParent(zLower, pool);
+					zapThread = collectZapReceiptsUnderZap(zLower, poolZaps);
+					await enrichZapForumModalThread(zapId, gen, commThread, zapThread);
+				})
+				.catch(() => {});
+
+			await enrichZapForumModalThread(zapId, gen, commThread, zapThread);
+		} catch (err) {
+			console.error('[Activity] zap thread load failed', err);
+		}
+	}
+
+	async function enrichZapForumModalThread(zapRootId, gen, commentEvents, zapReceiptEvents) {
+		const pks = [
+			...new Set([
+				...commentEvents.map((e) => e.pubkey),
+				...zapReceiptEvents
+					.map((ev) => {
+						try {
+							return parseZapReceipt(ev).senderPubkey;
+						} catch {
+							return null;
+						}
+					})
+					.filter(Boolean)
+			])
+		];
+		const profileResults = await fetchProfilesBatch(pks, { timeout: 4000 }).catch(() => new Map());
+		const profileMap = new Map();
+		for (const [pk, ev] of profileResults) {
+			if (ev?.content) {
+				try {
+					const j = JSON.parse(ev.content);
+					profileMap.set(pk, { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture });
+				} catch {
+					/* ignore */
+				}
+			}
+		}
+		if (
+			gen !== threadLoadGen ||
+			(threadModalZapId ?? '').toLowerCase() !== (zapRootId ?? '').toLowerCase()
+		)
+			return;
+
+		const commentsEnriched = commentEvents
+			.map((e) => {
+				const c = parseComment(e);
+				const p = profileMap.get(e.pubkey) ?? activityProfiles.get(e.pubkey);
+				let npub = '';
+				try {
+					npub = nip19.npubEncode(e.pubkey);
+				} catch {
+					/* ignore */
+				}
+				return {
+					...c,
+					displayName:
+						p?.displayName ??
+						p?.name ??
+						(npub ? `npub1${npub.slice(5, 8)}…${npub.slice(-6)}` : e.pubkey.slice(0, 8)),
+					avatarUrl: p?.picture ?? null,
+					profileUrl: npub ? `/profile/${npub}` : '',
+					profileLoading: false
+				};
+			})
+			.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+
+		const zapsEnriched = zapReceiptEvents
+			.map((ev) => {
+				const z = parseZapReceipt(ev);
+				const p = z.senderPubkey ? profileMap.get(z.senderPubkey) ?? activityProfiles.get(z.senderPubkey) : null;
+				let npub = '';
+				try {
+					if (z.senderPubkey) npub = nip19.npubEncode(z.senderPubkey);
+				} catch {
+					/* ignore */
+				}
+				return {
+					...z,
+					id: ev.id,
+					displayName:
+						p?.displayName ??
+						p?.name ??
+						(npub ? `npub1${npub.slice(5, 8)}…${npub.slice(-6)}` : (z.senderPubkey ?? '').slice(0, 8)),
+					avatarUrl: p?.picture ?? null,
+					profileUrl: npub ? `/profile/${npub}` : '',
+					timestamp: z.createdAt,
+					senderPubkey: z.senderPubkey
+				};
+			})
+			.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+
+		selectedThreadComments = commentsEnriched;
+		selectedThreadZaps = zapsEnriched;
+	}
+
 	onMount(() => {
 		if (!browser) return;
 		activityReady = true;
@@ -376,23 +719,32 @@
 	<title>Activity — Zapstore</title>
 </svelte:head>
 
-<div class="panel-content activity-panel" class:scroll-locked={!!threadModalRootId}>
-	{#if !activityReady || (activityLoading && activityComments.length === 0)}
+<div
+	class="panel-content activity-panel"
+	class:scroll-locked={threadModalKind === 'comment'
+		? !!threadModalRootId
+		: threadModalKind === 'zap'
+			? !!threadModalZapId
+			: false}
+>
+	{#if !activityReady || (activityLoading && inboxFeedItems.length === 0)}
 		<div class="loading-wrap">
 			<Spinner size={24} />
 			<span>Loading activity…</span>
 		</div>
-	{:else if activityError && activityComments.length === 0}
+	{:else if activityError && inboxFeedItems.length === 0}
 		<div class="empty-state-wrap">
 			<EmptyState message={activityError} minHeight={280} />
 		</div>
-	{:else if activityComments.length === 0}
+	{:else if inboxFeedItems.length === 0}
 		<div class="empty-state-wrap">
 			<EmptyState message="No Activity yet" minHeight={280} />
 		</div>
 	{:else}
 		<div class="activity-list">
-			{#each activityComments as commentEv (commentEv.id)}
+			{#each inboxFeedItems as item (item.kind === 'zap' ? `zap-${item.row.event.id}` : item.ev.id)}
+				{#if item.kind === 'comment'}
+					{@const commentEv = item.ev}
 				{@const authorProfileRaw = activityProfiles.get(commentEv.pubkey)}
 				{@const authorProfile = authorProfileRaw
 					? {
@@ -406,13 +758,37 @@
 				{@const rootEvent = rootKey ? activityRootEvents.get(rootKey) ?? null : null}
 				{@const eParentTag = commentEv.tags?.find((t) => t[0] === 'e' && t[1])}
 				{@const parentId = eParentTag?.[1] && eParentTag[1] !== rootKey ? eParentTag[1] : null}
-				{@const parentComment = parentId ? activityCommentMap.get(parentId) ?? null : null}
+				{@const parentComment =
+					parentId
+						? activityCommentMap.get(parentId) ?? activityCommentMap.get(parentId.toLowerCase()) ?? null
+						: null}
 				{@const parentAuthorRaw = parentComment ? activityProfiles.get(parentComment.pubkey) : null}
 				{@const parentCommentAuthor = parentComment && parentAuthorRaw
 					? {
 							name: parentAuthorRaw.displayName ?? parentAuthorRaw.name,
 							picture: parentAuthorRaw.picture,
 							pubkey: parentComment.pubkey
+						}
+					: null}
+				{@const parentZapEv =
+					!parentComment && parentId
+						? activityZapMap.get(parentId) ?? activityZapMap.get(parentId.toLowerCase()) ?? null
+						: null}
+				{@const parentZapParsed = (() => {
+					if (!parentZapEv) return null;
+					try {
+						return parseZapReceipt(parentZapEv);
+					} catch {
+						return null;
+					}
+				})()}
+				{@const parentZapperRaw =
+					parentZapParsed?.senderPubkey ? activityProfiles.get(parentZapParsed.senderPubkey) : null}
+				{@const parentZapperAuthor = parentZapParsed?.senderPubkey
+					? {
+							name: parentZapperRaw?.displayName ?? parentZapperRaw?.name ?? '',
+							picture: parentZapperRaw?.picture ?? null,
+							pubkey: parentZapParsed.senderPubkey
 						}
 					: null}
 				{@const authorNpub = (() => {
@@ -437,6 +813,8 @@
 					{rootEvent}
 					{parentComment}
 					{parentCommentAuthor}
+					{parentZapParsed}
+					{parentZapperAuthor}
 					profileUrl={authorNpub ? `/profile/${authorNpub}` : ''}
 					resolveMentionLabel={(pk) =>
 						activityProfiles.get(pk)?.displayName ?? activityProfiles.get(pk)?.name ?? pk?.slice(0, 8) ?? ''}
@@ -448,12 +826,76 @@
 					}}
 				/>
 			</div>
+				{:else}
+					{@const zapEv = item.row.event}
+					{@const zParsed = item.row.parsed}
+					{@const postIdZ = forumPostIdForZapParsed(zParsed)}
+					{@const rootEventZ = postIdZ ? activityRootEvents.get(postIdZ) ?? null : null}
+					{@const zappedId = zParsed.zappedEventId}
+					{@const parentCommentZ = zappedId ? activityCommentMap.get(zappedId) ?? null : null}
+					{@const parentAuthorRZ = parentCommentZ ? activityProfiles.get(parentCommentZ.pubkey) : null}
+					{@const parentCommentAuthorZ =
+						parentCommentZ && parentAuthorRZ
+							? {
+									name: parentAuthorRZ.displayName ?? parentAuthorRZ.name,
+									picture: parentAuthorRZ.picture,
+									pubkey: parentCommentZ.pubkey
+								}
+							: null}
+					{@const zapperPk = zParsed.senderPubkey}
+					{@const zapperProf = zapperPk ? activityProfiles.get(zapperPk) : null}
+					{@const zapperAuthor = zapperProf
+						? {
+								name: zapperProf.displayName ?? zapperProf.name,
+								picture: zapperProf.picture,
+								pubkey: zapperPk
+							}
+						: { name: '', picture: '', pubkey: zapperPk ?? '' }}
+					{@const zapperNpub = (() => {
+						try {
+							return zapperPk ? nip19.npubEncode(zapperPk) : '';
+						} catch {
+							return '';
+						}
+					})()}
+					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+					<div
+						class="activity-item"
+						role="button"
+						tabindex="0"
+						onclick={() => openZapThreadForum(zapEv)}
+						onkeydown={(e) => e.key === 'Enter' && openZapThreadForum(zapEv)}
+					>
+						<ZapActivityCard
+							zapEvent={zapEv}
+							parsed={zParsed}
+							zapperPubkey={zapperPk}
+							authorProfile={zapperAuthor}
+							rootEvent={rootEventZ}
+							parentComment={parentCommentZ}
+							parentCommentAuthor={parentCommentAuthorZ}
+							appBadge={null}
+							profileUrl={zapperNpub ? `/profile/${zapperNpub}` : ''}
+							resolveMentionLabel={(pk) =>
+								activityProfiles.get(pk)?.displayName ??
+								activityProfiles.get(pk)?.name ??
+								pk?.slice(0, 8) ??
+								''}
+							onRootClick={rootEventZ ? () => openRootPost(rootEventZ) : null}
+							feedActions={{
+								onReply: () => openZapThreadForum(zapEv, true),
+								onZap: () => openZapThreadForum(zapEv),
+								onOptions: () => openZapThreadForum(zapEv)
+							}}
+						/>
+					</div>
+				{/if}
 		{/each}
 		</div>
 	{/if}
 </div>
 
-{#if threadModalRootId && threadModalRootEvent}
+{#if threadModalKind === 'comment' && threadModalRootId && threadModalRootEvent}
 	{@const _rootEv = threadModalRootEvent}
 	{#key threadModalRootId}
 		{@const _eRoot = _rootEv.tags?.find((t) => t[0] === 'E' && t[1])?.[1] ?? null}
@@ -485,15 +927,86 @@
 				: null}
 			onModalClose={() => {
 				threadLoadGen++;
+				threadModalKind = null;
 				threadModalRootId = null;
 				threadModalRootEvent = null;
 				initialReplyTargetForModal = null;
 				selectedThreadComments = [];
+				selectedThreadZaps = [];
 			}}
 			{signEvent}
 			{searchProfiles}
 			{searchEmojis}
 			onReplySubmit={_rootPost ? (e) => handleActivityThreadReply(_rootPost.id, _rootPost.pubkey, e) : undefined}
+			onZapReceived={() => {}}
+			onGetStarted={() => {}}
+		/>
+	{/key}
+{/if}
+
+{#if threadModalKind === 'zap' && threadModalZapId && threadModalZapEvent}
+	{@const _zEv = threadModalZapEvent}
+	{@const _zParsed = parseZapReceipt(_zEv)}
+	{@const _postIdZ = forumPostIdForZapParsed(_zParsed)}
+	{@const _rootPostZ = _postIdZ ? activityRootEvents.get(_postIdZ) ?? null : null}
+	{@const _zapperRaw = _zParsed.senderPubkey ? activityProfiles.get(_zParsed.senderPubkey) : null}
+	{@const _zapperNpubZ = (() => {
+		try {
+			return _zParsed.senderPubkey ? nip19.npubEncode(_zParsed.senderPubkey) : '';
+		} catch {
+			return '';
+		}
+	})()}
+	{@const _postTitleZ = _rootPostZ?.tags?.find((t) => t[0] === 'title' && t[1])?.[1] ?? 'Forum Post'}
+	{@const _postNeventZ = (() => {
+		try {
+			return _rootPostZ ? nip19.neventEncode({ id: _rootPostZ.id }) : null;
+		} catch {
+			return null;
+		}
+	})()}
+	{#key threadModalZapId}
+		<RootComment
+			hideRoot={true}
+			openThreadOnMount={true}
+			openReplyOnMount={openReplyOnMount}
+			initialReplyTarget={initialReplyTargetForModal}
+			isZapRoot={true}
+			id={_zEv.id}
+			content={_zParsed.comment ?? ''}
+			zapAmount={_zParsed.amountSats ?? 0}
+			emojiTags={_zParsed.emojiTags ?? []}
+			mediaUrls={[]}
+			pictureUrl={_zapperRaw?.picture ?? null}
+			name={_zapperRaw?.displayName ?? _zapperRaw?.name ?? ''}
+			pubkey={_zParsed.senderPubkey ?? ''}
+			timestamp={_zEv.created_at}
+			profileUrl={_zapperNpubZ ? `/profile/${_zapperNpubZ}` : ''}
+			authorPubkey={_rootPostZ?.pubkey ?? ''}
+			threadComments={selectedThreadComments}
+			threadZaps={selectedThreadZaps}
+			appIconUrl={null}
+			appName=""
+			appIdentifier=""
+			version=""
+			rootContext={_postNeventZ
+				? { label: _postTitleZ, iconUrl: null, href: `/community/forum/${_postNeventZ}` }
+				: null}
+			onModalClose={() => {
+				threadLoadGen++;
+				threadModalKind = null;
+				threadModalZapId = null;
+				threadModalZapEvent = null;
+				initialReplyTargetForModal = null;
+				selectedThreadComments = [];
+				selectedThreadZaps = [];
+			}}
+			{signEvent}
+			{searchProfiles}
+			{searchEmojis}
+			onReplySubmit={_rootPostZ
+				? (e) => handleActivityThreadReply(_rootPostZ.id, _rootPostZ.pubkey, e)
+				: undefined}
 			onZapReceived={() => {}}
 			onGetStarted={() => {}}
 		/>

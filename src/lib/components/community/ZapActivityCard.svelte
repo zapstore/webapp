@@ -1,80 +1,41 @@
 <script lang="js">
 /**
- * CommentCard — Activity feed card for kind:1111 comments.
- * Same layout as chateau: emoji badge + root label, avatar, bubble with optional quoted reply.
+ * ZapActivityCard — Activity feed row for kind 9735 with a non-empty zap comment (matches SocialTabs comments tab).
  */
 import { nip19 } from 'nostr-tools';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import AppPic from '$lib/components/common/AppPic.svelte';
 import Timestamp from '$lib/components/common/Timestamp.svelte';
-import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
+import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
 import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
-import QuotedZapMessage from '$lib/components/social/QuotedZapMessage.svelte';
 import CommentBubbleActionRail from '$lib/components/social/CommentBubbleActionRail.svelte';
+import { Zap } from '$lib/components/icons';
 import { getEventOneliner } from '$lib/nostr/models.js';
-import { hexToColor, getProfileTextColor, rgbToCssString } from '$lib/utils/color.js';
-import { onMount } from 'svelte';
 
 let {
 	/** @type {import('nostr-tools').NostrEvent} */
-	event,
-	/** @type {{ name?: string, picture?: string, pubkey: string } | null} */
+	zapEvent,
+	/** From parseZapReceipt(zapEvent) */
+	parsed,
+	/** Zapper profile */
 	authorProfile = null,
-	/** @type {import('nostr-tools').NostrEvent | null} */
+	zapperPubkey = null,
 	rootEvent = null,
-	/** @type {import('nostr-tools').NostrEvent | null} */
 	parentComment = null,
-	/** @type {{ name?: string, picture?: string, pubkey: string } | null} */
 	parentCommentAuthor = null,
-	/** When reply parent is a zap receipt (kind 9735), not in parentComment. */
-	parentZapParsed = null,
-	/** Profile for the zapper (sender); optional if not loaded yet. */
-	parentZapperAuthor = null,
 	profileUrl = '',
 	className = '',
-	/** @type {((pubkey: string) => string) | undefined} */
 	resolveMentionLabel = undefined,
-	/**
-	 * When set, shows an app icon in the top badge instead of the root emoji (e.g. studio activity).
-	 * @type {{ iconUrl?: string | null, name?: string | null, identifier?: string | null } | null}
-	 */
 	appBadge = null,
-	/**
-	 * Hover action rail (Reply / Zap / Options). All three open the in-feed thread modal.
-	 * @type {{ onReply?: () => void, onZap?: () => void, onOptions?: () => void } | null}
-	 */
 	feedActions = null,
-	/**
-	 * Called when the root-label-row (app/forum post name) is clicked.
-	 * Only this row navigates; clicking the bubble calls feedActions handlers instead.
-	 * @type {(() => void) | null}
-	 */
 	onRootClick = null
 } = $props();
 
-const isReply = $derived.by(() => {
-	if (!event?.tags) return false;
-	const upperRoot = event.tags.find((t) => (t[0] === 'E' || t[0] === 'A') && t[1]);
-	const lowerParent = event.tags.find((t) => (t[0] === 'e' || t[0] === 'a') && t[1]);
-	if (!lowerParent) return false;
-	return upperRoot ? lowerParent[1] !== upperRoot[1] : true;
-});
-
-const showQuote = $derived(
-	isReply &&
-		(!!parentComment || !!(parentZapParsed && parentZapParsed.senderPubkey))
-);
+const showQuote = $derived(!!parentComment && !!parsed?.zappedEventId);
 const rootOneliner = $derived(getEventOneliner(rootEvent));
 
-const emojiTags = $derived(
-	(event?.tags ?? [])
-		.filter((t) => t[0] === 'emoji' && t[1] && t[2])
-		.map((t) => ({ shortcode: t[1], url: t[2] }))
-);
-/** Media URLs from event 'media' tags (NIP-94 style) */
-const mediaUrls = $derived(
-	(event?.tags ?? []).filter((t) => t[0] === 'media' && t[1]).map((t) => t[1])
-);
+const emojiTags = $derived(parsed?.emojiTags ?? []);
+const contentText = $derived(parsed?.comment ?? '');
 
 function formatNpub(pk) {
 	if (!pk) return '';
@@ -89,7 +50,7 @@ function formatNpub(pk) {
 const displayName = $derived(
 	authorProfile?.name?.trim() ||
 		authorProfile?.displayName?.trim() ||
-		(event?.pubkey ? formatNpub(event.pubkey) : '')
+		(zapperPubkey ? formatNpub(zapperPubkey) : '')
 );
 
 const parentDisplayName = $derived(
@@ -102,30 +63,15 @@ const parentContentPreview = $derived(
 	(parentComment?.content ?? '').replace(/nostr:[a-z0-9]+/gi, '').replace(/\s+/g, ' ').trim()
 );
 
-const zapQuoteAuthorName = $derived(
-	parentZapperAuthor?.name?.trim() ||
-		parentZapperAuthor?.displayName?.trim() ||
-		(parentZapParsed?.senderPubkey ? formatNpub(parentZapParsed.senderPubkey) : 'Anonymous')
-);
-
-let isDarkMode = $state(true);
-onMount(() => {
-	const mq = window.matchMedia('(prefers-color-scheme: dark)');
-	isDarkMode = mq.matches;
-	const handler = (e) => (isDarkMode = e.matches);
-	mq.addEventListener('change', handler);
-	return () => mq.removeEventListener('change', handler);
-});
-
-const profileColor = $derived(
-	event?.pubkey ? hexToColor(event.pubkey) : { r: 128, g: 128, b: 128 }
-);
-const textColor = $derived(getProfileTextColor(profileColor, isDarkMode));
-const nameColorStyle = $derived(rgbToCssString(textColor));
-const contentText = $derived(event?.content ?? '');
+function formatAmount(val) {
+	const n = Number(val) || 0;
+	if (n >= 1000000) return `${(n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1)}M`;
+	if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}K`;
+	return n.toLocaleString();
+}
 </script>
 
-<div class="comment-card {className}">
+<div class="zap-activity-card {className}">
 	<div class="left-col">
 		<div class="emoji-badge" class:emoji-badge--app={!!appBadge} aria-hidden="true">
 			{#if appBadge}
@@ -135,15 +81,15 @@ const contentText = $derived(event?.content ?? '');
 						name={appBadge.name ?? null}
 						identifier={appBadge.identifier ?? null}
 						size="xs"
-						className="comment-card-app-pic"
+						className="zap-activity-app-pic"
 						onClick={() => {}}
 					/>
 				</div>
 			{:else}
-				<img src={rootOneliner.emoji} alt="" width="14" height="14" />
+				<Zap variant="fill" size={14} color="url(#zap-activity-card-gradient)" />
 			{/if}
 		</div>
-		{#if isReply}
+		{#if showQuote}
 			<div class="line-dotted"></div>
 		{/if}
 		<div class="line-solid"></div>
@@ -153,7 +99,7 @@ const contentText = $derived(event?.content ?? '');
 					<ProfilePic
 						pictureUrl={authorProfile?.picture ?? null}
 						name={authorProfile?.name ?? null}
-						pubkey={event?.pubkey ?? null}
+						pubkey={zapperPubkey}
 						size="smMd"
 					/>
 				</a>
@@ -161,7 +107,7 @@ const contentText = $derived(event?.content ?? '');
 				<ProfilePic
 					pictureUrl={authorProfile?.picture ?? null}
 					name={authorProfile?.name ?? null}
-					pubkey={event?.pubkey ?? null}
+					pubkey={zapperPubkey}
 					size="smMd"
 				/>
 			{/if}
@@ -174,8 +120,11 @@ const contentText = $derived(event?.content ?? '');
 				<button
 					type="button"
 					class="root-label root-label-link"
-					onclick={(e) => { e.stopPropagation(); onRootClick(); }}
-				>{rootOneliner.label}</button>
+					onclick={(e) => {
+						e.stopPropagation();
+						onRootClick();
+					}}>{rootOneliner.label}</button
+				>
 			{:else}
 				<span class="root-label">{rootOneliner.label}</span>
 			{/if}
@@ -184,47 +133,42 @@ const contentText = $derived(event?.content ?? '');
 		{#if feedActions}
 			<div class="bubble-with-rail desktop-bubble-actions-target">
 				<div class="bubble-stack">
-					<div class="bubble" class:bubble--quoted={showQuote}>
-						<div class="bubble-header">
-							{#if profileUrl}
-								<a href={profileUrl} class="author-name" style="color: {nameColorStyle};"
-									>{displayName}</a
-								>
-							{:else}
-								<span class="author-name" style="color: {nameColorStyle};">{displayName}</span>
-							{/if}
-							<Timestamp timestamp={event?.created_at} size="xs" />
-						</div>
+					<div class="zap-bubble-skin" class:zap-bubble-skin--quoted={showQuote}>
+						<div class="bubble">
+							<div class="bubble-header">
+								<div class="header-left">
+									{#if profileUrl}
+										<a href={profileUrl} class="author-name">{displayName}</a>
+									{:else}
+										<span class="author-name">{displayName}</span>
+									{/if}
+									<Timestamp timestamp={zapEvent?.created_at} size="xs" />
+								</div>
+								<div class="zap-amount-row">
+									<Zap variant="fill" size={14} color="url(#zap-activity-card-gradient)" />
+									<span class="zap-amount">{formatAmount(parsed?.amountSats ?? 0)}</span>
+								</div>
+							</div>
 
-						{#if showQuote}
-							<div class="quote-wrap">
-								{#if parentComment}
+							{#if showQuote}
+								<div class="quote-wrap">
 									<QuotedMessage
 										authorName={parentDisplayName || 'Anonymous'}
 										authorPubkey={parentComment?.pubkey ?? null}
 										contentPreview={parentContentPreview}
 									/>
-								{:else if parentZapParsed?.senderPubkey}
-									<QuotedZapMessage
-										authorName={zapQuoteAuthorName}
-										authorPubkey={parentZapParsed.senderPubkey}
-										amountSats={parentZapParsed.amountSats ?? 0}
-										content={parentZapParsed.comment ?? ''}
-										emojiTags={parentZapParsed.emojiTags ?? []}
-										mediaUrls={[]}
+								</div>
+							{/if}
+
+							{#if contentText}
+								<div class="bubble-content">
+									<ShortTextRenderer
+										content={contentText}
+										emojiTags={emojiTags}
 										{resolveMentionLabel}
 									/>
-								{/if}
-							</div>
-						{/if}
-
-						<div class="bubble-content">
-							<ShortTextContent
-								content={contentText}
-								{emojiTags}
-								mediaUrls={mediaUrls}
-								{resolveMentionLabel}
-							/>
+								</div>
+							{/if}
 						</div>
 					</div>
 				</div>
@@ -237,55 +181,57 @@ const contentText = $derived(event?.content ?? '');
 				</div>
 			</div>
 		{:else}
-			<div class="bubble" class:bubble--quoted={showQuote}>
-				<div class="bubble-header">
-					{#if profileUrl}
-						<a href={profileUrl} class="author-name" style="color: {nameColorStyle};"
-							>{displayName}</a
-						>
-					{:else}
-						<span class="author-name" style="color: {nameColorStyle};">{displayName}</span>
-					{/if}
-					<Timestamp timestamp={event?.created_at} size="xs" />
-				</div>
-
-				{#if showQuote}
-					<div class="quote-wrap">
-						{#if parentComment}
+			<div class="zap-bubble-skin" class:zap-bubble-skin--quoted={showQuote}>
+				<div class="bubble">
+					<div class="bubble-header">
+						<div class="header-left">
+							{#if profileUrl}
+								<a href={profileUrl} class="author-name">{displayName}</a>
+							{:else}
+								<span class="author-name">{displayName}</span>
+							{/if}
+							<Timestamp timestamp={zapEvent?.created_at} size="xs" />
+						</div>
+						<div class="zap-amount-row">
+							<Zap variant="fill" size={14} color="url(#zap-activity-card-gradient)" />
+							<span class="zap-amount">{formatAmount(parsed?.amountSats ?? 0)}</span>
+						</div>
+					</div>
+					{#if showQuote}
+						<div class="quote-wrap">
 							<QuotedMessage
 								authorName={parentDisplayName || 'Anonymous'}
 								authorPubkey={parentComment?.pubkey ?? null}
 								contentPreview={parentContentPreview}
 							/>
-						{:else if parentZapParsed?.senderPubkey}
-							<QuotedZapMessage
-								authorName={zapQuoteAuthorName}
-								authorPubkey={parentZapParsed.senderPubkey}
-								amountSats={parentZapParsed.amountSats ?? 0}
-								content={parentZapParsed.comment ?? ''}
-								emojiTags={parentZapParsed.emojiTags ?? []}
-								mediaUrls={[]}
+						</div>
+					{/if}
+					{#if contentText}
+						<div class="bubble-content">
+							<ShortTextRenderer
+								content={contentText}
+								emojiTags={emojiTags}
 								{resolveMentionLabel}
 							/>
-						{/if}
-					</div>
-				{/if}
-
-				<div class="bubble-content">
-					<ShortTextContent
-						content={contentText}
-						{emojiTags}
-						mediaUrls={mediaUrls}
-						{resolveMentionLabel}
-					/>
+						</div>
+					{/if}
 				</div>
 			</div>
 		{/if}
 	</div>
 </div>
 
+<svg width="0" height="0" style="position: absolute;" aria-hidden="true">
+	<defs>
+		<linearGradient id="zap-activity-card-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+			<stop offset="0%" stop-color="#FFC736" />
+			<stop offset="100%" stop-color="#FFA037" />
+		</linearGradient>
+	</defs>
+</svg>
+
 <style>
-	.comment-card {
+	.zap-activity-card {
 		display: flex;
 		gap: 8px;
 		align-items: stretch;
@@ -308,6 +254,7 @@ const contentText = $derived(event?.content ?? '');
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
+		position: relative;
 	}
 
 	.emoji-badge--app {
@@ -326,13 +273,8 @@ const contentText = $derived(event?.content ?? '');
 		pointer-events: none;
 	}
 
-	.app-badge-pic-wrap :global(.comment-card-app-pic) {
+	.app-badge-pic-wrap :global(.zap-activity-app-pic) {
 		cursor: inherit;
-	}
-
-	.app-badge-pic-wrap :global(.comment-card-app-pic:hover),
-	.app-badge-pic-wrap :global(.comment-card-app-pic:active) {
-		transform: none;
 	}
 
 	.line-dotted {
@@ -403,7 +345,6 @@ const contentText = $derived(event?.content ?? '');
 		text-underline-offset: 2px;
 	}
 
-	/* Match MessageBubble + CommentBubbleActionRail (RootComment feed) */
 	.bubble-with-rail {
 		display: flex;
 		align-items: flex-end;
@@ -422,26 +363,58 @@ const contentText = $derived(event?.content ?? '');
 		align-self: flex-end;
 	}
 
-	.bubble {
+	/* Match ZapBubble.svelte bubble chrome (radial gold wash, typography, spacing). */
+	.zap-bubble-skin {
 		width: fit-content;
 		max-width: 100%;
 		min-width: 200px;
-		background-color: hsl(var(--gray66));
-		border-radius: 16px 16px 16px 4px;
-		padding: 8px 12px;
 	}
 
-	.bubble--quoted {
+	.zap-bubble-skin--quoted {
 		min-width: 260px;
+	}
+
+	.zap-bubble-skin .bubble {
+		width: fit-content;
+		max-width: 100%;
+		min-width: 0;
+		background: radial-gradient(
+			circle at top left,
+			rgba(255, 199, 54, 0.1) 0%,
+			rgba(255, 160, 55, 0.1) 100%
+		);
+		border-radius: 16px 16px 16px 4px;
+		padding: 8px 12px;
 	}
 
 	.bubble-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 6px;
-		flex-wrap: wrap;
-		margin-bottom: 4px;
+		gap: 16px;
+		margin-bottom: 2px;
+	}
+
+	.header-left {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 0;
+	}
+
+	.zap-amount-row {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		flex-shrink: 0;
+	}
+
+	.zap-amount {
+		font-weight: 500;
+		font-size: 1rem;
+		line-height: 1.2;
+		color: hsl(var(--foreground));
+		font-variant-numeric: tabular-nums;
 	}
 
 	.author-name {
@@ -451,6 +424,10 @@ const contentText = $derived(event?.content ?? '');
 		text-decoration: none;
 		transition: opacity 0.15s ease;
 		white-space: nowrap;
+		background: var(--gradient-gold);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
 	}
 
 	a.author-name:hover {
@@ -466,6 +443,7 @@ const contentText = $derived(event?.content ?? '');
 		font-size: 0.9375rem;
 		line-height: 1.5;
 		color: hsl(var(--foreground) / 0.85);
+		margin-top: 4px;
 	}
 
 	.bubble-content :global(p) {
