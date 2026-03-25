@@ -28,6 +28,11 @@ let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl 
     openThreadOnMount = false,
     /** When true, also open the reply composer immediately when the modal mounts. */
     openReplyOnMount = false,
+    /**
+     * When opening with openReplyOnMount, optional reply target (nested comment) to quote — same shape as replyingToComment.
+     * @type {null | { id: string, pubkey: string, displayName?: string, avatarUrl?: string | null, content?: string, createdAt?: number, emojiTags?: { shortcode: string, url: string }[], mediaUrls?: string[] }}
+     */
+    initialReplyTarget = null,
     /** When true, the feed-level bubble/rail is hidden; only the thread Modal is rendered. */
     hideRoot = false,
     /**
@@ -335,7 +340,10 @@ $effect(() => {
 $effect(() => {
     if (openThreadOnMount) {
         modalOpen = true;
-        if (openReplyOnMount) commentExpanded = true;
+        if (openReplyOnMount) {
+            commentExpanded = true;
+            replyingToComment = initialReplyTarget ?? null;
+        }
     }
 });
 // Track first open so onModalClose fires when modal closes (but not on initial false state).

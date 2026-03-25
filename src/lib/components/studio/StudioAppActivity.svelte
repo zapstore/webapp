@@ -17,6 +17,11 @@
 		parseComment,
 		publishComment
 	} from '$lib/nostr';
+	import {
+		walkAppDiscussionRootInMap,
+		resolveAppDiscussionRootCommentId,
+		collectCommentSubtree
+	} from '$lib/nostr/thread-discussion.js';
 	import { parseApp, parseProfile } from '$lib/nostr/models';
 	import { EVENT_KINDS, DEFAULT_SOCIAL_RELAYS } from '$lib/config';
 	import { goto } from '$app/navigation';
@@ -222,58 +227,126 @@
 		}
 	}
 
-	// ── In-feed thread modal ─────────────────────────────────────────────────
-	/** ID of the comment whose thread modal is currently open. */
-	let selectedCommentId = $state(/** @type {string | null} */ (null));
+	// ── In-feed thread modal (header = discussion root, not nested reply) ───
+	/** Discussion root comment id — always the top comment of the thread under the app. */
+	let threadModalRootId = $state(/** @type {string | null} */ (null));
+	let threadModalRootEvent = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
+	/** When opening via Reply on a nested comment, quote target for the composer. */
+	let initialReplyTargetForModal = $state(/** @type {any} */ (null));
+	let threadLoadGen = 0;
 	/** Whether the reply composer should open immediately when the thread modal mounts. */
 	let openReplyOnMount = $state(false);
-	/** Enriched replies for the open thread modal. */
+	/** Enriched replies for the open thread modal (subtree under root). */
 	let selectedThreadComments = $state(/** @type {any[]} */ ([]));
 
 	const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
 	const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
 
-	function openThread(commentId, withReply = false) {
-		selectedCommentId = commentId;
+	function enrichReplyTargetForModal(commentEv) {
+		const c = parseComment(commentEv);
+		const p = activityProfiles.get(commentEv.pubkey);
+		let npub = '';
+		try {
+			npub = nip19.npubEncode(commentEv.pubkey);
+		} catch {
+			/* ignore */
+		}
+		return {
+			id: commentEv.id,
+			pubkey: commentEv.pubkey,
+			displayName:
+				p?.displayName ??
+				p?.name ??
+				(npub ? `npub1${npub.slice(5, 8)}…${npub.slice(-6)}` : commentEv.pubkey.slice(0, 8)),
+			avatarUrl: p?.picture ?? null,
+			content: commentEv.content ?? '',
+			createdAt: commentEv.created_at,
+			emojiTags: c.emojiTags,
+			mediaUrls: c.mediaUrls ?? []
+		};
+	}
+
+	function openThread(commentEv, withReply = false) {
+		const aRoot = commentEv.tags?.find((t) => t[0] === 'A' && t[1])?.[1] ?? null;
+		if (!aRoot) return;
+
+		threadLoadGen++;
+		const gen = threadLoadGen;
 		openReplyOnMount = withReply;
 		selectedThreadComments = [];
-		loadThread(commentId);
+		threadModalRootId = null;
+		threadModalRootEvent = null;
+		initialReplyTargetForModal = null;
+
+		const cmap = new Map();
+		for (const c of activityComments) cmap.set(c.id.toLowerCase(), c);
+
+		(async () => {
+			let rootId = walkAppDiscussionRootInMap(commentEv, cmap);
+			if (!rootId) {
+				rootId = await resolveAppDiscussionRootCommentId(commentEv, cmap, (id) =>
+					queryEvent({ ids: [id] }).catch(() => null)
+				);
+			}
+			if (gen !== threadLoadGen) return;
+
+			let rootEv = cmap.get(rootId.toLowerCase());
+			if (!rootEv) {
+				rootEv = await queryEvent({ ids: [rootId] }).catch(() => null);
+				if (rootEv) cmap.set(rootEv.id.toLowerCase(), rootEv);
+			}
+			if (!rootEv || gen !== threadLoadGen) return;
+
+			threadModalRootId = rootId;
+			threadModalRootEvent = rootEv;
+			initialReplyTargetForModal =
+				withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
+					? enrichReplyTargetForModal(commentEv)
+					: null;
+
+			await loadAppThread(rootId, aRoot, gen, rootEv);
+		})();
 	}
 
 	$effect(() => {
-		threadModalOpen = !!selectedCommentId;
+		threadModalOpen = !!threadModalRootId;
 	});
 
-	async function loadThread(commentId) {
+	async function loadAppThread(rootId, aRoot, gen, rootEv) {
 		try {
-			const [lower, upper] = await Promise.all([
-				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': [commentId], limit: 200 }),
-				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': [commentId], limit: 200 })
-			]);
-			const byId = new Map();
-			for (const e of [...lower, ...upper]) byId.set(e.id, e);
+			let pool = await queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#A': [aRoot], limit: 500 });
+			const poolArr = [...pool];
+			if (!poolArr.some((e) => e.id === rootEv.id)) poolArr.push(rootEv);
 
-			// Background relay fetch
+			let subtree = collectCommentSubtree(rootId, poolArr);
+			let byId = new Map(subtree.map((e) => [e.id, e]));
+
 			const { fetchFromRelays } = await import('$lib/nostr/service.js');
 			fetchFromRelays(
 				DEFAULT_SOCIAL_RELAYS,
-				{ kinds: [EVENT_KINDS.COMMENT], '#e': [commentId], limit: 200 },
+				{ kinds: [EVENT_KINDS.COMMENT], '#A': [aRoot], limit: 500 },
 				{ timeout: 5000, feature: 'studio-thread' }
-			).then(async (evs) => {
-				for (const e of evs) byId.set(e.id, e);
-				await putEvents([...byId.values()]).catch(() => {});
-				if (selectedCommentId === commentId) {
-					await enrichAndSetThread(commentId, byId);
-				}
-			}).catch(() => {});
+			)
+				.then(async (evs) => {
+					const merged = [...poolArr];
+					for (const e of evs) {
+						if (!merged.some((x) => x.id === e.id)) merged.push(e);
+					}
+					const sub2 = collectCommentSubtree(rootId, merged);
+					const m2 = new Map(sub2.map((e) => [e.id, e]));
+					await putEvents([...m2.values()]).catch(() => {});
+					if (gen !== threadLoadGen) return;
+					await enrichAndSetThread(rootId, gen, m2);
+				})
+				.catch(() => {});
 
-			await enrichAndSetThread(commentId, byId);
+			await enrichAndSetThread(rootId, gen, byId);
 		} catch (err) {
 			console.error('[StudioActivity] thread load failed', err);
 		}
 	}
 
-	async function enrichAndSetThread(commentId, byIdMap) {
+	async function enrichAndSetThread(rootId, gen, byIdMap) {
 		const evs = Array.from(byIdMap.values()).sort((a, b) => a.created_at - b.created_at);
 		const pks = [...new Set(evs.map((e) => e.pubkey))];
 		const profileResults = await fetchProfilesBatch(pks, { timeout: 4000 }).catch(() => new Map());
@@ -286,7 +359,7 @@
 				} catch { /* ignore */ }
 			}
 		}
-		if (selectedCommentId !== commentId) return;
+		if (gen !== threadLoadGen || threadModalRootId !== rootId) return;
 		selectedThreadComments = evs.map((e) => {
 			const c = parseComment(e);
 			const p = profileMap.get(e.pubkey) ?? activityProfiles.get(e.pubkey);
@@ -425,8 +498,8 @@
 			class="activity-item"
 			role="button"
 			tabindex="0"
-			onclick={() => openThread(commentEv.id)}
-			onkeydown={(e) => e.key === 'Enter' && openThread(commentEv.id)}
+			onclick={() => openThread(commentEv)}
+			onkeydown={(e) => e.key === 'Enter' && openThread(commentEv)}
 		>
 			<CommentCard
 				event={commentEv}
@@ -443,9 +516,9 @@
 					''}
 				onRootClick={rootATag ? () => openAppForComment(rootATag) : null}
 				feedActions={{
-					onReply: () => openThread(commentEv.id, true),
-					onZap: () => openThread(commentEv.id),
-					onOptions: () => openThread(commentEv.id)
+					onReply: () => openThread(commentEv, true),
+					onZap: () => openThread(commentEv),
+					onOptions: () => openThread(commentEv)
 				}}
 			/>
 		</div>
@@ -453,55 +526,60 @@
 	</div>
 {/if}
 
-{#if selectedCommentId}
-	{@const _selectedEv = activityComments.find((c) => c.id === selectedCommentId)}
-	{#if _selectedEv}
-		{#key selectedCommentId}
-			{@const _aRoot = _selectedEv.tags?.find((t) => t[0] === 'A' && t[1])?.[1] ?? null}
-			{@const _appMeta = _aRoot ? appByAddr.get(_aRoot) : null}
-			{@const _authorRaw = activityProfiles.get(_selectedEv.pubkey)}
-			{@const _authorNpub = (() => { try { return nip19.npubEncode(_selectedEv.pubkey); } catch { return ''; } })()}
-			{@const _parts = _aRoot?.split(':') ?? []}
-			{@const _appPubkey = _parts[1] ?? ''}
-			{@const _appDTag = _parts.slice(2).join(':') ?? ''}
-			{@const _appNaddr = (() => { try { return _appPubkey && _appDTag ? encodeAppNaddr(_appPubkey, _appDTag) : null; } catch { return null; } })()}
-			{@const _evVersion = _selectedEv.tags?.find((t) => t[0] === 'v' && t[1])?.[1] ?? ''}
-			<RootComment
-				hideRoot={true}
-				openThreadOnMount={true}
-				openReplyOnMount={openReplyOnMount}
-				id={_selectedEv.id}
-				content={_selectedEv.content ?? ''}
-				version={_evVersion}
-				emojiTags={(_selectedEv.tags ?? []).filter((t) => t[0] === 'emoji' && t[1] && t[2]).map((t) => ({ shortcode: t[1], url: t[2] }))}
-				mediaUrls={(_selectedEv.tags ?? []).filter((t) => t[0] === 'media' && t[1]).map((t) => t[1])}
-				pictureUrl={_authorRaw?.picture ?? null}
-				name={_authorRaw?.displayName ?? _authorRaw?.name ?? ''}
-				pubkey={_selectedEv.pubkey}
-				timestamp={_selectedEv.created_at}
-				profileUrl={_authorNpub ? `/profile/${_authorNpub}` : ''}
-				threadComments={selectedThreadComments}
-				threadZaps={[]}
-				appIconUrl={_appMeta?.icon ?? null}
-				appName={_appMeta?.name ?? ''}
-				appIdentifier={_appMeta?.id ?? _appDTag}
-				rootContext={_appMeta || _appNaddr
-					? {
-							label: _appMeta?.name ?? _appDTag,
-							iconUrl: _appMeta?.icon ?? null,
-							href: _appNaddr ? `/apps/${_appNaddr}` : ''
-						}
-					: null}
-				onModalClose={() => { selectedCommentId = null; selectedThreadComments = []; }}
-				{signEvent}
-				{searchProfiles}
-				{searchEmojis}
-				onReplySubmit={_aRoot ? (e) => handleThreadReply(_aRoot, e) : undefined}
-				onZapReceived={() => {}}
-				onGetStarted={() => {}}
-			/>
-		{/key}
-	{/if}
+{#if threadModalRootId && threadModalRootEvent}
+	{@const _rootEv = threadModalRootEvent}
+	{#key threadModalRootId}
+		{@const _aRoot = _rootEv.tags?.find((t) => t[0] === 'A' && t[1])?.[1] ?? null}
+		{@const _appMeta = _aRoot ? appByAddr.get(_aRoot) : null}
+		{@const _authorRaw = activityProfiles.get(_rootEv.pubkey)}
+		{@const _authorNpub = (() => { try { return nip19.npubEncode(_rootEv.pubkey); } catch { return ''; } })()}
+		{@const _parts = _aRoot?.split(':') ?? []}
+		{@const _appPubkey = _parts[1] ?? ''}
+		{@const _appDTag = _parts.slice(2).join(':') ?? ''}
+		{@const _appNaddr = (() => { try { return _appPubkey && _appDTag ? encodeAppNaddr(_appPubkey, _appDTag) : null; } catch { return null; } })()}
+		{@const _evVersion = _rootEv.tags?.find((t) => t[0] === 'v' && t[1])?.[1] ?? ''}
+		<RootComment
+			hideRoot={true}
+			openThreadOnMount={true}
+			openReplyOnMount={openReplyOnMount}
+			initialReplyTarget={initialReplyTargetForModal}
+			id={_rootEv.id}
+			content={_rootEv.content ?? ''}
+			version={_evVersion}
+			emojiTags={(_rootEv.tags ?? []).filter((t) => t[0] === 'emoji' && t[1] && t[2]).map((t) => ({ shortcode: t[1], url: t[2] }))}
+			mediaUrls={(_rootEv.tags ?? []).filter((t) => t[0] === 'media' && t[1]).map((t) => t[1])}
+			pictureUrl={_authorRaw?.picture ?? null}
+			name={_authorRaw?.displayName ?? _authorRaw?.name ?? ''}
+			pubkey={_rootEv.pubkey}
+			timestamp={_rootEv.created_at}
+			profileUrl={_authorNpub ? `/profile/${_authorNpub}` : ''}
+			threadComments={selectedThreadComments}
+			threadZaps={[]}
+			appIconUrl={_appMeta?.icon ?? null}
+			appName={_appMeta?.name ?? ''}
+			appIdentifier={_appMeta?.id ?? _appDTag}
+			rootContext={_appMeta || _appNaddr
+				? {
+						label: _appMeta?.name ?? _appDTag,
+						iconUrl: _appMeta?.icon ?? null,
+						href: _appNaddr ? `/apps/${_appNaddr}` : ''
+					}
+				: null}
+			onModalClose={() => {
+				threadLoadGen++;
+				threadModalRootId = null;
+				threadModalRootEvent = null;
+				initialReplyTargetForModal = null;
+				selectedThreadComments = [];
+			}}
+			{signEvent}
+			{searchProfiles}
+			{searchEmojis}
+			onReplySubmit={_aRoot ? (e) => handleThreadReply(_aRoot, e) : undefined}
+			onZapReceived={() => {}}
+			onGetStarted={() => {}}
+		/>
+	{/key}
 {/if}
 
 <style>

@@ -1,16 +1,17 @@
 <script module>
-	// Computed once at module load — outside any reactive/component context
-	const _MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-	const _DAYS = 30;
+	const _MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-	// These are one-time label strings, not reactive state — safe to suppress here
-	/* eslint-disable svelte/prefer-svelte-reactivity */
-	export const DAY_LABELS = Array.from({ length: _DAYS }, (_, i) => {
-		const d = new Date();
-		d.setDate(d.getDate() - (_DAYS - 1 - i));
-		return `${d.getDate()} ${_MONTHS[d.getMonth()]}`;
-	});
-	/* eslint-enable svelte/prefer-svelte-reactivity */
+	/** @param {number} n */
+	export function buildDayLabels(n) {
+		const days = Math.max(1, n);
+		/* eslint-disable svelte/prefer-svelte-reactivity -- axis labels; local Date, not component state */
+		return Array.from({ length: days }, (_, i) => {
+			const d = new Date();
+			d.setDate(d.getDate() - (days - 1 - i));
+			return `${d.getDate()} ${_MONTHS[d.getMonth()]}`;
+		});
+		/* eslint-enable svelte/prefer-svelte-reactivity */
+	}
 </script>
 
 <script>
@@ -38,14 +39,29 @@
 		// Hide the combined total line (useful when appColors makes individual lines primary).
 		hideTotalLine = false,
 		// Override top padding (default 40). Use 20 for compact layouts.
-		padTop = 40
+		padTop = 40,
+		/** Number of days on the X axis (must match each `counts` length when appData is set). */
+		dayCount = 30,
+		/** When true, line-end / hover markers use the impressions eye glyph instead of app images. */
+		useImpressionMarkers = false,
+		/** Pixels below the y=0 baseline (inside SVG). Vertical rule extends through this band; data is not clipped there. */
+		padBottom = 12
 	} = $props();
 
-	const DAYS = _DAYS;
+	const DAYS = $derived(Math.max(1, dayCount));
+	const xDenom = $derived(Math.max(1, DAYS - 1));
+	const dayLabels = $derived(buildDayLabels(DAYS));
+
+	function alignCounts(/** @type {number[] | undefined} */ counts, /** @type {number} */ n) {
+		if (!counts?.length) return Array(n).fill(0);
+		if (counts.length === n) return counts;
+		if (counts.length > n) return counts.slice(-n);
+		return [...Array(n - counts.length).fill(0), ...counts];
+	}
 
 	// Used only when appData is null (dummy/fallback mode).
 	function wave(i, seed, base, amp) {
-		const trend = (i / (DAYS - 1)) * amp * 1.5;
+		const trend = (i / xDenom) * amp * 1.5;
 		const s1 = Math.sin(i * 0.9 + seed) * amp * 0.3;
 		const s2 = Math.sin(i * 2.5 + seed * 1.4) * amp * 0.18;
 		const s3 = Math.sin(i * 0.4 + seed * 2.1) * amp * 0.22;
@@ -55,7 +71,12 @@
 	// Reactive: re-derives whenever appData prop changes.
 	const apps = $derived(
 		appData
-			? appData.map((a) => ({ id: a.id, name: a.name, icon: a.icon, data: a.counts }))
+			? appData.map((a) => ({
+					id: a.id,
+					name: a.name,
+					icon: a.icon,
+					data: alignCounts(a.counts, DAYS)
+				}))
 			: [
 					{
 						id: 'app-a',
@@ -76,14 +97,14 @@
 		Array.from({ length: DAYS }, (_, i) => apps.reduce((sum, a) => sum + a.data[i], 0))
 	);
 
-	const maxY = $derived(Math.max(...totalData));
+	const maxY = $derived(Math.max(1, ...totalData));
 
-	const dateLabel = DAY_LABELS[DAYS - 1];
+	const dateLabel = $derived(dayLabels[DAYS - 1]);
 
-	// Layout constants
-	const H = 168;
+	/** Y coordinate of v=0 (plot floor). Chart curves stay above this; padBottom sits below. */
+	const PLOT_FLOOR_Y = 168;
+	const SVG_H = $derived(PLOT_FLOOR_Y + padBottom);
 	const PAD_T = $derived(padTop);
-	const PAD_B = 0;
 	const RIGHT_ZONE = 14;
 	const BADGE_H = 24;
 	const BADGE_GAP = 4;
@@ -95,7 +116,6 @@
 	$effect(() => {
 		if (!containerEl) return;
 		W = containerEl.clientWidth || 600;
-		// eslint-disable-next-line no-undef
 		const ro = new ResizeObserver(([e]) => (W = e.contentRect.width));
 		ro.observe(containerEl);
 		return () => ro.disconnect();
@@ -120,8 +140,9 @@
 			}
 		}
 		const half = BADGE_H / 2;
+		const yMax = PLOT_FLOOR_Y + padBottom - half;
 		sorted.forEach((it) => {
-			it.y = Math.max(PAD_T + half, Math.min(H - PAD_B - half, it.y));
+			it.y = Math.max(PAD_T + half, Math.min(yMax, it.y));
 		});
 		return sorted;
 	}
@@ -129,10 +150,14 @@
 	// All chart geometry derived from W
 	const chart = $derived.by(() => {
 		const cW = W - RIGHT_ZONE;
-		const cH = H - PAD_T - PAD_B;
+		const cH = PLOT_FLOOR_Y - PAD_T;
 
-		function xp(i) { return (i / (DAYS - 1)) * cW; }
-		function yp(v) { return PAD_T + cH - (v / maxY) * cH; }
+		function xp(i) {
+			return (i / xDenom) * cW;
+		}
+		function yp(v) {
+			return PAD_T + cH - (v / maxY) * cH;
+		}
 
 		function buildPath(data) {
 			const pts = data.map((v, i) => [xp(i), yp(v)]);
@@ -160,10 +185,14 @@
 	const hover = $derived.by(() => {
 		if (hoverIndex === null) return null;
 		const cW = W - RIGHT_ZONE;
-		const cH = H - PAD_T - PAD_B;
+		const cH = PLOT_FLOOR_Y - PAD_T;
 
-		function xp(i) { return (i / (DAYS - 1)) * cW; }
-		function yp(v) { return PAD_T + cH - (v / maxY) * cH; }
+		function xp(i) {
+			return (i / xDenom) * cW;
+		}
+		function yp(v) {
+			return PAD_T + cH - (v / maxY) * cH;
+		}
 
 		const x = xp(hoverIndex);
 		const totalVal = totalData[hoverIndex];
@@ -171,7 +200,7 @@
 		const appVals = apps.map((a) => a.data[hoverIndex]);
 		const appYs = apps.map((_, i) => yp(appVals[i]));
 
-		const dateStr = DAY_LABELS[hoverIndex];
+		const dateStr = dayLabels[hoverIndex];
 
 		// Flip badges to left when they would overflow the chart right edge
 		const badgeLeft = x + 10 + BADGE_W > cW;
@@ -198,7 +227,7 @@
 		const rect = event.currentTarget.getBoundingClientRect();
 		const mouseX = event.clientX - rect.left;
 		const cW = W - RIGHT_ZONE;
-		hoverIndex = Math.max(0, Math.min(DAYS - 1, Math.round((mouseX / cW) * (DAYS - 1))));
+		hoverIndex = Math.max(0, Math.min(DAYS - 1, Math.round((mouseX / cW) * xDenom)));
 	}
 
 	function handleMouseLeave() {
@@ -218,8 +247,8 @@
 		<svg
 			class="chart-svg"
 			width={W}
-			height={H}
-			viewBox="0 0 {W} {H}"
+			height={SVG_H}
+			viewBox="0 0 {W} {SVG_H}"
 			xmlns="http://www.w3.org/2000/svg"
 			aria-hidden="true"
 			overflow="visible"
@@ -242,36 +271,6 @@
 			<filter id="{chartId}-glow" x="-20%" y="-250%" width="140%" height="600%">
 				<feGaussianBlur in="SourceGraphic" stdDeviation="9" />
 			</filter>
-
-			<!-- Static end-line clip paths -->
-			{#each apps as app, i (app.id)}
-				<clipPath id="{chartId}-clip-{i}">
-					<rect
-						x={chart.lineX - 6}
-						y={chart.appEndYs[i] - 6}
-						width="12"
-						height="12"
-						rx="4"
-						ry="4"
-					/>
-				</clipPath>
-			{/each}
-
-			<!-- Hover clip paths (recomputed on mouse move) -->
-			{#if hover !== null}
-				{#each apps as app, i (app.id)}
-					<clipPath id="{chartId}-clip-h-{i}">
-						<rect
-							x={hover.x - 6}
-							y={hover.appYs[i] - 6}
-							width="12"
-							height="12"
-							rx="4"
-							ry="4"
-						/>
-					</clipPath>
-				{/each}
-			{/if}
 		</defs>
 
 		<!-- Per-app lines — only when multiple apps (single app = total line already represents it) -->
@@ -317,7 +316,7 @@
 			x1={chart.lineX}
 			y1={PAD_T}
 			x2={chart.lineX}
-			y2={H - PAD_B}
+			y2={SVG_H}
 			stroke="rgba(255,255,255,0.1)"
 			stroke-width="1"
 		/>
@@ -327,6 +326,8 @@
 			{#if apps.length === 1}
 				{#if appColors}
 					<circle cx={chart.lineX} cy={chart.totalEndY} r="5" fill={appColors[0]} />
+				{:else if useImpressionMarkers}
+					<circle cx={chart.lineX} cy={chart.totalEndY} r="6" fill="url(#{chartId}-line)" />
 				{:else}
 					<image
 						href={apps[0].icon}
@@ -334,14 +335,15 @@
 						y={chart.totalEndY - 6}
 						width="12"
 						height="12"
-						clip-path="url(#{chartId}-clip-0)"
-						preserveAspectRatio="xMidYMid slice"
+						preserveAspectRatio="xMidYMid meet"
 					/>
 				{/if}
 			{:else}
 				{#each apps as app, i (app.id)}
 					{#if appColors}
 						<circle cx={chart.lineX} cy={chart.appEndYs[i]} r="5" fill={appColors[i] ?? dotColor} />
+					{:else if useImpressionMarkers}
+						<circle cx={chart.lineX} cy={chart.appEndYs[i]} r="5" fill="url(#{chartId}-line)" />
 					{:else}
 						<image
 							href={app.icon}
@@ -349,13 +351,17 @@
 							y={chart.appEndYs[i] - 6}
 							width="12"
 							height="12"
-							clip-path="url(#{chartId}-clip-{i})"
-							preserveAspectRatio="xMidYMid slice"
+							preserveAspectRatio="xMidYMid meet"
 						/>
 					{/if}
 				{/each}
 				{#if !hideTotalLine}
-					<circle cx={chart.lineX} cy={chart.totalEndY} r="6" fill={dotColor} />
+					<circle
+						cx={chart.lineX}
+						cy={chart.totalEndY}
+						r="6"
+						fill={useImpressionMarkers ? `url(#${chartId}-line)` : dotColor}
+					/>
 				{/if}
 			{/if}
 		{/if}
@@ -367,7 +373,7 @@
 				x1={hover.x}
 				y1={hover.lineTopY}
 				x2={hover.x}
-				y2={H - PAD_B}
+				y2={SVG_H}
 				stroke="rgba(255,255,255,0.22)"
 				stroke-width="1"
 				pointer-events="none"
@@ -377,6 +383,14 @@
 				<!-- Single app: dot or icon + one badge -->
 				{#if appColors}
 					<circle cx={hover.x} cy={hover.totalY} r="5" fill={appColors[0]} pointer-events="none" />
+				{:else if useImpressionMarkers}
+					<circle
+						cx={hover.x}
+						cy={hover.totalY}
+						r="6"
+						fill="url(#{chartId}-line)"
+						pointer-events="none"
+					/>
 				{:else}
 					<image
 						href={apps[0].icon}
@@ -384,8 +398,7 @@
 						y={hover.totalY - 6}
 						width="12"
 						height="12"
-						clip-path="url(#{chartId}-clip-h-0)"
-						preserveAspectRatio="xMidYMid slice"
+						preserveAspectRatio="xMidYMid meet"
 						pointer-events="none"
 					/>
 				{/if}
@@ -414,6 +427,14 @@
 				{#each apps as app, i (app.id)}
 					{#if appColors}
 						<circle cx={hover.x} cy={hover.appYs[i]} r="5" fill={appColors[i] ?? dotColor} pointer-events="none" />
+					{:else if useImpressionMarkers}
+						<circle
+							cx={hover.x}
+							cy={hover.appYs[i]}
+							r="5"
+							fill="url(#{chartId}-line)"
+							pointer-events="none"
+						/>
 					{:else}
 						<image
 							href={app.icon}
@@ -421,8 +442,7 @@
 							y={hover.appYs[i] - 6}
 							width="12"
 							height="12"
-							clip-path="url(#{chartId}-clip-h-{i})"
-							preserveAspectRatio="xMidYMid slice"
+							preserveAspectRatio="xMidYMid meet"
 							pointer-events="none"
 						/>
 					{/if}
@@ -450,7 +470,13 @@
 
 				<!-- Total dot + badge — only when not hidden -->
 				{#if !hideTotalLine}
-					<circle cx={hover.x} cy={hover.totalY} r="6" fill={dotColor} pointer-events="none" />
+					<circle
+						cx={hover.x}
+						cy={hover.totalY}
+						r="6"
+						fill={useImpressionMarkers ? `url(#${chartId}-line)` : dotColor}
+						pointer-events="none"
+					/>
 					<rect
 						x={badgeRectX(hover.x, hover.badgeLeft)}
 						y={hover.totalBadgeY - BADGE_H / 2}
@@ -493,6 +519,7 @@
 	.chart-wrap {
 		width: 100%;
 		position: relative;
+		overflow: visible;
 	}
 
 	.chart-svg {

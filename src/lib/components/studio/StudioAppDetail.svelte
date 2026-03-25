@@ -5,8 +5,17 @@
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import ArrowUpIcon from '$lib/components/icons/ArrowUp.svelte';
 	import ArrowDownIcon from '$lib/components/icons/ArrowDown.svelte';
+	import ImpressionIcon from '$lib/components/icons/Impression.svelte';
+	import AppPic from '$lib/components/common/AppPic.svelte';
 
-	let { app, dlCounts = [], impCounts = [], zapCounts = [], onBack: _onBack } = $props();
+	let {
+		app,
+		chartDayCount = 30,
+		dlCounts = [],
+		impCounts = [],
+		zapCounts = [],
+		onBack: _onBack
+	} = $props();
 
 	function sum(arr) {
 		return arr.reduce((s, v) => s + v, 0);
@@ -33,6 +42,14 @@
 	let selectedTimeframe = $state('30 Days');
 	const timeframes = ['7 Days', '30 Days', '90 Days', '1 Year'];
 
+	const pad = (/** @type {number[]} */ arr) => {
+		const n = chartDayCount;
+		if (!arr?.length) return Array(n).fill(0);
+		if (arr.length === n) return arr;
+		if (arr.length > n) return arr.slice(-n);
+		return [...Array(n - arr.length).fill(0), ...arr];
+	};
+
 	const combinedAppData = $derived(
 		dlCounts.length > 0 || zapCounts.length > 0
 			? [
@@ -40,13 +57,13 @@
 						id: 'dl',
 						name: 'Downloads',
 						icon: '',
-						counts: dlCounts.length > 0 ? dlCounts : Array(30).fill(0)
+						counts: pad(dlCounts)
 					},
 					{
 						id: 'zap',
 						name: 'Zaps',
 						icon: '',
-						counts: zapCounts.length > 0 ? zapCounts : Array(30).fill(0)
+						counts: pad(zapCounts)
 					}
 				]
 			: null
@@ -57,9 +74,16 @@
 	<!-- App info header — app info left, 30 Days dropdown right -->
 	<div class="app-info">
 		<div class="app-info-left">
-			{#if app.icon}
-				<img src={app.icon} alt={app.name} class="app-icon" />
-			{/if}
+			<div class="app-pic-wrap">
+				<AppPic
+					iconUrl={app.icon}
+					name={app.name}
+					identifier={app.id}
+					size="md"
+					className="studio-detail-app-pic"
+					onClick={() => {}}
+				/>
+			</div>
 			<div class="app-text">
 				<h2 class="app-name">{app.name}</h2>
 				{#if app.description}
@@ -81,7 +105,7 @@
 			</button>
 			{#if timeframeOpen}
 				<div class="tr-dropdown">
-					{#each timeframes as tf}
+					{#each timeframes as tf (tf)}
 						<button
 							class="tr-option"
 							class:tr-selected={tf === selectedTimeframe}
@@ -155,6 +179,7 @@
 		<div class="count-item count-item--last">
 			<span class="eyebrow-label count-eyebrow">Impressions</span>
 			<div class="count-value-row">
+				<ImpressionIcon size={24} />
 				<span class="count-num">{impTotal.toLocaleString('en-US')}</span>
 			</div>
 			{#if impPct !== null && impPct !== 0}
@@ -185,6 +210,7 @@
 		<div class="chart-area">
 			<DownloadChart
 				chartId="detail"
+				dayCount={chartDayCount}
 				color0="#5445FF"
 				color1="#636AFF"
 				glowColor="#5445FF"
@@ -228,12 +254,19 @@
 		min-width: 0;
 	}
 
-	.app-icon {
-		width: 44px;
-		height: 44px;
-		border-radius: 10px;
-		object-fit: cover;
+	.app-pic-wrap {
 		flex-shrink: 0;
+		line-height: 0;
+	}
+
+	/* Header pic is decorative — AppPic is a button; neutralize interaction */
+	:global(.studio-detail-app-pic.app-pic) {
+		cursor: default;
+	}
+
+	:global(.studio-detail-app-pic.app-pic:hover),
+	:global(.studio-detail-app-pic.app-pic:active) {
+		transform: none;
 	}
 
 	.app-text {
@@ -254,13 +287,12 @@
 	.app-desc {
 		font-size: 13px;
 		color: hsl(var(--white33));
-		line-height: 1.5;
+		line-height: 1.4;
 		margin: 0;
-		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		-webkit-box-orient: vertical;
 		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		min-width: 0;
 	}
 
 	/* ── Counts row ────────────────────────────────────────────────────────── */

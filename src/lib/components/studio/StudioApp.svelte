@@ -3,6 +3,7 @@
 	import DownloadIcon from '$lib/components/icons/Download.svelte';
 	import ZapIcon from '$lib/components/icons/Zap.svelte';
 	import InsightsIcon from '$lib/components/icons/Insights.svelte';
+	import ImpressionIcon from '$lib/components/icons/Impression.svelte';
 	import InboxIcon from '$lib/components/icons/Inbox.svelte';
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import StudioAppDetail from './StudioAppDetail.svelte';
@@ -14,6 +15,7 @@
 		DL_SEEDS,
 		ZAP_SEEDS,
 		IMP_SEEDS,
+		STUDIO_DAYS,
 		buildDummyAppData,
 		totalCount
 	} from './studio-config.js';
@@ -21,14 +23,27 @@
 	import { parseApp } from '$lib/nostr/models.js';
 	import { fetchAppsByAuthorFromRelays } from '$lib/nostr/service.js';
 	import { DEFAULT_CATALOG_RELAYS } from '$lib/config.js';
-	import { nip19 } from 'nostr-tools';
+	import {
+		buildIsoDateRange,
+		fetchImpressions,
+		loadDownloadAppData,
+		mapImpressionRowsToAppData,
+		npubToHex,
+		timeframeToDays
+	} from '$lib/studio/analytics-http.js';
+	import { collectBlobHashesForDeveloper } from '$lib/studio/collect-blob-hashes.js';
 
 	let activeNav = $state('insights');
 	let dlDropdownOpen = $state(false);
 	let selectedDlTimeframe = $state('30 Days');
+	let impDropdownOpen = $state(false);
+	let selectedImpTimeframe = $state('30 Days');
 	let zapDropdownOpen = $state(false);
 	let selectedZapTimeframe = $state('30 Days');
 	let mobileMenuOpen = $state(false);
+
+	/** Bumps when insights time ranges change; stale async loads must not overwrite UI. */
+	let studioLoadGeneration = 0;
 
 	const timeframes = ['7 Days', '30 Days', '90 Days', '1 Year'];
 
@@ -60,6 +75,9 @@
 	let zapAppData = $state(DUMMY_MODE ? buildDummyAppData(ZAP_SEEDS) : null);
 	let impAppData = $state(DUMMY_MODE ? buildDummyAppData(IMP_SEEDS) : null);
 
+	const dlInsightDays = $derived(timeframeToDays(selectedDlTimeframe));
+	const impInsightDays = $derived(timeframeToDays(selectedImpTimeframe));
+
 	// Sidebar app list — real apps when signed in, dummies in DUMMY_MODE.
 	let userApps = $state(DUMMY_MODE ? DUMMY_APPS : []);
 
@@ -72,40 +90,82 @@
 	/** True while the inbox thread modal is open — used to lock .content scroll. */
 	let inboxThreadOpen = $state(false);
 
-	// Header totals — derived from the same appData the charts consume.
-	const formattedTotal = $derived(dlAppData ? totalCount(dlAppData).toLocaleString('en-US') : '—');
+	// Header totals (download chart / zap chart / impression chart).
+	const formattedImpressions = $derived(impAppData ? totalCount(impAppData).toLocaleString('en-US') : '—');
+	const formattedDownloads = $derived(dlAppData ? totalCount(dlAppData).toLocaleString('en-US') : '—');
 	const formattedZaps = $derived(zapAppData ? totalCount(zapAppData).toLocaleString('en-US') : '—');
 
 	// ── Real data loading (only runs when DUMMY_MODE = false) ───────────────
 	$effect(() => {
 		if (DUMMY_MODE) return;
-		loadStudioData().catch((err) => {
-			// Graceful degradation: chart falls back to wave generator (appData stays null).
+		selectedImpTimeframe;
+		selectedDlTimeframe;
+		const impD = timeframeToDays(selectedImpTimeframe);
+		const dlD = timeframeToDays(selectedDlTimeframe);
+		studioLoadGeneration += 1;
+		const gen = studioLoadGeneration;
+		loadStudioData(gen, impD, dlD).catch((err) => {
 			console.error('[Studio] data load failed:', err);
 		});
 	});
 
-	async function loadStudioData() {
-		// Resolve pubkey: TEST_PUBKEY override → NIP-07 → bail
-		let pubkey = TEST_PUBKEY
-			? TEST_PUBKEY.startsWith('npub1')
-				? /** @type {string} */ (nip19.decode(TEST_PUBKEY).data)
-				: TEST_PUBKEY
-			: null;
+	/** TEST_PUBKEY or NIP-07 hex pubkey (lowercase). No extension required when TEST_PUBKEY is set. */
+	async function resolveStudioPubkeyHex() {
+		const raw = TEST_PUBKEY == null || TEST_PUBKEY === '' ? '' : String(TEST_PUBKEY).trim();
+		if (raw) {
+			try {
+				return npubToHex(raw);
+			} catch (e) {
+				console.error('[Studio] Invalid TEST_PUBKEY in studio-config.js:', e);
+				return null;
+			}
+		}
+		if (typeof window !== 'undefined' && window.nostr) {
+			try {
+				const pk = await window.nostr.getPublicKey();
+				return String(pk).toLowerCase();
+			} catch {
+				return null;
+			}
+		}
+		return null;
+	}
 
+	function studioLoadStale(gen) {
+		return gen !== studioLoadGeneration;
+	}
+
+	/**
+	 * @param {number} gen
+	 * @param {number} impDays
+	 * @param {number} dlDays
+	 */
+	async function loadStudioData(gen, impDays, dlDays) {
+		const impRange = buildIsoDateRange(impDays);
+		const dlRange = buildIsoDateRange(dlDays);
+
+		const pubkey = await resolveStudioPubkeyHex();
+		if (studioLoadStale(gen)) return;
 		if (!pubkey) {
-			if (!window.nostr) throw new Error('NIP-07 extension not found');
-			pubkey = await window.nostr.getPublicKey();
+			console.warn(
+				'[Studio] Set TEST_PUBKEY in studio-config.js (npub or hex) or unlock NIP-07 to load apps and analytics.'
+			);
+			studioPubkey = null;
+			userApps = [];
+			impAppData = null;
+			dlAppData = null;
+			return;
 		}
 
 		studioPubkey = pubkey;
 
-		// 1. Fetch this developer's published apps — Dexie first, relay fallback.
 		let events = await queryEvents({ kinds: [32267], authors: [pubkey] });
+		if (studioLoadStale(gen)) return;
 		if (events.length === 0) {
 			events = await fetchAppsByAuthorFromRelays(DEFAULT_CATALOG_RELAYS, pubkey);
 			if (events.length > 0) await putEvents(events);
 		}
+		if (studioLoadStale(gen)) return;
 
 		const parsedApps = events.map(parseApp);
 		userApps = parsedApps.map((a) => ({
@@ -115,15 +175,66 @@
 			description: a.description ?? ''
 		}));
 
-		if (parsedApps.length === 0) return; // no apps — charts keep wave fallback
+		if (parsedApps.length === 0) {
+			impAppData = null;
+			dlAppData = null;
+			return;
+		}
 
-		// 2. Fetch analytics from the SvelteKit server route (NIP-98 authenticated).
-		// Pass the target pubkey as a query param so the server queries the right data
-		// even when TEST_PUBKEY differs from the signed-in NIP-07 key.
-		const apiUrl = `${location.origin}/api/studio/analytics?pubkey=${pubkey}`;
+		let v1ImpressionsOk = false;
+
+		try {
+			const impRows = await fetchImpressions(pubkey, {
+				from: impRange.from,
+				to: impRange.to,
+				groupBy: 'app_id,day'
+			});
+			if (studioLoadStale(gen)) return;
+			impAppData = mapImpressionRowsToAppData(userApps, impRows, impDays);
+			v1ImpressionsOk = true;
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			if (msg === 'ANALYTICS_HTTP_DISABLED') {
+				console.warn(
+					'[Studio] v1 analytics proxy disabled. Set STUDIO_ANALYTICS_HTTP_URL in .env (e.g. http://127.0.0.1:3336) and restart the dev server.'
+				);
+			} else {
+				console.warn('[Studio] v1 impressions failed:', err);
+			}
+			if (!studioLoadStale(gen)) impAppData = null;
+		}
+
+		try {
+			const hashMap = await collectBlobHashesForDeveloper(pubkey, userApps);
+			if (studioLoadStale(gen)) return;
+			dlAppData = await loadDownloadAppData(userApps, hashMap, dlRange, dlDays);
+		} catch (err) {
+			console.warn('[Studio] v1 downloads failed:', err);
+			if (!studioLoadStale(gen)) dlAppData = null;
+		}
+
+		if (!v1ImpressionsOk && !studioLoadStale(gen)) {
+			await loadLegacyNip98Impressions(pubkey, impDays, gen);
+		}
+	}
+
+	/**
+	 * Legacy relay analytics behind /api/studio/analytics (NIP-98).
+	 * @param {string} pubkeyHex
+	 * @param {number} days
+	 * @param {number} gen
+	 */
+	async function loadLegacyNip98Impressions(pubkeyHex, days, gen) {
+		const apiUrl = `${location.origin}/api/studio/analytics?pubkey=${pubkeyHex}`;
+
+		if (!window.nostr) {
+			console.warn('[Studio] No NIP-07 — legacy impressions skipped (v1 downloads unchanged if loaded).');
+			if (!studioLoadStale(gen)) impAppData = null;
+			return;
+		}
 
 		let authEvent;
-		if (window.nostr) {
+		try {
 			authEvent = await window.nostr.signEvent({
 				kind: 27235,
 				created_at: Math.floor(Date.now() / 1000),
@@ -133,11 +244,12 @@
 				],
 				content: ''
 			});
-		} else {
-			// No NIP-07 extension — skip analytics, charts keep wave fallback.
-			console.warn('[Studio] No NIP-07 extension found — analytics skipped');
+		} catch {
+			if (!studioLoadStale(gen)) impAppData = null;
 			return;
 		}
+
+		if (studioLoadStale(gen)) return;
 
 		const res = await fetch(apiUrl, {
 			headers: { Authorization: `Nostr ${btoa(JSON.stringify(authEvent))}` }
@@ -146,51 +258,22 @@
 		if (!res.ok) {
 			const body = await res.json().catch(() => ({}));
 			if (res.status === 503) {
-				console.warn('[Studio] Analytics DB not configured on server:', body.error);
+				console.warn('[Studio] Legacy analytics not configured:', body.error);
 			} else if (res.status === 401) {
-				console.error('[Studio] Analytics auth failed — check NIP-07 extension is unlocked');
+				console.error('[Studio] Legacy analytics auth failed');
 			} else {
-				throw new Error(`Analytics API ${res.status}: ${body.error ?? 'unknown'}`);
+				console.warn('[Studio] Legacy analytics error:', res.status, body.error);
 			}
+			if (!studioLoadStale(gen)) impAppData = null;
 			return;
 		}
 
+		if (studioLoadStale(gen)) return;
+
 		const data = await res.json();
-
-		// 3. Align impression rows to appData shape for DownloadChart.
-		//    Impressions keyed by app_id = app dTag.
-		dlAppData = mapImpressionsToAppData(userApps, data.impressions ?? []);
-
-		// TODO: wire zapAppData once zap fetch is implemented.
-	}
-
-	// Align per-app impression rows to the 30-day window.
-	function mapImpressionsToAppData(apps, rows) {
-		// Build { appId → { isoDate → count } } index.
-		/** @type {Map<string, Map<string, number>>} */
-		const byApp = new Map();
-		for (const row of rows) {
-			if (!byApp.has(row.app_id)) byApp.set(row.app_id, new Map());
-			byApp.get(row.app_id).set(row.date, row.count);
+		if (!studioLoadStale(gen)) {
+			impAppData = mapImpressionRowsToAppData(userApps, data.impressions ?? [], days);
 		}
-
-		// Build date strings for the last 30 days in ISO format (YYYY-MM-DD).
-		const today = new Date();
-		const isoDates = Array.from({ length: 30 }, (_, i) => {
-			const d = new Date(today);
-			d.setDate(d.getDate() - (29 - i));
-			return d.toISOString().split('T')[0];
-		});
-
-		return apps.map((app) => {
-			const dayMap = byApp.get(app.id) ?? new Map();
-			return {
-				id: app.id,
-				name: app.name,
-				icon: app.icon,
-				counts: isoDates.map((iso) => dayMap.get(iso) ?? 0)
-			};
-		});
 	}
 </script>
 
@@ -219,7 +302,7 @@
 				<div class="mobile-nav-panel" role="dialog" aria-modal="true" aria-label="Studio navigation">
 					<div class="mobile-nav-content">
 						<nav class="sidebar-nav">
-							{#each navItems as item}
+							{#each navItems as item (item.id)}
 								{@const isActive = activeNav === item.id && selectedApp === null}
 								{@const iconColor = isActive ? 'hsl(var(--white66))' : 'hsl(var(--white33))'}
 								<button class="nav-item" class:active={isActive} onclick={() => selectNav(item.id)}>
@@ -278,7 +361,7 @@
 		<!-- Sidebar — hidden on mobile -->
 		<aside class="sidebar">
 			<nav class="sidebar-nav">
-				{#each navItems as item}
+				{#each navItems as item (item.id)}
 					{@const isActive = activeNav === item.id && selectedApp === null}
 					{@const iconColor = isActive ? 'hsl(var(--white66))' : 'hsl(var(--white33))'}
 					<button class="nav-item" class:active={isActive} onclick={() => selectNav(item.id)}>
@@ -333,6 +416,7 @@
 			{#if selectedApp !== null}
 				<StudioAppDetail
 					app={selectedApp}
+					chartDayCount={dlInsightDays}
 					dlCounts={dlAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
 					impCounts={impAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
 					zapCounts={zapAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
@@ -350,7 +434,7 @@
 					<div class="section-head">
 						<div class="dl-meta">
 							<DownloadIcon size={24} color="hsl(var(--blurpleColor66))" />
-							<span class="dl-count">{formattedTotal}</span>
+							<span class="dl-count">{formattedDownloads}</span>
 						</div>
 						<div class="timerange-wrap">
 							<button class="timerange-btn" onclick={() => (dlDropdownOpen = !dlDropdownOpen)}>
@@ -366,7 +450,7 @@
 							</button>
 							{#if dlDropdownOpen}
 								<div class="tr-dropdown">
-									{#each timeframes as tf}
+									{#each timeframes as tf (tf)}
 										<button
 											class="tr-option"
 											class:tr-selected={tf === selectedDlTimeframe}
@@ -385,6 +469,7 @@
 					<div class="chart-area">
 						<DownloadChart
 							chartId="dl"
+							dayCount={DUMMY_MODE ? STUDIO_DAYS : dlInsightDays}
 							color0="#5445FF"
 							color1="#636AFF"
 							glowColor="#5445FF"
@@ -415,7 +500,7 @@
 							</button>
 							{#if zapDropdownOpen}
 								<div class="tr-dropdown">
-									{#each timeframes as tf}
+									{#each timeframes as tf (tf)}
 										<button
 											class="tr-option"
 											class:tr-selected={tf === selectedZapTimeframe}
@@ -434,6 +519,7 @@
 					<div class="chart-area">
 						<DownloadChart
 							chartId="zap"
+							dayCount={STUDIO_DAYS}
 							color0="#CC7A00"
 							color1="#FFB237"
 							glowColor="#FFB237"
@@ -441,6 +527,58 @@
 							dotColor="#FFB237"
 							badgeBg="rgba(90,55,0,0.92)"
 							appData={zapAppData}
+						/>
+					</div>
+				</section>
+
+				<section class="content-section">
+					<div class="section-head">
+						<div class="dl-meta">
+							<ImpressionIcon size={24} />
+							<span class="dl-count">{formattedImpressions}</span>
+						</div>
+						<div class="timerange-wrap">
+							<button class="timerange-btn" onclick={() => (impDropdownOpen = !impDropdownOpen)}>
+								<span class="eyebrow-label tr-label">{selectedImpTimeframe}</span>
+								<span class="chevron-wrap">
+									<ChevronDownIcon
+										variant="outline"
+										color="hsl(var(--white16))"
+										size={12}
+										strokeWidth={1.4}
+									/>
+								</span>
+							</button>
+							{#if impDropdownOpen}
+								<div class="tr-dropdown">
+									{#each timeframes as tf (tf)}
+										<button
+											class="tr-option"
+											class:tr-selected={tf === selectedImpTimeframe}
+											onclick={() => {
+												selectedImpTimeframe = tf;
+												impDropdownOpen = false;
+											}}
+										>
+											{tf}
+										</button>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					</div>
+					<div class="chart-area">
+						<DownloadChart
+							chartId="imp"
+							dayCount={DUMMY_MODE ? STUDIO_DAYS : impInsightDays}
+							color0="hsl(var(--white33))"
+							color1="hsl(var(--white66))"
+							glowColor="hsl(var(--white33))"
+							glowOpacity={0.16}
+							dotColor="hsl(var(--white66))"
+							badgeBg="rgba(52, 52, 58, 0.94)"
+							appData={impAppData}
+							useImpressionMarkers={true}
 						/>
 					</div>
 				</section>

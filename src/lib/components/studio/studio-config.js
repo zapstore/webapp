@@ -2,19 +2,19 @@
 //  STUDIO DUMMY MODE
 //
 //  true  → wave-generated fake data — no relay, no API, no published apps needed
-//  false → real data (impressions/downloads from /api/studio/analytics, zaps via Nostr)
+//  false → real data (v1 analytics via STUDIO_ANALYTICS_HTTP_URL proxy, else legacy NIP-98 /api/studio/analytics)
 //
 //  Flip this when your own keypair has no published apps yet.
 // ═══════════════════════════════════════════════════════════════════════════
 export const DUMMY_MODE = false;
 
 // ── Test pubkey override ─────────────────────────────────────────────────────
-// When DUMMY_MODE is false and your own keypair has no published apps, set this
-// to any developer's hex pubkey or npub to see their real data instead.
-// Set to null to use the signed-in NIP-07 pubkey.
+// Pretend to be any developer for Studio (apps list + analytics). Accepts 64-char hex or npub1….
+// When set, NIP-07 is not required for loading Studio data.
+// Set to null to use the browser’s NIP-07 pubkey (if available).
 //
-// Example: export const TEST_PUBKEY = 'npub1zapsto...';
-export const TEST_PUBKEY = null;
+// Example: export const TEST_PUBKEY = 'npub1…';
+export const TEST_PUBKEY = 'npub142gywvjkq0dv6nupggyn2euhx4nduwc7yz5f24ah9rpmunr2s39se3xrj0';
 
 // ── Chart window ─────────────────────────────────────────────────────────────
 export const STUDIO_DAYS = 30;

@@ -63,7 +63,7 @@ function releaseDisplayVersion(versionTag, dTag) {
 }
 export function parseRelease(event) {
     const dTag = event.tags.find((t) => t[0] === 'd')?.[1] ?? '';
-    const aTag = event.tags.find((t) => t[0] === 'a')?.[1] ?? '';
+    const aTag = event.tags.find((t) => t[0] === 'a' || t[0] === 'A')?.[1] ?? '';
     const versionTag = event.tags.find((t) => t[0] === 'version')?.[1];
     const version = releaseDisplayVersion(versionTag, dTag);
     const url = event.tags.find((t) => t[0] === 'url')?.[1];
@@ -79,7 +79,7 @@ export function parseRelease(event) {
         releaseNotes: notes,
         notes,
         notesHtml: notes ? `<p>${notes.replace(/\n/g, '</p><p>')}</p>` : undefined,
-        artifacts: event.tags.filter((t) => t[0] === 'e').map((t) => t[1]),
+        artifacts: event.tags.filter((t) => t[0] === 'e' || t[0] === 'E').map((t) => t[1]),
         createdAt: event.created_at,
         url
     };
@@ -90,7 +90,7 @@ export function parseRelease(event) {
 export function parseFileMetadata(event) {
     const url = event.tags.find((t) => t[0] === 'url')?.[1] ?? '';
     const mimeType = event.tags.find((t) => t[0] === 'm')?.[1] ?? '';
-    const hash = event.tags.find((t) => t[0] === 'x')?.[1] ?? '';
+    const hash = event.tags.find((t) => t[0]?.toLowerCase() === 'x')?.[1] ?? '';
     const size = parseInt(event.tags.find((t) => t[0] === 'size')?.[1] ?? '0', 10);
     return {
         id: event.id,
