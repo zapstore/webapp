@@ -26,6 +26,7 @@ import { SvelteSet, SvelteMap } from "svelte/reactivity";
 import { getIsSignedIn, getCurrentPubkey } from "$lib/stores/auth.svelte.js";
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
 import { EVENT_KINDS } from "$lib/config.js";
+import { goto } from "$app/navigation";
 let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], /** @type {string[]} */ mediaUrls = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, onReplySubmit, onZapReceived, onGetStarted,     /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
     openThreadOnMount = false,
     /** When true, also open the reply composer immediately when the modal mounts. */
@@ -395,6 +396,20 @@ function getActionsModalContentPreview() {
 function handleOptions() {
     // TODO: Show options menu
 }
+/** Plain click: close modal then client-navigate — closing first avoids tearing down the `<a>` before SvelteKit handles the click. */
+function handleRootContextNav(e) {
+    e.stopPropagation();
+    const href = String(rootContext?.href ?? "").trim();
+    if (!href) {
+        e.preventDefault();
+        return;
+    }
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)
+        return;
+    e.preventDefault();
+    modalOpen = false;
+    void goto(href);
+}
 </script>
 
 <svelte:window onkeydown={handleReplyKeydown} />
@@ -513,7 +528,7 @@ function handleOptions() {
         <a
           href={rootContext.href}
           class="thread-root-context"
-          onclick={(e) => { e.stopPropagation(); modalOpen = false; }}
+          onclick={handleRootContextNav}
         >
           {#if rootContext.iconUrl}
             <img src={rootContext.iconUrl} alt="" class="thread-root-context-icon" />
