@@ -13,8 +13,10 @@
 export const APPS_PAGE_SIZE = 48;
 export const STACKS_PAGE_SIZE = 24;
 
-export const APPS_POLL_LIMIT = APPS_PAGE_SIZE * 3; // 60
-export const STACKS_POLL_LIMIT = STACKS_PAGE_SIZE * 3; // 36
+export const APPS_POLL_LIMIT = APPS_PAGE_SIZE * 3; // 144
+// Stacks polling is fully paginated (no limit) — relay-cache.js uses
+// queryRelaysRawPaginated which loops until exhausted.
+export const STACKS_POLL_LIMIT = 100; // kept for client subscription only
 
 // Initial display counts for the /apps page (stacks + apps discover view)
 export const DISCOVER_APPS_INITIAL = 16;

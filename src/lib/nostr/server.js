@@ -340,9 +340,7 @@ export function fetchStacks(limit = 20, until) {
 	const stackEvents = queryCache(filter);
 	// Exclude private Saved Apps stack from public listings
 	const publicStackEvents = stackEvents.filter(
-		(e) =>
-			e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG &&
-			!e.content
+		(e) => e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG && !e.content
 	);
 	const stacks = publicStackEvents.map(parseAppStack);
 

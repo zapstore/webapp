@@ -167,7 +167,16 @@ export function createStacksQuery() {
 			fetchMissingApps(unresolvedRefs).catch(() => {});
 		}
 
-		return result;
+		// Exclude stacks with no resolved apps (stacks whose apps aren't in Dexie
+		// yet are kept if they have unresolved refs pending a backfill fetch).
+		return result.filter(({ stack, apps }) => {
+			if (apps.length > 0) return true;
+			// Keep if there are still pending backfill refs for this stack
+			const previewRefs = (stack.appRefs ?? [])
+				.filter((r) => r.kind === EVENT_KINDS.APP)
+				.slice(0, 4);
+			return previewRefs.some((r) => fetchedRefs.has(`${r.pubkey}:${r.identifier}`));
+		});
 	});
 }
 
@@ -239,8 +248,7 @@ export function seedStackEvents(events) {
 		const publicEvents = events.filter(
 			(e) =>
 				e.kind !== EVENT_KINDS.APP_STACK ||
-				(e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG &&
-					!e.content)
+				(e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG && !e.content)
 		);
 		// Initialize cursor from oldest seeded stack (for relay-based load-more)
 		if (cursor === null) {
@@ -275,32 +283,51 @@ export async function loadMoreStacks(fetchFromRelays, relayUrls) {
 
 	loadingMore = true;
 
-	try {
-		const filter = {
-			kinds: [EVENT_KINDS.APP_STACK],
-			limit: STACKS_PAGE_SIZE
-		};
-		if (cursor != null) filter.until = cursor;
-		if (platformTag) filter['#f'] = [platformTag];
-		const events = await fetchFromRelays(relayUrls, filter, { feature: 'load-more-stacks' });
-		// Exclude private Saved Apps stack (don't persist for public listings)
-		const publicEvents = events.filter(
-			(e) =>
-				e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG &&
-				!e.content
-		);
+	// The relay mixes public and private stacks and caps at 100 per request.
+	// We paginate in 100-event batches, advancing the cursor on ALL fetched events
+	// (not just public ones), until we have enough public events or the relay is exhausted.
+	const RELAY_BATCH = 100;
+	const allPublicEvents = [];
 
-		if (publicEvents.length > 0) {
-			await putEvents(publicEvents).catch((err) =>
+	try {
+		let localCursor = cursor;
+
+		while (allPublicEvents.length < STACKS_PAGE_SIZE) {
+			const filter = {
+				kinds: [EVENT_KINDS.APP_STACK],
+				limit: RELAY_BATCH
+			};
+			if (localCursor != null) filter.until = localCursor;
+			if (platformTag) filter['#f'] = [platformTag];
+
+			const events = await fetchFromRelays(relayUrls, filter, { feature: 'load-more-stacks' });
+			if (events.length === 0) {
+				hasMore = false;
+				break;
+			}
+
+			const publicBatch = events.filter(
+				(e) => e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG && !e.content
+			);
+			allPublicEvents.push(...publicBatch);
+
+			// Advance cursor based on ALL events so we don't re-fetch the same page
+			localCursor = Math.min(...events.map((e) => e.created_at)) - 1;
+
+			if (events.length < RELAY_BATCH) {
+				// Relay has no more events
+				hasMore = false;
+				break;
+			}
+		}
+
+		if (allPublicEvents.length > 0) {
+			cursor = localCursor;
+			if (hasMore) hasMore = true; // relay may still have more
+			await putEvents(allPublicEvents).catch((err) =>
 				console.error('[StacksStore] Load more persist failed:', err)
 			);
-			const lastEvent = publicEvents[publicEvents.length - 1];
-			cursor = lastEvent.created_at - 1;
-			hasMore = publicEvents.length >= STACKS_PAGE_SIZE;
-			// Fill in missing preview app refs in background (single batch query — no N+1)
-			fillMissingPreviewApps(publicEvents, relayUrls).catch(() => {});
-		} else {
-			hasMore = false;
+			fillMissingPreviewApps(allPublicEvents, relayUrls).catch(() => {});
 		}
 	} catch (err) {
 		console.error('[StacksStore] Load more failed:', err);
