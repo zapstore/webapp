@@ -263,6 +263,28 @@ const pool = new SimplePool();
  * Query upstream relays and add results to cache. Returns collected events.
  * Note: SimplePool.subscribeMany expects a single filter object (not an array).
  */
+/**
+ * Paginate through all relay events matching a filter.
+ * Relays cap responses at 100 events per request; this loops with `until`
+ * cursor until a page returns fewer events than the batch size (exhausted).
+ * All collected events are added to the cache via addEvent.
+ */
+async function queryRelaysRawPaginated(relayUrls, filter, timeoutMs = QUERY_TIMEOUT_MS) {
+	const BATCH = 100;
+	const allEvents = [];
+	let until = filter.until;
+
+	while (true) {
+		const pageFilter = { ...filter, limit: BATCH, ...(until != null ? { until } : {}) };
+		const page = await queryRelaysRaw(relayUrls, pageFilter, timeoutMs);
+		allEvents.push(...page);
+		if (page.length < BATCH) break;
+		until = Math.min(...page.map((e) => e.created_at)) - 1;
+	}
+
+	return allEvents;
+}
+
 function queryRelaysRaw(relayUrls, filter, timeoutMs = QUERY_TIMEOUT_MS) {
 	return new Promise((resolve) => {
 		const events = [];
@@ -385,7 +407,7 @@ async function fetchStackReferencedApps(stackEvents, timeoutMs = QUERY_TIMEOUT_M
 
 /**
  * Initial warm-up: fetch catalog data from relay.zapstore.dev.
- * 1. Top APPS_POLL_LIMIT apps + STACKS_POLL_LIMIT stacks + releases in parallel
+ * 1. Top APPS_POLL_LIMIT apps + all stacks (paginated) + releases in parallel
  * 2. Then fetch apps referenced by stacks (deduplicates with step 1)
  *
  * Releases are cached server-side ONLY for ranking apps by latest release.
@@ -404,11 +426,10 @@ async function warmUp() {
 				limit: APPS_POLL_LIMIT
 			}, WARMUP_TIMEOUT_MS),
 
-			// Top stacks (STACKS_POLL_LIMIT = 36)
-			queryRelaysRaw([CATALOG_RELAY], {
+			// All public stacks — paginated because relay caps at 100/request
+			queryRelaysRawPaginated([CATALOG_RELAY], {
 				kinds: [EVENT_KINDS.APP_STACK],
-				...PLATFORM_FILTER,
-				limit: STACKS_POLL_LIMIT
+				...PLATFORM_FILTER
 			}, WARMUP_TIMEOUT_MS),
 
 			// Releases — server-side only, used for ranking apps by latest release
@@ -452,7 +473,7 @@ async function warmUp() {
 
 /**
  * Poll relay.zapstore.dev for new catalog events since last poll.
- * 1. Apps (APPS_POLL_LIMIT) + stacks (STACKS_POLL_LIMIT) + releases
+ * 1. Apps (APPS_POLL_LIMIT) + stacks (paginated) + releases
  * 2. Then fetch apps referenced by any new stacks
  */
 async function pollCatalog() {
@@ -469,11 +490,10 @@ async function pollCatalog() {
 				since,
 				limit: APPS_POLL_LIMIT
 			}),
-			queryRelaysRaw([CATALOG_RELAY], {
+			queryRelaysRawPaginated([CATALOG_RELAY], {
 				kinds: [EVENT_KINDS.APP_STACK],
 				...PLATFORM_FILTER,
-				since,
-				limit: STACKS_POLL_LIMIT
+				since
 			}),
 			// Releases — server-side only, for ranking
 			queryRelaysRaw([CATALOG_RELAY], {

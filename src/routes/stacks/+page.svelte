@@ -220,7 +220,7 @@
 			</div>
 		{:else if resolvedStacks.length > 0}
 			<div class="stacks-grid">
-			{#each resolvedStacks as stack (stack.id)}
+			{#each resolvedStacks as stack (`${stack.pubkey}:${stack.dTag}`)}
 				<AppStackCard {stack} href={getStackUrl(stack)} />
 				{/each}
 				{#if loadingMore}
