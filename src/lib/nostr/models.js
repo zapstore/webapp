@@ -188,6 +188,15 @@ export function getEventOneliner(event) {
 				emoji: '/images/emoji/forum.png'
 			};
 		}
+		case EVENT_KINDS.APP_STACK: {
+			const dTag = get('d') ?? '';
+			const title =
+				get('title') ?? get('name') ?? dTag;
+			return {
+				label: truncate(title) || 'Stack',
+				emoji: '/images/emoji/forum.png'
+			};
+		}
 		default:
 			return { label: 'Post', emoji: '/images/emoji/forum.png' };
 	}
