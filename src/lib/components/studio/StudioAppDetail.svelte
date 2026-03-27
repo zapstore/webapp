@@ -7,6 +7,7 @@
 	import ArrowDownIcon from '$lib/components/icons/ArrowDown.svelte';
 	import ImpressionIcon from '$lib/components/icons/Impression.svelte';
 	import AppPic from '$lib/components/common/AppPic.svelte';
+	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 
 	let {
 		app,
@@ -17,6 +18,8 @@
 		selectedDlTimeframe = $bindable('30 Days'),
 		selectedImpTimeframe = $bindable('30 Days'),
 		selectedZapTimeframe = $bindable('30 Days'),
+		/** While parent refetches analytics for the selected range */
+		metricsLoading = false,
 		onBack: _onBack
 	} = $props();
 
@@ -152,9 +155,13 @@
 			<span class="eyebrow-label count-eyebrow">Downloads</span>
 			<div class="count-value-row">
 				<DownloadIcon size={24} color="hsl(var(--blurpleColor66))" strokeWidth={1.4} />
-				<span class="count-num">{dlTotal.toLocaleString('en-US')}</span>
+				{#if metricsLoading}
+					<div class="detail-count-skel"><SkeletonLoader /></div>
+				{:else}
+					<span class="count-num">{dlTotal.toLocaleString('en-US')}</span>
+				{/if}
 			</div>
-			{#if dlPct !== null && dlPct !== 0}
+			{#if !metricsLoading && dlPct !== null && dlPct !== 0}
 				<span class="count-ticker" class:ticker-up={dlPct > 0} class:ticker-down={dlPct < 0}>
 					{#if dlPct > 0}
 						<ArrowUpIcon
@@ -179,9 +186,13 @@
 			<span class="eyebrow-label count-eyebrow">Zaps</span>
 			<div class="count-value-row">
 				<ZapIcon size={24} color="hsl(var(--goldColor66))" strokeWidth={1.4} />
-				<span class="count-num">{zapTotal.toLocaleString('en-US')}</span>
+				{#if metricsLoading}
+					<div class="detail-count-skel"><SkeletonLoader /></div>
+				{:else}
+					<span class="count-num">{zapTotal.toLocaleString('en-US')}</span>
+				{/if}
 			</div>
-			{#if zapPct !== null && zapPct !== 0}
+			{#if !metricsLoading && zapPct !== null && zapPct !== 0}
 				<span class="count-ticker" class:ticker-up={zapPct > 0} class:ticker-down={zapPct < 0}>
 					{#if zapPct > 0}
 						<ArrowUpIcon
@@ -206,9 +217,13 @@
 			<span class="eyebrow-label count-eyebrow">Impressions</span>
 			<div class="count-value-row">
 				<ImpressionIcon size={24} />
-				<span class="count-num">{impTotal.toLocaleString('en-US')}</span>
+				{#if metricsLoading}
+					<div class="detail-count-skel"><SkeletonLoader /></div>
+				{:else}
+					<span class="count-num">{impTotal.toLocaleString('en-US')}</span>
+				{/if}
 			</div>
-			{#if impPct !== null && impPct !== 0}
+			{#if !metricsLoading && impPct !== null && impPct !== 0}
 				<span class="count-ticker" class:ticker-up={impPct > 0} class:ticker-down={impPct < 0}>
 					{#if impPct > 0}
 						<ArrowUpIcon
@@ -246,6 +261,7 @@
 				hideTotalLine={true}
 				padTop={20}
 				appData={combinedAppData}
+				loading={metricsLoading}
 			/>
 		</div>
 	</section>
@@ -382,6 +398,15 @@
 		color: hsl(var(--foreground));
 		line-height: 1;
 		letter-spacing: -0.02em;
+	}
+
+	.detail-count-skel {
+		height: 32px;
+		width: 5.5rem;
+		min-width: 4rem;
+		border-radius: 12px;
+		overflow: hidden;
+		flex-shrink: 0;
 	}
 
 	/* ── Chart section ─────────────────────────────────────────────────────── */

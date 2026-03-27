@@ -1,13 +1,15 @@
 /**
- * Studio dashboard — Zapstore relay analytics HTTP API (v1).
+ * Studio dashboard — Zapstore relay analytics HTTP API (v1, stock relay).
  * All requests go through /api/studio/analytics-http/* (SvelteKit proxy → STUDIO_ANALYTICS_HTTP_URL, no trailing slash).
  *
- * Contract (relay): GET only. Success: `Content-Type: application/json`, body is a **top-level JSON array** (not `{ data: … }`).
- * - `v1/impressions`: `pubkey` = 64-char hex (lowercase), `from` / `to` = inclusive `YYYY-MM-DD`, `group_by` e.g. `app_id,day`.
- *   Rows: `app_id`, `pubkey`, `day`, `source`, `type`, `country`, `count`. Invalid pubkey / bad `group_by` → 400 + `{ "error": "…" }`.
- * - `v1/downloads`: `hash` **or** `sha256` (aliases; lowercase SHA-256 as Blossom / kind 1063 `x`). We send **`hash` only**.
- *   `from` / `to` inclusive; `group_by=day`. No `/v1/downloads/{sha256}` path. 400 + `{ "error": "…" }` for invalid blob id / bad `group_by`.
- * Empty hash on the relay may mean “all blobs” (admin); Studio always sends a per-blob hash.
+ * Paths: GET `v1/impressions`, `v1/downloads`, `v1/metrics/relay`, `v1/metrics/blossom`. `from` / `to` inclusive `YYYY-MM-DD`.
+ * Success: `Content-Type: application/json`. Row fields: impressions — `app_id`, `pubkey`, `day`, `source`, `type`, `country`, `count`;
+ * downloads — `hash`, `day`, `source`, `country`, `count`.
+ *
+ * - Impressions: send `pubkey` in the same hex form the relay DB uses (typically 64-char lowercase hex); relay does not normalize.
+ * - Downloads: relay reads **`hash` only**; a duplicate `sha256=` query param is ignored — never rely on `sha256` with an empty `hash`.
+ * - Empty results: Go may encode a nil slice as JSON `null` instead of `[]` — normalize in `jsonArrayFromWrapper`.
+ * - Errors: invalid `group_by` → 400 with **plain text** body (not JSON); `readAnalyticsHttpError` handles both.
  */
 import { nip19 } from 'nostr-tools';
 
@@ -108,10 +110,12 @@ export function extractHashFromUrl(urlStr) {
 }
 
 /**
+ * Top-level JSON body from the relay may be `[]`, `{ rows: … }`, or **`null`** (Go nil slice).
  * @param {unknown} data
  * @returns {unknown[]}
  */
 function jsonArrayFromWrapper(data) {
+	if (data == null) return [];
 	if (Array.isArray(data)) return data;
 	if (data && typeof data === 'object') {
 		const o = /** @type {Record<string, unknown>} */ (data);
@@ -237,6 +241,7 @@ export async function fetchImpressions(pubkeyHex, range) {
  */
 export async function fetchDownloadsForHash(hash, range) {
 	const h = hash.toLowerCase();
+	// Stock relay: only `hash` is read; do not send sha256= without hash (duplicate sha256 is ignored).
 	const url = buildProxyUrl('v1/downloads', {
 		hash: h,
 		from: range.from,
@@ -264,7 +269,8 @@ export async function fetchRelayMetrics(range) {
 		const errMsg = await readAnalyticsHttpError(res);
 		throw new Error(`relay metrics ${res.status}: ${errMsg}`);
 	}
-	return /** @type {Promise<RelayMetricRow[]>} */ (res.json());
+	const data = await res.json();
+	return /** @type {RelayMetricRow[]} */ (jsonArrayFromWrapper(data));
 }
 
 /**
@@ -279,7 +285,8 @@ export async function fetchBlossomMetrics(range) {
 		const errMsg = await readAnalyticsHttpError(res);
 		throw new Error(`blossom metrics ${res.status}: ${errMsg}`);
 	}
-	return /** @type {Promise<BlossomMetricRow[]>} */ (res.json());
+	const data = await res.json();
+	return /** @type {BlossomMetricRow[]} */ (jsonArrayFromWrapper(data));
 }
 
 /**

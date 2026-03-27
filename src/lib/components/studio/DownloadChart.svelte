@@ -42,16 +42,26 @@
 		padTop = 40,
 		/** Number of days on the X axis (must match each `counts` length when appData is set). */
 		dayCount = 30,
-		/** When true, line-end / hover markers use the impressions eye glyph instead of app images. */
-		useImpressionMarkers = false,
 		/** Pixels below the y=0 baseline (inside SVG). Vertical rule extends through this band; data is not clipped there. */
 		padBottom = 12,
 		/**
 		 * Cap faint per-app lines (plus their markers / hover badges) to the top N apps by series total.
 		 * The bold total line always sums every app in `appData`. `null` = show all per-app lines (default).
 		 */
-		maxPerAppLines = null
+		maxPerAppLines = null,
+		/**
+		 * Solid fill drawn beneath the total-line endpoint dot (same radius) when `dotColor` is translucent.
+		 * Omit for opaque dots (e.g. blurple downloads).
+		 */
+		totalDotBackdropFill = null,
+		/**
+		 * When true: same SVG shell (vertical rule, date row, masks) but no data lines or markers;
+		 * “Loading…” sits behind the plot (EmptyState-style type). Hover disabled.
+		 */
+		loading = false
 	} = $props();
+
+	const TOTAL_DOT_R = 6;
 
 	const DAYS = $derived(Math.max(1, dayCount));
 	const xDenom = $derived(Math.max(1, DAYS - 1));
@@ -119,9 +129,13 @@
 
 	const dateLabel = $derived(dayLabels[DAYS - 1]);
 
-	/** Single-app line: use dot when no icon (e.g. aggregated “all apps” series). */
+	function appHasIcon(/** @type {{ icon?: string | null }} */ a) {
+		return Boolean(a && String(a.icon ?? '').trim());
+	}
+
+	/** Single-app: solid dot when there is no app icon to show (same rule as downloads / zaps / impressions). */
 	const singleAppUseDot = $derived(
-		allApps.length === 1 && !useImpressionMarkers && !appColors && !String(allApps[0]?.icon ?? '').trim()
+		allApps.length === 1 && !appColors && !appHasIcon(allApps[0])
 	);
 
 	/** Y coordinate of v=0 (plot floor). Chart curves stay above this; padBottom sits below. */
@@ -135,6 +149,10 @@
 	let containerEl = $state(null);
 	let W = $state(600);
 	let hoverIndex = $state(null);
+
+	$effect(() => {
+		if (loading) hoverIndex = null;
+	});
 
 	$effect(() => {
 		if (!containerEl) return;
@@ -247,6 +265,7 @@
 	const datePillX = $derived(hover !== null ? Math.max(36, Math.min(W - 36, hover.x)) : null);
 
 	function handleMouseMove(event) {
+		if (loading) return;
 		const rect = event.currentTarget.getBoundingClientRect();
 		const mouseX = event.clientX - rect.left;
 		const cW = W - RIGHT_ZONE;
@@ -267,17 +286,24 @@
 
 <div class="chart-wrap" bind:this={containerEl}>
 	{#if W > 0}
-		<svg
-			class="chart-svg"
-			width={W}
-			height={SVG_H}
-			viewBox="0 0 {W} {SVG_H}"
-			xmlns="http://www.w3.org/2000/svg"
-			aria-hidden="true"
-			overflow="visible"
-			onmousemove={handleMouseMove}
-			onmouseleave={handleMouseLeave}
-		>
+		<div class="chart-body" aria-busy={loading} aria-live={loading ? 'polite' : 'off'}>
+			{#if loading}
+				<div class="chart-loading-underlay" style:height="{SVG_H}px">
+					<p class="chart-loading-text">Loading...</p>
+				</div>
+			{/if}
+			<svg
+				class="chart-svg"
+				class:chart-svg--loading={loading}
+				width={W}
+				height={SVG_H}
+				viewBox="0 0 {W} {SVG_H}"
+				xmlns="http://www.w3.org/2000/svg"
+				aria-hidden="true"
+				overflow="visible"
+				onmousemove={handleMouseMove}
+				onmouseleave={handleMouseLeave}
+			>
 		<defs>
 			<linearGradient
 				id="{chartId}-line"
@@ -294,10 +320,15 @@
 			<filter id="{chartId}-glow" x="-20%" y="-250%" width="140%" height="600%">
 				<feGaussianBlur in="SourceGraphic" stdDeviation="9" />
 			</filter>
+
+			<!-- Rounded app icons at line endpoints (14×14; corner radius +2px vs prior 12×12 @ 22% ≈ 4.64px) -->
+			<clipPath id="{chartId}-marker-icon-clip" clipPathUnits="objectBoundingBox">
+				<rect x="0" y="0" width="1" height="1" rx="0.331" ry="0.331" />
+			</clipPath>
 		</defs>
 
 		<!-- Per-app lines — multi-app only; at most maxPerAppLines (see lineApps) -->
-		{#if allApps.length > 1 && lineApps.length > 0}
+		{#if !loading && allApps.length > 1 && lineApps.length > 0}
 			{#if appColors}
 				<!-- Glow + crisp line per app (same line+glow style as insights section) -->
 				{#each chart.appPaths as path, i (i)}
@@ -322,7 +353,7 @@
 		{/if}
 
 		<!-- Total line glow + crisp — hidden when hideTotalLine -->
-		{#if !hideTotalLine}
+		{#if !loading && !hideTotalLine}
 			<path
 				d={chart.totalPath}
 				stroke={glowColor}
@@ -344,55 +375,66 @@
 			stroke-width="1"
 		/>
 
-		<!-- Static end markers — hidden while hover is active -->
-		{#if hover === null}
+		<!-- Static end markers — hidden while hover is active or loading -->
+		{#if !loading && hover === null}
 			{#if allApps.length === 1}
 				{#if appColors}
 					<circle cx={chart.lineX} cy={chart.totalEndY} r="5" fill={appColors[0]} />
-				{:else if useImpressionMarkers}
-					<circle cx={chart.lineX} cy={chart.totalEndY} r="6" fill="url(#{chartId}-line)" />
 				{:else if singleAppUseDot}
-					<circle cx={chart.lineX} cy={chart.totalEndY} r="6" fill={dotColor} />
+					{#if totalDotBackdropFill}
+						<circle
+							cx={chart.lineX}
+							cy={chart.totalEndY}
+							r={TOTAL_DOT_R}
+							fill={totalDotBackdropFill}
+						/>
+					{/if}
+					<circle cx={chart.lineX} cy={chart.totalEndY} r={TOTAL_DOT_R} fill={dotColor} />
 				{:else}
 					<image
 						href={allApps[0].icon}
-						x={chart.lineX - 6}
-						y={chart.totalEndY - 6}
-						width="12"
-						height="12"
+						x={chart.lineX - 7}
+						y={chart.totalEndY - 7}
+						width="14"
+						height="14"
 						preserveAspectRatio="xMidYMid meet"
+						clip-path="url(#{chartId}-marker-icon-clip)"
 					/>
 				{/if}
 			{:else}
 				{#each lineApps as app, i (app.id)}
 					{#if appColors}
 						<circle cx={chart.lineX} cy={chart.appEndYs[i]} r="5" fill={appColors[i] ?? dotColor} />
-					{:else if useImpressionMarkers}
-						<circle cx={chart.lineX} cy={chart.appEndYs[i]} r="5" fill="url(#{chartId}-line)" />
-					{:else}
+					{:else if appHasIcon(app)}
 						<image
 							href={app.icon}
-							x={chart.lineX - 6}
-							y={chart.appEndYs[i] - 6}
-							width="12"
-							height="12"
+							x={chart.lineX - 7}
+							y={chart.appEndYs[i] - 7}
+							width="14"
+							height="14"
 							preserveAspectRatio="xMidYMid meet"
+							clip-path="url(#{chartId}-marker-icon-clip)"
 						/>
+					{:else}
+						<circle cx={chart.lineX} cy={chart.appEndYs[i]} r="5" fill={dotColor} />
 					{/if}
 				{/each}
 				{#if !hideTotalLine}
-					<circle
-						cx={chart.lineX}
-						cy={chart.totalEndY}
-						r="6"
-						fill={useImpressionMarkers ? `url(#${chartId}-line)` : dotColor}
-					/>
+					{#if totalDotBackdropFill}
+						<circle
+							cx={chart.lineX}
+							cy={chart.totalEndY}
+							r={TOTAL_DOT_R}
+							fill={totalDotBackdropFill}
+						/>
+					{/if}
+					<circle cx={chart.lineX} cy={chart.totalEndY} r={TOTAL_DOT_R} fill={dotColor} />
 				{/if}
 			{/if}
 		{/if}
 
 		<!-- ── Hover crosshair ──────────────────────────────────────────────── -->
-		{#if hover !== null}
+		{#if !loading && hover !== null}
 			<!-- Hover vertical line — starts at topmost visible line -->
 			<line
 				x1={hover.x}
@@ -408,30 +450,32 @@
 				<!-- Single app: dot or icon + one badge -->
 				{#if appColors}
 					<circle cx={hover.x} cy={hover.totalY} r="5" fill={appColors[0]} pointer-events="none" />
-				{:else if useImpressionMarkers}
-					<circle
-						cx={hover.x}
-						cy={hover.totalY}
-						r="6"
-						fill="url(#{chartId}-line)"
-						pointer-events="none"
-					/>
 				{:else if singleAppUseDot}
+					{#if totalDotBackdropFill}
+						<circle
+							cx={hover.x}
+							cy={hover.totalY}
+							r={TOTAL_DOT_R}
+							fill={totalDotBackdropFill}
+							pointer-events="none"
+						/>
+					{/if}
 					<circle
 						cx={hover.x}
 						cy={hover.totalY}
-						r="6"
+						r={TOTAL_DOT_R}
 						fill={dotColor}
 						pointer-events="none"
 					/>
 				{:else}
 					<image
 						href={allApps[0].icon}
-						x={hover.x - 6}
-						y={hover.totalY - 6}
-						width="12"
-						height="12"
+						x={hover.x - 7}
+						y={hover.totalY - 7}
+						width="14"
+						height="14"
 						preserveAspectRatio="xMidYMid meet"
+						clip-path="url(#{chartId}-marker-icon-clip)"
 						pointer-events="none"
 					/>
 				{/if}
@@ -460,24 +504,19 @@
 				{#each lineApps as app, i (app.id)}
 					{#if appColors}
 						<circle cx={hover.x} cy={hover.appYs[i]} r="5" fill={appColors[i] ?? dotColor} pointer-events="none" />
-					{:else if useImpressionMarkers}
-						<circle
-							cx={hover.x}
-							cy={hover.appYs[i]}
-							r="5"
-							fill="url(#{chartId}-line)"
+					{:else if appHasIcon(app)}
+						<image
+							href={app.icon}
+							x={hover.x - 7}
+							y={hover.appYs[i] - 7}
+							width="14"
+							height="14"
+							preserveAspectRatio="xMidYMid meet"
+							clip-path="url(#{chartId}-marker-icon-clip)"
 							pointer-events="none"
 						/>
 					{:else}
-						<image
-							href={app.icon}
-							x={hover.x - 6}
-							y={hover.appYs[i] - 6}
-							width="12"
-							height="12"
-							preserveAspectRatio="xMidYMid meet"
-							pointer-events="none"
-						/>
+						<circle cx={hover.x} cy={hover.appYs[i]} r="5" fill={dotColor} pointer-events="none" />
 					{/if}
 					<rect
 						x={badgeRectX(hover.x, hover.badgeLeft)}
@@ -503,11 +542,20 @@
 
 				<!-- Total dot + badge — only when not hidden -->
 				{#if !hideTotalLine}
+					{#if totalDotBackdropFill}
+						<circle
+							cx={hover.x}
+							cy={hover.totalY}
+							r={TOTAL_DOT_R}
+							fill={totalDotBackdropFill}
+							pointer-events="none"
+						/>
+					{/if}
 					<circle
 						cx={hover.x}
 						cy={hover.totalY}
-						r="6"
-						fill={useImpressionMarkers ? `url(#${chartId}-line)` : dotColor}
+						r={TOTAL_DOT_R}
+						fill={dotColor}
 						pointer-events="none"
 					/>
 					<rect
@@ -545,6 +593,7 @@
 				{hover !== null ? hover.dateStr : dateLabel}
 			</div>
 		</div>
+		</div>
 	{/if}
 </div>
 
@@ -555,11 +604,45 @@
 		overflow: visible;
 	}
 
+	.chart-body {
+		position: relative;
+		width: 100%;
+	}
+
+	/* Behind the SVG: same plot height; EmptyState-style type only (no panel). */
+	.chart-loading-underlay {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		z-index: 0;
+		pointer-events: none;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+	}
+
+	.chart-loading-text {
+		margin: 0;
+		font-size: 1.5rem;
+		font-weight: 600;
+		color: hsl(var(--white16));
+		text-align: center;
+	}
+
 	.chart-svg {
+		position: relative;
+		z-index: 1;
 		display: block;
 		mask-image: linear-gradient(to right, transparent 0px, black 12px);
 		-webkit-mask-image: linear-gradient(to right, transparent 0px, black 12px);
 		cursor: crosshair;
+	}
+
+	.chart-svg.chart-svg--loading {
+		pointer-events: none;
+		cursor: default;
 	}
 
 	/* Fixed-height row — pill slides inside via absolute positioning */

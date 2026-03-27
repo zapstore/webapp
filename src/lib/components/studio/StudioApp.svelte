@@ -8,6 +8,7 @@
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import StudioAppDetail from './StudioAppDetail.svelte';
 	import StudioAppActivity from './StudioAppActivity.svelte';
+	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import {
 		DUMMY_MODE,
 		TEST_PUBKEY,
@@ -45,6 +46,9 @@
 
 	/** Bumps when insights time ranges change; stale async loads must not overwrite UI. */
 	let studioLoadGeneration = 0;
+
+	/** True while a studio analytics fetch for the current range is in flight (all three series refetched together). */
+	let insightsChartsLoading = $state(!DUMMY_MODE);
 
 	const timeframes = ['7 Days', '30 Days', '90 Days', '1 Year'];
 
@@ -111,9 +115,14 @@
 		const zapD = timeframeToDays(selectedZapTimeframe);
 		studioLoadGeneration += 1;
 		const gen = studioLoadGeneration;
-		loadStudioData(gen, impD, dlD, zapD).catch((err) => {
-			console.error('[Studio] data load failed:', err);
-		});
+		insightsChartsLoading = true;
+		loadStudioData(gen, impD, dlD, zapD)
+			.catch((err) => {
+				console.error('[Studio] data load failed:', err);
+			})
+			.finally(() => {
+				if (gen === studioLoadGeneration) insightsChartsLoading = false;
+			});
 	});
 
 	/** TEST_PUBKEY or NIP-07 hex pubkey (lowercase). No extension required when TEST_PUBKEY is set. */
@@ -454,6 +463,7 @@
 					dlCounts={dlAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
 					impCounts={impAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
 					zapCounts={zapAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
+					metricsLoading={!DUMMY_MODE && insightsChartsLoading}
 					onBack={() => (selectedApp = null)}
 				/>
 			{:else if activeNav === 'inbox'}
@@ -468,7 +478,13 @@
 					<div class="section-head">
 						<div class="dl-meta">
 							<DownloadIcon size={24} color="hsl(var(--blurpleColor66))" />
-							<span class="dl-count">{formattedDownloads}</span>
+							{#if !DUMMY_MODE && insightsChartsLoading}
+								<div class="studio-metric-count-skel">
+									<SkeletonLoader />
+								</div>
+							{:else}
+								<span class="dl-count">{formattedDownloads}</span>
+							{/if}
 						</div>
 						<div class="timerange-wrap">
 							<button class="timerange-btn" onclick={() => (dlDropdownOpen = !dlDropdownOpen)}>
@@ -510,6 +526,7 @@
 							dotColor="#5C5FFF"
 							appData={dlAppData}
 							maxPerAppLines={2}
+							loading={!DUMMY_MODE && insightsChartsLoading}
 						/>
 					</div>
 				</section>
@@ -519,7 +536,13 @@
 					<div class="section-head">
 						<div class="dl-meta">
 							<ZapIcon size={24} color="hsl(var(--goldColor66))" />
-							<span class="dl-count">{formattedZaps}</span>
+							{#if !DUMMY_MODE && insightsChartsLoading}
+								<div class="studio-metric-count-skel">
+									<SkeletonLoader />
+								</div>
+							{:else}
+								<span class="dl-count">{formattedZaps}</span>
+							{/if}
 						</div>
 						<div class="timerange-wrap">
 							<button class="timerange-btn" onclick={() => (zapDropdownOpen = !zapDropdownOpen)}>
@@ -563,6 +586,7 @@
 							badgeBg="rgba(90,55,0,0.92)"
 							appData={zapAppData}
 							maxPerAppLines={2}
+							loading={!DUMMY_MODE && insightsChartsLoading}
 						/>
 					</div>
 				</section>
@@ -571,7 +595,13 @@
 					<div class="section-head">
 						<div class="dl-meta">
 							<ImpressionIcon size={24} />
-							<span class="dl-count">{formattedImpressions}</span>
+							{#if !DUMMY_MODE && insightsChartsLoading}
+								<div class="studio-metric-count-skel">
+									<SkeletonLoader />
+								</div>
+							{:else}
+								<span class="dl-count">{formattedImpressions}</span>
+							{/if}
 						</div>
 						<div class="timerange-wrap">
 							<button class="timerange-btn" onclick={() => (impDropdownOpen = !impDropdownOpen)}>
@@ -612,10 +642,11 @@
 							glowColor="hsl(var(--white33))"
 							glowOpacity={0.16}
 							dotColor="hsl(var(--white66))"
+							totalDotBackdropFill="hsl(var(--black))"
 							badgeBg="rgba(52, 52, 58, 0.94)"
 							appData={impAppData}
-							useImpressionMarkers={true}
 							maxPerAppLines={2}
+							loading={!DUMMY_MODE && insightsChartsLoading}
 						/>
 					</div>
 				</section>
@@ -1031,6 +1062,15 @@
 	.tr-option.tr-selected {
 		color: hsl(var(--foreground));
 		background: hsl(var(--white8));
+	}
+
+	/* ── Insights header: skeleton for count only (~32px cap height) ───────── */
+	.studio-metric-count-skel {
+		height: 32px;
+		width: 6.5rem;
+		min-width: 5rem;
+		border-radius: 12px;
+		overflow: hidden;
 	}
 
 	/* ── Chart area ───────────────────────────────────────────────────────── */
