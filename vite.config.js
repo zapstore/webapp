@@ -11,12 +11,11 @@ export default defineConfig({
 	},
 
 	// Build options
+	// Do not mark highlight.js as rollup external: browser dynamic imports must become
+	// emitted chunks; bare import("highlight.js/...") fails in prod (Vite dev resolves it).
 	build: {
 		target: 'esnext',
-		minify: 'esbuild',
-		rollupOptions: {
-			external: (id) => id.startsWith('highlight.js/')
-		}
+		minify: 'esbuild'
 	},
 
 	// SSR options

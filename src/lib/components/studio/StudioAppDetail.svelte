@@ -105,6 +105,7 @@
 					>
 						View
 					</a>
+					<!-- Edit — restore when publisher flow is ready
 					<a
 						class="btn-secondary-xs btn-secondary-light studio-detail-action-btn"
 						href="https://docs.zapstore.dev"
@@ -113,6 +114,7 @@
 					>
 						Edit
 					</a>
+					-->
 				</div>
 			</div>
 		</div>
@@ -332,10 +334,11 @@
 	}
 
 	.app-name {
-		font-size: 16px;
-		font-weight: 600;
+		font-size: 20px;
+		font-weight: 650;
 		color: hsl(var(--foreground));
-		line-height: 1.2;
+		line-height: 1.15;
+		letter-spacing: -0.02em;
 		margin: 0;
 	}
 
