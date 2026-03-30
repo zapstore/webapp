@@ -247,8 +247,8 @@ export function seedStackEvents(events) {
 		// Exclude private Saved Apps stack from seed (don't persist for public listings)
 		const publicEvents = events.filter(
 			(e) =>
-				e.kind !== EVENT_KINDS.APP_STACK ||
-				(e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG && !e.content)
+			e.kind !== EVENT_KINDS.APP_STACK ||
+			(e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG && !e.content)
 		);
 		// Initialize cursor from oldest seeded stack (for relay-based load-more)
 		if (cursor === null) {
@@ -306,9 +306,9 @@ export async function loadMoreStacks(fetchFromRelays, relayUrls) {
 				break;
 			}
 
-			const publicBatch = events.filter(
-				(e) => e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG && !e.content
-			);
+		const publicBatch = events.filter(
+			(e) => e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG && !e.content
+		);
 			allPublicEvents.push(...publicBatch);
 
 			// Advance cursor based on ALL events so we don't re-fetch the same page
