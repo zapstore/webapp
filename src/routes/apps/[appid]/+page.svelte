@@ -856,15 +856,26 @@
 
 				<!-- Author + timestamp row -->
 				<div class="detail-publisher-row detail-publisher-row-in-app">
-					<a href={publisherUrl} class="detail-publisher-link">
-						<ProfilePic
-							pictureUrl={publisherPictureUrl}
-							name={publisherNameForPic}
-							pubkey={app.pubkey}
-							size="sm"
-						/>
-						<span class="detail-publisher-name">By {publisherName}</span>
-					</a>
+					{#if !isZapstorePublisher || isZapstoreApp}
+						<a href={publisherUrl} class="detail-publisher-link">
+							<ProfilePic
+								pictureUrl={publisherPictureUrl}
+								name={publisherNameForPic}
+								pubkey={app.pubkey}
+								size="sm"
+							/>
+							<span class="detail-publisher-name">By {publisherName}</span>
+						</a>
+					{/if}
+					{#if !publishedByDeveloper}
+						<div class="indexed-pill flex items-center gap-1.5 flex-shrink-0">
+							<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+								<circle cx="11" cy="11" r="8" />
+								<path d="m21 21-4.35-4.35" />
+							</svg>
+							<span class="indexed-pill-text">Indexed</span>
+						</div>
+					{/if}
 					{#if app.createdAt}
 						<Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
 					{/if}
@@ -2386,6 +2397,21 @@
 
 	.release-notes-toggle:active {
 		transform: scale(0.98);
+	}
+
+	.indexed-pill {
+		height: 28px;
+		padding: 0 0.75rem 0 0.625rem;
+		border-radius: 9999px;
+		background-color: hsl(var(--white8));
+		color: hsl(var(--white33));
+		box-sizing: border-box;
+	}
+
+	.indexed-pill-text {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		white-space: nowrap;
 	}
 
 	.platform-pill {
