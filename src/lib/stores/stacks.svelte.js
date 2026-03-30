@@ -15,6 +15,7 @@ import { putEvents, queryEvents } from '$lib/nostr/dexie';
 import { parseApp, parseAppStack } from '$lib/nostr/models';
 import { fetchFromRelays } from '$lib/nostr/service';
 import { EVENT_KINDS, PLATFORM_FILTER, ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG } from '$lib/config';
+import { ZAPSTORE_PUBKEY } from '$lib/services/profile-search';
 import { STACKS_PAGE_SIZE } from '$lib/constants';
 
 const platformTag = PLATFORM_FILTER['#f']?.[0];
@@ -105,7 +106,13 @@ export function createStacksQuery() {
 				stacksByKey.set(key, stack);
 			}
 		}
-		const stacks = [...stacksByKey.values()];
+		// Zapstore community stacks (owned by ZAPSTORE_PUBKEY) always appear first
+		const stacks = [...stacksByKey.values()].sort((a, b) => {
+			const aIsZapstore = a.pubkey === ZAPSTORE_PUBKEY ? 0 : 1;
+			const bIsZapstore = b.pubkey === ZAPSTORE_PUBKEY ? 0 : 1;
+			if (aIsZapstore !== bIsZapstore) return aIsZapstore - bIsZapstore;
+			return (b.createdAt ?? 0) - (a.createdAt ?? 0);
+		});
 	const allIdentifiers = new SvelteSet();
 
 	for (const stack of stacks) {
