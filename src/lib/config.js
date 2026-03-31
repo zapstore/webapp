@@ -70,11 +70,10 @@ export const FORUM_RELAY = ZAPSTORE_COMMUNITY_RELAY;
 export const COMMENT_AND_ZAP_READ_RELAYS = [ZAPSTORE_RELAY];
 
 /**
- * Relays we **publish** kind 1111 comments to — Zapstore only for now (`pool.publish` targets).
+ * Primary catalog target for kind 1111 — `publishComment()` awaits this set only (UI “accepted”).
+ * Social + signer NIP-65 write relays are merged and published afterward without blocking the promise.
  *
- * **Inside each comment event**, NIP-22 root/parent tags that include an optional relay URL use exactly
- * one hint: {@link ZAPSTORE_RELAY} (`wss://relay.zapstore.dev`) as the third element on each relevant
- * `e`, `E`, `a`, and `A` tag — see `publishComment()` in `service.js`.
+ * **Inside each comment event**, NIP-22 `e` / `E` / `a` / `A` relay hints remain {@link ZAPSTORE_RELAY}.
  */
 export const COMMENT_PUBLISH_RELAYS = [ZAPSTORE_RELAY];
 

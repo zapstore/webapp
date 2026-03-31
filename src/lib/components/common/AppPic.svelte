@@ -210,8 +210,9 @@
 		min-width: var(--size);
 		min-height: var(--size);
 
-		/* Shape */
+		/* Shape — clip inner layers (blur/skeleton) to rounded rect */
 		border-radius: var(--radius);
+		overflow: hidden;
 
 		/* Interaction */
 		transition: transform 0.15s ease;

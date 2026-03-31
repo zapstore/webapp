@@ -536,3 +536,80 @@ export async function loadCountryBreakdown(pubkeyHex, range, hashToAppDTag, topN
 	);
 	return combined.slice(0, topN);
 }
+
+/**
+ * Country breakdown for a single app (d-tag): impressions via `group_by=app_id,country`,
+ * downloads only for blob hashes mapped to that app.
+ *
+ * @param {string} pubkeyHex
+ * @param {{ from: string, to: string }} range
+ * @param {{ id: string }} app
+ * @param {Map<string, string>} hashToAppDTag
+ * @param {number} [topN]
+ * @returns {Promise<CountryBreakdownRow[]>}
+ */
+export async function loadCountryBreakdownForApp(pubkeyHex, range, app, hashToAppDTag, topN = 10) {
+	const apps = [{ id: app.id }];
+	const dtagLower = app.id.toLowerCase();
+
+	/** @type {Map<string, number>} */
+	const impressionsBy = new Map();
+	try {
+		const impRows = await fetchImpressions(pubkeyHex, { ...range, groupBy: 'app_id,country' });
+		for (const row of impRows) {
+			const norm = normalizeImpressionRow(row);
+			if (!norm) continue;
+			const rowDtag = norm.app_id ? resolveRowAppIdToDTag(norm.app_id, apps) : null;
+			if (!rowDtag || rowDtag !== dtagLower) continue;
+			const k = countryBucketKey(norm.country);
+			impressionsBy.set(k, (impressionsBy.get(k) ?? 0) + (Number(norm.count) || 0));
+		}
+	} catch (e) {
+		const msg = e instanceof Error ? e.message : String(e);
+		if (msg !== 'ANALYTICS_HTTP_DISABLED') {
+			console.warn('[Studio] v1 impressions by app+country failed:', e);
+		}
+	}
+
+	/** @type {Map<string, number>} */
+	const downloadsBy = new Map();
+	const hashes = [...hashToAppDTag.entries()]
+		.filter(([, dtag]) => String(dtag).toLowerCase() === dtagLower)
+		.map(([h]) => h);
+
+	await Promise.all(
+		hashes.map(async (hash) => {
+			try {
+				const rows = await fetchDownloadsForHash(hash, { ...range, groupBy: 'country' });
+				for (const row of rows) {
+					const norm = normalizeDownloadRow(row);
+					if (!norm) continue;
+					const k = countryBucketKey(norm.country);
+					downloadsBy.set(k, (downloadsBy.get(k) ?? 0) + (Number(norm.count) || 0));
+				}
+			} catch (e) {
+				const msg = e instanceof Error ? e.message : String(e);
+				if (msg !== 'ANALYTICS_HTTP_DISABLED') {
+					console.warn(
+						`[Studio] downloads by country failed (${hash}): ${e instanceof Error ? e.message : String(e)}`
+					);
+				}
+			}
+		})
+	);
+
+	const keys = new Set([...impressionsBy.keys(), ...downloadsBy.keys()]);
+	/** @type {CountryBreakdownRow[]} */
+	const combined = [...keys]
+		.map((countryKey) => ({
+			countryKey,
+			label: countryLabel(countryKey),
+			impressions: impressionsBy.get(countryKey) ?? 0,
+			downloads: downloadsBy.get(countryKey) ?? 0
+		}))
+		.filter((r) => r.impressions > 0 || r.downloads > 0);
+	combined.sort(
+		(a, b) => b.impressions + b.downloads - (a.impressions + a.downloads)
+	);
+	return combined.slice(0, topN);
+}

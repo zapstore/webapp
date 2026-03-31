@@ -25,7 +25,7 @@ import {
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
-import { db, putEvents, queryEvents } from './dexie';
+import { db, putEvents, queryEvents, queryEvent } from './dexie';
 
 /** Set `localStorage.setItem('zapstore_debug','1')` + reload for relay/Dexie logs and `window.__zapstore`. */
 function isNostrDebug() {
@@ -723,8 +723,71 @@ export async function fetchKind9735MatchingRefs(relayUrls, spec, options = {}) {
 
 const SOCIAL_RELAYS = [...DEFAULT_SOCIAL_RELAYS];
 
-/** Default `pool.publish` URLs for kind 1111 — same as {@link COMMENT_PUBLISH_RELAYS} (Zapstore only). */
-const COMMENT_PUBLISH_DEFAULT_RELAYS = COMMENT_PUBLISH_RELAYS;
+/** Cap merged publish list so NIP-65 lists cannot fan out unbounded. */
+const MAX_COMMENT_PUBLISH_RELAYS = 24;
+
+/**
+ * NIP-65 kind 10002: `r` tags with optional third field — skip `read`-only relays for publish.
+ * @param {import('nostr-tools').Event | null | undefined} event
+ * @returns {string[]}
+ */
+function parseNip65WriteRelayUrls(event) {
+	if (!event?.tags) return [];
+	const urls = [];
+	for (const tag of event.tags) {
+		if (tag[0] !== 'r' || typeof tag[1] !== 'string') continue;
+		const url = tag[1].trim();
+		if (!/^wss?:\/\//i.test(url)) continue;
+		const marker = (tag[2] || '').toLowerCase();
+		if (marker === 'read') continue;
+		urls.push(url);
+	}
+	return urls;
+}
+
+/**
+ * Zapstore + default social + optional caller extras + signer’s NIP-65 write relays (Dexie, then relay fetch).
+ * @param {string} signerPubkey - hex pubkey of the signed comment author
+ * @param {string[] | null | undefined} relayExtras - merged in after core relays (e.g. explicit `COMMENT_PUBLISH_RELAYS` from callers)
+ * @returns {Promise<string[]>}
+ */
+async function buildCommentPublishRelayUrls(signerPubkey, relayExtras) {
+	const ordered = [];
+	const seen = new Set();
+	/** @param {string} u */
+	function add(u) {
+		if (!u || typeof u !== 'string') return;
+		const n = u.trim();
+		if (!n || seen.has(n)) return;
+		seen.add(n);
+		ordered.push(n);
+	}
+
+	for (const u of COMMENT_PUBLISH_RELAYS) add(u);
+	for (const u of DEFAULT_SOCIAL_RELAYS) add(u);
+	if (Array.isArray(relayExtras)) for (const u of relayExtras) add(u);
+
+	if (signerPubkey && typeof window !== 'undefined') {
+		try {
+			const pk = signerPubkey.trim().toLowerCase();
+			let ev = await queryEvent({ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 });
+			if (!ev) {
+				const arr = await fetchFromRelays(
+					[...DEFAULT_SOCIAL_RELAYS, ZAPSTORE_RELAY],
+					{ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 },
+					{ timeout: 4000, feature: 'nip65-comment-publish' }
+				);
+				ev = arr[0];
+				if (ev) await putEvents([ev]).catch(() => {});
+			}
+			if (ev) for (const u of parseNip65WriteRelayUrls(ev)) add(u);
+		} catch {
+			/* keep core + social */
+		}
+	}
+
+	return ordered.slice(0, MAX_COMMENT_PUBLISH_RELAYS);
+}
 
 /**
  * Query comments from Dexie.
@@ -1026,12 +1089,16 @@ export function parseZapReceipt(event) {
  * @param {string} [replyToPubkey] - Pubkey being replied to (p tag on reply)
  * @param {number} [parentKind] - Kind of parent (e.g. 1111 or 9735)
  * @param {string[]} [mentions] - Pubkeys mentioned in content (p tags for notifications)
- * @param {string[]} [relays] - Override publish targets (default: {@link COMMENT_PUBLISH_RELAYS} — Zapstore only).
+ * @param {string[]} [relays] - Extra publish URLs merged in (after Zapstore + social); full set also adds signer NIP-65 write relays.
  * @param {string[]} [mediaUrls] - Media URLs (images/videos) as 'media' tags
  *
  * **Relay hint inside the signed event:** every NIP-22 `e` / `E` / `a` / `A` tag that includes a relay
  * URL uses exactly {@link ZAPSTORE_RELAY} (`wss://relay.zapstore.dev`) as the third list element — not
  * multiple hints per tag, and not other relays.
+ *
+ * **Publish targets:** {@link COMMENT_PUBLISH_RELAYS} first (awaited — UI treats this as “accepted”), then
+ * {@link DEFAULT_SOCIAL_RELAYS}, optional `relays`, and NIP-65 write relays are published in the background
+ * without blocking the returned promise.
  */
 export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions, relays, mediaUrls, version = null) {
 	if (!content?.trim()) throw new Error('Comment content is required');
@@ -1142,14 +1209,20 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 
 	const signed = await signEvent(template);
 	const p = getPool();
-	const relayUrls =
-		Array.isArray(relays) && relays.length > 0 ? relays : COMMENT_PUBLISH_DEFAULT_RELAYS;
+	const relayUrls = await buildCommentPublishRelayUrls(signed.pubkey, relays);
+	const primarySet = new Set(COMMENT_PUBLISH_RELAYS);
+	let primaryRelays = relayUrls.filter((u) => primarySet.has(u));
+	if (primaryRelays.length === 0) primaryRelays = [...COMMENT_PUBLISH_RELAYS];
+	const secondaryRelays = relayUrls.filter((u) => !primarySet.has(u));
 
-	// Publish to relays — pool.publish returns an array of promises (one per relay)
-	await Promise.allSettled(p.publish(relayUrls, signed));
+	// Await catalog relay only — pending/spinner clears here; outbox/social is best-effort after.
+	await Promise.allSettled(p.publish(primaryRelays, signed));
 
-	// Write to Dexie
 	await putEvents([signed]);
+
+	if (secondaryRelays.length > 0) {
+		void Promise.allSettled(p.publish(secondaryRelays, signed)).catch(() => {});
+	}
 
 	return signed;
 }

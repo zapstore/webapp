@@ -1,6 +1,7 @@
 <script>
 	import { goto } from '$app/navigation';
 	import { nip19 } from 'nostr-tools';
+	import { stackDisplayTitle } from '$lib/nostr/models.js';
 	import AppPic from '../common/AppPic.svelte';
 	import ProfilePic from '../common/ProfilePic.svelte';
 
@@ -49,22 +50,6 @@
 	// Pad with empty slots if less than 4 apps
 	$: gridApps = [...displayApps, ...Array(4 - displayApps.length).fill(null)];
 
-	// Helper to capitalize a string (first letter uppercase)
-	/** @param {string | undefined | null} text */
-	function capitalize(text) {
-		if (!text) return '';
-		return text.charAt(0).toUpperCase() + text.slice(1);
-	}
-
-	// Helper to get first N words from a string
-	/** @param {string | undefined | null} text @param {number} count */
-	function getFirstWords(text, count = 5) {
-		if (!text) return '';
-		const words = text.trim().split(/\s+/);
-		const result = words.slice(0, count).join(' ');
-		return words.length > count ? result + '…' : result;
-	}
-
 	// Check if description is essentially the same as the name (case-insensitive)
 	/** @param {string | undefined | null} name @param {string | undefined | null} description */
 	function isDescriptionSameAsName(name, description) {
@@ -72,9 +57,7 @@
 		return name.toLowerCase().trim() === description.toLowerCase().trim();
 	}
 
-	// Display title: use name (capitalized), or first 5 words of description (capitalized) as fallback
-	$: displayTitle =
-		capitalize(stack.name) || capitalize(getFirstWords(stack.description, 5)) || 'Untitled Stack';
+	$: displayTitle = stackDisplayTitle({ title: stack.name, description: stack.description });
 
 	// Display description: show the real description, or nothing if it matches the name or is absent
 	$: displayDescription =

@@ -14,7 +14,7 @@ export const DUMMY_MODE = false;
 // Set to null to use the browser’s NIP-07 pubkey (if available).
 //
 // Example: export const TEST_PUBKEY = 'npub1…';
-export const TEST_PUBKEY = null;
+export const TEST_PUBKEY = 'npub1utx00neqgqln72j22kej3ux7803c2k986henvvha4thuwfkper4s7r50e8';
 
 // ── Chart window ─────────────────────────────────────────────────────────────
 export const STUDIO_DAYS = 30;

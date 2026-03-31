@@ -8,6 +8,7 @@
 	import ImpressionIcon from '$lib/components/icons/Impression.svelte';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
+	import StudioCountryChart from './StudioCountryChart.svelte';
 
 	let {
 		app,
@@ -24,6 +25,10 @@
 		zapMetricsLoading = false,
 		/** While parent refetches impressions */
 		impMetricsLoading = false,
+		/** Per-app country breakdown rows (from parent) */
+		countryRows = [],
+		/** While parent loads country breakdown for this app */
+		countryLoading = false,
 		onBack: _onBack
 	} = $props();
 
@@ -274,10 +279,28 @@
 		</div>
 	</section>
 
-	<!-- Activity section -->
-	<section class="activity-section">
-		<span class="eyebrow-label activity-eyebrow">Activity</span>
-		<div class="activity-empty">Nothing here yet.</div>
+	<!-- Country breakdown (same date range as header / charts) -->
+	<section class="detail-country-section">
+		<div class="detail-country-head">
+			<span class="eyebrow-label detail-country-title">By country</span>
+			<div class="detail-country-legend">
+				<span class="detail-legend-item">
+					<span class="detail-legend-icon-wrap">
+						<ImpressionIcon size={14} />
+					</span>
+					<span class="detail-legend-text">Impressions</span>
+				</span>
+				<span class="detail-legend-item">
+					<span class="detail-legend-icon-wrap">
+						<DownloadIcon size={14} color="hsl(var(--blurpleColor66))" strokeWidth={1.4} />
+					</span>
+					<span class="detail-legend-text">Downloads</span>
+				</span>
+			</div>
+		</div>
+		<div class="detail-country-chart-wrap">
+			<StudioCountryChart rows={countryRows} loading={countryLoading} />
+		</div>
 	</section>
 </div>
 
@@ -500,21 +523,59 @@
 		width: 100%;
 	}
 
-	/* ── Activity ──────────────────────────────────────────────────────────── */
-	.activity-section {
+	/* ── Country breakdown ───────────────────────────────────────────────────── */
+	.detail-country-section {
 		padding: 20px 20px 40px;
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
+		gap: 14px;
+		border-top: 1px solid hsl(var(--border));
 	}
 
-	.activity-eyebrow {
+	.detail-country-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 12px 16px;
+	}
+
+	.detail-country-title {
+		color: hsl(var(--white66));
+		flex-shrink: 0;
+	}
+
+	.detail-country-legend {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 12px 14px;
+	}
+
+	.detail-legend-item {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.detail-legend-icon-wrap {
+		display: flex;
+		opacity: 0.66;
+		flex-shrink: 0;
+	}
+
+	.detail-legend-icon-wrap :global(svg) {
+		display: block;
+	}
+
+	.detail-legend-text {
+		font-size: 12px;
+		font-weight: 500;
 		color: hsl(var(--white33));
 	}
 
-	.activity-empty {
-		font-size: 13px;
-		color: hsl(var(--white33));
+	.detail-country-chart-wrap {
+		width: 100%;
+		min-height: 80px;
 	}
 
 	/* ── Mobile ────────────────────────────────────────────────────────────── */
@@ -540,7 +601,7 @@
 			padding: 24px 16px 16px;
 		}
 
-		.activity-section {
+		.detail-country-section {
 			padding: 16px 16px 32px;
 		}
 	}

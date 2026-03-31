@@ -152,6 +152,27 @@ export function parseForumPost(event) {
 }
 
 /**
+ * Stack list title — same rules as AppStackCard `displayTitle` (capitalize name, else first words of description).
+ * @param {{ title?: string | null, description?: string | null }} stack
+ * @returns {string}
+ */
+export function stackDisplayTitle(stack) {
+	const name = (stack?.title ?? '').trim();
+	const description = (stack?.description ?? '').trim();
+	/** @param {string} t */
+	const cap = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : '');
+	/** @param {string} text @param {number} count */
+	const getFirstWords = (text, count = 5) => {
+		if (!text) return '';
+		const words = text.trim().split(/\s+/);
+		if (!words[0]) return '';
+		const result = words.slice(0, count).join(' ');
+		return words.length > count ? result + '…' : result;
+	};
+	return cap(name) || cap(getFirstWords(description, 5)) || 'Untitled Stack';
+}
+
+/**
  * One-line label + emoji for an event (Activity feed root label, etc.).
  * @param {import('nostr-tools').NostrEvent | null | undefined} event
  * @returns {{ label: string, emoji: string }}
@@ -189,11 +210,10 @@ export function getEventOneliner(event) {
 			};
 		}
 		case EVENT_KINDS.APP_STACK: {
-			const dTag = get('d') ?? '';
-			const title =
-				get('title') ?? get('name') ?? dTag;
+			const p = parseAppStack(event);
+			const full = stackDisplayTitle({ title: p.title, description: p.description });
 			return {
-				label: truncate(title) || 'Stack',
+				label: full.length > 80 ? full.slice(0, 80) + '…' : full,
 				emoji: '/images/emoji/forum.png'
 			};
 		}

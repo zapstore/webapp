@@ -30,6 +30,7 @@
 		buildIsoDateRange,
 		fetchImpressions,
 		loadCountryBreakdown,
+		loadCountryBreakdownForApp,
 		loadDownloadAppData,
 		mapImpressionRowsToAppData,
 		npubToHex,
@@ -51,6 +52,9 @@
 
 	/** Bumps when insights time ranges change; stale async loads must not overwrite UI. */
 	let studioLoadGeneration = 0;
+
+	/** App detail: country breakdown async generation (separate from overview). */
+	let detailCountryGen = 0;
 
 	/** Last completed analytics window per series — avoid refetch + skeleton when another chart’s timeframe changes. */
 	let prevStudioImpDays = $state(-1);
@@ -94,6 +98,8 @@
 	let zapAppData = $state(DUMMY_MODE ? buildDummyAppData(ZAP_SEEDS) : null);
 	let impAppData = $state(DUMMY_MODE ? buildDummyAppData(IMP_SEEDS) : null);
 	let countryRows = $state([...(DUMMY_MODE ? DUMMY_COUNTRY_ROWS : [])]);
+	let detailCountryRows = $state([]);
+	let detailCountryLoading = $state(false);
 
 	const dlInsightDays = $derived(timeframeToDays(selectedDlTimeframe));
 	const impInsightDays = $derived(timeframeToDays(selectedImpTimeframe));
@@ -135,6 +141,49 @@
 		loadStudioData(gen, impD, dlD, zapD, countryD).catch((err) => {
 			console.error('[Studio] data load failed:', err);
 		});
+	});
+
+	// ── App detail: country breakdown for selected app (detail date range = impressions timeframe) ──
+	$effect(() => {
+		if (DUMMY_MODE) {
+			detailCountryRows = selectedApp ? [...DUMMY_COUNTRY_ROWS] : [];
+			detailCountryLoading = false;
+			return;
+		}
+		selectedApp;
+		selectedImpTimeframe;
+		studioPubkey;
+		userApps;
+
+		detailCountryGen += 1;
+		const gen = detailCountryGen;
+		const app = selectedApp;
+		const pk = studioPubkey;
+
+		if (!app || !pk || userApps.length === 0) {
+			detailCountryRows = [];
+			detailCountryLoading = false;
+			return;
+		}
+
+		detailCountryLoading = true;
+		const days = timeframeToDays(selectedImpTimeframe);
+		const range = buildIsoDateRange(days);
+
+		void (async () => {
+			try {
+				const hashMap = await collectBlobHashesForDeveloper(pk, userApps);
+				if (gen !== detailCountryGen) return;
+				const rows = await loadCountryBreakdownForApp(pk, range, app, hashMap, 10);
+				if (gen !== detailCountryGen) return;
+				detailCountryRows = rows;
+			} catch (e) {
+				console.warn('[Studio] app detail country breakdown failed:', e);
+				if (gen === detailCountryGen) detailCountryRows = [];
+			} finally {
+				if (gen === detailCountryGen) detailCountryLoading = false;
+			}
+		})();
 	});
 
 	/** TEST_PUBKEY or NIP-07 hex pubkey (lowercase). No extension required when TEST_PUBKEY is set. */
@@ -571,6 +620,8 @@
 					dlMetricsLoading={!DUMMY_MODE && dlChartLoading}
 					zapMetricsLoading={!DUMMY_MODE && zapChartLoading}
 					impMetricsLoading={!DUMMY_MODE && impChartLoading}
+					countryRows={detailCountryRows}
+					countryLoading={!DUMMY_MODE && detailCountryLoading}
 					onBack={() => (selectedApp = null)}
 				/>
 			{:else if activeNav === 'inbox'}

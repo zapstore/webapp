@@ -9,7 +9,9 @@
 	import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
 	import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
 	import CommentBubbleActionRail from '$lib/components/social/CommentBubbleActionRail.svelte';
+	import ActivityStackMiniBadge from '$lib/components/community/ActivityStackMiniBadge.svelte';
 	import { Zap } from '$lib/components/icons';
+	import { EVENT_KINDS } from '$lib/config.js';
 	import { getEventOneliner } from '$lib/nostr/models.js';
 
 	let {
@@ -33,9 +35,12 @@
 
 	const showQuote = $derived(!!parentComment && !!parsed?.zappedEventId);
 	const rootOneliner = $derived(getEventOneliner(rootEvent));
+	const isStackRoot = $derived(rootEvent?.kind === EVENT_KINDS.APP_STACK);
 
 	const emojiTags = $derived(parsed?.emojiTags ?? []);
 	const contentText = $derived(parsed?.comment ?? '');
+	/** No zap note text — add outer top spacing so the left rail reads clearly */
+	const noZapCommentBody = $derived(!String(contentText ?? '').trim());
 
 	function formatNpub(pk) {
 		if (!pk) return '';
@@ -76,8 +81,15 @@
 
 <div class="zap-activity-card {className}">
 	<div class="left-col">
-		<div class="emoji-badge" class:emoji-badge--app={!!appBadge} aria-hidden="true">
-			{#if appBadge}
+		<div
+			class="emoji-badge"
+			class:emoji-badge--app={!!appBadge && !isStackRoot}
+			class:emoji-badge--stack={isStackRoot}
+			aria-hidden="true"
+		>
+			{#if isStackRoot}
+				<ActivityStackMiniBadge />
+			{:else if appBadge}
 				<div class="app-badge-pic-wrap">
 					<AppPic
 						iconUrl={appBadge.iconUrl ?? null}
@@ -123,18 +135,36 @@
 				<button
 					type="button"
 					class="root-label root-label-link"
+					class:root-label--split={isStackRoot}
 					onclick={(e) => {
 						e.stopPropagation();
 						onRootClick();
-					}}>{rootOneliner.label}</button
+					}}
 				>
+					{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
+					{#if isStackRoot}
+						<span class="root-label-ellipsis">{rootOneliner.label}</span>
+					{:else}
+						{rootOneliner.label}
+					{/if}
+				</button>
 			{:else}
-				<span class="root-label">{rootOneliner.label}</span>
+				<span class="root-label" class:root-label--split={isStackRoot}>
+					{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
+					{#if isStackRoot}
+						<span class="root-label-ellipsis">{rootOneliner.label}</span>
+					{:else}
+						{rootOneliner.label}
+					{/if}
+				</span>
 			{/if}
 		</div>
 
 		{#if feedActions}
-			<div class="bubble-with-rail desktop-bubble-actions-target">
+			<div
+				class="bubble-with-rail desktop-bubble-actions-target"
+				class:bubble-with-rail--no-zap-comment={noZapCommentBody}
+			>
 				<div class="bubble-stack">
 					<div class="zap-bubble-skin" class:zap-bubble-skin--quoted={showQuote}>
 						<div class="bubble">
@@ -180,7 +210,11 @@
 				</div>
 			</div>
 		{:else}
-			<div class="zap-bubble-skin" class:zap-bubble-skin--quoted={showQuote}>
+			<div
+				class="zap-bubble-skin"
+				class:zap-bubble-skin--quoted={showQuote}
+				class:zap-bubble-skin--no-comment={noZapCommentBody}
+			>
 				<div class="bubble">
 					<div class="bubble-header">
 						<div class="header-left">
@@ -249,9 +283,9 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		position: relative;
 	}
 
+	/* Match CommentCard + AppPic xs — 8px radius, clip corners */
 	.emoji-badge--app {
 		width: 32px;
 		height: 32px;
@@ -259,6 +293,17 @@
 		overflow: hidden;
 		background: transparent;
 		border: none;
+		border-radius: 8px;
+	}
+
+	.emoji-badge--stack {
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		overflow: hidden;
+		background: transparent;
+		border: none;
+		border-radius: 8px;
 	}
 
 	.app-badge-pic-wrap {
@@ -266,10 +311,17 @@
 		align-items: center;
 		justify-content: center;
 		pointer-events: none;
+		border-radius: 8px;
+		overflow: hidden;
 	}
 
 	.app-badge-pic-wrap :global(.zap-activity-app-pic) {
 		cursor: inherit;
+	}
+
+	.app-badge-pic-wrap :global(.zap-activity-app-pic:hover),
+	.app-badge-pic-wrap :global(.zap-activity-app-pic:active) {
+		transform: none;
 	}
 
 	.line-dotted {
@@ -326,6 +378,26 @@
 		min-width: 0;
 	}
 
+	.root-label--split {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		max-width: 100%;
+		min-width: 0;
+	}
+
+	.root-label-kind {
+		flex-shrink: 0;
+		color: hsl(var(--white33));
+	}
+
+	.root-label-ellipsis {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.root-label-link {
 		background: none;
 		border: none;
@@ -340,12 +412,22 @@
 		text-underline-offset: 2px;
 	}
 
+	.root-label-link:hover .root-label-kind {
+		color: hsl(var(--foreground));
+	}
+
 	.bubble-with-rail {
 		display: flex;
 		align-items: flex-end;
 		gap: 12px;
 		min-width: 0;
 		max-width: 100%;
+	}
+
+	/* Outside the bubble — room above chrome so left rail is visible */
+	.bubble-with-rail--no-zap-comment {
+		padding-top: 4px;
+		box-sizing: border-box;
 	}
 
 	.bubble-stack {
@@ -363,6 +445,12 @@
 		width: fit-content;
 		max-width: 100%;
 		min-width: 200px;
+	}
+
+	/* No feedActions branch: outer top gap (not inside .bubble padding) */
+	.zap-bubble-skin--no-comment {
+		padding-top: 4px;
+		box-sizing: border-box;
 	}
 
 	.zap-bubble-skin--quoted {

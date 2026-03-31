@@ -11,6 +11,8 @@ import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
 import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
 import QuotedZapMessage from '$lib/components/social/QuotedZapMessage.svelte';
 import CommentBubbleActionRail from '$lib/components/social/CommentBubbleActionRail.svelte';
+import ActivityStackMiniBadge from '$lib/components/community/ActivityStackMiniBadge.svelte';
+import { EVENT_KINDS } from '$lib/config.js';
 import { getEventOneliner } from '$lib/nostr/models.js';
 import { hexToColor, getProfileTextColor, rgbToCssString } from '$lib/utils/color.js';
 import { onMount } from 'svelte';
@@ -65,6 +67,7 @@ const showQuote = $derived(
 		(!!parentComment || !!(parentZapParsed && parentZapParsed.senderPubkey))
 );
 const rootOneliner = $derived(getEventOneliner(rootEvent));
+const isStackRoot = $derived(rootEvent?.kind === EVENT_KINDS.APP_STACK);
 
 const emojiTags = $derived(
 	(event?.tags ?? [])
@@ -127,8 +130,15 @@ const contentText = $derived(event?.content ?? '');
 
 <div class="comment-card {className}">
 	<div class="left-col">
-		<div class="emoji-badge" class:emoji-badge--app={!!appBadge} aria-hidden="true">
-			{#if appBadge}
+		<div
+			class="emoji-badge"
+			class:emoji-badge--app={!!appBadge && !isStackRoot}
+			class:emoji-badge--stack={isStackRoot}
+			aria-hidden="true"
+		>
+			{#if isStackRoot}
+				<ActivityStackMiniBadge />
+			{:else if appBadge}
 				<div class="app-badge-pic-wrap">
 					<AppPic
 						iconUrl={appBadge.iconUrl ?? null}
@@ -174,10 +184,25 @@ const contentText = $derived(event?.content ?? '');
 				<button
 					type="button"
 					class="root-label root-label-link"
+					class:root-label--split={isStackRoot}
 					onclick={(e) => { e.stopPropagation(); onRootClick(); }}
-				>{rootOneliner.label}</button>
+				>
+					{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
+					{#if isStackRoot}
+						<span class="root-label-ellipsis">{rootOneliner.label}</span>
+					{:else}
+						{rootOneliner.label}
+					{/if}
+				</button>
 			{:else}
-				<span class="root-label">{rootOneliner.label}</span>
+				<span class="root-label" class:root-label--split={isStackRoot}>
+					{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
+					{#if isStackRoot}
+						<span class="root-label-ellipsis">{rootOneliner.label}</span>
+					{:else}
+						{rootOneliner.label}
+					{/if}
+				</span>
 			{/if}
 		</div>
 
@@ -310,6 +335,7 @@ const contentText = $derived(event?.content ?? '');
 		flex-shrink: 0;
 	}
 
+	/* Match AppPic xs (32px) inner radius (8px) — 10px here left slivers of transparent/badge bg at corners */
 	.emoji-badge--app {
 		width: 32px;
 		height: 32px;
@@ -317,6 +343,17 @@ const contentText = $derived(event?.content ?? '');
 		overflow: hidden;
 		background: transparent;
 		border: none;
+		border-radius: 8px;
+	}
+
+	.emoji-badge--stack {
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		overflow: hidden;
+		background: transparent;
+		border: none;
+		border-radius: 8px;
 	}
 
 	.app-badge-pic-wrap {
@@ -324,6 +361,8 @@ const contentText = $derived(event?.content ?? '');
 		align-items: center;
 		justify-content: center;
 		pointer-events: none;
+		border-radius: 8px;
+		overflow: hidden;
 	}
 
 	.app-badge-pic-wrap :global(.comment-card-app-pic) {
@@ -389,6 +428,26 @@ const contentText = $derived(event?.content ?? '');
 		min-width: 0;
 	}
 
+	.root-label--split {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		max-width: 100%;
+		min-width: 0;
+	}
+
+	.root-label-kind {
+		flex-shrink: 0;
+		color: hsl(var(--white33));
+	}
+
+	.root-label-ellipsis {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.root-label-link {
 		background: none;
 		border: none;
@@ -401,6 +460,10 @@ const contentText = $derived(event?.content ?? '');
 		color: hsl(var(--foreground));
 		text-decoration: underline;
 		text-underline-offset: 2px;
+	}
+
+	.root-label-link:hover .root-label-kind {
+		color: hsl(var(--foreground));
 	}
 
 	/* Match MessageBubble + CommentBubbleActionRail (RootComment feed) */
