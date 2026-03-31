@@ -12,6 +12,7 @@ export {
 	searchApps,
 	searchForumPosts,
 	fetchAppsByAuthorFromRelays,
+	fetchAllAppsByAuthorFromRelays,
 	fetchAppFromRelays,
 	fetchReleasesFromRelays,
 	fetchFromRelays,

@@ -8,7 +8,8 @@ import { fetchFromRelays, parseZapReceipt } from '$lib/nostr/service.js';
 import { buildIsoDateList } from '$lib/studio/analytics-http.js';
 
 const STUDIO_ZAP_RELAYS = [...COMMENT_AND_ZAP_READ_RELAYS];
-const ZAP_FETCH_LIMIT = 500;
+/** Studio loads 2× the selected window for prior-period % tickers; cap must cover longer ranges. */
+const ZAP_FETCH_LIMIT = 2500;
 
 /**
  * @param {import('nostr-tools').NostrEvent} ev

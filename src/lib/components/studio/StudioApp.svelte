@@ -20,11 +20,14 @@
 		IMP_SEEDS,
 		STUDIO_DAYS,
 		buildDummyAppData,
-		totalCount
+		isStudioIndexerCatalogPubkey,
+		sortStudioIndexerAppsZapstoreFirst,
+		totalCountInLastNDays
 	} from './studio-config.js';
+	import { resolveStudioCatalogPubkey } from '$lib/studio/resolve-studio-catalog-pubkey.js';
 	import { queryEvents, putEvents } from '$lib/nostr/dexie.js';
 	import { parseApp } from '$lib/nostr/models.js';
-	import { fetchAppsByAuthorFromRelays } from '$lib/nostr/service.js';
+	import { fetchAllAppsByAuthorFromRelays, fetchAppsByAuthorFromRelays } from '$lib/nostr/service.js';
 	import { DEFAULT_CATALOG_RELAYS } from '$lib/config.js';
 	import {
 		buildIsoDateRange,
@@ -114,6 +117,11 @@
 	/** Hex pubkey for the studio dashboard (TEST_PUBKEY or NIP-07); drives activity feed filters. */
 	let studioPubkey = $state(/** @type {string | null} */ (null));
 
+	/** Zapstore indexer catalog (Franzaps mapped pubkey) — show loaded app count in sidebar. */
+	const showIndexerAppCount = $derived(
+		!DUMMY_MODE && studioPubkey != null && isStudioIndexerCatalogPubkey(studioPubkey)
+	);
+
 	// ── App detail view ──────────────────────────────────────────────────────
 	// When set, show the app detail panel instead of the overview charts.
 	let selectedApp = $state(null);
@@ -121,9 +129,15 @@
 	let inboxThreadOpen = $state(false);
 
 	// Header totals (download chart / zap chart / impression chart).
-	const formattedImpressions = $derived(impAppData ? totalCount(impAppData).toLocaleString('en-US') : '—');
-	const formattedDownloads = $derived(dlAppData ? totalCount(dlAppData).toLocaleString('en-US') : '—');
-	const formattedZaps = $derived(zapAppData ? totalCount(zapAppData).toLocaleString('en-US') : '—');
+	const formattedImpressions = $derived(
+		impAppData ? totalCountInLastNDays(impAppData, impInsightDays).toLocaleString('en-US') : '—'
+	);
+	const formattedDownloads = $derived(
+		dlAppData ? totalCountInLastNDays(dlAppData, dlInsightDays).toLocaleString('en-US') : '—'
+	);
+	const formattedZaps = $derived(
+		zapAppData ? totalCountInLastNDays(zapAppData, zapInsightDays).toLocaleString('en-US') : '—'
+	);
 
 	// ── Real data loading (only runs when DUMMY_MODE = false) ───────────────
 	$effect(() => {
@@ -220,13 +234,11 @@
 	 * @param {number} countryDays
 	 */
 	async function loadStudioData(gen, impDays, dlDays, zapDays, countryDays) {
-		const impRange = buildIsoDateRange(impDays);
-		const dlRange = buildIsoDateRange(dlDays);
 		const countryRange = buildIsoDateRange(countryDays);
 
-		const pubkey = await resolveStudioPubkeyHex();
+		const signerPubkey = await resolveStudioPubkeyHex();
 		if (studioLoadStale(gen)) return;
-		if (!pubkey) {
+		if (!signerPubkey) {
 			console.warn(
 				'[Studio] Set TEST_PUBKEY in studio-config.js (npub or hex) or unlock NIP-07 to load apps and analytics.'
 			);
@@ -247,24 +259,59 @@
 			return;
 		}
 
-		studioPubkey = pubkey;
-
-		let events = await queryEvents({ kinds: [32267], authors: [pubkey] });
+		const catalogPubkey = await resolveStudioCatalogPubkey(signerPubkey);
 		if (studioLoadStale(gen)) return;
-		if (events.length === 0) {
-			events = await fetchAppsByAuthorFromRelays(DEFAULT_CATALOG_RELAYS, pubkey);
+		studioPubkey = catalogPubkey;
+
+		let events = await queryEvents({ kinds: [32267], authors: [catalogPubkey] });
+		if (studioLoadStale(gen)) return;
+
+		/* Indexer catalog: paginate until EOSE pages are exhausted. Do not send #f (PLATFORM_FILTER):
+		   many kind 32267 events omit or vary `f`; relay-side #f would hide most of the catalog. */
+		const indexerCatalog = isStudioIndexerCatalogPubkey(catalogPubkey);
+		if (indexerCatalog) {
+			const thinLocalIndex = events.length === 0 || events.length < 500;
+			const sessionKey = `zs.studio.indexerRelayBackfill:${catalogPubkey}`;
+			let sessionBackfillDone = false;
+			try {
+				sessionBackfillDone = sessionStorage.getItem(sessionKey) === '1';
+			} catch {
+				/* private mode */
+			}
+			const shouldPaginateRelays = thinLocalIndex || !sessionBackfillDone;
+			if (shouldPaginateRelays) {
+				await fetchAllAppsByAuthorFromRelays(DEFAULT_CATALOG_RELAYS, catalogPubkey, {
+					pageLimit: 500,
+					maxPages: 40,
+					timeout: 15000,
+					skipPlatformFilter: true
+				});
+				if (studioLoadStale(gen)) return;
+				try {
+					sessionStorage.setItem(sessionKey, '1');
+				} catch {
+					/* ignore */
+				}
+				events = await queryEvents({ kinds: [32267], authors: [catalogPubkey] });
+			}
+		} else if (events.length === 0) {
+			events = await fetchAppsByAuthorFromRelays(DEFAULT_CATALOG_RELAYS, catalogPubkey);
 			if (events.length > 0) await putEvents(events);
 		}
 		if (studioLoadStale(gen)) return;
 
 		const parsedApps = events.map(parseApp);
-		userApps = parsedApps.map((a) => ({
+		let nextUserApps = parsedApps.map((a) => ({
 			id: a.dTag,
 			name: a.name,
 			icon: a.icon ?? '',
 			description: a.description ?? '',
 			eventId: a.id
 		}));
+		if (isStudioIndexerCatalogPubkey(catalogPubkey)) {
+			nextUserApps = sortStudioIndexerAppsZapstoreFirst(nextUserApps);
+		}
+		userApps = nextUserApps;
 
 		if (parsedApps.length === 0) {
 			impAppData = null;
@@ -296,32 +343,33 @@
 		if (needZap) zapChartLoading = true;
 		else zapChartLoading = false;
 
-		const hashPromise = collectBlobHashesForDeveloper(pubkey, userApps);
+		const hashPromise = collectBlobHashesForDeveloper(catalogPubkey, userApps);
 
-		if (needImp) void impFlow(gen, pubkey, impDays, impRange);
-		if (needDl) void dlFlow(gen, dlDays, dlRange, hashPromise);
-		if (needZap) void zapFlow(gen, pubkey, zapDays);
-		if (needCountry) void countryFlow(gen, pubkey, countryDays, countryRange, hashPromise);
+		if (needImp) void impFlow(gen, catalogPubkey, impDays);
+		if (needDl) void dlFlow(gen, dlDays, hashPromise);
+		if (needZap) void zapFlow(gen, catalogPubkey, zapDays);
+		if (needCountry) void countryFlow(gen, catalogPubkey, countryDays, countryRange, hashPromise);
 	}
 
 	/**
 	 * @param {number} gen
 	 * @param {string} pubkey
 	 * @param {number} impDays
-	 * @param {{ from: string, to: string }} impRange
 	 */
-	async function impFlow(gen, pubkey, impDays, impRange) {
+	async function impFlow(gen, pubkey, impDays) {
 		try {
 			let v1Ok = false;
 			try {
+				const spanDays = 2 * impDays;
+				const wideRange = buildIsoDateRange(spanDays);
 				const impRows = await fetchImpressions(pubkey, {
-					from: impRange.from,
-					to: impRange.to,
+					from: wideRange.from,
+					to: wideRange.to,
 					groupBy: 'app_id,day'
 				});
 				v1Ok = true;
 				if (!studioLoadStale(gen)) {
-					impAppData = mapImpressionRowsToAppData(userApps, impRows, impDays);
+					impAppData = mapImpressionRowsToAppData(userApps, impRows, spanDays);
 				}
 			} catch (err) {
 				if (!studioLoadStale(gen)) impAppData = null;
@@ -348,14 +396,15 @@
 	/**
 	 * @param {number} gen
 	 * @param {number} dlDays
-	 * @param {{ from: string, to: string }} dlRange
 	 * @param {Promise<Map<string, string>>} hashPromise
 	 */
-	async function dlFlow(gen, dlDays, dlRange, hashPromise) {
+	async function dlFlow(gen, dlDays, hashPromise) {
 		try {
 			const hashMap = await hashPromise;
 			if (studioLoadStale(gen)) return;
-			const data = await loadDownloadAppData(userApps, hashMap, dlRange, dlDays);
+			const spanDays = 2 * dlDays;
+			const wideRange = buildIsoDateRange(spanDays);
+			const data = await loadDownloadAppData(userApps, hashMap, wideRange, spanDays);
 			if (!studioLoadStale(gen)) dlAppData = data;
 		} catch (err) {
 			console.warn('[Studio] v1 downloads failed:', err);
@@ -375,7 +424,7 @@
 	 */
 	async function zapFlow(gen, pubkey, zapDays) {
 		try {
-			const data = await loadZapAppData(pubkey, userApps, zapDays);
+			const data = await loadZapAppData(pubkey, userApps, 2 * zapDays);
 			if (!studioLoadStale(gen)) zapAppData = data;
 		} catch (err) {
 			console.warn('[Studio] zaps load failed:', err);
@@ -512,7 +561,14 @@
 							{/each}
 						</nav>
 						<div class="apps-section">
-							<span class="eyebrow-label apps-eyebrow">Your Apps</span>
+							<div class="apps-section-head">
+								<span class="eyebrow-label apps-eyebrow">Your Apps</span>
+								{#if showIndexerAppCount}
+									<span class="apps-eyebrow-count" aria-label="{userApps.length} apps loaded"
+										>{userApps.length.toLocaleString('en-US')}</span
+									>
+								{/if}
+							</div>
 							{#each userApps as app (app.id)}
 								<button
 									class="nav-item"
@@ -573,7 +629,14 @@
 
 			<!-- Your Apps section -->
 			<div class="apps-section">
-				<span class="eyebrow-label apps-eyebrow">Your Apps</span>
+				<div class="apps-section-head">
+					<span class="eyebrow-label apps-eyebrow">Your Apps</span>
+					{#if showIndexerAppCount}
+						<span class="apps-eyebrow-count" aria-label="{userApps.length} apps loaded"
+							>{userApps.length.toLocaleString('en-US')}</span
+						>
+					{/if}
+				</div>
 				{#each userApps as app (app.id)}
 					<button
 						class="nav-item"
@@ -608,22 +671,24 @@
 		<!-- Content area (border-left acts as the column divider) -->
 		<div class="content">
 			{#if selectedApp !== null}
-				<StudioAppDetail
-					app={selectedApp}
-					bind:selectedDlTimeframe
-					bind:selectedImpTimeframe
-					bind:selectedZapTimeframe
-					chartDayCount={detailChartDays}
-					dlCounts={dlAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
-					impCounts={impAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
-					zapCounts={zapAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
-					dlMetricsLoading={!DUMMY_MODE && dlChartLoading}
-					zapMetricsLoading={!DUMMY_MODE && zapChartLoading}
-					impMetricsLoading={!DUMMY_MODE && impChartLoading}
-					countryRows={detailCountryRows}
-					countryLoading={!DUMMY_MODE && detailCountryLoading}
-					onBack={() => (selectedApp = null)}
-				/>
+				<div class="detail-scroll">
+					<StudioAppDetail
+						app={selectedApp}
+						bind:selectedDlTimeframe
+						bind:selectedImpTimeframe
+						bind:selectedZapTimeframe
+						chartDayCount={detailChartDays}
+						dlCounts={dlAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
+						impCounts={impAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
+						zapCounts={zapAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
+						dlMetricsLoading={!DUMMY_MODE && dlChartLoading}
+						zapMetricsLoading={!DUMMY_MODE && zapChartLoading}
+						impMetricsLoading={!DUMMY_MODE && impChartLoading}
+						countryRows={detailCountryRows}
+						countryLoading={!DUMMY_MODE && detailCountryLoading}
+						onBack={() => (selectedApp = null)}
+					/>
+				</div>
 			{:else if activeNav === 'inbox'}
 				<!-- Inbox: comments on your apps. Scrolls inside .content so modals stay in viewport. -->
 				<section class="activity-section inbox-section inbox-scroll" class:scroll-locked={inboxThreadOpen}>
@@ -971,11 +1036,29 @@
 		overflow-y: auto;
 	}
 
-	.apps-eyebrow {
+	.apps-section-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 10px;
 		padding: 0 10px;
 		margin-bottom: 4px;
+		min-width: 0;
+	}
+
+	.apps-eyebrow {
 		color: hsl(var(--white33));
 		display: block;
+		min-width: 0;
+	}
+
+	.apps-eyebrow-count {
+		flex-shrink: 0;
+		font-size: 12px;
+		font-weight: 500;
+		letter-spacing: 0.06em;
+		font-variant-numeric: tabular-nums;
+		color: hsl(var(--blurpleColor66));
 	}
 
 	.app-img {
@@ -1156,6 +1239,16 @@
 		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
+	}
+
+	/* Per-app detail: same as insights/inbox — .content stays overflow:hidden */
+	.detail-scroll {
+		flex: 1;
+		min-width: 0;
+		min-height: 0;
+		overflow-x: hidden;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	@media (max-width: 767px) {

@@ -9,6 +9,7 @@
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import StudioCountryChart from './StudioCountryChart.svelte';
+	import { timeframeToDays } from '$lib/studio/analytics-http.js';
 
 	let {
 		app,
@@ -48,22 +49,38 @@
 		return arr.reduce((s, v) => s + v, 0);
 	}
 
-	// Compare last 7 days vs previous 7 days for % change
-	function pctChange(counts) {
-		if (!counts || counts.length < 14) return null;
-		const recent = sum(counts.slice(-7));
-		const prior = sum(counts.slice(-14, -7));
+	/** Big number = sum over the visible timeframe only (last N days when we store 2× for tickers). */
+	function sumLastWindow(counts, windowDays) {
+		const n = Math.max(1, windowDays);
+		if (!counts?.length) return 0;
+		const slice = counts.length >= n ? counts.slice(-n) : counts;
+		return sum(slice);
+	}
+
+	/**
+	 * % change: current window vs the immediately prior window of the same length.
+	 * Requires daily buckets for 2× windowDays (oldest → newest).
+	 */
+	function pctChangeForWindow(counts, windowDays) {
+		const n = Math.max(1, windowDays);
+		if (!counts || counts.length < 2 * n) return null;
+		const prior = sum(counts.slice(0, n));
+		const recent = sum(counts.slice(n, 2 * n));
 		if (prior === 0) return recent > 0 ? 100 : 0;
 		return Math.round(((recent - prior) / prior) * 100);
 	}
 
-	const dlTotal = $derived(sum(dlCounts));
-	const impTotal = $derived(sum(impCounts));
-	const zapTotal = $derived(sum(zapCounts));
+	const dlWindowDays = $derived(timeframeToDays(selectedDlTimeframe));
+	const impWindowDays = $derived(timeframeToDays(selectedImpTimeframe));
+	const zapWindowDays = $derived(timeframeToDays(selectedZapTimeframe));
 
-	const dlPct = $derived(pctChange(dlCounts));
-	const impPct = $derived(pctChange(impCounts));
-	const zapPct = $derived(pctChange(zapCounts));
+	const dlTotal = $derived(sumLastWindow(dlCounts, dlWindowDays));
+	const impTotal = $derived(sumLastWindow(impCounts, impWindowDays));
+	const zapTotal = $derived(sumLastWindow(zapCounts, zapWindowDays));
+
+	const dlPct = $derived(pctChangeForWindow(dlCounts, dlWindowDays));
+	const impPct = $derived(pctChangeForWindow(impCounts, impWindowDays));
+	const zapPct = $derived(pctChangeForWindow(zapCounts, zapWindowDays));
 
 	const pad = (/** @type {number[]} */ arr) => {
 		const n = chartDayCount;

@@ -440,17 +440,73 @@ export async function searchForumPosts(relays, communityPubkeyHex, query, option
 /**
  * Fetch app events by author from relays (for profile pages, etc.).
  * Events are written to Dexie via fetchFromRelays.
+ *
+ * @param {{ limit?: number, until?: number, timeout?: number, signal?: AbortSignal, skipPlatformFilter?: boolean }} options
  */
 export async function fetchAppsByAuthorFromRelays(relayUrls, pubkey, options = {}) {
-	const { limit = 50, timeout = 5000, signal } = options;
+	const { limit = 50, until, timeout = 5000, signal, skipPlatformFilter = false } = options;
 	if (signal?.aborted || !pubkey) return [];
 	const filter = {
 		kinds: [32267],
 		authors: [pubkey],
-		...PLATFORM_FILTER,
 		limit
 	};
+	if (!skipPlatformFilter) {
+		Object.assign(filter, PLATFORM_FILTER);
+	}
+	if (until != null && !Number.isNaN(Number(until))) {
+		filter.until = Number(until);
+	}
 	return fetchFromRelays(relayUrls, filter, { timeout, signal, feature: 'profile' });
+}
+
+/**
+ * Paginate kind 32267 by author until a page returns fewer than `pageLimit` events or `maxPages`
+ * is reached. Each page is persisted via fetchFromRelays. Use for large catalogs (e.g. Zapstore indexer).
+ *
+ * @param {string[]} relayUrls
+ * @param {string} pubkey
+ * @param {{ pageLimit?: number, maxPages?: number, timeout?: number, signal?: AbortSignal, skipPlatformFilter?: boolean }} options
+ * @returns {Promise<import('nostr-tools').Event[]>}
+ */
+export async function fetchAllAppsByAuthorFromRelays(relayUrls, pubkey, options = {}) {
+	const { pageLimit = 500, maxPages = 40, timeout = 15000, signal, skipPlatformFilter = false } =
+		options;
+	if (signal?.aborted || !pubkey) return [];
+
+	const byId = new Map();
+	let until = undefined;
+
+	for (let page = 0; page < maxPages; page++) {
+		if (signal?.aborted) break;
+
+		const batch = await fetchAppsByAuthorFromRelays(relayUrls, pubkey, {
+			limit: pageLimit,
+			until,
+			timeout,
+			signal,
+			skipPlatformFilter
+		});
+
+		if (batch.length === 0) break;
+
+		for (const ev of batch) {
+			if (ev?.id) byId.set(ev.id, ev);
+		}
+
+		if (batch.length < pageLimit) break;
+
+		let oldest = batch[0].created_at;
+		for (let i = 1; i < batch.length; i++) {
+			const t = batch[i].created_at;
+			if (t < oldest) oldest = t;
+		}
+		const nextUntil = oldest - 1;
+		if (until !== undefined && nextUntil >= until) break;
+		until = nextUntil;
+	}
+
+	return [...byId.values()];
 }
 
 /**
