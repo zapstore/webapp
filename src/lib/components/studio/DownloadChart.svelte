@@ -58,7 +58,12 @@
 		 * When true: same SVG shell (vertical rule, date row, masks) but no data lines or markers;
 		 * “Loading…” sits behind the plot (EmptyState-style type). Hover disabled.
 		 */
-		loading = false
+		loading = false,
+		/**
+		 * When true, each series uses its own Y scale (0..max for that series, min span 1).
+		 * The combined total line still uses the summed series and a global max.
+		 */
+		perSeriesYScale = false
 	} = $props();
 
 	const TOTAL_DOT_R = 6;
@@ -112,6 +117,15 @@
 		return a.data.reduce((s, v) => s + v, 0);
 	}
 
+	/** Map v into [mn, mn+span] → plot height; span ≥ 1 (counts stay anchored at 0). */
+	function seriesYExtent(/** @type {number[]} */ data) {
+		if (!data?.length) return { mn: 0, span: 1 };
+		const mn = Math.min(0, ...data);
+		const rawMx = Math.max(...data);
+		const span = Math.max(rawMx - mn, 1);
+		return { mn, span };
+	}
+
 	/** Subset of allApps drawn as faint per-app lines (total still uses all apps). */
 	const lineApps = $derived.by(() => {
 		const list = allApps;
@@ -125,7 +139,12 @@
 		Array.from({ length: DAYS }, (_, i) => allApps.reduce((sum, a) => sum + a.data[i], 0))
 	);
 
-	const maxY = $derived(Math.max(1, ...totalData));
+	const globalMaxY = $derived(Math.max(1, ...totalData));
+
+	const lineAppYExtents = $derived.by(() => {
+		if (!perSeriesYScale) return /** @type {{ mn: number; span: number }[] | null} */ (null);
+		return lineApps.map((a) => seriesYExtent(a.data));
+	});
 
 	const dateLabel = $derived(dayLabels[DAYS - 1]);
 
@@ -192,16 +211,20 @@
 	const chart = $derived.by(() => {
 		const cW = W - RIGHT_ZONE;
 		const cH = PLOT_FLOOR_Y - PAD_T;
+		const gMax = globalMaxY;
 
 		function xp(i) {
 			return (i / xDenom) * cW;
 		}
-		function yp(v) {
-			return PAD_T + cH - (v / maxY) * cH;
+		function ypGlobal(v) {
+			return PAD_T + cH - (v / gMax) * cH;
+		}
+		function ypForSeries(v, ext) {
+			return PAD_T + cH - ((v - ext.mn) / ext.span) * cH;
 		}
 
-		function buildPath(data) {
-			const pts = data.map((v, i) => [xp(i), yp(v)]);
+		function buildPath(data, ypAt) {
+			const pts = data.map((v, i) => [xp(i), ypAt(v)]);
 			let d = `M ${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)}`;
 			for (let i = 1; i < pts.length; i++) {
 				const cpx = ((pts[i - 1][0] + pts[i][0]) / 2).toFixed(2);
@@ -211,14 +234,29 @@
 		}
 
 		const lineX = xp(DAYS - 1);
-		const totalEndY = yp(totalData[DAYS - 1]);
+		const extents = lineAppYExtents;
+		const usePerSeries = perSeriesYScale && extents && extents.length === lineApps.length;
+
+		const appPaths = usePerSeries
+			? lineApps.map((a, i) =>
+					buildPath(a.data, (v) => ypForSeries(v, /** @type {{ mn: number; span: number }} */ (extents[i])))
+				)
+			: lineApps.map((a) => buildPath(a.data, ypGlobal));
+
+		const appEndYs = usePerSeries
+			? lineApps.map((a, i) =>
+					ypForSeries(a.data[DAYS - 1], /** @type {{ mn: number; span: number }} */ (extents[i]))
+				)
+			: lineApps.map((a) => ypGlobal(a.data[DAYS - 1]));
+
+		const totalEndY = ypGlobal(totalData[DAYS - 1]);
 
 		return {
 			lineX,
-			totalPath: buildPath(totalData),
-			appPaths: lineApps.map((a) => buildPath(a.data)),
+			totalPath: buildPath(totalData, ypGlobal),
+			appPaths,
 			totalEndY,
-			appEndYs: lineApps.map((a) => yp(a.data[DAYS - 1]))
+			appEndYs
 		};
 	});
 
@@ -227,19 +265,29 @@
 		if (hoverIndex === null) return null;
 		const cW = W - RIGHT_ZONE;
 		const cH = PLOT_FLOOR_Y - PAD_T;
+		const gMax = globalMaxY;
 
 		function xp(i) {
 			return (i / xDenom) * cW;
 		}
-		function yp(v) {
-			return PAD_T + cH - (v / maxY) * cH;
+		function ypGlobal(v) {
+			return PAD_T + cH - (v / gMax) * cH;
+		}
+		function ypForSeries(v, ext) {
+			return PAD_T + cH - ((v - ext.mn) / ext.span) * cH;
 		}
 
 		const x = xp(hoverIndex);
 		const totalVal = totalData[hoverIndex];
-		const totalY = yp(totalVal);
+		const totalY = ypGlobal(totalVal);
 		const appVals = lineApps.map((a) => a.data[hoverIndex]);
-		const appYs = appVals.map((v) => yp(v));
+		const extents = lineAppYExtents;
+		const usePerSeries = perSeriesYScale && extents && extents.length === lineApps.length;
+		const appYs = usePerSeries
+			? appVals.map((v, i) =>
+					ypForSeries(v, /** @type {{ mn: number; span: number }} */ (extents[i]))
+				)
+			: appVals.map((v) => ypGlobal(v));
 
 		const dateStr = dayLabels[hoverIndex];
 

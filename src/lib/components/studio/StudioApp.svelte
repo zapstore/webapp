@@ -1,4 +1,5 @@
 <script>
+	import { browser } from '$app/environment';
 	import DownloadChart from './DownloadChart.svelte';
 	import DownloadIcon from '$lib/components/icons/Download.svelte';
 	import ZapIcon from '$lib/components/icons/Zap.svelte';
@@ -52,6 +53,27 @@
 	let zapDropdownOpen = $state(false);
 	let selectedZapTimeframe = $state('30 Days');
 	let mobileMenuOpen = $state(false);
+
+	/** Close insights timeframe menus on outside click (capture so chart hover does not eat it). */
+	$effect(() => {
+		if (!browser) return;
+		if (!dlDropdownOpen && !zapDropdownOpen && !impDropdownOpen && !countryDropdownOpen) return;
+
+		const onPointerDown = (/** @type {PointerEvent} */ e) => {
+			const t = e.target;
+			if (!(t instanceof Element)) return;
+			const root = t.closest('[data-studio-dropdown]');
+			const id = root?.getAttribute('data-studio-dropdown');
+
+			if (dlDropdownOpen && id !== 'dl') dlDropdownOpen = false;
+			if (zapDropdownOpen && id !== 'zap') zapDropdownOpen = false;
+			if (impDropdownOpen && id !== 'imp') impDropdownOpen = false;
+			if (countryDropdownOpen && id !== 'country') countryDropdownOpen = false;
+		};
+
+		document.addEventListener('pointerdown', onPointerDown, true);
+		return () => document.removeEventListener('pointerdown', onPointerDown, true);
+	});
 
 	/** Bumps when insights time ranges change; stale async loads must not overwrite UI. */
 	let studioLoadGeneration = 0;
@@ -709,7 +731,7 @@
 								<span class="dl-count">{formattedDownloads}</span>
 							{/if}
 						</div>
-						<div class="timerange-wrap">
+						<div class="timerange-wrap" data-studio-dropdown="dl">
 							<button class="timerange-btn" onclick={() => (dlDropdownOpen = !dlDropdownOpen)}>
 								<span class="eyebrow-label tr-label">{selectedDlTimeframe}</span>
 								<span class="chevron-wrap">
@@ -767,7 +789,7 @@
 								<span class="dl-count">{formattedZaps}</span>
 							{/if}
 						</div>
-						<div class="timerange-wrap">
+						<div class="timerange-wrap" data-studio-dropdown="zap">
 							<button class="timerange-btn" onclick={() => (zapDropdownOpen = !zapDropdownOpen)}>
 								<span class="eyebrow-label tr-label">{selectedZapTimeframe}</span>
 								<span class="chevron-wrap">
@@ -826,7 +848,7 @@
 								<span class="dl-count">{formattedImpressions}</span>
 							{/if}
 						</div>
-						<div class="timerange-wrap">
+						<div class="timerange-wrap" data-studio-dropdown="imp">
 							<button class="timerange-btn" onclick={() => (impDropdownOpen = !impDropdownOpen)}>
 								<span class="eyebrow-label tr-label">{selectedImpTimeframe}</span>
 								<span class="chevron-wrap">
@@ -893,7 +915,7 @@
 								</span>
 							</div>
 						</div>
-						<div class="timerange-wrap">
+						<div class="timerange-wrap" data-studio-dropdown="country">
 							<button
 								class="timerange-btn"
 								onclick={() => (countryDropdownOpen = !countryDropdownOpen)}
@@ -1269,7 +1291,8 @@
 		top: 18px;
 		left: 26px;
 		right: 26px;
-		z-index: 1;
+		/* Above .chart-area / .chart-svg (z-index 1) so timerange button + dropdown stay clickable */
+		z-index: 10;
 		display: flex;
 		align-items: center;
 		gap: 8px;
@@ -1295,6 +1318,7 @@
 	.timerange-wrap {
 		position: relative;
 		align-self: flex-start;
+		z-index: 11;
 	}
 
 	.timerange-btn {
@@ -1336,7 +1360,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		z-index: 50;
+		z-index: 100;
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 	}
 
@@ -1377,7 +1401,10 @@
 
 	/* ── Chart area ───────────────────────────────────────────────────────── */
 	.chart-area {
+		position: relative;
+		z-index: 0;
 		width: 100%;
+		isolation: isolate;
 	}
 
 	.country-head-start {

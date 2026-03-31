@@ -1,4 +1,5 @@
 <script>
+	import { browser } from '$app/environment';
 	import DownloadChart from './DownloadChart.svelte';
 	import DownloadIcon from '$lib/components/icons/Download.svelte';
 	import ZapIcon from '$lib/components/icons/Zap.svelte';
@@ -33,10 +34,25 @@
 		onBack: _onBack
 	} = $props();
 
-	const detailChartLoading = $derived(dlMetricsLoading || zapMetricsLoading);
+	const detailChartLoading = $derived(dlMetricsLoading || zapMetricsLoading || impMetricsLoading);
 
 	const timeframes = ['7 Days', '30 Days', '90 Days', '1 Year'];
 	let detailRangeOpen = $state(false);
+
+	$effect(() => {
+		if (!browser) return;
+		if (!detailRangeOpen) return;
+
+		const onPointerDown = (/** @type {PointerEvent} */ e) => {
+			const t = e.target;
+			if (!(t instanceof Element)) return;
+			if (t.closest('[data-studio-dropdown="detail"]')) return;
+			detailRangeOpen = false;
+		};
+
+		document.addEventListener('pointerdown', onPointerDown, true);
+		return () => document.removeEventListener('pointerdown', onPointerDown, true);
+	});
 
 	function applyDetailTimeframe(tf) {
 		selectedDlTimeframe = tf;
@@ -66,7 +82,8 @@
 		if (!counts || counts.length < 2 * n) return null;
 		const prior = sum(counts.slice(0, n));
 		const recent = sum(counts.slice(n, 2 * n));
-		if (prior === 0) return recent > 0 ? 100 : 0;
+		// No meaningful % vs prior when baseline is zero (avoid fake "100%").
+		if (prior === 0) return null;
 		return Math.round(((recent - prior) / prior) * 100);
 	}
 
@@ -90,21 +107,13 @@
 		return [...Array(n - arr.length).fill(0), ...arr];
 	};
 
+	/** One chart: downloads, zaps, impressions (aligned to detail timeframe). */
 	const combinedAppData = $derived(
-		dlCounts.length > 0 || zapCounts.length > 0
+		dlCounts.length > 0 || zapCounts.length > 0 || impCounts.length > 0
 			? [
-					{
-						id: 'dl',
-						name: 'Downloads',
-						icon: '',
-						counts: pad(dlCounts)
-					},
-					{
-						id: 'zap',
-						name: 'Zaps',
-						icon: '',
-						counts: pad(zapCounts)
-					}
+					{ id: 'dl', name: 'Downloads', icon: '', counts: pad(dlCounts) },
+					{ id: 'zap', name: 'Zaps', icon: '', counts: pad(zapCounts) },
+					{ id: 'imp', name: 'Impressions', icon: '', counts: pad(impCounts) }
 				]
 			: null
 	);
@@ -146,7 +155,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="timerange-wrap app-info-timerange">
+		<div class="timerange-wrap app-info-timerange" data-studio-dropdown="detail">
 			<button
 				type="button"
 				class="timerange-btn"
@@ -286,9 +295,10 @@
 				color1="#636AFF"
 				glowColor="#5445FF"
 				dotColor="#5C5FFF"
-				appColors={['#636AFF', '#FFB237']}
-				appBadgeBgs={['rgba(60,58,80,0.92)', 'rgba(90,55,0,0.92)']}
+				appColors={['#636AFF', '#FFB237', 'rgba(184, 192, 212, 0.5)']}
+				appBadgeBgs={['rgba(60,58,80,0.92)', 'rgba(90,55,0,0.92)', 'rgba(52,52,58,0.94)']}
 				hideTotalLine={true}
+				perSeriesYScale={true}
 				padTop={20}
 				appData={combinedAppData}
 				loading={detailChartLoading}
@@ -601,8 +611,20 @@
 			padding: 16px;
 		}
 
+		.counts-row {
+			flex-direction: column;
+		}
+
 		.count-item {
+			flex: none;
+			width: 100%;
 			padding: 16px;
+			border-right: none;
+			border-bottom: 1px solid hsl(var(--border));
+		}
+
+		.count-item--last {
+			border-bottom: none;
 		}
 
 		.count-ticker {
