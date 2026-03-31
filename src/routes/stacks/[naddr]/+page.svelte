@@ -327,8 +327,21 @@ async function loadCommentsForStack(pubkey, dTag) {
         commentsLoading = true;
     commentsError = "";
     try {
-        const events = await fetchComments(pubkey, dTag, { aTagKind: EVENT_KINDS.APP_STACK });
-        comments = events.map(parseComment);
+        const [relayEvents, storeEvents] = await Promise.all([
+            fetchComments(pubkey, dTag, { aTagKind: EVENT_KINDS.APP_STACK }),
+            queryCommentsFromStore(pubkey, dTag, EVENT_KINDS.APP_STACK),
+        ]);
+        const byId = new Map();
+        for (const e of storeEvents) {
+            if (e?.id)
+                byId.set(e.id.toLowerCase(), e);
+        }
+        for (const e of relayEvents) {
+            if (e?.id)
+                byId.set(e.id.toLowerCase(), e);
+        }
+        const merged = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+        comments = merged.map(parseComment);
         const uniquePubkeys = [...new Set(comments.map((c) => c.pubkey))];
         profilesLoading = true;
         const nextProfiles = { ...profiles };

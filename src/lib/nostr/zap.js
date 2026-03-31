@@ -9,7 +9,7 @@ import { SimplePool } from 'nostr-tools';
 import { resolveLightningAddress, fetchInvoiceFromCallback, validateZapSupport } from '$lib/lnurl';
 import { fetchProfile } from './service';
 import { putEvents } from './dexie';
-import { DEFAULT_SOCIAL_RELAYS, SUB_PREFIX, ZAPSTORE_RELAY } from '$lib/config';
+import { COMMENT_AND_ZAP_READ_RELAYS, DEFAULT_SOCIAL_RELAYS, SUB_PREFIX, ZAPSTORE_RELAY } from '$lib/config';
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 
@@ -134,29 +134,38 @@ export function subscribeToZapReceipt(recipientPubkey, zapRequestId, onReceipt, 
 	let sub = null;
 
 	const run = () => {
-		sub = pool.subscribeMany([...DEFAULT_SOCIAL_RELAYS], { kinds: [9735], '#p': [recipientPubkey] }, {
-			id: subId('zap'),
-			onevent(event) {
-				const descTag = event.tags?.find((t) => t[0] === 'description')?.[1];
-				if (descTag) {
-					try {
-						const zapReq = JSON.parse(descTag);
-						if (zapReq.id === zapRequestId) {
-							putEvents([event]).catch(() => {});
-							onReceipt(event);
+		sub = pool.subscribeMany(
+			[...COMMENT_AND_ZAP_READ_RELAYS],
+			{
+				kinds: [9735],
+				'#p': [recipientPubkey],
+				since: Math.floor(Date.now() / 1000),
+				limit: 100
+			},
+			{
+				id: subId('zap'),
+				onevent(event) {
+					const descTag = event.tags?.find((t) => t[0] === 'description')?.[1];
+					if (descTag) {
+						try {
+							const zapReq = JSON.parse(descTag);
+							if (zapReq.id === zapRequestId) {
+								putEvents([event]).catch(() => {});
+								onReceipt(event);
+							}
+						} catch {
+							/* ignore parse */
 						}
-					} catch {
-						/* ignore parse */
 					}
 				}
 			}
-		});
+		);
 	};
 
 	run();
 
 	return () => {
 		try { sub?.close(); } catch { /* noop */ }
-		pool.close(DEFAULT_SOCIAL_RELAYS);
+		pool.close([...COMMENT_AND_ZAP_READ_RELAYS]);
 	};
 }

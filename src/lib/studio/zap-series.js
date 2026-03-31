@@ -1,13 +1,13 @@
 /**
- * Studio zap totals per app per day from kind 9735 on Zapstore + social relays.
+ * Studio zap totals per app per day from kind 9735 on Zapstore (same read path as `fetchZaps`).
  * Batch filters only (no N+1): one #a query, one #e batch per pubkey's app event ids.
  */
-import { DEFAULT_SOCIAL_RELAYS, EVENT_KINDS, ZAPSTORE_RELAY } from '$lib/config.js';
+import { COMMENT_AND_ZAP_READ_RELAYS, EVENT_KINDS } from '$lib/config.js';
 import { queryEvents, putEvents } from '$lib/nostr/dexie.js';
 import { fetchFromRelays, parseZapReceipt } from '$lib/nostr/service.js';
 import { buildIsoDateList } from '$lib/studio/analytics-http.js';
 
-const STUDIO_ZAP_RELAYS = [...new Set([ZAPSTORE_RELAY, ...DEFAULT_SOCIAL_RELAYS])];
+const STUDIO_ZAP_RELAYS = [...COMMENT_AND_ZAP_READ_RELAYS];
 const ZAP_FETCH_LIMIT = 500;
 
 /**

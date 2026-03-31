@@ -7,7 +7,12 @@ import { initAuth } from '$lib/stores/auth.svelte.js';
 import { initCatalogs } from '$lib/stores/catalogs.svelte.js';
 import { initOnlineStatus, isOnline } from '$lib/stores/online.svelte.js';
 import { startProfileSearchBackground } from '$lib/services/profile-search';
-import { startLiveSubscriptions, stopLiveSubscriptions, syncDeletions } from '$lib/nostr/service';
+import {
+	startLiveSubscriptions,
+	stopLiveSubscriptions,
+	syncDeletions,
+	installZapstoreDebugHooks
+} from '$lib/nostr/service';
 import { ZAPSTORE_RELAY } from '$lib/config';
 import { evictOldEvents } from '$lib/nostr/dexie';
 import { IDB_NAME } from '$lib/config';
@@ -46,6 +51,12 @@ onMount(() => {
         initOnlineStatus();
         // Start persistent relay connections for live catalog updates
         startLiveSubscriptions();
+        installZapstoreDebugHooks();
+        if (import.meta.env.DEV) {
+            console.info(
+                '[Zapstore] Nostr client started. For relay/Dexie logs: localStorage.setItem("zapstore_debug","1"); location.reload() — then check [Zapstore] lines and globalThis.__zapstore'
+            );
+        }
         // Fetch NIP-09 deletions since last check and bust Dexie cache
         syncDeletions([ZAPSTORE_RELAY]);
         // Evict old non-replaceable events to prevent unbounded IndexedDB growth

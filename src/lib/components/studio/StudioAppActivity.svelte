@@ -1,7 +1,7 @@
 <script lang="js">
 	/**
 	 * Comments on the signed-in developer's apps (NIP-22 root `A` / `a` = 32267:pubkey:d-tag).
-	 * Local-first via Dexie liveQuery; background seed from DEFAULT_SOCIAL_RELAYS only.
+	 * Local-first via Dexie liveQuery; background seed from Zapstore (`COMMENT_AND_ZAP_READ_RELAYS`) with bounded REQ.
 	 */
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
@@ -29,7 +29,7 @@
 		findEnclosingZapReceiptForComment
 	} from '$lib/nostr/zap-thread.js';
 	import { parseApp, parseProfile } from '$lib/nostr/models';
-	import { EVENT_KINDS, DEFAULT_SOCIAL_RELAYS } from '$lib/config';
+	import { EVENT_KINDS, COMMENT_AND_ZAP_READ_RELAYS, commentZapRelayReadSince } from '$lib/config';
 	import { goto } from '$app/navigation';
 	import CommentCard from '$lib/components/community/CommentCard.svelte';
 	import ZapActivityCard from '$lib/components/community/ZapActivityCard.svelte';
@@ -300,16 +300,17 @@
 		(async () => {
 			try {
 				const { fetchFromRelays } = await import('$lib/nostr/service.js');
+				const rs = commentZapRelayReadSince();
 				const [evs, zLo, zUp] = await Promise.all([
 					fetchCommentsByRootATags(appAddrs, { timeout: 8000 }),
 					fetchFromRelays(
-						DEFAULT_SOCIAL_RELAYS,
-						{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': appAddrs, limit: 400 },
+						COMMENT_AND_ZAP_READ_RELAYS,
+						{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': appAddrs, since: rs, limit: 400 },
 						{ timeout: 8000, feature: 'studio-inbox-zaps' }
 					).catch(() => []),
 					fetchFromRelays(
-						DEFAULT_SOCIAL_RELAYS,
-						{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': appAddrs, limit: 400 },
+						COMMENT_AND_ZAP_READ_RELAYS,
+						{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': appAddrs, since: rs, limit: 400 },
 						{ timeout: 8000, feature: 'studio-inbox-zaps' }
 					).catch(() => [])
 				]);
@@ -519,25 +520,26 @@
 			let zapThread = collectZapReceiptsUnderZap(zLower, poolZaps);
 
 			const { fetchFromRelays } = await import('$lib/nostr/service.js');
+			const rs = commentZapRelayReadSince();
 			Promise.all([
 				fetchFromRelays(
-					DEFAULT_SOCIAL_RELAYS,
-					{ kinds: [EVENT_KINDS.COMMENT], '#A': [aRoot], limit: 500 },
+					COMMENT_AND_ZAP_READ_RELAYS,
+					{ kinds: [EVENT_KINDS.COMMENT], '#A': [aRoot], since: rs, limit: 500 },
 					{ timeout: 5000, feature: 'studio-zap-thread' }
 				),
 				fetchFromRelays(
-					DEFAULT_SOCIAL_RELAYS,
-					{ kinds: [EVENT_KINDS.COMMENT], '#a': [aRoot], limit: 500 },
+					COMMENT_AND_ZAP_READ_RELAYS,
+					{ kinds: [EVENT_KINDS.COMMENT], '#a': [aRoot], since: rs, limit: 500 },
 					{ timeout: 5000, feature: 'studio-zap-thread' }
 				),
 				fetchFromRelays(
-					DEFAULT_SOCIAL_RELAYS,
-					{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aRoot], limit: 400 },
+					COMMENT_AND_ZAP_READ_RELAYS,
+					{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aRoot], since: rs, limit: 400 },
 					{ timeout: 5000, feature: 'studio-zap-thread' }
 				),
 				fetchFromRelays(
-					DEFAULT_SOCIAL_RELAYS,
-					{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aRoot], limit: 400 },
+					COMMENT_AND_ZAP_READ_RELAYS,
+					{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aRoot], since: rs, limit: 400 },
 					{ timeout: 5000, feature: 'studio-zap-thread' }
 				)
 			])
@@ -659,14 +661,22 @@
 			let byId = new Map(subtree.map((e) => [e.id, e]));
 
 			const { fetchFromRelays } = await import('$lib/nostr/service.js');
-			fetchFromRelays(
-				DEFAULT_SOCIAL_RELAYS,
-				{ kinds: [EVENT_KINDS.COMMENT], '#A': [aRoot], limit: 500 },
-				{ timeout: 5000, feature: 'studio-thread' }
-			)
-				.then(async (evs) => {
+			const rs = commentZapRelayReadSince();
+			Promise.all([
+				fetchFromRelays(
+					COMMENT_AND_ZAP_READ_RELAYS,
+					{ kinds: [EVENT_KINDS.COMMENT], '#A': [aRoot], since: rs, limit: 500 },
+					{ timeout: 5000, feature: 'studio-thread' }
+				),
+				fetchFromRelays(
+					COMMENT_AND_ZAP_READ_RELAYS,
+					{ kinds: [EVENT_KINDS.COMMENT], '#a': [aRoot], since: rs, limit: 500 },
+					{ timeout: 5000, feature: 'studio-thread' }
+				)
+			])
+				.then(async ([evsUp, evsLo]) => {
 					const merged = [...poolArr];
-					for (const e of evs) {
+					for (const e of [...evsUp, ...evsLo]) {
 						if (!merged.some((x) => x.id === e.id)) merged.push(e);
 					}
 					const sub2 = collectCommentSubtree(rootId, merged);

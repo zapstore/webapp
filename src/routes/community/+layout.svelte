@@ -5,6 +5,8 @@
 	import { page } from '$app/stores';
 	import { ChevronDown } from '$lib/components/icons';
 	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
+	import CommunityForumShell from '$lib/components/community/CommunityForumShell.svelte';
+	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
 
 	let { children } = $props();
 
@@ -35,6 +37,20 @@
 	const defaultSectionId = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? 'forum' : 'support';
 
 	const path = $derived($page.url.pathname);
+	/** Forum list only — post detail uses `{@render children()}`. */
+	const isCommunityForumFeed = $derived(path === '/community/forum' || path === '/community/forum/');
+	const isCommunityActivity = $derived(
+		path === '/community/activity' || path.startsWith('/community/activity/')
+	);
+	let forumShellMounted = $state(false);
+	let activityShellMounted = $state(false);
+
+	$effect(() => {
+		if (!COMMUNITY_FORUM_AND_ACTIVITY_ENABLED) return;
+		if (isCommunityForumFeed) forumShellMounted = true;
+		if (isCommunityActivity) activityShellMounted = true;
+	});
+
 	const activeSection = $derived(
 		path.startsWith('/community/forum')
 			? 'forum'
@@ -64,7 +80,21 @@
 			sectionMenuOpen = false;
 		}
 	}
+
+	const hideOutletForShell = $derived(
+		COMMUNITY_FORUM_AND_ACTIVITY_ENABLED && (isCommunityForumFeed || isCommunityActivity)
+	);
 </script>
+
+<svelte:head>
+	{#if isCommunityForumFeed}
+		<title>Forum — Zapstore</title>
+	{:else if isCommunityActivity}
+		<title>Activity — Zapstore</title>
+	{:else if path.startsWith('/community/support')}
+		<title>Support — Zapstore</title>
+	{/if}
+</svelte:head>
 
 <svelte:window onkeydown={onKeydown} />
 
@@ -136,7 +166,29 @@
 		</aside>
 
 		<div class="content right-page-viewport">
-			{@render children()}
+			{#if COMMUNITY_FORUM_AND_ACTIVITY_ENABLED}
+				{#if forumShellMounted}
+					<div
+						class="community-shell-panel"
+						class:community-shell-panel--active={isCommunityForumFeed}
+						aria-hidden={!isCommunityForumFeed}
+					>
+						<CommunityForumShell />
+					</div>
+				{/if}
+				{#if activityShellMounted}
+					<div
+						class="community-shell-panel"
+						class:community-shell-panel--active={isCommunityActivity}
+						aria-hidden={!isCommunityActivity}
+					>
+						<CommunityActivityShell />
+					</div>
+				{/if}
+			{/if}
+			<div class="community-route-outlet" class:community-route-outlet--hidden={hideOutletForShell}>
+				{@render children()}
+			</div>
 		</div>
 	</div>
 </div>
@@ -369,6 +421,30 @@
 		overflow: hidden;
 	}
 
+	.community-shell-panel {
+		display: none;
+		flex: 1;
+		min-height: 0;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.community-shell-panel--active {
+		display: flex;
+	}
+
+	.community-route-outlet {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.community-route-outlet--hidden {
+		display: none !important;
+	}
+
 	.content {
 		flex: 1;
 		min-width: 0;
@@ -381,6 +457,11 @@
 	@media (max-width: 767px) {
 		.content {
 			border-left: none;
+		}
+
+		.right-page-viewport {
+			/* Match studio: mobile thread modals must cover the full screen (section switcher is z-90). */
+			transform: none;
 		}
 	}
 </style>

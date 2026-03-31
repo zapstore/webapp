@@ -293,8 +293,19 @@
 		if (!hadCached) commentsLoading = true;
 		commentsError = '';
 		try {
-			const events = await fetchComments(app.pubkey, app.dTag);
-			comments = events.map(parseComment);
+			const [relayEvents, storeEvents] = await Promise.all([
+				fetchComments(app.pubkey, app.dTag),
+				queryCommentsFromStore(app.pubkey, app.dTag)
+			]);
+			const byId = new Map();
+			for (const e of storeEvents) {
+				if (e?.id) byId.set(e.id.toLowerCase(), e);
+			}
+			for (const e of relayEvents) {
+				if (e?.id) byId.set(e.id.toLowerCase(), e);
+			}
+			const merged = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+			comments = merged.map(parseComment);
 			// Load profiles for comment authors aggressively in one batched request.
 			const uniquePubkeys = [...new Set(comments.map((c) => c.pubkey).filter(Boolean))];
 			profilesLoading = true;
@@ -356,9 +367,20 @@
 		if (!app?.pubkey || !app?.dTag) return;
 		zapsLoading = true;
 		try {
-			// Step 1: zaps on the main event (app/stack) only
-			const initialEvents = await fetchZaps(app.pubkey, app.dTag);
-			const byId = new Map(initialEvents.map((e) => [e.id, e]));
+			// Step 1: zaps on the main event (app) — merge relay one-shot + Dexie (live sub + prior visits)
+			const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
+			const [initialEvents, zLo, zUp] = await Promise.all([
+				fetchZaps(app.pubkey, app.dTag),
+				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aTagValue], limit: 200 }),
+				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aTagValue], limit: 200 })
+			]);
+			const byId = new Map();
+			for (const e of [...zLo, ...zUp]) {
+				if (e?.id) byId.set(e.id, e);
+			}
+			for (const e of initialEvents) {
+				if (e?.id) byId.set(e.id, e);
+			}
 			const parseOne = (e) => {
 				const parsed = { ...parseZapReceipt(e), id: e.id };
 				if (!parsed.zappedEventId && e.tags?.length) {

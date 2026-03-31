@@ -1,74 +1,77 @@
 <script lang="js">
-/**
- * ZapActivityCard — Activity feed row for kind 9735 with a non-empty zap comment (matches SocialTabs comments tab).
- */
-import { nip19 } from 'nostr-tools';
-import ProfilePic from '$lib/components/common/ProfilePic.svelte';
-import AppPic from '$lib/components/common/AppPic.svelte';
-import Timestamp from '$lib/components/common/Timestamp.svelte';
-import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
-import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
-import CommentBubbleActionRail from '$lib/components/social/CommentBubbleActionRail.svelte';
-import { Zap } from '$lib/components/icons';
-import { getEventOneliner } from '$lib/nostr/models.js';
+	/**
+	 * ZapActivityCard — Activity feed row for kind 9735 with a non-empty zap comment (matches SocialTabs comments tab).
+	 */
+	import { nip19 } from 'nostr-tools';
+	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
+	import AppPic from '$lib/components/common/AppPic.svelte';
+	import Timestamp from '$lib/components/common/Timestamp.svelte';
+	import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
+	import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
+	import CommentBubbleActionRail from '$lib/components/social/CommentBubbleActionRail.svelte';
+	import { Zap } from '$lib/components/icons';
+	import { getEventOneliner } from '$lib/nostr/models.js';
 
-let {
-	/** @type {import('nostr-tools').NostrEvent} */
-	zapEvent,
-	/** From parseZapReceipt(zapEvent) */
-	parsed,
-	/** Zapper profile */
-	authorProfile = null,
-	zapperPubkey = null,
-	rootEvent = null,
-	parentComment = null,
-	parentCommentAuthor = null,
-	profileUrl = '',
-	className = '',
-	resolveMentionLabel = undefined,
-	appBadge = null,
-	feedActions = null,
-	onRootClick = null
-} = $props();
+	let {
+		/** @type {import('nostr-tools').NostrEvent} */
+		zapEvent,
+		/** From parseZapReceipt(zapEvent) */
+		parsed,
+		/** Zapper profile */
+		authorProfile = null,
+		zapperPubkey = null,
+		rootEvent = null,
+		parentComment = null,
+		parentCommentAuthor = null,
+		profileUrl = '',
+		className = '',
+		resolveMentionLabel = undefined,
+		appBadge = null,
+		feedActions = null,
+		onRootClick = null
+	} = $props();
 
-const showQuote = $derived(!!parentComment && !!parsed?.zappedEventId);
-const rootOneliner = $derived(getEventOneliner(rootEvent));
+	const showQuote = $derived(!!parentComment && !!parsed?.zappedEventId);
+	const rootOneliner = $derived(getEventOneliner(rootEvent));
 
-const emojiTags = $derived(parsed?.emojiTags ?? []);
-const contentText = $derived(parsed?.comment ?? '');
+	const emojiTags = $derived(parsed?.emojiTags ?? []);
+	const contentText = $derived(parsed?.comment ?? '');
 
-function formatNpub(pk) {
-	if (!pk) return '';
-	try {
-		const enc = nip19.npubEncode(pk);
-		return `npub1${enc.slice(5, 8)}…${enc.slice(-6)}`;
-	} catch {
-		return pk.slice(0, 8) + '…';
+	function formatNpub(pk) {
+		if (!pk) return '';
+		try {
+			const enc = nip19.npubEncode(pk);
+			return `npub1${enc.slice(5, 8)}…${enc.slice(-6)}`;
+		} catch {
+			return pk.slice(0, 8) + '…';
+		}
 	}
-}
 
-const displayName = $derived(
-	authorProfile?.name?.trim() ||
-		authorProfile?.displayName?.trim() ||
-		(zapperPubkey ? formatNpub(zapperPubkey) : '')
-);
+	const displayName = $derived(
+		authorProfile?.name?.trim() ||
+			authorProfile?.displayName?.trim() ||
+			(zapperPubkey ? formatNpub(zapperPubkey) : '')
+	);
 
-const parentDisplayName = $derived(
-	parentCommentAuthor?.name?.trim() ||
-		parentCommentAuthor?.displayName?.trim() ||
-		(parentComment?.pubkey ? formatNpub(parentComment.pubkey) : '')
-);
+	const parentDisplayName = $derived(
+		parentCommentAuthor?.name?.trim() ||
+			parentCommentAuthor?.displayName?.trim() ||
+			(parentComment?.pubkey ? formatNpub(parentComment.pubkey) : '')
+	);
 
-const parentContentPreview = $derived(
-	(parentComment?.content ?? '').replace(/nostr:[a-z0-9]+/gi, '').replace(/\s+/g, ' ').trim()
-);
+	const parentContentPreview = $derived(
+		(parentComment?.content ?? '')
+			.replace(/nostr:[a-z0-9]+/gi, '')
+			.replace(/\s+/g, ' ')
+			.trim()
+	);
 
-function formatAmount(val) {
-	const n = Number(val) || 0;
-	if (n >= 1000000) return `${(n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1)}M`;
-	if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}K`;
-	return n.toLocaleString();
-}
+	function formatAmount(val) {
+		const n = Number(val) || 0;
+		if (n >= 1000000) return `${(n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1)}M`;
+		if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}K`;
+		return n.toLocaleString();
+	}
 </script>
 
 <div class="zap-activity-card {className}">
@@ -162,11 +165,7 @@ function formatAmount(val) {
 
 							{#if contentText}
 								<div class="bubble-content">
-									<ShortTextRenderer
-										content={contentText}
-										emojiTags={emojiTags}
-										{resolveMentionLabel}
-									/>
+									<ShortTextRenderer content={contentText} {emojiTags} {resolveMentionLabel} />
 								</div>
 							{/if}
 						</div>
@@ -208,11 +207,7 @@ function formatAmount(val) {
 					{/if}
 					{#if contentText}
 						<div class="bubble-content">
-							<ShortTextRenderer
-								content={contentText}
-								emojiTags={emojiTags}
-								{resolveMentionLabel}
-							/>
+							<ShortTextRenderer content={contentText} {emojiTags} {resolveMentionLabel} />
 						</div>
 					{/if}
 				</div>

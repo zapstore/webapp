@@ -53,6 +53,36 @@ export const ZAPSTORE_COMMUNITY_RELAY = 'wss://relay.zapstore.dev';
 export const FORUM_RELAY = ZAPSTORE_COMMUNITY_RELAY;
 
 /**
+ * Read path for kind 1111 / 9735 — Zapstore only. Comments use `since` + `limit` + NIP-22 `#K` where useful;
+ * zap receipts are often read via `kinds`+`since`+`limit` buckets + in-tag filter (`service.js`).
+ */
+export const COMMENT_AND_ZAP_READ_RELAYS = [ZAPSTORE_RELAY];
+
+/**
+ * Wide lookback for relay `since` and Dexie windows; eviction caps IndexedDB volume.
+ */
+export const COMMENT_ZAP_RELAY_READ_LOOKBACK_SEC = 5 * 365 * 24 * 3600;
+
+/**
+ * Default lookback for **nak-style** one-shot comment/zap buckets (`nak req -k 1111 -s $SINCE -l N`).
+ * Matches a typical CLI window; widen via `options.since` / `commentZapRelayReadSince()` where needed.
+ */
+export const COMMENT_ZAP_NAK_LOOKBACK_SEC = 90 * 24 * 3600;
+
+/** Max events per one-shot global 1111 / 9735 bucket before client-side filter to an app/thread. */
+export const COMMENT_ZAP_NAK_FETCH_LIMIT = 500;
+
+/** `since` for nak-style one-shot fetches (unix seconds). */
+export function commentZapNakReadSince(nowSec = Math.floor(Date.now() / 1000)) {
+	return nowSec - COMMENT_ZAP_NAK_LOOKBACK_SEC;
+}
+
+/** Default `since` (unix seconds) for **scoped** relay reads and deep fallbacks. */
+export function commentZapRelayReadSince(nowSec = Math.floor(Date.now() / 1000)) {
+	return nowSec - COMMENT_ZAP_RELAY_READ_LOOKBACK_SEC;
+}
+
+/**
  * Human-readable noun for “Delete your …” / reporting copy on own content (ActionsModal, etc.).
  * Keys match BottomBar `contentType` for app, stack, forum.
  */

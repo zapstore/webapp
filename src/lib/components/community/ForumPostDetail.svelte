@@ -7,7 +7,7 @@ import { nip19 } from 'nostr-tools';
 import {
 	queryEvents,
 	queryEvent,
-	fetchFromRelays,
+	fetchKind1111ByTagRef,
 	fetchProfilesBatch,
 	fetchZapsByEventIds,
 	fetchLabelEvents,
@@ -19,7 +19,16 @@ import {
 } from '$lib/nostr';
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB, DEFAULT_SOCIAL_RELAYS } from '$lib/config';
+import {
+	EVENT_KINDS,
+	ZAPSTORE_COMMUNITY_NPUB,
+	DEFAULT_SOCIAL_RELAYS,
+	ZAPSTORE_RELAY,
+	COMMENT_AND_ZAP_READ_RELAYS,
+	commentZapRelayReadSince
+} from '$lib/config';
+
+const COMMENT_PUBLISH_RELAYS = [...new Set([...DEFAULT_SOCIAL_RELAYS, ZAPSTORE_RELAY])];
 import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
@@ -92,7 +101,7 @@ const postEmojiTags = $derived(
 
 $effect(() => {
 	const p = postProp;
-	if (!p?.id || !relays.length) return;
+	if (!p?.id) return;
 	post = { ...p };
 	rawPostEvent = p._raw ?? null;
 	commentsLoading = true;
@@ -122,12 +131,15 @@ $effect(() => {
 		}
 		let evs = Array.from(byId.values()).sort((a, b) => a.created_at - b.created_at);
 
-		const [relayE, relayEUpper] = await Promise.all([
-			fetchFromRelays(relays, { kinds: [EVENT_KINDS.COMMENT], '#e': [p.id], limit: 200 }, { timeout: 6000 }),
-			fetchFromRelays(relays, { kinds: [EVENT_KINDS.COMMENT], '#E': [p.id], limit: 200 }, { timeout: 6000 })
-		]);
+		const rs = commentZapRelayReadSince();
+		const relayThread = await fetchKind1111ByTagRef(
+			COMMENT_AND_ZAP_READ_RELAYS,
+			'e',
+			p.id,
+			{ since: rs, limit: 200, timeout: 6000, feature: 'forum-post-comments' }
+		);
 		if (cancelled) return;
-		for (const e of [...relayE, ...relayEUpper]) {
+		for (const e of relayThread) {
 			if (!byId.has(e.id)) {
 				byId.set(e.id, e);
 				evs.push(e);
@@ -165,12 +177,12 @@ $effect(() => {
 
 $effect(() => {
 	const pid = post?.id;
-	if (!pid || !relays.length) return;
+	if (!pid) return;
 	let cancelled = false;
 	(async () => {
 		zapsLoading = true;
 		try {
-			const events = await fetchZapsByEventIds([pid], { relays, timeout: 5000 });
+			const events = await fetchZapsByEventIds([pid], { timeout: 5000 });
 			if (cancelled) return;
 			zaps = events.map((e) => {
 				const z = parseZapReceipt(e);
@@ -276,7 +288,7 @@ async function handleCommentSubmit(e) {
 			e.replyToPubkey ?? post.pubkey,
 			e.parentId ? 1111 : EVENT_KINDS.FORUM_POST,
 			e.mentions ?? [],
-			relays,
+			COMMENT_PUBLISH_RELAYS,
 			e.mediaUrls ?? []
 		);
 		const parsed = parseComment(signed);
@@ -308,7 +320,7 @@ async function handleCommentSubmit(e) {
 
 function refetchZaps() {
 	if (!post?.id) return;
-	fetchZapsByEventIds([post.id], { relays }).then((events) => {
+	fetchZapsByEventIds([post.id], { timeout: 5000 }).then((events) => {
 		zaps = events.map((e) => {
 			const z = parseZapReceipt(e);
 			z.id = e.id;

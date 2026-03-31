@@ -8,11 +8,15 @@
  * ALL events from ALL sources are written to Dexie via putEvents().
  * liveQuery handles reactivity — no manual notification needed.
  */
-import { SimplePool } from 'nostr-tools';
+import { SimplePool, utils } from 'nostr-tools';
 import {
 	ZAPSTORE_RELAY,
 	DEFAULT_CATALOG_RELAYS,
 	DEFAULT_SOCIAL_RELAYS,
+	COMMENT_AND_ZAP_READ_RELAYS,
+	COMMENT_ZAP_NAK_FETCH_LIMIT,
+	commentZapRelayReadSince,
+	commentZapNakReadSince,
 	PLATFORM_FILTER,
 	EVENT_KINDS,
 	SUB_PREFIX
@@ -22,6 +26,44 @@ const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() *
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
 import { db, putEvents, queryEvents } from './dexie';
 
+/** Set `localStorage.setItem('zapstore_debug','1')` + reload for relay/Dexie logs and `window.__zapstore`. */
+function isNostrDebug() {
+	try {
+		return typeof localStorage !== 'undefined' && localStorage.getItem('zapstore_debug') === '1';
+	} catch {
+		return false;
+	}
+}
+
+function nostrDebug(...args) {
+	if (isNostrDebug()) console.log('[Zapstore]', ...args);
+}
+
+/**
+ * When `zapstore_debug=1`, exposes `queryEvents`, `fetchComments`, Dexie counts, etc. on `window.__zapstore`.
+ * Call once after `startLiveSubscriptions()` (e.g. from root layout).
+ */
+export function installZapstoreDebugHooks() {
+	if (typeof globalThis === 'undefined' || !isNostrDebug()) return;
+	globalThis.__zapstore = {
+		queryEvents,
+		putEvents,
+		db,
+		fetchComments,
+		fetchFromRelays,
+		commentZapRelayReadSince,
+		commentZapNakReadSince,
+		COMMENT_AND_ZAP_READ_RELAYS,
+		/** @param {number} k */
+		countByKind: (k) => db.events.where('kind').equals(Number(k)).count(),
+		/** @param {number} [n] */
+		sampleKind: (k, n = 8) => db.events.where('kind').equals(Number(k)).limit(n).toArray()
+	};
+	console.info(
+		'[Zapstore] Debug: use globalThis.__zapstore — e.g. await globalThis.__zapstore.countByKind(1111)'
+	);
+}
+
 // ============================================================================
 // Relay Pool
 // ============================================================================
@@ -29,7 +71,16 @@ import { db, putEvents, queryEvents } from './dexie';
 let pool = null;
 
 function getPool() {
-	if (!pool) pool = new SimplePool();
+	if (!pool) {
+		pool = new SimplePool();
+		for (const url of COMMENT_AND_ZAP_READ_RELAYS) {
+			try {
+				pool.trustedRelayURLs.add(utils.normalizeURL(url));
+			} catch {
+				/* noop */
+			}
+		}
+	}
 	return pool;
 }
 
@@ -91,6 +142,14 @@ async function flushEvents() {
 	const batch = pendingEvents;
 	pendingEvents = [];
 	if (batch.length > 0) {
+		if (isNostrDebug()) {
+			const byKind = {};
+			for (const e of batch) {
+				const k = Number(e?.kind);
+				if (Number.isFinite(k)) byKind[k] = (byKind[k] ?? 0) + 1;
+			}
+			nostrDebug('live sub flush → putEvents', batch.length, 'byKind', byKind);
+		}
 		await putEvents(batch).catch((err) =>
 			console.error('[Service] Failed to flush events to Dexie:', err)
 		);
@@ -118,7 +177,11 @@ export function startLiveSubscriptions() {
 		oneose() {
 			// Don't close — keep connection open for live updates
 		},
-		onclose() {}
+		onclose(reasons) {
+			if (!isNostrDebug() || !reasons?.length) return;
+			const ignorable = reasons.every((r) => r === 'closed by caller');
+			if (!ignorable) console.warn('[Zapstore] Persistent subscription closed', reasons);
+		}
 	};
 
 	// Separate subscriptions per filter (subscribeMany takes a single filter)
@@ -139,6 +202,9 @@ export function startLiveSubscriptions() {
 	activeSubscriptions.push(
 		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.DELETION], '#k': [String(EVENT_KINDS.APP), String(EVENT_KINDS.APP_STACK)], since: Math.floor(Date.now() / 1000), limit: 50 }, { ...subParams, id: subId('deletions') })
 	);
+	// Kind 1111 / 9735: nak-shaped one-shot `fetchFromRelays` only — persistent SUB with bare kinds may be "too vague".
+
+	nostrDebug('live subscriptions started (1111/9735 via one-shot reads)');
 }
 
 /**
@@ -209,6 +275,12 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 				await putEvents(events).catch((err) =>
 					console.error('[Service] Failed to persist events:', err)
 				);
+			}
+			if (isNostrDebug()) {
+				nostrDebug('fetchFromRelays', feature, `→ ${events.length} events`, filter);
+				if (events.length === 0 && (feature === 'comments' || feature === 'zaps')) {
+					console.warn('[Zapstore] fetchFromRelays returned 0 events', { feature, filter, relays: relayUrls });
+				}
 			}
 			resolve(events);
 		};
@@ -484,17 +556,177 @@ export async function fetchProfilesBatch(pubkeys, options = {}) {
 // ============================================================================
 // Social Features: Comments and Zaps
 // ============================================================================
+
+/**
+ * Zapstore REQ for kinds 1111 / 9735: always include `since` + positive `limit`.
+ * @param {Record<string, unknown>} filter
+ * @param {{ since?: number, defaultLimit?: number }} [options]
+ */
+function withZapstoreCommentZapReqBounds(filter, options = {}) {
+	const { since: sinceOverride, defaultLimit } = options;
+	const out = { ...filter };
+	if (out.since === undefined) {
+		out.since = sinceOverride !== undefined ? sinceOverride : commentZapRelayReadSince();
+	}
+	const lim = Number(out.limit);
+	if (out.limit == null || !Number.isFinite(lim) || lim <= 0) {
+		out.limit = defaultLimit ?? 500;
+	}
+	return out;
+}
+
+/** NIP-22 `K` tag: kind of the root being discussed (forum post, app, or stack). */
+const NIP22_FORUM_ROOT_K = String(EVENT_KINDS.FORUM_POST);
+
+/**
+ * @param {string} aTagValue `kind:pubkey:dTag` for replaceable app/stack roots
+ * @returns {string | null} `K` filter value (`32267` / `30267`)
+ */
+function nip22KFromAddressableATag(aTagValue) {
+	const head = String(aTagValue).split(':')[0];
+	if (head === String(EVENT_KINDS.APP) || head === String(EVENT_KINDS.APP_STACK)) return head;
+	return null;
+}
+
+function zapReceiptMatchesRootATag(event, aTagValue) {
+	const want = String(aTagValue).toLowerCase();
+	for (const t of event.tags ?? []) {
+		if ((t[0] === 'a' || t[0] === 'A') && t[1] && String(t[1]).toLowerCase() === want) return true;
+	}
+	return false;
+}
+
+function zapReceiptMatchesAnyETag(event, idSet) {
+	for (const t of event.tags ?? []) {
+		if ((t[0] === 'e' || t[0] === 'E') && t[1] && idSet.has(String(t[1]).toLowerCase())) return true;
+	}
+	return false;
+}
+
+function normalizeAddressableATagValue(kind, pubkey, identifier) {
+	return `${Number(kind)}:${String(pubkey).trim().toLowerCase()}:${String(identifier).trim()}`;
+}
+
+/**
+ * Fetch kind 1111 by `#e`/`#E` (forum) or `#a`/`#A` (app/stack), scoped with NIP-22 `#K` for relay indexing.
+ * @param {'e' | 'a'} refType
+ * @param {string} refValue hex event id or `kind:pubkey:identifier`
+ */
+export async function fetchKind1111ByTagRef(relayUrls, refType, refValue, options = {}) {
+	const { timeout = 5000, signal, since, limit = 300, feature = 'comments-1111-ref' } = options;
+	if (!refValue?.trim()) return [];
+
+	const v = refValue.trim();
+	if (refType === 'e') {
+		const fl = withZapstoreCommentZapReqBounds(
+			{ kinds: [1111], '#K': [NIP22_FORUM_ROOT_K], '#e': [v], limit },
+			{ since, defaultLimit: limit }
+		);
+		const fu = withZapstoreCommentZapReqBounds(
+			{ kinds: [1111], '#K': [NIP22_FORUM_ROOT_K], '#E': [v], limit },
+			{ since, defaultLimit: limit }
+		);
+		const [lo, up] = await Promise.all([
+			fetchFromRelays(relayUrls, fl, { timeout, signal, feature: `${feature}-e` }),
+			fetchFromRelays(relayUrls, fu, { timeout, signal, feature: `${feature}-E` })
+		]);
+		const byId = new Map();
+		for (const e of [...lo, ...up]) if (e?.id) byId.set(e.id, e);
+		return Array.from(byId.values());
+	}
+
+	const kRoot = nip22KFromAddressableATag(v);
+	if (!kRoot) return [];
+
+	const fl = withZapstoreCommentZapReqBounds(
+		{ kinds: [1111], '#K': [kRoot], '#a': [v], limit },
+		{ since, defaultLimit: limit }
+	);
+	const fu = withZapstoreCommentZapReqBounds(
+		{ kinds: [1111], '#K': [kRoot], '#A': [v], limit },
+		{ since, defaultLimit: limit }
+	);
+	const [lo, up] = await Promise.all([
+		fetchFromRelays(relayUrls, fl, { timeout, signal, feature: `${feature}-a` }),
+		fetchFromRelays(relayUrls, fu, { timeout, signal, feature: `${feature}-A` })
+	]);
+	const byId = new Map();
+	for (const e of [...lo, ...up]) if (e?.id) byId.set(e.id, e);
+	return Array.from(byId.values());
+}
+
+/**
+ * Kind 1111 comments whose `e` or `E` tag references any of the given event ids (forum posts, etc.).
+ */
+export async function fetchKind1111ReferencingEventIds(relayUrls, eventIds, options = {}) {
+	const { timeout = 5000, signal, since, limit = 500, feature = 'comments-1111-multi-e' } = options;
+	const ids = [...new Set(eventIds.map((id) => String(id).trim().toLowerCase()).filter((id) => /^[a-f0-9]{64}$/.test(id)))];
+	if (ids.length === 0) return [];
+
+	const fl = withZapstoreCommentZapReqBounds(
+		{ kinds: [1111], '#K': [NIP22_FORUM_ROOT_K], '#e': ids, limit },
+		{ since, defaultLimit: limit }
+	);
+	const fu = withZapstoreCommentZapReqBounds(
+		{ kinds: [1111], '#K': [NIP22_FORUM_ROOT_K], '#E': ids, limit },
+		{ since, defaultLimit: limit }
+	);
+	const [lo, up] = await Promise.all([
+		fetchFromRelays(relayUrls, fl, { timeout, signal, feature: `${feature}-e` }),
+		fetchFromRelays(relayUrls, fu, { timeout, signal, feature: `${feature}-E` })
+	]);
+	const byId = new Map();
+	for (const e of [...lo, ...up]) if (e?.id) byId.set(e.id, e);
+	return Array.from(byId.values());
+}
+
+/**
+ * Fetch kind 9735 for addressable and/or `#e` targets. Zap receipts often omit NIP-22 `K`, so we REQ a
+ * `kinds` + `since` + `limit` bucket (Zapstore-friendly) and filter by `#a` / `#A` / `#e` / `#E` in memory.
+ * @param {{ aTag?: string, eventIds?: string[] }} spec
+ */
+export async function fetchKind9735MatchingRefs(relayUrls, spec, options = {}) {
+	const { timeout = 5000, signal, since, limit = 400, feature = 'zaps-9735-ref' } = options;
+	const aTag = spec.aTag?.trim();
+	const ids = (spec.eventIds ?? [])
+		.map((id) => String(id).trim().toLowerCase())
+		.filter((id) => /^[a-f0-9]{64}$/.test(id));
+
+	if (!aTag && ids.length === 0) return [];
+
+	const bucketLimit = Math.max(limit, COMMENT_ZAP_NAK_FETCH_LIMIT);
+	const bucketFilter = withZapstoreCommentZapReqBounds(
+		{ kinds: [9735], limit: bucketLimit },
+		{ since, defaultLimit: bucketLimit }
+	);
+	const bucket = await fetchFromRelays(relayUrls, bucketFilter, { timeout, signal, feature });
+
+	const want = ids.length > 0 ? new Set(ids) : null;
+	const byId = new Map();
+	for (const e of bucket) {
+		if (!e?.id) continue;
+		const matchA = Boolean(aTag && zapReceiptMatchesRootATag(e, aTag));
+		const matchE = Boolean(want && zapReceiptMatchesAnyETag(e, want));
+		if (matchA || matchE) byId.set(e.id, e);
+	}
+	return Array.from(byId.values());
+}
+
 const SOCIAL_RELAYS = [...DEFAULT_SOCIAL_RELAYS];
+
+/** Publish NIP-22 comments to social + Zapstore; reads use {@link COMMENT_AND_ZAP_READ_RELAYS}. */
+const COMMENT_PUBLISH_DEFAULT_RELAYS = [...new Set([...DEFAULT_SOCIAL_RELAYS, ZAPSTORE_RELAY])];
 
 /**
  * Query comments from Dexie.
  */
 export async function queryCommentsFromStore(pubkey, identifier, aTagKind = 32267) {
 	if (!pubkey || !identifier) return [];
-	const aTagValue = `${aTagKind}:${pubkey}:${identifier}`;
+	const aTagValue = normalizeAddressableATagValue(aTagKind, pubkey, identifier);
+	const kStr = String(aTagKind);
 
-	const lower = await queryEvents({ kinds: [1111], '#a': [aTagValue], limit: 500 });
-	const upper = await queryEvents({ kinds: [1111], '#A': [aTagValue], limit: 500 });
+	const lower = await queryEvents({ kinds: [1111], '#K': [kStr], '#a': [aTagValue], limit: 500 });
+	const upper = await queryEvents({ kinds: [1111], '#K': [kStr], '#A': [aTagValue], limit: 500 });
 
 	const byId = new Map();
 	for (const e of [...lower, ...upper]) {
@@ -508,65 +740,82 @@ export async function queryCommentsFromStore(pubkey, identifier, aTagKind = 3226
  * Fetch comments from relays and store in Dexie.
  */
 export async function fetchComments(pubkey, identifier, options = {}) {
-	const { timeout = 5000, signal, relays = SOCIAL_RELAYS, aTagKind = 32267, eventId = null } = options;
+	const {
+		timeout = 5000,
+		signal,
+		relays = COMMENT_AND_ZAP_READ_RELAYS,
+		aTagKind = 32267,
+		eventId = null,
+		since
+	} = options;
 	if (signal?.aborted) return [];
 
 	// Non-replaceable event root: filter by #e / #E tags
 	if (eventId) {
-		const filterLower = { kinds: [1111], '#e': [eventId], limit: 500 };
-		const filterUpper = { kinds: [1111], '#E': [eventId], limit: 500 };
-		const [eventsLower, eventsUpper] = await Promise.all([
-			fetchFromRelays(relays, filterLower, { timeout, signal, feature: 'comments' }),
-			fetchFromRelays(relays, filterUpper, { timeout, signal, feature: 'comments' })
-		]);
-		const byId = new Map();
-		for (const e of [...eventsLower, ...eventsUpper]) {
-			if (!byId.has(e.id)) byId.set(e.id, e);
-		}
-		return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+		const evs = await fetchKind1111ByTagRef(relays, 'e', eventId, {
+			timeout,
+			signal,
+			since,
+			limit: 500,
+			feature: 'comments-root-e'
+		});
+		return evs.sort((a, b) => b.created_at - a.created_at);
 	}
 
-	// Replaceable/addressable event root: filter by #a / #A tags
+	// Replaceable root: #a / #A + NIP-22 #K (app/stack).
 	if (!pubkey || !identifier) return [];
-	const aTagValue = `${aTagKind}:${pubkey}:${identifier}`;
-	const filterLower = { kinds: [1111], '#a': [aTagValue], limit: 500 };
-	const filterUpper = { kinds: [1111], '#A': [aTagValue], limit: 500 };
-
-	const [eventsLower, eventsUpper] = await Promise.all([
-		fetchFromRelays(relays, filterLower, { timeout, signal, feature: 'comments' }),
-		fetchFromRelays(relays, filterUpper, { timeout, signal, feature: 'comments' })
-	]);
-
-	const byId = new Map();
-	for (const e of [...eventsLower, ...eventsUpper]) {
-		if (!byId.has(e.id)) byId.set(e.id, e);
-	}
-
-	return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+	const aTagValue = normalizeAddressableATagValue(aTagKind, pubkey, identifier);
+	const evs = await fetchKind1111ByTagRef(relays, 'a', aTagValue, {
+		timeout,
+		signal,
+		since,
+		limit: 500,
+		feature: 'comments-root-a'
+	});
+	return evs.sort((a, b) => b.created_at - a.created_at);
 }
 
 /**
  * Fetch kind 1111 comments whose root is any of the given NIP-33 `a` values (e.g. `32267:pubkey:dTag`).
- * Uses social relays only. Caller should persist via putEvents.
+ * Caller should persist via putEvents.
  */
 export async function fetchCommentsByRootATags(aTagValues, options = {}) {
-	const { timeout = 7000, signal, relays = SOCIAL_RELAYS, limit = 500 } = options;
+	const { timeout = 7000, signal, relays = COMMENT_AND_ZAP_READ_RELAYS, limit = 500, since } = options;
 	if (signal?.aborted || !aTagValues?.length) return [];
 
 	const uniq = [...new Set(aTagValues.map((v) => String(v).trim()).filter(Boolean))];
 	if (uniq.length === 0) return [];
 
-	const filterLower = { kinds: [EVENT_KINDS.COMMENT], '#a': uniq, limit };
-	const filterUpper = { kinds: [EVENT_KINDS.COMMENT], '#A': uniq, limit };
+	/** @type {Map<string, string[]>} */
+	const byK = new Map();
+	for (const t of uniq) {
+		const k = nip22KFromAddressableATag(t);
+		if (!k) continue;
+		if (!byK.has(k)) byK.set(k, []);
+		byK.get(k).push(t);
+	}
 
-	const [eventsLower, eventsUpper] = await Promise.all([
-		fetchFromRelays(relays, filterLower, { timeout, signal, feature: 'comments' }),
-		fetchFromRelays(relays, filterUpper, { timeout, signal, feature: 'comments' })
-	]);
-
+	const ATAG_REQ_CHUNK = 55;
 	const byId = new Map();
-	for (const e of [...eventsLower, ...eventsUpper]) {
-		if (!byId.has(e.id)) byId.set(e.id, e);
+	for (const [kStr, tags] of byK) {
+		for (let i = 0; i < tags.length; i += ATAG_REQ_CHUNK) {
+			const chunk = tags.slice(i, i + ATAG_REQ_CHUNK);
+			const filterLower = withZapstoreCommentZapReqBounds(
+				{ kinds: [EVENT_KINDS.COMMENT], '#K': [kStr], '#a': chunk, limit },
+				{ since, defaultLimit: limit }
+			);
+			const filterUpper = withZapstoreCommentZapReqBounds(
+				{ kinds: [EVENT_KINDS.COMMENT], '#K': [kStr], '#A': chunk, limit },
+				{ since, defaultLimit: limit }
+			);
+			const [eventsLower, eventsUpper] = await Promise.all([
+				fetchFromRelays(relays, filterLower, { timeout, signal, feature: 'comments' }),
+				fetchFromRelays(relays, filterUpper, { timeout, signal, feature: 'comments' })
+			]);
+			for (const e of [...eventsLower, ...eventsUpper]) {
+				if (e?.id && !byId.has(e.id)) byId.set(e.id, e);
+			}
+		}
 	}
 
 	return Array.from(byId.values());
@@ -579,54 +828,62 @@ const COMMENT_REPLIES_E_BATCH = 100;
  */
 export async function fetchCommentRepliesByE(eventIds, options = {}) {
 	if (eventIds.length === 0) return [];
-	const { timeout = 5000, signal, relays = SOCIAL_RELAYS } = options;
+	const { timeout = 5000, signal, relays = COMMENT_AND_ZAP_READ_RELAYS, since } = options;
 
 	const byId = new Map();
 	for (let i = 0; i < eventIds.length; i += COMMENT_REPLIES_E_BATCH) {
 		const chunk = eventIds.slice(i, i + COMMENT_REPLIES_E_BATCH);
-		const filter = { kinds: [1111], '#e': chunk, limit: 500 };
-		const events = await fetchFromRelays(relays, filter, { timeout, signal, feature: 'comments' });
-		for (const e of events) byId.set(e.id, e);
+		const fl = withZapstoreCommentZapReqBounds(
+			{ kinds: [1111], '#K': [NIP22_FORUM_ROOT_K], '#e': chunk, limit: 500 },
+			{ since, defaultLimit: 500 }
+		);
+		const fu = withZapstoreCommentZapReqBounds(
+			{ kinds: [1111], '#K': [NIP22_FORUM_ROOT_K], '#E': chunk, limit: 500 },
+			{ since, defaultLimit: 500 }
+		);
+		const [lo, up] = await Promise.all([
+			fetchFromRelays(relays, fl, { timeout, signal, feature: 'comments-e' }),
+			fetchFromRelays(relays, fu, { timeout, signal, feature: 'comments-E' })
+		]);
+		for (const e of [...lo, ...up]) if (e?.id) byId.set(e.id, e);
 	}
 
 	return Array.from(byId.values());
 }
 
 /**
- * Fetch zap receipts by recipient pubkeys from social relays.
+ * Fetch zap receipts by recipient pubkeys (Zapstore read path; same relay policy as fetchZaps / comments).
  */
 export async function fetchZapReceiptsByPubkeys(pubkeys, options = {}) {
 	const { since, limit = 500, timeout = 8000, signal } = options;
 	if (signal?.aborted || !pubkeys?.length) return [];
 
-	const filter = { kinds: [9735], '#p': pubkeys };
-	if (since !== undefined) filter.since = since;
-	if (limit) filter.limit = limit;
+	const filter = withZapstoreCommentZapReqBounds(
+		{ kinds: [9735], '#p': pubkeys, limit },
+		{ since, defaultLimit: limit }
+	);
 
-	return fetchFromRelays(SOCIAL_RELAYS, filter, { timeout, signal, feature: 'zaps' });
+	return fetchFromRelays(COMMENT_AND_ZAP_READ_RELAYS, filter, { timeout, signal, feature: 'zaps' });
 }
 
 /**
  * Fetch zap receipts that target any of the given event ids (#e).
  */
 export async function fetchZapsByEventIds(eventIds, options = {}) {
-	const { timeout = 5000, signal, relays = SOCIAL_RELAYS } = options;
+	const { timeout = 5000, signal, relays = COMMENT_AND_ZAP_READ_RELAYS, since } = options;
 	if (signal?.aborted || !Array.isArray(eventIds) || eventIds.length === 0) return [];
 	const ids = eventIds
 		.map((id) => String(id).trim().toLowerCase())
 		.filter((id) => /^[a-f0-9]{64}$/.test(id));
 	if (ids.length === 0) return [];
-	const filterE = { kinds: [9735], '#e': ids, limit: 200 };
-	const filterEUpper = { kinds: [9735], '#E': ids, limit: 200 };
-	const [byELower, byEUpper] = await Promise.all([
-		fetchFromRelays(relays, filterE, { timeout, signal }),
-		fetchFromRelays(relays, filterEUpper, { timeout, signal })
-	]);
-	const byId = new Map();
-	for (const e of [...byELower, ...byEUpper]) {
-		if (!byId.has(e.id)) byId.set(e.id, e);
-	}
-	return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+	const evs = await fetchKind9735MatchingRefs(relays, { eventIds: ids }, {
+		timeout,
+		signal,
+		since,
+		limit: 200,
+		feature: 'zaps-by-e'
+	});
+	return evs.sort((a, b) => b.created_at - a.created_at);
 }
 
 /**
@@ -656,42 +913,28 @@ export async function fetchLabelEvents(relayUrls, eventId, communityPubkey, opti
  * Fetch zaps for an app.
  */
 export async function fetchZaps(pubkey, identifier, options = {}) {
-	const { timeout = 5000, signal, relays = SOCIAL_RELAYS } = options;
+	const {
+		timeout = 5000,
+		signal,
+		relays = COMMENT_AND_ZAP_READ_RELAYS,
+		since,
+		aTagKind = EVENT_KINDS.APP
+	} = options;
 	if (signal?.aborted || !pubkey || !identifier) return [];
 
-	const aTagValue = `32267:${pubkey}:${identifier}`;
-	const byId = new Map();
-
-	const filtersMain = [
-		{ kinds: [9735], '#a': [aTagValue], limit: 100 },
-		{ kinds: [9735], '#A': [aTagValue], limit: 100 }
-	];
-
-	const mainResults = await Promise.all(
-		filtersMain.map((f) => fetchFromRelays(relays, f, { timeout, signal, feature: 'zaps' }))
-	);
-	for (const events of mainResults) {
-		for (const e of events) if (!byId.has(e.id)) byId.set(e.id, e);
-	}
-
-	// Zaps on specific events
+	const aTagValue = normalizeAddressableATagValue(aTagKind, pubkey, identifier);
 	const eventIds = (options.eventIds ?? [])
 		.map((id) => id.trim().toLowerCase())
 		.filter((id) => /^[a-f0-9]{64}$/.test(id));
 
-	if (eventIds.length > 0 && !signal?.aborted) {
-		const filterE = { kinds: [9735], '#e': eventIds, limit: 100 };
-		const filterEUpper = { kinds: [9735], '#E': eventIds, limit: 100 };
-		const [byELower, byEUpper] = await Promise.all([
-			fetchFromRelays(relays, filterE, { timeout, signal, feature: 'zaps' }),
-			fetchFromRelays(relays, filterEUpper, { timeout, signal, feature: 'zaps' })
-		]);
-		for (const e of [...byELower, ...byEUpper]) {
-			if (!byId.has(e.id)) byId.set(e.id, e);
-		}
-	}
-
-	return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+	const evs = await fetchKind9735MatchingRefs(relays, { aTag: aTagValue, eventIds }, {
+		timeout,
+		signal,
+		since,
+		limit: 100,
+		feature: 'zaps'
+	});
+	return evs.sort((a, b) => b.created_at - a.created_at);
 }
 
 /**
@@ -758,7 +1001,7 @@ export function parseZapReceipt(event) {
 
 /**
  * Publish a NIP-22 comment (kind 1111).
- * Writes to Dexie after successful publish.
+ * Writes to Dexie after attempting publish to all target relays (`Promise.allSettled` — check relay / extension for `OK` rejections).
  * @param {string} content - Comment text (may include nostr:npub… and :shortcode:)
  * @param {object} target - Replaceable: { contentType, pubkey, identifier } | Non-replaceable: { contentType, pubkey, id, kind }
  * @param {function} signEvent - NIP-07 signer
@@ -767,7 +1010,7 @@ export function parseZapReceipt(event) {
  * @param {string} [replyToPubkey] - Pubkey being replied to (p tag on reply)
  * @param {number} [parentKind] - Kind of parent (e.g. 1111 or 9735)
  * @param {string[]} [mentions] - Pubkeys mentioned in content (p tags for notifications)
- * @param {string[]} [relays] - Override relay URLs (default: SOCIAL_RELAYS)
+ * @param {string[]} [relays] - Override relay URLs (default: social + ZAPSTORE_RELAY)
  * @param {string[]} [mediaUrls] - Media URLs (images/videos) as 'media' tags
  */
 export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions, relays, mediaUrls, version = null) {
@@ -879,7 +1122,8 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 
 	const signed = await signEvent(template);
 	const p = getPool();
-	const relayUrls = Array.isArray(relays) && relays.length > 0 ? relays : SOCIAL_RELAYS;
+	const relayUrls =
+		Array.isArray(relays) && relays.length > 0 ? relays : COMMENT_PUBLISH_DEFAULT_RELAYS;
 
 	// Publish to relays — pool.publish returns an array of promises (one per relay)
 	await Promise.allSettled(p.publish(relayUrls, signed));

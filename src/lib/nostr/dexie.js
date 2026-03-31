@@ -54,7 +54,7 @@ db.version(SCHEMA_VERSION).stores({
  * Tags that are highly selective (each value typically matches 1-2 events).
  * These are preferred as index entry points over kind/pubkey indices.
  */
-const SELECTIVE_TAGS = new Set(['d', 'a', 'A', 'e', 'E', 'i', 'h']);
+const SELECTIVE_TAGS = new Set(['d', 'a', 'A', 'e', 'E', 'i', 'h', 'K']);
 
 /**
  * Compute the _tags array for an event.
@@ -205,7 +205,13 @@ async function applyDeletions(deletionEvents) {
 export async function putEvents(events) {
 	if (!events || events.length === 0) return;
 
-	const valid = events.filter((e) => e?.id && typeof e.kind === 'number');
+	const valid = [];
+	for (const e of events) {
+		if (!e?.id) continue;
+		const kind = typeof e.kind === 'number' ? e.kind : Number(e.kind);
+		if (!Number.isFinite(kind)) continue;
+		valid.push({ ...e, kind });
+	}
 	if (valid.length === 0) return;
 
 	// NIP-09: process deletions first, then discard kind 5 events
@@ -359,8 +365,8 @@ export async function queryEvents(filter) {
 	if (filter.kinds?.length > 0) {
 		// If we used tag index or pubkey index, kinds weren't filtered
 		if (usedTagIndex || (!filter.ids && filter.authors?.length !== 1)) {
-			const kindSet = new Set(filter.kinds);
-			results = results.filter((e) => kindSet.has(e.kind));
+			const kindSet = new Set(filter.kinds.map((x) => Number(x)));
+			results = results.filter((e) => kindSet.has(Number(e.kind)));
 		}
 		// If kinds.length === 1 and we used strategy 3 or 4, already filtered
 	}

@@ -5,7 +5,7 @@
  * Displays tabs for: Comments, Zaps, Labels, Stacks, Details
  * Only loads content for the currently selected tab.
  *
- * Comments and zaps use DEFAULT_SOCIAL_RELAYS from config (damus, primal, nos.lol).
+ * Comments and zaps are loaded by parent routes via `fetchComments` / `fetchZaps` (Zapstore read relay; see `COMMENT_AND_ZAP_READ_RELAYS` in config).
  */
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { AlertCircle } from "lucide-svelte";
