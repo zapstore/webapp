@@ -1,7 +1,7 @@
 /**
- * Forum post detail — universal load (same pattern as app detail).
+ * Forum post detail — universal load.
  *
- * SSR: fetch post from server cache by event id, return { post, seedEvents }.
+ * SSR: queries relay directly for the post by event id.
  * Client nav: return empty — component loads from Dexie or relay.
  */
 import { browser } from '$app/environment';
@@ -24,7 +24,7 @@ export async function load({ params }) {
 	if (!eventId) return { post: null, seedEvents: [] };
 
 	const { fetchForumPostById } = await import('$lib/nostr/server.js');
-	const result = fetchForumPostById(eventId);
+	const result = await fetchForumPostById(eventId);
 	if (!result) return { post: null, seedEvents: [] };
 
 	return {

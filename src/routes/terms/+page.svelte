@@ -36,6 +36,15 @@
 					provided the content complies with these terms.
 				</p>
 
+				<h2>Android app identifiers</h2>
+				<p>
+					Android application IDs (package names) are treated as unique in the Zapstore catalog:
+					<strong>first come, first served</strong> for a given identifier. We nevertheless reserve
+					the right to intervene in disputes or conflicts (for example impersonation, squatting, or
+					trademark issues), including by removing or restricting catalog entries, at our sole
+					discretion.
+				</p>
+
 				<h2>Prohibited content</h2>
 				<p>The following are prohibited and will result in removal and a permanent block:</p>
 				<ul>

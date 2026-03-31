@@ -1,7 +1,7 @@
 /**
  * Stack detail page — universal load
  *
- * SSR: fetches stack + apps + creator from the server's in-memory relay cache.
+ * SSR: queries relay.zapstore.dev directly for stack + apps + creator.
  * Client-side navigation: returns empty — component queries Dexie directly.
  * Offline: no server round-trip needed, component loads from IndexedDB.
  */
@@ -11,10 +11,8 @@ import { decodeNaddr } from '$lib/nostr';
 export const prerender = false;
 
 export const load = async ({ params }) => {
-	// Client-side: component queries Dexie for stack data
 	if (browser) return { stack: null, apps: [], error: null, seedEvents: [] };
 
-	// SSR: fetch from server cache
 	const { nip19 } = await import('nostr-tools');
 	const { fetchStack } = await import('$lib/nostr/server.js');
 
@@ -24,7 +22,7 @@ export const load = async ({ params }) => {
 	}
 
 	const { pubkey, identifier } = pointer;
-	const result = fetchStack(pubkey, identifier);
+	const result = await fetchStack(pubkey, identifier);
 	if (!result) {
 		return { stack: null, apps: [], error: 'Stack not found', seedEvents: [] };
 	}

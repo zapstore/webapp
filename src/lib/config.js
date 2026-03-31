@@ -1,6 +1,7 @@
 /**
  * Application configuration
  */
+import { nip19 } from 'nostr-tools';
 // Primary catalog relay — source of app/release/stack events
 export const ZAPSTORE_RELAY = 'wss://relay.zapstore.dev';
 // Profile relay — kind 0 profiles only
@@ -18,8 +19,6 @@ export const PROFILE_RELAYS = [
     ...DEFAULT_SOCIAL_RELAYS,
     ...DEFAULT_CATALOG_RELAYS,
 ];
-// Server-side poll interval (ms) — how often the server polls upstream relays
-export const POLL_INTERVAL_MS = 60_000;
 // Relay subscription timeout (ms after first EOSE)
 export const EOSE_TIMEOUT = 2500;
 // Dexie database name (used for clear-local-data fallback)
@@ -46,7 +45,10 @@ export const EVENT_KINDS = {
 
 // Zapstore community (kind 10222) — forum posts use #h tag with this pubkey's hex.
 // Must match the community we target; all forum fetch/publish use this.
-export const ZAPSTORE_COMMUNITY_NPUB = 'npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8';
+export const ZAPSTORE_NPUB = 'npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8';
+// Hex pubkey for the zapstore community — used in h/p tags on public stacks and forum posts.
+export const ZAPSTORE_COMMUNITY_NPUB = 'npub14nl2afh9zsswsp5043zxe2w304afaa496gxe8z2w2rlw84ys92zqlnjx5u';
+export const ZAPSTORE_COMMUNITY_PUBKEY = /** @type {string} */ (nip19.decode(ZAPSTORE_COMMUNITY_NPUB).data);
 export const ZAPSTORE_COMMUNITY_RELAY = 'wss://relay.zapstore.dev';
 
 /** Forum relay (kind 11 posts/comments) — same as community relay. */

@@ -19,7 +19,8 @@ import {
 	commentZapNakReadSince,
 	PLATFORM_FILTER,
 	EVENT_KINDS,
-	SUB_PREFIX
+	SUB_PREFIX,
+	ZAPSTORE_COMMUNITY_PUBKEY
 } from '$lib/config';
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
@@ -1329,11 +1330,17 @@ export async function publishStack(name, description, apps, signEvent) {
 	// Generate a unique identifier from name + timestamp
 	const identifier = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now();
 
+	const content = description?.trim() || '';
+
 	const tags = [
 		['d', identifier],
 		['title', name.trim()],
 		['f', PLATFORM_FILTER['#f'][0]] // android-arm64-v8a
 	];
+
+	if (!content) {
+		tags.push(['h', ZAPSTORE_COMMUNITY_PUBKEY]);
+	}
 
 	// Add app references as 'a' tags (format: "kind:pubkey:identifier")
 	for (const app of apps) {
@@ -1344,7 +1351,7 @@ export async function publishStack(name, description, apps, signEvent) {
 
 	const template = {
 		kind: EVENT_KINDS.APP_STACK,
-		content: description?.trim() || '',
+		content,
 		tags,
 		created_at: Math.floor(Date.now() / 1000)
 	};
@@ -1391,6 +1398,15 @@ export async function updateStackApps(stackEvent, app, action, signEvent) {
 	// Ensure we have the platform filter tag
 	if (!tags.some(t => t[0] === 'f')) {
 		tags.push(['f', PLATFORM_FILTER['#f'][0]]);
+	}
+
+	const isPublic = !(stackEvent.content || '').trim();
+	// Remove any existing h tag — it will be re-added only for public stacks
+	const tagsWithoutH = tags.filter(t => !(t[0] === 'h' && t[1] === ZAPSTORE_COMMUNITY_PUBKEY));
+	tags.length = 0;
+	tags.push(...tagsWithoutH);
+	if (isPublic && !tags.some(t => t[0] === 'h' && t[1] === ZAPSTORE_COMMUNITY_PUBKEY)) {
+		tags.push(['h', ZAPSTORE_COMMUNITY_PUBKEY]);
 	}
 	
 	const template = {
@@ -1439,11 +1455,16 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
 	const dTag = stackEvent.tags.find(t => t[0] === 'd')?.[1];
 	if (!dTag) throw new Error('Stack must have a d tag');
 	
-	// Build tags list, preserving d tag and platform filter
+	const content = newDescription?.trim() || '';
+
 	const tags = [
 		['d', dTag],
 		['f', PLATFORM_FILTER['#f'][0]]
 	];
+
+	if (!content) {
+		tags.push(['h', ZAPSTORE_COMMUNITY_PUBKEY]);
+	}
 	
 	// Add title tag if name is provided
 	if (newName?.trim()) {
@@ -1459,7 +1480,7 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
 	
 	const template = {
 		kind: EVENT_KINDS.APP_STACK,
-		content: newDescription?.trim() || '',
+		content,
 		tags,
 		created_at: Math.floor(Date.now() / 1000)
 	};

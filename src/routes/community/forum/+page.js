@@ -1,7 +1,7 @@
 /**
- * Forum feed — universal load (same pattern as apps).
+ * Forum feed — universal load.
  *
- * SSR: fetch forum posts from server's in-memory relay cache, return seedEvents.
+ * SSR: queries relay directly for forum posts, returns seedEvents.
  * Client nav: return empty — Dexie + liveQuery handle everything.
  */
 import { browser } from '$app/environment';
@@ -14,6 +14,6 @@ export async function load() {
 	if (browser) return { seedEvents: [] };
 
 	const { fetchForumPosts } = await import('$lib/nostr/server.js');
-	const seedEvents = fetchForumPosts(FORUM_FEED_LIMIT);
+	const seedEvents = await fetchForumPosts(FORUM_FEED_LIMIT);
 	return { seedEvents };
 }

@@ -27,8 +27,6 @@ import {
 	COMMENT_AND_ZAP_READ_RELAYS,
 	commentZapRelayReadSince
 } from '$lib/config';
-
-const COMMENT_PUBLISH_RELAYS = [...new Set([...DEFAULT_SOCIAL_RELAYS, ZAPSTORE_RELAY])];
 import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
@@ -38,6 +36,8 @@ import BottomBar from '$lib/components/social/BottomBar.svelte';
 import EmptyState from '$lib/components/common/EmptyState.svelte';
 import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
 import MediaLightboxModal from '$lib/components/modals/MediaLightboxModal.svelte';
+
+const COMMENT_PUBLISH_RELAYS = [...new Set([...DEFAULT_SOCIAL_RELAYS, ZAPSTORE_RELAY])];
 
 let {
 	post: postProp = null,

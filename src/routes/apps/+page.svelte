@@ -1,5 +1,5 @@
 <script lang="js">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -14,10 +14,7 @@
 	import {
 		createAppsQuery,
 		seedEvents,
-		initPagination,
 		loadMoreApps,
-		startAppsRefresh,
-		stopAppsRefresh,
 		getHasMore,
 		isLoadingMore
 	} from '$lib/stores/nostr.svelte.js';
@@ -385,20 +382,14 @@
 
 		seedEvents(data.seedEvents ?? []);
 		seedStackEvents(data.seedEvents ?? []);
-		initPagination(data.appsCursor, data.appsHasMore);
 
 		if ((!data.seedEvents || data.seedEvents.length === 0) && navigator.onLine) {
 			await loadMoreApps();
 			await loadMoreStacks(fetchFromRelays, [ZAPSTORE_RELAY]);
 		}
-
-		startAppsRefresh();
 		restoreScrollPositions();
 	});
 
-	onDestroy(() => {
-		if (browser) stopAppsRefresh();
-	});
 </script>
 
 <svelte:head>

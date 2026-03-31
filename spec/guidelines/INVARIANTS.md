@@ -58,6 +58,12 @@ These are the most critical invariants. Local-first is not optional.
 - **All relay subscriptions MUST include `limit`.** Unbounded subscriptions that dump entire relay contents into IndexedDB are a bug.
 - Eviction must not break the app — graceful degradation to network fetch.
 
+## Stacks (kind 30267)
+
+- **Public stacks MUST include an `h` tag** with `ZAPSTORE_COMMUNITY_PUBKEY` (`acfeaea6...`). A stack is public when its `content` field is empty. This applies to all create/update operations (`publishStack`, `updateStackApps`, `updateStack`) on public stacks.
+- **Private stacks MUST NOT include an `h` tag.** Private stacks (non-empty `content`) are not shared with the community and must be published without the `h` tag.
+- Stack events MUST NOT include a `p` tag.
+
 ## Search
 
 - Search is ALWAYS a live relay query (NIP-50 full-text search) — never pre-rendered or from local cache.

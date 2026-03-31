@@ -76,11 +76,11 @@
 	$: displayTitle =
 		capitalize(stack.name) || capitalize(getFirstWords(stack.description, 5)) || 'Untitled Stack';
 
-	// Display description: show default if no name, no description, or description equals name
+	// Display description: show the real description, or nothing if it matches the name or is absent
 	$: displayDescription =
-		!stack.name || !stack.description || isDescriptionSameAsName(stack.name, stack.description)
-			? `A stack of curated ${displayTitle} applications`
-			: stack.description;
+		stack.description && !isDescriptionSameAsName(stack.name, stack.description)
+			? stack.description
+			: '';
 
 	function handleCardClick() {
 		if (href) {

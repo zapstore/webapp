@@ -209,7 +209,7 @@ export function parseAppStack(event) {
     const dTag = event.tags.find((t) => t[0] === 'd')?.[1] ?? '';
     const title = event.tags.find((t) => t[0] === 'title')?.[1] ??
         event.tags.find((t) => t[0] === 'name')?.[1] ?? dTag;
-    const description = event.content || '';
+    const description = event.tags.find((t) => t[0] === 'description')?.[1] ?? '';
     const image = event.tags.find((t) => t[0] === 'image')?.[1];
     // Parse 'a' tags to get app references (format: "kind:pubkey:identifier")
     const appRefs = event.tags
