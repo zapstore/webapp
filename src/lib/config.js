@@ -1,6 +1,7 @@
 /**
  * Application configuration
  */
+import { nip19 } from 'nostr-tools';
 // Primary catalog relay — source of app/release/stack events
 export const ZAPSTORE_RELAY = 'wss://relay.zapstore.dev';
 // Profile relay — kind 0 profiles only
@@ -46,7 +47,8 @@ export const EVENT_KINDS = {
 // Must match the community we target; all forum fetch/publish use this.
 export const ZAPSTORE_NPUB = 'npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8';
 // Hex pubkey for the zapstore community — used in h/p tags on public stacks and forum posts.
-export const ZAPSTORE_COMMUNITY_PUBKEY = 'acfeaea6e51420e8068fac446ca9d17d7a9ef6a5d20d93894e50fee3d4902a84';
+export const ZAPSTORE_COMMUNITY_NPUB = 'npub14nl2afh9zsswsp5043zxe2w304afaa496gxe8z2w2rlw84ys92zqlnjx5u';
+export const ZAPSTORE_COMMUNITY_PUBKEY = /** @type {string} */ (nip19.decode(ZAPSTORE_COMMUNITY_NPUB).data);
 export const ZAPSTORE_COMMUNITY_RELAY = 'wss://relay.zapstore.dev';
 
 /** Forum relay (kind 11 posts/comments) — same as community relay. */
