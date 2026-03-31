@@ -5,6 +5,7 @@
 import { onMount } from 'svelte';
 import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 import { browser } from '$app/environment';
+import SeoHead from '$lib/components/layout/SeoHead.svelte';
 import { fetchProfile, queryEvents, encodeStackNaddr, parseApp, parseAppStack, fetchAppsByAuthorFromRelays, fetchAppFromRelays } from '$lib/nostr';
 import { ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG } from '$lib/config';
 import { nip19 } from 'nostr-tools';
@@ -257,9 +258,7 @@ function stackToCard(s, resolvedApps) {
 }
 </script>
 
-<svelte:head>
-	<title>{profileName} - Profile - Zapstore</title>
-</svelte:head>
+<SeoHead title="{profileName} — Profile — Zapstore" />
 
 {#if !pubkey}
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-16">

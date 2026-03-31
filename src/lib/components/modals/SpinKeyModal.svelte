@@ -12,6 +12,7 @@
  */
 import { onMount, onDestroy } from "svelte";
 import { browser } from "$app/environment";
+import { SITE_URL } from "$lib/config";
 import Modal from "$lib/components/common/Modal.svelte";
 import { Download } from "$lib/components/icons";
 import * as nip19 from "nostr-tools/nip19";
@@ -261,7 +262,7 @@ $effect(() => {
         type="button"
         class="btn-secondary-large btn-secondary-light w-full flex items-center justify-center gap-3"
         style="color: hsl(var(--white66));"
-        onclick={() => window.open("https://zapstore.dev", "_blank")}
+        onclick={() => window.open(SITE_URL, "_blank")}
       >
         <Download variant="fill" color="hsl(var(--white33))" size={20} />
         Download Zapstore

@@ -1,5 +1,6 @@
 <script lang="js">
 import { formatDisplayDate } from '$lib/date';
+import SeoHead from '$lib/components/layout/SeoHead.svelte';
 let { data } = $props();
 let title = $derived(data.metadata?.title || 'Blog Post');
 let description = $derived(data.metadata?.description || '');
@@ -9,14 +10,12 @@ let draft = $derived(data.metadata?.draft || false);
 let Content = $derived(data.content);
 </script>
 
-<svelte:head>
-	<title>{title} - Zapstore Blog</title>
-	<meta name="description" content={description} />
-	<meta name="author" content={author} />
-	{#if date}
-		<meta name="article:published_time" content={date} />
-	{/if}
-</svelte:head>
+<SeoHead
+	title="{title} — Zapstore Blog"
+	{description}
+	{author}
+	publishedTime={date || undefined}
+/>
 
 <section class="article-page">
 	<div class="container mx-auto py-6 px-3 sm:px-6 lg:px-8">

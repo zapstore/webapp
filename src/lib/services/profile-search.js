@@ -12,7 +12,7 @@ import { writable } from 'svelte/store';
 import { queryEvents, queryEvent, fetchProfilesBatch, fetchFromRelays } from '$lib/nostr';
 import { parseProfile } from '$lib/nostr/models';
 import { nip19 } from 'nostr-tools';
-import { DEFAULT_SOCIAL_RELAYS } from '$lib/config';
+import { DEFAULT_SOCIAL_RELAYS, SITE_ICON } from '$lib/config';
 
 const KIND_PROFILE = 0;
 const KIND_CONTACT_LIST = 3;
@@ -25,7 +25,7 @@ const DEFAULT_NPUBS = [
 	'npub176p7sup477k5738qhxx0hk2n0cty2k5je5uvalzvkvwmw4tltmeqw7vgup',
 	'npub149p5act9a5qm9p47elp8w8h3wpwn2d7s2xecw2ygnrxqp4wgsklq9g722q'
 ];
-const ZAPSTORE_ICON = 'https://zapstore.dev/zapstore-icon.png';
+const ZAPSTORE_ICON = SITE_ICON;
 
 function npubToPubkey(npub) {
 	try {

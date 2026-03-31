@@ -14,6 +14,35 @@ import RoadmapSection from '$lib/components/landing/RoadmapSection.svelte';
 import TeamSection from '$lib/components/landing/TeamSection.svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import { fetchProfilesBatch } from '$lib/nostr';
+import SeoHead from '$lib/components/layout/SeoHead.svelte';
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_ICON, SITE_GITHUB } from '$lib/config';
+
+const homeJsonLd = {
+	'@context': 'https://schema.org',
+	'@graph': [
+		{
+			'@type': 'Organization',
+			'@id': `${SITE_URL}/#organization`,
+			name: SITE_NAME,
+			url: SITE_URL,
+			logo: SITE_ICON,
+			sameAs: [SITE_GITHUB, 'https://x.com/zapstore_']
+		},
+		{
+			'@type': 'WebSite',
+			'@id': `${SITE_URL}/#website`,
+			url: SITE_URL,
+			name: SITE_NAME,
+			description: SITE_DESCRIPTION,
+			publisher: { '@id': `${SITE_URL}/#organization` },
+			potentialAction: {
+				'@type': 'SearchAction',
+				target: `${SITE_URL}/apps?q={search_term_string}`,
+				'query-input': 'required name=search_term_string'
+			}
+		}
+	]
+};
 let { data } = $props();
 const initialTestimonials = $derived(data?.testimonials ?? []);
 let testimonials = $state([]);
@@ -60,13 +89,7 @@ $effect(() => {
 });
 </script>
 
-<svelte:head>
-	<title>Zapstore</title>
-	<meta
-		name="description"
-		content="Discover apps on Nostr. Open source, decentralized app store."
-	/>
-</svelte:head>
+<SeoHead url={SITE_URL} jsonld={homeJsonLd} />
 
 <DownloadModal bind:open={showDownloadModal} isZapstore={true} />
 

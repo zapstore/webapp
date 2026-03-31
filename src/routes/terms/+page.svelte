@@ -1,7 +1,13 @@
-<svelte:head>
-	<title>Terms of Service - Zapstore</title>
-	<meta name="description" content="Terms of Service for Zapstore infrastructure services." />
-</svelte:head>
+<script lang="js">
+import SeoHead from '$lib/components/layout/SeoHead.svelte';
+import { SITE_URL } from '$lib/config';
+</script>
+
+<SeoHead
+	title="Terms of Service — Zapstore"
+	description="Terms of Service for Zapstore infrastructure services."
+	url="{SITE_URL}/terms"
+/>
 
 <section class="terms-page">
 	<div class="container mx-auto py-12 px-4 sm:px-6 lg:px-8">

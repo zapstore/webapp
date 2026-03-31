@@ -50,6 +50,8 @@
 	import { getCurrentPubkey, getIsSignedIn, signEvent } from '$lib/stores/auth.svelte.js';
 	import { isOnline } from '$lib/stores/online.svelte.js';
 	import { markdownToPlainTextLine, renderMarkdown } from '$lib/utils/markdown';
+	import SeoHead from '$lib/components/layout/SeoHead.svelte';
+	import { SITE_URL, SITE_ICON } from '$lib/config';
 	import Timestamp from '$lib/components/common/Timestamp.svelte';
 	import { stripUrlForDisplay } from '$lib/utils/url.js';
 	import { Copy, Check } from '$lib/components/icons';
@@ -60,6 +62,21 @@
 	let error = $state(null);
 	// Local state - start with prerendered data
 	let app = $state(null);
+	const appJsonLd = $derived(
+		app
+			? {
+					'@context': 'https://schema.org',
+					'@type': 'SoftwareApplication',
+					name: app.name,
+					description: markdownToPlainTextLine(app.description).slice(0, 160),
+					image: app.icon,
+					url: `${SITE_URL}/apps/${app.naddr || app.dTag}`,
+					operatingSystem: 'Android',
+					applicationCategory: 'MobileApplication',
+					publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` }
+				}
+			: null
+	);
 	let latestRelease = $state(null);
 	let _refreshing = $state(false);
 	// Publisher profile
@@ -137,7 +154,7 @@
 	const catalogs = [
 		{
 			name: 'Zapstore',
-			pictureUrl: 'https://zapstore.dev/zapstore-icon.png',
+			pictureUrl: SITE_ICON,
 			pubkey: '78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55f2fe2202182'
 		}
 	];
@@ -781,17 +798,17 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<svelte:head>
-	{#if app}
-		<title>{app.name} - Zapstore</title>
-		<meta name="description" content={markdownToPlainTextLine(app.description).slice(0, 160)} />
-		{#if app.icon}
-			<meta property="og:image" content={app.icon} />
-		{/if}
-	{:else}
-		<title>App Details - Zapstore</title>
-	{/if}
-</svelte:head>
+{#if app}
+	<SeoHead
+		title="{app.name} — Zapstore"
+		description={markdownToPlainTextLine(app.description).slice(0, 160)}
+		image={app.icon || null}
+		url="{SITE_URL}/apps/{app.naddr || app.dTag}"
+		jsonld={appJsonLd}
+	/>
+{:else}
+	<SeoHead title="App Details — Zapstore" />
+{/if}
 
 {#if error}
 	<div class="container mx-auto py-16 px-3 sm:px-6 lg:px-8">
@@ -1114,9 +1131,9 @@
 				}}
 				onGetStarted={() => (getStartedModalOpen = true)}
 				detailsShareLink={app?.dTag
-					? `https://zapstore.dev/apps/${app.dTag}`
+					? `${SITE_URL}/apps/${app.dTag}`
 					: app?.naddr
-						? `https://zapstore.dev/apps/${app.naddr}`
+						? `${SITE_URL}/apps/${app.naddr}`
 						: ''}
 			/>
 		</div>

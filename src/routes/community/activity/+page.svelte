@@ -5,6 +5,7 @@
 	 */
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+	import SeoHead from '$lib/components/layout/SeoHead.svelte';
 	import { nip19 } from 'nostr-tools';
 	import {
 		fetchFromRelays,
@@ -186,9 +187,7 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Activity — Zapstore</title>
-</svelte:head>
+<SeoHead title="Activity — Zapstore" />
 
 <div class="panel-content activity-panel">
 	{#if !activityReady || (activityLoading && activityComments.length === 0)}

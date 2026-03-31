@@ -3,6 +3,7 @@
  * SignedSection - Two columns: codeblock in gray66 wrapper at top, fixed view on bottom (no scroll);
  * right column "Signed. Yours. Truly." with white-blurple gradient and stepped opacity.
  */
+import { SITE_URL } from '$lib/config';
 const signedEvent = {
     kind: 32267,
     id: 'cc5f28ff8263f57310e1e0a699d1e2fc2a10f4c7f453d2cb4a652995c406e4b1',
@@ -12,7 +13,7 @@ const signedEvent = {
         ['name', 'Zapstore Alpha'],
         ['d', 'dev.zapstore.alpha'],
         ['repository', 'https://github.com/zapstore/zapstore'],
-        ['url', 'https://zapstore.dev'],
+        ['url', SITE_URL],
         ['f', 'android-arm64-v8a'],
         ['t', 'android'],
         ['t', 'apk'],

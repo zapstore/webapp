@@ -4,6 +4,7 @@
 	 * Forum feed — /community/forum
 	 */
 	import { browser } from '$app/environment';
+	import SeoHead from '$lib/components/layout/SeoHead.svelte';
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
 	import {
@@ -350,9 +351,7 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Forum — Zapstore</title>
-</svelte:head>
+<SeoHead title="Forum — Zapstore" />
 
 <div class="forum-page-wrap">
 <div class="panel-content">
