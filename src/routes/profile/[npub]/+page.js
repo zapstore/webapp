@@ -1,7 +1,7 @@
 /**
  * Profile page — universal load
  *
- * SSR: fetches profile, apps, stacks from the server's in-memory relay cache.
+ * SSR: queries relay.zapstore.dev directly for profile, apps, stacks.
  * Client-side navigation: returns npub/pubkey (from URL) + empty data — component queries Dexie.
  * Offline: no server round-trip needed, component loads from IndexedDB.
  */
@@ -31,15 +31,12 @@ export const load = async ({ params }) => {
 		return { npub, pubkey: null, profile: null, apps: [], stacks: [], resolvedStacks: [], appFilterPrefix: null };
 	}
 
-	/** When set, profile page must only show apps whose dTag starts with this (e.g. Zapstore: only dev.zapstore.*) */
 	const appFilterPrefix = PROFILE_APP_FILTERS[npub] ?? null;
 
-	// Client-side: component queries Dexie for profile data; needs prefix to apply same filter
 	if (browser) {
 		return { npub, pubkey, profile: null, apps: [], stacks: [], resolvedStacks: [], appFilterPrefix };
 	}
 
-	// SSR: fetch from server cache
 	const { fetchProfilesServer, fetchAppsByAuthor, fetchStacksByAuthor } = await import(
 		'$lib/nostr/server.js'
 	);
@@ -54,7 +51,6 @@ export const load = async ({ params }) => {
 	const profileEvent = profileMap.get(pubkey) ?? null;
 	const profile = profileEvent ? parseProfile(profileEvent) : null;
 
-	// Apply per-profile app filter (e.g. only show "dev.zapstore.*" apps for Zapstore — excludes indexed apps)
 	const filteredApps = appFilterPrefix ? apps.filter((app) => app.dTag?.startsWith(appFilterPrefix)) : apps;
 
 	return {

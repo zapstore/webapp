@@ -16,7 +16,7 @@
 		parseForumPost
 	} from '$lib/nostr';
 	import { parseProfile } from '$lib/nostr/models';
-	import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB, FORUM_RELAY, FORUM_CATEGORIES } from '$lib/config';
+	import { EVENT_KINDS, ZAPSTORE_NPUB, FORUM_RELAY, FORUM_CATEGORIES } from '$lib/config';
 	import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { goto } from '$app/navigation';
@@ -34,7 +34,7 @@
 
 	const COMMUNITY_PUBKEY = (() => {
 		try {
-			const d = nip19.decode(ZAPSTORE_COMMUNITY_NPUB);
+			const d = nip19.decode(ZAPSTORE_NPUB);
 			return d.type === 'npub' ? d.data : '';
 		} catch {
 			return '';

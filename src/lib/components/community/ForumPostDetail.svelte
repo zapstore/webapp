@@ -19,7 +19,7 @@ import {
 } from '$lib/nostr';
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB, DEFAULT_SOCIAL_RELAYS } from '$lib/config';
+import { EVENT_KINDS, ZAPSTORE_NPUB, DEFAULT_SOCIAL_RELAYS } from '$lib/config';
 import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
@@ -65,7 +65,7 @@ const npub = $derived(post?.pubkey ? (() => { try { return nip19.npubEncode(post
 const postNevent = $derived(post?.id ? (() => { try { return nip19.neventEncode({ id: post.id }); } catch { return ''; } })() : '');
 const communityPubkey = $derived((() => {
 	try {
-		const d = nip19.decode(ZAPSTORE_COMMUNITY_NPUB);
+		const d = nip19.decode(ZAPSTORE_NPUB);
 		return d?.type === 'npub' ? d.data : '';
 	} catch { return ''; }
 })());

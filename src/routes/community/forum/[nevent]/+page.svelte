@@ -8,7 +8,7 @@
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
 	import { queryEvent, fetchFromRelays, parseForumPost, putEvents } from '$lib/nostr';
-	import { EVENT_KINDS, ZAPSTORE_COMMUNITY_NPUB, FORUM_RELAY } from '$lib/config';
+	import { EVENT_KINDS, ZAPSTORE_NPUB, FORUM_RELAY } from '$lib/config';
 	import ForumPostDetail from '$lib/components/community/ForumPostDetail.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 
@@ -27,7 +27,7 @@
 
 	const COMMUNITY_PUBKEY = (() => {
 		try {
-			const d = nip19.decode(ZAPSTORE_COMMUNITY_NPUB);
+			const d = nip19.decode(ZAPSTORE_NPUB);
 			return d.type === 'npub' ? d.data : '';
 		} catch {
 			return '';
