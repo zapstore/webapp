@@ -1083,12 +1083,11 @@ export async function publishStack(name, description, apps, signEvent) {
 	const tags = [
 		['d', identifier],
 		['title', name.trim()],
-		['h', ZAPSTORE_COMMUNITY_PUBKEY],
 		['f', PLATFORM_FILTER['#f'][0]] // android-arm64-v8a
 	];
 
 	if (!content) {
-		tags.push(['p', ZAPSTORE_COMMUNITY_PUBKEY]);
+		tags.push(['h', ZAPSTORE_COMMUNITY_PUBKEY]);
 	}
 
 	// Add app references as 'a' tags (format: "kind:pubkey:identifier")
@@ -1146,13 +1145,13 @@ export async function updateStackApps(stackEvent, app, action, signEvent) {
 		tags.push(['f', PLATFORM_FILTER['#f'][0]]);
 	}
 
-	if (!tags.some(t => t[0] === 'h' && t[1] === ZAPSTORE_COMMUNITY_PUBKEY)) {
+	const isPublic = !(stackEvent.content || '').trim();
+	// Remove any existing h tag — it will be re-added only for public stacks
+	const tagsWithoutH = tags.filter(t => !(t[0] === 'h' && t[1] === ZAPSTORE_COMMUNITY_PUBKEY));
+	tags.length = 0;
+	tags.push(...tagsWithoutH);
+	if (isPublic && !tags.some(t => t[0] === 'h' && t[1] === ZAPSTORE_COMMUNITY_PUBKEY)) {
 		tags.push(['h', ZAPSTORE_COMMUNITY_PUBKEY]);
-	}
-	if (!(stackEvent.content || '').trim()) {
-		if (!tags.some(t => t[0] === 'p' && t[1] === ZAPSTORE_COMMUNITY_PUBKEY)) {
-			tags.push(['p', ZAPSTORE_COMMUNITY_PUBKEY]);
-		}
 	}
 	
 	const template = {
@@ -1205,12 +1204,11 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
 
 	const tags = [
 		['d', dTag],
-		['h', ZAPSTORE_COMMUNITY_PUBKEY],
 		['f', PLATFORM_FILTER['#f'][0]]
 	];
 
 	if (!content) {
-		tags.push(['p', ZAPSTORE_COMMUNITY_PUBKEY]);
+		tags.push(['h', ZAPSTORE_COMMUNITY_PUBKEY]);
 	}
 	
 	// Add title tag if name is provided

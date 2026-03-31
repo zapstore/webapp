@@ -60,9 +60,9 @@ These are the most critical invariants. Local-first is not optional.
 
 ## Stacks (kind 30267)
 
-- **Every stack event MUST include an `h` tag** with `ZAPSTORE_COMMUNITY_PUBKEY` (`acfeaea6...`). This applies to all create/update operations (`publishStack`, `updateStackApps`, `updateStack`), regardless of whether the stack is public or private.
-- **Public stacks MUST also include a `p` tag** with `ZAPSTORE_COMMUNITY_PUBKEY`. A stack is public when its `content` field is empty. The `p` tag is the marker that distinguishes public from private stacks.
-- Private stacks (non-empty `content`) MUST NOT include the `p` tag.
+- **Public stacks MUST include an `h` tag** with `ZAPSTORE_COMMUNITY_PUBKEY` (`acfeaea6...`). A stack is public when its `content` field is empty. This applies to all create/update operations (`publishStack`, `updateStackApps`, `updateStack`) on public stacks.
+- **Private stacks MUST NOT include an `h` tag.** Private stacks (non-empty `content`) are not shared with the community and must be published without the `h` tag.
+- Stack events MUST NOT include a `p` tag.
 
 ## Search
 
