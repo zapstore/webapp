@@ -10,12 +10,12 @@
  */
 import { page } from "$app/stores";
 import { onMount } from "svelte";
+import SeoHead from "$lib/components/layout/SeoHead.svelte";
 import { browser } from "$app/environment";
 import { beforeNavigate, goto } from "$app/navigation";
 import { fetchProfilesBatch, queryEvent, queryEvents, putEvents, queryCommentsFromStore, fetchComments, fetchLabelsForAddressable, groupLabelEventsToEntries, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, } from "$lib/nostr";
 import { fetchFromRelays } from "$lib/nostr/service";
-import { ZAPSTORE_RELAY } from "$lib/config";
-import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
+import { ZAPSTORE_RELAY, EVENT_KINDS, PLATFORM_FILTER, SITE_ICON } from "$lib/config";
 import { isOnline } from "$lib/stores/online.svelte.js";
 import { nip19 } from "nostr-tools";
 
@@ -42,7 +42,7 @@ let { data } = $props();
 const catalogs = [
     {
         name: "Zapstore",
-        pictureUrl: "https://zapstore.dev/zapstore-icon.png",
+        pictureUrl: SITE_ICON,
         pubkey: "78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55f2fe2202182",
     },
 ];
@@ -532,13 +532,10 @@ const displayDescription = $derived(!stack?.title ||
     : stack?.description);
 </script>
 
-<svelte:head>
-  <title>{stack?.title || "Stack"} — Zapstore</title>
-  <meta
-    name="description"
-    content={stack?.description || "A curated collection of apps on Zapstore"}
-  />
-</svelte:head>
+<SeoHead
+  title="{stack?.title || 'Stack'} — Zapstore"
+  description={stack?.description || "A curated collection of apps on Zapstore"}
+/>
 
 <section class="stack-page">
   <div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">

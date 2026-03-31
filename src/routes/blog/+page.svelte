@@ -2,13 +2,16 @@
 import { formatDisplayDate } from '$lib/date';
 import { ArrowRight } from 'lucide-svelte';
 import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
+import SeoHead from '$lib/components/layout/SeoHead.svelte';
+import { SITE_URL } from '$lib/config';
 let { data } = $props();
 </script>
 
-<svelte:head>
-	<title>Blog - Zapstore</title>
-	<meta name="description" content="Latest news, updates and insights from the Zapstore team." />
-</svelte:head>
+<SeoHead
+	title="Blog — Zapstore"
+	description="Latest news, updates and insights from the Zapstore team."
+	url="{SITE_URL}/blog"
+/>
 
 <section class="blog-page">
 	<div class="container mx-auto py-6 px-3 sm:px-6 lg:px-8">

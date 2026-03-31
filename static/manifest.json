@@ -1,7 +1,7 @@
 {
 	"name": "Zapstore",
 	"short_name": "Zapstore",
-	"description": "Discover apps on the Nostr network",
+	"description": "Discover apps on Nostr. Open source, decentralized app store.",
 	"start_url": "/",
 	"display": "standalone",
 	"background_color": "#0a0a0a",

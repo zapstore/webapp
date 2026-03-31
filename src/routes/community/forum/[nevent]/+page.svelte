@@ -4,6 +4,7 @@
 	 * Forum post detail — /community/forum/[nevent] (apps-style: SSR seed, client Dexie/relay).
 	 */
 	import { page } from '$app/stores';
+	import SeoHead from '$lib/components/layout/SeoHead.svelte';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
@@ -92,9 +93,7 @@
 	}
 </script>
 
-<svelte:head>
-	<title>{post?.title ?? 'Post'} — Zapstore</title>
-</svelte:head>
+<SeoHead title="{post?.title ?? 'Post'} — Zapstore" />
 
 {#if loading}
 	<div class="loading-wrap">

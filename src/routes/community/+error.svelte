@@ -4,6 +4,7 @@
 	 */
 	import { page } from '$app/stores';
 	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
+	import SeoHead from '$lib/components/layout/SeoHead.svelte';
 
 	const communityFallbackHref = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED
 		? '/community/forum'
@@ -15,9 +16,7 @@
 	const stack = $derived(error?.stack ?? '');
 </script>
 
-<svelte:head>
-	<title>Community error — Zapstore</title>
-</svelte:head>
+<SeoHead title="Community error — Zapstore" />
 
 <div class="community-error" style="background: hsl(var(--background)); color: hsl(var(--foreground)); padding: 2rem; max-width: 640px; margin: 0 auto;">
 	<h1 style="font-size: 1.25rem; margin-bottom: 0.5rem;">Community route error</h1>

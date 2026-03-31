@@ -3,6 +3,8 @@
 	import { browser } from '$app/environment';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import SeoHead from '$lib/components/layout/SeoHead.svelte';
+	import { SITE_URL } from '$lib/config';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 	import Label from '$lib/components/common/Label.svelte';
@@ -392,10 +394,11 @@
 
 </script>
 
-<svelte:head>
-	<title>Apps — Zapstore</title>
-	<meta name="description" content="Discover apps and stacks on Zapstore" />
-</svelte:head>
+<SeoHead
+	title="Apps — Zapstore"
+	description="Discover apps and stacks on Zapstore"
+	url="{SITE_URL}/apps"
+/>
 
 <section class="apps-page">
 	<div class="container mx-auto pt-3 pb-6 px-3 sm:px-6 sm:pt-4 lg:px-8">

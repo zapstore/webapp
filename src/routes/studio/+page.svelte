@@ -9,17 +9,17 @@
 	import StudioHero from '$lib/components/developer/StudioHero.svelte';
 	import StudioToolsSection from '$lib/components/developer/StudioToolsSection.svelte';
 	import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
+	import SeoHead from '$lib/components/layout/SeoHead.svelte';
+	import { SITE_URL } from '$lib/config';
 
 	const signedIn = $derived(getIsSignedIn());
 </script>
 
-<svelte:head>
-	<title>Zapstore Studio — Developers</title>
-	<meta
-		name="description"
-		content="A purpose-built developer suite. Reliable tools for shipping apps and interacting with communities of users"
-	/>
-</svelte:head>
+<SeoHead
+	title="Zapstore Studio — Developers"
+	description="A purpose-built developer suite. Reliable tools for shipping apps and interacting with communities of users."
+	url="{SITE_URL}/studio"
+/>
 
 {#if signedIn && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
 	<StudioApp />

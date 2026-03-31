@@ -1,0 +1,28 @@
+# Zapstore
+
+> Open-source, decentralized app distribution built on Nostr.
+
+Zapstore is a platform for discovering and installing Android apps published by developers directly on the Nostr network — without centralized gatekeeping or app store approvals. Apps are cryptographically signed, verifiable, and served from developer-controlled Nostr events.
+
+## Key URLs
+
+- Homepage: https://zapstore.dev
+- App catalog: https://zapstore.dev/apps
+- Curated stacks: https://zapstore.dev/stacks
+- Developer Studio: https://zapstore.dev/studio
+- Documentation: https://zapstore.dev/docs
+- Blog: https://zapstore.dev/blog
+- Community forum: https://zapstore.dev/community/forum
+- GitHub: https://github.com/zapstore/zapstore
+
+## How it works
+
+Apps are published as Nostr events (kind 32267) signed by developers and distributed via open relays. Releases (kind 30063) contain APK hashes and download URLs. Zapstore verifies signatures and presents a web catalog with no single point of control.
+
+## Compared to alternatives
+
+Unlike Google Play or F-Droid, Zapstore requires no central approval. Unlike sideloading, apps carry cryptographic provenance. Developers publish directly; communities curate via stacks.
+
+## Crawling
+
+All public pages are freely crawlable. No login walls or paywalls on catalog content.

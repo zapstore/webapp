@@ -1,6 +1,8 @@
 <script lang="js">
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+	import SeoHead from '$lib/components/layout/SeoHead.svelte';
+	import { SITE_URL } from '$lib/config';
 	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
@@ -179,10 +181,11 @@
 
 <svelte:document onclick={handleFilterOutside} />
 
-<svelte:head>
-	<title>App Stacks — Zapstore</title>
-	<meta name="description" content="Browse curated app collections on Zapstore" />
-</svelte:head>
+<SeoHead
+	title="App Stacks — Zapstore"
+	description="Browse curated app collections on Zapstore"
+	url="{SITE_URL}/stacks"
+/>
 
 <section class="stacks-page">
 	<div class="container mx-auto py-6 px-3 sm:px-6 lg:px-8">

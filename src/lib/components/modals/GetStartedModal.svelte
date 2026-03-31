@@ -3,8 +3,9 @@
 	import { Nostr } from '$lib/components/icons';
 	import { connect } from '$lib/stores/auth.svelte.js';
 	import { ExtensionMissingError } from 'applesauce-signers/signers/extension-signer';
+	import { SITE_URL } from '$lib/config';
 
-	const PRIMAL_APP_URL = 'https://zapstore.dev/apps/net.primal.android';
+	const PRIMAL_APP_URL = `${SITE_URL}/apps/net.primal.android`;
 
 	let { open = $bindable(false), onconnected } = $props();
 	let isConnecting = $state(false);

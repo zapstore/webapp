@@ -3,15 +3,15 @@
 		SIGNAL_DEV_SUPPORT_GROUP_URL,
 		SIGNAL_USER_SUPPORT_GROUP_URL
 	} from '$lib/constants.js';
+	import SeoHead from '$lib/components/layout/SeoHead.svelte';
+	import { SITE_URL } from '$lib/config';
 </script>
 
-<svelte:head>
-	<title>Support — Zapstore</title>
-	<meta
-		name="description"
-		content="Join Zapstore user and developer support groups on Signal."
-	/>
-</svelte:head>
+<SeoHead
+	title="Support — Zapstore"
+	description="Join Zapstore user and developer support groups on Signal."
+	url="{SITE_URL}/community/support"
+/>
 
 <div class="support-page">
 	<h1 class="support-title">Support</h1>

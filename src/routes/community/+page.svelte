@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
 	import { onMount } from 'svelte';
+	import SeoHead from '$lib/components/layout/SeoHead.svelte';
 
 	const target = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? '/community/forum' : '/community/support';
 
@@ -13,9 +14,7 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Community — Zapstore</title>
-</svelte:head>
+<SeoHead title="Community — Zapstore" />
 
 <div class="community-redirect">
 	<p>Redirecting…</p>

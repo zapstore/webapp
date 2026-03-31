@@ -87,11 +87,7 @@
 </script>
 
 <svelte:head>
-	{#if isCommunityForumFeed}
-		<title>Forum — Zapstore</title>
-	{:else if isCommunityActivity}
-		<title>Activity — Zapstore</title>
-	{:else if path.startsWith('/community/support')}
+	{#if path.startsWith('/community/support')}
 		<title>Support — Zapstore</title>
 	{/if}
 </svelte:head>
