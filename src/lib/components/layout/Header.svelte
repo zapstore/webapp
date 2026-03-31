@@ -17,6 +17,7 @@
 	import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
 	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
+	import { SITE_GITHUB } from '$lib/config.js';
 
 	const communityFirstHref = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED
 		? '/community/forum'
@@ -599,7 +600,7 @@
 			{/if}
 
 			<!-- Right: landing = one row (nav + CTA); other variants = search + auth -->
-			<div class="flex items-center justify-end flex-shrink-0">
+			<div class="flex items-center justify-end flex-shrink-0 gap-4 md:gap-3 lg:gap-4">
 				{#if variant === 'landing'}
 					<!-- Landing: one row — nav items (desktop) + Get Started (+ menu icon on mobile) -->
 					<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
@@ -646,59 +647,89 @@
 						</div>
 						<!-- CTA: loader, profile, or Get Started (one row with nav) -->
 						{#if isConnecting}
-							<div class="h-10 w-10 flex items-center justify-center">
-								<Loader2 class="h-5 w-5 animate-spin" style="color: hsl(var(--white66));" />
+							<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
+								<div class="h-10 w-10 flex items-center justify-center">
+									<Loader2 class="h-5 w-5 animate-spin" style="color: hsl(var(--white66));" />
+								</div>
+								<a
+									href={SITE_GITHUB}
+									class="header-github-btn header-github-btn-landing hidden md:inline-flex"
+									target="_blank"
+									rel="noopener noreferrer"
+									aria-label="GitHub"
+								>
+									<svg class="header-github-icon-landing" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+										<path
+											d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.63-1.41-3.63-1.41-.546-1.39-1.335-1.755-1.335-1.755-1.086-.745.085-.73.085-.73 1.2.085 1.83 1.235 1.83 1.235 1.07 1.83 2.805 1.305 3.495.99.105-.77.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+										/>
+									</svg>
+								</a>
 							</div>
 						{:else if isConnected}
-							<div class="flex items-center gap-2">
-								<div class="relative profile-dropdown">
-									<button type="button" onclick={toggleDropdown} class="profile-btn">
-										<ProfilePic
-											{pubkey}
-											pictureUrl={currentUserProfile?.picture || undefined}
-											name={currentUserProfile?.name || undefined}
-											size="bubble"
-										/>
+							<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
+								<div class="flex items-center gap-2">
+									<div class="relative profile-dropdown">
+										<button type="button" onclick={toggleDropdown} class="profile-btn">
+											<ProfilePic
+												{pubkey}
+												pictureUrl={currentUserProfile?.picture || undefined}
+												name={currentUserProfile?.name || undefined}
+												size="bubble"
+											/>
+										</button>
+										{#if dropdownOpen}
+											<div
+												class="absolute right-0 mt-2 w-48 rounded-lg overlay-surface shadow-lg py-1 z-50"
+												style="top: 100%;"
+											>
+												<a
+													href={profileHref}
+													class="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-white/5 transition-colors"
+													onclick={() => (dropdownOpen = false)}
+												>
+													<User class="h-4 w-4" />
+													View my profile
+												</a>
+												<div class="border-t border-border my-1"></div>
+												<button
+													type="button"
+													onclick={handleSignOut}
+													class="flex items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
+												>
+													<LogOut class="h-4 w-4" />
+													Disconnect
+												</button>
+											</div>
+										{/if}
+									</div>
+									<button
+										type="button"
+										class="landing-menu-btn flex md:hidden items-center justify-center w-7 h-7 rounded-lg border-none bg-transparent cursor-pointer hover:opacity-80 transition-opacity"
+										onclick={(e) => {
+											e.stopPropagation();
+											toggleMenu();
+										}}
+										aria-label="Open menu"
+									>
+										<Menu size={20} variant="outline" color="hsl(var(--white33))" />
 									</button>
-									{#if dropdownOpen}
-										<div
-											class="absolute right-0 mt-2 w-48 rounded-lg overlay-surface shadow-lg py-1 z-50"
-											style="top: 100%;"
-										>
-											<a
-												href={profileHref}
-												class="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-white/5 transition-colors"
-												onclick={() => (dropdownOpen = false)}
-											>
-												<User class="h-4 w-4" />
-												View my profile
-											</a>
-											<div class="border-t border-border my-1"></div>
-											<button
-												type="button"
-												onclick={handleSignOut}
-												class="flex items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
-											>
-												<LogOut class="h-4 w-4" />
-												Disconnect
-											</button>
-										</div>
-									{/if}
 								</div>
-								<button
-									type="button"
-									class="landing-menu-btn flex md:hidden items-center justify-center w-7 h-7 rounded-lg border-none bg-transparent cursor-pointer hover:opacity-80 transition-opacity"
-									onclick={(e) => {
-										e.stopPropagation();
-										toggleMenu();
-									}}
-									aria-label="Open menu"
+								<a
+									href={SITE_GITHUB}
+									class="header-github-btn header-github-btn-landing hidden md:inline-flex"
+									target="_blank"
+									rel="noopener noreferrer"
+									aria-label="GitHub"
 								>
-									<Menu size={20} variant="outline" color="hsl(var(--white33))" />
-								</button>
+									<svg class="header-github-icon-landing" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+										<path
+											d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.63-1.41-3.63-1.41-.546-1.39-1.335-1.755-1.335-1.755-1.086-.745.085-.73.085-.73 1.2.085 1.83 1.235 1.83 1.235 1.07 1.83 2.805 1.305 3.495.99.105-.77.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+										/>
+									</svg>
+								</a>
 							</div>
 						{:else}
-							<div class="hidden md:block">
+							<div class="hidden md:flex items-center gap-4 md:gap-3 lg:gap-4">
 								<button
 									type="button"
 									onclick={handleSignIn}
@@ -706,6 +737,19 @@
 								>
 									Sign In
 								</button>
+								<a
+									href={SITE_GITHUB}
+									class="header-github-btn header-github-btn-landing"
+									target="_blank"
+									rel="noopener noreferrer"
+									aria-label="GitHub"
+								>
+									<svg class="header-github-icon-landing" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+										<path
+											d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.63-1.41-3.63-1.41-.546-1.39-1.335-1.755-1.335-1.755-1.086-.745.085-.73.085-.73 1.2.085 1.83 1.235 1.83 1.235 1.07 1.83 2.805 1.305 3.495.99.105-.77.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+										/>
+									</svg>
+								</a>
 							</div>
 							<!-- Mobile: menu icon to the right of Start -->
 							<button
@@ -721,52 +765,69 @@
 							</button>
 						{/if}
 					</div>
-				{:else if isConnecting}
-					<div class="h-10 w-10 flex items-center justify-center">
-						<Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />
-					</div>
-				{:else if isConnected}
-					<!-- Profile Avatar with Dropdown -->
-					<div class="relative profile-dropdown flex items-center">
-						<button type="button" onclick={toggleDropdown} class="profile-btn">
-							<ProfilePic
-								{pubkey}
-								pictureUrl={currentUserProfile?.picture || undefined}
-								name={currentUserProfile?.name || undefined}
-								size="bubble"
-							/>
-						</button>
-
-						{#if dropdownOpen}
-							<div
-								class="absolute right-0 mt-2 w-48 rounded-lg overlay-surface shadow-lg py-1 z-50"
-								style="top: 100%;"
-							>
-								<a
-									href={profileHref}
-									class="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-white/5 transition-colors"
-									onclick={() => (dropdownOpen = false)}
-								>
-									<User class="h-4 w-4" />
-									View my profile
-								</a>
-								<div class="border-t border-border my-1"></div>
-								<button
-									type="button"
-									onclick={handleSignOut}
-									class="flex items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
-								>
-									<LogOut class="h-4 w-4" />
-									Disconnect
-								</button>
-							</div>
-						{/if}
-					</div>
 				{:else}
-					<!-- Sign In Button -->
-					<button type="button" onclick={handleSignIn} class="btn-primary-small h-10 px-4">
-						Sign In
-					</button>
+					<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
+						{#if isConnecting}
+							<div class="h-10 w-10 flex items-center justify-center">
+								<Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />
+							</div>
+						{:else if isConnected}
+							<!-- Profile Avatar with Dropdown -->
+							<div class="relative profile-dropdown flex items-center">
+								<button type="button" onclick={toggleDropdown} class="profile-btn">
+									<ProfilePic
+										{pubkey}
+										pictureUrl={currentUserProfile?.picture || undefined}
+										name={currentUserProfile?.name || undefined}
+										size="bubble"
+									/>
+								</button>
+
+								{#if dropdownOpen}
+									<div
+										class="absolute right-0 mt-2 w-48 rounded-lg overlay-surface shadow-lg py-1 z-50"
+										style="top: 100%;"
+									>
+										<a
+											href={profileHref}
+											class="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-white/5 transition-colors"
+											onclick={() => (dropdownOpen = false)}
+										>
+											<User class="h-4 w-4" />
+											View my profile
+										</a>
+										<div class="border-t border-border my-1"></div>
+										<button
+											type="button"
+											onclick={handleSignOut}
+											class="flex items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
+										>
+											<LogOut class="h-4 w-4" />
+											Disconnect
+										</button>
+									</div>
+								{/if}
+							</div>
+						{:else}
+							<!-- Sign In Button -->
+							<button type="button" onclick={handleSignIn} class="btn-primary-small h-10 px-4">
+								Sign In
+							</button>
+						{/if}
+						<a
+							href={SITE_GITHUB}
+							class="header-github-btn header-github-btn-browse hidden md:inline-flex"
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label="GitHub"
+						>
+							<svg class="header-github-icon-browse" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+								<path
+									d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.63-1.41-3.63-1.41-.546-1.39-1.335-1.755-1.335-1.755-1.086-.745.085-.73.085-.73 1.2.085 1.83 1.235 1.83 1.235 1.07 1.83 2.805 1.305 3.495.99.105-.77.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+								/>
+							</svg>
+						</a>
+					</div>
 				{/if}
 			</div>
 		</div>
@@ -1303,6 +1364,45 @@
 		font-weight: 500;
 		color: hsl(var(--white33));
 		white-space: nowrap;
+	}
+
+	/* GitHub: far-right nav control (footer SVG); gray66, circular */
+	/* Same hover/active scale as .btn-secondary-small — no bg/color shift */
+	.header-github-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		background-color: hsl(var(--gray66));
+		color: hsl(var(--white66));
+		text-decoration: none;
+		cursor: pointer;
+		transition: transform 0.2s ease;
+		transform: scale(1);
+	}
+	.header-github-btn:hover {
+		transform: scale(1.025);
+	}
+	.header-github-btn:active {
+		transform: scale(0.98);
+	}
+	.header-github-btn-landing {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+	}
+	.header-github-btn-browse {
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+	}
+	.header-github-icon-landing {
+		width: 18px;
+		height: 18px;
+	}
+	.header-github-icon-browse {
+		width: 22px;
+		height: 22px;
 	}
 
 	.landing-nav-studio-dropdown {
