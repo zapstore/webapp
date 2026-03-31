@@ -8,11 +8,13 @@
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import StudioAppDetail from './StudioAppDetail.svelte';
 	import StudioAppActivity from './StudioAppActivity.svelte';
+	import StudioCountryChart from './StudioCountryChart.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import {
 		DUMMY_MODE,
 		TEST_PUBKEY,
 		DUMMY_APPS,
+		DUMMY_COUNTRY_ROWS,
 		DL_SEEDS,
 		ZAP_SEEDS,
 		IMP_SEEDS,
@@ -27,6 +29,7 @@
 	import {
 		buildIsoDateRange,
 		fetchImpressions,
+		loadCountryBreakdown,
 		loadDownloadAppData,
 		mapImpressionRowsToAppData,
 		npubToHex,
@@ -40,6 +43,8 @@
 	let selectedDlTimeframe = $state('30 Days');
 	let impDropdownOpen = $state(false);
 	let selectedImpTimeframe = $state('30 Days');
+	let countryDropdownOpen = $state(false);
+	let selectedCountryTimeframe = $state('30 Days');
 	let zapDropdownOpen = $state(false);
 	let selectedZapTimeframe = $state('30 Days');
 	let mobileMenuOpen = $state(false);
@@ -47,8 +52,17 @@
 	/** Bumps when insights time ranges change; stale async loads must not overwrite UI. */
 	let studioLoadGeneration = 0;
 
-	/** True while a studio analytics fetch for the current range is in flight (all three series refetched together). */
-	let insightsChartsLoading = $state(!DUMMY_MODE);
+	/** Last completed analytics window per series — avoid refetch + skeleton when another chart’s timeframe changes. */
+	let prevStudioImpDays = $state(-1);
+	let prevStudioDlDays = $state(-1);
+	let prevStudioZapDays = $state(-1);
+	let prevStudioCountryDays = $state(-1);
+
+	/** Per-chart loading so slow impressions/downloads/zaps/country API do not block each other’s UI. */
+	let impChartLoading = $state(!DUMMY_MODE);
+	let dlChartLoading = $state(!DUMMY_MODE);
+	let zapChartLoading = $state(!DUMMY_MODE);
+	let countryChartLoading = $state(!DUMMY_MODE);
 
 	const timeframes = ['7 Days', '30 Days', '90 Days', '1 Year'];
 
@@ -79,6 +93,7 @@
 	let dlAppData = $state(DUMMY_MODE ? buildDummyAppData(DL_SEEDS) : null);
 	let zapAppData = $state(DUMMY_MODE ? buildDummyAppData(ZAP_SEEDS) : null);
 	let impAppData = $state(DUMMY_MODE ? buildDummyAppData(IMP_SEEDS) : null);
+	let countryRows = $state([...(DUMMY_MODE ? DUMMY_COUNTRY_ROWS : [])]);
 
 	const dlInsightDays = $derived(timeframeToDays(selectedDlTimeframe));
 	const impInsightDays = $derived(timeframeToDays(selectedImpTimeframe));
@@ -110,19 +125,16 @@
 		selectedImpTimeframe;
 		selectedDlTimeframe;
 		selectedZapTimeframe;
+		selectedCountryTimeframe;
 		const impD = timeframeToDays(selectedImpTimeframe);
 		const dlD = timeframeToDays(selectedDlTimeframe);
 		const zapD = timeframeToDays(selectedZapTimeframe);
+		const countryD = timeframeToDays(selectedCountryTimeframe);
 		studioLoadGeneration += 1;
 		const gen = studioLoadGeneration;
-		insightsChartsLoading = true;
-		loadStudioData(gen, impD, dlD, zapD)
-			.catch((err) => {
-				console.error('[Studio] data load failed:', err);
-			})
-			.finally(() => {
-				if (gen === studioLoadGeneration) insightsChartsLoading = false;
-			});
+		loadStudioData(gen, impD, dlD, zapD, countryD).catch((err) => {
+			console.error('[Studio] data load failed:', err);
+		});
 	});
 
 	/** TEST_PUBKEY or NIP-07 hex pubkey (lowercase). No extension required when TEST_PUBKEY is set. */
@@ -156,10 +168,12 @@
 	 * @param {number} impDays
 	 * @param {number} dlDays
 	 * @param {number} zapDays
+	 * @param {number} countryDays
 	 */
-	async function loadStudioData(gen, impDays, dlDays, zapDays) {
+	async function loadStudioData(gen, impDays, dlDays, zapDays, countryDays) {
 		const impRange = buildIsoDateRange(impDays);
 		const dlRange = buildIsoDateRange(dlDays);
+		const countryRange = buildIsoDateRange(countryDays);
 
 		const pubkey = await resolveStudioPubkeyHex();
 		if (studioLoadStale(gen)) return;
@@ -172,6 +186,15 @@
 			impAppData = null;
 			dlAppData = null;
 			zapAppData = null;
+			countryRows = [];
+			impChartLoading = false;
+			dlChartLoading = false;
+			zapChartLoading = false;
+			countryChartLoading = false;
+			prevStudioImpDays = -1;
+			prevStudioDlDays = -1;
+			prevStudioZapDays = -1;
+			prevStudioCountryDays = -1;
 			return;
 		}
 
@@ -198,22 +221,61 @@
 			impAppData = null;
 			dlAppData = null;
 			zapAppData = null;
+			countryRows = [];
+			impChartLoading = false;
+			dlChartLoading = false;
+			zapChartLoading = false;
+			countryChartLoading = false;
+			prevStudioImpDays = -1;
+			prevStudioDlDays = -1;
+			prevStudioZapDays = -1;
+			prevStudioCountryDays = -1;
 			return;
 		}
 
-		/** Parallel fetch: zaps were last sequentially after slow hash/download work, so `studioLoadGeneration` often advanced before zapAppData was written — Insights + app detail zap charts looked stuck. */
-		let v1ImpressionsOk = false;
+		const needImp = impDays !== prevStudioImpDays;
+		const needDl = dlDays !== prevStudioDlDays;
+		const needZap = zapDays !== prevStudioZapDays;
+		const needCountry = countryDays !== prevStudioCountryDays;
 
-		const impTask = (async () => {
+		if (needImp) impChartLoading = true;
+		else impChartLoading = false;
+		if (needCountry) countryChartLoading = true;
+		else countryChartLoading = false;
+		if (needDl) dlChartLoading = true;
+		else dlChartLoading = false;
+		if (needZap) zapChartLoading = true;
+		else zapChartLoading = false;
+
+		const hashPromise = collectBlobHashesForDeveloper(pubkey, userApps);
+
+		if (needImp) void impFlow(gen, pubkey, impDays, impRange);
+		if (needDl) void dlFlow(gen, dlDays, dlRange, hashPromise);
+		if (needZap) void zapFlow(gen, pubkey, zapDays);
+		if (needCountry) void countryFlow(gen, pubkey, countryDays, countryRange, hashPromise);
+	}
+
+	/**
+	 * @param {number} gen
+	 * @param {string} pubkey
+	 * @param {number} impDays
+	 * @param {{ from: string, to: string }} impRange
+	 */
+	async function impFlow(gen, pubkey, impDays, impRange) {
+		try {
+			let v1Ok = false;
 			try {
 				const impRows = await fetchImpressions(pubkey, {
 					from: impRange.from,
 					to: impRange.to,
 					groupBy: 'app_id,day'
 				});
-				v1ImpressionsOk = true;
-				return mapImpressionRowsToAppData(userApps, impRows, impDays);
+				v1Ok = true;
+				if (!studioLoadStale(gen)) {
+					impAppData = mapImpressionRowsToAppData(userApps, impRows, impDays);
+				}
 			} catch (err) {
+				if (!studioLoadStale(gen)) impAppData = null;
 				const msg = err instanceof Error ? err.message : String(err);
 				if (msg === 'ANALYTICS_HTTP_DISABLED') {
 					console.warn(
@@ -222,39 +284,82 @@
 				} else {
 					console.warn('[Studio] v1 impressions failed:', err);
 				}
-				return null;
 			}
-		})();
-
-		const dlTask = (async () => {
-			try {
-				const hashMap = await collectBlobHashesForDeveloper(pubkey, userApps);
-				return await loadDownloadAppData(userApps, hashMap, dlRange, dlDays);
-			} catch (err) {
-				console.warn('[Studio] v1 downloads failed:', err);
-				return null;
+			if (!v1Ok && !studioLoadStale(gen)) {
+				await loadLegacyNip98Impressions(pubkey, impDays, gen);
 			}
-		})();
-
-		const zapTask = (async () => {
-			try {
-				return await loadZapAppData(pubkey, userApps, zapDays);
-			} catch (err) {
-				console.warn('[Studio] zaps load failed:', err);
-				return null;
+		} finally {
+			if (!studioLoadStale(gen)) {
+				impChartLoading = false;
+				prevStudioImpDays = impDays;
 			}
-		})();
+		}
+	}
 
-		const [impData, dlData, zapData] = await Promise.all([impTask, dlTask, zapTask]);
+	/**
+	 * @param {number} gen
+	 * @param {number} dlDays
+	 * @param {{ from: string, to: string }} dlRange
+	 * @param {Promise<Map<string, string>>} hashPromise
+	 */
+	async function dlFlow(gen, dlDays, dlRange, hashPromise) {
+		try {
+			const hashMap = await hashPromise;
+			if (studioLoadStale(gen)) return;
+			const data = await loadDownloadAppData(userApps, hashMap, dlRange, dlDays);
+			if (!studioLoadStale(gen)) dlAppData = data;
+		} catch (err) {
+			console.warn('[Studio] v1 downloads failed:', err);
+			if (!studioLoadStale(gen)) dlAppData = null;
+		} finally {
+			if (!studioLoadStale(gen)) {
+				dlChartLoading = false;
+				prevStudioDlDays = dlDays;
+			}
+		}
+	}
 
-		if (studioLoadStale(gen)) return;
+	/**
+	 * @param {number} gen
+	 * @param {string} pubkey
+	 * @param {number} zapDays
+	 */
+	async function zapFlow(gen, pubkey, zapDays) {
+		try {
+			const data = await loadZapAppData(pubkey, userApps, zapDays);
+			if (!studioLoadStale(gen)) zapAppData = data;
+		} catch (err) {
+			console.warn('[Studio] zaps load failed:', err);
+			if (!studioLoadStale(gen)) zapAppData = null;
+		} finally {
+			if (!studioLoadStale(gen)) {
+				zapChartLoading = false;
+				prevStudioZapDays = zapDays;
+			}
+		}
+	}
 
-		impAppData = impData;
-		dlAppData = dlData;
-		zapAppData = zapData;
-
-		if (!v1ImpressionsOk && !studioLoadStale(gen)) {
-			await loadLegacyNip98Impressions(pubkey, impDays, gen);
+	/**
+	 * @param {number} gen
+	 * @param {string} pubkey
+	 * @param {number} countryDays
+	 * @param {{ from: string, to: string }} countryRange
+	 * @param {Promise<Map<string, string>>} hashPromise
+	 */
+	async function countryFlow(gen, pubkey, countryDays, countryRange, hashPromise) {
+		try {
+			const hashMap = await hashPromise;
+			if (studioLoadStale(gen)) return;
+			const rows = await loadCountryBreakdown(pubkey, countryRange, hashMap, 10);
+			if (!studioLoadStale(gen)) countryRows = rows;
+		} catch (err) {
+			console.warn('[Studio] country breakdown failed:', err);
+			if (!studioLoadStale(gen)) countryRows = [];
+		} finally {
+			if (!studioLoadStale(gen)) {
+				countryChartLoading = false;
+				prevStudioCountryDays = countryDays;
+			}
 		}
 	}
 
@@ -463,7 +568,9 @@
 					dlCounts={dlAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
 					impCounts={impAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
 					zapCounts={zapAppData?.find((a) => a.id === selectedApp.id)?.counts ?? []}
-					metricsLoading={!DUMMY_MODE && insightsChartsLoading}
+					dlMetricsLoading={!DUMMY_MODE && dlChartLoading}
+					zapMetricsLoading={!DUMMY_MODE && zapChartLoading}
+					impMetricsLoading={!DUMMY_MODE && impChartLoading}
 					onBack={() => (selectedApp = null)}
 				/>
 			{:else if activeNav === 'inbox'}
@@ -478,7 +585,7 @@
 					<div class="section-head">
 						<div class="dl-meta">
 							<DownloadIcon size={24} color="hsl(var(--blurpleColor66))" />
-							{#if !DUMMY_MODE && insightsChartsLoading}
+							{#if !DUMMY_MODE && dlChartLoading}
 								<div class="studio-metric-count-skel">
 									<SkeletonLoader />
 								</div>
@@ -526,7 +633,7 @@
 							dotColor="#5C5FFF"
 							appData={dlAppData}
 							maxPerAppLines={2}
-							loading={!DUMMY_MODE && insightsChartsLoading}
+							loading={!DUMMY_MODE && dlChartLoading}
 						/>
 					</div>
 				</section>
@@ -536,7 +643,7 @@
 					<div class="section-head">
 						<div class="dl-meta">
 							<ZapIcon size={24} color="hsl(var(--goldColor66))" />
-							{#if !DUMMY_MODE && insightsChartsLoading}
+							{#if !DUMMY_MODE && zapChartLoading}
 								<div class="studio-metric-count-skel">
 									<SkeletonLoader />
 								</div>
@@ -586,7 +693,7 @@
 							badgeBg="rgba(90,55,0,0.92)"
 							appData={zapAppData}
 							maxPerAppLines={2}
-							loading={!DUMMY_MODE && insightsChartsLoading}
+							loading={!DUMMY_MODE && zapChartLoading}
 						/>
 					</div>
 				</section>
@@ -595,7 +702,7 @@
 					<div class="section-head">
 						<div class="dl-meta">
 							<ImpressionIcon size={24} />
-							{#if !DUMMY_MODE && insightsChartsLoading}
+							{#if !DUMMY_MODE && impChartLoading}
 								<div class="studio-metric-count-skel">
 									<SkeletonLoader />
 								</div>
@@ -646,15 +753,66 @@
 							badgeBg="rgba(52, 52, 58, 0.94)"
 							appData={impAppData}
 							maxPerAppLines={2}
-							loading={!DUMMY_MODE && insightsChartsLoading}
+							loading={!DUMMY_MODE && impChartLoading}
 						/>
 					</div>
 				</section>
 
-				<!-- Placeholder for future: summary of active discussions -->
-				<section class="activity-section">
-					<span class="eyebrow-label activity-eyebrow">Activity</span>
-					<p class="activity-empty">Nothing here yet.</p>
+				<section class="content-section country-section">
+					<div class="section-head country-section-head">
+						<div class="country-head-start">
+							<span class="eyebrow-label country-section-title">By country</span>
+							<div class="country-head-legend">
+								<span class="country-legend-item">
+									<span class="country-legend-icon-wrap">
+										<ImpressionIcon size={14} />
+									</span>
+									<span class="country-legend-text">Impressions</span>
+								</span>
+								<span class="country-legend-item">
+									<span class="country-legend-icon-wrap">
+										<DownloadIcon size={14} color="hsl(var(--blurpleColor66))" strokeWidth={1.4} />
+									</span>
+									<span class="country-legend-text">Downloads</span>
+								</span>
+							</div>
+						</div>
+						<div class="timerange-wrap">
+							<button
+								class="timerange-btn"
+								onclick={() => (countryDropdownOpen = !countryDropdownOpen)}
+							>
+								<span class="eyebrow-label tr-label">{selectedCountryTimeframe}</span>
+								<span class="chevron-wrap">
+									<ChevronDownIcon
+										variant="outline"
+										color="hsl(var(--white16))"
+										size={12}
+										strokeWidth={1.4}
+									/>
+								</span>
+							</button>
+							{#if countryDropdownOpen}
+								<div class="tr-dropdown">
+									{#each timeframes as tf (tf)}
+										<button
+											class="tr-option"
+											class:tr-selected={tf === selectedCountryTimeframe}
+											onclick={() => {
+												selectedCountryTimeframe = tf;
+												countryDropdownOpen = false;
+											}}
+										>
+											{tf}
+										</button>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					</div>
+					<div class="chart-area country-chart-wrap">
+						<StudioCountryChart rows={countryRows} loading={!DUMMY_MODE && countryChartLoading} />
+					</div>
 				</section>
 				</div><!-- /insights-scroll -->
 			{/if}
@@ -1078,6 +1236,59 @@
 		width: 100%;
 	}
 
+	.country-head-start {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 12px 16px;
+		flex: 1;
+		min-width: 0;
+	}
+
+	/* Match legend + title; default .timerange-wrap uses align-self: flex-start for tall count rows */
+	.country-section-head .timerange-wrap {
+		align-self: center;
+	}
+
+	.country-head-legend {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 12px 14px;
+	}
+
+	.country-legend-item {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.country-legend-icon-wrap {
+		display: flex;
+		opacity: 0.66;
+		flex-shrink: 0;
+	}
+
+	.country-legend-icon-wrap :global(svg) {
+		display: block;
+	}
+
+	.country-legend-text {
+		font-size: 12px;
+		font-weight: 500;
+		color: hsl(var(--white33));
+	}
+
+	.country-section-title {
+		color: hsl(var(--white66));
+		flex-shrink: 0;
+	}
+
+	.country-chart-wrap {
+		min-height: 120px;
+		padding-top: 52px;
+	}
+
 	/* ── Activity section ─────────────────────────────────────────────────── */
 	.activity-section {
 		padding: 20px 26px 40px;
@@ -1089,14 +1300,5 @@
 	/* Match community /activity: list has no top padding; first row uses item padding only */
 	.inbox-section {
 		padding: 0 20px 16px;
-	}
-
-	.activity-eyebrow {
-		color: hsl(var(--white33));
-	}
-
-	.activity-empty {
-		font-size: 13px;
-		color: hsl(var(--white33));
 	}
 </style>

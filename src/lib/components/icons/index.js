@@ -54,6 +54,7 @@ export { default as Hidden } from './Hidden.svelte';
 export { default as Home } from './Home.svelte';
 export { default as Hosting } from './Hosting.svelte';
 export { default as Id } from './Id.svelte';
+export { default as Index } from './Index.svelte';
 export { default as Inbox } from './Inbox.svelte';
 export { default as Incognito } from './Incognito.svelte';
 export { default as Info } from './Info.svelte';

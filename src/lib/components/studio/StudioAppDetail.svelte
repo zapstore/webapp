@@ -18,10 +18,16 @@
 		selectedDlTimeframe = $bindable('30 Days'),
 		selectedImpTimeframe = $bindable('30 Days'),
 		selectedZapTimeframe = $bindable('30 Days'),
-		/** While parent refetches analytics for the selected range */
-		metricsLoading = false,
+		/** While parent refetches downloads for the selected range */
+		dlMetricsLoading = false,
+		/** While parent refetches zaps */
+		zapMetricsLoading = false,
+		/** While parent refetches impressions */
+		impMetricsLoading = false,
 		onBack: _onBack
 	} = $props();
+
+	const detailChartLoading = $derived(dlMetricsLoading || zapMetricsLoading);
 
 	const timeframes = ['7 Days', '30 Days', '90 Days', '1 Year'];
 	let detailRangeOpen = $state(false);
@@ -157,13 +163,13 @@
 			<span class="eyebrow-label count-eyebrow">Downloads</span>
 			<div class="count-value-row">
 				<DownloadIcon size={24} color="hsl(var(--blurpleColor66))" strokeWidth={1.4} />
-				{#if metricsLoading}
+				{#if dlMetricsLoading}
 					<div class="detail-count-skel"><SkeletonLoader /></div>
 				{:else}
 					<span class="count-num">{dlTotal.toLocaleString('en-US')}</span>
 				{/if}
 			</div>
-			{#if !metricsLoading && dlPct !== null && dlPct !== 0}
+			{#if !dlMetricsLoading && dlPct !== null && dlPct !== 0}
 				<span class="count-ticker" class:ticker-up={dlPct > 0} class:ticker-down={dlPct < 0}>
 					{#if dlPct > 0}
 						<ArrowUpIcon
@@ -188,13 +194,13 @@
 			<span class="eyebrow-label count-eyebrow">Zaps</span>
 			<div class="count-value-row">
 				<ZapIcon size={24} color="hsl(var(--goldColor66))" strokeWidth={1.4} />
-				{#if metricsLoading}
+				{#if zapMetricsLoading}
 					<div class="detail-count-skel"><SkeletonLoader /></div>
 				{:else}
 					<span class="count-num">{zapTotal.toLocaleString('en-US')}</span>
 				{/if}
 			</div>
-			{#if !metricsLoading && zapPct !== null && zapPct !== 0}
+			{#if !zapMetricsLoading && zapPct !== null && zapPct !== 0}
 				<span class="count-ticker" class:ticker-up={zapPct > 0} class:ticker-down={zapPct < 0}>
 					{#if zapPct > 0}
 						<ArrowUpIcon
@@ -219,13 +225,13 @@
 			<span class="eyebrow-label count-eyebrow">Impressions</span>
 			<div class="count-value-row">
 				<ImpressionIcon size={24} />
-				{#if metricsLoading}
+				{#if impMetricsLoading}
 					<div class="detail-count-skel"><SkeletonLoader /></div>
 				{:else}
 					<span class="count-num">{impTotal.toLocaleString('en-US')}</span>
 				{/if}
 			</div>
-			{#if !metricsLoading && impPct !== null && impPct !== 0}
+			{#if !impMetricsLoading && impPct !== null && impPct !== 0}
 				<span class="count-ticker" class:ticker-up={impPct > 0} class:ticker-down={impPct < 0}>
 					{#if impPct > 0}
 						<ArrowUpIcon
@@ -263,7 +269,7 @@
 				hideTotalLine={true}
 				padTop={20}
 				appData={combinedAppData}
-				loading={metricsLoading}
+				loading={detailChartLoading}
 			/>
 		</div>
 	</section>

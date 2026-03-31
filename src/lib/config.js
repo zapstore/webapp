@@ -61,6 +61,15 @@ export const FORUM_RELAY = ZAPSTORE_COMMUNITY_RELAY;
 export const COMMENT_AND_ZAP_READ_RELAYS = [ZAPSTORE_RELAY];
 
 /**
+ * Relays we **publish** kind 1111 comments to — Zapstore only for now (`pool.publish` targets).
+ *
+ * **Inside each comment event**, NIP-22 root/parent tags that include an optional relay URL use exactly
+ * one hint: {@link ZAPSTORE_RELAY} (`wss://relay.zapstore.dev`) as the third element on each relevant
+ * `e`, `E`, `a`, and `A` tag — see `publishComment()` in `service.js`.
+ */
+export const COMMENT_PUBLISH_RELAYS = [ZAPSTORE_RELAY];
+
+/**
  * Wide lookback for relay `since` and Dexie windows; eviction caps IndexedDB volume.
  */
 export const COMMENT_ZAP_RELAY_READ_LOOKBACK_SEC = 5 * 365 * 24 * 3600;

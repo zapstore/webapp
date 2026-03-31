@@ -1,6 +1,6 @@
 <script lang="js">
 	/**
-	 * ZapActivityCard — Activity feed row for kind 9735 with a non-empty zap comment (matches SocialTabs comments tab).
+	 * ZapActivityCard — Activity feed row for kind 9735 (comment optional; amount + zapper always shown).
 	 */
 	import { nip19 } from 'nostr-tools';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';

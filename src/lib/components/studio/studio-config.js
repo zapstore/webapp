@@ -53,6 +53,15 @@ export const IMP_SEEDS = [
 	{ seed: 7.3, base: 110, amp: 80 }
 ];
 
+/** Demo rows for the country breakdown chart (DUMMY_MODE only). */
+export const DUMMY_COUNTRY_ROWS = [
+	{ countryKey: 'US', label: 'United States', impressions: 12_400, downloads: 920 },
+	{ countryKey: 'DE', label: 'Germany', impressions: 5100, downloads: 310 },
+	{ countryKey: 'GB', label: 'United Kingdom', impressions: 4200, downloads: 240 },
+	{ countryKey: 'NL', label: 'Netherlands', impressions: 2800, downloads: 180 },
+	{ countryKey: 'BR', label: 'Brazil', impressions: 1900, downloads: 95 }
+];
+
 // ── Wave generator ────────────────────────────────────────────────────────────
 export function wave(i, seed, base, amp, days = STUDIO_DAYS) {
 	const trend = (i / (days - 1)) * amp * 1.5;

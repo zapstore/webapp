@@ -35,9 +35,8 @@
 	import {
 		EVENT_KINDS,
 		SAVED_APPS_STACK_D_TAG,
-		DEFAULT_SOCIAL_RELAYS,
-		ZAPSTORE_RELAY,
 		DEFAULT_CATALOG_RELAYS,
+		COMMENT_PUBLISH_RELAYS,
 		COMMENT_AND_ZAP_READ_RELAYS,
 		COMMENT_ZAP_NAK_FETCH_LIMIT,
 		commentZapRelayReadSince
@@ -54,7 +53,6 @@
 	import { isOnline } from '$lib/stores/online.svelte.js';
 
 	const ACTIVITY_CATALOG_RELAYS = [...DEFAULT_CATALOG_RELAYS];
-	const COMMENT_PUBLISH_RELAYS = [...new Set([...DEFAULT_SOCIAL_RELAYS, ZAPSTORE_RELAY])];
 
 	/** Re-seed when user opens Activity (shell can stay mounted while they use Forum). */
 	const activityRouteActive = $derived(
@@ -313,8 +311,8 @@
 		return m;
 	});
 
-	/** Zap receipts with non-empty zap comment (content) — amount-only zaps stay out of the feed. */
-	const activityZapsWithComment = $derived.by(() => {
+	/** Zap receipts for the feed (amount-only included). Requires a zapper pubkey from description or `P` tag. */
+	const activityZapsForFeed = $derived.by(() => {
 		const rows = [];
 		for (const ev of activityZapEvents) {
 			let p;
@@ -323,7 +321,7 @@
 			} catch {
 				continue;
 			}
-			if (!p.comment?.trim() || !p.senderPubkey) continue;
+			if (!p.senderPubkey) continue;
 			rows.push({ event: ev, parsed: p });
 		}
 		return rows.sort((a, b) => b.event.created_at - a.event.created_at);
@@ -332,7 +330,7 @@
 	const inboxFeedItems = $derived.by(() => {
 		const items = [];
 		for (const ev of activityComments) items.push({ kind: 'comment', ts: ev.created_at, ev });
-		for (const row of activityZapsWithComment) items.push({ kind: 'zap', ts: row.event.created_at, row });
+		for (const row of activityZapsForFeed) items.push({ kind: 'zap', ts: row.event.created_at, row });
 		return items.sort((a, b) => b.ts - a.ts);
 	});
 

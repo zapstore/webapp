@@ -14,7 +14,7 @@ import {
 	DEFAULT_CATALOG_RELAYS,
 	DEFAULT_SOCIAL_RELAYS,
 	COMMENT_AND_ZAP_READ_RELAYS,
-	COMMENT_ZAP_NAK_FETCH_LIMIT,
+	COMMENT_PUBLISH_RELAYS,
 	commentZapRelayReadSince,
 	commentZapNakReadSince,
 	PLATFORM_FILTER,
@@ -589,21 +589,6 @@ function nip22KFromAddressableATag(aTagValue) {
 	return null;
 }
 
-function zapReceiptMatchesRootATag(event, aTagValue) {
-	const want = String(aTagValue).toLowerCase();
-	for (const t of event.tags ?? []) {
-		if ((t[0] === 'a' || t[0] === 'A') && t[1] && String(t[1]).toLowerCase() === want) return true;
-	}
-	return false;
-}
-
-function zapReceiptMatchesAnyETag(event, idSet) {
-	for (const t of event.tags ?? []) {
-		if ((t[0] === 'e' || t[0] === 'E') && t[1] && idSet.has(String(t[1]).toLowerCase())) return true;
-	}
-	return false;
-}
-
 function normalizeAddressableATagValue(kind, pubkey, identifier) {
 	return `${Number(kind)}:${String(pubkey).trim().toLowerCase()}:${String(identifier).trim()}`;
 }
@@ -681,9 +666,12 @@ export async function fetchKind1111ReferencingEventIds(relayUrls, eventIds, opti
 	return Array.from(byId.values());
 }
 
+const ZAP_9735_E_BATCH = 100;
+
 /**
- * Fetch kind 9735 for addressable and/or `#e` targets. Zap receipts often omit NIP-22 `K`, so we REQ a
- * `kinds` + `since` + `limit` bucket (Zapstore-friendly) and filter by `#a` / `#A` / `#e` / `#E` in memory.
+ * Fetch kind 9735 for addressable and/or `#e` targets — tag-scoped REQs (`#a`/`#A` / `#e`/`#E`) with
+ * `since` + `limit`. A global bucket + in-memory filter misses app-specific zaps when they are not in the
+ * newest N receipts across the whole relay.
  * @param {{ aTag?: string, eventIds?: string[] }} spec
  */
 export async function fetchKind9735MatchingRefs(relayUrls, spec, options = {}) {
@@ -695,28 +683,48 @@ export async function fetchKind9735MatchingRefs(relayUrls, spec, options = {}) {
 
 	if (!aTag && ids.length === 0) return [];
 
-	const bucketLimit = Math.max(limit, COMMENT_ZAP_NAK_FETCH_LIMIT);
-	const bucketFilter = withZapstoreCommentZapReqBounds(
-		{ kinds: [9735], limit: bucketLimit },
-		{ since, defaultLimit: bucketLimit }
-	);
-	const bucket = await fetchFromRelays(relayUrls, bucketFilter, { timeout, signal, feature });
-
-	const want = ids.length > 0 ? new Set(ids) : null;
 	const byId = new Map();
-	for (const e of bucket) {
-		if (!e?.id) continue;
-		const matchA = Boolean(aTag && zapReceiptMatchesRootATag(e, aTag));
-		const matchE = Boolean(want && zapReceiptMatchesAnyETag(e, want));
-		if (matchA || matchE) byId.set(e.id, e);
+
+	if (aTag) {
+		const fl = withZapstoreCommentZapReqBounds(
+			{ kinds: [9735], '#a': [aTag], limit },
+			{ since, defaultLimit: limit }
+		);
+		const fu = withZapstoreCommentZapReqBounds(
+			{ kinds: [9735], '#A': [aTag], limit },
+			{ since, defaultLimit: limit }
+		);
+		const [lo, up] = await Promise.all([
+			fetchFromRelays(relayUrls, fl, { timeout, signal, feature: `${feature}-a` }),
+			fetchFromRelays(relayUrls, fu, { timeout, signal, feature: `${feature}-A` })
+		]);
+		for (const e of [...lo, ...up]) if (e?.id) byId.set(e.id, e);
 	}
+
+	for (let i = 0; i < ids.length; i += ZAP_9735_E_BATCH) {
+		const chunk = ids.slice(i, i + ZAP_9735_E_BATCH);
+		const fl = withZapstoreCommentZapReqBounds(
+			{ kinds: [9735], '#e': chunk, limit },
+			{ since, defaultLimit: limit }
+		);
+		const fu = withZapstoreCommentZapReqBounds(
+			{ kinds: [9735], '#E': chunk, limit },
+			{ since, defaultLimit: limit }
+		);
+		const [lo, up] = await Promise.all([
+			fetchFromRelays(relayUrls, fl, { timeout, signal, feature: `${feature}-e` }),
+			fetchFromRelays(relayUrls, fu, { timeout, signal, feature: `${feature}-E` })
+		]);
+		for (const e of [...lo, ...up]) if (e?.id) byId.set(e.id, e);
+	}
+
 	return Array.from(byId.values());
 }
 
 const SOCIAL_RELAYS = [...DEFAULT_SOCIAL_RELAYS];
 
-/** Publish NIP-22 comments to social + Zapstore; reads use {@link COMMENT_AND_ZAP_READ_RELAYS}. */
-const COMMENT_PUBLISH_DEFAULT_RELAYS = [...new Set([...DEFAULT_SOCIAL_RELAYS, ZAPSTORE_RELAY])];
+/** Default `pool.publish` URLs for kind 1111 — same as {@link COMMENT_PUBLISH_RELAYS} (Zapstore only). */
+const COMMENT_PUBLISH_DEFAULT_RELAYS = COMMENT_PUBLISH_RELAYS;
 
 /**
  * Query comments from Dexie.
@@ -979,7 +987,9 @@ export function parseZapReceipt(event) {
 	if (descTag?.[1]) {
 		try {
 			const zapRequest = JSON.parse(descTag[1]);
-			result.senderPubkey = zapRequest.pubkey;
+			if (zapRequest.pubkey) {
+				result.senderPubkey = String(zapRequest.pubkey).toLowerCase();
+			}
 			result.comment = zapRequest.content || '';
 			if (result.zappedEventId == null) {
 				const eTag = zapRequest.tags?.find((t) => t[0] === 'e' && !!t[1]);
@@ -997,6 +1007,11 @@ export function parseZapReceipt(event) {
 		}
 	}
 
+	const pUpper = event.tags.find((t) => t[0] === 'P' && t[1]);
+	if (!result.senderPubkey && pUpper?.[1]) {
+		result.senderPubkey = String(pUpper[1]).toLowerCase();
+	}
+
 	return result;
 }
 
@@ -1011,8 +1026,12 @@ export function parseZapReceipt(event) {
  * @param {string} [replyToPubkey] - Pubkey being replied to (p tag on reply)
  * @param {number} [parentKind] - Kind of parent (e.g. 1111 or 9735)
  * @param {string[]} [mentions] - Pubkeys mentioned in content (p tags for notifications)
- * @param {string[]} [relays] - Override relay URLs (default: social + ZAPSTORE_RELAY)
+ * @param {string[]} [relays] - Override publish targets (default: {@link COMMENT_PUBLISH_RELAYS} — Zapstore only).
  * @param {string[]} [mediaUrls] - Media URLs (images/videos) as 'media' tags
+ *
+ * **Relay hint inside the signed event:** every NIP-22 `e` / `E` / `a` / `A` tag that includes a relay
+ * URL uses exactly {@link ZAPSTORE_RELAY} (`wss://relay.zapstore.dev`) as the third list element — not
+ * multiple hints per tag, and not other relays.
  */
 export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions, relays, mediaUrls, version = null) {
 	if (!content?.trim()) throw new Error('Comment content is required');
@@ -1031,7 +1050,7 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 
 	// Root: uppercase A/E + K + P; many indexers also expect lowercase a/e + k + p for the same root.
 	// Replies: keep uppercase root tags; lowercase e/k/p refer to the immediate parent only.
-	/** Relay hint: catalog + Zapstore community events are expected on relay.zapstore.dev (NIP-22 / NIP-19). */
+	/** Single relay URL embedded on each NIP-22 tag that carries a hint (third element): Zapstore catalog relay. */
 	const relayHint = ZAPSTORE_RELAY;
 
 	if (isNonReplaceable) {

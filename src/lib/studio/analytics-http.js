@@ -3,6 +3,7 @@
  * All requests go through /api/studio/analytics-http/* (SvelteKit proxy → STUDIO_ANALYTICS_HTTP_URL, no trailing slash).
  *
  * Paths: GET `v1/impressions`, `v1/downloads`, `v1/metrics/relay`, `v1/metrics/blossom`. `from` / `to` inclusive `YYYY-MM-DD`.
+ * Studio “By country” chart uses `group_by=country` on impressions (per publisher) and downloads (per blob hash), with its own date range in the UI.
  * Success: `Content-Type: application/json`. Row fields: impressions — `app_id`, `pubkey`, `day`, `source`, `type`, `country`, `count`;
  * downloads — `hash`, `day`, `source`, `country`, `count`.
  *
@@ -15,6 +16,7 @@ import { nip19 } from 'nostr-tools';
 
 /** @typedef {{ app_id?: string, pubkey?: string, day?: string, source?: string, type?: string, country?: string, count: number }} ImpressionRow */
 /** @typedef {{ hash?: string, day?: string, source?: string, country?: string, count: number }} DownloadRow */
+/** @typedef {{ countryKey: string, label: string, impressions: number, downloads: number }} CountryBreakdownRow */
 /** @typedef {{ day: string, reqs?: number, filters?: number, events?: number }} RelayMetricRow */
 /** @typedef {{ day: string, checks?: number, downloads?: number, uploads?: number }} BlossomMetricRow */
 
@@ -137,7 +139,10 @@ function normalizeDownloadRow(row) {
 	let day = r.day ?? r.date;
 	if (typeof day === 'string' && day.length > 10) day = day.slice(0, 10);
 	const count = Number(r.count ?? r.total ?? r.downloads ?? r.cnt) || 0;
-	return { hash, day: typeof day === 'string' ? day : undefined, count };
+	const countryRaw = r.country ?? r.country_code ?? r.countryCode;
+	const country =
+		countryRaw != null && String(countryRaw).trim() !== '' ? String(countryRaw).trim() : undefined;
+	return { hash, day: typeof day === 'string' ? day : undefined, country, count };
 }
 
 async function parseDownloadsResponse(res) {
@@ -165,10 +170,14 @@ function normalizeImpressionRow(row) {
 	let day = r.day ?? r.date;
 	if (typeof day === 'string' && day.length > 10) day = day.slice(0, 10);
 	const count = Number(r.count ?? r.total ?? r.impressions ?? r.cnt) || 0;
+	const countryRaw = r.country ?? r.country_code ?? r.countryCode;
+	const country =
+		countryRaw != null && String(countryRaw).trim() !== '' ? String(countryRaw).trim() : undefined;
 	return {
 		app_id: app_id != null ? String(app_id) : undefined,
 		pubkey: r.pubkey != null ? String(r.pubkey) : undefined,
 		day: typeof day === 'string' ? day : undefined,
+		country,
 		count
 	};
 }
@@ -434,4 +443,96 @@ export async function loadDownloadAppData(apps, hashToAppDTag, range, days) {
 			counts: isoDates.map((iso) => dayMap.get(iso) ?? 0)
 		};
 	});
+}
+
+const UNKNOWN_COUNTRY = '__unknown__';
+
+/** @param {string | undefined} raw */
+function countryBucketKey(raw) {
+	const s = String(raw ?? '').trim();
+	return s || UNKNOWN_COUNTRY;
+}
+
+/** @param {string} key */
+function countryLabel(key) {
+	if (key === UNKNOWN_COUNTRY) return 'Unknown';
+	if (typeof Intl !== 'undefined' && /^[A-Za-z]{2}$/.test(key)) {
+		try {
+			const dn = new Intl.DisplayNames(['en'], { type: 'region' });
+			return dn.of(key.toUpperCase()) ?? key;
+		} catch {
+			return key;
+		}
+	}
+	return key;
+}
+
+/**
+ * Top countries by impressions + downloads for the publisher in `range`.
+ * Requires relay geo; empty rows are normal when country is never set.
+ *
+ * @param {string} pubkeyHex
+ * @param {{ from: string, to: string }} range
+ * @param {Map<string, string>} hashToAppDTag
+ * @param {number} [topN]
+ * @returns {Promise<CountryBreakdownRow[]>}
+ */
+export async function loadCountryBreakdown(pubkeyHex, range, hashToAppDTag, topN = 10) {
+	/** @type {Map<string, number>} */
+	const impressionsBy = new Map();
+	/** @type {Map<string, number>} */
+	const downloadsBy = new Map();
+
+	try {
+		const impRows = await fetchImpressions(pubkeyHex, { ...range, groupBy: 'country' });
+		for (const row of impRows) {
+			const norm = normalizeImpressionRow(row);
+			if (!norm) continue;
+			const k = countryBucketKey(norm.country);
+			impressionsBy.set(k, (impressionsBy.get(k) ?? 0) + (Number(norm.count) || 0));
+		}
+	} catch (e) {
+		const msg = e instanceof Error ? e.message : String(e);
+		if (msg !== 'ANALYTICS_HTTP_DISABLED') {
+			console.warn('[Studio] v1 impressions by country failed:', e);
+		}
+	}
+
+	const hashes = [...hashToAppDTag.keys()];
+	await Promise.all(
+		hashes.map(async (hash) => {
+			if (!hashToAppDTag.get(hash)) return;
+			try {
+				const rows = await fetchDownloadsForHash(hash, { ...range, groupBy: 'country' });
+				for (const row of rows) {
+					const norm = normalizeDownloadRow(row);
+					if (!norm) continue;
+					const k = countryBucketKey(norm.country);
+					downloadsBy.set(k, (downloadsBy.get(k) ?? 0) + (Number(norm.count) || 0));
+				}
+			} catch (e) {
+				const msg = e instanceof Error ? e.message : String(e);
+				if (msg !== 'ANALYTICS_HTTP_DISABLED') {
+					console.warn(
+						`[Studio] downloads by country failed (${hash}): ${e instanceof Error ? e.message : String(e)}`
+					);
+				}
+			}
+		})
+	);
+
+	const keys = new Set([...impressionsBy.keys(), ...downloadsBy.keys()]);
+	/** @type {CountryBreakdownRow[]} */
+	const combined = [...keys]
+		.map((countryKey) => ({
+			countryKey,
+			label: countryLabel(countryKey),
+			impressions: impressionsBy.get(countryKey) ?? 0,
+			downloads: downloadsBy.get(countryKey) ?? 0
+		}))
+		.filter((r) => r.impressions > 0 || r.downloads > 0);
+	combined.sort(
+		(a, b) => b.impressions + b.downloads - (a.impressions + a.downloads)
+	);
+	return combined.slice(0, topN);
 }

@@ -195,7 +195,7 @@
 		}
 	});
 
-	const activityZapsWithComment = $derived.by(() => {
+	const activityZapsForFeed = $derived.by(() => {
 		const rows = [];
 		for (const ev of activityZapEvents) {
 			let p;
@@ -204,7 +204,7 @@
 			} catch {
 				continue;
 			}
-			if (!p.comment?.trim() || !p.senderPubkey) continue;
+			if (!p.senderPubkey) continue;
 			if (p.senderPubkey === devPubkey) continue;
 			rows.push({ event: ev, parsed: p });
 		}
@@ -214,7 +214,7 @@
 	const inboxFeedItems = $derived.by(() => {
 		const items = [];
 		for (const ev of activityComments) items.push({ kind: 'comment', ts: ev.created_at, ev });
-		for (const row of activityZapsWithComment) items.push({ kind: 'zap', ts: row.event.created_at, row });
+		for (const row of activityZapsForFeed) items.push({ kind: 'zap', ts: row.event.created_at, row });
 		return items.sort((a, b) => b.ts - a.ts);
 	});
 

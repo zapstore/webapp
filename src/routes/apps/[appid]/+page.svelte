@@ -52,7 +52,7 @@
 	import { markdownToPlainTextLine, renderMarkdown } from '$lib/utils/markdown';
 	import Timestamp from '$lib/components/common/Timestamp.svelte';
 	import { stripUrlForDisplay } from '$lib/utils/url.js';
-	import { Copy, Check } from '$lib/components/icons';
+	import { Copy, Check, Index } from '$lib/components/icons';
 	let { data } = $props();
 	const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
 	const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
@@ -891,12 +891,9 @@
 						</a>
 					{/if}
 					{#if !publishedByDeveloper}
-						<div class="indexed-pill flex items-center gap-1.5 flex-shrink-0">
-							<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-								<circle cx="11" cy="11" r="8" />
-								<path d="m21 21-4.35-4.35" />
-							</svg>
-							<span class="indexed-pill-text">Indexed</span>
+						<div class="detail-indexed-by">
+							<Index size={24} className="detail-indexed-icon flex-shrink-0" />
+							<span class="detail-publisher-name">Indexed</span>
 						</div>
 					{/if}
 					{#if app.createdAt}
@@ -2422,19 +2419,17 @@
 		transform: scale(0.98);
 	}
 
-	.indexed-pill {
-		height: 28px;
-		padding: 0 0.75rem 0 0.625rem;
-		border-radius: 9999px;
-		background-color: hsl(var(--white8));
-		color: hsl(var(--white33));
-		box-sizing: border-box;
+	/* Same gap/alignment as .detail-publisher-link; icon slightly under ProfilePic sm (28px) */
+	.detail-indexed-by {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		flex-shrink: 0;
+		min-width: 0;
 	}
 
-	.indexed-pill-text {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		white-space: nowrap;
+	.detail-indexed-icon {
+		display: block;
 	}
 
 	.platform-pill {

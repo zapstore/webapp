@@ -108,5 +108,6 @@
   .timestamp {
     white-space: nowrap;
     flex-shrink: 0;
+    padding-top: 2px;
   }
 </style>
