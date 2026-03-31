@@ -314,7 +314,8 @@
 	}
 
 	/**
-	 * Include a zap in the Activity feed only if it belongs to the same NIP-22 universe as scoped comments.
+	 * Zap belongs in Activity if it ties to the same NIP-22 graph as scoped comments.
+	 * Scan all e/E/a/A on the receipt (not only parseZapReceipt’s primary e) — many clients differ.
 	 * @param {import('nostr-tools').NostrEvent} ev
 	 * @param {Set<string>} refIds
 	 * @param {Set<string>} aTags
@@ -328,16 +329,29 @@
 		) {
 			return true;
 		}
-		const addrRaw = appATagFromZapEvent(ev);
-		if (addrRaw && aTags.has(addrRaw.toLowerCase())) return true;
+		for (const t of ev.tags ?? []) {
+			const name = t[0];
+			const val = t[1];
+			if (!val) continue;
+			const low = String(val).toLowerCase();
+			if ((name === 'e' || name === 'E') && refIds.has(low)) return true;
+			if (
+				(name === 'a' || name === 'A') &&
+				isAddressableActivityATag(val) &&
+				aTags.has(low)
+			) {
+				return true;
+			}
+		}
 		let p;
 		try {
 			p = parseZapReceipt(ev);
 		} catch {
 			return false;
 		}
-		const zid = p.zappedEventId;
-		return !!(zid && refIds.has(String(zid).toLowerCase()));
+		if (p.zappedEventId && refIds.has(String(p.zappedEventId).toLowerCase())) return true;
+		const addrRaw = appATagFromZapEvent(ev);
+		return !!(addrRaw && aTags.has(addrRaw.toLowerCase()));
 	}
 
 	/** @type {import('nostr-tools').NostrEvent[]} */
@@ -468,7 +482,7 @@
 		const commentLimit = Math.min(ACTIVITY_BRANCH_CAP, Math.max(branchLimitSnap, 240));
 		const zapLimit = Math.min(
 			ACTIVITY_BRANCH_CAP,
-			Math.max(Math.round(branchLimitSnap * 1.25), 280)
+			Math.max(Math.round(branchLimitSnap * 1.5), 400)
 		);
 
 		const obs = liveQuery(async () => {
@@ -1478,6 +1492,9 @@
 						}
 					})()}
 					{@const isDeeperReply = !!parentId}
+					{@const expectsActivityRoot =
+						(!!addrRootVal && isAddressableActivityATag(addrRootVal)) || !!rootKey}
+					{@const rootBadgeSkeleton = !rootEvent && expectsActivityRoot}
 					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 					<div
 						class="activity-item"
@@ -1491,6 +1508,7 @@
 							{authorProfile}
 							{rootEvent}
 							appBadge={feedAddrBadge}
+							{rootBadgeSkeleton}
 							{parentComment}
 							{parentCommentAuthor}
 							{parentZapParsed}
@@ -1551,6 +1569,8 @@
 							return '';
 						}
 					})()}
+					{@const zapExpectsRoot = !!aZapRoot || !!postIdZ}
+					{@const rootBadgeSkeletonZap = !rootEventZ && zapExpectsRoot}
 					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 					<div
 						class="activity-item"
@@ -1568,6 +1588,7 @@
 							parentComment={parentCommentZ}
 							parentCommentAuthor={parentCommentAuthorZ}
 							appBadge={zapAddrBadge}
+							rootBadgeSkeleton={rootBadgeSkeletonZap}
 							profileUrl={zapperNpub ? `/profile/${zapperNpub}` : ''}
 							resolveMentionLabel={(pk) =>
 								activityProfiles.get(pk)?.displayName ??

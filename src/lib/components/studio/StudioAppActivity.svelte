@@ -876,6 +876,7 @@
 				})()}
 				{@const isDeeperReply = !!parentId}
 				{@const appMeta = rootATag ? appByAddr.get(rootATag) : null}
+				{@const rootBadgeSkeleton = !!rootATag && !appMeta && !rootEvent}
 				{@const appBadge = (() => {
 					if (appMeta) {
 						return {
@@ -911,6 +912,7 @@
 						{parentZapParsed}
 						{parentZapperAuthor}
 						{appBadge}
+						{rootBadgeSkeleton}
 						profileUrl={authorNpub ? `/profile/${authorNpub}` : ''}
 						resolveMentionLabel={(pk) =>
 							activityProfiles.get(pk)?.displayName ??
@@ -931,6 +933,7 @@
 				{@const aRootZ = appATagFromZapEvent(zapEv)}
 				{@const rootEventZ = aRootZ ? (rootAppEvents.get(aRootZ) ?? null) : null}
 				{@const appMetaZ = aRootZ ? appByAddr.get(aRootZ) : null}
+				{@const rootBadgeSkeletonZ = !!aRootZ && !appMetaZ && !rootEventZ}
 				{@const appBadgeZ = (() => {
 					if (appMetaZ) {
 						return {
@@ -995,6 +998,7 @@
 						parentComment={parentCommentZ}
 						parentCommentAuthor={parentCommentAuthorZ}
 						appBadge={appBadgeZ}
+						rootBadgeSkeleton={rootBadgeSkeletonZ}
 						profileUrl={zapperNpub ? `/profile/${zapperNpub}` : ''}
 						resolveMentionLabel={(pk) =>
 							activityProfiles.get(pk)?.displayName ??

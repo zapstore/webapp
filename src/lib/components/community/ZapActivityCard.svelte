@@ -10,6 +10,7 @@
 	import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
 	import CommentBubbleActionRail from '$lib/components/social/CommentBubbleActionRail.svelte';
 	import ActivityStackMiniBadge from '$lib/components/community/ActivityStackMiniBadge.svelte';
+	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import { Zap } from '$lib/components/icons';
 	import { EVENT_KINDS } from '$lib/config.js';
 	import { getEventOneliner } from '$lib/nostr/models.js';
@@ -29,6 +30,8 @@
 		className = '',
 		resolveMentionLabel = undefined,
 		appBadge = null,
+		/** Root (forum/app/stack) still resolving */
+		rootBadgeSkeleton = false,
 		feedActions = null,
 		onRootClick = null
 	} = $props();
@@ -85,6 +88,7 @@
 			class="emoji-badge"
 			class:emoji-badge--app={!!appBadge && !isStackRoot}
 			class:emoji-badge--stack={isStackRoot}
+			class:emoji-badge--root-skel={rootBadgeSkeleton}
 			aria-hidden="true"
 		>
 			{#if isStackRoot}
@@ -99,6 +103,10 @@
 						className="zap-activity-app-pic"
 						onClick={() => {}}
 					/>
+				</div>
+			{:else if rootBadgeSkeleton}
+				<div class="root-badge-skeleton">
+					<SkeletonLoader />
 				</div>
 			{:else}
 				<Zap variant="fill" size={14} color="url(#zap-activity-card-gradient)" />
@@ -304,6 +312,23 @@
 		background: transparent;
 		border: none;
 		border-radius: 8px;
+	}
+
+	.emoji-badge--root-skel {
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		overflow: hidden;
+		background: transparent;
+		border: none;
+		border-radius: 8px;
+	}
+
+	.root-badge-skeleton {
+		width: 100%;
+		height: 100%;
+		border-radius: 8px;
+		overflow: hidden;
 	}
 
 	.app-badge-pic-wrap {

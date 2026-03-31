@@ -12,6 +12,7 @@ import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
 import QuotedZapMessage from '$lib/components/social/QuotedZapMessage.svelte';
 import CommentBubbleActionRail from '$lib/components/social/CommentBubbleActionRail.svelte';
 import ActivityStackMiniBadge from '$lib/components/community/ActivityStackMiniBadge.svelte';
+import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 import { EVENT_KINDS } from '$lib/config.js';
 import { getEventOneliner } from '$lib/nostr/models.js';
 import { hexToColor, getProfileTextColor, rgbToCssString } from '$lib/utils/color.js';
@@ -41,6 +42,8 @@ let {
 	 * @type {{ iconUrl?: string | null, name?: string | null, identifier?: string | null } | null}
 	 */
 	appBadge = null,
+	/** While root event (forum/app/stack) is still resolving — badge shimmer instead of forum emoji */
+	rootBadgeSkeleton = false,
 	/**
 	 * Hover action rail (Reply / Zap / Options). All three open the in-feed thread modal.
 	 * @type {{ onReply?: () => void, onZap?: () => void, onOptions?: () => void } | null}
@@ -134,6 +137,7 @@ const contentText = $derived(event?.content ?? '');
 			class="emoji-badge"
 			class:emoji-badge--app={!!appBadge && !isStackRoot}
 			class:emoji-badge--stack={isStackRoot}
+			class:emoji-badge--root-skel={rootBadgeSkeleton}
 			aria-hidden="true"
 		>
 			{#if isStackRoot}
@@ -148,6 +152,10 @@ const contentText = $derived(event?.content ?? '');
 						className="comment-card-app-pic"
 						onClick={() => {}}
 					/>
+				</div>
+			{:else if rootBadgeSkeleton}
+				<div class="root-badge-skeleton">
+					<SkeletonLoader />
 				</div>
 			{:else}
 				<img src={rootOneliner.emoji} alt="" width="14" height="14" />
@@ -354,6 +362,23 @@ const contentText = $derived(event?.content ?? '');
 		background: transparent;
 		border: none;
 		border-radius: 8px;
+	}
+
+	.emoji-badge--root-skel {
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		overflow: hidden;
+		background: transparent;
+		border: none;
+		border-radius: 8px;
+	}
+
+	.root-badge-skeleton {
+		width: 100%;
+		height: 100%;
+		border-radius: 8px;
+		overflow: hidden;
 	}
 
 	.app-badge-pic-wrap {
