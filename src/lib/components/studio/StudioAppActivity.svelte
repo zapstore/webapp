@@ -202,7 +202,6 @@
 			} catch {
 				continue;
 			}
-			if (!p.senderPubkey) continue;
 			if (p.senderPubkey === devPubkey) continue;
 			rows.push({ event: ev, parsed: p });
 		}

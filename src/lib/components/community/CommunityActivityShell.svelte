@@ -65,7 +65,7 @@
 	let activityForumRootLimit = $state(72);
 	let activityBranchLimit = $state(88);
 	const ACTIVITY_FORUM_ROOT_CAP = 240;
-	const ACTIVITY_BRANCH_CAP = 400;
+	const ACTIVITY_BRANCH_CAP = 600;
 	/** `queryEvents({ ids })` batch size — avoid huge `anyOf` lists. */
 	const ACTIVITY_IDS_CHUNK = 80;
 	/** Batch `authors` + `#d` addr-root lookups (Dexie + relay). */
@@ -466,6 +466,80 @@
 		return !!(addrRaw && aTags.has(addrRaw.toLowerCase()));
 	}
 
+	/** NIP-22 `K` on receipt — same scope as comments (forum / app / stack). */
+	function zapHasActivityNip22K(/** @type {import('nostr-tools').NostrEvent} */ ev) {
+		const k = ev.tags?.find((t) => t[0] === 'K')?.[1];
+		return (
+			k === ACTIVITY_NIP22_K_TAGS[0] ||
+			k === ACTIVITY_NIP22_K_TAGS[1] ||
+			k === ACTIVITY_NIP22_K_TAGS[2]
+		);
+	}
+
+	function mergeZapTagRefsIntoSets(
+		/** @type {import('nostr-tools').NostrEvent} */ ev,
+		/** @type {Set<string>} */ refIds,
+		/** @type {Set<string>} */ aTags
+	) {
+		for (const t of ev.tags ?? []) {
+			const v = t[1];
+			if (!v) continue;
+			const low = String(v).toLowerCase();
+			if (t[0] === 'e' || t[0] === 'E') refIds.add(low);
+			if ((t[0] === 'a' || t[0] === 'A') && isAddressableActivityATag(v)) aTags.add(low);
+		}
+		try {
+			const p = parseZapReceipt(ev);
+			if (p.zappedEventId) refIds.add(String(p.zappedEventId).toLowerCase());
+		} catch {
+			/* skip */
+		}
+	}
+
+	/**
+	 * Strict graph match OR catalog `a`/`A` on the receipt (clients often omit `K` / omit tags on comments in Dexie).
+	 */
+	function eventMatchesActivityZapInclusive(
+		/** @type {import('nostr-tools').NostrEvent} */ ev,
+		/** @type {Set<string>} */ refIds,
+		/** @type {Set<string>} */ aTags
+	) {
+		if (eventMatchesActivityZap(ev, refIds, aTags)) return true;
+		for (const t of ev.tags ?? []) {
+			if ((t[0] === 'a' || t[0] === 'A') && t[1] && isAddressableActivityATag(t[1])) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Forum post ids in Dexie so zaps that target the post (before any comment is stored) still match.
+	 */
+	async function seedForumPostIdsForActivityZaps(/** @type {Set<string>} */ refIds) {
+		const posts = await queryEvents({ kinds: [EVENT_KINDS.FORUM_POST], limit: 400 }).catch(() => []);
+		for (const fp of posts) {
+			if (fp?.id) refIds.add(fp.id.toLowerCase());
+		}
+	}
+
+	/**
+	 * @param {import('nostr-tools').NostrEvent[]} zapRows
+	 * @param {import('nostr-tools').NostrEvent[]} scopedComments
+	 */
+	async function filterZapsForActivityFeed(zapRows, scopedComments) {
+		const { refIds, aTags } = buildActivityZapMatchSets(scopedComments);
+		await seedForumPostIdsForActivityZaps(refIds);
+		for (const z of zapRows) {
+			if (zapHasActivityNip22K(z)) mergeZapTagRefsIntoSets(z, refIds, aTags);
+		}
+		for (let ri = 0; ri < 5; ri++) {
+			const before = refIds.size + aTags.size;
+			const candidates = zapRows.filter((z) => eventMatchesActivityZapInclusive(z, refIds, aTags));
+			for (const z of candidates) mergeZapTagRefsIntoSets(z, refIds, aTags);
+			if (refIds.size + aTags.size === before) break;
+		}
+		return zapRows.filter((z) => eventMatchesActivityZapInclusive(z, refIds, aTags));
+	}
+
 	/** @type {import('nostr-tools').NostrEvent[]} */
 	let activityComments = $state([]);
 	/** @type {import('nostr-tools').NostrEvent[]} */
@@ -497,7 +571,7 @@
 		return m;
 	});
 
-	/** Zap receipts for the feed (amount-only included). Requires a zapper pubkey from description or `P` tag. */
+	/** Zap receipts merged into the feed by `created_at` (sender optional — some receipts omit zap request in `description`). */
 	const activityZapsForFeed = $derived.by(() => {
 		const rows = [];
 		for (const ev of activityZapEvents) {
@@ -507,7 +581,6 @@
 			} catch {
 				continue;
 			}
-			if (!p.senderPubkey) continue;
 			rows.push({ event: ev, parsed: p });
 		}
 		return rows.sort((a, b) => b.event.created_at - a.event.created_at);
@@ -586,6 +659,10 @@
 	let activityReady = $state(false);
 	let activityLoading = $state(false);
 	let activityError = $state('');
+	/** Footer target for intersection-based “load more” (throttled). */
+	let activityLoadSentinel = $state(/** @type {HTMLElement | null} */ (null));
+	let activityScrollLoadLastAt = 0;
+	const ACTIVITY_SCROLL_LOAD_GAP_MS = 1400;
 
 	const activityAddrRelayAttempted = new Set();
 	let activityAddrRelayInFlight = false;
@@ -616,11 +693,11 @@
 	// Subscribe in $effect (not $derived.by): Svelte 5 + liveQuery Observable must not be recreated opaquely; `filter` tolerates kind stored as string.
 	$effect(() => {
 		if (!browser || !activityReady) return;
-		const branchLimitSnap = activityBranchLimit;
-		const commentLimit = Math.min(ACTIVITY_BRANCH_CAP, Math.max(branchLimitSnap, 240));
+		const combinedLimit = Math.max(activityBranchLimit, activityForumRootLimit);
+		const commentLimit = Math.min(ACTIVITY_BRANCH_CAP, Math.max(combinedLimit, 240));
 		const zapLimit = Math.min(
 			ACTIVITY_BRANCH_CAP,
-			Math.max(Math.round(branchLimitSnap * 1.5), 400)
+			Math.max(Math.round(combinedLimit * 1.5), 400)
 		);
 
 		const obs = liveQuery(async () => {
@@ -630,8 +707,7 @@
 			]);
 			const scopedComments = commentRows.filter(eventMatchesActivityNip22KComment);
 			scopedComments.sort((a, b) => b.created_at - a.created_at);
-			const { refIds: zapRefIds, aTags: zapATags } = buildActivityZapMatchSets(scopedComments);
-			const scopedZaps = zapRows.filter((z) => eventMatchesActivityZap(z, zapRefIds, zapATags));
+			const scopedZaps = await filterZapsForActivityFeed(zapRows, scopedComments);
 			scopedZaps.sort((a, b) => b.created_at - a.created_at);
 			const commentList = scopedComments.slice(0, commentLimit);
 			const zapList = scopedZaps.slice(0, zapLimit);
@@ -714,6 +790,28 @@
 	});
 
 	$effect(() => {
+		if (!browser || !activityReady || !activityRouteActive) return;
+		if (!activityLikelyHasMore) return;
+		const el = activityLoadSentinel;
+		if (!el) return;
+
+		const obs = new IntersectionObserver(
+			(entries) => {
+				for (const ent of entries) {
+					if (!ent.isIntersecting) continue;
+					const now = Date.now();
+					if (now - activityScrollLoadLastAt < ACTIVITY_SCROLL_LOAD_GAP_MS) continue;
+					activityScrollLoadLastAt = now;
+					loadMoreActivity();
+				}
+			},
+			{ root: null, rootMargin: '240px', threshold: 0 }
+		);
+		obs.observe(el);
+		return () => obs.disconnect();
+	});
+
+	$effect(() => {
 		for (const ev of activityComments) {
 			const parentTag = ev.tags?.find((t) => t[0] === 'e' && t[1]);
 			const pid = parentTag?.[1];
@@ -783,6 +881,71 @@
 		}, 200);
 	}
 
+	/**
+	 * The global kind-9735 bucket (newest N on the relay) often excludes Zapstore-scoped receipts.
+	 * After comments exist in Dexie, fetch zaps by `#e`/`#E` and `#a`/`#A` for those threads so the feed matches the relay.
+	 */
+	async function backfillActivityZapsScoped() {
+		if (!browser || !isOnline()) return;
+		const scanCap = Math.min(900, Math.max(240, activityBranchLimit, activityForumRootLimit));
+		const sinceSec = activityRelaySince();
+		const relays = COMMENT_AND_ZAP_READ_RELAYS;
+
+		const commentRows = await queryEvents({ kinds: [EVENT_KINDS.COMMENT], limit: Math.max(scanCap * 2, 400) }).catch(
+			() => []
+		);
+		const scoped = commentRows.filter(eventMatchesActivityNip22KComment);
+		scoped.sort((a, b) => b.created_at - a.created_at);
+		const slice = scoped.slice(0, scanCap);
+
+		/** @type {Set<string>} */
+		const eventIds = new Set();
+		/** @type {Map<string, string>} */
+		const aTagByLower = new Map();
+		for (const c of slice) {
+			if (c?.id) eventIds.add(c.id.toLowerCase());
+			for (const t of c.tags ?? []) {
+				const v = t[1];
+				if (!v) continue;
+				if (t[0] === 'e' || t[0] === 'E') eventIds.add(String(v).toLowerCase());
+				if ((t[0] === 'a' || t[0] === 'A') && isAddressableActivityATag(v)) {
+					const low = String(v).toLowerCase();
+					if (!aTagByLower.has(low)) aTagByLower.set(low, v);
+				}
+			}
+		}
+		const posts = await queryEvents({ kinds: [EVENT_KINDS.FORUM_POST], limit: 400 }).catch(() => []);
+		for (const fp of posts) {
+			if (fp?.id) eventIds.add(fp.id.toLowerCase());
+		}
+
+		const idList = [...eventIds].filter((id) => /^[a-f0-9]{64}$/.test(id));
+		if (idList.length > 0) {
+			await fetchKind9735MatchingRefs(relays, { eventIds: idList }, {
+				since: sinceSec,
+				limit: 500,
+				timeout: 14_000,
+				feature: 'activity-zap-backfill-e'
+			}).catch(() => []);
+		}
+
+		const aList = [...aTagByLower.values()].slice(0, 72);
+		const chunkSize = 6;
+		for (let i = 0; i < aList.length; i += chunkSize) {
+			const chunk = aList.slice(i, i + chunkSize);
+			await Promise.all(
+				chunk.map((aTag) =>
+					fetchKind9735MatchingRefs(relays, { aTag }, {
+						since: sinceSec,
+						limit: 350,
+						timeout: 10_000,
+						feature: 'activity-zap-backfill-a'
+					}).catch(() => [])
+				)
+			);
+		}
+	}
+
 	async function seedActivityFromRelay() {
 		if (!browser) return;
 		activityLoading = true;
@@ -818,6 +981,7 @@
 		} finally {
 			activityLoading = false;
 		}
+		void backfillActivityZapsScoped().catch((err) => console.error('[Activity] zap backfill failed', err));
 	}
 
 	/** @param {import('nostr-tools').NostrEvent | null} ev */
@@ -1766,7 +1930,7 @@
 				{/if}
 			{/each}
 			{#if activityLikelyHasMore}
-				<div class="activity-load-footer">
+				<div class="activity-load-footer" bind:this={activityLoadSentinel}>
 					<button type="button" class="activity-load-more-btn" onclick={loadMoreActivity}>
 						Load more activity
 					</button>

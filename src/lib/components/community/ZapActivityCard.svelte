@@ -73,7 +73,7 @@
 	const displayName = $derived(
 		authorProfile?.name?.trim() ||
 			authorProfile?.displayName?.trim() ||
-			(zapperPubkey ? formatNpub(zapperPubkey) : '')
+			(zapperPubkey ? formatNpub(zapperPubkey) : 'Anonymous')
 	);
 
 	const parentDisplayName = $derived(
