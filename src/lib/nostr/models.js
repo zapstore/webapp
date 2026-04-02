@@ -152,7 +152,7 @@ export function parseForumPost(event) {
 }
 
 /**
- * Stack list title — same rules as AppStackCard `displayTitle` (capitalize name, else first words of description).
+ * Stack list title — capitalize name, else first words of description (AppStackCard, listings).
  * @param {{ title?: string | null, description?: string | null }} stack
  * @returns {string}
  */
@@ -170,6 +170,23 @@ export function stackDisplayTitle(stack) {
 		return words.length > count ? result + '…' : result;
 	};
 	return cap(name) || cap(getFirstWords(description, 5)) || 'Untitled Stack';
+}
+
+/**
+ * Stack card / detail subtitle: real description, or fallback when missing or redundant vs title.
+ * Matches `/stacks/[naddr]` header copy.
+ *
+ * @param {{ title?: string | null, description?: string | null }} stack
+ * @param {string} displayTitle - from {@link stackDisplayTitle}
+ * @returns {string}
+ */
+export function stackDisplayDescription(stack, displayTitle) {
+	const title = (stack?.title ?? '').trim();
+	const desc = (stack?.description ?? '').trim();
+	if (!title || !desc || title.toLowerCase() === desc.toLowerCase()) {
+		return `A stack of curated ${displayTitle} applications`;
+	}
+	return desc;
 }
 
 /**

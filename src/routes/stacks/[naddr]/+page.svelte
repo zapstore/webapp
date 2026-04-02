@@ -14,6 +14,7 @@ import SeoHead from "$lib/components/layout/SeoHead.svelte";
 import { browser } from "$app/environment";
 import { beforeNavigate, goto } from "$app/navigation";
 import { fetchProfilesBatch, queryEvent, queryEvents, putEvents, queryCommentsFromStore, fetchComments, fetchLabelsForAddressable, groupLabelEventsToEntries, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, } from "$lib/nostr";
+import { stackDisplayDescription, stackDisplayTitle } from "$lib/nostr/models.js";
 import { fetchFromRelays } from "$lib/nostr/service";
 import { ZAPSTORE_RELAY, EVENT_KINDS, PLATFORM_FILTER, SITE_ICON } from "$lib/config";
 import { isOnline } from "$lib/stores/online.svelte.js";
@@ -501,35 +502,15 @@ $effect(() => {
     });
     return () => cancelAnimationFrame(id);
 });
-// Helper to capitalize a string (first letter uppercase)
-function capitalize(text) {
-    if (!text)
-        return "";
-    return text.charAt(0).toUpperCase() + text.slice(1);
-}
-// Helper to get first N words from a string
-function getFirstWords(text, count = 5) {
-    if (!text)
-        return "";
-    const words = text.trim().split(/\s+/);
-    const result = words.slice(0, count).join(" ");
-    return words.length > count ? result + "…" : result;
-}
-// Check if description is essentially the same as the name (case-insensitive)
-function isDescriptionSameAsName(name, description) {
-    if (!name || !description)
-        return false;
-    return name.toLowerCase().trim() === description.toLowerCase().trim();
-}
-// Computed display values for stack
-const displayTitle = $derived(capitalize(stack?.title) ||
-    capitalize(getFirstWords(stack?.description, 5)) ||
-    "Untitled Stack");
-const displayDescription = $derived(!stack?.title ||
-    !stack?.description ||
-    isDescriptionSameAsName(stack?.title, stack?.description)
-    ? `A stack of curated ${displayTitle} applications`
-    : stack?.description);
+// Computed display values for stack (same rules as AppStackCard)
+const displayTitle = $derived(
+    stack ? stackDisplayTitle({ title: stack.title, description: stack.description }) : ""
+);
+const displayDescription = $derived(
+    stack
+        ? stackDisplayDescription({ title: stack.title, description: stack.description }, displayTitle)
+        : ""
+);
 </script>
 
 <SeoHead

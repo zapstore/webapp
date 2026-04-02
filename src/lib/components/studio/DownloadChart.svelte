@@ -312,16 +312,39 @@
 	// Clamped x for the date pill — avoids overflowing container edges
 	const datePillX = $derived(hover !== null ? Math.max(36, Math.min(W - 36, hover.x)) : null);
 
-	function handleMouseMove(event) {
+	function updateHoverFromPointerEvent(/** @type {PointerEvent} */ event) {
 		if (loading) return;
-		const rect = event.currentTarget.getBoundingClientRect();
-		const mouseX = event.clientX - rect.left;
+		const el = /** @type {SVGSVGElement} */ (event.currentTarget);
+		const rect = el.getBoundingClientRect();
+		const x = event.clientX - rect.left;
 		const cW = W - RIGHT_ZONE;
-		hoverIndex = Math.max(0, Math.min(DAYS - 1, Math.round((mouseX / cW) * xDenom)));
+		hoverIndex = Math.max(0, Math.min(DAYS - 1, Math.round((x / cW) * xDenom)));
 	}
 
-	function handleMouseLeave() {
-		hoverIndex = null;
+	/** Mouse: leave chart → clear. Touch/pen: scrub line stays at last position after lift. */
+	function handlePointerLeave(/** @type {PointerEvent} */ event) {
+		if (event.pointerType === 'mouse') hoverIndex = null;
+	}
+
+	function handlePointerDown(/** @type {PointerEvent} */ event) {
+		if (loading) return;
+		if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+			try {
+				event.currentTarget.setPointerCapture(event.pointerId);
+			} catch {
+				/* ignore */
+			}
+		}
+		updateHoverFromPointerEvent(event);
+	}
+
+	function handlePointerUpOrCancel(/** @type {PointerEvent} */ event) {
+		if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+		try {
+			event.currentTarget.releasePointerCapture(event.pointerId);
+		} catch {
+			/* ignore */
+		}
 	}
 
 	function badgeRectX(x, left) {
@@ -349,8 +372,11 @@
 				xmlns="http://www.w3.org/2000/svg"
 				aria-hidden="true"
 				overflow="visible"
-				onmousemove={handleMouseMove}
-				onmouseleave={handleMouseLeave}
+				onpointerdown={handlePointerDown}
+				onpointermove={(e) => updateHoverFromPointerEvent(e)}
+				onpointerleave={handlePointerLeave}
+				onpointerup={handlePointerUpOrCancel}
+				onpointercancel={handlePointerUpOrCancel}
 			>
 		<defs>
 			<linearGradient
@@ -686,6 +712,8 @@
 		mask-image: linear-gradient(to right, transparent 0px, black 12px);
 		-webkit-mask-image: linear-gradient(to right, transparent 0px, black 12px);
 		cursor: crosshair;
+		/* Touch scrub: capture moves + avoid page scroll while dragging on the chart */
+		touch-action: none;
 	}
 
 	.chart-svg.chart-svg--loading {

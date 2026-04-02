@@ -354,7 +354,7 @@ const contentText = $derived(event?.content ?? '');
 	.emoji-badge {
 		width: 28px;
 		height: 28px;
-		border-radius: 10px;
+		border-radius: 6px;
 		background: hsl(var(--white8));
 		display: flex;
 		align-items: center;
@@ -372,13 +372,13 @@ const contentText = $derived(event?.content ?? '');
 		overflow: hidden;
 		background: transparent;
 		border: none;
-		border-radius: 10px;
+		border-radius: 6px;
 	}
 
 	.root-badge-skeleton {
 		width: 100%;
 		height: 100%;
-		border-radius: 10px;
+		border-radius: 6px;
 		overflow: hidden;
 	}
 
@@ -386,9 +386,16 @@ const contentText = $derived(event?.content ?? '');
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		width: 28px;
+		height: 28px;
+		min-width: 0;
+		min-height: 0;
+		flex-shrink: 0;
 		pointer-events: none;
-		border-radius: 10px;
+		border-radius: 6px;
 		overflow: hidden;
+		isolation: isolate;
+		contain: strict;
 	}
 
 	.app-badge-pic-wrap :global(.comment-card-app-pic) {
@@ -520,7 +527,7 @@ const contentText = $derived(event?.content ?? '');
 		max-width: 100%;
 		min-width: 200px;
 		background-color: hsl(var(--gray66));
-		border-radius: 16px 16px 16px 4px;
+		border-radius: 12px 12px 12px 3px;
 		padding: 8px 12px;
 	}
 

@@ -1,7 +1,7 @@
 <script>
 	import { goto } from '$app/navigation';
 	import { nip19 } from 'nostr-tools';
-	import { stackDisplayTitle } from '$lib/nostr/models.js';
+	import { stackDisplayDescription, stackDisplayTitle } from '$lib/nostr/models.js';
 	import AppPic from '../common/AppPic.svelte';
 	import ProfilePic from '../common/ProfilePic.svelte';
 
@@ -50,20 +50,13 @@
 	// Pad with empty slots if less than 4 apps
 	$: gridApps = [...displayApps, ...Array(4 - displayApps.length).fill(null)];
 
-	// Check if description is essentially the same as the name (case-insensitive)
-	/** @param {string | undefined | null} name @param {string | undefined | null} description */
-	function isDescriptionSameAsName(name, description) {
-		if (!name || !description) return false;
-		return name.toLowerCase().trim() === description.toLowerCase().trim();
-	}
-
 	$: displayTitle = stackDisplayTitle({ title: stack.name, description: stack.description });
 
-	// Display description: show the real description, or nothing if it matches the name or is absent
-	$: displayDescription =
-		stack.description && !isDescriptionSameAsName(stack.name, stack.description)
-			? stack.description
-			: '';
+	// Same fallback as stack detail: curated blurb when description is missing or duplicates title
+	$: displayDescription = stackDisplayDescription(
+		{ title: stack.name, description: stack.description },
+		displayTitle
+	);
 
 	function handleCardClick() {
 		if (href) {
@@ -120,9 +113,7 @@
 	<div class="stack-info">
 		<div class="stack-text">
 			<span class="stack-name">{displayTitle}</span>
-			{#if displayDescription}
-				<span class="stack-description">{displayDescription}</span>
-			{/if}
+			<span class="stack-description">{displayDescription}</span>
 		</div>
 
 		<!-- Creator Row -->

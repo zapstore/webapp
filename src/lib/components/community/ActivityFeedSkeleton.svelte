@@ -82,11 +82,11 @@
 		width: 36px;
 	}
 
-	/* Matches CommentCard / ZapActivityCard `.emoji-badge` (28×28, 10px radius) */
+	/* Matches CommentCard / ZapActivityCard `.emoji-badge` (28×28, 6px radius); stack mini uses 9+2+9 grid */
 	.sk-badge {
 		width: 28px;
 		height: 28px;
-		border-radius: 10px;
+		border-radius: 6px;
 		overflow: hidden;
 		flex-shrink: 0;
 	}
@@ -139,7 +139,7 @@
 	.sk-bubble {
 		max-width: 100%;
 		width: fit-content;
-		border-radius: 16px 16px 16px 4px;
+		border-radius: 12px 12px 12px 3px;
 		overflow: hidden;
 		flex-shrink: 0;
 		opacity: 0.33;

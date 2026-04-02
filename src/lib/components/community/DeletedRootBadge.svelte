@@ -1,7 +1,7 @@
 <script lang="js">
 	/**
 	 * Rounded square + Cross for activity / thread roots that never resolved (likely deleted).
-	 * Tile matches CommentCard `.emoji-badge`: 28×28, 10px radius.
+	 * Tile matches CommentCard `.emoji-badge`: 28×28, 6px radius.
 	 * `embedded` — parent `.emoji-badge` provides the tile; no second box/bg.
 	 */
 	import Cross from '$lib/components/icons/Cross.svelte';
@@ -29,7 +29,7 @@
 	.activity-deleted-root-badge:not(.activity-deleted-root-badge--embedded) {
 		width: 28px;
 		height: 28px;
-		border-radius: 10px;
+		border-radius: 6px;
 		background: hsl(var(--white8));
 	}
 

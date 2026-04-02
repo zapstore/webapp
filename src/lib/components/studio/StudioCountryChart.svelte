@@ -116,15 +116,10 @@
 
 	.country-row {
 		display: grid;
-		grid-template-columns: minmax(88px, 26%) 1fr;
-		gap: 10px 14px;
-		align-items: start;
-	}
-
-	@media (max-width: 480px) {
-		.country-row {
-			grid-template-columns: 1fr;
-		}
+		/* Cap label width on narrow screens so flag + truncated name stay one row with bars */
+		grid-template-columns: clamp(56px, 26%, 118px) minmax(0, 1fr);
+		gap: 8px 10px;
+		align-items: center;
 	}
 
 	.country-name {
@@ -217,8 +212,8 @@
 
 	.country-skel-row {
 		display: grid;
-		grid-template-columns: minmax(88px, 26%) 1fr;
-		gap: 10px 14px;
+		grid-template-columns: clamp(56px, 26%, 118px) minmax(0, 1fr);
+		gap: 8px 10px;
 		align-items: center;
 	}
 

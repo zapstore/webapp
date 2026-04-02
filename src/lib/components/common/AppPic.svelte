@@ -59,6 +59,8 @@
 	// Border radius based on size (matching Flutter logic)
 	/** @param {number} sizeInPx */
 	function getBorderRadius(sizeInPx) {
+		// Activity / inbox badges use a 6px-rounded shell (CommentCard, ZapActivityCard); match it so corners don’t leak past the clip.
+		if (sizeInPx === 28) return 6;
 		if (sizeInPx >= 120) return 32;
 		if (sizeInPx >= 72) return 24;
 		if (sizeInPx >= 48) return 16;

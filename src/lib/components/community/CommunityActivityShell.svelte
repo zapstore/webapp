@@ -1,8 +1,11 @@
 <script lang="js">
 	/**
-	 * Activity: local-first from Dexie. Seed: kind 1111 + NIP-22 `#K`; kind 9735 bucket. Feed zaps are
-	 * filtered to the same scope as comments (K tag, zapped id in comment graph, or `a`/`A` on an app/stack
-	 * that appears on those comments) — not the newest N zaps globally in Dexie, which pushed real zaps out.
+	 * Activity: local-first from Dexie. Relay `since` is unified: {@link activityRelaySince} →
+	 * `commentZapRelayReadSince()` for bulk 1111/9735 seed and for {@link backfillActivityThreadsScoped}
+	 * (comments + zaps by thread refs, not zaps-only).
+	 * Zaps are filtered to the same scope as NIP-22 comments, then merged with comments into **one**
+	 * newest-first timeline; a single visible row limit preserves true chronological order (no separate
+	 * comment vs zap slice). Scroll sentinel extends the window; no “load more” button.
 	 */
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
@@ -11,6 +14,7 @@
 		db,
 		fetchFromRelays,
 		fetchKind1111ByTagRef,
+		fetchKind1111ReferencingEventIds,
 		fetchKind9735MatchingRefs,
 		fetchProfilesBatch,
 		putEvents,
@@ -61,11 +65,9 @@
 			$page.url.pathname.startsWith('/community/activity/')
 	);
 
-	/** Forum roots + comment/zap branches — grow with Load more (Dexie liveQuery). */
-	let activityForumRootLimit = $state(72);
-	let activityBranchLimit = $state(88);
-	const ACTIVITY_FORUM_ROOT_CAP = 240;
-	const ACTIVITY_BRANCH_CAP = 600;
+	/** Single cap for merged comment+zap timeline rows (scroll loads more; same window for relay backfill scan). */
+	let activityFeedVisibleLimit = $state(400);
+	const ACTIVITY_FEED_VISIBLE_MAX = 2500;
 	/** `queryEvents({ ids })` batch size — avoid huge `anyOf` lists. */
 	const ACTIVITY_IDS_CHUNK = 80;
 	/** Batch `authors` + `#d` addr-root lookups (Dexie + relay). */
@@ -540,10 +542,15 @@
 		return zapRows.filter((z) => eventMatchesActivityZapInclusive(z, refIds, aTags));
 	}
 
+	/** Full NIP-22 scoped threads in Dexie (maps, modals, parent resolution). */
 	/** @type {import('nostr-tools').NostrEvent[]} */
-	let activityComments = $state([]);
+	let activityThreadComments = $state([]);
 	/** @type {import('nostr-tools').NostrEvent[]} */
-	let activityZapEvents = $state([]);
+	let activityThreadZaps = $state([]);
+	/** Merged newest-first slice for the list only — one timeline, one slice. */
+	/** @type {Array<{ kind: 'comment', ts: number, ev: import('nostr-tools').NostrEvent } | { kind: 'zap', ts: number, row: { event: import('nostr-tools').NostrEvent, parsed: ReturnType<typeof parseZapReceipt> } }>} */
+	let activityFeedItems = $state([]);
+	let activityHasMoreTimeline = $state(false);
 	/** @type {Map<string, import('nostr-tools').NostrEvent>} forum post id or other roots keyed by hex id */
 	let activityRootEvents = $state(new Map());
 	/** @type {Map<string, import('nostr-tools').NostrEvent>} NIP-33 `a` tag -> kind 32267 / 30267 event */
@@ -555,7 +562,7 @@
 
 	const activityCommentMap = $derived.by(() => {
 		const m = new Map();
-		for (const ev of activityComments) {
+		for (const ev of activityThreadComments) {
 			m.set(ev.id, ev);
 			m.set(ev.id.toLowerCase(), ev);
 		}
@@ -564,17 +571,17 @@
 
 	const activityZapMap = $derived.by(() => {
 		const m = new Map();
-		for (const ev of activityZapEvents) {
+		for (const ev of activityThreadZaps) {
 			m.set(ev.id, ev);
 			m.set(ev.id.toLowerCase(), ev);
 		}
 		return m;
 	});
 
-	/** Zap receipts merged into the feed by `created_at` (sender optional — some receipts omit zap request in `description`). */
+	/** Parsed thread zaps (full scoped set) for deleted-root logic and sorting helpers. */
 	const activityZapsForFeed = $derived.by(() => {
 		const rows = [];
-		for (const ev of activityZapEvents) {
+		for (const ev of activityThreadZaps) {
 			let p;
 			try {
 				p = parseZapReceipt(ev);
@@ -588,15 +595,15 @@
 
 	$effect(() => {
 		if (!browser || !activityReady) return;
-		void activityComments;
-		void activityZapEvents;
+		void activityThreadComments;
+		void activityThreadZaps;
 		void activityRootEvents;
 		void activityAddrRootEvents;
 		void activityZapsForFeed;
 		void activityCommentMap;
 		const roots = activityRootEvents;
 		const addrRoots = activityAddrRootEvents;
-		const comments = activityComments;
+		const comments = activityThreadComments;
 		const zapsForFeed = activityZapsForFeed;
 		const commentMap = activityCommentMap;
 		let lastDeletedSig = '';
@@ -616,23 +623,15 @@
 		return () => clearInterval(id);
 	});
 
-	const inboxFeedItems = $derived.by(() => {
-		const items = [];
-		for (const ev of activityComments) items.push({ kind: 'comment', ts: ev.created_at, ev });
-		for (const row of activityZapsForFeed)
-			items.push({ kind: 'zap', ts: row.event.created_at, row });
-		return items.sort((a, b) => b.ts - a.ts);
-	});
-
 	const activityLikelyHasMore = $derived(
-		inboxFeedItems.length > 0 &&
-			(activityForumRootLimit < ACTIVITY_FORUM_ROOT_CAP ||
-				activityBranchLimit < ACTIVITY_BRANCH_CAP)
+		activityFeedItems.length > 0 && activityHasMoreTimeline && activityFeedVisibleLimit < ACTIVITY_FEED_VISIBLE_MAX
 	);
 
 	function loadMoreActivity() {
-		activityForumRootLimit = Math.min(ACTIVITY_FORUM_ROOT_CAP, activityForumRootLimit + 56);
-		activityBranchLimit = Math.min(ACTIVITY_BRANCH_CAP, activityBranchLimit + 80);
+		activityFeedVisibleLimit = Math.min(
+			ACTIVITY_FEED_VISIBLE_MAX,
+			activityFeedVisibleLimit + 160
+		);
 		void seedActivityFromRelay();
 	}
 
@@ -659,6 +658,8 @@
 	let activityReady = $state(false);
 	let activityLoading = $state(false);
 	let activityError = $state('');
+	/** First Dexie `liveQuery` emission — avoids “No Activity yet” between seed finishing and reactive query. */
+	let activityFeedQuerySettled = $state(false);
 	/** Footer target for intersection-based “load more” (throttled). */
 	let activityLoadSentinel = $state(/** @type {HTMLElement | null} */ (null));
 	let activityScrollLoadLastAt = 0;
@@ -670,7 +671,7 @@
 	$effect(() => {
 		if (!browser || !activityReady || !isOnline()) return;
 		const missing = [];
-		for (const c of activityComments) {
+		for (const c of activityThreadComments) {
 			const raw = addrTagFromComment(c);
 			if (!isAddressableActivityATag(raw)) continue;
 			if (activityAddrRootEvents.has(raw)) continue;
@@ -693,12 +694,7 @@
 	// Subscribe in $effect (not $derived.by): Svelte 5 + liveQuery Observable must not be recreated opaquely; `filter` tolerates kind stored as string.
 	$effect(() => {
 		if (!browser || !activityReady) return;
-		const combinedLimit = Math.max(activityBranchLimit, activityForumRootLimit);
-		const commentLimit = Math.min(ACTIVITY_BRANCH_CAP, Math.max(combinedLimit, 240));
-		const zapLimit = Math.min(
-			ACTIVITY_BRANCH_CAP,
-			Math.max(Math.round(combinedLimit * 1.5), 400)
-		);
+		const visibleLimitSnap = Math.min(ACTIVITY_FEED_VISIBLE_MAX, activityFeedVisibleLimit);
 
 		const obs = liveQuery(async () => {
 			const [commentRows, zapRows] = await Promise.all([
@@ -709,14 +705,41 @@
 			scopedComments.sort((a, b) => b.created_at - a.created_at);
 			const scopedZaps = await filterZapsForActivityFeed(zapRows, scopedComments);
 			scopedZaps.sort((a, b) => b.created_at - a.created_at);
-			const commentList = scopedComments.slice(0, commentLimit);
-			const zapList = scopedZaps.slice(0, zapLimit);
+
+			/** @type {Array<{ kind: 'comment', ts: number, ev: import('nostr-tools').NostrEvent } | { kind: 'zap', ts: number, row: { event: import('nostr-tools').NostrEvent, parsed: ReturnType<typeof parseZapReceipt> } }>} */
+			const merged = [];
+			for (const ev of scopedComments) {
+				merged.push({ kind: 'comment', ts: ev.created_at, ev });
+			}
+			for (const ev of scopedZaps) {
+				try {
+					const parsed = parseZapReceipt(ev);
+					merged.push({ kind: 'zap', ts: ev.created_at, row: { event: ev, parsed } });
+				} catch {
+					/* skip malformed */
+				}
+			}
+			merged.sort((a, b) => b.ts - a.ts);
+
+			const feedLimit = Math.min(ACTIVITY_FEED_VISIBLE_MAX, visibleLimitSnap);
+			const hasMoreTimeline = merged.length > feedLimit;
+			const feedItems = merged.slice(0, feedLimit);
+
+			const commentsInFeed = [];
+			const zapsInFeed = [];
+			for (const it of feedItems) {
+				if (it.kind === 'comment') commentsInFeed.push(it.ev);
+				else zapsInFeed.push(it.row.event);
+			}
+
 			const addrRootByATag = new Map();
-			await batchResolveAddrRootsFromDexie(commentList, addrRootByATag);
-			const forumRootById = await batchResolveForumRootsByIdFromDexie(commentList, zapList);
+			await batchResolveAddrRootsFromDexie(commentsInFeed, addrRootByATag);
+			const forumRootById = await batchResolveForumRootsByIdFromDexie(commentsInFeed, zapsInFeed);
 			return {
-				comments: commentList,
-				zaps: zapList,
+				feedItems,
+				threadComments: scopedComments,
+				threadZaps: scopedZaps,
+				hasMoreTimeline,
 				addrRootByATag,
 				forumRootById
 			};
@@ -724,10 +747,15 @@
 
 		const sub = obs.subscribe({
 			next: (val) => {
-				const comments = val?.comments ?? [];
-				const zaps = val?.zaps ?? [];
-				activityComments = comments;
-				activityZapEvents = zaps;
+				activityFeedQuerySettled = true;
+				const feedItems = val?.feedItems ?? [];
+				const threadComments = val?.threadComments ?? [];
+				const threadZaps = val?.threadZaps ?? [];
+				activityFeedItems = feedItems;
+				activityThreadComments = threadComments;
+				activityThreadZaps = threadZaps;
+				activityHasMoreTimeline = !!val?.hasMoreTimeline;
+
 				const rootsFromQuery = val?.addrRootByATag;
 				if (rootsFromQuery instanceof Map) {
 					activityAddrRootEvents = new Map([...activityAddrRootEvents, ...rootsFromQuery]);
@@ -736,30 +764,35 @@
 				if (forumPatch instanceof Map) {
 					activityRootEvents = new Map([...activityRootEvents, ...forumPatch]);
 				}
-				const commentById = new Map();
-				for (const c of comments) {
-					commentById.set(c.id, c);
-					commentById.set(c.id.toLowerCase(), c);
+				const threadCommentById = new Map();
+				for (const c of threadComments) {
+					threadCommentById.set(c.id, c);
+					threadCommentById.set(c.id.toLowerCase(), c);
 				}
-				for (const ev of comments) {
+				for (const it of feedItems) {
+					if (it.kind !== 'comment') continue;
+					const ev = it.ev;
 					resolveActivityRootEvent(ev);
 					scheduleActivityProfileFetch(ev.pubkey);
 					const parentTag = ev.tags?.find((t) => t[0] === 'e' && t[1]);
 					if (parentTag?.[1]) {
 						const parent =
-							commentById.get(parentTag[1]) ?? commentById.get(parentTag[1].toLowerCase());
+							threadCommentById.get(parentTag[1]) ??
+							threadCommentById.get(parentTag[1].toLowerCase());
 						if (parent?.pubkey) scheduleActivityProfileFetch(parent.pubkey);
 					}
 				}
-				for (const zEv of zaps) {
+				for (const it of feedItems) {
+					if (it.kind !== 'zap') continue;
+					const zEv = it.row.event;
 					try {
 						const zp = parseZapReceipt(zEv);
 						if (zp.senderPubkey) scheduleActivityProfileFetch(zp.senderPubkey);
 						const zapped = zp.zappedEventId;
 						if (
 							zapped &&
-							!commentById.get(zapped) &&
-							!commentById.get(zapped.toLowerCase()) &&
+							!threadCommentById.get(zapped) &&
+							!threadCommentById.get(zapped.toLowerCase()) &&
 							!activityRootEvents.get(zapped)
 						) {
 							void queryEvent({ ids: [zapped] }).then((ev) => {
@@ -783,6 +816,7 @@
 			},
 			error: (e) => {
 				console.error('[Activity] liveQuery error', e);
+				activityFeedQuerySettled = true;
 				activityError = 'Failed to load activity.';
 			}
 		});
@@ -812,7 +846,7 @@
 	});
 
 	$effect(() => {
-		for (const ev of activityComments) {
+		for (const ev of activityThreadComments) {
 			const parentTag = ev.tags?.find((t) => t[0] === 'e' && t[1]);
 			const pid = parentTag?.[1];
 			if (!pid) continue;
@@ -881,28 +915,31 @@
 		}, 200);
 	}
 
+	const ACTIVITY_BACKFILL_REF_COMMENT_CAP = 2000;
+	const ACTIVITY_BACKFILL_FORUM_ID_BATCH = 40;
+
 	/**
-	 * The global kind-9735 bucket (newest N on the relay) often excludes Zapstore-scoped receipts.
-	 * After comments exist in Dexie, fetch zaps by `#e`/`#E` and `#a`/`#A` for those threads so the feed matches the relay.
+	 * Zaps were ref-scoped from the relay; comments were only the global K-bucket — older threads had zaps
+	 * but almost no 1111 in Dexie. Mirror zaps: pull 1111 by `#e`/`#E` (forum, batched) and `#a`/`#A` (app/stack).
 	 */
-	async function backfillActivityZapsScoped() {
+	async function backfillActivityThreadsScoped() {
 		if (!browser || !isOnline()) return;
-		const scanCap = Math.min(900, Math.max(240, activityBranchLimit, activityForumRootLimit));
 		const sinceSec = activityRelaySince();
 		const relays = COMMENT_AND_ZAP_READ_RELAYS;
 
-		const commentRows = await queryEvents({ kinds: [EVENT_KINDS.COMMENT], limit: Math.max(scanCap * 2, 400) }).catch(
-			() => []
-		);
+		const commentRows = await queryEvents({
+			kinds: [EVENT_KINDS.COMMENT],
+			limit: Math.max(ACTIVITY_BACKFILL_REF_COMMENT_CAP, 600)
+		}).catch(() => []);
 		const scoped = commentRows.filter(eventMatchesActivityNip22KComment);
 		scoped.sort((a, b) => b.created_at - a.created_at);
-		const slice = scoped.slice(0, scanCap);
+		const forRefs = scoped.slice(0, ACTIVITY_BACKFILL_REF_COMMENT_CAP);
 
 		/** @type {Set<string>} */
 		const eventIds = new Set();
 		/** @type {Map<string, string>} */
 		const aTagByLower = new Map();
-		for (const c of slice) {
+		for (const c of forRefs) {
 			if (c?.id) eventIds.add(c.id.toLowerCase());
 			for (const t of c.tags ?? []) {
 				const v = t[1];
@@ -920,6 +957,32 @@
 		}
 
 		const idList = [...eventIds].filter((id) => /^[a-f0-9]{64}$/.test(id));
+		const aList = [...aTagByLower.values()].slice(0, 96);
+
+		for (let i = 0; i < idList.length; i += ACTIVITY_BACKFILL_FORUM_ID_BATCH) {
+			const chunk = idList.slice(i, i + ACTIVITY_BACKFILL_FORUM_ID_BATCH);
+			await fetchKind1111ReferencingEventIds(relays, chunk, {
+				since: sinceSec,
+				limit: 500,
+				timeout: 12_000,
+				feature: 'activity-comment-backfill-e'
+			}).catch(() => []);
+		}
+
+		const aChunk = 6;
+		for (let i = 0; i < aList.length; i += aChunk) {
+			await Promise.all(
+				aList.slice(i, i + aChunk).map((aTag) =>
+					fetchKind1111ByTagRef(relays, 'a', aTag, {
+						since: sinceSec,
+						limit: 450,
+						timeout: 10_000,
+						feature: 'activity-comment-backfill-a'
+					}).catch(() => [])
+				)
+			);
+		}
+
 		if (idList.length > 0) {
 			await fetchKind9735MatchingRefs(relays, { eventIds: idList }, {
 				since: sinceSec,
@@ -929,12 +992,9 @@
 			}).catch(() => []);
 		}
 
-		const aList = [...aTagByLower.values()].slice(0, 72);
-		const chunkSize = 6;
-		for (let i = 0; i < aList.length; i += chunkSize) {
-			const chunk = aList.slice(i, i + chunkSize);
+		for (let i = 0; i < aList.length; i += aChunk) {
 			await Promise.all(
-				chunk.map((aTag) =>
+				aList.slice(i, i + aChunk).map((aTag) =>
 					fetchKind9735MatchingRefs(relays, { aTag }, {
 						since: sinceSec,
 						limit: 350,
@@ -981,7 +1041,9 @@
 		} finally {
 			activityLoading = false;
 		}
-		void backfillActivityZapsScoped().catch((err) => console.error('[Activity] zap backfill failed', err));
+		void backfillActivityThreadsScoped().catch((err) =>
+			console.error('[Activity] thread backfill failed', err)
+		);
 	}
 
 	/** @param {import('nostr-tools').NostrEvent | null} ev */
@@ -1094,7 +1156,7 @@
 		initialReplyTargetForModal = null;
 
 		const cmap = new Map();
-		for (const c of activityComments) cmap.set(c.id.toLowerCase(), c);
+		for (const c of activityThreadComments) cmap.set(c.id.toLowerCase(), c);
 
 		if (postId) {
 			(async () => {
@@ -1716,21 +1778,21 @@
 			? !!threadModalZapId
 			: false}
 >
-	{#if !activityReady || (activityLoading && inboxFeedItems.length === 0)}
+	{#if !activityReady || !activityFeedQuerySettled || (activityLoading && activityFeedItems.length === 0)}
 		<div class="loading-wrap">
 			<ActivityFeedSkeleton rows={6} />
 		</div>
-	{:else if activityError && inboxFeedItems.length === 0}
+	{:else if activityError && activityFeedItems.length === 0}
 		<div class="empty-state-wrap">
 			<EmptyState message={activityError} minHeight={280} />
 		</div>
-	{:else if inboxFeedItems.length === 0}
+	{:else if activityFeedItems.length === 0}
 		<div class="empty-state-wrap">
 			<EmptyState message="No Activity yet" minHeight={280} />
 		</div>
 	{:else}
 		<div class="activity-list">
-			{#each inboxFeedItems as item (item.kind === 'zap' ? `zap-${item.row.event.id}` : item.ev.id)}
+			{#each activityFeedItems as item (item.kind === 'zap' ? `zap-${item.row.event.id}` : item.ev.id)}
 				{#if item.kind === 'comment'}
 					{@const commentEv = item.ev}
 					{@const authorProfileRaw = activityProfiles.get(commentEv.pubkey)}
@@ -1930,11 +1992,12 @@
 				{/if}
 			{/each}
 			{#if activityLikelyHasMore}
-				<div class="activity-load-footer" bind:this={activityLoadSentinel}>
-					<button type="button" class="activity-load-more-btn" onclick={loadMoreActivity}>
-						Load more activity
-					</button>
-				</div>
+				<!-- Invisible anchor: intersection observer extends the merged timeline (no separate “load more” UX). -->
+				<div
+					class="activity-feed-sentinel"
+					bind:this={activityLoadSentinel}
+					aria-hidden="true"
+				></div>
 			{/if}
 		</div>
 	{/if}
@@ -2160,30 +2223,10 @@
 		border-bottom: none;
 	}
 
-	.activity-load-footer {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 8px;
-		padding: 8px 16px 24px;
-	}
-
-	.activity-load-more-btn {
-		padding: 10px 20px;
-		font-size: 0.9375rem;
-		font-weight: 500;
-		border-radius: 12px;
-		border: 1px solid hsl(var(--white22));
-		background: hsl(var(--white6));
-		color: hsl(var(--foreground));
-		cursor: pointer;
-		transition:
-			background 0.15s,
-			border-color 0.15s;
-	}
-
-	.activity-load-more-btn:hover {
-		background: hsl(var(--white11));
-		border-color: hsl(var(--white33));
+	.activity-feed-sentinel {
+		height: 1px;
+		width: 100%;
+		flex-shrink: 0;
+		pointer-events: none;
 	}
 </style>

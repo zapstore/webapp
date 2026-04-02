@@ -452,9 +452,10 @@ export async function queryEvent(filter) {
  * via putEvents dedup — only non-replaceable kinds accumulate.
  */
 const EVICTION_LIMITS = {
-	[EVENT_KINDS.COMMENT]: 500,
+	// Activity backfill holds more 1111/9735 than the old global bucket; keep a larger window after cold start.
+	[EVENT_KINDS.COMMENT]: 1200,
 	[EVENT_KINDS.ZAP_REQUEST]: 200,
-	[EVENT_KINDS.ZAP_RECEIPT]: 500,
+	[EVENT_KINDS.ZAP_RECEIPT]: 1200,
 	[EVENT_KINDS.FILE_METADATA]: 300,
 	[EVENT_KINDS.RELEASE]: 500,
 };

@@ -304,7 +304,7 @@
 	.emoji-badge {
 		width: 28px;
 		height: 28px;
-		border-radius: 10px;
+		border-radius: 6px;
 		background: hsl(var(--white8));
 		display: flex;
 		align-items: center;
@@ -321,13 +321,13 @@
 		overflow: hidden;
 		background: transparent;
 		border: none;
-		border-radius: 10px;
+		border-radius: 6px;
 	}
 
 	.root-badge-skeleton {
 		width: 100%;
 		height: 100%;
-		border-radius: 10px;
+		border-radius: 6px;
 		overflow: hidden;
 	}
 
@@ -335,9 +335,16 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		width: 28px;
+		height: 28px;
+		min-width: 0;
+		min-height: 0;
+		flex-shrink: 0;
 		pointer-events: none;
-		border-radius: 10px;
+		border-radius: 6px;
 		overflow: hidden;
+		isolation: isolate;
+		contain: strict;
 	}
 
 	.app-badge-pic-wrap :global(.zap-activity-app-pic) {
@@ -495,7 +502,7 @@
 			rgba(255, 199, 54, 0.1) 0%,
 			rgba(255, 160, 55, 0.1) 100%
 		);
-		border-radius: 16px 16px 16px 4px;
+		border-radius: 12px 12px 12px 3px;
 		padding: 8px 12px;
 	}
 
