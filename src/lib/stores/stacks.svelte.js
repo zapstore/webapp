@@ -14,8 +14,7 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { putEvents, queryEvents } from '$lib/nostr/dexie';
 import { parseApp, parseAppStack } from '$lib/nostr/models';
 import { fetchFromRelays } from '$lib/nostr/service';
-import { EVENT_KINDS, PLATFORM_FILTER, ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG } from '$lib/config';
-import { ZAPSTORE_PUBKEY } from '$lib/services/profile-search';
+import { EVENT_KINDS, PLATFORM_FILTER, ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG, ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
 import { STACKS_PAGE_SIZE } from '$lib/constants';
 
 const platformTag = PLATFORM_FILTER['#f']?.[0];
@@ -106,11 +105,11 @@ export function createStacksQuery() {
 				stacksByKey.set(key, stack);
 			}
 		}
-		// Zapstore community stacks (owned by ZAPSTORE_PUBKEY) always appear first
+		// Zapstore community stacks always appear first
 		const stacks = [...stacksByKey.values()].sort((a, b) => {
-			const aIsZapstore = a.pubkey === ZAPSTORE_PUBKEY ? 0 : 1;
-			const bIsZapstore = b.pubkey === ZAPSTORE_PUBKEY ? 0 : 1;
-			if (aIsZapstore !== bIsZapstore) return aIsZapstore - bIsZapstore;
+			const aIsCommunity = a.pubkey === ZAPSTORE_COMMUNITY_PUBKEY ? 0 : 1;
+			const bIsCommunity = b.pubkey === ZAPSTORE_COMMUNITY_PUBKEY ? 0 : 1;
+			if (aIsCommunity !== bIsCommunity) return aIsCommunity - bIsCommunity;
 			return (b.createdAt ?? 0) - (a.createdAt ?? 0);
 		});
 	const allIdentifiers = new SvelteSet();
