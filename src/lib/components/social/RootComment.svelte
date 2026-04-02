@@ -16,6 +16,7 @@ import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import Modal from "$lib/components/common/Modal.svelte";
 import MediaLightboxModal from "$lib/components/modals/MediaLightboxModal.svelte";
 import EmptyState from "$lib/components/common/EmptyState.svelte";
+import DeletedRootBadge from "$lib/components/community/DeletedRootBadge.svelte";
 import InputButton from "$lib/components/common/InputButton.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import EmojiPickerModal from "$lib/components/modals/EmojiPickerModal.svelte";
@@ -40,7 +41,8 @@ let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl 
     hideRoot = false,
     /**
      * Optional context banner shown at the top of the thread modal (app or forum post this comment is on).
-     * @type {{ label: string, iconUrl?: string | null, href: string } | null}
+     * When `deleted` is true or `href` is missing, the row is non-navigable (e.g. root no longer on relays).
+     * @type {{ label: string, iconUrl?: string | null, href?: string | null, deleted?: boolean } | null}
      */
     rootContext = null,
     /** Called when the thread modal closes (backdrop tap or programmatic close). */
@@ -524,22 +526,28 @@ function handleRootContextNav(e) {
       <div class="thread-modal-child-overlay" aria-hidden="true"></div>
       <div class="thread-content">
       {#if rootContext}
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-        <a
-          href={rootContext.href}
-          class="thread-root-context"
-          onclick={handleRootContextNav}
-        >
-          {#if rootContext.iconUrl}
-            <img src={rootContext.iconUrl} alt="" class="thread-root-context-icon" />
-          {:else}
-            <span class="thread-root-context-emoji" aria-hidden="true">💬</span>
-          {/if}
-          <span class="thread-root-context-label">{rootContext.label}</span>
-          <svg class="thread-root-context-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </a>
+        {#if rootContext.deleted || !String(rootContext.href ?? "").trim()}
+          <div class="thread-root-context thread-root-context--deleted" role="status">
+            <DeletedRootBadge />
+            <span class="thread-root-context-label">{rootContext.label}</span>
+          </div>
+        {:else}
+          <a
+            href={rootContext.href}
+            class="thread-root-context"
+            onclick={handleRootContextNav}
+          >
+            {#if rootContext.iconUrl}
+              <img src={rootContext.iconUrl} alt="" class="thread-root-context-icon" />
+            {:else}
+              <span class="thread-root-context-emoji" aria-hidden="true">💬</span>
+            {/if}
+            <span class="thread-root-context-label">{rootContext.label}</span>
+            <svg class="thread-root-context-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </a>
+        {/if}
       {/if}
       <div class="thread-root">
         <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -949,6 +957,15 @@ function handleRootContextNav(e) {
 
   .thread-root-context:hover {
     background: hsl(var(--foreground) / 0.025);
+  }
+
+  .thread-root-context--deleted {
+    cursor: default;
+    color: hsl(var(--white33));
+  }
+
+  .thread-root-context--deleted:hover {
+    background: transparent;
   }
 
   .thread-root-context-icon {

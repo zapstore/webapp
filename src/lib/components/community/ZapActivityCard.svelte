@@ -10,6 +10,7 @@
 	import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
 	import CommentBubbleActionRail from '$lib/components/social/CommentBubbleActionRail.svelte';
 	import ActivityStackMiniBadge from '$lib/components/community/ActivityStackMiniBadge.svelte';
+	import DeletedRootBadge from '$lib/components/community/DeletedRootBadge.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import { Zap } from '$lib/components/icons';
 	import { EVENT_KINDS } from '$lib/config.js';
@@ -32,13 +33,27 @@
 		appBadge = null,
 		/** Root (forum/app/stack) still resolving */
 		rootBadgeSkeleton = false,
+		/** Root never loaded after timeout */
+		deletedRootKind = /** @type {'forum' | 'app' | 'stack' | null} */ (null),
 		feedActions = null,
 		onRootClick = null
 	} = $props();
 
 	const showQuote = $derived(!!parentComment && !!parsed?.zappedEventId);
 	const rootOneliner = $derived(getEventOneliner(rootEvent));
-	const isStackRoot = $derived(rootEvent?.kind === EVENT_KINDS.APP_STACK);
+	const isStackRoot = $derived(
+		deletedRootKind === 'stack' || rootEvent?.kind === EVENT_KINDS.APP_STACK
+	);
+	const deletedRootLabel = $derived(
+		deletedRootKind === 'forum'
+			? 'Deleted forum post'
+			: deletedRootKind === 'app'
+				? 'Deleted app'
+				: deletedRootKind === 'stack'
+					? 'Deleted stack'
+					: ''
+	);
+	const showDeletedRoot = $derived(deletedRootKind != null);
 
 	const emojiTags = $derived(parsed?.emojiTags ?? []);
 	const contentText = $derived(parsed?.comment ?? '');
@@ -86,12 +101,14 @@
 	<div class="left-col">
 		<div
 			class="emoji-badge"
-			class:emoji-badge--app={!!appBadge && !isStackRoot}
-			class:emoji-badge--stack={isStackRoot}
-			class:emoji-badge--root-skel={rootBadgeSkeleton}
+			class:emoji-badge--app={!!appBadge && !isStackRoot && !showDeletedRoot}
+			class:emoji-badge--stack={isStackRoot && !showDeletedRoot}
+			class:emoji-badge--root-skel={rootBadgeSkeleton && !showDeletedRoot}
 			aria-hidden="true"
 		>
-			{#if isStackRoot}
+			{#if showDeletedRoot}
+				<DeletedRootBadge embedded />
+			{:else if isStackRoot}
 				<ActivityStackMiniBadge />
 			{:else if appBadge}
 				<div class="app-badge-pic-wrap">
@@ -99,7 +116,7 @@
 						iconUrl={appBadge.iconUrl ?? null}
 						name={appBadge.name ?? null}
 						identifier={appBadge.identifier ?? null}
-						size="xs"
+						size="xxs"
 						className="zap-activity-app-pic"
 						onClick={() => {}}
 					/>
@@ -139,7 +156,9 @@
 
 	<div class="right-col">
 		<div class="root-label-row">
-			{#if onRootClick}
+			{#if showDeletedRoot}
+				<span class="root-label root-label--deleted">{deletedRootLabel}</span>
+			{:else if onRootClick}
 				<button
 					type="button"
 					class="root-label root-label-link"
@@ -293,41 +312,22 @@
 		flex-shrink: 0;
 	}
 
-	/* Match CommentCard + AppPic xs — 8px radius, clip corners */
-	.emoji-badge--app {
-		width: 32px;
-		height: 32px;
-		padding: 0;
-		overflow: hidden;
-		background: transparent;
-		border: none;
-		border-radius: 8px;
-	}
-
-	.emoji-badge--stack {
-		width: 32px;
-		height: 32px;
-		padding: 0;
-		overflow: hidden;
-		background: transparent;
-		border: none;
-		border-radius: 8px;
-	}
-
+	.emoji-badge--app,
+	.emoji-badge--stack,
 	.emoji-badge--root-skel {
-		width: 32px;
-		height: 32px;
+		width: 28px;
+		height: 28px;
 		padding: 0;
 		overflow: hidden;
 		background: transparent;
 		border: none;
-		border-radius: 8px;
+		border-radius: 10px;
 	}
 
 	.root-badge-skeleton {
 		width: 100%;
 		height: 100%;
-		border-radius: 8px;
+		border-radius: 10px;
 		overflow: hidden;
 	}
 
@@ -336,7 +336,7 @@
 		align-items: center;
 		justify-content: center;
 		pointer-events: none;
-		border-radius: 8px;
+		border-radius: 10px;
 		overflow: hidden;
 	}
 
@@ -439,6 +439,10 @@
 
 	.root-label-link:hover .root-label-kind {
 		color: hsl(var(--foreground));
+	}
+
+	.root-label--deleted {
+		color: hsl(var(--white33));
 	}
 
 	.bubble-with-rail {

@@ -82,11 +82,11 @@
 		width: 36px;
 	}
 
-	/* App badge slot — 8px radius matches AppPic xs + CommentCard emoji-badge--app */
+	/* Matches CommentCard / ZapActivityCard `.emoji-badge` (28×28, 10px radius) */
 	.sk-badge {
-		width: 32px;
-		height: 32px;
-		border-radius: 8px;
+		width: 28px;
+		height: 28px;
+		border-radius: 10px;
 		overflow: hidden;
 		flex-shrink: 0;
 	}

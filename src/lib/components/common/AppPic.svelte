@@ -32,7 +32,7 @@
 	/** @type {string|null|undefined} - App identifier/dTag for color generation */
 	export let identifier = null;
 
-	/** @type {'xs'|'sm'|'md'|'lg'|'xl'|'2xl'|'3xl'} - Size preset */
+	/*	 * @type {'xxs'|'xs'|'sm'|'md'|'lg'|'xl'|'2xl'|'3xl'} - Size preset (`xxs` = 28px, activity feed tile) */
 	export let size = 'md';
 
 	/** @type {() => void} - Click handler */
@@ -44,8 +44,9 @@
 	/** @type {boolean} - Whether to show blurred background for transparent icons */
 	export let fillBackground = true;
 
-	// Size mappings (in pixels) - matching Flutter sizes
+	// Size mappings (in pixels) - matching Flutter sizes; `xxs` for 28px activity / inbox badges
 	const sizeMap = {
+		xxs: 28,
 		xs: 32,
 		sm: 38,
 		md: 48,

@@ -1,6 +1,6 @@
 <!--
-  Compact 2×2 stack hint — fixed 32×32px (matches CommentCard badge), integer pixel grid.
-  Math: border-box 32px, 1px border + 3px pad → 24×24 content; 10+4+10 wide, 10+4+10 tall.
+  Compact 2×2 stack hint — 28×28px (matches CommentCard / ZapActivityCard emoji badge).
+  Border-box 28px, 1px border + 2px pad → 24×24 content; 10+2+10 wide, 10+2+10 tall.
 -->
 <div class="stack-mini-badge" aria-hidden="true">
 	<span class="stack-mini-tile"></span>
@@ -12,16 +12,16 @@
 <style>
 	.stack-mini-badge {
 		box-sizing: border-box;
-		width: 32px;
-		height: 32px;
-		padding: 3px;
+		width: 28px;
+		height: 28px;
+		padding: 2px;
 		display: grid;
 		grid-template-columns: 10px 10px;
 		grid-template-rows: 10px 10px;
-		gap: 4px;
+		gap: 2px;
 		background-color: hsl(var(--gray33));
 		border: 1px solid hsl(var(--white16));
-		border-radius: 8px;
+		border-radius: 10px;
 	}
 
 	.stack-mini-tile {

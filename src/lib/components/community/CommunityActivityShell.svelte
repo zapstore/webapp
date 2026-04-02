@@ -76,6 +76,10 @@
 	 */
 	/** Safety cap for bulk 1111/9735 one-shots (`nak req` shows Zapstore usually answers quickly). */
 	const ACTIVITY_BULK_RELAY_TIMEOUT_MS = 45_000;
+	/**
+	 * After Dexie + relay root fetch (~4s) still no root event — treat as likely deleted; show label, don't block feed.
+	 */
+	const ACTIVITY_ROOT_MISSING_AFTER_MS = 6500;
 
 	/** NIP-22 `K` tag values for Activity scope (forum + catalog app + stack threads). */
 	const ACTIVITY_NIP22_K_TAGS = [
@@ -288,6 +292,114 @@
 		return a.startsWith(`${EVENT_KINDS.APP}:`) || a.startsWith(`${EVENT_KINDS.APP_STACK}:`);
 	}
 
+	/** First-seen time per root key while event still missing (not reactive UI state). */
+	/** @type {Map<string, number>} */
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- module-local timer bookkeeping
+	const activityRootWaitSince = new Map();
+
+	/**
+	 * @param {import('nostr-tools').NostrEvent} ev
+	 * @returns {{ key: string, kind: 'forum' | 'app' | 'stack' } | null}
+	 */
+	function activityRootKeyMetaFromComment(ev) {
+		const addr = addrTagFromComment(ev);
+		const eRoot = ev.tags?.find((t) => t[0] === 'E' && t[1])?.[1];
+		if (isAddressableActivityATag(addr)) {
+			const kind = addr.startsWith(`${EVENT_KINDS.APP_STACK}:`) ? 'stack' : 'app';
+			return { key: `a:${addr}`, kind };
+		}
+		if (eRoot) return { key: `e:${eRoot.toLowerCase()}`, kind: 'forum' };
+		return null;
+	}
+
+	/**
+	 * @param {import('nostr-tools').NostrEvent} zapEv
+	 * @param {ReturnType<typeof parseZapReceipt>} parsed
+	 * @param {Map<string, import('nostr-tools').NostrEvent>} roots
+	 * @param {Map<string, import('nostr-tools').NostrEvent>} commentMap
+	 */
+	function activityRootKeyMetaFromZap(zapEv, parsed, roots, commentMap) {
+		const aZap = addrATagForAppStackZap(zapEv, parsed);
+		if (aZap && isAddressableActivityATag(aZap)) {
+			const kind = aZap.startsWith(`${EVENT_KINDS.APP_STACK}:`) ? 'stack' : 'app';
+			return { key: `a:${aZap}`, kind };
+		}
+		const postId = resolveForumPostIdForZapActivity(parsed, roots, commentMap);
+		if (postId) return { key: `e:${postId.toLowerCase()}`, kind: 'forum' };
+		return null;
+	}
+
+	/**
+	 * @param {ReturnType<typeof parseZapReceipt>} parsed
+	 * @param {Map<string, import('nostr-tools').NostrEvent>} roots
+	 * @param {Map<string, import('nostr-tools').NostrEvent>} commentMap
+	 */
+	function resolveForumPostIdForZapActivity(parsed, roots, commentMap) {
+		const zid = parsed?.zappedEventId;
+		if (!zid) return null;
+		if (roots.has(zid) || roots.has(zid.toLowerCase())) return zid;
+		const c = commentMap.get(zid) ?? commentMap.get(zid.toLowerCase());
+		if (c) return c.tags?.find((t) => t[0] === 'E' && t[1])?.[1] ?? null;
+		return zid;
+	}
+
+	/**
+	 * @param {Map<string, import('nostr-tools').NostrEvent>} roots
+	 * @param {Map<string, import('nostr-tools').NostrEvent>} addrRoots
+	 * @param {import('nostr-tools').NostrEvent[]} comments
+	 * @param {{ event: import('nostr-tools').NostrEvent, parsed: ReturnType<typeof parseZapReceipt> }[]} zapsForFeed
+	 * @param {Map<string, import('nostr-tools').NostrEvent>} commentMap
+	 */
+	function recomputeActivityRootDeleted(
+		roots,
+		addrRoots,
+		comments,
+		zapsForFeed,
+		commentMap
+	) {
+		const now = Date.now();
+		/** @type {Map<string, 'forum' | 'app' | 'stack'>} */
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- ephemeral merge set
+		const needed = new Map();
+		for (const c of comments) {
+			const meta = activityRootKeyMetaFromComment(c);
+			if (!meta) continue;
+			const resolved = meta.key.startsWith('a:')
+				? addrRoots.has(meta.key.slice(2))
+				: !!(roots.get(meta.key.slice(2)) || roots.get(meta.key.slice(2).toLowerCase()));
+			if (resolved) {
+				activityRootWaitSince.delete(meta.key);
+				continue;
+			}
+			needed.set(meta.key, meta.kind);
+			if (!activityRootWaitSince.has(meta.key)) activityRootWaitSince.set(meta.key, now);
+		}
+		for (const row of zapsForFeed) {
+			const meta = activityRootKeyMetaFromZap(row.event, row.parsed, roots, commentMap);
+			if (!meta) continue;
+			const resolved = meta.key.startsWith('a:')
+				? addrRoots.has(meta.key.slice(2))
+				: !!(roots.get(meta.key.slice(2)) || roots.get(meta.key.slice(2).toLowerCase()));
+			if (resolved) {
+				activityRootWaitSince.delete(meta.key);
+				continue;
+			}
+			needed.set(meta.key, meta.kind);
+			if (!activityRootWaitSince.has(meta.key)) activityRootWaitSince.set(meta.key, now);
+		}
+		for (const k of [...activityRootWaitSince.keys()]) {
+			if (!needed.has(k)) activityRootWaitSince.delete(k);
+		}
+		/** @type {Map<string, 'forum' | 'app' | 'stack'>} */
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- ephemeral result
+		const out = new Map();
+		for (const [k, kind] of needed) {
+			const since = activityRootWaitSince.get(k) ?? now;
+			if (now - since >= ACTIVITY_ROOT_MISSING_AFTER_MS) out.set(k, kind);
+		}
+		return out;
+	}
+
 	/**
 	 * Event ids tied to activity comments + addressable `a`/`A` values on those comments (for matching zaps).
 	 * @param {import('nostr-tools').NostrEvent[]} comments
@@ -364,6 +476,8 @@
 	let activityAddrRootEvents = $state(new Map());
 	/** @type {Map<string, { displayName?: string, name?: string, picture?: string }>} */
 	let activityProfiles = $state(new Map());
+	/** Roots still missing after `ACTIVITY_ROOT_MISSING_AFTER_MS` — key `e:…` / `a:…`, value kind for copy. */
+	let activityRootDeletedByKey = $state(/** @type {Map<string, 'forum' | 'app' | 'stack'>} */ (new Map()));
 
 	const activityCommentMap = $derived.by(() => {
 		const m = new Map();
@@ -399,6 +513,36 @@
 		return rows.sort((a, b) => b.event.created_at - a.event.created_at);
 	});
 
+	$effect(() => {
+		if (!browser || !activityReady) return;
+		void activityComments;
+		void activityZapEvents;
+		void activityRootEvents;
+		void activityAddrRootEvents;
+		void activityZapsForFeed;
+		void activityCommentMap;
+		const roots = activityRootEvents;
+		const addrRoots = activityAddrRootEvents;
+		const comments = activityComments;
+		const zapsForFeed = activityZapsForFeed;
+		const commentMap = activityCommentMap;
+		let lastDeletedSig = '';
+		const tick = () => {
+			const next = recomputeActivityRootDeleted(roots, addrRoots, comments, zapsForFeed, commentMap);
+			const sig = [...next.entries()]
+				.sort((a, b) => a[0].localeCompare(b[0]))
+				.map(([k, v]) => `${k}:${v}`)
+				.join('|');
+			if (sig !== lastDeletedSig) {
+				lastDeletedSig = sig;
+				activityRootDeletedByKey = next;
+			}
+		};
+		tick();
+		const id = setInterval(tick, 500);
+		return () => clearInterval(id);
+	});
+
 	const inboxFeedItems = $derived.by(() => {
 		const items = [];
 		for (const ev of activityComments) items.push({ kind: 'comment', ts: ev.created_at, ev });
@@ -420,13 +564,7 @@
 	}
 
 	function forumPostIdForZapParsed(parsed) {
-		const zid = parsed?.zappedEventId;
-		if (!zid) return null;
-		if (activityRootEvents.has(zid)) return zid;
-		const c = activityCommentMap.get(zid) ?? activityCommentMap.get(zid.toLowerCase());
-		if (c) return c.tags?.find((t) => t[0] === 'E' && t[1])?.[1] ?? null;
-		/* Direct zap on the forum post (e-tag = post id) */
-		return zid;
+		return resolveForumPostIdForZapActivity(parsed, activityRootEvents, activityCommentMap);
 	}
 
 	/**
@@ -683,6 +821,13 @@
 	}
 
 	/** @param {import('nostr-tools').NostrEvent | null} ev */
+	/** @param {'forum' | 'app' | 'stack'} kind */
+	function activityDeletedRootLabel(kind) {
+		if (kind === 'forum') return 'Deleted forum post';
+		if (kind === 'app') return 'Deleted app';
+		return 'Deleted stack';
+	}
+
 	function hrefForActivityRootEvent(ev) {
 		if (!ev?.id) return null;
 		try {
@@ -1491,10 +1636,14 @@
 							return '';
 						}
 					})()}
-					{@const isDeeperReply = !!parentId}
+					{@const _isDeeperReply = !!parentId}
 					{@const expectsActivityRoot =
 						(!!addrRootVal && isAddressableActivityATag(addrRootVal)) || !!rootKey}
-					{@const rootBadgeSkeleton = !rootEvent && expectsActivityRoot}
+					{@const rootMeta = activityRootKeyMetaFromComment(commentEv)}
+					{@const deletedRootKind = rootMeta
+						? (activityRootDeletedByKey.get(rootMeta.key) ?? null)
+						: null}
+					{@const rootBadgeSkeleton = !rootEvent && expectsActivityRoot && !deletedRootKind}
 					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 					<div
 						class="activity-item"
@@ -1509,6 +1658,7 @@
 							{rootEvent}
 							appBadge={feedAddrBadge}
 							{rootBadgeSkeleton}
+							{deletedRootKind}
 							{parentComment}
 							{parentCommentAuthor}
 							{parentZapParsed}
@@ -1570,7 +1720,16 @@
 						}
 					})()}
 					{@const zapExpectsRoot = !!aZapRoot || !!postIdZ}
-					{@const rootBadgeSkeletonZap = !rootEventZ && zapExpectsRoot}
+					{@const rootMetaZap = activityRootKeyMetaFromZap(
+						zapEv,
+						zParsed,
+						activityRootEvents,
+						activityCommentMap
+					)}
+					{@const deletedRootKindZap = rootMetaZap
+						? (activityRootDeletedByKey.get(rootMetaZap.key) ?? null)
+						: null}
+					{@const rootBadgeSkeletonZap = !rootEventZ && zapExpectsRoot && !deletedRootKindZap}
 					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 					<div
 						class="activity-item"
@@ -1589,6 +1748,7 @@
 							parentCommentAuthor={parentCommentAuthorZ}
 							appBadge={zapAddrBadge}
 							rootBadgeSkeleton={rootBadgeSkeletonZap}
+							deletedRootKind={deletedRootKindZap}
 							profileUrl={zapperNpub ? `/profile/${zapperNpub}` : ''}
 							resolveMentionLabel={(pk) =>
 								activityProfiles.get(pk)?.displayName ??
@@ -1621,6 +1781,8 @@
 	{#key threadModalRootId}
 		{@const _eRoot = _rootEv.tags?.find((t) => t[0] === 'E' && t[1])?.[1] ?? null}
 		{@const _aRoot = addrTagFromComment(_rootEv)}
+		{@const _forumDelKey = _eRoot ? `e:${_eRoot.toLowerCase()}` : null}
+		{@const _addrDelKey = isAddressableActivityATag(_aRoot) && _aRoot ? `a:${_aRoot}` : null}
 		{@const _rootPost = _eRoot ? (activityRootEvents.get(_eRoot) ?? null) : null}
 		{@const _addrBannerEv =
 			isAddressableActivityATag(_aRoot) && _aRoot
@@ -1630,6 +1792,11 @@
 		{@const _bannerOneliner = getEventOneliner(_bannerEv)}
 		{@const _bannerHref = hrefForActivityRootEvent(_bannerEv)}
 		{@const _bannerBadge = appBadgeFromAddrRoot(_addrBannerEv)}
+		{@const _bannerDeletedKind =
+			!_bannerEv &&
+			((_forumDelKey && activityRootDeletedByKey.get(_forumDelKey)) ||
+				(_addrDelKey && activityRootDeletedByKey.get(_addrDelKey)) ||
+				null)}
 		{@const _authorRaw = activityProfiles.get(_rootEv.pubkey)}
 		{@const _authorNpub = (() => {
 			try {
@@ -1666,7 +1833,9 @@
 						iconUrl: _bannerBadge?.iconUrl ?? null,
 						href: _bannerHref
 					}
-				: null}
+				: _bannerDeletedKind
+					? { label: activityDeletedRootLabel(_bannerDeletedKind), deleted: true }
+					: null}
 			onModalClose={() => {
 				threadLoadGen++;
 				threadModalKind = null;
@@ -1716,6 +1885,11 @@
 		_rootPostZ?.kind === EVENT_KINDS.FORUM_POST
 			? (_rootPostZ.tags?.find((t) => t[0] === 'title' && t[1])?.[1] ?? 'Forum Post')
 			: _bannerOnelinerZ.label}
+	{@const _zapBannerDeletedKind =
+		!_rootPostZ &&
+		((_postIdZ && activityRootDeletedByKey.get(`e:${_postIdZ.toLowerCase()}`)) ||
+			(_aZap && isAddressableActivityATag(_aZap) && activityRootDeletedByKey.get(`a:${_aZap}`)) ||
+			null)}
 	{#key threadModalZapId}
 		<RootComment
 			hideRoot={true}
@@ -1742,7 +1916,9 @@
 			version=""
 			rootContext={_bannerHrefZ
 				? { label: _postTitleZ, iconUrl: _zapBadgeZ?.iconUrl ?? null, href: _bannerHrefZ }
-				: null}
+				: _zapBannerDeletedKind
+					? { label: activityDeletedRootLabel(_zapBannerDeletedKind), deleted: true }
+					: null}
 			onModalClose={() => {
 				threadLoadGen++;
 				threadModalKind = null;

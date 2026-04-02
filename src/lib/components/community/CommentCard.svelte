@@ -12,6 +12,7 @@ import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
 import QuotedZapMessage from '$lib/components/social/QuotedZapMessage.svelte';
 import CommentBubbleActionRail from '$lib/components/social/CommentBubbleActionRail.svelte';
 import ActivityStackMiniBadge from '$lib/components/community/ActivityStackMiniBadge.svelte';
+import DeletedRootBadge from '$lib/components/community/DeletedRootBadge.svelte';
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 import { EVENT_KINDS } from '$lib/config.js';
 import { getEventOneliner } from '$lib/nostr/models.js';
@@ -44,6 +45,8 @@ let {
 	appBadge = null,
 	/** While root event (forum/app/stack) is still resolving — badge shimmer instead of forum emoji */
 	rootBadgeSkeleton = false,
+	/** After timeout, root never loaded — show deleted label (no link). */
+	deletedRootKind = /** @type {'forum' | 'app' | 'stack' | null} */ (null),
 	/**
 	 * Hover action rail (Reply / Zap / Options). All three open the in-feed thread modal.
 	 * @type {{ onReply?: () => void, onZap?: () => void, onOptions?: () => void } | null}
@@ -70,7 +73,19 @@ const showQuote = $derived(
 		(!!parentComment || !!(parentZapParsed && parentZapParsed.senderPubkey))
 );
 const rootOneliner = $derived(getEventOneliner(rootEvent));
-const isStackRoot = $derived(rootEvent?.kind === EVENT_KINDS.APP_STACK);
+const isStackRoot = $derived(
+	deletedRootKind === 'stack' || rootEvent?.kind === EVENT_KINDS.APP_STACK
+);
+const deletedRootLabel = $derived(
+	deletedRootKind === 'forum'
+		? 'Deleted forum post'
+		: deletedRootKind === 'app'
+			? 'Deleted app'
+			: deletedRootKind === 'stack'
+				? 'Deleted stack'
+				: ''
+);
+const showDeletedRoot = $derived(deletedRootKind != null);
 
 const emojiTags = $derived(
 	(event?.tags ?? [])
@@ -135,12 +150,14 @@ const contentText = $derived(event?.content ?? '');
 	<div class="left-col">
 		<div
 			class="emoji-badge"
-			class:emoji-badge--app={!!appBadge && !isStackRoot}
-			class:emoji-badge--stack={isStackRoot}
-			class:emoji-badge--root-skel={rootBadgeSkeleton}
+			class:emoji-badge--app={!!appBadge && !isStackRoot && !showDeletedRoot}
+			class:emoji-badge--stack={isStackRoot && !showDeletedRoot}
+			class:emoji-badge--root-skel={rootBadgeSkeleton && !showDeletedRoot}
 			aria-hidden="true"
 		>
-			{#if isStackRoot}
+			{#if showDeletedRoot}
+				<DeletedRootBadge embedded />
+			{:else if isStackRoot}
 				<ActivityStackMiniBadge />
 			{:else if appBadge}
 				<div class="app-badge-pic-wrap">
@@ -148,7 +165,7 @@ const contentText = $derived(event?.content ?? '');
 						iconUrl={appBadge.iconUrl ?? null}
 						name={appBadge.name ?? null}
 						identifier={appBadge.identifier ?? null}
-						size="xs"
+						size="xxs"
 						className="comment-card-app-pic"
 						onClick={() => {}}
 					/>
@@ -188,7 +205,9 @@ const contentText = $derived(event?.content ?? '');
 
 	<div class="right-col">
 		<div class="root-label-row">
-			{#if onRootClick}
+			{#if showDeletedRoot}
+				<span class="root-label root-label--deleted">{deletedRootLabel}</span>
+			{:else if onRootClick}
 				<button
 					type="button"
 					class="root-label root-label-link"
@@ -343,41 +362,23 @@ const contentText = $derived(event?.content ?? '');
 		flex-shrink: 0;
 	}
 
-	/* Match AppPic xs (32px) inner radius (8px) — 10px here left slivers of transparent/badge bg at corners */
-	.emoji-badge--app {
-		width: 32px;
-		height: 32px;
-		padding: 0;
-		overflow: hidden;
-		background: transparent;
-		border: none;
-		border-radius: 8px;
-	}
-
-	.emoji-badge--stack {
-		width: 32px;
-		height: 32px;
-		padding: 0;
-		overflow: hidden;
-		background: transparent;
-		border: none;
-		border-radius: 8px;
-	}
-
+	/* App/stack/skel: same 28×28 tile as forum emoji; transparent shell clips AppPic xxs (28px) */
+	.emoji-badge--app,
+	.emoji-badge--stack,
 	.emoji-badge--root-skel {
-		width: 32px;
-		height: 32px;
+		width: 28px;
+		height: 28px;
 		padding: 0;
 		overflow: hidden;
 		background: transparent;
 		border: none;
-		border-radius: 8px;
+		border-radius: 10px;
 	}
 
 	.root-badge-skeleton {
 		width: 100%;
 		height: 100%;
-		border-radius: 8px;
+		border-radius: 10px;
 		overflow: hidden;
 	}
 
@@ -386,7 +387,7 @@ const contentText = $derived(event?.content ?? '');
 		align-items: center;
 		justify-content: center;
 		pointer-events: none;
-		border-radius: 8px;
+		border-radius: 10px;
 		overflow: hidden;
 	}
 
@@ -489,6 +490,10 @@ const contentText = $derived(event?.content ?? '');
 
 	.root-label-link:hover .root-label-kind {
 		color: hsl(var(--foreground));
+	}
+
+	.root-label--deleted {
+		color: hsl(var(--white33));
 	}
 
 	/* Match MessageBubble + CommentBubbleActionRail (RootComment feed) */
