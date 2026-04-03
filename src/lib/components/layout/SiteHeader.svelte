@@ -1,3 +1,9 @@
+<!--
+	Global site chrome: logo, nav, search, auth, and modals. Used only from
+	src/routes/+layout.svelte (import as SiteHeader). Not the barrel-export
+	legacy stub — that file was removed; use cards/SectionHeader or
+	layout/DetailHeader for in-page titles.
+-->
 <script lang="js">
 	import { page } from '$app/stores';
 	import { Search, User, Loader2, LogOut } from 'lucide-svelte';
@@ -714,19 +720,6 @@
 										<Menu size={20} variant="outline" color="hsl(var(--white33))" />
 									</button>
 								</div>
-								<a
-									href={SITE_GITHUB}
-									class="header-github-btn header-github-btn-landing hidden md:inline-flex"
-									target="_blank"
-									rel="noopener noreferrer"
-									aria-label="GitHub"
-								>
-									<svg class="header-github-icon-landing" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-										<path
-											d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.63-1.41-3.63-1.41-.546-1.39-1.335-1.755-1.335-1.755-1.086-.745.085-.73.085-.73 1.2.085 1.83 1.235 1.83 1.235 1.07 1.83 2.805 1.305 3.495.99.105-.77.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
-										/>
-									</svg>
-								</a>
 							</div>
 						{:else}
 							<div class="hidden md:flex items-center gap-4 md:gap-3 lg:gap-4">
@@ -814,19 +807,21 @@
 								Sign In
 							</button>
 						{/if}
-						<a
-							href={SITE_GITHUB}
-							class="header-github-btn header-github-btn-browse hidden md:inline-flex"
-							target="_blank"
-							rel="noopener noreferrer"
-							aria-label="GitHub"
-						>
-							<svg class="header-github-icon-browse" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-								<path
-									d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.63-1.41-3.63-1.41-.546-1.39-1.335-1.755-1.335-1.755-1.086-.745.085-.73.085-.73 1.2.085 1.83 1.235 1.83 1.235 1.07 1.83 2.805 1.305 3.495.99.105-.77.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
-								/>
-							</svg>
-						</a>
+						{#if !isConnected}
+							<a
+								href={SITE_GITHUB}
+								class="header-github-btn header-github-btn-browse hidden md:inline-flex"
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-label="GitHub"
+							>
+								<svg class="header-github-icon-browse" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+									<path
+										d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.63-1.41-3.63-1.41-.546-1.39-1.335-1.755-1.335-1.755-1.086-.745.085-.73.085-.73 1.2.085 1.83 1.235 1.83 1.235 1.07 1.83 2.805 1.305 3.495.99.105-.77.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+									/>
+								</svg>
+							</a>
+						{/if}
 					</div>
 				{/if}
 			</div>

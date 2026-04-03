@@ -10,10 +10,11 @@
  */
 import { page } from "$app/stores";
 import { onMount } from "svelte";
+import { SvelteSet, SvelteMap } from "svelte/reactivity";
 import SeoHead from "$lib/components/layout/SeoHead.svelte";
 import { browser } from "$app/environment";
 import { beforeNavigate, goto } from "$app/navigation";
-import { fetchProfilesBatch, queryEvent, queryEvents, putEvents, queryCommentsFromStore, fetchComments, fetchLabelsForAddressable, groupLabelEventsToEntries, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, } from "$lib/nostr";
+import { fetchProfilesBatch, queryEvent, queryEvents, putEvents, queryCommentsFromStore, fetchComments, fetchLabelsForAddressable, groupLabelEventsToEntries, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, fetchZaps, parseZapReceipt, } from "$lib/nostr";
 import { stackDisplayDescription, stackDisplayTitle } from "$lib/nostr/models.js";
 import { fetchFromRelays } from "$lib/nostr/service";
 import { ZAPSTORE_RELAY, EVENT_KINDS, PLATFORM_FILTER, SITE_ICON } from "$lib/config";
@@ -93,6 +94,9 @@ let profilesLoading = $state(false);
 /** @type {Array<{ label: string, pubkeys: string[] }>} */
 let labelEntries = $state([]);
 let labelsLoading = $state(false);
+let zaps = $state([]);
+let zapsLoading = $state(false);
+let zapperProfiles = new SvelteMap();
 // Check if current user owns this stack
 const isOwner = $derived(
     getIsSignedIn() && 
@@ -426,6 +430,140 @@ async function loadLabelsForStack(pubkey, dTag) {
         labelsLoading = false;
     }
 }
+async function loadZapsForStack(pubkey, dTag) {
+    if (!pubkey || !dTag)
+        return;
+    zapsLoading = true;
+    try {
+        const aTagValue = `${EVENT_KINDS.APP_STACK}:${pubkey}:${dTag}`;
+        const [initialEvents, zLo, zUp] = await Promise.all([
+            fetchZaps(pubkey, dTag, { aTagKind: EVENT_KINDS.APP_STACK }),
+            queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], "#a": [aTagValue], limit: 200 }),
+            queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], "#A": [aTagValue], limit: 200 }),
+        ]);
+        const byId = new Map();
+        for (const e of [...zLo, ...zUp]) {
+            if (e?.id)
+                byId.set(e.id, e);
+        }
+        for (const e of initialEvents) {
+            if (e?.id)
+                byId.set(e.id, e);
+        }
+        const parseOne = (e) => {
+            const parsed = { ...parseZapReceipt(e), id: e.id };
+            if (!parsed.zappedEventId && e.tags?.length) {
+                const eTag = e.tags.find((t) => t[0]?.toLowerCase() === "e" && t[1]);
+                if (eTag?.[1])
+                    parsed.zappedEventId = eTag[1];
+            }
+            return parsed;
+        };
+        zaps = Array.from(byId.values()).map(parseOne);
+        await hydrateStackZapperProfiles();
+    }
+    catch (err) {
+        console.error("Failed to load stack zaps:", err);
+    }
+    finally {
+        zapsLoading = false;
+    }
+}
+async function hydrateStackZapperProfiles() {
+    const uniqueSenders = [...new SvelteSet(zaps.map((z) => z.senderPubkey).filter(Boolean))];
+    for (const pk of uniqueSenders) {
+        const ev = await queryEvent({ kinds: [0], authors: [pk] });
+        if (ev?.content) {
+            try {
+                const c = JSON.parse(ev.content);
+                zapperProfiles.set(pk, {
+                    displayName: c.display_name ?? c.name,
+                    name: c.name,
+                    picture: c.picture,
+                });
+            }
+            catch {
+                /* ignore */
+            }
+        }
+    }
+    const missing = uniqueSenders.filter((pk) => !zapperProfiles.has(pk)).slice(0, 40);
+    const fetched = await fetchProfilesBatch(missing);
+    for (const pubkey of missing) {
+        const event = fetched.get(pubkey);
+        if (!event?.content)
+            continue;
+        try {
+            const content = JSON.parse(event.content);
+            zapperProfiles.set(pubkey, {
+                displayName: content.display_name ?? content.name,
+                name: content.name,
+                picture: content.picture,
+            });
+        }
+        catch {
+            /* ignore */
+        }
+    }
+}
+function parseStackZapFromReceiptEvent(e) {
+    const parsed = { ...parseZapReceipt(e), id: e.id };
+    if (!parsed.zappedEventId && e.tags?.length) {
+        const eTag = e.tags.find((t) => t[0]?.toLowerCase() === "e" && t[1]);
+        if (eTag?.[1])
+            parsed.zappedEventId = eTag[1];
+    }
+    return parsed;
+}
+function handleStackZapPending(payload) {
+    if (!payload?.tempId)
+        return;
+    const userPubkey = getCurrentPubkey();
+    const optimistic = {
+        id: payload.tempId,
+        senderPubkey: userPubkey || undefined,
+        amountSats: payload.amountSats,
+        comment: payload.comment ?? "",
+        emojiTags: payload.emojiTags ?? [],
+        createdAt: Math.floor(Date.now() / 1000),
+        zappedEventId: payload.zappedEventId,
+        pending: true,
+    };
+    zaps = [optimistic, ...zaps];
+    if (userPubkey && profiles[userPubkey]) {
+        const p = profiles[userPubkey];
+        zapperProfiles.set(userPubkey, {
+            displayName: p.displayName ?? p.name,
+            name: p.name,
+            picture: p.picture,
+        });
+    }
+}
+function handleStackZapPendingClear(tempId) {
+    if (!tempId)
+        return;
+    zaps = zaps.filter((z) => z.id !== tempId);
+}
+async function handleStackBottomBarZap(event) {
+    const { zapReceipt, pendingTempId } = event ?? {};
+    if (pendingTempId) {
+        zaps = zaps.filter((z) => z.id !== pendingTempId);
+    }
+    if (zapReceipt?.id) {
+        const parsed = parseStackZapFromReceiptEvent(zapReceipt);
+        const pid = String(parsed.id).toLowerCase();
+        if (!zaps.some((z) => String(z.id).toLowerCase() === pid)) {
+            zaps = [parsed, ...zaps];
+        }
+        await hydrateStackZapperProfiles();
+    }
+    const pk = stack?.pubkey;
+    const dt = stack?.dTag;
+    if (pk && dt) {
+        void loadZapsForStack(pk, dt);
+        setTimeout(() => void loadZapsForStack(pk, dt), 2500);
+    }
+}
 async function handleCommentSubmit(event) {
     const userPubkey = getCurrentPubkey();
     if (!userPubkey || !stack)
@@ -668,6 +806,7 @@ const displayDescription = $derived(
         <SocialTabs
           stack={stack}
           app={{ pubkey: stack.pubkey, dTag: stack.dTag }}
+          mainEventIds={[stack.id].filter(Boolean)}
           signEvent={signEvent}
           getStackSlug={encodeStackNaddr}
           getAppSlug={(p, d) => encodeAppNaddr(p, d)}
@@ -679,6 +818,18 @@ const displayDescription = $derived(
                 picture: stack.creator.picture,
               }
             : null}
+          zaps={zaps.map((z) => ({
+            id: z.id,
+            senderPubkey: z.senderPubkey || undefined,
+            amountSats: z.amountSats,
+            createdAt: z.createdAt,
+            comment: z.comment,
+            emojiTags: z.emojiTags ?? [],
+            zappedEventId: z.zappedEventId ?? undefined,
+            pending: z.pending === true,
+          }))}
+          {zapperProfiles}
+          {zapsLoading}
           {comments}
           {commentsLoading}
           {commentsError}
@@ -689,7 +840,9 @@ const displayDescription = $derived(
           searchProfiles={searchProfiles}
           searchEmojis={searchEmojis}
           onCommentSubmit={handleCommentSubmit}
-          onZapReceived={() => {}}
+          onZapPending={handleStackZapPending}
+          onZapPendingClear={handleStackZapPendingClear}
+          onZapReceived={handleStackBottomBarZap}
           onGetStarted={() => (getStartedModalOpen = true)}
         />
       </div>
@@ -705,6 +858,7 @@ const displayDescription = $derived(
     dTag: stack.dTag,
     id: stack.id,
     pictureUrl: stack.creator?.picture,
+    aTag: `${EVENT_KINDS.APP_STACK}:${stack.pubkey}:${stack.dTag}`,
   } : null}
   <BottomBar
     publisherName={stack?.creator?.name || ""}
@@ -719,7 +873,9 @@ const displayDescription = $derived(
     searchEmojis={searchEmojis}
     oncommentSubmit={(e) =>
       handleCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, mediaUrls: e.mediaUrls, parentId: undefined })}
-    onzapReceived={() => {}}
+    onzapReceived={handleStackBottomBarZap}
+    onZapPending={handleStackZapPending}
+    onZapPendingClear={handleStackZapPendingClear}
     onLabelPublished={() => {
       if (stack?.pubkey && stack?.dTag)
         loadLabelsForStack(stack.pubkey, stack.dTag);

@@ -4,14 +4,22 @@
  * Create zap request (kind 9734), fetch invoice via LNURL.
  * Receipt (kind 9735) is published by the recipient's node;
  * we subscribe via relays and write to Dexie.
+ *
+ * The zap request `relays` tag includes {@link ZAPSTORE_RELAY} first so backends
+ * publish receipts where Zapstore reads (see `zapReceiptPublishRelays`).
  */
 import { SimplePool } from 'nostr-tools';
 import { resolveLightningAddress, fetchInvoiceFromCallback, validateZapSupport } from '$lib/lnurl';
 import { fetchProfile } from './service';
 import { putEvents } from './dexie';
-import { COMMENT_AND_ZAP_READ_RELAYS, DEFAULT_SOCIAL_RELAYS, SUB_PREFIX, ZAPSTORE_RELAY } from '$lib/config';
+import { DEFAULT_SOCIAL_RELAYS, SUB_PREFIX, ZAPSTORE_RELAY } from '$lib/config';
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
+
+/** Relays LN backends should publish zap receipts to (NIP-57 `relays` tag). Zapstore first, then social fallbacks. */
+function zapReceiptPublishRelays() {
+	return [...new Set([ZAPSTORE_RELAY, ...DEFAULT_SOCIAL_RELAYS])];
+}
 
 /**
  * Create a zap request (NIP-57), fetch Lightning invoice from LNURL callback,
@@ -68,7 +76,7 @@ export async function createZap(target, amountSats, comment, signEvent, emojiTag
 	}
 
 	// 3. Build zap request (kind 9734)
-	const relays = [...DEFAULT_SOCIAL_RELAYS].slice(0, 10);
+	const relays = zapReceiptPublishRelays();
 	const tags = [
 		['p', recipientHex],
 		['amount', amountMillisats.toString()],
@@ -132,14 +140,16 @@ export async function createZap(target, amountSats, comment, signEvent, emojiTag
 export function subscribeToZapReceipt(recipientPubkey, zapRequestId, onReceipt, _options) {
 	const pool = new SimplePool();
 	let sub = null;
+	const readRelays = zapReceiptPublishRelays();
 
 	const run = () => {
 		sub = pool.subscribeMany(
-			[...COMMENT_AND_ZAP_READ_RELAYS],
+			readRelays,
 			{
 				kinds: [9735],
 				'#p': [recipientPubkey],
-				since: Math.floor(Date.now() / 1000),
+				// Small lookback avoids missing receipts due to clock skew or race with subscription open.
+				since: Math.floor(Date.now() / 1000) - 120,
 				limit: 100
 			},
 			{
@@ -150,8 +160,9 @@ export function subscribeToZapReceipt(recipientPubkey, zapRequestId, onReceipt, 
 						try {
 							const zapReq = JSON.parse(descTag);
 							if (zapReq.id === zapRequestId) {
-								putEvents([event]).catch(() => {});
-								onReceipt(event);
+								void putEvents([event])
+									.then(() => onReceipt(event))
+									.catch(() => onReceipt(event));
 							}
 						} catch {
 							/* ignore parse */
@@ -166,6 +177,6 @@ export function subscribeToZapReceipt(recipientPubkey, zapRequestId, onReceipt, 
 
 	return () => {
 		try { sub?.close(); } catch { /* noop */ }
-		pool.close([...COMMENT_AND_ZAP_READ_RELAYS]);
+		pool.close(readRelays);
 	};
 }

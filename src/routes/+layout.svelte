@@ -18,7 +18,7 @@ import { evictOldEvents } from '$lib/nostr/dexie';
 import { IDB_NAME } from '$lib/config';
 import { setBackGoesHomeIfLandedFromOutside, clearBackGoesHome } from '$lib/utils/back.js';
 import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
-import Header from '$lib/components/layout/Header.svelte';
+import SiteHeader from '$lib/components/layout/SiteHeader.svelte';
 import Footer from '$lib/components/layout/Footer.svelte';
 import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
 import '../app.css';
@@ -141,7 +141,7 @@ async function _clearAllLocalCaches() {
 	<div class="relative z-10 app-root-inner">
 		<NavigationProgress />
 
-		<Header variant="landing" />
+		<SiteHeader variant="landing" />
 
 		{#if !online}
 			<div class="offline-banner">

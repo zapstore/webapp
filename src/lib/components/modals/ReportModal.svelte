@@ -68,13 +68,27 @@ const VIOLATIONS_BY_TYPE = {
 		{ id: "spam", label: "Spam" },
 		{ id: "other", label: "Other" },
 	],
+	comment: [
+		{ id: "nudity", label: "Nudity or explicit content" },
+		{ id: "profanity", label: "Hateful speech or profanity" },
+		{ id: "illegal", label: "Illegal content" },
+		{ id: "spam", label: "Spam" },
+		{ id: "other", label: "Other" },
+	],
+	zap: [
+		{ id: "spam", label: "Spam" },
+		{ id: "illegal", label: "Illegal content" },
+		{ id: "other", label: "Other" },
+	],
 };
 
 /** @type {Record<string, string>} */
 const CONTENT_TYPE_LABELS = {
 	...ACTIONS_DELETABLE_CONTENT_LABELS,
 	profile: "Profile",
-	post: "Post"
+	post: "Post",
+	comment: "Comment",
+	zap: "Zap"
 };
 
 const violations = $derived(VIOLATIONS_BY_TYPE[contentType] ?? VIOLATIONS_BY_TYPE.app);

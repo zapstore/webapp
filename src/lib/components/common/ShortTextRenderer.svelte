@@ -5,7 +5,11 @@
  * Matches ShortTextInput display: profile-colored @mentions, inline emoji, block cards for nevent/naddr.
  */
 import { onMount } from "svelte";
-import { parseShortText, splitTextAutolinkUrls } from "$lib/utils/short-text-parser.js";
+import {
+    parseShortText,
+    splitTextAutolinkUrls,
+    isShortTextOnlyOneOrTwoEmojis,
+} from "$lib/utils/short-text-parser.js";
 import { stripUrlForDisplay } from "$lib/utils/url.js";
 import { hexToColor, getProfileTextColor, rgbToCssString } from "$lib/utils/color.js";
 import NostrRefCard from "$lib/components/common/NostrRefCard.svelte";
@@ -20,6 +24,7 @@ onMount(() => {
 });
 const input = $derived({ text: content, emojiTags });
 const segments = $derived(parseShortText(input));
+const magnifyFewEmojis = $derived(isShortTextOnlyOneOrTwoEmojis(segments));
 function mentionLabel(segment) {
     return resolveMentionLabel?.(segment.pubkey) ?? segment.pubkey.slice(0, 8);
 }
@@ -30,7 +35,11 @@ function mentionStyle(pubkey) {
 }
 </script>
 
-<div class="short-text-renderer {className}" data-short-text>
+<div
+  class="short-text-renderer {className}"
+  class:short-text-renderer--few-emoji={magnifyFewEmojis}
+  data-short-text
+>
   {#each segments as segment, i (i)}
     {#if segment.type === "text"}
       {#each splitTextAutolinkUrls(segment.value) as chunk, cIdx (`${i}-${cIdx}`)}
@@ -77,6 +86,12 @@ function mentionStyle(pubkey) {
     line-height: 1.5;
     color: hsl(var(--foreground) / 0.85);
     word-wrap: break-word;
+  }
+
+  /* 1–2 emoji only: 2.5× inline size (UTF follows font-size; custom imgs use em) */
+  .short-text-renderer--few-emoji {
+    font-size: 2.5em;
+    line-height: 1;
   }
 
   .short-text-text {

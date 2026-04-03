@@ -1103,6 +1103,10 @@
 	let initialReplyTargetForModal = $state(/** @type {any} */ (null));
 	let threadLoadGen = 0;
 	let openReplyOnMount = $state(false);
+	/** Feed three-dots: open actions sheet when thread modal mounts */
+	let threadOpenActionsOnMount = $state(false);
+	let threadInitialActionsTarget = $state(/** @type {'root' | any | null} */ (null));
+	let pendingActionsCommentEv = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
 	let selectedThreadComments = $state(/** @type {any[]} */ ([]));
 	let selectedThreadZaps = $state(/** @type {any[]} */ ([]));
 	let threadModalKind = $state(/** @type {'comment' | 'zap' | null} */ (null));
@@ -1138,7 +1142,12 @@
 		};
 	}
 
-	function openThread(commentEv, withReply = false) {
+	function openThread(commentEv, withReply = false, opts = {}) {
+		const openActionsSheet = opts?.openActionsSheet === true;
+		threadOpenActionsOnMount = openActionsSheet;
+		pendingActionsCommentEv = openActionsSheet ? commentEv : null;
+		threadInitialActionsTarget = null;
+
 		const postId = commentEv.tags?.find((t) => t[0] === 'E' && t[1])?.[1] ?? null;
 		const aRoot = addrTagFromComment(commentEv);
 
@@ -1189,6 +1198,16 @@
 							? enrichReplyTargetForModal(commentEv)
 							: null;
 
+					if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+						const isRoot =
+							pendingActionsCommentEv.id.toLowerCase() === encZap.id.toLowerCase();
+						threadInitialActionsTarget = isRoot
+							? 'root'
+							: enrichReplyTargetForModal(pendingActionsCommentEv);
+					} else {
+						threadInitialActionsTarget = null;
+					}
+
 					loadZapForumThread(postIdZap, encZap.id, gen);
 					return;
 				}
@@ -1214,12 +1233,27 @@
 						? enrichReplyTargetForModal(commentEv)
 						: null;
 
+				if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+					const isRoot =
+						pendingActionsCommentEv.id.toLowerCase() === rootId.toLowerCase();
+					threadInitialActionsTarget = isRoot
+						? 'root'
+						: enrichReplyTargetForModal(pendingActionsCommentEv);
+				} else {
+					threadInitialActionsTarget = null;
+				}
+
 				await loadActivityThread(postId, rootId, gen, rootEv);
 			})();
 			return;
 		}
 
-		if (!aRoot || !isAddressableActivityATag(aRoot)) return;
+		if (!aRoot || !isAddressableActivityATag(aRoot)) {
+			threadOpenActionsOnMount = false;
+			threadInitialActionsTarget = null;
+			pendingActionsCommentEv = null;
+			return;
+		}
 
 		(async () => {
 			const encZap = await findEnclosingZapReceiptForComment(
@@ -1243,6 +1277,17 @@
 					withReply && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
 						? enrichReplyTargetForModal(commentEv)
 						: null;
+
+				if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+					const isRoot =
+						pendingActionsCommentEv.id.toLowerCase() === encZap.id.toLowerCase();
+					threadInitialActionsTarget = isRoot
+						? 'root'
+						: enrichReplyTargetForModal(pendingActionsCommentEv);
+				} else {
+					threadInitialActionsTarget = null;
+				}
+
 				loadZapAddrThread(encZap.id, aRootZ, gen);
 				return;
 			}
@@ -1270,6 +1315,15 @@
 				withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
 					? enrichReplyTargetForModal(commentEv)
 					: null;
+
+			if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+				const isRoot = pendingActionsCommentEv.id.toLowerCase() === rootId.toLowerCase();
+				threadInitialActionsTarget = isRoot
+					? 'root'
+					: enrichReplyTargetForModal(pendingActionsCommentEv);
+			} else {
+				threadInitialActionsTarget = null;
+			}
 
 			await loadAddrActivityThread(rootId, aRoot, gen, rootEv);
 		})();
@@ -1498,11 +1552,18 @@
 		void seedActivityFromRelay();
 	}
 
-	function openZapThreadForum(zapEvent, withReply = false) {
+	function openZapThreadForum(zapEvent, withReply = false, opts = {}) {
+		const openActionsSheet = opts?.openActionsSheet === true;
+		threadOpenActionsOnMount = openActionsSheet;
+		threadInitialActionsTarget = openActionsSheet ? 'root' : null;
+		pendingActionsCommentEv = null;
+
 		let p;
 		try {
 			p = parseZapReceipt(zapEvent);
 		} catch {
+			threadOpenActionsOnMount = false;
+			threadInitialActionsTarget = null;
 			return;
 		}
 		const aAddr = addrATagForAppStackZap(zapEvent, p);
@@ -1524,7 +1585,11 @@
 		}
 
 		const postId = forumPostIdForZapParsed(p);
-		if (!postId) return;
+		if (!postId) {
+			threadOpenActionsOnMount = false;
+			threadInitialActionsTarget = null;
+			return;
+		}
 
 		threadLoadGen++;
 		const gen = threadLoadGen;
@@ -1899,7 +1964,7 @@
 							feedActions={{
 								onReply: () => openThread(commentEv, true),
 								onZap: () => openThread(commentEv),
-								onOptions: () => openThread(commentEv)
+								onOptions: () => openThread(commentEv, false, { openActionsSheet: true })
 							}}
 						/>
 					</div>
@@ -1985,7 +2050,7 @@
 							feedActions={{
 								onReply: () => openZapThreadForum(zapEv, true),
 								onZap: () => openZapThreadForum(zapEv),
-								onOptions: () => openZapThreadForum(zapEv)
+								onOptions: () => openZapThreadForum(zapEv, false, { openActionsSheet: true })
 							}}
 						/>
 					</div>
@@ -2038,6 +2103,8 @@
 		<RootComment
 			hideRoot={true}
 			openThreadOnMount={true}
+			openActionsOnMount={threadOpenActionsOnMount}
+			initialActionsTarget={threadInitialActionsTarget}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
 			id={_rootEv.id}
@@ -2070,6 +2137,9 @@
 				threadModalRootEvent = null;
 				threadModalAddrATag = null;
 				initialReplyTargetForModal = null;
+				threadOpenActionsOnMount = false;
+				threadInitialActionsTarget = null;
+				pendingActionsCommentEv = null;
 				selectedThreadComments = [];
 				selectedThreadZaps = [];
 			}}
@@ -2153,6 +2223,9 @@
 				threadModalZapEvent = null;
 				threadModalAddrATag = null;
 				initialReplyTargetForModal = null;
+				threadOpenActionsOnMount = false;
+				threadInitialActionsTarget = null;
+				pendingActionsCommentEv = null;
 				selectedThreadComments = [];
 				selectedThreadZaps = [];
 			}}

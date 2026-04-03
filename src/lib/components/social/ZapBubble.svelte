@@ -4,11 +4,12 @@
  * Zap comment is rendered via ShortTextRenderer (mentions, emoji, nostr refs).
  */
 import { nip19 } from "nostr-tools";
+import { Loader2 } from "lucide-svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
 import { Zap } from "$lib/components/icons";
-let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", className = "", loading = false, message = "", emojiTags = [], resolveMentionLabel, actionRail, } = $props();
+let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, message = "", emojiTags = [], resolveMentionLabel, actionRail, } = $props();
 function formatNpubDisplay(npubStr) {
     if (!npubStr || typeof npubStr !== "string") return "";
     const s = npubStr.trim();
@@ -52,7 +53,13 @@ function formatAmount(val) {
             {displayName}
           </span>
         {/if}
-        <Timestamp {timestamp} size="xs" />
+        {#if !pending}
+          <Timestamp {timestamp} size="xs" />
+        {:else}
+          <span class="publish-spinner" aria-label="Confirming zap">
+            <Loader2 class="h-3.5 w-3.5 animate-spin" style="color: hsl(var(--blurpleLightColor));" />
+          </span>
+        {/if}
       </div>
 
       <div class="zap-amount-row">
@@ -208,5 +215,20 @@ function formatAmount(val) {
 
   .bubble-content :global(a:hover) {
     text-decoration: underline;
+  }
+
+  .publish-spinner {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  :global(.animate-spin) {
+    animation: zap-bubble-spin 1s linear infinite;
+  }
+
+  @keyframes zap-bubble-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>

@@ -326,6 +326,49 @@ function refetchZaps() {
 		});
 	});
 }
+function handleForumZapPending(payload) {
+	if (!payload?.tempId) return;
+	const userPubkey = getCurrentPubkey();
+	const optimistic = {
+		id: payload.tempId,
+		senderPubkey: userPubkey || undefined,
+		amountSats: payload.amountSats,
+		comment: payload.comment ?? '',
+		emojiTags: payload.emojiTags ?? [],
+		createdAt: Math.floor(Date.now() / 1000),
+		zappedEventId: payload.zappedEventId,
+		pending: true
+	};
+	zaps = [optimistic, ...zaps];
+	if (userPubkey && profiles[userPubkey]) {
+		const p = profiles[userPubkey];
+		zapperProfiles.set(userPubkey, {
+			displayName: p.displayName ?? p.name,
+			name: p.name,
+			picture: p.picture
+		});
+	}
+}
+function handleForumZapPendingClear(tempId) {
+	if (!tempId) return;
+	zaps = zaps.filter((z) => z.id !== tempId);
+}
+function handleForumBottomBarZap(event) {
+	const { zapReceipt, pendingTempId } = event ?? {};
+	if (pendingTempId) {
+		zaps = zaps.filter((z) => z.id !== pendingTempId);
+	}
+	if (zapReceipt?.id) {
+		const z = parseZapReceipt(zapReceipt);
+		z.id = zapReceipt.id;
+		const pid = String(z.id).toLowerCase();
+		if (!zaps.some((x) => String(x.id).toLowerCase() === pid)) {
+			zaps = [z, ...zaps];
+		}
+	}
+	refetchZaps();
+	setTimeout(refetchZaps, 2500);
+}
 
 /** @param {HTMLElement} node */
 function checkTruncation(node) {
@@ -424,7 +467,8 @@ function checkTruncation(node) {
 							createdAt: z.createdAt,
 							comment: z.comment,
 							emojiTags: z.emojiTags ?? [],
-							zappedEventId: z.zappedEventId ?? undefined
+							zappedEventId: z.zappedEventId ?? undefined,
+							pending: z.pending === true
 						}))}
 						{zapsLoading}
 						{zapperProfiles}
@@ -434,7 +478,9 @@ function checkTruncation(node) {
 						{searchProfiles}
 						{searchEmojis}
 						onCommentSubmit={handleCommentSubmit}
-						onZapReceived={refetchZaps}
+						onZapPending={handleForumZapPending}
+						onZapPendingClear={handleForumZapPendingClear}
+						onZapReceived={handleForumBottomBarZap}
 						onGetStarted={() => (getStartedModalOpen = true)}
 						{labelEntries}
 						{labelsLoading}
@@ -458,7 +504,9 @@ function checkTruncation(node) {
 				{searchProfiles}
 				{searchEmojis}
 				oncommentSubmit={handleCommentSubmit}
-				onzapReceived={refetchZaps}
+				onzapReceived={handleForumBottomBarZap}
+				onZapPending={handleForumZapPending}
+				onZapPendingClear={handleForumZapPendingClear}
 				onoptions={() => {}}
 				onLabelPublished={() => {
 					labelFetchNonce += 1;

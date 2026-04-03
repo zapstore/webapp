@@ -82,11 +82,13 @@
 			(parentComment?.pubkey ? formatNpub(parentComment.pubkey) : '')
 	);
 
-	const parentContentPreview = $derived(
-		(parentComment?.content ?? '')
-			.replace(/nostr:[a-z0-9]+/gi, '')
-			.replace(/\s+/g, ' ')
-			.trim()
+	const parentEmojiTags = $derived(
+		(parentComment?.tags ?? [])
+			.filter((t) => t[0] === 'emoji' && t[1] && t[2])
+			.map((t) => ({ shortcode: t[1], url: t[2] }))
+	);
+	const parentMediaUrls = $derived(
+		(parentComment?.tags ?? []).filter((t) => t[0] === 'media' && t[1]).map((t) => t[1])
 	);
 
 	function formatAmount(val) {
@@ -215,7 +217,10 @@
 									<QuotedMessage
 										authorName={parentDisplayName || 'Anonymous'}
 										authorPubkey={parentComment?.pubkey ?? null}
-										contentPreview={parentContentPreview}
+										content={parentComment.content ?? ''}
+										emojiTags={parentEmojiTags}
+										mediaUrls={parentMediaUrls}
+										{resolveMentionLabel}
 									/>
 								</div>
 							{/if}
@@ -262,7 +267,10 @@
 							<QuotedMessage
 								authorName={parentDisplayName || 'Anonymous'}
 								authorPubkey={parentComment?.pubkey ?? null}
-								contentPreview={parentContentPreview}
+								content={parentComment.content ?? ''}
+								emojiTags={parentEmojiTags}
+								mediaUrls={parentMediaUrls}
+								{resolveMentionLabel}
 							/>
 						</div>
 					{/if}

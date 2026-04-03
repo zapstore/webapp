@@ -3,11 +3,12 @@
  * ThreadZap - Thread-style zap display for the top of opened comment threads on a zap.
  * Same layout as ThreadComment; only difference is amount (zap icon + sats) in the top right.
  */
+import { Loader2 } from "lucide-svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
 import { Zap } from "$lib/components/icons";
-let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", version: _version = "", className = "", loading = false, content = "", emojiTags = [], resolveMentionLabel, } = $props();
+let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", version: _version = "", className = "", loading = false, pending = false, content = "", emojiTags = [], resolveMentionLabel, } = $props();
 function formatAmount(val) {
     if (val >= 1000000)
         return `${(val / 1000000).toFixed(val % 1000000 === 0 ? 0 : 1)}M`;
@@ -45,7 +46,13 @@ function formatAmount(val) {
           {:else}
             <span class="author-name">{name || "Anonymous"}</span>
           {/if}
-          <Timestamp {timestamp} size="xs" className="author-timestamp" />
+          {#if !pending}
+            <Timestamp {timestamp} size="xs" className="author-timestamp" />
+          {:else}
+            <span class="publish-spinner" aria-label="Confirming zap">
+              <Loader2 class="h-3.5 w-3.5 animate-spin" style="color: hsl(var(--blurpleLightColor));" />
+            </span>
+          {/if}
         </div>
         <div class="top-right-amount">
           <Zap variant="fill" size={20} color="url(#thread-zap-gold-gradient)" />
@@ -148,6 +155,21 @@ function formatAmount(val) {
     font-size: 1.25rem;
     line-height: 1.2;
     color: hsl(var(--foreground));
+  }
+
+  .publish-spinner {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  :global(.animate-spin) {
+    animation: thread-zap-spin 1s linear infinite;
+  }
+
+  @keyframes thread-zap-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .content {

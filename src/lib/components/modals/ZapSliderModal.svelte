@@ -15,7 +15,7 @@ async function signWithAnonymousKey(template) {
     const sk = generateSecretKey();
     return finalizeEvent(template, sk);
 }
-let { target = null, publisherName = "", otherZaps = [], isOpen = $bindable(false), nestedModal = false, searchProfiles = async () => [], searchEmojis = async () => [], onclose, onzapReceived, } = $props();
+let { target = null, publisherName = "", otherZaps = [], isOpen = $bindable(false), nestedModal = false, searchProfiles = async () => [], searchEmojis = async () => [], onclose, onzapReceived, onZapPending, onZapPendingClear, } = $props();
 let sliderComponent = $state(null);
 let zapValue = $state(100);
 let message = $state("");
@@ -31,6 +31,8 @@ let _waitingForReceipt = $state(false);
 let showManualClose = $state(false);
 let receiptTimeout = null;
 let lastEmojiTags = $state([]);
+/** Optimistic UI: temp row id until receipt or cancel */
+let pendingTempId = $state(null);
 const isConnected = $derived(getIsSignedIn());
 const qrCodeUrl = $derived(invoice
     ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&bgcolor=ffffff&color=000000&data=${encodeURIComponent("lightning:" + invoice.toUpperCase())}`
@@ -48,8 +50,7 @@ function cleanup() {
         receiptTimeout = null;
     }
 }
-function close(zapSuccessful = false) {
-    cleanup();
+function resetZapFormState() {
     zapValue = 100;
     message = "";
     loading = false;
@@ -60,8 +61,14 @@ function close(zapSuccessful = false) {
     step = "slider";
     _waitingForReceipt = false;
     showManualClose = false;
+}
+/** Successful close after receipt (pending row already cleared in parent). */
+function closeAfterSuccess() {
+    cleanup();
+    resetZapFormState();
+    pendingTempId = null;
     isOpen = false;
-    onclose?.({ success: zapSuccessful });
+    onclose?.({ success: true });
 }
 function handleValueChanged(e) {
     zapValue = e.value;
@@ -92,6 +99,18 @@ async function handleZap() {
         const result = await createZap(target, Math.round(zapValue), commentText, signer, emojiTagsToSend.length ? emojiTagsToSend : undefined);
         invoice = result.invoice;
         zapRequest = result.zapRequest;
+        const tempId = `pending-zap-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        pendingTempId = tempId;
+        const zid = target?.id?.trim?.() ?? "";
+        const zappedEventId = /^[a-f0-9]{64}$/i.test(zid) ? zid.toLowerCase() : undefined;
+        onZapPending?.({
+            tempId,
+            amountSats: Math.round(zapValue),
+            comment: commentText,
+            emojiTags: emojiTagsToSend,
+            zappedEventId,
+            recipientPubkey: target?.pubkey,
+        });
         startListeningForReceipt();
         // Trigger browser wallet (Alby etc.) immediately when invoice is ready
         if (result.invoice) {
@@ -120,15 +139,25 @@ function startListeningForReceipt() {
         }
         _waitingForReceipt = false;
         step = "success";
-        onzapReceived?.({ zapReceipt });
-        setTimeout(() => close(true), 2000);
+        const temp = pendingTempId;
+        pendingTempId = null;
+        onzapReceived?.({ zapReceipt, pendingTempId: temp });
+        setTimeout(() => closeAfterSuccess(), 2000);
     }, { invoice: invoice ?? undefined, appAddress: targetAddress, appEventId: target.id });
     receiptTimeout = setTimeout(() => {
         showManualClose = true;
     }, 30000);
 }
 function handleManualDone() {
-    close(true);
+    const temp = pendingTempId;
+    pendingTempId = null;
+    if (temp)
+        onZapPendingClear?.(temp);
+    cleanup();
+    resetZapFormState();
+    isOpen = false;
+    onzapReceived?.({ zapReceipt: {}, pendingTempId: null });
+    onclose?.({ success: true });
 }
 async function copyInvoice() {
     if (!invoice)
@@ -174,6 +203,10 @@ async function openInWallet(bolt11) {
     }
 }
 function goBack() {
+    const temp = pendingTempId;
+    pendingTempId = null;
+    if (temp)
+        onZapPendingClear?.(temp);
     cleanup();
     step = "slider";
     invoice = null;
@@ -187,9 +220,17 @@ function formatAmount(val) {
     return Math.round(val).toLocaleString("en-US");
 }
 onDestroy(() => cleanup());
+let _prevIsOpen = $state(false);
 $effect(() => {
-    if (!isOpen)
+    if (_prevIsOpen && !isOpen) {
+        if (pendingTempId) {
+            onZapPendingClear?.(pendingTempId);
+            pendingTempId = null;
+        }
         cleanup();
+        resetZapFormState();
+    }
+    _prevIsOpen = isOpen;
 });
 </script>
 

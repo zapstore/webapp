@@ -28,7 +28,7 @@ let {
     zapsLoading = false, profiles = {}, profilesLoading = false,
     getAppSlug = () => "", getStackSlug = () => "",
     pubkeyToNpub = () => "", searchProfiles = async () => [],
-    searchEmojis = async () => [], signEvent = null, onCommentSubmit, onZapReceived, onGetStarted,
+    searchEmojis = async () => [], signEvent = null, onCommentSubmit, onZapReceived, onZapPending, onZapPendingClear, onGetStarted,
     mainEventIds = [],
     // Details tab overrides — when provided, skip Dexie auto-fetch.
     // Accepts the same props as chateau-web's SocialTabs for a unified API.
@@ -372,6 +372,7 @@ const combinedFeed = $derived.by(() => {
                 emojiTags={item.emojiTags}
                 isZapRoot={true}
                 zapAmount={item.amountSats ?? 0}
+                pending={item.pending === true}
                 threadComments={threadByZapId.get(item.id) ?? []}
                 threadZaps={threadZapsByZapId.get(item.id) ?? []}
                 authorPubkey={app?.pubkey}
@@ -397,6 +398,8 @@ const combinedFeed = $derived.by(() => {
                     })
                   : undefined}
                 onZapReceived={onZapReceived}
+                {onZapPending}
+                {onZapPendingClear}
                 onGetStarted={onGetStarted}
               />
             {:else}
@@ -427,6 +430,8 @@ const combinedFeed = $derived.by(() => {
                 signEvent={signEvent}
                 onReplySubmit={onCommentSubmit ? (e) => onCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, mediaUrls: e.mediaUrls, parentId: e.parentId, replyToPubkey: e.replyToPubkey, rootPubkey: e.rootPubkey, parentKind: e.parentKind }) : undefined}
                 onZapReceived={onZapReceived}
+                {onZapPending}
+                {onZapPendingClear}
                 onGetStarted={onGetStarted}
               >
               </RootComment>
@@ -449,6 +454,7 @@ const combinedFeed = $derived.by(() => {
               amount={zap.amountSats || 0}
               timestamp={zap.createdAt}
               profileUrl={zap.profileUrl}
+              pending={zap.pending === true}
               message={zap.comment || ""}
               emojiTags={zap.emojiTags}
               resolveMentionLabel={(pk) => profiles[pk]?.displayName ?? profiles[pk]?.name}

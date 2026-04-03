@@ -1,7 +1,7 @@
 <script lang="js">
 /**
  * QuotedMessage - Compact quote block for displaying inside message bubbles.
- * One-line content: use ShortTextPreview (content + emojiTags + mediaUrls) when provided, else plain contentPreview string.
+ * One-line content: ShortTextPreview when there is text, emoji tags, or media (same rule as QuotedZapMessage); else plain contentPreview.
  */
 import { onMount } from "svelte";
 import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString } from "$lib/utils/color.js";
@@ -18,7 +18,12 @@ let {
 	mediaUrls = [],
 	resolveMentionLabel = null,
 } = $props();
-const useRichPreview = $derived(content != null && content !== undefined);
+/** Match QuotedZapMessage: rich path when there is text, custom emoji tags, or media chips */
+const useRichPreview = $derived(
+	(content ?? "").trim().length > 0 ||
+		(emojiTags?.length ?? 0) > 0 ||
+		(mediaUrls?.length ?? 0) > 0
+);
 function getProfileColor(pk, nm) {
     if (pk && pk.trim()) {
         return hexToColor(pk);

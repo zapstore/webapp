@@ -28,8 +28,16 @@ import { getIsSignedIn, getCurrentPubkey } from "$lib/stores/auth.svelte.js";
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
 import { EVENT_KINDS } from "$lib/config.js";
 import { goto } from "$app/navigation";
-let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], /** @type {string[]} */ mediaUrls = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, onReplySubmit, onZapReceived, onGetStarted,     /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
+import { tick } from "svelte";
+let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], /** @type {string[]} */ mediaUrls = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, onReplySubmit, onZapReceived, onZapPending, onZapPendingClear, onGetStarted,     /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
     openThreadOnMount = false,
+    /** After thread opens, open the actions sheet once (feed three-dots). */
+    openActionsOnMount = false,
+    /**
+     * Target for the initial actions sheet: `'root'` or same shape as thread reply / zap item.
+     * @type {'root' | Record<string, unknown> | null}
+     */
+    initialActionsTarget = null,
     /** When true, also open the reply composer immediately when the modal mounts. */
     openReplyOnMount = false,
     /**
@@ -114,8 +122,11 @@ async function handleReplyFileChange(e) {
 /** Which item the actions modal is for: 'root', a comment reply, or a zap (zap on zap) */
 let actionsModalTarget = $state(null);
 let actionsModalOpen = $state(false);
+let actionsNestedOpen = $state(false);
 /** True when any modal is open on top of the thread (Zap, Comment/Zap options, emoji, insert) – drives overlay + scale animation */
-const childModalOpen = $derived(zapModalOpen || actionsModalOpen || emojiPickerOpen || insertModalOpen);
+const childModalOpen = $derived(
+	zapModalOpen || actionsModalOpen || actionsNestedOpen || emojiPickerOpen || insertModalOpen
+);
 // Replies only: threadComments excluding the root itself (threadComments includes root as first element)
 const threadReplies = $derived(threadComments.filter((c) => c.id !== id));
 // Unique people in the thread: comment repliers + zappers (by pubkey), same shape as ReplyComment for profile stack. App author first.
@@ -396,8 +407,40 @@ function getActionsModalContentPreview() {
     return getContentPreview(actionsModalTarget);
 }
 function handleOptions() {
-    // TODO: Show options menu
+    openActionsModal("root");
 }
+
+const actionsTargetEventId = $derived.by(() => {
+	if (actionsModalTarget === "root") return String(id ?? "").trim();
+	if (!actionsModalTarget || typeof actionsModalTarget !== "object") return "";
+	return String(/** @type {{ id?: string }} */ (actionsModalTarget).id ?? "").trim();
+});
+
+const actionsTargetEventKind = $derived.by(() => {
+	if (actionsModalTarget === "root")
+		return isZapRoot ? EVENT_KINDS.ZAP_RECEIPT : EVENT_KINDS.COMMENT;
+	if (!actionsModalTarget || typeof actionsModalTarget !== "object")
+		return EVENT_KINDS.COMMENT;
+	const o = /** @type {Record<string, unknown>} */ (actionsModalTarget);
+	if ("senderPubkey" in o && ("amountSats" in o || "comment" in o))
+		return EVENT_KINDS.ZAP_RECEIPT;
+	return EVENT_KINDS.COMMENT;
+});
+
+let didApplyInitialActions = $state(false);
+$effect(() => {
+	if (!modalOpen || !openActionsOnMount) {
+		if (!modalOpen) didApplyInitialActions = false;
+		return;
+	}
+	if (didApplyInitialActions) return;
+	const t = initialActionsTarget;
+	if (t === null || t === undefined) return;
+	didApplyInitialActions = true;
+	void tick().then(() => {
+		openActionsModal(t);
+	});
+});
 /** Plain click: close modal then client-navigate — closing first avoids tearing down the `<a>` before SvelteKit handles the click. */
 function handleRootContextNav(e) {
     e.stopPropagation();
@@ -447,6 +490,7 @@ function handleRootContextNav(e) {
       {pubkey}
       {timestamp}
       {profileUrl}
+      {pending}
       message={content ?? ""}
       amount={zapAmount}
       {emojiTags}
@@ -522,8 +566,7 @@ function handleRootContextNav(e) {
   wide={true}
   class="thread-modal {childModalOpen ? 'thread-modal-child-open' : ''}"
 >
-  <div class="thread-content-wrap" class:child-modal-open={childModalOpen}>
-      <div class="thread-modal-child-overlay" aria-hidden="true"></div>
+  <div class="thread-content-wrap">
       <div class="thread-content">
       {#if rootContext}
         {#if rootContext.deleted || !String(rootContext.href ?? "").trim()}
@@ -565,6 +608,7 @@ function handleRootContextNav(e) {
               {timestamp}
               {profileUrl}
               {version}
+              {pending}
               content={content ?? ""}
               {emojiTags}
               {resolveMentionLabel}
@@ -715,8 +759,7 @@ function handleRootContextNav(e) {
 
   {#snippet footer()}
     {#if showThreadActions && getIsSignedIn()}
-      <div class="thread-footer-wrap" class:child-modal-open={childModalOpen}>
-        <div class="thread-modal-child-overlay" aria-hidden="true"></div>
+      <div class="thread-footer-wrap">
       <div class="thread-bottom-bar" class:expanded={commentExpanded}>
         {#if !commentExpanded}
           <div class="thread-bottom-bar-content">
@@ -811,6 +854,7 @@ function handleRootContextNav(e) {
 
 <CommentActionsModal
   bind:open={actionsModalOpen}
+  bind:nestedChildOpen={actionsNestedOpen}
   authorName={actionsModalTarget === "root" ? (name || "Anonymous") : (actionsModalTarget?.displayName ?? "Anonymous")}
   authorPubkey={actionsModalTarget === "root" ? pubkey : (actionsModalTarget ? ("senderPubkey" in actionsModalTarget ? actionsModalTarget.senderPubkey : actionsModalTarget.pubkey) ?? null : null)}
   contentPreview={getActionsModalContentPreview()}
@@ -818,6 +862,10 @@ function handleRootContextNav(e) {
   zapAmountSats={actionsModalTarget === "root" && isZapRoot ? (zapAmount ?? 0) : (actionsModalTarget && typeof actionsModalTarget === "object" && "amountSats" in actionsModalTarget ? (actionsModalTarget.amountSats ?? 0) : 0)}
   zapContent={actionsModalTarget === "root" && isZapRoot ? (content ?? "") : (actionsModalTarget && typeof actionsModalTarget === "object" && "comment" in actionsModalTarget ? (actionsModalTarget.comment ?? "") : "")}
   zapEmojiTags={actionsModalTarget === "root" && isZapRoot ? (emojiTags ?? []) : (actionsModalTarget && typeof actionsModalTarget === "object" && "emojiTags" in actionsModalTarget ? (actionsModalTarget.emojiTags ?? []) : [])}
+  targetEventId={actionsTargetEventId}
+  targetEventKind={actionsTargetEventKind}
+  {searchProfiles}
+  {searchEmojis}
   onComment={actionsModalOnComment}
   onZap={actionsModalOnZap}
 />
@@ -832,6 +880,8 @@ function handleRootContextNav(e) {
   {searchEmojis}
   onclose={handleZapClose}
   onzapReceived={handleZapReceived}
+  {onZapPending}
+  {onZapPendingClear}
 />
 
 <EmojiPickerModal
@@ -908,19 +958,30 @@ function handleRootContextNav(e) {
     flex-direction: column;
   }
 
-  .thread-modal-child-overlay {
+  /**
+   * Single dim layer over the entire thread sheet (scroll area + footer + safe-area padding).
+   * In-document overlays inside `.modal-content` missed the bottom (padding / flex gap) and looked broken above stacked sheets.
+   */
+  :global(.thread-modal::before) {
+    content: "";
     position: absolute;
     inset: 0;
+    border-radius: inherit;
     background: hsl(var(--black33));
-    z-index: 10;
+    z-index: 1;
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.2s ease-out;
   }
 
-  .thread-content-wrap.child-modal-open .thread-modal-child-overlay,
-  .thread-footer-wrap.child-modal-open .thread-modal-child-overlay {
+  :global(.thread-modal.thread-modal-child-open::before) {
     opacity: 1;
+  }
+
+  :global(.thread-modal .modal-content),
+  :global(.thread-modal > .thread-footer-wrap) {
+    position: relative;
+    z-index: 0;
   }
 
   /* Whole thread modal scales and moves down when Zap or options modal opens (class is on Modal’s container) */

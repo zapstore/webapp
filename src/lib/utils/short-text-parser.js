@@ -178,3 +178,64 @@ export function parseShortText(input) {
     }
     return segments;
 }
+
+/** True when a non-empty trimmed grapheme is emoji (pictographic or flag pair). */
+function graphemeIsEmoji(s) {
+    if (/\p{Extended_Pictographic}/u.test(s))
+        return true;
+    // Regional-indicator pairs (e.g. flags) are not Extended_Pictographic
+    if (/^\p{Regional_Indicator}{2}$/u.test(s))
+        return true;
+    return false;
+}
+
+/**
+ * Count emoji grapheme clusters in `text` when the string is only whitespace + emoji.
+ * @returns {number} count, or -1 if any non-whitespace non-emoji grapheme appears
+ */
+function countEmojiGraphemesOnlyInText(text) {
+    if (!text || !/\S/.test(text))
+        return 0;
+    const Segmenter = typeof Intl !== "undefined" && Intl.Segmenter;
+    if (!Segmenter)
+        return -1;
+    const seg = new Segmenter(undefined, { granularity: "grapheme" });
+    let count = 0;
+    for (const { segment } of seg.segment(text)) {
+        if (!/\S/.test(segment))
+            continue;
+        if (!graphemeIsEmoji(segment))
+            return -1;
+        count++;
+    }
+    return count;
+}
+
+/**
+ * True when `segments` is only whitespace and exactly 1–2 emoji total
+ * (custom :shortcode: segments and/or Unicode emoji inside text segments).
+ * O(segments); Segmenter runs only on text spans (short when this applies).
+ */
+export function isShortTextOnlyOneOrTwoEmojis(segments) {
+    if (!segments?.length)
+        return false;
+    let total = 0;
+    for (const seg of segments) {
+        if (seg.type === "mention" || seg.type === "nostr_ref")
+            return false;
+        if (seg.type === "emoji") {
+            total += 1;
+            if (total > 2)
+                return false;
+        }
+        else if (seg.type === "text") {
+            const n = countEmojiGraphemesOnlyInText(seg.value);
+            if (n < 0)
+                return false;
+            total += n;
+            if (total > 2)
+                return false;
+        }
+    }
+    return total >= 1 && total <= 2;
+}

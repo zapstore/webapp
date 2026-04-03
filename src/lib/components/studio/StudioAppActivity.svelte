@@ -351,6 +351,9 @@
 	let threadLoadGen = 0;
 	/** Whether the reply composer should open immediately when the thread modal mounts. */
 	let openReplyOnMount = $state(false);
+	let threadOpenActionsOnMount = $state(false);
+	let threadInitialActionsTarget = $state(/** @type {'root' | any | null} */ (null));
+	let pendingActionsCommentEv = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
 	/** Enriched replies for the open thread modal (subtree under root). */
 	let selectedThreadComments = $state(/** @type {any[]} */ ([]));
 	/** Nested zap receipts when the open modal is a zap thread. */
@@ -387,9 +390,13 @@
 		};
 	}
 
-	function openThread(commentEv, withReply = false) {
+	function openThread(commentEv, withReply = false, opts = {}) {
 		const aRoot = commentEv.tags?.find((t) => t[0] === 'A' && t[1])?.[1] ?? null;
 		if (!aRoot) return;
+
+		threadOpenActionsOnMount = opts?.openActionsSheet === true;
+		pendingActionsCommentEv = threadOpenActionsOnMount ? commentEv : null;
+		threadInitialActionsTarget = null;
 
 		threadLoadGen++;
 		const gen = threadLoadGen;
@@ -425,6 +432,17 @@
 					withReply && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
 						? enrichReplyTargetForModal(commentEv)
 						: null;
+
+				if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+					const isRoot =
+						pendingActionsCommentEv.id.toLowerCase() === encZap.id.toLowerCase();
+					threadInitialActionsTarget = isRoot
+						? 'root'
+						: enrichReplyTargetForModal(pendingActionsCommentEv);
+				} else {
+					threadInitialActionsTarget = null;
+				}
+
 				loadZapAppThread(encZap.id, aRootZ, gen);
 				return;
 			}
@@ -452,6 +470,15 @@
 					? enrichReplyTargetForModal(commentEv)
 					: null;
 
+			if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+				const isRoot = pendingActionsCommentEv.id.toLowerCase() === rootId.toLowerCase();
+				threadInitialActionsTarget = isRoot
+					? 'root'
+					: enrichReplyTargetForModal(pendingActionsCommentEv);
+			} else {
+				threadInitialActionsTarget = null;
+			}
+
 			await loadAppThread(rootId, aRoot, gen, rootEv);
 		})();
 	}
@@ -470,9 +497,13 @@
 		);
 	}
 
-	function openZapThread(zapEvent, withReply = false) {
+	function openZapThread(zapEvent, withReply = false, opts = {}) {
 		const aRoot = appATagFromZapEvent(zapEvent);
 		if (!aRoot) return;
+
+		threadOpenActionsOnMount = opts?.openActionsSheet === true;
+		threadInitialActionsTarget = threadOpenActionsOnMount ? 'root' : null;
+		pendingActionsCommentEv = null;
 
 		threadLoadGen++;
 		const gen = threadLoadGen;
@@ -922,7 +953,7 @@
 						feedActions={{
 							onReply: () => openThread(commentEv, true),
 							onZap: () => openThread(commentEv),
-							onOptions: () => openThread(commentEv)
+							onOptions: () => openThread(commentEv, false, { openActionsSheet: true })
 						}}
 					/>
 				</div>
@@ -1008,7 +1039,7 @@
 						feedActions={{
 							onReply: () => openZapThread(zapEv, true),
 							onZap: () => openZapThread(zapEv),
-							onOptions: () => openZapThread(zapEv)
+							onOptions: () => openZapThread(zapEv, false, { openActionsSheet: true })
 						}}
 					/>
 				</div>
@@ -1044,6 +1075,8 @@
 		<RootComment
 			hideRoot={true}
 			openThreadOnMount={true}
+			openActionsOnMount={threadOpenActionsOnMount}
+			initialActionsTarget={threadInitialActionsTarget}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
 			id={_rootEv.id}
@@ -1076,6 +1109,9 @@
 				threadModalRootId = null;
 				threadModalRootEvent = null;
 				initialReplyTargetForModal = null;
+				threadOpenActionsOnMount = false;
+				threadInitialActionsTarget = null;
+				pendingActionsCommentEv = null;
 				selectedThreadComments = [];
 				selectedThreadZaps = [];
 			}}
@@ -1116,6 +1152,8 @@
 		<RootComment
 			hideRoot={true}
 			openThreadOnMount={true}
+			openActionsOnMount={threadOpenActionsOnMount}
+			initialActionsTarget={threadInitialActionsTarget}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
 			isZapRoot={true}
@@ -1149,6 +1187,9 @@
 				threadModalZapId = null;
 				threadModalZapEvent = null;
 				initialReplyTargetForModal = null;
+				threadOpenActionsOnMount = false;
+				threadInitialActionsTarget = null;
+				pendingActionsCommentEv = null;
 				selectedThreadComments = [];
 				selectedThreadZaps = [];
 			}}

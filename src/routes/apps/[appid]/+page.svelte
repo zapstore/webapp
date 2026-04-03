@@ -527,6 +527,64 @@
 			}
 		}
 	}
+	function parseZapFromReceiptEvent(e) {
+		const parsed = { ...parseZapReceipt(e), id: e.id };
+		if (!parsed.zappedEventId && e.tags?.length) {
+			const eTag = e.tags.find((t) => t[0]?.toLowerCase() === 'e' && t[1]);
+			if (eTag?.[1]) parsed.zappedEventId = eTag[1];
+		}
+		return parsed;
+	}
+	function handleZapPending(payload) {
+		if (!payload?.tempId) return;
+		const userPubkey = getCurrentPubkey();
+		const optimistic = {
+			id: payload.tempId,
+			senderPubkey: userPubkey || undefined,
+			amountSats: payload.amountSats,
+			comment: payload.comment ?? '',
+			emojiTags: payload.emojiTags ?? [],
+			createdAt: Math.floor(Date.now() / 1000),
+			zappedEventId: payload.zappedEventId,
+			pending: true
+		};
+		zaps = [optimistic, ...zaps];
+		if (userPubkey && profiles[userPubkey]) {
+			const p = profiles[userPubkey];
+			zapperProfiles.set(userPubkey, {
+				displayName: p.displayName ?? p.name,
+				name: p.name,
+				picture: p.picture
+			});
+		}
+	}
+	function handleZapPendingClear(tempId) {
+		if (!tempId) return;
+		zaps = zaps.filter((z) => z.id !== tempId);
+	}
+	async function handleBottomBarZapUpdate(event) {
+		const { zapReceipt, pendingTempId } = event ?? {};
+		if (pendingTempId) {
+			zaps = zaps.filter((z) => z.id !== pendingTempId);
+		}
+		if (zapReceipt?.id) {
+			const parsed = parseZapFromReceiptEvent(zapReceipt);
+			const pid = String(parsed.id).toLowerCase();
+			if (!zaps.some((z) => String(z.id).toLowerCase() === pid)) {
+				zaps = [parsed, ...zaps];
+			}
+			await hydrateZapperProfiles();
+		}
+		function refetchZapsAndThreads() {
+			loadZaps().then(async () => {
+				const mainFeedZapIds = zaps.filter((z) => !z.pending && !z.zappedEventId).map((z) => z.id);
+				const allCommentIds = await loadCommentReplies();
+				loadZapsByMainFeedIds([...allCommentIds, ...mainFeedZapIds]);
+			});
+		}
+		refetchZapsAndThreads();
+		setTimeout(refetchZapsAndThreads, 2500);
+	}
 	async function handleCommentSubmit(event) {
 		const userPubkey = getCurrentPubkey();
 		if (!userPubkey || !app) return;
@@ -1149,7 +1207,8 @@
 					createdAt: z.createdAt,
 					comment: z.comment,
 					emojiTags: z.emojiTags ?? [],
-					zappedEventId: z.zappedEventId ?? undefined
+					zappedEventId: z.zappedEventId ?? undefined,
+					pending: z.pending === true
 				}))}
 				{zapperProfiles}
 				{comments}
@@ -1163,17 +1222,9 @@
 				{searchProfiles}
 				{searchEmojis}
 				onCommentSubmit={handleCommentSubmit}
-				onZapReceived={() => {
-					function refetchZapsAndThreads() {
-						loadZaps().then(async () => {
-							const mainFeedZapIds = zaps.filter((z) => !z.zappedEventId).map((z) => z.id);
-							const allCommentIds = await loadCommentReplies();
-							loadZapsByMainFeedIds([...allCommentIds, ...mainFeedZapIds]);
-						});
-					}
-					refetchZapsAndThreads();
-					setTimeout(refetchZapsAndThreads, 2500);
-				}}
+				onZapPending={handleZapPending}
+				onZapPendingClear={handleZapPendingClear}
+				onZapReceived={handleBottomBarZapUpdate}
 				onGetStarted={() => (getStartedModalOpen = true)}
 				detailsShareLink={app?.dTag
 					? `${SITE_URL}/apps/${app.dTag}`
@@ -1623,9 +1674,9 @@
 					mediaUrls: e.mediaUrls,
 					parentId: undefined
 				})}
-			onzapReceived={() => {
-				loadZaps();
-			}}
+			onzapReceived={handleBottomBarZapUpdate}
+			onZapPending={handleZapPending}
+			onZapPendingClear={handleZapPendingClear}
 			onLabelPublished={() => {
 				loadLabels();
 			}}
