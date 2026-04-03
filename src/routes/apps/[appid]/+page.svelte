@@ -27,6 +27,7 @@
 		putEvents
 	} from '$lib/nostr';
 	import { fetchFromRelays } from '$lib/nostr/service';
+	import { db } from '$lib/nostr/dexie';
 	import { ZAPSTORE_RELAY } from '$lib/config';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import { nip19 } from 'nostr-tools';
@@ -701,6 +702,30 @@
 			_pubkey = app.pubkey;
 			_identifier = app.dTag;
 			error = null;
+
+			// Background relay verification: confirm the app still exists on the relay.
+			// If the relay returns nothing (event was removed without a NIP-09 deletion),
+			// evict the stale Dexie entry and show "App not found".
+			if (isOnline()) {
+				fetchFromRelays(
+					[ZAPSTORE_RELAY],
+					{
+						kinds: [EVENT_KINDS.APP],
+						authors: [_pubkey],
+						'#d': [_identifier],
+						...PLATFORM_FILTER,
+						limit: 1
+					},
+					{ feature: 'app-detail-verify' }
+				).then((events) => {
+					if (events.length === 0) {
+						// App no longer on relay — evict from Dexie and surface the error
+						db.events.delete(cachedApp.id).catch(() => {});
+						app = null;
+						error = 'App not found';
+					}
+				});
+			}
 		}
 
 		if (!_identifier) {

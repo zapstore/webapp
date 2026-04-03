@@ -29,7 +29,7 @@
 	} from '$lib/stores/stacks.svelte.js';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { fetchFromRelays, searchApps } from '$lib/nostr/service';
-	import { ZAPSTORE_RELAY } from '$lib/config';
+	import { ZAPSTORE_RELAY, ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
 	import { nip19 } from 'nostr-tools';
 	import { encodeStackNaddr, parseApp, parseProfile } from '$lib/nostr/models';
 	import { fetchProfilesBatch } from '$lib/nostr/service';
@@ -254,7 +254,11 @@
 		return columns;
 	}
 
-	const stackColumns = $derived(getStackColumns(resolvedDisplayStacks, 2));
+	const communityStacks = $derived(
+		resolvedDisplayStacks.filter((s) => s.pubkey === ZAPSTORE_COMMUNITY_PUBKEY)
+	);
+
+	const stackColumns = $derived(getStackColumns(communityStacks, 2));
 
 	const HORIZONTAL_SCROLL_THRESHOLD = 500;
 
@@ -455,7 +459,7 @@
 
 		<!-- App stacks (first main section) -->
 		<div class="section-container stacks-section">
-			<SectionHeader title="App Stacks" linkText="See more" href="/stacks" />
+			<SectionHeader title="App Stacks" />
 			<div class="scroll-wrap">
 				{#if resolvedDisplayStacks.length === 0 && !stacksSettled}
 					<div class="horizontal-scroll">
@@ -499,13 +503,18 @@
 								</div>
 							{/each}
 
-							{#if stacksLoadingMore}
-								<div class="load-more-column">
-									<div class="spinner"></div>
-								</div>
-							{/if}
-						</div>
+						{#if stacksLoadingMore}
+							<div class="load-more-column">
+								<div class="spinner"></div>
+							</div>
+						{/if}
+
+						<a href="/stacks" class="stacks-see-more-column" aria-label="See all stacks">
+							<span class="stacks-see-more-label">See more</span>
+							<ChevronRight size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
+						</a>
 					</div>
+				</div>
 				{/if}
 
 				{#if stacksScrolledRight}
@@ -898,6 +907,32 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+	}
+
+	.stacks-see-more-column {
+		flex-shrink: 0;
+		width: 80px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		text-decoration: none;
+		color: hsl(var(--white33));
+		border-radius: 12px;
+		transition: color 0.15s ease, background-color 0.15s ease;
+		padding: 8px;
+	}
+
+	.stacks-see-more-column:hover {
+		color: hsl(var(--white66));
+		background-color: hsl(var(--white8));
+	}
+
+	.stacks-see-more-label {
+		font-size: 0.75rem;
+		font-weight: 500;
+		white-space: nowrap;
 	}
 
 	.spinner {
