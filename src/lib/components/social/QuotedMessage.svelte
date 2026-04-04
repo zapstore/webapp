@@ -81,7 +81,7 @@ onMount(() => {
     display: flex;
     min-height: 0;
     margin-bottom: 8px;
-    border-radius: var(--radius-12);
+    border-radius: var(--radius-8);
     overflow: hidden;
     background: hsl(var(--white4));
   }

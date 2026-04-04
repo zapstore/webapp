@@ -36,6 +36,20 @@
 		// Per-app hover badge backgrounds, parallel to appColors.
 		// Falls back to badgeBg when not provided.
 		appBadgeBgs = null,
+		/**
+		 * Optional per-series gradient for `appColors` lines (same sweep as total-line gradient).
+		 * When set at index i, that line’s crisp stroke uses this gradient; glow uses `glowColor ?? color0`.
+		 * `null` / missing entry → solid `appColors[i]`.
+		 */
+		appLineGradients = /** @type {({ color0: string; color1: string; glowColor?: string } | null | undefined)[] | null} */ (
+			null
+		),
+		/** Per-series glow stroke color when using solid lines; defaults to the line color. Parallel to `appColors`. */
+		appGlowColors = null,
+		/** Per-series glow layer opacity; falls back to `glowOpacity`. Parallel to `appColors`. */
+		appGlowOpacities = null,
+		/** Per-series endpoint dot backdrop (e.g. black under light dots). Parallel to `appColors`. */
+		appDotBackdropFills = null,
 		// Hide the combined total line (useful when appColors makes individual lines primary).
 		hideTotalLine = false,
 		// Override top padding (default 40). Use 20 for compact layouts.
@@ -223,25 +237,49 @@
 			return PAD_T + cH - ((v - ext.mn) / ext.span) * cH;
 		}
 
-		function buildPath(data, ypAt) {
+		/**
+		 * Split the smooth line into runs where edges are all "at zero" vs not, so zero-flat
+		 * segments can use lower opacity (~33%) without affecting segments with activity.
+		 * @param {number[]} data raw series values (zero check uses these, not scaled y)
+		 * @param {(v: number) => number} ypAt
+		 * @returns {{ faded: boolean, d: string }[]}
+		 */
+		function buildSegmentedPaths(data, ypAt) {
+			if (!data?.length) return [];
 			const pts = data.map((v, i) => [xp(i), ypAt(v)]);
-			let d = `M ${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)}`;
-			for (let i = 1; i < pts.length; i++) {
-				const cpx = ((pts[i - 1][0] + pts[i][0]) / 2).toFixed(2);
-				d += ` C ${cpx} ${pts[i - 1][1].toFixed(2)} ${cpx} ${pts[i][1].toFixed(2)} ${pts[i][0].toFixed(2)} ${pts[i][1].toFixed(2)}`;
+			if (pts.length === 1) {
+				return [{ faded: data[0] === 0, d: `M ${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)}` }];
 			}
-			return d;
+			/** @type {{ faded: boolean, d: string }[]} */
+			const out = [];
+			let i = 1;
+			while (i < pts.length) {
+				const faded = data[i - 1] === 0 && data[i] === 0;
+				let d = `M ${pts[i - 1][0].toFixed(2)} ${pts[i - 1][1].toFixed(2)}`;
+				while (i < pts.length) {
+					const edgeFaded = data[i - 1] === 0 && data[i] === 0;
+					if (edgeFaded !== faded) break;
+					const cpx = ((pts[i - 1][0] + pts[i][0]) / 2).toFixed(2);
+					d += ` C ${cpx} ${pts[i - 1][1].toFixed(2)} ${cpx} ${pts[i][1].toFixed(2)} ${pts[i][0].toFixed(2)} ${pts[i][1].toFixed(2)}`;
+					i++;
+				}
+				out.push({ faded, d });
+			}
+			return out;
 		}
 
 		const lineX = xp(DAYS - 1);
 		const extents = lineAppYExtents;
 		const usePerSeries = perSeriesYScale && extents && extents.length === lineApps.length;
 
-		const appPaths = usePerSeries
+		const appPathSegments = usePerSeries
 			? lineApps.map((a, i) =>
-					buildPath(a.data, (v) => ypForSeries(v, /** @type {{ mn: number; span: number }} */ (extents[i])))
+					buildSegmentedPaths(
+						a.data,
+						(v) => ypForSeries(v, /** @type {{ mn: number; span: number }} */ (extents[i]))
+					)
 				)
-			: lineApps.map((a) => buildPath(a.data, ypGlobal));
+			: lineApps.map((a) => buildSegmentedPaths(a.data, ypGlobal));
 
 		const appEndYs = usePerSeries
 			? lineApps.map((a, i) =>
@@ -253,8 +291,8 @@
 
 		return {
 			lineX,
-			totalPath: buildPath(totalData, ypGlobal),
-			appPaths,
+			totalSegments: buildSegmentedPaths(totalData, ypGlobal),
+			appPathSegments,
 			totalEndY,
 			appEndYs
 		};
@@ -391,6 +429,24 @@
 				<stop offset="100%" stop-color={color1} />
 			</linearGradient>
 
+			{#if appLineGradients}
+				{#each appLineGradients as gradConf, gi (`appgrad-${gi}`)}
+					{#if gradConf}
+						<linearGradient
+							id="{chartId}-appgrad-{gi}"
+							x1="0"
+							y1="0"
+							x2={chart.lineX}
+							y2="0"
+							gradientUnits="userSpaceOnUse"
+						>
+							<stop offset="0%" stop-color={gradConf.color0} />
+							<stop offset="100%" stop-color={gradConf.color1} />
+						</linearGradient>
+					{/if}
+				{/each}
+			{/if}
+
 			<filter id="{chartId}-glow" x="-20%" y="-250%" width="140%" height="600%">
 				<feGaussianBlur in="SourceGraphic" stdDeviation="9" />
 			</filter>
@@ -405,38 +461,68 @@
 		{#if !loading && allApps.length > 1 && lineApps.length > 0}
 			{#if appColors}
 				<!-- Glow + crisp line per app (same line+glow style as insights section) -->
-				{#each chart.appPaths as path, i (i)}
+				{#each chart.appPathSegments as segments, i (i)}
 					{@const lineColor = appColors[i] ?? dotColor}
-					<path
-						d={path}
-						stroke={lineColor}
-						stroke-width="6"
-						fill="none"
-						filter="url(#{chartId}-glow)"
-						opacity={glowOpacity}
-					/>
-					<path d={path} stroke={lineColor} stroke-width="2.8" fill="none" />
+					{@const grad = appLineGradients?.[i] ?? null}
+					{@const glowCol = grad
+						? (grad.glowColor ?? grad.color0)
+						: (appGlowColors?.[i] ?? lineColor)}
+					{@const seriesGlowOp = appGlowOpacities?.[i] ?? glowOpacity}
+					{@const crispStroke = grad ? `url(#${chartId}-appgrad-${i})` : lineColor}
+					{#each segments as seg, si (`${i}-${si}`)}
+						<path
+							d={seg.d}
+							stroke={glowCol}
+							stroke-width="6"
+							fill="none"
+							filter="url(#{chartId}-glow)"
+							opacity={seg.faded ? seriesGlowOp * (1 / 3) : seriesGlowOp}
+						/>
+						<path
+							d={seg.d}
+							stroke={crispStroke}
+							stroke-width="2.8"
+							fill="none"
+							opacity={seg.faded ? 1 / 3 : 1}
+						/>
+					{/each}
 				{/each}
 			{:else}
-				{#each chart.appPaths as path, i (i)}
+				{#each chart.appPathSegments as segments, i (i)}
 					{@const lineColor = appColors?.[i] ?? 'rgba(255,255,255,0.16)'}
 					{@const lineWidth = appColors ? '2' : '1.4'}
-					<path d={path} stroke={lineColor} stroke-width={lineWidth} fill="none" />
+					{#each segments as seg, si (`${i}-${si}`)}
+						<path
+							d={seg.d}
+							stroke={lineColor}
+							stroke-width={lineWidth}
+							fill="none"
+							opacity={seg.faded ? 1 / 3 : 1}
+						/>
+					{/each}
 				{/each}
 			{/if}
 		{/if}
 
 		<!-- Total line glow + crisp — hidden when hideTotalLine -->
 		{#if !loading && !hideTotalLine}
-			<path
-				d={chart.totalPath}
-				stroke={glowColor}
-				stroke-width="6"
-				fill="none"
-				filter="url(#{chartId}-glow)"
-				opacity={glowOpacity}
-			/>
-			<path d={chart.totalPath} stroke="url(#{chartId}-line)" stroke-width="2.8" fill="none" />
+			{#each chart.totalSegments as seg, si (si)}
+				<path
+					d={seg.d}
+					stroke={glowColor}
+					stroke-width="6"
+					fill="none"
+					filter="url(#{chartId}-glow)"
+					opacity={seg.faded ? glowOpacity * (1 / 3) : glowOpacity}
+				/>
+				<path
+					d={seg.d}
+					stroke="url(#{chartId}-line)"
+					stroke-width="2.8"
+					fill="none"
+					opacity={seg.faded ? 1 / 3 : 1}
+				/>
+			{/each}
 		{/if}
 
 		<!-- Static vertical end line — always visible -->
@@ -478,6 +564,14 @@
 			{:else}
 				{#each lineApps as app, i (app.id)}
 					{#if appColors}
+						{#if appDotBackdropFills?.[i]}
+							<circle
+								cx={chart.lineX}
+								cy={chart.appEndYs[i]}
+								r="5"
+								fill={appDotBackdropFills[i]}
+							/>
+						{/if}
 						<circle cx={chart.lineX} cy={chart.appEndYs[i]} r="5" fill={appColors[i] ?? dotColor} />
 					{:else if appHasIcon(app)}
 						<image
@@ -577,6 +671,15 @@
 				<!-- Multi-app: per-app dots/icons + badges (lineApps only) -->
 				{#each lineApps as app, i (app.id)}
 					{#if appColors}
+						{#if appDotBackdropFills?.[i]}
+							<circle
+								cx={hover.x}
+								cy={hover.appYs[i]}
+								r="5"
+								fill={appDotBackdropFills[i]}
+								pointer-events="none"
+							/>
+						{/if}
 						<circle cx={hover.x} cy={hover.appYs[i]} r="5" fill={appColors[i] ?? dotColor} pointer-events="none" />
 					{:else if appHasIcon(app)}
 						<image

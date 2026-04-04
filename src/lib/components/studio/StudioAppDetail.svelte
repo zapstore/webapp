@@ -294,8 +294,21 @@
 				color0="#5445FF"
 				color1="#636AFF"
 				glowColor="#5445FF"
+				glowOpacity={0.3}
 				dotColor="#5C5FFF"
-				appColors={['#636AFF', '#FFB237', 'rgba(184, 192, 212, 0.5)']}
+				appColors={['#636AFF', '#FFB237', 'hsl(var(--white66))']}
+				appGlowColors={['#5445FF', '#FFB237']}
+				appGlowOpacities={[0.3, 0.12, 0.16]}
+				appLineGradients={[
+					null,
+					null,
+					{
+						color0: 'hsl(var(--white33))',
+						color1: 'hsl(var(--white66))',
+						glowColor: 'hsl(var(--white33))'
+					}
+				]}
+				appDotBackdropFills={[null, null, 'hsl(var(--black))']}
 				appBadgeBgs={['rgba(60,58,80,0.92)', 'rgba(90,55,0,0.92)', 'rgba(52,52,58,0.94)']}
 				hideTotalLine={true}
 				perSeriesYScale={true}

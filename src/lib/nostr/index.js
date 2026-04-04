@@ -37,6 +37,7 @@ export {
 	publishComment,
 	publishAddressableLabel,
 	publishForumPostLabel,
+	publishTopicLabelOnEvent,
 	publishLabelDeletion,
 	publishDeletionRequest,
 	fetchLabelsForAddressable,

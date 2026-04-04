@@ -1423,6 +1423,41 @@ export async function publishForumPostLabel(signEvent, params) {
 }
 
 /**
+ * Publish kind 1985 topic label on an arbitrary event (`#e`), e.g. kind 1111 comment.
+ * Optional `#h` when the thread is under a community (forum), matching {@link publishForumPostLabel}.
+ */
+export async function publishTopicLabelOnEvent(signEvent, params) {
+	if (typeof signEvent !== 'function') throw new Error('signEvent is required');
+	const { eventId, labelValue: rawLabel, communityPubkey, relays } = params;
+	const relayUrls = Array.isArray(relays) && relays.length > 0 ? relays : SOCIAL_RELAYS;
+	if (!eventId?.trim()) throw new Error('eventId is required');
+	const trimmed = String(rawLabel ?? '').trim();
+	if (!trimmed) throw new Error('Label text is required');
+
+	const id = eventId.trim().toLowerCase();
+	/** @type {string[][]} */
+	const tags = [
+		['L', TOPIC_LABEL_NAMESPACE],
+		['l', trimmed, TOPIC_LABEL_NAMESPACE],
+		['e', id, ZAPSTORE_RELAY],
+	];
+	const h = communityPubkey?.trim().toLowerCase();
+	if (h) tags.push(['h', h]);
+
+	const template = {
+		kind: EVENT_KINDS.LABEL,
+		content: '',
+		tags,
+		created_at: Math.floor(Date.now() / 1000),
+	};
+
+	const signed = await signEvent(template);
+	await publishToRelays(relayUrls, signed);
+	await putEvents([signed]);
+	return signed;
+}
+
+/**
  * NIP-09: publish kind 5 deletion request for an event, then remove it from Dexie.
  * @param {{ eventId: string, eventKind: number, aTagValue?: string, relays?: string[] }} opts
  */

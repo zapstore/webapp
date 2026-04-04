@@ -29,9 +29,7 @@
 				<div class="sk-badge">
 					<SkeletonLoader />
 				</div>
-				<div class="sk-rail">
-					<SkeletonLoader />
-				</div>
+				<div class="sk-rail" aria-hidden="true"></div>
 				<div class="sk-avatar">
 					<SkeletonLoader />
 				</div>
@@ -91,13 +89,13 @@
 		flex-shrink: 0;
 	}
 
+	/* Same 2px line as CommentCard / ZapActivityCard `.line-solid`; no margin so it runs badge → avatar */
 	.sk-rail {
 		width: 2px;
 		flex: 1;
-		min-height: 20px;
-		margin: 4px 0;
-		border-radius: 1px;
-		overflow: hidden;
+		min-height: 12px;
+		align-self: center;
+		background: hsl(var(--white16));
 	}
 
 	.sk-avatar {

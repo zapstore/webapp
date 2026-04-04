@@ -92,8 +92,12 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 <svelte:window onkeydown={handleKeydown} />
 
 {#if isOpen}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-	<div class="picker-overlay" onclick={handleOverlayClick} role="presentation"></div>
+	<button
+		type="button"
+		class="picker-overlay"
+		aria-label="Close emoji picker"
+		onclick={handleOverlayClick}
+	></button>
 
 	<div class="picker-wrapper" role="dialog" aria-modal="true" aria-label="Pick an emoji">
 		<div class="picker-sheet" transition:fly={{ y: 80, duration: 200, easing: cubicOut }}>
@@ -144,6 +148,13 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		inset: 0;
 		z-index: 59;
 		background: transparent;
+		border: none;
+		margin: 0;
+		padding: 0;
+		display: block;
+		cursor: default;
+		appearance: none;
+		-webkit-appearance: none;
 	}
 
 	.picker-wrapper {

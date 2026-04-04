@@ -29,6 +29,10 @@ let {
 	authorPubkey = "",
 	searchProfiles = async () => [],
 	searchEmojis = async () => [],
+	/** Render only the form inside a parent sheet (no Modal, no extra backdrop). */
+	embedWithoutModal = false,
+	/** Called when embedded panel finishes (e.g. after successful submit). */
+	onEmbedDismiss = /** @type {(() => void) | undefined} */ (undefined),
 } = $props();
 
 /** @type {Record<string, Array<{ id: string; label: string }>>} */
@@ -174,6 +178,7 @@ async function handleSubmit(event) {
 		submitted = true;
 		setTimeout(() => {
 			isOpen = false;
+			if (embedWithoutModal) onEmbedDismiss?.();
 		}, 1200);
 	} catch (/** @type {any} */ e) {
 		console.error("Failed to publish report:", e);
@@ -192,19 +197,10 @@ $effect(() => {
 		textInput?.clear();
 	}
 });
+
 </script>
 
-<Modal
-	bind:open={isOpen}
-	title="Report"
-	{description}
-	align="bottom"
-	wide={true}
-	zIndex={60}
-	closeOnBackdropClick={true}
-	closeOnEscape={true}
-	closeButtonMobile={false}
->
+{#snippet reportBody()}
 	{#if submitted}
 		<div class="report-submitted" transition:fly={{ y: 10, duration: 200, easing: cubicOut }}>
 			<p class="submitted-text">Report sent. Thank you.</p>
@@ -212,7 +208,6 @@ $effect(() => {
 	{:else}
 		<div class="report-content">
 			<div class="violations-container">
-				<!-- Violation rows -->
 				{#each violations as v (v.id)}
 					<div
 						class="violation-row"
@@ -232,7 +227,6 @@ $effect(() => {
 					</div>
 				{/each}
 
-				<!-- Comment input with Send button inside -->
 				<div class="comment-input-wrap">
 					<ShortTextInput
 						bind:this={textInput}
@@ -251,13 +245,41 @@ $effect(() => {
 			</div>
 
 			{#if error}
-				<p class="error-text">{error}</p>
+				<p class="error-text" role="alert">{error}</p>
 			{/if}
 		</div>
 	{/if}
-</Modal>
+{/snippet}
+
+{#if embedWithoutModal}
+	{#if isOpen}
+		<div class="report-embed-root">
+			{@render reportBody()}
+		</div>
+	{/if}
+{:else}
+	<Modal
+		bind:open={isOpen}
+		title="Report"
+		{description}
+		align="bottom"
+		wide={true}
+		zIndex={60}
+		closeOnBackdropClick={true}
+		closeOnEscape={true}
+		closeButtonMobile={false}
+	>
+		{@render reportBody()}
+	</Modal>
+{/if}
 
 <style>
+	.report-embed-root {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
 	.report-content {
 		display: flex;
 		flex-direction: column;

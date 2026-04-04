@@ -44,7 +44,8 @@
 		COMMENT_PUBLISH_RELAYS,
 		COMMENT_AND_ZAP_READ_RELAYS,
 		COMMENT_ZAP_NAK_FETCH_LIMIT,
-		commentZapRelayReadSince
+		commentZapRelayReadSince,
+		ZAPSTORE_COMMUNITY_PUBKEY
 	} from '$lib/config';
 	import { goto } from '$app/navigation';
 	import CommentCard from '$lib/components/community/CommentCard.svelte';
@@ -1105,8 +1106,15 @@
 	let openReplyOnMount = $state(false);
 	/** Feed three-dots: open actions sheet when thread modal mounts */
 	let threadOpenActionsOnMount = $state(false);
+	/** Feed ⋯: show only CommentActionsModal first (no thread modal behind it). */
+	let threadOpenFeedActionsOnly = $state(false);
+	/** Feed zap icon: load thread data but show zap slider only (no thread modal). */
+	let threadOpenFeedZapOnly = $state(false);
+	let standaloneActionsOpenKey = $state(0);
+	let standaloneZapOpenKey = $state(0);
 	let threadInitialActionsTarget = $state(/** @type {'root' | any | null} */ (null));
 	let pendingActionsCommentEv = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
+	let pendingZapCommentEv = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
 	let selectedThreadComments = $state(/** @type {any[]} */ ([]));
 	let selectedThreadZaps = $state(/** @type {any[]} */ ([]));
 	let threadModalKind = $state(/** @type {'comment' | 'zap' | null} */ (null));
@@ -1144,8 +1152,28 @@
 
 	function openThread(commentEv, withReply = false, opts = {}) {
 		const openActionsSheet = opts?.openActionsSheet === true;
-		threadOpenActionsOnMount = openActionsSheet;
-		pendingActionsCommentEv = openActionsSheet ? commentEv : null;
+		const openZapOnly = opts?.openZapOnly === true;
+		if (openZapOnly) {
+			threadOpenFeedZapOnly = true;
+			standaloneZapOpenKey++;
+			threadOpenActionsOnMount = false;
+			threadOpenFeedActionsOnly = false;
+			pendingZapCommentEv = commentEv;
+			pendingActionsCommentEv = null;
+		} else if (openActionsSheet) {
+			threadOpenFeedZapOnly = false;
+			pendingZapCommentEv = null;
+			threadOpenActionsOnMount = true;
+			threadOpenFeedActionsOnly = true;
+			standaloneActionsOpenKey++;
+			pendingActionsCommentEv = commentEv;
+		} else {
+			threadOpenFeedZapOnly = false;
+			pendingZapCommentEv = null;
+			threadOpenActionsOnMount = false;
+			threadOpenFeedActionsOnly = false;
+			pendingActionsCommentEv = null;
+		}
 		threadInitialActionsTarget = null;
 
 		const postId = commentEv.tags?.find((t) => t[0] === 'E' && t[1])?.[1] ?? null;
@@ -1250,8 +1278,11 @@
 
 		if (!aRoot || !isAddressableActivityATag(aRoot)) {
 			threadOpenActionsOnMount = false;
+			threadOpenFeedActionsOnly = false;
+			threadOpenFeedZapOnly = false;
 			threadInitialActionsTarget = null;
 			pendingActionsCommentEv = null;
+			pendingZapCommentEv = null;
 			return;
 		}
 
@@ -1554,7 +1585,15 @@
 
 	function openZapThreadForum(zapEvent, withReply = false, opts = {}) {
 		const openActionsSheet = opts?.openActionsSheet === true;
+		threadOpenFeedZapOnly = false;
+		pendingZapCommentEv = null;
 		threadOpenActionsOnMount = openActionsSheet;
+		if (openActionsSheet) {
+			threadOpenFeedActionsOnly = true;
+			standaloneActionsOpenKey++;
+		} else {
+			threadOpenFeedActionsOnly = false;
+		}
 		threadInitialActionsTarget = openActionsSheet ? 'root' : null;
 		pendingActionsCommentEv = null;
 
@@ -1563,6 +1602,7 @@
 			p = parseZapReceipt(zapEvent);
 		} catch {
 			threadOpenActionsOnMount = false;
+			threadOpenFeedActionsOnly = false;
 			threadInitialActionsTarget = null;
 			return;
 		}
@@ -1587,6 +1627,7 @@
 		const postId = forumPostIdForZapParsed(p);
 		if (!postId) {
 			threadOpenActionsOnMount = false;
+			threadOpenFeedActionsOnly = false;
 			threadInitialActionsTarget = null;
 			return;
 		}
@@ -1963,7 +2004,7 @@
 							onRootClick={rootEvent ? () => openRootPost(rootEvent) : null}
 							feedActions={{
 								onReply: () => openThread(commentEv, true),
-								onZap: () => openThread(commentEv),
+								onZap: () => openThread(commentEv, false, { openZapOnly: true }),
 								onOptions: () => openThread(commentEv, false, { openActionsSheet: true })
 							}}
 						/>
@@ -2084,6 +2125,7 @@
 		{@const _bannerOneliner = getEventOneliner(_bannerEv)}
 		{@const _bannerHref = hrefForActivityRootEvent(_bannerEv)}
 		{@const _bannerBadge = appBadgeFromAddrRoot(_addrBannerEv)}
+		{@const _bannerIsStack = _bannerEv?.kind === EVENT_KINDS.APP_STACK}
 		{@const _bannerDeletedKind =
 			!_bannerEv &&
 			((_forumDelKey && activityRootDeletedByKey.get(_forumDelKey)) ||
@@ -2100,11 +2142,17 @@
 		{@const _postTitle =
 			_rootPost?.tags?.find((t) => t[0] === 'title' && t[1])?.[1] ?? 'Forum Post'}
 		{@const _evVersion = _rootEv.tags?.find((t) => t[0] === 'v' && t[1])?.[1] ?? ''}
+		{@const _labelCommunityPk =
+			_rootPost?.kind === EVENT_KINDS.FORUM_POST ? ZAPSTORE_COMMUNITY_PUBKEY : null}
 		<RootComment
 			hideRoot={true}
-			openThreadOnMount={true}
+			openThreadOnMount={!threadOpenFeedActionsOnly && !threadOpenFeedZapOnly}
 			openActionsOnMount={threadOpenActionsOnMount}
 			initialActionsTarget={threadInitialActionsTarget}
+			standaloneActionsOpenKey={standaloneActionsOpenKey}
+			openZapOnMount={threadOpenFeedZapOnly}
+			standaloneZapOpenKey={standaloneZapOpenKey}
+			feedInitialZapTarget={pendingZapCommentEv ? enrichReplyTargetForModal(pendingZapCommentEv) : null}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
 			id={_rootEv.id}
@@ -2121,11 +2169,13 @@
 			profileUrl={_authorNpub ? `/profile/${_authorNpub}` : ''}
 			threadComments={selectedThreadComments}
 			threadZaps={[]}
+			labelCommunityPubkey={_labelCommunityPk}
 			rootContext={_bannerHref
 				? {
 						label: _rootPost ? _postTitle : _bannerOneliner.label,
-						iconUrl: _bannerBadge?.iconUrl ?? null,
-						href: _bannerHref
+						iconUrl: _bannerIsStack ? null : (_bannerBadge?.iconUrl ?? null),
+						href: _bannerHref,
+						isStack: !!_bannerIsStack
 					}
 				: _bannerDeletedKind
 					? { label: activityDeletedRootLabel(_bannerDeletedKind), deleted: true }
@@ -2138,8 +2188,11 @@
 				threadModalAddrATag = null;
 				initialReplyTargetForModal = null;
 				threadOpenActionsOnMount = false;
+				threadOpenFeedActionsOnly = false;
+				threadOpenFeedZapOnly = false;
 				threadInitialActionsTarget = null;
 				pendingActionsCommentEv = null;
+				pendingZapCommentEv = null;
 				selectedThreadComments = [];
 				selectedThreadZaps = [];
 			}}
@@ -2176,6 +2229,7 @@
 		}
 	})()}
 	{@const _zapBadgeZ = appBadgeFromAddrRoot(_rootPostZ)}
+	{@const _bannerIsStackZ = _rootPostZ?.kind === EVENT_KINDS.APP_STACK}
 	{@const _bannerOnelinerZ = getEventOneliner(_rootPostZ)}
 	{@const _bannerHrefZ = hrefForActivityRootEvent(_rootPostZ)}
 	{@const _postTitleZ =
@@ -2187,10 +2241,18 @@
 		((_postIdZ && activityRootDeletedByKey.get(`e:${_postIdZ.toLowerCase()}`)) ||
 			(_aZap && isAddressableActivityATag(_aZap) && activityRootDeletedByKey.get(`a:${_aZap}`)) ||
 			null)}
+	{@const _labelCommunityZ =
+		_rootPostZ?.kind === EVENT_KINDS.FORUM_POST ? ZAPSTORE_COMMUNITY_PUBKEY : null}
 	{#key threadModalZapId}
 		<RootComment
 			hideRoot={true}
-			openThreadOnMount={true}
+			openThreadOnMount={!threadOpenFeedActionsOnly && !threadOpenFeedZapOnly}
+			openActionsOnMount={threadOpenActionsOnMount}
+			initialActionsTarget={threadInitialActionsTarget}
+			standaloneActionsOpenKey={standaloneActionsOpenKey}
+			openZapOnMount={threadOpenFeedZapOnly}
+			standaloneZapOpenKey={standaloneZapOpenKey}
+			feedInitialZapTarget={pendingZapCommentEv ? enrichReplyTargetForModal(pendingZapCommentEv) : null}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
 			isZapRoot={true}
@@ -2207,12 +2269,18 @@
 			authorPubkey={_rootPostZ?.pubkey ?? ''}
 			threadComments={selectedThreadComments}
 			threadZaps={selectedThreadZaps}
+			labelCommunityPubkey={_labelCommunityZ}
 			appIconUrl={_zapBadgeZ?.iconUrl ?? null}
 			appName={_zapBadgeZ?.name ?? ''}
 			appIdentifier={_zapBadgeZ?.identifier ?? ''}
 			version=""
 			rootContext={_bannerHrefZ
-				? { label: _postTitleZ, iconUrl: _zapBadgeZ?.iconUrl ?? null, href: _bannerHrefZ }
+				? {
+						label: _postTitleZ,
+						iconUrl: _bannerIsStackZ ? null : (_zapBadgeZ?.iconUrl ?? null),
+						href: _bannerHrefZ,
+						isStack: !!_bannerIsStackZ
+					}
 				: _zapBannerDeletedKind
 					? { label: activityDeletedRootLabel(_zapBannerDeletedKind), deleted: true }
 					: null}
@@ -2224,8 +2292,11 @@
 				threadModalAddrATag = null;
 				initialReplyTargetForModal = null;
 				threadOpenActionsOnMount = false;
+				threadOpenFeedActionsOnly = false;
+				threadOpenFeedZapOnly = false;
 				threadInitialActionsTarget = null;
 				pendingActionsCommentEv = null;
+				pendingZapCommentEv = null;
 				selectedThreadComments = [];
 				selectedThreadZaps = [];
 			}}

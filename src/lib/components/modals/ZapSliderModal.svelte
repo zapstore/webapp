@@ -15,7 +15,8 @@ async function signWithAnonymousKey(template) {
     const sk = generateSecretKey();
     return finalizeEvent(template, sk);
 }
-let { target = null, publisherName = "", otherZaps = [], isOpen = $bindable(false), nestedModal = false, searchProfiles = async () => [], searchEmojis = async () => [], onclose, onzapReceived, onZapPending, onZapPendingClear, } = $props();
+let { target = null, publisherName = "", otherZaps = [], isOpen = $bindable(false), nestedModal = false, searchProfiles = async () => [], searchEmojis = async () => [], onclose, onzapReceived, onZapPending, onZapPendingClear, /** When set, opening the modal pre-fills this amount on the slider (e.g. quick chips). */
+presetZapSats = null, } = $props();
 let sliderComponent = $state(null);
 let zapValue = $state(100);
 let message = $state("");
@@ -222,6 +223,12 @@ function formatAmount(val) {
 onDestroy(() => cleanup());
 let _prevIsOpen = $state(false);
 $effect(() => {
+    if (!_prevIsOpen && isOpen) {
+        const p = presetZapSats != null ? Number(presetZapSats) : NaN;
+        if (Number.isFinite(p) && p >= 1) {
+            zapValue = Math.round(p);
+        }
+    }
     if (_prevIsOpen && !isOpen) {
         if (pendingTempId) {
             onZapPendingClear?.(pendingTempId);

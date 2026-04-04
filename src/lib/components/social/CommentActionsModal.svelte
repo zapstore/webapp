@@ -1,7 +1,7 @@
 <script lang="js">
 /**
- * CommentActionsModal — Bottom sheet for a comment or zap in a thread: Comment, Zap, Details, Report.
- * Stacks above the thread modal (noBackdrop on the main sheet). Details opens a nested modal with DetailsTab-style content.
+ * CommentActionsModal — Bottom sheet: quoted + Comment / Zaps (optional), Actions, Report.
+ * Sub-views (Details / Label / Share / Report) replace content in the same sheet — no extra backdrop.
  */
 import { browser } from "$app/environment";
 import { nip19 } from "nostr-tools";
@@ -10,14 +10,26 @@ import DetailsTab from "./DetailsTab.svelte";
 import QuotedMessage from "./QuotedMessage.svelte";
 import QuotedZapMessage from "./QuotedZapMessage.svelte";
 import ReportModal from "$lib/components/modals/ReportModal.svelte";
-import { Reply, Zap, Details } from "$lib/components/icons";
-import { queryEvent } from "$lib/nostr";
-import { EVENT_KINDS } from "$lib/config.js";
+import InputLabel from "$lib/components/common/InputLabel.svelte";
+import LabelChip from "$lib/components/common/Label.svelte";
+import { Reply, Zap, Details, Label, Share, ChevronDown, Id } from "$lib/components/icons";
+import { wheelScroll } from "$lib/actions/wheelScroll.js";
+import { queryEvent, publishTopicLabelOnEvent } from "$lib/nostr";
+import { EVENT_KINDS, FORUM_CATEGORIES } from "$lib/config.js";
+import { getIsSignedIn } from "$lib/stores/auth.svelte.js";
+
+/** Preset sats chips (horizontal row); chevron opens full slider. */
+const ZAP_PRESET_AMOUNTS = [21, 69, 100, 420, 500, 1000, 2500, 5000, 10000];
+
+const DEFAULT_COMMENT_LABELS = ["Security", "Privacy", "Open Source", "Helpful", "Question", "Feedback"];
 
 let {
 	open = $bindable(false),
-	/** True while Details or Report sheet is open — parent thread can dim / scale */
 	nestedChildOpen = $bindable(false),
+	/** When true, dimmed backdrop behind the sheet (e.g. feed). When false, parent already dims (thread modal). */
+	sheetBackdrop = false,
+	/** Thread modal + root ⋯: hide Comment + Zaps, keep Actions + Report only. */
+	compactMode = false,
 	authorName = "Anonymous",
 	authorPubkey = null,
 	contentPreview = "",
@@ -25,26 +37,57 @@ let {
 	zapAmountSats = 0,
 	zapContent = "",
 	zapEmojiTags = [],
-	/** Event id to load for Details / Report (the selected comment or zap receipt) */
 	targetEventId = "",
-	/** Kind of the reported / detailed event — 1111 comment or 9735 zap */
 	targetEventKind = EVENT_KINDS.COMMENT,
+	/** Optional `#h` for forum-scoped labels (Zapstore community pubkey). */
+	labelCommunityPubkey = null,
 	onComment,
 	onZap,
+	onZapPreset,
 	searchProfiles = async () => [],
 	searchEmojis = async () => [],
+	signEvent = null,
 } = $props();
 
-let detailsOpen = $state(false);
-let reportOpen = $state(false);
+/** @type {'main' | 'details' | 'label' | 'share' | 'report'} */
+let subPanel = $state("main");
+let reportEmbedOpen = $state(false);
+let shareFeedback = $state("");
+let labelInputValue = $state("");
+let labelError = $state("");
+let labelPublishing = $state(false);
 let detailsEvent = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
 let detailsLoading = $state(false);
 
 const reportContentType = $derived(targetEventKind === EVENT_KINDS.ZAP_RECEIPT ? "zap" : "comment");
 
+const modalTitle = $derived.by(() => {
+	switch (subPanel) {
+		case "details":
+			return "Details";
+		case "label":
+			return "Label";
+		case "share":
+			return "Share";
+		case "report":
+			return "Report";
+		default:
+			return "";
+	}
+});
+
+const modalDescription = $derived.by(() => {
+	if (subPanel !== "report") return "";
+	const kind = reportContentType === "zap" ? "Zap" : "Comment";
+	const name = String(authorName ?? "").trim();
+	return name ? `${name}'s ${kind}` : kind;
+});
+
 const detailsPublicationLabel = $derived(
 	targetEventKind === EVENT_KINDS.ZAP_RECEIPT ? "Zap receipt" : "Comment"
 );
+
+const labelSuggestions = $derived(labelCommunityPubkey ? [...FORUM_CATEGORIES] : DEFAULT_COMMENT_LABELS);
 
 const detailsShareableId = $derived.by(() => {
 	if (!detailsEvent?.id) return "";
@@ -65,28 +108,102 @@ const detailsNpub = $derived.by(() => {
 	}
 });
 
+const canShare = $derived(Boolean(targetEventId?.trim()));
+
+const canLabel = $derived(Boolean(targetEventId?.trim() && signEvent));
+
 function chooseComment() {
 	open = false;
 	onComment?.();
 }
 
-function chooseZap() {
+function openFullZap() {
 	open = false;
 	onZap?.();
 }
 
-function openDetails() {
-	detailsOpen = true;
+function pickPresetZap(amount) {
+	open = false;
+	onZapPreset?.(amount);
 }
 
-function openReport() {
-	open = false;
-	reportOpen = true;
+function goMain() {
+	subPanel = "main";
+	reportEmbedOpen = false;
+}
+
+function openDetailsPanel() {
+	subPanel = "details";
+}
+
+function openLabelPanel() {
+	if (!canLabel) return;
+	subPanel = "label";
+	labelError = "";
+}
+
+function openSharePanel() {
+	if (!canShare) return;
+	subPanel = "share";
+	shareFeedback = "";
+}
+
+function openReportPanel() {
+	subPanel = "report";
+	reportEmbedOpen = true;
+}
+
+async function copyNeventToClipboard() {
+	shareFeedback = "";
+	if (!browser || !canShare) return;
+	try {
+		const ne = nip19.neventEncode({ id: targetEventId.trim() });
+		await navigator.clipboard.writeText(`nostr:${ne}`);
+		shareFeedback = "Copied nevent link";
+	} catch {
+		shareFeedback = "Could not copy";
+	}
+	setTimeout(() => {
+		shareFeedback = "";
+	}, 2000);
+}
+
+async function publishLabelText(raw) {
+	const body = String(raw ?? "").trim();
+	if (!body || !signEvent || !targetEventId?.trim()) return;
+	if (!getIsSignedIn()) {
+		labelError = "Please sign in to add a label";
+		return;
+	}
+	labelError = "";
+	labelPublishing = true;
+	try {
+		await publishTopicLabelOnEvent(signEvent, {
+			eventId: targetEventId.trim(),
+			labelValue: body,
+			communityPubkey: labelCommunityPubkey ?? undefined,
+		});
+		labelInputValue = "";
+	} catch (err) {
+		labelError = err instanceof Error ? err.message : "Failed to publish label";
+	} finally {
+		labelPublishing = false;
+	}
+}
+
+function formatChipAmount(n) {
+	if (n >= 1000000) return `${n / 1000000}M`;
+	if (n >= 1000) return `${n / 1000}K`;
+	return String(n);
 }
 
 $effect(() => {
-	if (!browser || !detailsOpen || !targetEventId?.trim()) {
-		if (!detailsOpen) detailsEvent = null;
+	nestedChildOpen = subPanel !== "main";
+});
+
+$effect(() => {
+	if (!browser || subPanel !== "details" || !targetEventId?.trim()) {
+		if (subPanel !== "details") detailsEvent = null;
 		return;
 	}
 	detailsLoading = true;
@@ -109,239 +226,469 @@ $effect(() => {
 
 $effect(() => {
 	if (!open) {
-		detailsOpen = false;
+		subPanel = "main";
+		reportEmbedOpen = false;
+		shareFeedback = "";
+		labelError = "";
+		labelInputValue = "";
 	}
-});
-
-$effect(() => {
-	nestedChildOpen = detailsOpen || reportOpen;
 });
 </script>
 
 <Modal
 	bind:open
 	ariaLabel="Comment actions"
+	title={modalTitle}
+	description={modalDescription}
 	align="bottom"
 	wide={true}
-	noBackdrop={true}
+	noBackdrop={!sheetBackdrop}
 	zIndex={55}
 	class="comment-actions-modal"
 >
-	<div class="comment-actions-modal-content">
-		<div class="actions-section title-section">
-			<h2 class="modal-title-text">Actions</h2>
-		</div>
-
-		<div class="section-divider"></div>
-
-		<div class="actions-section preview-section">
-			{#if isZapPreview}
-				<QuotedZapMessage
-					{authorName}
-					{authorPubkey}
-					amountSats={zapAmountSats}
-					content={zapContent}
-					emojiTags={zapEmojiTags}
-				/>
-			{:else}
-				<QuotedMessage {authorName} authorPubkey={authorPubkey} content={contentPreview} />
-			{/if}
-		</div>
-
-		<div class="section-divider"></div>
-
-		<div class="actions-section flush-rows">
-			<button type="button" class="action-row-btn" onclick={chooseComment}>
-				<Reply variant="outline" size={20} strokeWidth={1.4} color="hsl(var(--white66))" />
-				<span>Comment</span>
-			</button>
-		</div>
-
-		<div class="section-divider"></div>
-
-		<div class="actions-section flush-rows">
-			<button type="button" class="action-row-btn" onclick={chooseZap}>
-				<Zap variant="outline" size={20} strokeWidth={1.4} color="hsl(var(--white66))" />
-				<span>Zap</span>
-			</button>
-		</div>
-
-		<div class="section-divider"></div>
-
-		<div class="actions-section flush-rows">
-			<button
-				type="button"
-				class="action-row-btn"
-				onclick={openDetails}
-				disabled={!targetEventId?.trim()}
-			>
-				<Details variant="outline" size={20} strokeWidth={1.4} color="hsl(var(--white66))" />
-				<span>Details</span>
-			</button>
-		</div>
-
-		<div class="section-divider"></div>
-
-		<div class="actions-section report-section">
-			<div class="section-content">
-				<button type="button" class="report-button" onclick={openReport}>
-					Report this {reportContentType === "zap" ? "zap" : "comment"}
+	<div class="cam-inner">
+		{#if subPanel === "main"}
+			{#if !compactMode}
+				<button type="button" class="cam-comment-card" onclick={chooseComment}>
+					<div class="cam-comment-card-quote">
+						{#if isZapPreview}
+							<QuotedZapMessage
+								{authorName}
+								{authorPubkey}
+								amountSats={zapAmountSats}
+								content={zapContent}
+								emojiTags={zapEmojiTags}
+							/>
+						{:else}
+							<QuotedMessage {authorName} authorPubkey={authorPubkey} content={contentPreview} />
+						{/if}
+					</div>
+					<div class="cam-comment-card-footer">
+						<Reply
+							variant="outline"
+							size={18}
+							strokeWidth={1.4}
+							color="hsl(var(--white33))"
+							className="cam-comment-card-icon"
+						/>
+						<span class="cam-comment-card-label">Comment</span>
+					</div>
 				</button>
-			</div>
-		</div>
-	</div>
-</Modal>
 
-<Modal
-	bind:open={detailsOpen}
-	ariaLabel="Event details"
-	align="bottom"
-	wide={true}
-	zIndex={58}
-	maxHeight={85}
-	class="comment-details-nested-modal"
->
-	<div class="details-modal-inner">
-		<h2 class="details-modal-title">Details</h2>
-		{#if detailsLoading}
-			<p class="details-loading">Loading…</p>
-		{:else if detailsEvent}
-			<DetailsTab
-				shareableId={detailsShareableId}
-				publicationLabel={detailsPublicationLabel}
-				npub={detailsNpub}
-				pubkey={detailsEvent.pubkey ?? ""}
-				rawData={detailsEvent}
-				shareLink=""
-				repository=""
+				<div class="cam-section">
+					<h3 class="eyebrow-label cam-eyebrow">Zaps</h3>
+					<div class="cam-zap-strip-wrap">
+						<div class="cam-zap-scroll-mask" use:wheelScroll>
+							<div class="cam-zap-chips">
+								{#each ZAP_PRESET_AMOUNTS as amt (amt)}
+									<button type="button" class="cam-zap-chip" onclick={() => pickPresetZap(amt)}>
+										<Zap variant="fill" size={12} color="hsl(var(--goldColor))" />
+										<span class="cam-zap-chip-num">{formatChipAmount(amt)}</span>
+									</button>
+								{/each}
+							</div>
+						</div>
+						<button type="button" class="cam-zap-chevron" aria-label="Open zap" onclick={openFullZap}>
+							<ChevronDown variant="outline" size={14} strokeWidth={2} color="hsl(var(--white66))" />
+						</button>
+					</div>
+				</div>
+			{/if}
+
+			<div class="cam-section">
+				<h3 class="eyebrow-label cam-eyebrow">Actions</h3>
+				<div class="cam-actions-row">
+					<button
+						type="button"
+						class="cam-panel-btn"
+						onclick={openDetailsPanel}
+						disabled={!targetEventId?.trim()}
+					>
+						<span class="cam-panel-icon-wrap" aria-hidden="true">
+							<Details variant="outline" size={24} strokeWidth={1.4} color="hsl(var(--white66))" />
+						</span>
+						<span class="cam-panel-label">Details</span>
+					</button>
+					<button type="button" class="cam-panel-btn" onclick={openLabelPanel} disabled={!canLabel}>
+						<span class="cam-panel-icon-wrap" aria-hidden="true">
+							<Label variant="outline" size={24} strokeWidth={1.4} color="hsl(var(--white66))" />
+						</span>
+						<span class="cam-panel-label">Label</span>
+					</button>
+					<button type="button" class="cam-panel-btn" onclick={openSharePanel} disabled={!canShare}>
+						<span class="cam-panel-icon-wrap" aria-hidden="true">
+							<Share variant="outline" size={24} strokeWidth={1.4} color="hsl(var(--white66))" />
+						</span>
+						<span class="cam-panel-label">Share</span>
+					</button>
+				</div>
+			</div>
+
+			<button type="button" class="cam-report-btn" onclick={openReportPanel}>
+				Report this {reportContentType === "zap" ? "zap" : "comment"}
+			</button>
+		{:else if subPanel === "details"}
+			<div class="cam-subpanel">
+				<div class="details-modal-inner cam-subpanel-body">
+					{#if detailsLoading}
+						<p class="details-loading">Loading…</p>
+					{:else if detailsEvent}
+						<DetailsTab
+							shareableId={detailsShareableId}
+							publicationLabel={detailsPublicationLabel}
+							npub={detailsNpub}
+							pubkey={detailsEvent.pubkey ?? ""}
+							rawData={detailsEvent}
+							shareLink=""
+							repository=""
+						/>
+					{:else}
+						<p class="details-empty">Could not load this event from your device.</p>
+					{/if}
+				</div>
+			</div>
+		{:else if subPanel === "label"}
+			<div class="cam-subpanel">
+				<div class="cam-label-panel cam-subpanel-body">
+					<InputLabel
+						bind:value={labelInputValue}
+						placeholder="Your label"
+						onAdd={() => publishLabelText(labelInputValue)}
+						addDisabled={labelPublishing || !getIsSignedIn()}
+					/>
+					{#if labelError}
+						<p class="cam-label-error" role="alert">{labelError}</p>
+					{/if}
+					<div class="labels-scroll-row" use:wheelScroll>
+						<div class="labels-row-inner">
+							{#each labelSuggestions as label (label)}
+								<button
+									type="button"
+									class="label-tap"
+									onclick={() => publishLabelText(label)}
+									disabled={labelPublishing || !getIsSignedIn()}
+									aria-label={`Add label ${label}`}
+								>
+									<LabelChip text={label} isSelected={false} isEmphasized={false} />
+								</button>
+							{/each}
+						</div>
+					</div>
+					<p class="cam-label-hint">Labels are published to social relays and may appear in clients that support them.</p>
+				</div>
+			</div>
+		{:else if subPanel === "share"}
+			<div class="cam-subpanel">
+				<div class="cam-actions-row cam-subpanel-body">
+					<button
+						type="button"
+						class="cam-panel-btn"
+						onclick={copyNeventToClipboard}
+						disabled={!canShare}
+					>
+						<span class="cam-panel-icon-wrap" aria-hidden="true">
+							<Id variant="outline" size={24} strokeWidth={1.4} color="hsl(var(--white66))" />
+						</span>
+						<span class="cam-panel-label">Embed Link</span>
+					</button>
+				</div>
+				{#if shareFeedback}
+					<p class="cam-share-hint" role="status">{shareFeedback}</p>
+				{/if}
+			</div>
+		{:else if subPanel === "report"}
+			<ReportModal
+				bind:isOpen={reportEmbedOpen}
+				embedWithoutModal={true}
+				onEmbedDismiss={goMain}
+				appName=""
+				authorName={authorName}
+				contentType={reportContentType}
+				eventId={targetEventId?.trim() ?? ""}
+				authorPubkey={authorPubkey?.trim() ?? ""}
+				{searchProfiles}
+				{searchEmojis}
 			/>
-		{:else}
-			<p class="details-empty">Could not load this event from your device.</p>
 		{/if}
 	</div>
 </Modal>
 
-<ReportModal
-	bind:isOpen={reportOpen}
-	appName=""
-	authorName={authorName}
-	contentType={reportContentType}
-	eventId={targetEventId?.trim() ?? ""}
-	authorPubkey={authorPubkey?.trim() ?? ""}
-	{searchProfiles}
-	{searchEmojis}
-/>
-
 <style>
-	.comment-actions-modal-content {
-		display: flex;
-		flex-direction: column;
-		box-sizing: border-box;
-		min-width: 0;
-	}
-
-	.actions-section {
-		padding: 12px 0;
-	}
-
-	.title-section {
-		padding-top: 20px;
-		padding-bottom: 8px;
-	}
-
-	.modal-title-text {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: 1.875rem;
-		font-weight: 600;
-		color: hsl(var(--foreground));
-		text-align: center;
-	}
-
-	.preview-section {
-		padding: 12px 20px;
-	}
-
-	.flush-rows {
+	:global(.comment-actions-modal.modal-bottom .modal-content) {
 		padding: 0;
 	}
 
-	.section-divider {
-		width: 100%;
-		height: 1px;
-		background-color: hsl(var(--white8));
-		flex-shrink: 0;
+	.cam-inner {
+		box-sizing: border-box;
+		min-width: 0;
+		padding: 12px;
+		padding-bottom: 12px;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
 	}
 
-	.action-row-btn {
+	@media (max-width: 767px) {
+		.cam-inner {
+			padding: 16px;
+			padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+		}
+	}
+
+	.cam-subpanel {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		min-width: 0;
+		min-height: 120px;
+	}
+
+	.cam-subpanel-body {
+		min-width: 0;
+	}
+
+	.cam-comment-card {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		width: 100%;
+		margin: 0;
+		padding: 8px;
+		text-align: left;
+		cursor: pointer;
+		border: 0.33px solid hsl(var(--white33));
+		border-radius: var(--radius-16);
+		background: hsl(var(--black33));
+		box-sizing: border-box;
+	}
+
+	.cam-comment-card:active {
+		transform: scale(0.99);
+	}
+
+	.cam-comment-card-quote {
+		min-width: 0;
+		padding-left: 4px;
+		box-sizing: border-box;
+	}
+
+	.cam-comment-card-footer {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
 		justify-content: flex-start;
-		gap: 14px;
-		width: 100%;
-		padding: 16px 24px;
-		margin: 0;
-		border: none;
-		background: transparent;
-		color: hsl(var(--foreground));
-		font-size: 17px;
+		gap: 10px;
+		padding: 2px 4px 0 4px;
+		margin-top: 0;
+	}
+
+	:global(.cam-comment-card-icon) {
+		flex-shrink: 0;
+		padding-left: 4px;
+		box-sizing: content-box;
+	}
+
+	.cam-section {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		min-width: 0;
+	}
+
+	.cam-comment-card-label {
+		font-size: 14px;
 		font-weight: 500;
-		cursor: pointer;
-		text-align: left;
+		color: hsl(var(--white33));
+	}
+
+	@media (min-width: 768px) {
+		.cam-comment-card-label {
+			font-size: 16px;
+		}
+	}
+
+	.cam-eyebrow {
+		margin: 0;
+		padding-left: 12px;
+		align-self: stretch;
+	}
+
+	.cam-zap-strip-wrap {
+		position: relative;
+		min-height: 52px;
+		border-radius: var(--radius-16);
+		background: hsl(var(--black33));
+		padding: 8px 40px 8px 0;
 		box-sizing: border-box;
 	}
 
-	.action-row-btn:hover:not(:disabled) {
-		background: hsl(var(--white8));
+	.cam-zap-scroll-mask {
+		overflow-x: auto;
+		overflow-y: hidden;
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+		mask-image: linear-gradient(to right, black calc(100% - 48px), transparent 100%);
+		-webkit-mask-image: linear-gradient(to right, black calc(100% - 48px), transparent 100%);
 	}
 
-	.action-row-btn:disabled {
-		opacity: 0.4;
+	.cam-zap-scroll-mask::-webkit-scrollbar {
+		display: none;
+	}
+
+	.cam-zap-chips {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 8px;
+		padding-left: 12px;
+		padding-right: 8px;
+		width: max-content;
+		min-height: 36px;
+	}
+
+	.cam-zap-chip {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 4px;
+		flex-shrink: 0;
+		padding: 0 12px;
+		height: 32px;
+		margin: 0;
+		border: none;
+		border-radius: var(--radius-8);
+		background: hsl(var(--white8));
+		cursor: pointer;
+		color: hsl(var(--white));
+		font-size: 16px;
+		font-weight: 650;
+	}
+
+	.cam-zap-chip:active {
+		transform: scale(0.98);
+	}
+
+	.cam-zap-chip-num {
+		line-height: 1;
+	}
+
+	.cam-zap-chevron {
+		position: absolute;
+		right: 6px;
+		top: 8px;
+		bottom: 8px;
+		width: 32px;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		border-radius: var(--radius-8);
+		cursor: pointer;
+		background: hsl(var(--white8));
+		backdrop-filter: blur(4px);
+		-webkit-backdrop-filter: blur(4px);
+		z-index: 2;
+	}
+
+	.cam-zap-chevron:active {
+		transform: scale(0.98);
+	}
+
+	.cam-actions-row {
+		display: flex;
+		flex-direction: row;
+		gap: 12px;
+		width: 100%;
+	}
+
+	.cam-panel-icon-wrap {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		flex-shrink: 0;
+	}
+
+	.cam-panel-btn {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 10px;
+		padding: 20px 8px 16px;
+		margin: 0;
+		border: none;
+		border-radius: var(--radius-16);
+		background: hsl(var(--black33));
+		cursor: pointer;
+		box-sizing: border-box;
+	}
+
+	.cam-panel-btn:disabled {
+		opacity: 0.35;
 		cursor: not-allowed;
 	}
 
-	.report-section {
-		padding-bottom: 16px;
+	.cam-panel-btn:not(:disabled):active {
+		transform: scale(0.99);
 	}
 
-	.section-content {
-		padding: 0 12px;
+	.cam-panel-label {
+		font-size: 14px;
+		font-weight: 500;
+		color: hsl(var(--white));
+		text-align: center;
 	}
 
-	.report-button {
+	@media (min-width: 768px) {
+		.cam-panel-label {
+			font-size: 16px;
+		}
+	}
+
+	.cam-share-hint {
+		margin: 8px 0 0 0;
+		padding: 0 4px;
+		font-size: 13px;
+		color: hsl(var(--white33));
+		text-align: center;
+	}
+
+	.cam-report-btn {
 		width: 100%;
 		height: 42px;
+		margin: 0;
 		padding: 0 20px;
 		font-size: 16px;
 		font-weight: 500;
 		color: hsl(var(--destructive));
-		background-color: hsl(var(--black33));
+		background: hsl(var(--black33));
 		border: none;
 		border-radius: var(--radius-16);
 		cursor: pointer;
 	}
 
+	.cam-report-btn:active {
+		transform: scale(0.99);
+	}
+
 	@media (max-width: 767px) {
-		.report-button {
+		.cam-report-btn {
 			height: 38px;
 		}
 	}
 
 	.details-modal-inner {
-		padding: 16px 12px 24px;
-		max-height: min(80vh, 640px);
+		padding: 8px 0 16px;
+		max-height: min(70vh, 560px);
 		overflow-y: auto;
 		box-sizing: border-box;
-	}
-
-	.details-modal-title {
-		margin: 0 0 12px 0;
-		font-family: var(--font-display);
-		font-size: 1.5rem;
-		font-weight: 600;
-		color: hsl(var(--foreground));
-		text-align: center;
 	}
 
 	.details-loading,
@@ -351,4 +698,61 @@ $effect(() => {
 		color: hsl(var(--white33));
 		text-align: center;
 	}
+
+	.cam-label-panel {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.cam-label-error {
+		margin: 0;
+		font-size: 13px;
+		color: hsl(var(--destructive));
+	}
+
+	.cam-label-hint {
+		margin: 0;
+		font-size: 12px;
+		line-height: 1.35;
+		color: hsl(var(--white33));
+	}
+
+	.labels-scroll-row {
+		min-width: 0;
+		overflow-x: auto;
+		overflow-y: hidden;
+		padding: 4px 0;
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+	}
+
+	.labels-scroll-row::-webkit-scrollbar {
+		display: none;
+	}
+
+	.labels-row-inner {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 10px;
+		width: max-content;
+		padding: 0 4px;
+	}
+
+	.label-tap {
+		margin: 0;
+		padding: 0;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+
+	.label-tap:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+
 </style>

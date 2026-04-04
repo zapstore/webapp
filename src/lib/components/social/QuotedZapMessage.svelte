@@ -76,7 +76,7 @@ const plainPreview = $derived.by(() => {
 		align-items: stretch;
 		min-height: 0;
 		margin-bottom: 8px;
-		border-radius: var(--radius-12);
+		border-radius: var(--radius-8);
 		overflow: hidden;
 		background: radial-gradient(
 			circle at top left,

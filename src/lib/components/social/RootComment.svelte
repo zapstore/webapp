@@ -17,6 +17,7 @@ import Modal from "$lib/components/common/Modal.svelte";
 import MediaLightboxModal from "$lib/components/modals/MediaLightboxModal.svelte";
 import EmptyState from "$lib/components/common/EmptyState.svelte";
 import DeletedRootBadge from "$lib/components/community/DeletedRootBadge.svelte";
+import ActivityStackMiniBadge from "$lib/components/community/ActivityStackMiniBadge.svelte";
 import InputButton from "$lib/components/common/InputButton.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import EmojiPickerModal from "$lib/components/modals/EmojiPickerModal.svelte";
@@ -38,6 +39,19 @@ let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl 
      * @type {'root' | Record<string, unknown> | null}
      */
     initialActionsTarget = null,
+    /**
+     * Incremented by the parent when opening the actions sheet without the thread modal (feed ⋯).
+     * Lets the mount effect open the sheet once per user gesture.
+     */
+    standaloneActionsOpenKey = 0,
+    /**
+     * Feed zap icon: open {@link ZapSliderModal} for the tapped comment without opening the thread modal first.
+     * Parent increments `standaloneZapOpenKey` per gesture; `feedInitialZapTarget` is the enriched reply shape.
+     */
+    openZapOnMount = false,
+    standaloneZapOpenKey = 0,
+    /** @type {null | { id: string, pubkey: string, displayName?: string, avatarUrl?: string | null, content?: string, createdAt?: number, emojiTags?: { shortcode: string, url: string }[], mediaUrls?: string[] }} */
+    feedInitialZapTarget = null,
     /** When true, also open the reply composer immediately when the modal mounts. */
     openReplyOnMount = false,
     /**
@@ -50,11 +64,16 @@ let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl 
     /**
      * Optional context banner shown at the top of the thread modal (app or forum post this comment is on).
      * When `deleted` is true or `href` is missing, the row is non-navigable (e.g. root no longer on relays).
-     * @type {{ label: string, iconUrl?: string | null, href?: string | null, deleted?: boolean } | null}
+     * @type {{ label: string, iconUrl?: string | null, href?: string | null, deleted?: boolean, isStack?: boolean } | null}
      */
     rootContext = null,
     /** Called when the thread modal closes (backdrop tap or programmatic close). */
     onModalClose = null,
+    /**
+     * When set (forum thread under Zapstore community), kind-1985 labels include `#h` for relay indexing.
+     * @type {string | null}
+     */
+    labelCommunityPubkey = null,
 } = $props();
 let lightboxOpen = $state(false);
 let lightboxUrls = $state([]);
@@ -67,6 +86,8 @@ function openLightbox(url, _type, urls) {
 }
 let modalOpen = $state(false);
 let zapModalOpen = $state(false);
+/** Preset sats when opening {@link ZapSliderModal} from CommentActionsModal chips */
+let zapPresetSats = $state(/** @type {number | null} */ (null));
 let commentExpanded = $state(false);
 /** When set, we're replying to this comment (show QuotedMessage above input) */
 let replyingToComment = $state(null);
@@ -255,15 +276,42 @@ function onBubbleClick(e, target) {
     e.stopPropagation();
     openActionsModal(target);
 }
+/** Keyboard activate for bubble wrappers (mirrors onBubbleClick when focus is on the wrapper). */
+function onBubbleKeydown(/** @type {KeyboardEvent} */ e, /** @type {Parameters<typeof onBubbleClick>[1]} */ target) {
+    if (e.key !== "Enter" && e.key !== " ")
+        return;
+    if (!showThreadActions)
+        return;
+    e.preventDefault();
+    e.stopPropagation();
+    openActionsModal(target);
+}
+function onRootCommentKeydown(/** @type {KeyboardEvent} */ e) {
+    if (e.key !== "Enter" && e.key !== " ")
+        return;
+    e.preventDefault();
+    openThread();
+}
+/** Thread feed zap rows carry `senderPubkey` + `amountSats`; comments use `pubkey` and no amount. */
+function isActionsTargetThreadZap(t) {
+    return Boolean(
+        t &&
+            typeof t === "object" &&
+            "senderPubkey" in t &&
+            "amountSats" in t
+    );
+}
 function actionsModalOnComment() {
+    modalOpen = true;
     if (actionsModalTarget === "root")
         handleReply();
-    else if (actionsModalTarget && "parentId" in actionsModalTarget)
-        openReplyToComment(actionsModalTarget);
-    else if (actionsModalTarget && "id" in actionsModalTarget)
+    else if (isActionsTargetThreadZap(actionsModalTarget))
         openReplyToZap(actionsModalTarget);
+    else if (actionsModalTarget && typeof actionsModalTarget === "object")
+        openReplyToComment(actionsModalTarget);
 }
 function actionsModalOnZap() {
+    zapPresetSats = null;
     if (actionsModalTarget === "root")
         handleZap();
     else if (actionsModalTarget)
@@ -287,6 +335,7 @@ function openThread() {
     modalOpen = true;
 }
 function handleZap() {
+    zapPresetSats = null;
     zapModalOpen = true;
 }
 function handleReply() {
@@ -318,11 +367,25 @@ function handleZapComment(commentOrZap) {
     };
     zapModalOpen = true;
 }
+/** Quick zap amount from actions sheet chips — same target as full zap, keeps {@link zapPresetSats}. */
+function handleActionsZapPreset(sats) {
+    zapPresetSats = sats;
+    if (actionsModalTarget === "root") {
+        zapTargetOverride = null;
+        zapModalOpen = true;
+    }
+    else if (actionsModalTarget) {
+        handleZapComment(actionsModalTarget);
+    }
+}
 function handleZapClose(event) {
     zapModalOpen = false;
     zapTargetOverride = null;
+    zapPresetSats = null;
     if (event.success)
         onZapReceived?.({ zapReceipt: {} });
+    if (openZapOnMount)
+        onModalClose?.();
 }
 async function handleReplySubmit(event) {
     if (submitting || !id)
@@ -385,8 +448,24 @@ $effect(() => {
         }
     }
 });
+
+/** Last feed-only zap key applied (community / studio activity). */
+let lastStandaloneZapKey = $state(-1);
+$effect(() => {
+	if (!openZapOnMount || !feedInitialZapTarget) {
+		if (!openZapOnMount)
+			lastStandaloneZapKey = -1;
+		return;
+	}
+	if (lastStandaloneZapKey === standaloneZapOpenKey)
+		return;
+	lastStandaloneZapKey = standaloneZapOpenKey;
+	void tick().then(() => {
+		handleZapComment(feedInitialZapTarget);
+	});
+});
 // Track first open so onModalClose fires when modal closes (but not on initial false state).
-let _didOpen = openThreadOnMount;
+let _didOpen = $state(false);
 $effect(() => {
     if (modalOpen) {
         _didOpen = true;
@@ -427,16 +506,46 @@ const actionsTargetEventKind = $derived.by(() => {
 	return EVENT_KINDS.COMMENT;
 });
 
-let didApplyInitialActions = $state(false);
+/** Match sheet quote + reply routing: only thread zap rows, not arbitrary objects with an `id`. */
+const actionsModalIsZapPreview = $derived.by(() => {
+	if (actionsModalTarget === "root") return isZapRoot;
+	return isActionsTargetThreadZap(actionsModalTarget);
+});
+
+/** Thread modal + root ⋯: actions sheet without Comment/Zap sections. */
+const actionsModalCompact = $derived(modalOpen && actionsModalTarget === "root");
+
+/** Thread visible first, then actions (legacy bundled open). */
+let didApplyBundledActions = $state(false);
+/** Last feed “actions only” key we applied — see `standaloneActionsOpenKey`. */
+let lastStandaloneActionsKey = $state(-1);
 $effect(() => {
-	if (!modalOpen || !openActionsOnMount) {
-		if (!modalOpen) didApplyInitialActions = false;
+	if (!openActionsOnMount) {
+		if (!modalOpen)
+			didApplyBundledActions = false;
 		return;
 	}
-	if (didApplyInitialActions) return;
 	const t = initialActionsTarget;
-	if (t === null || t === undefined) return;
-	didApplyInitialActions = true;
+	if (t === null || t === undefined)
+		return;
+
+	if (openThreadOnMount) {
+		if (!modalOpen) {
+			didApplyBundledActions = false;
+			return;
+		}
+		if (didApplyBundledActions)
+			return;
+		didApplyBundledActions = true;
+		void tick().then(() => {
+			openActionsModal(t);
+		});
+		return;
+	}
+
+	if (lastStandaloneActionsKey === standaloneActionsOpenKey)
+		return;
+	lastStandaloneActionsKey = standaloneActionsOpenKey;
 	void tick().then(() => {
 		openActionsModal(t);
 	});
@@ -470,18 +579,19 @@ function handleRootContextNav(e) {
       handleZap();
     }}
     onOptions={() => {
-      modalOpen = true;
       openActionsModal("root");
     }}
   />
 {/snippet}
 
 {#if !hideRoot}
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div
   class="root-comment {className}"
   class:desktop-bubble-actions-target={showThreadActions}
+  role="button"
+  tabindex="0"
   onclick={openThread}
+  onkeydown={onRootCommentKeydown}
 >
   {#if isZapRoot}
     <ZapBubble
@@ -580,7 +690,11 @@ function handleRootContextNav(e) {
             class="thread-root-context"
             onclick={handleRootContextNav}
           >
-            {#if rootContext.iconUrl}
+            {#if rootContext.isStack}
+              <span class="thread-root-context-stack-badge" aria-hidden="true">
+                <ActivityStackMiniBadge />
+              </span>
+            {:else if rootContext.iconUrl}
               <img src={rootContext.iconUrl} alt="" class="thread-root-context-icon" />
             {:else}
               <span class="thread-root-context-emoji" aria-hidden="true">💬</span>
@@ -593,11 +707,14 @@ function handleRootContextNav(e) {
         {/if}
       {/if}
       <div class="thread-root">
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
         <div
           class="thread-bubble-click-wrap"
           class:clickable={showThreadActions}
-          onclick={(e) => onBubbleClick(e, "root")}
+          role={showThreadActions ? "button" : undefined}
+          tabindex={showThreadActions ? 0 : undefined}
+          onclick={showThreadActions ? (e) => onBubbleClick(e, "root") : undefined}
+          onkeydown={showThreadActions ? (e) => onBubbleKeydown(e, "root") : undefined}
         >
           {#if isZapRoot}
             <ThreadZap
@@ -659,11 +776,14 @@ function handleRootContextNav(e) {
                 class="thread-bubble-with-rail desktop-bubble-actions-target"
                 class:thread-bubble-with-rail--solo={!showThreadActions}
               >
-                <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                 <div
                   class="thread-bubble-click-wrap thread-bubble-with-rail__main"
                   class:clickable={showThreadActions}
-                  onclick={(e) => onBubbleClick(e, reply)}
+                  role={showThreadActions ? "button" : undefined}
+                  tabindex={showThreadActions ? 0 : undefined}
+                  onclick={showThreadActions ? (e) => onBubbleClick(e, reply) : undefined}
+                  onkeydown={showThreadActions ? (e) => onBubbleKeydown(e, reply) : undefined}
                 >
                   <MessageBubble
                     pictureUrl={reply.avatarUrl}
@@ -704,6 +824,7 @@ function handleRootContextNav(e) {
                         class="reply-comment-body"
                       />
                     {:else}
+                      <!-- eslint-disable-next-line svelte/no-at-html-tags -- from parseComment(): escaped text + <br> only; no raw author tags -->
                       {@html reply.contentHtml || "<p class='text-muted-foreground italic'>No content</p>"}
                     {/if}
                   </MessageBubble>
@@ -722,11 +843,14 @@ function handleRootContextNav(e) {
                 class="thread-bubble-with-rail desktop-bubble-actions-target"
                 class:thread-bubble-with-rail--solo={!showThreadActions}
               >
-                <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                 <div
                   class="thread-bubble-click-wrap thread-bubble-with-rail__main"
                   class:clickable={showThreadActions}
-                  onclick={(e) => onBubbleClick(e, zap)}
+                  role={showThreadActions ? "button" : undefined}
+                  tabindex={showThreadActions ? 0 : undefined}
+                  onclick={showThreadActions ? (e) => onBubbleClick(e, zap) : undefined}
+                  onkeydown={showThreadActions ? (e) => onBubbleKeydown(e, zap) : undefined}
                 >
                   <ZapBubble
                     pictureUrl={zap.avatarUrl}
@@ -820,26 +944,28 @@ function handleRootContextNav(e) {
               >
                 {#snippet aboveEditor()}
                   {#if replyingToComment}
-                    {#if replyingToComment.quotedAsZap === true}
-                      <QuotedZapMessage
-                        authorName={replyingToComment.displayName || "Anonymous"}
-                        authorPubkey={replyingToComment.pubkey}
-                        amountSats={replyingToComment.amountSats ?? 0}
-                        content={replyingToComment.content ?? ""}
-                        emojiTags={replyingToComment.emojiTags ?? []}
-                        mediaUrls={replyingToComment.mediaUrls ?? []}
-                        resolveMentionLabel={resolveMentionLabel}
-                      />
-                    {:else}
-                      <QuotedMessage
-                        authorName={replyingToComment.displayName || "Anonymous"}
-                        authorPubkey={replyingToComment.pubkey}
-                        content={replyingToComment.content ?? ""}
-                        emojiTags={replyingToComment.emojiTags ?? []}
-                        mediaUrls={replyingToComment.mediaUrls ?? []}
-                        resolveMentionLabel={resolveMentionLabel}
-                      />
-                    {/if}
+                    <div class="thread-reply-quote-inset">
+                      {#if replyingToComment.quotedAsZap === true}
+                        <QuotedZapMessage
+                          authorName={replyingToComment.displayName || "Anonymous"}
+                          authorPubkey={replyingToComment.pubkey}
+                          amountSats={replyingToComment.amountSats ?? 0}
+                          content={replyingToComment.content ?? ""}
+                          emojiTags={replyingToComment.emojiTags ?? []}
+                          mediaUrls={replyingToComment.mediaUrls ?? []}
+                          resolveMentionLabel={resolveMentionLabel}
+                        />
+                      {:else}
+                        <QuotedMessage
+                          authorName={replyingToComment.displayName || "Anonymous"}
+                          authorPubkey={replyingToComment.pubkey}
+                          content={replyingToComment.content ?? ""}
+                          emojiTags={replyingToComment.emojiTags ?? []}
+                          mediaUrls={replyingToComment.mediaUrls ?? []}
+                          resolveMentionLabel={resolveMentionLabel}
+                        />
+                      {/if}
+                    </div>
                   {/if}
                 {/snippet}
               </ShortTextInput>
@@ -855,19 +981,24 @@ function handleRootContextNav(e) {
 <CommentActionsModal
   bind:open={actionsModalOpen}
   bind:nestedChildOpen={actionsNestedOpen}
+  sheetBackdrop={!modalOpen}
+  compactMode={actionsModalCompact}
   authorName={actionsModalTarget === "root" ? (name || "Anonymous") : (actionsModalTarget?.displayName ?? "Anonymous")}
-  authorPubkey={actionsModalTarget === "root" ? pubkey : (actionsModalTarget ? ("senderPubkey" in actionsModalTarget ? actionsModalTarget.senderPubkey : actionsModalTarget.pubkey) ?? null : null)}
+  authorPubkey={actionsModalTarget === "root" ? pubkey : (actionsModalTarget && isActionsTargetThreadZap(actionsModalTarget) ? actionsModalTarget.senderPubkey : actionsModalTarget?.pubkey) ?? null}
   contentPreview={getActionsModalContentPreview()}
-  isZapPreview={(actionsModalTarget === "root" && isZapRoot) || (actionsModalTarget !== "root" && actionsModalTarget != null && typeof actionsModalTarget === "object" && "amountSats" in actionsModalTarget && "senderPubkey" in actionsModalTarget)}
+  isZapPreview={actionsModalIsZapPreview}
   zapAmountSats={actionsModalTarget === "root" && isZapRoot ? (zapAmount ?? 0) : (actionsModalTarget && typeof actionsModalTarget === "object" && "amountSats" in actionsModalTarget ? (actionsModalTarget.amountSats ?? 0) : 0)}
   zapContent={actionsModalTarget === "root" && isZapRoot ? (content ?? "") : (actionsModalTarget && typeof actionsModalTarget === "object" && "comment" in actionsModalTarget ? (actionsModalTarget.comment ?? "") : "")}
   zapEmojiTags={actionsModalTarget === "root" && isZapRoot ? (emojiTags ?? []) : (actionsModalTarget && typeof actionsModalTarget === "object" && "emojiTags" in actionsModalTarget ? (actionsModalTarget.emojiTags ?? []) : [])}
   targetEventId={actionsTargetEventId}
   targetEventKind={actionsTargetEventKind}
+  labelCommunityPubkey={labelCommunityPubkey}
   {searchProfiles}
   {searchEmojis}
+  {signEvent}
   onComment={actionsModalOnComment}
   onZap={actionsModalOnZap}
+  onZapPreset={handleActionsZapPreset}
 />
 
 <ZapSliderModal
@@ -875,7 +1006,8 @@ function handleRootContextNav(e) {
   target={zapTarget}
   publisherName={name || ''}
   otherZaps={[]}
-  nestedModal={true}
+  nestedModal={modalOpen}
+  presetZapSats={zapPresetSats}
   {searchProfiles}
   {searchEmojis}
   onclose={handleZapClose}
@@ -1037,6 +1169,21 @@ function handleRootContextNav(e) {
     flex-shrink: 0;
   }
 
+  /* Mini stack grid (28px) scaled to align with 24px app icons in this row */
+  .thread-root-context-stack-badge {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .thread-root-context-stack-badge :global(.stack-mini-badge) {
+    transform: scale(calc(24 / 28));
+    transform-origin: center center;
+  }
+
   .thread-root-context-emoji {
     font-size: 20px;
     line-height: 1;
@@ -1135,6 +1282,12 @@ function handleRootContextNav(e) {
     gap: 10px;
     min-height: 0;
     flex: 1;
+  }
+
+  .thread-reply-quote-inset {
+    padding-left: 4px;
+    box-sizing: border-box;
+    min-width: 0;
   }
 
   .thread-reply-input-wrap {

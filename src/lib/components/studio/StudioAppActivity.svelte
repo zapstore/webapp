@@ -352,8 +352,13 @@
 	/** Whether the reply composer should open immediately when the thread modal mounts. */
 	let openReplyOnMount = $state(false);
 	let threadOpenActionsOnMount = $state(false);
+	let threadOpenFeedActionsOnly = $state(false);
+	let threadOpenFeedZapOnly = $state(false);
+	let standaloneActionsOpenKey = $state(0);
+	let standaloneZapOpenKey = $state(0);
 	let threadInitialActionsTarget = $state(/** @type {'root' | any | null} */ (null));
 	let pendingActionsCommentEv = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
+	let pendingZapCommentEv = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
 	/** Enriched replies for the open thread modal (subtree under root). */
 	let selectedThreadComments = $state(/** @type {any[]} */ ([]));
 	/** Nested zap receipts when the open modal is a zap thread. */
@@ -394,8 +399,29 @@
 		const aRoot = commentEv.tags?.find((t) => t[0] === 'A' && t[1])?.[1] ?? null;
 		if (!aRoot) return;
 
-		threadOpenActionsOnMount = opts?.openActionsSheet === true;
-		pendingActionsCommentEv = threadOpenActionsOnMount ? commentEv : null;
+		const openActionsSheet = opts?.openActionsSheet === true;
+		const openZapOnly = opts?.openZapOnly === true;
+		if (openZapOnly) {
+			threadOpenFeedZapOnly = true;
+			standaloneZapOpenKey++;
+			threadOpenActionsOnMount = false;
+			threadOpenFeedActionsOnly = false;
+			pendingZapCommentEv = commentEv;
+			pendingActionsCommentEv = null;
+		} else if (openActionsSheet) {
+			threadOpenFeedZapOnly = false;
+			pendingZapCommentEv = null;
+			threadOpenActionsOnMount = true;
+			threadOpenFeedActionsOnly = true;
+			standaloneActionsOpenKey++;
+			pendingActionsCommentEv = commentEv;
+		} else {
+			threadOpenFeedZapOnly = false;
+			pendingZapCommentEv = null;
+			threadOpenActionsOnMount = false;
+			threadOpenFeedActionsOnly = false;
+			pendingActionsCommentEv = null;
+		}
 		threadInitialActionsTarget = null;
 
 		threadLoadGen++;
@@ -501,7 +527,17 @@
 		const aRoot = appATagFromZapEvent(zapEvent);
 		if (!aRoot) return;
 
-		threadOpenActionsOnMount = opts?.openActionsSheet === true;
+		threadOpenFeedZapOnly = false;
+		pendingZapCommentEv = null;
+
+		const openActionsSheetZ = opts?.openActionsSheet === true;
+		threadOpenActionsOnMount = openActionsSheetZ;
+		if (openActionsSheetZ) {
+			threadOpenFeedActionsOnly = true;
+			standaloneActionsOpenKey++;
+		} else {
+			threadOpenFeedActionsOnly = false;
+		}
 		threadInitialActionsTarget = threadOpenActionsOnMount ? 'root' : null;
 		pendingActionsCommentEv = null;
 
@@ -952,7 +988,7 @@
 						onRootClick={rootATag ? () => openAppForComment(rootATag) : null}
 						feedActions={{
 							onReply: () => openThread(commentEv, true),
-							onZap: () => openThread(commentEv),
+							onZap: () => openThread(commentEv, false, { openZapOnly: true }),
 							onOptions: () => openThread(commentEv, false, { openActionsSheet: true })
 						}}
 					/>
@@ -1074,9 +1110,13 @@
 		{@const _evVersion = _rootEv.tags?.find((t) => t[0] === 'v' && t[1])?.[1] ?? ''}
 		<RootComment
 			hideRoot={true}
-			openThreadOnMount={true}
+			openThreadOnMount={!threadOpenFeedActionsOnly && !threadOpenFeedZapOnly}
 			openActionsOnMount={threadOpenActionsOnMount}
 			initialActionsTarget={threadInitialActionsTarget}
+			standaloneActionsOpenKey={standaloneActionsOpenKey}
+			openZapOnMount={threadOpenFeedZapOnly}
+			standaloneZapOpenKey={standaloneZapOpenKey}
+			feedInitialZapTarget={pendingZapCommentEv ? enrichReplyTargetForModal(pendingZapCommentEv) : null}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
 			id={_rootEv.id}
@@ -1110,8 +1150,11 @@
 				threadModalRootEvent = null;
 				initialReplyTargetForModal = null;
 				threadOpenActionsOnMount = false;
+				threadOpenFeedActionsOnly = false;
+				threadOpenFeedZapOnly = false;
 				threadInitialActionsTarget = null;
 				pendingActionsCommentEv = null;
+				pendingZapCommentEv = null;
 				selectedThreadComments = [];
 				selectedThreadZaps = [];
 			}}
@@ -1151,9 +1194,13 @@
 	{#key threadModalZapId}
 		<RootComment
 			hideRoot={true}
-			openThreadOnMount={true}
+			openThreadOnMount={!threadOpenFeedActionsOnly && !threadOpenFeedZapOnly}
 			openActionsOnMount={threadOpenActionsOnMount}
 			initialActionsTarget={threadInitialActionsTarget}
+			standaloneActionsOpenKey={standaloneActionsOpenKey}
+			openZapOnMount={threadOpenFeedZapOnly}
+			standaloneZapOpenKey={standaloneZapOpenKey}
+			feedInitialZapTarget={pendingZapCommentEv ? enrichReplyTargetForModal(pendingZapCommentEv) : null}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
 			isZapRoot={true}
@@ -1188,8 +1235,11 @@
 				threadModalZapEvent = null;
 				initialReplyTargetForModal = null;
 				threadOpenActionsOnMount = false;
+				threadOpenFeedActionsOnly = false;
+				threadOpenFeedZapOnly = false;
 				threadInitialActionsTarget = null;
 				pendingActionsCommentEv = null;
+				pendingZapCommentEv = null;
 				selectedThreadComments = [];
 				selectedThreadZaps = [];
 			}}
