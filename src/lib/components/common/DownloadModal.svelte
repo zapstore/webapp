@@ -45,6 +45,9 @@
 	const ZAPSTORE_APK_FILENAME = 'zapstore-1.0.2.apk';
 	const ZAPSTORE_APK_URL =
 		'https://cdn.zapstore.dev/8a2bf54cc109862a2d8585456706b127935b6b33fd789c51606a17d5b864d5f0.apk';
+	/** Intrinsic size of static/images/download-image.png — reserves layout before decode. */
+	const DOWNLOAD_HERO_WIDTH = 512;
+	const DOWNLOAD_HERO_HEIGHT = 636;
 	const ANDROID_APK_SHA256 = '8a2bf54cc109862a2d8585456706b127935b6b33fd789c51606a17d5b864d5f0';
 	const APK_CERT_HASH = '99e33b0c2d07e75fcd9df7e40e886646ff667e3aa6648e1a1160b036cf2b9320';
 
@@ -151,8 +154,10 @@
 		<img
 			src={`${assets}/images/download-image.png`}
 			alt="Download Zapstore"
+			width={DOWNLOAD_HERO_WIDTH}
+			height={DOWNLOAD_HERO_HEIGHT}
 			class="w-full h-auto object-cover"
-			loading="lazy"
+			decoding="async"
 		/>
 		<div class="zapstore-content p-4 md:p-6 relative">
 			<h2 class="modal-title text-display text-4xl text-foreground text-center mb-6">

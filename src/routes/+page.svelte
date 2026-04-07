@@ -16,6 +16,10 @@ import { SvelteMap } from 'svelte/reactivity';
 import { fetchProfilesBatch } from '$lib/nostr';
 import SeoHead from '$lib/components/layout/SeoHead.svelte';
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_ICON, SITE_GITHUB } from '$lib/config';
+import { assets } from '$app/paths';
+
+/** Preload Zapstore download modal hero so opening the dialog does not shift layout. */
+const downloadModalHeroSrc = `${assets}/images/download-image.png`;
 
 const homeJsonLd = {
 	'@context': 'https://schema.org',
@@ -90,6 +94,10 @@ $effect(() => {
 </script>
 
 <SeoHead url={SITE_URL} jsonld={homeJsonLd} />
+
+<svelte:head>
+	<link rel="preload" as="image" href={downloadModalHeroSrc} />
+</svelte:head>
 
 <DownloadModal bind:open={showDownloadModal} isZapstore={true} />
 
