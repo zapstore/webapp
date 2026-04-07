@@ -3,10 +3,23 @@
  * ThreadComment - Thread-style comment display for modals
  */
 import { onMount } from "svelte";
+import * as nip19 from "nostr-tools/nip19";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString, } from "$lib/utils/color.js";
 let { version = "", pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending: _pending = false, className = "", appIconUrl: _appIconUrl = null, appName: _appName = "", appIdentifier: _appIdentifier = null, children, headerActions, } = $props();
+function formatNpubDisplay(npubStr) {
+    const s = String(npubStr || "").trim();
+    if (!s)
+        return "";
+    const afterPrefix = s.startsWith("npub1") ? s.slice(5, 8) : s.slice(0, 3);
+    return s.startsWith("npub1") ? `npub1${afterPrefix}…${s.slice(-6)}` : `${afterPrefix}…${s.slice(-6)}`;
+}
+const displayAuthorName = $derived(name?.trim()
+    ? name.trim()
+    : (pubkey?.trim()
+        ? formatNpubDisplay(nip19.npubEncode(pubkey))
+        : ""));
 let isDarkMode = $state(true);
 onMount(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -45,11 +58,11 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
         <div class="author-name-wrap">
           {#if profileUrl}
             <a href={profileUrl} class="author-name" style="color: {nameColorStyle};">
-              {name || "Anonymous"}
+              {displayAuthorName}
             </a>
           {:else}
             <span class="author-name" style="color: {nameColorStyle};">
-              {name || "Anonymous"}
+              {displayAuthorName}
             </span>
           {/if}
         </div>

@@ -114,7 +114,7 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
   .bubble-trailing {
     display: flex;
     align-items: flex-end;
-    gap: 12px;
+    gap: 8px;
     min-width: 0;
     max-width: 100%;
   }

@@ -13,7 +13,17 @@
 import { fade, fly } from "svelte/transition";
 import { cubicOut } from "svelte/easing";
 import { browser } from "$app/environment";
-let { open = $bindable(false), ariaLabel = "Modal dialog", ariaLabelledby = null, align = "center", zIndex = 50, maxWidth = "max-w-lg", wide = false, class: className = "", maxHeight = 80, fillHeight = false, closeOnBackdropClick = true, closeOnEscape = true, noBackdrop = false, title = "", description = "", closeButtonMobile = false, children, footer, } = $props();
+let { open = $bindable(false), ariaLabel = "Modal dialog", ariaLabelledby = null, align = "center", zIndex = 50, maxWidth = "max-w-lg", wide = false, class: className = "", maxHeight = 80, fillHeight = false, closeOnBackdropClick = true, closeOnEscape = true, noBackdrop = false, title = "", description = "", closeButtonMobile = false,
+/** When false, body scroll is not locked (e.g. thread modal inside a transformed header panel). */
+lockBodyScroll = true,
+/**
+ * When true, cap height for sheets inside a transformed panel (e.g. header inbox):
+ * uses ancestor `--inbox-modal-top-reserve` + min vh cap; flush bottom on desktop; same surface as other modals.
+ */
+scopedInPanel = false,
+/** Extra cap for scoped sheets: min(available space, this many vh). */
+scopedPanelMaxVh = 90,
+children, footer, } = $props();
 let modalElement = $state(null);
 let _isBottomAligned = $state(false);
 let isMobile = $state(false);
@@ -35,7 +45,7 @@ function checkContentHeight() {
         _isBottomAligned = contentHeight > threshold;
     }
 }
-function lockBodyScroll() {
+function applyBodyScrollLock() {
     if (browser) {
         const scrollY = window.scrollY;
         document.body.style.position = "fixed";
@@ -46,7 +56,7 @@ function lockBodyScroll() {
         document.body.dataset.scrollY = String(scrollY);
     }
 }
-function unlockBodyScroll() {
+function releaseBodyScrollLock() {
     if (browser) {
         const scrollY = document.body.dataset.scrollY || "0";
         document.body.style.position = "";
@@ -62,13 +72,15 @@ $effect(() => {
     if (browser) {
         if (open) {
             checkMobile();
-            lockBodyScroll();
+            if (lockBodyScroll)
+                applyBodyScrollLock();
             requestAnimationFrame(() => {
                 checkContentHeight();
             });
         }
         else {
-            unlockBodyScroll();
+            if (lockBodyScroll)
+                releaseBodyScrollLock();
             _isBottomAligned = false;
         }
     }
@@ -97,6 +109,7 @@ function handleResize() {
     class="modal-backdrop fixed inset-0"
     class:bg-overlay={!noBackdrop}
     class:modal-backdrop-transparent={noBackdrop}
+    class:modal-backdrop-scoped-in-panel={scopedInPanel}
     class:items-start={actualAlignment === "top"}
     class:items-center={actualAlignment === "center"}
     class:items-end={actualAlignment === "bottom"}
@@ -117,7 +130,10 @@ function handleResize() {
       class:modal-center={actualAlignment === "center"}
       class:modal-bottom={actualAlignment === "bottom"}
       class:modal-fill-height={fillHeight}
-      style="--modal-max-height: {maxHeight}vh;"
+      class:modal-scoped-in-panel={scopedInPanel}
+      style="--modal-max-height: {maxHeight}vh;{scopedInPanel
+        ? ` --modal-scoped-panel-vh: ${scopedPanelMaxVh};`
+        : ""}"
       transition:fly={{
         y: actualAlignment === "bottom" ? 50 : actualAlignment === "top" ? -50 : 0,
         duration: 200,
@@ -213,6 +229,34 @@ function handleResize() {
       border-radius: 24px;
       border-bottom: 0.33px solid hsl(var(--white8));
     }
+
+    .modal-bottom.modal-scoped-in-panel {
+      margin-bottom: 0 !important;
+      border-radius: 24px;
+      border-bottom: 0.33px solid hsl(var(--white8));
+    }
+  }
+
+  .modal-bottom.modal-scoped-in-panel {
+    max-height: min(
+      calc(100% - var(--inbox-modal-top-reserve, 0px)),
+      calc(var(--modal-scoped-panel-vh, 90) * 1vh)
+    );
+    margin-bottom: 0;
+    border-radius: 24px;
+    border-bottom: 0.33px solid hsl(var(--white8));
+  }
+
+  /* Mobile: full-viewport dim + sheet (inbox/header transform is off; same as non-scoped bottom sheet). */
+  @media (max-width: 767px) {
+    .modal-bottom.modal-scoped-in-panel {
+      max-height: var(--modal-max-height);
+    }
+
+    .modal-scoped-in-panel.modal-fill-height {
+      height: var(--modal-max-height);
+      max-height: var(--modal-max-height);
+    }
   }
 
   .modal-fill-height {
@@ -225,6 +269,23 @@ function handleResize() {
     flex: 1;
     min-height: 0;
     max-height: unset;
+  }
+
+  .modal-scoped-in-panel.modal-fill-height {
+    /* Definite height so .modal-content scrolls and footer stays visible */
+    height: min(
+      calc(100% - var(--inbox-modal-top-reserve, 0px)),
+      calc(var(--modal-scoped-panel-vh, 90) * 1vh)
+    );
+    max-height: min(
+      calc(100% - var(--inbox-modal-top-reserve, 0px)),
+      calc(var(--modal-scoped-panel-vh, 90) * 1vh)
+    );
+    min-height: 0;
+  }
+
+  .modal-scoped-in-panel.modal-bottom .modal-content {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 
   .modal-wide {

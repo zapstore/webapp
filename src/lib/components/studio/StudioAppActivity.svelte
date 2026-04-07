@@ -1119,6 +1119,7 @@
 			feedInitialZapTarget={pendingZapCommentEv ? enrichReplyTargetForModal(pendingZapCommentEv) : null}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
+			modalZIndex={110}
 			id={_rootEv.id}
 			content={_rootEv.content ?? ''}
 			version={_evVersion}
@@ -1203,6 +1204,7 @@
 			feedInitialZapTarget={pendingZapCommentEv ? enrichReplyTargetForModal(pendingZapCommentEv) : null}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
+			modalZIndex={110}
 			isZapRoot={true}
 			id={_zEv.id}
 			content={_zParsed.comment ?? ''}

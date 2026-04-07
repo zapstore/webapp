@@ -45,7 +45,8 @@
 		COMMENT_AND_ZAP_READ_RELAYS,
 		COMMENT_ZAP_NAK_FETCH_LIMIT,
 		commentZapRelayReadSince,
-		ZAPSTORE_COMMUNITY_PUBKEY
+		ZAPSTORE_COMMUNITY_PUBKEY,
+		ZAPSTORE_RELAY
 	} from '$lib/config';
 	import { goto } from '$app/navigation';
 	import CommentCard from '$lib/components/community/CommentCard.svelte';
@@ -57,8 +58,22 @@
 	import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 	import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
 	import { isOnline } from '$lib/stores/online.svelte.js';
+	import {
+		markInboxEventsSeen,
+		isInboxEventUnread,
+		inboxSeenSignal
+	} from '$lib/stores/user-inbox-seen.svelte.js';
 
 	const ACTIVITY_CATALOG_RELAYS = [...DEFAULT_CATALOG_RELAYS];
+
+	/** Embedded header inbox: #p-filtered feed + same thread modals as Activity. */
+	let {
+		inboxUserPubkey = null,
+		inboxEmbed = false,
+		inboxActive = true,
+		/** Called when user taps "Mark All as Read"; parent can use this to update UI. */
+		onMarkAllRead = null
+	} = $props();
 
 	/** Re-seed when user opens Activity (shell can stay mounted while they use Forum). */
 	const activityRouteActive = $derived(
@@ -625,15 +640,79 @@
 	});
 
 	const activityLikelyHasMore = $derived(
-		activityFeedItems.length > 0 && activityHasMoreTimeline && activityFeedVisibleLimit < ACTIVITY_FEED_VISIBLE_MAX
+		!inboxUserPubkey &&
+			activityFeedItems.length > 0 &&
+			activityHasMoreTimeline &&
+			activityFeedVisibleLimit < ACTIVITY_FEED_VISIBLE_MAX
 	);
 
 	function loadMoreActivity() {
+		if (inboxUserPubkey) return;
 		activityFeedVisibleLimit = Math.min(
 			ACTIVITY_FEED_VISIBLE_MAX,
 			activityFeedVisibleLimit + 160
 		);
 		void seedActivityFromRelay();
+	}
+
+	/** @param {string} eventId */
+	function inboxRowUnread(eventId) {
+		if (!inboxEmbed || !inboxUserPubkey || !eventId) return false;
+		void inboxSeenSignal.count;
+		return isInboxEventUnread(inboxUserPubkey, eventId);
+	}
+
+	/** Inbox: clear per-card unread only after the user engages this row (not on scroll). */
+	function markInboxCardSeen(eventId) {
+		if (!inboxEmbed || !inboxUserPubkey || !eventId) return;
+		markInboxEventsSeen(inboxUserPubkey, [eventId]);
+	}
+
+	/** Mark every currently-visible inbox item as read. */
+	export function markAllRead() {
+		if (!inboxEmbed || !inboxUserPubkey || !activityFeedItems.length) return;
+		const ids = activityFeedItems.map((item) =>
+			item.kind === 'zap' ? item.row.event.id : item.ev.id
+		);
+		markInboxEventsSeen(inboxUserPubkey, ids);
+		onMarkAllRead?.();
+	}
+
+	async function seedInboxFromRelay(pk) {
+		if (!browser || !pk) return;
+		activityLoading = true;
+		activityError = '';
+		try {
+			activityAddrRelayAttempted.clear();
+			const sinceSec = commentZapRelayReadSince();
+			await Promise.all([
+				fetchFromRelays(
+					[ZAPSTORE_RELAY],
+					{
+						kinds: [EVENT_KINDS.COMMENT],
+						'#p': [pk],
+						since: sinceSec,
+						limit: 500
+					},
+					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'inbox-1111-p' }
+				),
+				fetchFromRelays(
+					[ZAPSTORE_RELAY],
+					{
+						kinds: [EVENT_KINDS.ZAP_RECEIPT],
+						'#p': [pk],
+						since: sinceSec,
+						limit: 400
+					},
+					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'inbox-9735-p' }
+				)
+			]);
+		} catch (err) {
+			console.error('[Inbox] relay seed failed', err);
+			activityError = 'Failed to sync inbox.';
+		} finally {
+			activityLoading = false;
+		}
 	}
 
 	function forumPostIdForZapParsed(parsed) {
@@ -670,7 +749,8 @@
 	let activityAddrRelayInFlight = false;
 
 	$effect(() => {
-		if (!browser || !activityReady || !isOnline()) return;
+		const feedAddrReady = inboxEmbed ? !!(inboxUserPubkey && inboxActive) : activityReady;
+		if (!browser || !feedAddrReady || !isOnline()) return;
 		const missing = [];
 		for (const c of activityThreadComments) {
 			const raw = addrTagFromComment(c);
@@ -694,7 +774,8 @@
 
 	// Subscribe in $effect (not $derived.by): Svelte 5 + liveQuery Observable must not be recreated opaquely; `filter` tolerates kind stored as string.
 	$effect(() => {
-		if (!browser || !activityReady) return;
+		const feedLive = inboxEmbed ? !!(inboxUserPubkey && inboxActive) : activityReady;
+		if (!browser || !feedLive) return;
 		const visibleLimitSnap = Math.min(ACTIVITY_FEED_VISIBLE_MAX, activityFeedVisibleLimit);
 
 		const obs = liveQuery(async () => {
@@ -708,22 +789,63 @@
 			scopedZaps.sort((a, b) => b.created_at - a.created_at);
 
 			/** @type {Array<{ kind: 'comment', ts: number, ev: import('nostr-tools').NostrEvent } | { kind: 'zap', ts: number, row: { event: import('nostr-tools').NostrEvent, parsed: ReturnType<typeof parseZapReceipt> } }>} */
-			const merged = [];
-			for (const ev of scopedComments) {
-				merged.push({ kind: 'comment', ts: ev.created_at, ev });
-			}
-			for (const ev of scopedZaps) {
-				try {
-					const parsed = parseZapReceipt(ev);
-					merged.push({ kind: 'zap', ts: ev.created_at, row: { event: ev, parsed } });
-				} catch {
-					/* skip malformed */
+			let merged;
+			/** @type {import('nostr-tools').NostrEvent[]} */
+			let threadCommentsForMap;
+
+			if (inboxUserPubkey) {
+				const pk = inboxUserPubkey;
+				const inboxComments = commentRows.filter(
+					(c) =>
+						Number(c.kind) === EVENT_KINDS.COMMENT &&
+						c.pubkey !== pk &&
+						c.tags?.some((t) => t[0] === 'p' && t[1] === pk)
+				);
+				inboxComments.sort((a, b) => b.created_at - a.created_at);
+				/** @type {{ event: import('nostr-tools').NostrEvent, parsed: ReturnType<typeof parseZapReceipt> }[]} */
+				const inboxZapParsed = [];
+				for (const ev of zapRows) {
+					if (!ev.tags?.some((t) => t[0] === 'p' && t[1] === pk)) continue;
+					try {
+						const parsed = parseZapReceipt(ev);
+						if (parsed.senderPubkey === pk) continue;
+						inboxZapParsed.push({ event: ev, parsed });
+					} catch {
+						/* skip malformed */
+					}
 				}
+				inboxZapParsed.sort((a, b) => b.event.created_at - a.event.created_at);
+				merged = [];
+				for (const ev of inboxComments) merged.push({ kind: 'comment', ts: ev.created_at, ev });
+				for (const row of inboxZapParsed)
+					merged.push({ kind: 'zap', ts: row.event.created_at, row });
+				merged.sort((a, b) => b.ts - a.ts);
+
+				const threadMergeById = new Map();
+				for (const c of scopedComments) threadMergeById.set(c.id, c);
+				for (const c of inboxComments) {
+					if (!threadMergeById.has(c.id)) threadMergeById.set(c.id, c);
+				}
+				threadCommentsForMap = Array.from(threadMergeById.values());
+			} else {
+				merged = [];
+				for (const ev of scopedComments) {
+					merged.push({ kind: 'comment', ts: ev.created_at, ev });
+				}
+				for (const ev of scopedZaps) {
+					try {
+						const parsed = parseZapReceipt(ev);
+						merged.push({ kind: 'zap', ts: ev.created_at, row: { event: ev, parsed } });
+					} catch {
+						/* skip malformed */
+					}
+				}
+				merged.sort((a, b) => b.ts - a.ts);
+				threadCommentsForMap = scopedComments;
 			}
-			merged.sort((a, b) => b.ts - a.ts);
 
 			const feedLimit = Math.min(ACTIVITY_FEED_VISIBLE_MAX, visibleLimitSnap);
-			const hasMoreTimeline = merged.length > feedLimit;
+			const hasMoreTimeline = inboxUserPubkey ? false : merged.length > feedLimit;
 			const feedItems = merged.slice(0, feedLimit);
 
 			const commentsInFeed = [];
@@ -738,7 +860,7 @@
 			const forumRootById = await batchResolveForumRootsByIdFromDexie(commentsInFeed, zapsInFeed);
 			return {
 				feedItems,
-				threadComments: scopedComments,
+				threadComments: threadCommentsForMap,
 				threadZaps: scopedZaps,
 				hasMoreTimeline,
 				addrRootByATag,
@@ -1256,6 +1378,7 @@
 				threadModalRootId = rootId;
 				threadModalRootEvent = rootEv;
 				threadModalAddrATag = null;
+				scheduleActivityProfileFetch(rootEv.pubkey);
 				initialReplyTargetForModal =
 					withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
 						? enrichReplyTargetForModal(commentEv)
@@ -1342,6 +1465,7 @@
 			threadModalRootId = rootId;
 			threadModalRootEvent = rootEv;
 			threadModalAddrATag = aRoot;
+			scheduleActivityProfileFetch(rootEv.pubkey);
 			initialReplyTargetForModal =
 				withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
 					? enrichReplyTargetForModal(commentEv)
@@ -1454,17 +1578,16 @@
 		const profileResults = await fetchProfilesBatch(pks, { timeout: 4000 }).catch(() => new Map());
 		const profileMap = new Map();
 		for (const [pk, ev] of profileResults) {
-			if (ev?.content) {
-				try {
-					const j = JSON.parse(ev.content);
-					profileMap.set(pk, {
-						displayName: j.display_name ?? j.name,
-						name: j.name,
-						picture: j.picture
-					});
-				} catch {
-					/* ignore */
-				}
+			if (!ev?.content) continue;
+			try {
+				const j = JSON.parse(ev.content);
+				profileMap.set(pk, {
+					displayName: j.display_name ?? j.name,
+					name: j.name,
+					picture: j.picture
+				});
+			} catch {
+				/* ignore */
 			}
 		}
 		if (gen !== threadLoadGen || threadModalRootId !== rootId || threadModalKind !== 'comment')
@@ -1538,7 +1661,8 @@
 					profileLoading: false
 				}
 			];
-			void seedActivityFromRelay();
+			if (inboxEmbed && inboxUserPubkey) void seedInboxFromRelay(inboxUserPubkey);
+			else void seedActivityFromRelay();
 			return;
 		}
 		if (!rootPostId) return;
@@ -1580,7 +1704,8 @@
 				profileLoading: false
 			}
 		];
-		void seedActivityFromRelay();
+		if (inboxEmbed && inboxUserPubkey) void seedInboxFromRelay(inboxUserPubkey);
+		else void seedActivityFromRelay();
 	}
 
 	function openZapThreadForum(zapEvent, withReply = false, opts = {}) {
@@ -1870,21 +1995,31 @@
 	}
 
 	$effect(() => {
-		if (!browser || !activityRouteActive) return;
+		if (!browser) return;
+		if (inboxEmbed) {
+			activityReady = !!(inboxUserPubkey && inboxActive);
+			if (activityReady && inboxUserPubkey) void seedInboxFromRelay(inboxUserPubkey);
+			return;
+		}
+		if (!activityRouteActive) return;
 		activityReady = true;
 		void seedActivityFromRelay();
 	});
+
 </script>
 
+<div class="community-shell-root">
+	<div class="community-shell-scroll" class:activity-inbox-scroll={inboxEmbed}>
 <div
 	class="panel-content activity-panel"
+	class:activity-panel--inbox={inboxEmbed}
 	class:scroll-locked={threadModalKind === 'comment'
 		? !!threadModalRootId
 		: threadModalKind === 'zap'
 			? !!threadModalZapId
 			: false}
 >
-	{#if !activityReady || !activityFeedQuerySettled || (activityLoading && activityFeedItems.length === 0)}
+	{#if !activityReady || !activityFeedQuerySettled || (!inboxEmbed && activityLoading && activityFeedItems.length === 0)}
 		<div class="loading-wrap">
 			<ActivityFeedSkeleton rows={6} />
 		</div>
@@ -1894,7 +2029,10 @@
 		</div>
 	{:else if activityFeedItems.length === 0}
 		<div class="empty-state-wrap">
-			<EmptyState message="No Activity yet" minHeight={280} />
+			<EmptyState
+				message={inboxUserPubkey ? 'Your inbox is empty' : 'No Activity yet'}
+				minHeight={280}
+			/>
 		</div>
 	{:else}
 		<div class="activity-list">
@@ -1981,8 +2119,15 @@
 						class="activity-item"
 						role="button"
 						tabindex="0"
-						onclick={() => openThread(commentEv)}
-						onkeydown={(e) => e.key === 'Enter' && openThread(commentEv)}
+						onclick={() => {
+							markInboxCardSeen(commentEv.id);
+							openThread(commentEv);
+						}}
+						onkeydown={(e) => {
+							if (e.key !== 'Enter') return;
+							markInboxCardSeen(commentEv.id);
+							openThread(commentEv);
+						}}
 					>
 						<CommentCard
 							event={commentEv}
@@ -2001,11 +2146,26 @@
 								activityProfiles.get(pk)?.name ??
 								pk?.slice(0, 8) ??
 								''}
-							onRootClick={rootEvent ? () => openRootPost(rootEvent) : null}
+							onRootClick={rootEvent
+								? () => {
+										markInboxCardSeen(commentEv.id);
+										openRootPost(rootEvent);
+									}
+								: null}
+							showUnreadDot={inboxRowUnread(commentEv.id)}
 							feedActions={{
-								onReply: () => openThread(commentEv, true),
-								onZap: () => openThread(commentEv, false, { openZapOnly: true }),
-								onOptions: () => openThread(commentEv, false, { openActionsSheet: true })
+								onReply: () => {
+									markInboxCardSeen(commentEv.id);
+									openThread(commentEv, true);
+								},
+								onZap: () => {
+									markInboxCardSeen(commentEv.id);
+									openThread(commentEv, false, { openZapOnly: true });
+								},
+								onOptions: () => {
+									markInboxCardSeen(commentEv.id);
+									openThread(commentEv, false, { openActionsSheet: true });
+								}
 							}}
 						/>
 					</div>
@@ -2067,8 +2227,15 @@
 						class="activity-item"
 						role="button"
 						tabindex="0"
-						onclick={() => openZapThreadForum(zapEv)}
-						onkeydown={(e) => e.key === 'Enter' && openZapThreadForum(zapEv)}
+						onclick={() => {
+							markInboxCardSeen(zapEv.id);
+							openZapThreadForum(zapEv);
+						}}
+						onkeydown={(e) => {
+							if (e.key !== 'Enter') return;
+							markInboxCardSeen(zapEv.id);
+							openZapThreadForum(zapEv);
+						}}
 					>
 						<ZapActivityCard
 							zapEvent={zapEv}
@@ -2087,11 +2254,26 @@
 								activityProfiles.get(pk)?.name ??
 								pk?.slice(0, 8) ??
 								''}
-							onRootClick={rootEventZ ? () => openRootPost(rootEventZ) : null}
+							onRootClick={rootEventZ
+								? () => {
+										markInboxCardSeen(zapEv.id);
+										openRootPost(rootEventZ);
+									}
+								: null}
+							showUnreadDot={inboxRowUnread(zapEv.id)}
 							feedActions={{
-								onReply: () => openZapThreadForum(zapEv, true),
-								onZap: () => openZapThreadForum(zapEv),
-								onOptions: () => openZapThreadForum(zapEv, false, { openActionsSheet: true })
+								onReply: () => {
+									markInboxCardSeen(zapEv.id);
+									openZapThreadForum(zapEv, true);
+								},
+								onZap: () => {
+									markInboxCardSeen(zapEv.id);
+									openZapThreadForum(zapEv);
+								},
+								onOptions: () => {
+									markInboxCardSeen(zapEv.id);
+									openZapThreadForum(zapEv, false, { openActionsSheet: true });
+								}
 							}}
 						/>
 					</div>
@@ -2107,6 +2289,8 @@
 			{/if}
 		</div>
 	{/if}
+</div>
+	</div>
 </div>
 
 {#if threadModalKind === 'comment' && threadModalRootId && threadModalRootEvent}
@@ -2155,6 +2339,9 @@
 			feedInitialZapTarget={pendingZapCommentEv ? enrichReplyTargetForModal(pendingZapCommentEv) : null}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
+			modalLockBodyScroll={!inboxEmbed}
+			modalZIndex={inboxEmbed ? 130 : 110}
+			modalScopedInPanel={inboxEmbed}
 			id={_rootEv.id}
 			content={_rootEv.content ?? ''}
 			version={_evVersion}
@@ -2163,7 +2350,9 @@
 				.map((t) => ({ shortcode: t[1], url: t[2] }))}
 			mediaUrls={(_rootEv.tags ?? []).filter((t) => t[0] === 'media' && t[1]).map((t) => t[1])}
 			pictureUrl={_authorRaw?.picture ?? null}
-			name={_authorRaw?.displayName ?? _authorRaw?.name ?? ''}
+			name={_authorRaw?.displayName ??
+				_authorRaw?.name ??
+				(_authorNpub ? `npub1${_authorNpub.slice(5, 8)}…${_authorNpub.slice(-6)}` : _rootEv.pubkey.slice(0, 8))}
 			pubkey={_rootEv.pubkey}
 			timestamp={_rootEv.created_at}
 			profileUrl={_authorNpub ? `/profile/${_authorNpub}` : ''}
@@ -2255,6 +2444,9 @@
 			feedInitialZapTarget={pendingZapCommentEv ? enrichReplyTargetForModal(pendingZapCommentEv) : null}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
+			modalLockBodyScroll={!inboxEmbed}
+			modalZIndex={inboxEmbed ? 130 : 110}
+			modalScopedInPanel={inboxEmbed}
 			isZapRoot={true}
 			id={_zEv.id}
 			content={_zParsed.comment ?? ''}
@@ -2262,7 +2454,9 @@
 			emojiTags={_zParsed.emojiTags ?? []}
 			mediaUrls={[]}
 			pictureUrl={_zapperRaw?.picture ?? null}
-			name={_zapperRaw?.displayName ?? _zapperRaw?.name ?? ''}
+			name={_zapperRaw?.displayName ??
+				_zapperRaw?.name ??
+				(_zapperNpubZ ? `npub1${_zapperNpubZ.slice(5, 8)}…${_zapperNpubZ.slice(-6)}` : '')}
 			pubkey={_zParsed.senderPubkey ?? ''}
 			timestamp={_zEv.created_at}
 			profileUrl={_zapperNpubZ ? `/profile/${_zapperNpubZ}` : ''}
@@ -2315,6 +2509,27 @@
 {/if}
 
 <style>
+	.community-shell-root {
+		flex: 1;
+		min-height: 0;
+		min-width: 0;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* Non-inbox: pass-through so .panel-content stays the flex child of the page */
+	.community-shell-scroll:not(.activity-inbox-scroll) {
+		display: contents;
+	}
+
+	.activity-inbox-scroll {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
+	}
+
 	.panel-content {
 		flex: 1;
 		min-height: 0;
@@ -2323,8 +2538,32 @@
 		overflow: hidden;
 	}
 
+	.panel-content.activity-panel--inbox {
+		flex: none;
+		min-height: 0;
+		overflow: visible;
+	}
+
 	.activity-panel {
 		overflow-y: auto;
+	}
+
+	.activity-panel--inbox {
+		overflow: visible;
+		background: transparent;
+	}
+
+	.activity-panel--inbox .activity-list {
+		padding: 0 0 8px;
+	}
+
+	/* Full-bleed dividers; same horizontal inset as main activity feed */
+	.activity-panel--inbox .activity-item {
+		padding: 12px 16px;
+	}
+
+	.activity-panel--inbox .empty-state-wrap {
+		padding: 16px 0 0;
 	}
 
 	.activity-panel.scroll-locked {

@@ -5,16 +5,16 @@
 	layout/DetailHeader for in-page titles.
 -->
 <script lang="js">
+	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import { Search, User, Loader2, LogOut } from 'lucide-svelte';
-	import { Menu, Cross } from '$lib/components/icons';
+	import { Menu, Cross, Inbox } from '$lib/components/icons';
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import { handleBack } from '$lib/utils/back.js';
 	import { cn } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
 	import { getCurrentPubkey, getIsConnecting, connect, signOut } from '$lib/stores/auth.svelte.js';
-	import { queryEvent, fetchProfile } from '$lib/nostr';
 	import { parseProfile } from '$lib/nostr/models';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import SearchModal from '$lib/components/common/SearchModal.svelte';
@@ -23,7 +23,15 @@
 	import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
 	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
-	import { SITE_GITHUB } from '$lib/config.js';
+	import { SITE_GITHUB, EVENT_KINDS } from '$lib/config.js';
+	import { liveQuery, queryEvent, queryEvents, parseZapReceipt, fetchProfile } from '$lib/nostr';
+	import UserInboxPopover from '$lib/components/layout/UserInboxPopover.svelte';
+	import {
+		inboxSeenSignal,
+		readInboxSeenIds,
+		getInboxHeaderOpenedAtSec,
+		markInboxHeaderOpenedNow
+	} from '$lib/stores/user-inbox-seen.svelte.js';
 
 	const communityFirstHref = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED
 		? '/community/forum'
@@ -43,6 +51,9 @@
 	let spinKeyModalOpen = $state(false);
 	let onboardingBuildingModalOpen = $state(false);
 	let onboardingProfileName = $state('');
+	let inboxOpen = $state(false);
+	/** Boolean only — never show a numeric badge on the inbox icon. */
+	let headerInboxShowDot = $state(false);
 	// Categories and platforms for search
 	const categories = [
 		'Productivity',
@@ -72,6 +83,64 @@
 			landingNavOpen = null;
 		}
 	});
+	$effect(() => {
+		if (!browser || !pubkey) {
+			headerInboxShowDot = false;
+			return;
+		}
+		void inboxSeenSignal.count;
+		const obs = liveQuery(async () => {
+			const [c, z] = await Promise.all([
+				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#p': [pubkey], limit: 250 }),
+				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#p': [pubkey], limit: 250 })
+			]);
+			const headerOpenedAt = getInboxHeaderOpenedAtSec(pubkey);
+			const seen = readInboxSeenIds(pubkey);
+			let n = 0;
+			if (headerOpenedAt != null) {
+				for (const ev of c) {
+					if (ev.pubkey === pubkey) continue;
+					if (ev.created_at > headerOpenedAt) n++;
+				}
+				for (const ev of z) {
+					if (!ev.tags?.some((t) => t[0] === 'p' && t[1] === pubkey)) continue;
+					try {
+						const p = parseZapReceipt(ev);
+						if (p.senderPubkey === pubkey) continue;
+						if (ev.created_at > headerOpenedAt) n++;
+					} catch {
+						/* skip */
+					}
+				}
+			} else {
+				for (const ev of c) {
+					if (ev.pubkey === pubkey) continue;
+					if (!seen.has(ev.id)) n++;
+				}
+				for (const ev of z) {
+					if (!ev.tags?.some((t) => t[0] === 'p' && t[1] === pubkey)) continue;
+					try {
+						const p = parseZapReceipt(ev);
+						if (p.senderPubkey === pubkey) continue;
+						if (!seen.has(ev.id)) n++;
+					} catch {
+						/* skip */
+					}
+				}
+			}
+			return n;
+		});
+		const sub = obs.subscribe({
+			next: (v) => {
+				headerInboxShowDot = (v ?? 0) > 0;
+			},
+			error: () => {
+				headerInboxShowDot = false;
+			}
+		});
+		return () => sub.unsubscribe();
+	});
+
 	$effect(() => {
 		const pk = getCurrentPubkey();
 		if (!pk) {
@@ -118,6 +187,14 @@
 		}
 		if (landingNavOpen && !target.closest('.landing-nav-dropdown-wrap')) {
 			landingNavOpen = null;
+		}
+		/* Thread/inner modals port to body; backdrop clicks must not close the inbox. */
+		if (
+			inboxOpen &&
+			!target.closest('.user-inbox-anchor') &&
+			!target.closest('.modal-backdrop')
+		) {
+			inboxOpen = false;
 		}
 	}
 	function setLandingNavOpen(key) {
@@ -201,10 +278,20 @@
 	function handleSignOut() {
 		signOut();
 		dropdownOpen = false;
+		inboxOpen = false;
 	}
 	function toggleDropdown(e) {
 		e.stopPropagation();
 		dropdownOpen = !dropdownOpen;
+		if (dropdownOpen) inboxOpen = false;
+	}
+	function toggleInbox(e) {
+		e.stopPropagation();
+		inboxOpen = !inboxOpen;
+		if (inboxOpen) {
+			dropdownOpen = false;
+			if (pubkey) markInboxHeaderOpenedNow(pubkey);
+		}
 	}
 </script>
 
@@ -674,6 +761,25 @@
 						{:else if isConnected}
 							<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
 								<div class="flex items-center gap-2">
+									<div class="relative user-inbox-anchor header-inbox-anchor">
+										<button
+											type="button"
+											class="header-inbox-btn header-inbox-btn-landing"
+											onclick={toggleInbox}
+											aria-label={inboxOpen ? 'Close inbox' : 'Inbox'}
+											aria-expanded={inboxOpen}
+										>
+											{#if inboxOpen}
+												<Cross variant="outline" size={12} strokeWidth={1.4} color="hsl(var(--white33))" />
+											{:else}
+												<Inbox size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
+												{#if headerInboxShowDot}
+													<span class="header-inbox-unread-dot" aria-hidden="true"></span>
+												{/if}
+											{/if}
+										</button>
+										<UserInboxPopover {pubkey} open={inboxOpen} />
+									</div>
 									<div class="relative profile-dropdown">
 										<button type="button" onclick={toggleDropdown} class="profile-btn">
 											<ProfilePic
@@ -765,18 +871,38 @@
 								<Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />
 							</div>
 						{:else if isConnected}
-							<!-- Profile Avatar with Dropdown -->
-							<div class="relative profile-dropdown flex items-center">
-								<button type="button" onclick={toggleDropdown} class="profile-btn">
-									<ProfilePic
-										{pubkey}
-										pictureUrl={currentUserProfile?.picture || undefined}
-										name={currentUserProfile?.name || undefined}
-										size="bubble"
-									/>
-								</button>
+							<div class="flex items-center gap-2">
+								<div class="relative user-inbox-anchor header-inbox-anchor">
+									<button
+										type="button"
+										class="header-inbox-btn header-inbox-btn-browse"
+										onclick={toggleInbox}
+										aria-label={inboxOpen ? 'Close inbox' : 'Inbox'}
+										aria-expanded={inboxOpen}
+									>
+										{#if inboxOpen}
+											<Cross variant="outline" size={15} strokeWidth={1.4} color="hsl(var(--white33))" />
+										{:else}
+											<Inbox size={22} strokeWidth={1.4} color="hsl(var(--white33))" />
+											{#if headerInboxShowDot}
+												<span class="header-inbox-unread-dot" aria-hidden="true"></span>
+											{/if}
+										{/if}
+									</button>
+									<UserInboxPopover {pubkey} open={inboxOpen} />
+								</div>
+								<!-- Profile Avatar with Dropdown -->
+								<div class="relative profile-dropdown flex items-center">
+									<button type="button" onclick={toggleDropdown} class="profile-btn">
+										<ProfilePic
+											{pubkey}
+											pictureUrl={currentUserProfile?.picture || undefined}
+											name={currentUserProfile?.name || undefined}
+											size="bubble"
+										/>
+									</button>
 
-								{#if dropdownOpen}
+									{#if dropdownOpen}
 									<div
 										class="absolute right-0 mt-2 w-48 rounded-lg overlay-surface shadow-lg py-1 z-50"
 										style="top: 100%;"
@@ -799,7 +925,8 @@
 											Disconnect
 										</button>
 									</div>
-								{/if}
+									{/if}
+								</div>
 							</div>
 						{:else}
 							<!-- Sign In Button -->
@@ -1398,6 +1525,50 @@
 	.header-github-icon-browse {
 		width: 22px;
 		height: 22px;
+	}
+
+	.header-inbox-btn {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		background-color: hsl(var(--gray66));
+		border: none;
+		cursor: pointer;
+		transition: transform 0.2s ease;
+		transform: scale(1);
+		padding: 0;
+	}
+	.header-inbox-btn:hover {
+		transform: scale(1.025);
+	}
+	.header-inbox-btn:active {
+		transform: scale(0.98);
+	}
+	.header-inbox-btn-landing {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+	}
+	.header-inbox-btn-browse {
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+	}
+
+	.header-inbox-anchor {
+		margin-right: 6px;
+	}
+	.header-inbox-unread-dot {
+		position: absolute;
+		top: 3px;
+		right: 3px;
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: hsl(var(--blurpleColor));
+		pointer-events: none;
 	}
 
 	.landing-nav-studio-dropdown {

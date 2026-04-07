@@ -1276,6 +1276,8 @@
 	@media (max-width: 767px) {
 		.content {
 			border-left: none;
+			/* Match community/+layout .right-page-viewport: full-viewport fixed modals (mobile nav + section switcher are z-90). */
+			transform: none;
 		}
 	}
 

@@ -30,6 +30,21 @@ import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/uplo
 import { EVENT_KINDS } from "$lib/config.js";
 import { goto } from "$app/navigation";
 import { tick } from "svelte";
+import * as nip19 from "nostr-tools/nip19";
+/** Never show the literal "Anonymous" — prefer truncated npub when display name is missing. */
+function displayNameOrNpubShort(label, pk) {
+    if (label != null && String(label).trim() !== "")
+        return String(label).trim();
+    if (!pk || !String(pk).trim())
+        return "";
+    try {
+        const enc = nip19.npubEncode(pk);
+        return `npub1${enc.slice(5, 8)}…${enc.slice(-6)}`;
+    }
+    catch {
+        return pk.slice(0, 8);
+    }
+}
 let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending = false, outgoing = false, replies = [], threadComments = [], threadZaps = [], authorPubkey = null, className = "", content = "", emojiTags = [], /** @type {string[]} */ mediaUrls = [], resolveMentionLabel, appIconUrl = null, appName = "", appIdentifier = null, version = "", children, id = null, isZapRoot = false, zapAmount = 0, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, onReplySubmit, onZapReceived, onZapPending, onZapPendingClear, onGetStarted,     /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */
     openThreadOnMount = false,
     /** After thread opens, open the actions sheet once (feed three-dots). */
@@ -74,6 +89,12 @@ let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl 
      * @type {string | null}
      */
     labelCommunityPubkey = null,
+    /** When false, skip document body scroll lock (e.g. thread inside header notifications). */
+    modalLockBodyScroll = true,
+    /** Base z-index for the thread Modal; child sheets stack above. */
+    modalZIndex = 50,
+    /** Thread/sheets sized to header inbox panel (`container-type: size` + cqh). */
+    modalScopedInPanel = false,
 } = $props();
 let lightboxOpen = $state(false);
 let lightboxUrls = $state([]);
@@ -674,6 +695,9 @@ function handleRootContextNav(e) {
   align="bottom"
   fillHeight={true}
   wide={true}
+  zIndex={modalZIndex}
+  lockBodyScroll={modalLockBodyScroll}
+  scopedInPanel={modalScopedInPanel}
   class="thread-modal {childModalOpen ? 'thread-modal-child-open' : ''}"
 >
   <div class="thread-content-wrap">
@@ -773,9 +797,13 @@ function handleRootContextNav(e) {
               {@const quotedParent = reply.parentId && pid !== idNorm ? (threadById.get(pid) ?? threadById.get(reply.parentId)) : null}
               {@const quotedZap = !quotedParent && reply.parentId && pid !== idNorm ? (threadZapById.get(pid) ?? threadZapById.get(reply.parentId)) : null}
               <div
-                class="thread-bubble-with-rail desktop-bubble-actions-target"
-                class:thread-bubble-with-rail--solo={!showThreadActions}
+                class="thread-reply-row"
+                class:desktop-bubble-actions-target={showThreadActions}
               >
+                <div
+                  class="thread-bubble-with-rail"
+                  class:thread-bubble-with-rail--solo={!showThreadActions}
+                >
                 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                 <div
                   class="thread-bubble-click-wrap thread-bubble-with-rail__main"
@@ -796,7 +824,7 @@ function handleRootContextNav(e) {
                   >
                     {#if quotedParent}
                       <QuotedMessage
-                        authorName={quotedParent.displayName || "Anonymous"}
+                        authorName={displayNameOrNpubShort(quotedParent.displayName, quotedParent.pubkey)}
                         authorPubkey={quotedParent.pubkey}
                         content={quotedParent.content ?? ""}
                         emojiTags={quotedParent.emojiTags ?? []}
@@ -805,7 +833,7 @@ function handleRootContextNav(e) {
                       />
                     {:else if quotedZap}
                       <QuotedZapMessage
-                        authorName={quotedZap.displayName || "Anonymous"}
+                        authorName={displayNameOrNpubShort(quotedZap.displayName, quotedZap.senderPubkey ?? quotedZap.pubkey ?? null)}
                         authorPubkey={quotedZap.senderPubkey ?? quotedZap.pubkey ?? null}
                         amountSats={quotedZap.amountSats ?? 0}
                         content={quotedZap.comment ?? ""}
@@ -836,13 +864,18 @@ function handleRootContextNav(e) {
                     onOptions={() => openActionsModal(reply)}
                   />
                 {/if}
+                </div>
               </div>
             {:else}
               {@const zap = item.data}
               <div
-                class="thread-bubble-with-rail desktop-bubble-actions-target"
-                class:thread-bubble-with-rail--solo={!showThreadActions}
+                class="thread-reply-row"
+                class:desktop-bubble-actions-target={showThreadActions}
               >
+                <div
+                  class="thread-bubble-with-rail"
+                  class:thread-bubble-with-rail--solo={!showThreadActions}
+                >
                 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                 <div
                   class="thread-bubble-click-wrap thread-bubble-with-rail__main"
@@ -871,6 +904,7 @@ function handleRootContextNav(e) {
                     onOptions={() => openActionsModal(zap)}
                   />
                 {/if}
+                </div>
               </div>
             {/if}
           {/each}
@@ -947,7 +981,7 @@ function handleRootContextNav(e) {
                     <div class="thread-reply-quote-inset">
                       {#if replyingToComment.quotedAsZap === true}
                         <QuotedZapMessage
-                          authorName={replyingToComment.displayName || "Anonymous"}
+                          authorName={displayNameOrNpubShort(replyingToComment.displayName, replyingToComment.pubkey)}
                           authorPubkey={replyingToComment.pubkey}
                           amountSats={replyingToComment.amountSats ?? 0}
                           content={replyingToComment.content ?? ""}
@@ -982,8 +1016,18 @@ function handleRootContextNav(e) {
   bind:open={actionsModalOpen}
   bind:nestedChildOpen={actionsNestedOpen}
   sheetBackdrop={!modalOpen}
+  lockBodyScroll={modalLockBodyScroll}
+  scopedInPanel={modalScopedInPanel}
+  zIndex={modalZIndex + 5}
   compactMode={actionsModalCompact}
-  authorName={actionsModalTarget === "root" ? (name || "Anonymous") : (actionsModalTarget?.displayName ?? "Anonymous")}
+  authorName={actionsModalTarget === "root"
+    ? displayNameOrNpubShort(name, pubkey)
+    : displayNameOrNpubShort(
+        actionsModalTarget?.displayName,
+        actionsModalTarget && isActionsTargetThreadZap(actionsModalTarget)
+          ? actionsModalTarget.senderPubkey
+          : actionsModalTarget?.pubkey
+      )}
   authorPubkey={actionsModalTarget === "root" ? pubkey : (actionsModalTarget && isActionsTargetThreadZap(actionsModalTarget) ? actionsModalTarget.senderPubkey : actionsModalTarget?.pubkey) ?? null}
   contentPreview={getActionsModalContentPreview()}
   isZapPreview={actionsModalIsZapPreview}
@@ -1004,9 +1048,12 @@ function handleRootContextNav(e) {
 <ZapSliderModal
   bind:isOpen={zapModalOpen}
   target={zapTarget}
-  publisherName={name || ''}
+  publisherName={displayNameOrNpubShort(name, pubkey)}
   otherZaps={[]}
   nestedModal={modalOpen}
+  lockBodyScroll={modalLockBodyScroll}
+  scopedInPanel={modalScopedInPanel}
+  zIndex={modalZIndex + 10}
   presetZapSats={zapPresetSats}
   {searchProfiles}
   {searchEmojis}
@@ -1125,6 +1172,7 @@ function handleRootContextNav(e) {
 
   .thread-footer-wrap {
     position: relative;
+    flex-shrink: 0;
   }
 
   .thread-content {
@@ -1221,7 +1269,7 @@ function handleRootContextNav(e) {
     display: flex;
     flex-direction: row;
     align-items: flex-end;
-    gap: 12px;
+    gap: 8px;
     width: fit-content;
     max-width: 100%;
   }
@@ -1254,6 +1302,11 @@ function handleRootContextNav(e) {
     flex-direction: column;
     gap: 16px;
     padding: 12px 16px 16px;
+  }
+
+  .thread-reply-row {
+    width: 100%;
+    min-width: 0;
   }
 
   .thread-bottom-bar {

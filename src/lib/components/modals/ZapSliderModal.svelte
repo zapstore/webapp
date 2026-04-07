@@ -15,7 +15,7 @@ async function signWithAnonymousKey(template) {
     const sk = generateSecretKey();
     return finalizeEvent(template, sk);
 }
-let { target = null, publisherName = "", otherZaps = [], isOpen = $bindable(false), nestedModal = false, searchProfiles = async () => [], searchEmojis = async () => [], onclose, onzapReceived, onZapPending, onZapPendingClear, /** When set, opening the modal pre-fills this amount on the slider (e.g. quick chips). */
+let { target = null, publisherName = "", otherZaps = [], isOpen = $bindable(false), nestedModal = false, lockBodyScroll = true, scopedInPanel = false, zIndex = 50, searchProfiles = async () => [], searchEmojis = async () => [], onclose, onzapReceived, onZapPending, onZapPendingClear, /** When set, opening the modal pre-fills this amount on the slider (e.g. quick chips). */
 presetZapSats = null, } = $props();
 let sliderComponent = $state(null);
 let zapValue = $state(100);
@@ -247,6 +247,9 @@ $effect(() => {
   wide={true}
   align="bottom"
   noBackdrop={nestedModal}
+  {zIndex}
+  lockBodyScroll={lockBodyScroll}
+  {scopedInPanel}
 >
   <div class="zap-modal-content">
     {#if error}

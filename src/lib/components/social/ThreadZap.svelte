@@ -4,11 +4,24 @@
  * Same layout as ThreadComment; only difference is amount (zap icon + sats) in the top right.
  */
 import { Loader2 } from "lucide-svelte";
+import * as nip19 from "nostr-tools/nip19";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
 import { Zap } from "$lib/components/icons";
 let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", version: _version = "", className = "", loading = false, pending = false, content = "", emojiTags = [], resolveMentionLabel, } = $props();
+function formatNpubDisplay(npubStr) {
+    const s = String(npubStr || "").trim();
+    if (!s)
+        return "";
+    const afterPrefix = s.startsWith("npub1") ? s.slice(5, 8) : s.slice(0, 3);
+    return s.startsWith("npub1") ? `npub1${afterPrefix}…${s.slice(-6)}` : `${afterPrefix}…${s.slice(-6)}`;
+}
+const displayAuthorName = $derived(name?.trim()
+    ? name.trim()
+    : (pubkey?.trim()
+        ? formatNpubDisplay(nip19.npubEncode(pubkey))
+        : ""));
 function formatAmount(val) {
     if (val >= 1000000)
         return `${(val / 1000000).toFixed(val % 1000000 === 0 ? 0 : 1)}M`;
@@ -42,9 +55,9 @@ function formatAmount(val) {
       <div class="author-top">
         <div class="author-name-and-time">
           {#if profileUrl}
-            <a href={profileUrl} class="author-name">{name || "Anonymous"}</a>
+            <a href={profileUrl} class="author-name">{displayAuthorName}</a>
           {:else}
-            <span class="author-name">{name || "Anonymous"}</span>
+            <span class="author-name">{displayAuthorName}</span>
           {/if}
           {#if !pending}
             <Timestamp {timestamp} size="xs" className="author-timestamp" />

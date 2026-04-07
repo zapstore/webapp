@@ -57,7 +57,9 @@ let {
 	 * Only this row navigates; clicking the bubble calls feedActions handlers instead.
 	 * @type {(() => void) | null}
 	 */
-	onRootClick = null
+	onRootClick = null,
+	/** Unread indicator (e.g. header notifications). */
+	showUnreadDot = false
 } = $props();
 
 const isReply = $derived.by(() => {
@@ -151,7 +153,7 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
 const contentText = $derived(event?.content ?? '');
 </script>
 
-<div class="comment-card {className}">
+<div class="comment-card {className}" class:desktop-bubble-actions-target={!!feedActions}>
 	<div class="left-col">
 		<div
 			class="emoji-badge"
@@ -210,36 +212,41 @@ const contentText = $derived(event?.content ?? '');
 
 	<div class="right-col">
 		<div class="root-label-row">
-			{#if showDeletedRoot}
-				<span class="root-label root-label--deleted">{deletedRootLabel}</span>
-			{:else if onRootClick}
-				<button
-					type="button"
-					class="root-label root-label-link"
-					class:root-label--split={isStackRoot}
-					onclick={(e) => { e.stopPropagation(); onRootClick(); }}
-				>
-					{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
-					{#if isStackRoot}
-						<span class="root-label-ellipsis">{rootOneliner.label}</span>
-					{:else}
-						{rootOneliner.label}
-					{/if}
-				</button>
-			{:else}
-				<span class="root-label" class:root-label--split={isStackRoot}>
-					{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
-					{#if isStackRoot}
-						<span class="root-label-ellipsis">{rootOneliner.label}</span>
-					{:else}
-						{rootOneliner.label}
-					{/if}
-				</span>
+			<div class="root-label-main">
+				{#if showDeletedRoot}
+					<span class="root-label root-label--deleted">{deletedRootLabel}</span>
+				{:else if onRootClick}
+					<button
+						type="button"
+						class="root-label root-label-link"
+						class:root-label--split={isStackRoot}
+						onclick={(e) => { e.stopPropagation(); onRootClick(); }}
+					>
+						{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
+						{#if isStackRoot}
+							<span class="root-label-ellipsis">{rootOneliner.label}</span>
+						{:else}
+							{rootOneliner.label}
+						{/if}
+					</button>
+				{:else}
+					<span class="root-label" class:root-label--split={isStackRoot}>
+						{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
+						{#if isStackRoot}
+							<span class="root-label-ellipsis">{rootOneliner.label}</span>
+						{:else}
+							{rootOneliner.label}
+						{/if}
+					</span>
+				{/if}
+			</div>
+			{#if showUnreadDot}
+				<span class="inbox-unread-dot" aria-hidden="true"></span>
 			{/if}
 		</div>
 
 		{#if feedActions}
-			<div class="bubble-with-rail desktop-bubble-actions-target">
+			<div class="bubble-with-rail">
 				<div class="bubble-stack">
 					<div class="bubble" class:bubble--quoted={showQuote}>
 						<div class="bubble-header">
@@ -449,6 +456,7 @@ const contentText = $derived(event?.content ?? '');
 	}
 
 	.right-col {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
@@ -456,10 +464,28 @@ const contentText = $derived(event?.content ?? '');
 	}
 
 	.root-label-row {
+		width: 100%;
 		height: 28px;
 		display: flex;
 		align-items: center;
 		min-width: 0;
+		gap: 8px;
+	}
+
+	.root-label-main {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		align-items: center;
+	}
+
+	.inbox-unread-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: hsl(var(--blurpleColor));
+		flex-shrink: 0;
+		margin-left: auto;
 	}
 
 	.root-label {
@@ -518,14 +544,16 @@ const contentText = $derived(event?.content ?? '');
 	.bubble-with-rail {
 		display: flex;
 		align-items: flex-end;
-		gap: 12px;
-		min-width: 0;
+		align-self: flex-start;
+		gap: 8px;
+		width: fit-content;
 		max-width: 100%;
+		min-width: 0;
 	}
 
 	.bubble-stack {
 		min-width: 0;
-		flex: 1;
+		flex: 0 1 auto;
 	}
 
 	.bubble-action-rail-host {

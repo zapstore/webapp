@@ -30,7 +30,7 @@ let {
 	sheetBackdrop = false,
 	/** Thread modal + root ⋯: hide Comment + Zaps, keep Actions + Report only. */
 	compactMode = false,
-	authorName = "Anonymous",
+	authorName = "",
 	authorPubkey = null,
 	contentPreview = "",
 	isZapPreview = false,
@@ -47,7 +47,23 @@ let {
 	searchProfiles = async () => [],
 	searchEmojis = async () => [],
 	signEvent = null,
+	lockBodyScroll = true,
+	zIndex = 55,
+	scopedInPanel = false,
 } = $props();
+
+const displayAuthorLabel = $derived.by(() => {
+	const n = String(authorName ?? "").trim();
+	if (n && n.toLowerCase() !== "anonymous") return n;
+	const pk = authorPubkey?.trim();
+	if (!pk) return "";
+	try {
+		const enc = nip19.npubEncode(pk);
+		return `npub1${enc.slice(5, 8)}…${enc.slice(-6)}`;
+	} catch {
+		return pk.slice(0, 8);
+	}
+});
 
 /** @type {'main' | 'details' | 'label' | 'share' | 'report'} */
 let subPanel = $state("main");
@@ -79,7 +95,7 @@ const modalTitle = $derived.by(() => {
 const modalDescription = $derived.by(() => {
 	if (subPanel !== "report") return "";
 	const kind = reportContentType === "zap" ? "Zap" : "Comment";
-	const name = String(authorName ?? "").trim();
+	const name = String(displayAuthorLabel ?? "").trim();
 	return name ? `${name}'s ${kind}` : kind;
 });
 
@@ -243,7 +259,9 @@ $effect(() => {
 	align="bottom"
 	wide={true}
 	noBackdrop={!sheetBackdrop}
-	zIndex={55}
+	{zIndex}
+	lockBodyScroll={lockBodyScroll}
+	scopedInPanel={scopedInPanel}
 	class="comment-actions-modal"
 >
 	<div class="cam-inner">
@@ -253,14 +271,18 @@ $effect(() => {
 					<div class="cam-comment-card-quote">
 						{#if isZapPreview}
 							<QuotedZapMessage
-								{authorName}
+								authorName={displayAuthorLabel}
 								{authorPubkey}
 								amountSats={zapAmountSats}
 								content={zapContent}
 								emojiTags={zapEmojiTags}
 							/>
 						{:else}
-							<QuotedMessage {authorName} authorPubkey={authorPubkey} content={contentPreview} />
+							<QuotedMessage
+								authorName={displayAuthorLabel}
+								authorPubkey={authorPubkey}
+								content={contentPreview}
+							/>
 						{/if}
 					</div>
 					<div class="cam-comment-card-footer">
@@ -402,7 +424,7 @@ $effect(() => {
 				embedWithoutModal={true}
 				onEmbedDismiss={goMain}
 				appName=""
-				authorName={authorName}
+				authorName={displayAuthorLabel}
 				contentType={reportContentType}
 				eventId={targetEventId?.trim() ?? ""}
 				authorPubkey={authorPubkey?.trim() ?? ""}
