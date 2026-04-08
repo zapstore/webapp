@@ -42,6 +42,9 @@
 
 	const showQuote = $derived(!!parentComment && !!parsed?.zappedEventId);
 	const rootOneliner = $derived(getEventOneliner(rootEvent));
+	const rootLabel = $derived(
+		rootEvent ? rootOneliner.label : rootBadgeSkeleton ? 'Loading...' : 'Zap'
+	);
 	const isStackRoot = $derived(
 		deletedRootKind === 'stack' || rootEvent?.kind === EVENT_KINDS.APP_STACK
 	);
@@ -174,18 +177,18 @@
 					>
 						{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
 						{#if isStackRoot}
-							<span class="root-label-ellipsis">{rootOneliner.label}</span>
+							<span class="root-label-ellipsis">{rootLabel}</span>
 						{:else}
-							{rootOneliner.label}
+							{rootLabel}
 						{/if}
 					</button>
 				{:else}
 					<span class="root-label" class:root-label--split={isStackRoot}>
 						{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
 						{#if isStackRoot}
-							<span class="root-label-ellipsis">{rootOneliner.label}</span>
+							<span class="root-label-ellipsis">{rootLabel}</span>
 						{:else}
-							{rootOneliner.label}
+							{rootLabel}
 						{/if}
 					</span>
 				{/if}

@@ -43,7 +43,6 @@
 		DEFAULT_CATALOG_RELAYS,
 		COMMENT_PUBLISH_RELAYS,
 		COMMENT_AND_ZAP_READ_RELAYS,
-		COMMENT_ZAP_NAK_FETCH_LIMIT,
 		commentZapRelayReadSince,
 		ZAPSTORE_COMMUNITY_PUBKEY,
 		ZAPSTORE_RELAY
@@ -94,6 +93,8 @@
 	 */
 	/** Safety cap for bulk 1111/9735 one-shots (`nak req` shows Zapstore usually answers quickly). */
 	const ACTIVITY_BULK_RELAY_TIMEOUT_MS = 45_000;
+	/** Keep first seed lighter; deeper history arrives via scoped backfill + scroll extension. */
+	const ACTIVITY_INITIAL_SEED_LIMIT = 220;
 	/**
 	 * After Dexie + relay root fetch (~4s) still no root event — treat as likely deleted; show label, don't block feed.
 	 */
@@ -571,6 +572,8 @@
 	let activityRootEvents = $state(new Map());
 	/** @type {Map<string, import('nostr-tools').NostrEvent>} NIP-33 `a` tag -> kind 32267 / 30267 event */
 	let activityAddrRootEvents = $state(new Map());
+	/** Root badge hydration is async and independent from feed row rendering. */
+	let activityRootHydrateSeq = 0;
 	/** @type {Map<string, { displayName?: string, name?: string, picture?: string }>} */
 	let activityProfiles = $state(new Map());
 	/** Roots still missing after `ACTIVITY_ROOT_MISSING_AFTER_MS` — key `e:…` / `a:…`, value kind for copy. */
@@ -869,17 +872,11 @@
 				if (it.kind === 'comment') commentsInFeed.push(it.ev);
 				else zapsInFeed.push(it.row.event);
 			}
-
-			const addrRootByATag = new Map();
-			await batchResolveAddrRootsFromDexie(commentsInFeed, addrRootByATag);
-			const forumRootById = await batchResolveForumRootsByIdFromDexie(commentsInFeed, zapsInFeed);
 			return {
 				feedItems,
 				threadComments: threadCommentsForMap,
 				threadZaps: scopedZaps,
-				hasMoreTimeline,
-				addrRootByATag,
-				forumRootById
+				hasMoreTimeline
 			};
 		});
 
@@ -900,15 +897,7 @@
 				activityThreadComments = threadComments;
 				activityThreadZaps = threadZaps;
 				activityHasMoreTimeline = !!val?.hasMoreTimeline;
-
-				const rootsFromQuery = val?.addrRootByATag;
-				if (rootsFromQuery instanceof Map) {
-					activityAddrRootEvents = new Map([...activityAddrRootEvents, ...rootsFromQuery]);
-				}
-				const forumPatch = val?.forumRootById;
-				if (forumPatch instanceof Map) {
-					activityRootEvents = new Map([...activityRootEvents, ...forumPatch]);
-				}
+				void hydrateActivityRootsForVisibleFeed(feedItems);
 				const threadCommentById = new Map();
 				for (const c of threadComments) {
 					threadCommentById.set(c.id, c);
@@ -967,6 +956,34 @@
 		});
 		return () => sub.unsubscribe();
 	});
+
+	/**
+	 * Hydrate root labels/badges asynchronously so feed rows render immediately.
+	 * Cards show per-root skeletons (`rootBadgeSkeleton`) while this resolves.
+	 * @param {Array<{ kind: 'comment', ts: number, ev: import('nostr-tools').NostrEvent } | { kind: 'zap', ts: number, row: { event: import('nostr-tools').NostrEvent, parsed: ReturnType<typeof parseZapReceipt> } }>} feedItems
+	 */
+	async function hydrateActivityRootsForVisibleFeed(feedItems) {
+		if (!browser || !activityReady || !feedItems?.length) return;
+		const seq = ++activityRootHydrateSeq;
+		/** @type {import('nostr-tools').NostrEvent[]} */
+		const commentsInFeed = [];
+		/** @type {import('nostr-tools').NostrEvent[]} */
+		const zapsInFeed = [];
+		for (const it of feedItems) {
+			if (it.kind === 'comment') commentsInFeed.push(it.ev);
+			else zapsInFeed.push(it.row.event);
+		}
+		const addrRootByATag = new Map();
+		await batchResolveAddrRootsFromDexie(commentsInFeed, addrRootByATag);
+		const forumRootById = await batchResolveForumRootsByIdFromDexie(commentsInFeed, zapsInFeed);
+		if (seq !== activityRootHydrateSeq) return;
+		if (addrRootByATag.size > 0) {
+			activityAddrRootEvents = new Map([...activityAddrRootEvents, ...addrRootByATag]);
+		}
+		if (forumRootById.size > 0) {
+			activityRootEvents = new Map([...activityRootEvents, ...forumRootById]);
+		}
+	}
 
 	$effect(() => {
 		if (!browser || !activityReady || !activityRouteActive) return;
@@ -1062,6 +1079,7 @@
 
 	const ACTIVITY_BACKFILL_REF_COMMENT_CAP = 2000;
 	const ACTIVITY_BACKFILL_FORUM_ID_BATCH = 40;
+	const ACTIVITY_BACKFILL_FORUM_WAVE = 4;
 
 	/**
 	 * Zaps were ref-scoped from the relay; comments were only the global K-bucket — older threads had zaps
@@ -1103,52 +1121,71 @@
 
 		const idList = [...eventIds].filter((id) => /^[a-f0-9]{64}$/.test(id));
 		const aList = [...aTagByLower.values()].slice(0, 96);
-
-		for (let i = 0; i < idList.length; i += ACTIVITY_BACKFILL_FORUM_ID_BATCH) {
-			const chunk = idList.slice(i, i + ACTIVITY_BACKFILL_FORUM_ID_BATCH);
-			await fetchKind1111ReferencingEventIds(relays, chunk, {
-				since: sinceSec,
-				limit: 500,
-				timeout: 12_000,
-				feature: 'activity-comment-backfill-e'
-			}).catch(() => []);
-		}
-
 		const aChunk = 6;
-		for (let i = 0; i < aList.length; i += aChunk) {
-			await Promise.all(
-				aList.slice(i, i + aChunk).map((aTag) =>
-					fetchKind1111ByTagRef(relays, 'a', aTag, {
-						since: sinceSec,
-						limit: 450,
-						timeout: 10_000,
-						feature: 'activity-comment-backfill-a'
-					}).catch(() => [])
-				)
-			);
-		}
 
-		if (idList.length > 0) {
-			await fetchKind9735MatchingRefs(relays, { eventIds: idList }, {
+		// Critical: start zap backfill immediately. Previously zaps waited behind long
+		// sequential comment backfill loops, causing the 20-30s "late zap burst".
+		const zapBackfillByEventIds = idList.length
+			? fetchKind9735MatchingRefs(relays, { eventIds: idList }, {
 				since: sinceSec,
 				limit: 500,
 				timeout: 14_000,
 				feature: 'activity-zap-backfill-e'
-			}).catch(() => []);
-		}
+			}).catch(() => [])
+			: Promise.resolve([]);
 
-		for (let i = 0; i < aList.length; i += aChunk) {
-			await Promise.all(
-				aList.slice(i, i + aChunk).map((aTag) =>
-					fetchKind9735MatchingRefs(relays, { aTag }, {
+		const zapBackfillByATags = (async () => {
+			for (let i = 0; i < aList.length; i += aChunk) {
+				await Promise.all(
+					aList.slice(i, i + aChunk).map((aTag) =>
+						fetchKind9735MatchingRefs(relays, { aTag }, {
 						since: sinceSec,
 						limit: 350,
 						timeout: 10_000,
 						feature: 'activity-zap-backfill-a'
 					}).catch(() => [])
-				)
-			);
-		}
+					)
+				);
+			}
+		})();
+
+		const commentBackfillByEventIds = (async () => {
+			const idChunks = chunkArray(idList, ACTIVITY_BACKFILL_FORUM_ID_BATCH);
+			for (let i = 0; i < idChunks.length; i += ACTIVITY_BACKFILL_FORUM_WAVE) {
+				await Promise.all(
+					idChunks.slice(i, i + ACTIVITY_BACKFILL_FORUM_WAVE).map((chunk) =>
+						fetchKind1111ReferencingEventIds(relays, chunk, {
+						since: sinceSec,
+						limit: 500,
+						timeout: 12_000,
+						feature: 'activity-comment-backfill-e'
+					}).catch(() => [])
+					)
+				);
+			}
+		})();
+
+		const commentBackfillByATags = (async () => {
+			for (let i = 0; i < aList.length; i += aChunk) {
+				await Promise.all(
+					aList.slice(i, i + aChunk).map((aTag) =>
+						fetchKind1111ByTagRef(relays, 'a', aTag, {
+						since: sinceSec,
+						limit: 450,
+						timeout: 10_000,
+						feature: 'activity-comment-backfill-a'
+					}).catch(() => [])
+					)
+				);
+			}
+		})();
+
+		await Promise.allSettled([
+			zapBackfillByEventIds,
+			zapBackfillByATags,
+			commentBackfillByEventIds,
+			commentBackfillByATags
+		]);
 	}
 
 	async function seedActivityFromRelay() {
@@ -1158,7 +1195,7 @@
 		try {
 			activityAddrRelayAttempted.clear();
 			const sinceSec = activityRelaySince();
-			const lim = COMMENT_ZAP_NAK_FETCH_LIMIT;
+			const lim = ACTIVITY_INITIAL_SEED_LIMIT;
 			// Fetch comments and zaps in parallel. Start backfill (targeted #e/#a zap queries)
 			// as soon as comments land in Dexie — don't block it behind the slower zap seed.
 			const commentPromise = fetchFromRelays(
