@@ -13,6 +13,7 @@
 import { fade, fly } from "svelte/transition";
 import { cubicOut } from "svelte/easing";
 import { browser } from "$app/environment";
+import { onDestroy } from "svelte";
 let { open = $bindable(false), ariaLabel = "Modal dialog", ariaLabelledby = null, align = "center", zIndex = 50, maxWidth = "max-w-lg", wide = false, class: className = "", maxHeight = 80, fillHeight = false, closeOnBackdropClick = true, closeOnEscape = true, noBackdrop = false, title = "", description = "", closeButtonMobile = false,
 /** When false, body scroll is not locked (e.g. thread modal inside a transformed header panel). */
 lockBodyScroll = true,
@@ -45,6 +46,9 @@ function checkContentHeight() {
         _isBottomAligned = contentHeight > threshold;
     }
 }
+/** Tracks whether this instance currently holds the body scroll lock, so onDestroy can release it
+ *  if the component is destroyed while open (e.g. parent removes it in the same tick it closes). */
+let _scrollLockHeld = false;
 function applyBodyScrollLock() {
     if (browser) {
         const scrollY = window.scrollY;
@@ -54,6 +58,7 @@ function applyBodyScrollLock() {
         document.body.style.right = "0";
         document.body.style.overflow = "hidden";
         document.body.dataset.scrollY = String(scrollY);
+        _scrollLockHeld = true;
     }
 }
 function releaseBodyScrollLock() {
@@ -66,6 +71,7 @@ function releaseBodyScrollLock() {
         document.body.style.overflow = "";
         delete document.body.dataset.scrollY;
         window.scrollTo(0, parseInt(scrollY));
+        _scrollLockHeld = false;
     }
 }
 $effect(() => {
@@ -84,6 +90,11 @@ $effect(() => {
             _isBottomAligned = false;
         }
     }
+});
+/** Safety net: if the component is destroyed while the scroll lock is still held
+ *  (e.g. parent unmounts us in the same reactive batch as closing us), release it. */
+onDestroy(() => {
+    if (_scrollLockHeld) releaseBodyScrollLock();
 });
 function handleBackdropClick(e) {
     if (closeOnBackdropClick && e.target === e.currentTarget) {

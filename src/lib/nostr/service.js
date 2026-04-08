@@ -257,9 +257,26 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 
 	return new Promise((resolve) => {
 		const events = [];
+		let pendingPersist = [];
+		let persistChain = Promise.resolve();
 		let settled = false;
 		let eoseTimer = null;
 		let timeoutTimer = null;
+		const STREAM_PERSIST_BATCH = 120;
+
+		const flushPendingToDexie = async () => {
+			if (pendingPersist.length === 0) return;
+			const batch = pendingPersist;
+			pendingPersist = [];
+			await putEvents(batch).catch((err) =>
+				console.error('[Service] Failed to persist events:', err)
+			);
+		};
+
+		const queuePersist = () => {
+			persistChain = persistChain.then(flushPendingToDexie);
+			return persistChain;
+		};
 
 		const finish = async () => {
 			if (settled) return;
@@ -271,12 +288,8 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 			} catch {
 				/* noop */
 			}
-			// Write to Dexie
-			if (events.length > 0) {
-				await putEvents(events).catch((err) =>
-					console.error('[Service] Failed to persist events:', err)
-				);
-			}
+			// Flush streaming writes before resolving.
+			await queuePersist();
 			if (isNostrDebug()) {
 				nostrDebug('fetchFromRelays', feature, `→ ${events.length} events`, filter);
 				if (events.length === 0 && (feature === 'comments' || feature === 'zaps')) {
@@ -290,7 +303,11 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 		const sub = p.subscribeMany(relayUrls, filter, {
 			id: subId(feature),
 			onevent(event) {
-				if (event?.id) events.push(event);
+				if (!event?.id) return;
+				events.push(event);
+				pendingPersist.push(event);
+				// Stream writes in medium batches so UI updates before EOSE/timeout.
+				if (pendingPersist.length >= STREAM_PERSIST_BATCH) void queuePersist();
 			},
 			oneose() {
 				if (!eoseTimer) eoseTimer = setTimeout(finish, EOSE_GRACE_MS);

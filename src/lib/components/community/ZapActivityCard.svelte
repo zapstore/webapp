@@ -568,7 +568,6 @@
 		font-size: 1rem;
 		line-height: 1.2;
 		color: hsl(var(--foreground));
-		font-variant-numeric: tabular-nums;
 	}
 
 	.author-name {

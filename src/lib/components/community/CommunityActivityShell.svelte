@@ -737,9 +737,18 @@
 	/** True while Activity tab should subscribe to Dexie; seed runs in parallel and must not block this. */
 	let activityReady = $state(false);
 	let activityLoading = $state(false);
+	/** First relay seed for this route-entry finished (success or failure). */
+	let activityInitialSeedDone = $state(false);
 	let activityError = $state('');
 	/** First Dexie `liveQuery` emission — avoids “No Activity yet” between seed finishing and reactive query. */
 	let activityFeedQuerySettled = $state(false);
+	/**
+	 * True when Dexie already had activity events before the current seed started (return visit).
+	 * On a return visit: show local data immediately (local-first).
+	 * On a fresh/cleared DB: hold the skeleton until both seeds finish, so the zap-only
+	 * flash (zap seed writing before comment seed) never shows.
+	 */
+	let activityHadCachedData = $state(false);
 	/** Footer target for intersection-based “load more” (throttled). */
 	let activityLoadSentinel = $state(/** @type {HTMLElement | null} */ (null));
 	let activityScrollLoadLastAt = 0;
@@ -785,7 +794,13 @@
 			]);
 			const scopedComments = commentRows.filter(eventMatchesActivityNip22KComment);
 			scopedComments.sort((a, b) => b.created_at - a.created_at);
-			const scopedZaps = await filterZapsForActivityFeed(zapRows, scopedComments);
+			// Accept all parseable zap receipts — relay.zapstore.dev is Zapstore-specific so every
+			// zap receipt there is relevant. The old graph-match filter excluded zaps whose referenced
+			// comments weren't in Dexie yet, causing them to appear only when the backfill landed.
+			const scopedZaps = [];
+			for (const ev of zapRows) {
+				try { parseZapReceipt(ev); scopedZaps.push(ev); } catch { /* skip malformed */ }
+			}
 			scopedZaps.sort((a, b) => b.created_at - a.created_at);
 
 			/** @type {Array<{ kind: 'comment', ts: number, ev: import('nostr-tools').NostrEvent } | { kind: 'zap', ts: number, row: { event: import('nostr-tools').NostrEvent, parsed: ReturnType<typeof parseZapReceipt> } }>} */
@@ -870,8 +885,15 @@
 
 		const sub = obs.subscribe({
 			next: (val) => {
-				activityFeedQuerySettled = true;
 				const feedItems = val?.feedItems ?? [];
+				// On the very first emission: if Dexie already had data we're on a return visit
+				// and should show it immediately (local-first). On a fresh/cleared DB the first
+				// emission is empty → hold the skeleton until both seeds finish so the zap-only
+				// flash (zap seed writing before comment seed) is never shown to the user.
+				if (!activityFeedQuerySettled) {
+					activityHadCachedData = feedItems.length > 0;
+				}
+				activityFeedQuerySettled = true;
 				const threadComments = val?.threadComments ?? [];
 				const threadZaps = val?.threadZaps ?? [];
 				activityFeedItems = feedItems;
@@ -1137,36 +1159,43 @@
 			activityAddrRelayAttempted.clear();
 			const sinceSec = activityRelaySince();
 			const lim = COMMENT_ZAP_NAK_FETCH_LIMIT;
-			await Promise.all([
-				fetchFromRelays(
-					COMMENT_AND_ZAP_READ_RELAYS,
-					{
-						kinds: [EVENT_KINDS.COMMENT],
-						'#K': ACTIVITY_NIP22_K_TAGS,
-						since: sinceSec,
-						limit: lim
-					},
-					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-1111-K' }
-				),
-				fetchFromRelays(
-					COMMENT_AND_ZAP_READ_RELAYS,
-					{
-						kinds: [EVENT_KINDS.ZAP_RECEIPT],
-						since: sinceSec,
-						limit: lim
-					},
-					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-9735-bucket' }
-				)
-			]);
+			// Fetch comments and zaps in parallel. Start backfill (targeted #e/#a zap queries)
+			// as soon as comments land in Dexie — don't block it behind the slower zap seed.
+			const commentPromise = fetchFromRelays(
+				COMMENT_AND_ZAP_READ_RELAYS,
+				{
+					kinds: [EVENT_KINDS.COMMENT],
+					'#K': ACTIVITY_NIP22_K_TAGS,
+					since: sinceSec,
+					limit: lim
+				},
+				{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-1111-K' }
+			);
+			const zapPromise = fetchFromRelays(
+				COMMENT_AND_ZAP_READ_RELAYS,
+				{
+					kinds: [EVENT_KINDS.ZAP_RECEIPT],
+					since: sinceSec,
+					limit: lim
+				},
+				{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-9735-bucket' }
+			);
+			// Start backfill right after comments land (don't wait for zap seed).
+			commentPromise
+				.catch(() => {})
+				.then(() =>
+					backfillActivityThreadsScoped().catch((err) =>
+						console.error('[Activity] thread backfill failed', err)
+					)
+				);
+			await Promise.all([commentPromise, zapPromise]);
 		} catch (err) {
 			console.error('[Activity] relay seed failed', err);
 			activityError = 'Failed to sync activity.';
 		} finally {
 			activityLoading = false;
+			activityInitialSeedDone = true;
 		}
-		void backfillActivityThreadsScoped().catch((err) =>
-			console.error('[Activity] thread backfill failed', err)
-		);
 	}
 
 	/** @param {import('nostr-tools').NostrEvent | null} ev */
@@ -2003,6 +2032,7 @@
 		}
 		if (!activityRouteActive) return;
 		activityReady = true;
+		activityInitialSeedDone = false;
 		void seedActivityFromRelay();
 	});
 
@@ -2019,7 +2049,7 @@
 			? !!threadModalZapId
 			: false}
 >
-	{#if !activityReady || !activityFeedQuerySettled || (!inboxEmbed && activityLoading && activityFeedItems.length === 0)}
+	{#if !activityReady || !activityFeedQuerySettled || (!inboxEmbed && activityFeedItems.length === 0 && !activityHadCachedData && (!activityInitialSeedDone || activityLoading))}
 		<div class="loading-wrap">
 			<ActivityFeedSkeleton rows={6} />
 		</div>
