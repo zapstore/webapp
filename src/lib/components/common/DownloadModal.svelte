@@ -42,13 +42,13 @@
 	const npubRegex = /^npub1[ac-hj-np-z0-9]{58}$/i;
 
 	// Zapstore-specific constants
-	const ZAPSTORE_APK_FILENAME = 'zapstore-1.0.2.apk';
+	const ZAPSTORE_APK_FILENAME = 'zapstore-1.0.3.apk';
 	const ZAPSTORE_APK_URL =
-		'https://cdn.zapstore.dev/8a2bf54cc109862a2d8585456706b127935b6b33fd789c51606a17d5b864d5f0.apk';
+		'https://cdn.zapstore.dev/60b61717b1858988f84de04d1e8947f97c6029919209dd71cb0c655aa0850105.apk';
 	/** Intrinsic size of static/images/download-image.png — reserves layout before decode. */
 	const DOWNLOAD_HERO_WIDTH = 512;
 	const DOWNLOAD_HERO_HEIGHT = 636;
-	const ANDROID_APK_SHA256 = '8a2bf54cc109862a2d8585456706b127935b6b33fd789c51606a17d5b864d5f0';
+	const ANDROID_APK_SHA256 = '60b61717b1858988f84de04d1e8947f97c6029919209dd71cb0c655aa0850105';
 	const APK_CERT_HASH = '99e33b0c2d07e75fcd9df7e40e886646ff667e3aa6648e1a1160b036cf2b9320';
 
 	// App info helpers
