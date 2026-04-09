@@ -50,11 +50,11 @@
 	);
 	const deletedRootLabel = $derived(
 		deletedRootKind === 'forum'
-			? 'Deleted forum post'
+			? 'Forum post not found'
 			: deletedRootKind === 'app'
-				? 'Deleted app'
+				? 'App not found'
 				: deletedRootKind === 'stack'
-					? 'Deleted stack'
+					? 'Stack not found'
 					: ''
 	);
 	const showDeletedRoot = $derived(deletedRootKind != null);
@@ -132,7 +132,7 @@
 					<SkeletonLoader />
 				</div>
 			{:else}
-				<Zap variant="fill" size={14} color="url(#zap-activity-card-gradient)" />
+				<img src={rootOneliner.emoji} alt="" width="14" height="14" />
 			{/if}
 		</div>
 		{#if showQuote}

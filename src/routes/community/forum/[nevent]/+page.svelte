@@ -10,6 +10,7 @@
 	import { nip19 } from 'nostr-tools';
 	import { queryEvent, fetchFromRelays, parseForumPost, putEvents } from '$lib/nostr';
 	import { EVENT_KINDS, ZAPSTORE_COMMUNITY_PUBKEY, FORUM_RELAY } from '$lib/config';
+	import { getCached } from '$lib/stores/query-cache.js';
 	import ForumPostDetail from '$lib/components/community/ForumPostDetail.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 
@@ -22,7 +23,9 @@
 			const d = nip19.decode(nevent);
 			if (d.type === 'nevent') return d.data.id;
 			if (d.type === 'note') return d.data;
-		} catch {}
+		} catch {
+			return '';
+		}
 		return '';
 	});
 
@@ -40,12 +43,21 @@
 	const loading = $derived(!!eventId && !post);
 	let notFound = $state(false);
 
+	function hydrateFromFeedCache(id) {
+		if (!browser || !id) return;
+		const cached = getCached(`forum_post:${id}`);
+		if (cached?.id === id) {
+			clientPost = cached;
+			notFound = false;
+		}
+	}
+
 	async function loadPost() {
 		const id = eventId;
 		if (!browser || !id || !COMMUNITY_PUBKEY) return;
 
 		notFound = false;
-		clientPost = null;
+		hydrateFromFeedCache(id);
 
 		let ev = await queryEvent({
 			kinds: [EVENT_KINDS.FORUM_POST],
@@ -71,11 +83,15 @@
 
 	$effect(() => {
 		eventId;
-		if (browser && !ssrPost) loadPost();
+		if (browser && !ssrPost) {
+			hydrateFromFeedCache(eventId);
+			loadPost();
+		}
 	});
 
 	onMount(async () => {
 		if (!browser) return;
+		hydrateFromFeedCache(eventId);
 		if (data?.seedEvents?.length) {
 			await putEvents(data.seedEvents).catch(() => {});
 		}

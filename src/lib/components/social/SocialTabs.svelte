@@ -100,8 +100,14 @@ $effect(() => {
 /** Resolved details data: explicit prop wins over Dexie auto-fetch. */
 const resolvedDetailsRawData = $derived(detailsRawDataProp ?? autoFetchedDetails);
 const totalZapAmount = $derived(zaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0));
-const zapsWithComments = $derived(zaps.filter((z) => z.comment && z.comment.trim()));
-const totalCommentCount = $derived(comments.length + zapsWithComments.length);
+const zapsInCommentsFeed = $derived(
+    zaps.filter((z) =>
+        z.pending === true ||
+        !!(z.comment && z.comment.trim()) ||
+        ((z.emojiTags?.length ?? 0) > 0)
+    )
+);
+const totalCommentCount = $derived(comments.length + zapsInCommentsFeed.length);
 const totalLabelCount = $derived(labelEntries.length);
 function safeNpubFromPubkey(pubkey) {
     if (typeof pubkey !== "string")
@@ -292,9 +298,13 @@ const combinedFeed = $derived.by(() => {
         type: "comment",
         timestamp: c.createdAt,
     }));
-    /** Same set as Zaps tab, filtered to only zaps that have a comment (content tag filled). */
-    const zapsWithComments = enrichedZaps.filter((z) => z.comment && z.comment.trim());
-    const combined = [...commentsWithType, ...zapsWithComments];
+    /** Comments tab includes text/emoji zaps and all pending zaps for immediate optimistic feedback. */
+    const zapsForComments = enrichedZaps.filter((z) =>
+        z.pending === true ||
+        !!(z.comment && z.comment.trim()) ||
+        ((z.emojiTags?.length ?? 0) > 0)
+    );
+    const combined = [...commentsWithType, ...zapsForComments];
     return combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 });
 </script>

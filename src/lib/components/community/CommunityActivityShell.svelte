@@ -36,7 +36,7 @@
 		collectZapReceiptsUnderZap,
 		findEnclosingZapReceiptForComment
 	} from '$lib/nostr/zap-thread.js';
-	import { parseProfile, parseApp, parseAppStack, getEventOneliner } from '$lib/nostr/models';
+	import { parseProfile, parseApp, parseAppStack, parseForumPost, getEventOneliner } from '$lib/nostr/models';
 	import {
 		EVENT_KINDS,
 		SAVED_APPS_STACK_D_TAG,
@@ -48,6 +48,7 @@
 		ZAPSTORE_RELAY
 	} from '$lib/config';
 	import { goto } from '$app/navigation';
+	import { setCached } from '$lib/stores/query-cache.js';
 	import CommentCard from '$lib/components/community/CommentCard.svelte';
 	import ZapActivityCard from '$lib/components/community/ZapActivityCard.svelte';
 	import RootComment from '$lib/components/social/RootComment.svelte';
@@ -1238,9 +1239,9 @@
 	/** @param {import('nostr-tools').NostrEvent | null} ev */
 	/** @param {'forum' | 'app' | 'stack'} kind */
 	function activityDeletedRootLabel(kind) {
-		if (kind === 'forum') return 'Deleted forum post';
-		if (kind === 'app') return 'Deleted app';
-		return 'Deleted stack';
+		if (kind === 'forum') return 'Forum post not found';
+		if (kind === 'app') return 'App not found';
+		return 'Stack not found';
 	}
 
 	function hrefForActivityRootEvent(ev) {
@@ -1267,6 +1268,10 @@
 		if (!rootEvent?.id) return;
 		try {
 			if (rootEvent.kind === EVENT_KINDS.FORUM_POST) {
+				const parsed = parseForumPost(rootEvent);
+				if (parsed) {
+					setCached(`forum_post:${rootEvent.id}`, { ...parsed, _raw: rootEvent });
+				}
 				const nevent = nip19.neventEncode({ id: rootEvent.id });
 				goto(`/community/forum/${nevent}`);
 				return;
@@ -2429,7 +2434,9 @@
 			rootContext={_bannerHref
 				? {
 						label: _rootPost ? _postTitle : _bannerOneliner.label,
-						iconUrl: _bannerIsStack ? null : (_bannerBadge?.iconUrl ?? null),
+						iconUrl: _bannerIsStack
+							? null
+							: (_bannerBadge?.iconUrl ?? _bannerOneliner.emoji ?? null),
 						href: _bannerHref,
 						isStack: !!_bannerIsStack
 					}
@@ -2538,7 +2545,9 @@
 			rootContext={_bannerHrefZ
 				? {
 						label: _postTitleZ,
-						iconUrl: _bannerIsStackZ ? null : (_zapBadgeZ?.iconUrl ?? null),
+						iconUrl: _bannerIsStackZ
+							? null
+							: (_zapBadgeZ?.iconUrl ?? _bannerOnelinerZ.emoji ?? null),
 						href: _bannerHrefZ,
 						isStack: !!_bannerIsStackZ
 					}

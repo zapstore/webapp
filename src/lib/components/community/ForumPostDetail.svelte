@@ -10,6 +10,7 @@ import {
 	fetchKind1111ByTagRef,
 	fetchProfilesBatch,
 	fetchZapsByEventIds,
+	fetchZapReceiptsByPubkeys,
 	fetchLabelEvents,
 	parseForumPost,
 	parseProfile,
@@ -97,6 +98,69 @@ const postEmojiTags = $derived(
 		.map((t) => ({ shortcode: t[1], url: t[2] }))
 );
 
+function parseZapRows(events, postId) {
+	const pid = String(postId ?? '').toLowerCase();
+	const out = [];
+	for (const ev of events ?? []) {
+		if (!ev?.id) continue;
+		try {
+			const z = parseZapReceipt(ev);
+			const topETag =
+				ev.tags?.find((t) => (t[0] === 'e' || t[0] === 'E') && t[1])?.[1]?.toLowerCase() ?? '';
+			const parsedTarget = String(z.zappedEventId ?? '').toLowerCase();
+			// Accept either explicit receipt e/E tag or parsed description e tag.
+			if (parsedTarget !== pid && topETag !== pid) continue;
+			out.push({ ...z, id: ev.id });
+		} catch {
+			/* ignore malformed zap receipt */
+		}
+	}
+	return out;
+}
+
+async function loadForumPostZaps(postId, postPubkey) {
+	const pid = String(postId ?? '').toLowerCase();
+	if (!pid) return [];
+	const byId = new Map();
+	const addEvents = (events) => {
+		for (const z of parseZapRows(events, pid)) {
+			if (!byId.has(z.id)) byId.set(z.id, z);
+		}
+	};
+
+	// 1) Dexie local-first: strict e/E + recipient fallback filtered by parsed target.
+	const [dexieByE, dexieByEUpper, dexieByP] = await Promise.all([
+		queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#e': [pid], limit: 300 }),
+		queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#E': [pid], limit: 300 }),
+		postPubkey
+			? queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#p': [postPubkey], limit: 500 })
+			: Promise.resolve([])
+	]);
+	addEvents(dexieByE);
+	addEvents(dexieByEUpper);
+	addEvents(dexieByP);
+
+	// 2) Relay by e/E reference (fast path).
+	try {
+		const byEventIds = await fetchZapsByEventIds([pid], { timeout: 5000 });
+		addEvents(byEventIds);
+	} catch {
+		/* keep local results */
+	}
+
+	// 3) Relay by recipient pubkey fallback, then strict post-id filter via parser.
+	if (postPubkey) {
+		try {
+			const byRecipient = await fetchZapReceiptsByPubkeys([postPubkey], { timeout: 6000, limit: 500 });
+			addEvents(byRecipient);
+		} catch {
+			/* keep partial */
+		}
+	}
+
+	return Array.from(byId.values()).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
+
 $effect(() => {
 	const p = postProp;
 	if (!p?.id) return;
@@ -175,18 +239,15 @@ $effect(() => {
 
 $effect(() => {
 	const pid = post?.id;
+	const ppk = post?.pubkey;
 	if (!pid) return;
 	let cancelled = false;
 	(async () => {
 		zapsLoading = true;
 		try {
-			const events = await fetchZapsByEventIds([pid], { timeout: 5000 });
+			const parsedRows = await loadForumPostZaps(pid, ppk);
 			if (cancelled) return;
-			zaps = events.map((e) => {
-				const z = parseZapReceipt(e);
-				z.id = e.id;
-				return z;
-			});
+			zaps = parsedRows;
 			const senders = [...new Set(zaps.map((z) => z.senderPubkey).filter(Boolean))];
 			const batch = await fetchProfilesBatch(senders, { timeout: 3000 });
 			if (cancelled) return;
@@ -276,6 +337,34 @@ $effect(() => {
 async function handleCommentSubmit(e) {
 	if (!post || !e?.text?.trim()) return;
 	const target = { contentType: 'forum', pubkey: post.pubkey, id: post.id, kind: EVENT_KINDS.FORUM_POST };
+	const userPubkey = getCurrentPubkey();
+	const tempId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	let optimisticAdded = false;
+	if (userPubkey) {
+		let npub = '';
+		try {
+			npub = nip19.npubEncode(userPubkey);
+		} catch {
+			npub = '';
+		}
+		comments = [
+			...comments,
+			{
+				id: tempId,
+				pubkey: userPubkey,
+				content: e.text,
+				contentHtml: '',
+				emojiTags: e.emojiTags ?? [],
+				mediaUrls: e.mediaUrls ?? [],
+				createdAt: Math.floor(Date.now() / 1000),
+				parentId: e.parentId ?? null,
+				isReply: e.parentId != null,
+				pending: true,
+				npub
+			}
+		];
+		optimisticAdded = true;
+	}
 	try {
 		const signed = await publishComment(
 			e.text,
@@ -292,6 +381,9 @@ async function handleCommentSubmit(e) {
 		const parsed = parseComment(signed);
 		parsed.npub = nip19.npubEncode(signed.pubkey);
 		if (e.parentId) parsed.parentId = e.parentId;
+		if (optimisticAdded) {
+			comments = comments.filter((c) => c.id !== tempId);
+		}
 		comments = [...comments, parsed];
 		// Ensure current user's profile is loaded so name/pic show on the new comment
 		const myPk = signed.pubkey;
@@ -313,17 +405,16 @@ async function handleCommentSubmit(e) {
 		}
 	} catch (err) {
 		console.error('[ForumPostDetail] Comment failed:', err);
+		if (optimisticAdded) {
+			comments = comments.filter((c) => c.id !== tempId);
+		}
 	}
 }
 
 function refetchZaps() {
 	if (!post?.id) return;
-	fetchZapsByEventIds([post.id], { timeout: 5000 }).then((events) => {
-		zaps = events.map((e) => {
-			const z = parseZapReceipt(e);
-			z.id = e.id;
-			return z;
-		});
+	loadForumPostZaps(post.id, post.pubkey).then((rows) => {
+		zaps = rows;
 	});
 }
 function handleForumZapPending(payload) {

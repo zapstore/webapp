@@ -45,7 +45,7 @@ let {
 	appBadge = null,
 	/** While root event (forum/app/stack) is still resolving — badge shimmer instead of forum emoji */
 	rootBadgeSkeleton = false,
-	/** After timeout, root never loaded — show deleted label (no link). */
+	/** After timeout, root never loaded — show "not found" label (no link). */
 	deletedRootKind = /** @type {'forum' | 'app' | 'stack' | null} */ (null),
 	/**
 	 * Hover action rail (Reply / Zap / Options). All three open the in-feed thread modal.
@@ -80,11 +80,11 @@ const isStackRoot = $derived(
 );
 const deletedRootLabel = $derived(
 	deletedRootKind === 'forum'
-		? 'Deleted forum post'
+		? 'Forum post not found'
 		: deletedRootKind === 'app'
-			? 'Deleted app'
+			? 'App not found'
 			: deletedRootKind === 'stack'
-				? 'Deleted stack'
+				? 'Stack not found'
 				: ''
 );
 const showDeletedRoot = $derived(deletedRootKind != null);

@@ -327,6 +327,9 @@
 
 	function openPost(post) {
 		const nevent = post?.id ? (() => { try { return nip19.neventEncode({ id: post.id }); } catch { return ''; } })() : '';
+		if (post?.id) {
+			setCached(`forum_post:${post.id}`, post);
+		}
 		if (nevent) goto(`/community/forum/${nevent}`);
 	}
 

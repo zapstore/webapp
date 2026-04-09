@@ -1,11 +1,9 @@
 <script lang="js">
 	/**
-	 * Rounded square + Cross for activity / thread roots that never resolved (likely deleted).
+	 * Rounded square + question mark for activity / thread roots that never resolved.
 	 * Tile matches CommentCard `.emoji-badge`: 28×28, 6px radius.
 	 * `embedded` — parent `.emoji-badge` provides the tile; no second box/bg.
 	 */
-	import Cross from '$lib/components/icons/Cross.svelte';
-
 	let { className = '', embedded = false } = $props();
 </script>
 
@@ -14,7 +12,7 @@
 	class:activity-deleted-root-badge--embedded={embedded}
 	aria-hidden="true"
 >
-	<Cross variant="outline" strokeWidth={1.4} color="hsl(var(--white33))" size={11} />
+	<span class="activity-missing-root-question">?</span>
 </div>
 
 <style>
@@ -38,5 +36,12 @@
 		height: 100%;
 		border-radius: inherit;
 		background: transparent;
+	}
+
+	.activity-missing-root-question {
+		font-size: 0.8125rem;
+		font-weight: 700;
+		line-height: 1;
+		color: hsl(var(--white33));
 	}
 </style>
