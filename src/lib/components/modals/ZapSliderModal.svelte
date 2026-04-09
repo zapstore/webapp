@@ -250,6 +250,7 @@ $effect(() => {
   {zIndex}
   lockBodyScroll={lockBodyScroll}
   {scopedInPanel}
+  class="zap-slider-modal"
 >
   <div class="zap-modal-content">
     {#if error}
@@ -345,6 +346,10 @@ $effect(() => {
 </Modal>
 
 <style>
+  :global(.zap-slider-modal.modal-scoped-in-panel .modal-content) {
+    padding-bottom: 0;
+  }
+
   .modal-title {
     font-size: 1.875rem;
   }

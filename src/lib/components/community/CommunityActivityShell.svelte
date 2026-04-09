@@ -42,7 +42,6 @@
 		SAVED_APPS_STACK_D_TAG,
 		DEFAULT_CATALOG_RELAYS,
 		COMMENT_PUBLISH_RELAYS,
-		COMMENT_AND_ZAP_READ_RELAYS,
 		commentZapRelayReadSince,
 		ZAPSTORE_COMMUNITY_PUBKEY,
 		ZAPSTORE_RELAY
@@ -1039,7 +1038,7 @@
 
 		try {
 			const arr = await fetchFromRelays(
-				COMMENT_AND_ZAP_READ_RELAYS,
+				[ZAPSTORE_RELAY],
 				{ ids: [rootId], since: 0, limit: 1 },
 				{ timeout: 4000, feature: 'activity-forum-root-by-id' }
 			);
@@ -1089,7 +1088,7 @@
 	async function backfillActivityThreadsScoped() {
 		if (!browser || !isOnline()) return;
 		const sinceSec = activityRelaySince();
-		const relays = COMMENT_AND_ZAP_READ_RELAYS;
+		const relays = [ZAPSTORE_RELAY];
 
 		const commentRows = await queryEvents({
 			kinds: [EVENT_KINDS.COMMENT],
@@ -1200,7 +1199,7 @@
 			// Fetch comments and zaps in parallel. Start backfill (targeted #e/#a zap queries)
 			// as soon as comments land in Dexie — don't block it behind the slower zap seed.
 			const commentPromise = fetchFromRelays(
-				COMMENT_AND_ZAP_READ_RELAYS,
+				[ZAPSTORE_RELAY],
 				{
 					kinds: [EVENT_KINDS.COMMENT],
 					'#K': ACTIVITY_NIP22_K_TAGS,
@@ -1210,7 +1209,7 @@
 				{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-1111-K' }
 			);
 			const zapPromise = fetchFromRelays(
-				COMMENT_AND_ZAP_READ_RELAYS,
+				[ZAPSTORE_RELAY],
 				{
 					kinds: [EVENT_KINDS.ZAP_RECEIPT],
 					since: sinceSec,
@@ -1574,7 +1573,7 @@
 			const subtree = collectCommentSubtree(rootId, merged);
 			let byId = new Map(subtree.map((e) => [e.id, e]));
 
-			fetchKind1111ByTagRef(COMMENT_AND_ZAP_READ_RELAYS, 'e', postId, {
+			fetchKind1111ByTagRef([ZAPSTORE_RELAY], 'e', postId, {
 				since: activityRelaySince(),
 				limit: 300,
 				timeout: 5000,
@@ -1618,7 +1617,7 @@
 			const subtree = collectCommentSubtree(rootId, merged);
 			let byId = new Map(subtree.map((e) => [e.id, e]));
 
-			fetchKind1111ByTagRef(COMMENT_AND_ZAP_READ_RELAYS, 'a', aRoot, {
+			fetchKind1111ByTagRef([ZAPSTORE_RELAY], 'a', aRoot, {
 				since: activityRelaySince(),
 				limit: 500,
 				timeout: 5000,
@@ -1871,7 +1870,7 @@
 			let commThread = collectCommentsUnderParent(zLower, merged);
 			let zapThread = collectZapReceiptsUnderZap(zLower, poolZaps);
 
-			fetchKind1111ByTagRef(COMMENT_AND_ZAP_READ_RELAYS, 'e', postId, {
+			fetchKind1111ByTagRef([ZAPSTORE_RELAY], 'e', postId, {
 				since: activityRelaySince(),
 				limit: 300,
 				timeout: 5000,
@@ -1885,7 +1884,7 @@
 					const et2 = [...new Set([postId, ...pool.map((c) => c.id)])];
 					const rs = activityRelaySince();
 					const zz = await fetchKind9735MatchingRefs(
-						COMMENT_AND_ZAP_READ_RELAYS,
+						[ZAPSTORE_RELAY],
 						{ eventIds: et2 },
 						{ since: rs, limit: 400, timeout: 5000, feature: 'activity-zap-thread-zaps' }
 					).catch(() => []);
@@ -1932,14 +1931,14 @@
 			let zapThread = collectZapReceiptsUnderZap(zLower, poolZaps);
 
 			Promise.all([
-				fetchKind1111ByTagRef(COMMENT_AND_ZAP_READ_RELAYS, 'a', aRoot, {
+				fetchKind1111ByTagRef([ZAPSTORE_RELAY], 'a', aRoot, {
 					since: activityRelaySince(),
 					limit: 500,
 					timeout: 5000,
 					feature: 'activity-zap-addr-comments'
 				}),
 				fetchKind9735MatchingRefs(
-					COMMENT_AND_ZAP_READ_RELAYS,
+					[ZAPSTORE_RELAY],
 					{ aTag: aRoot },
 					{
 						since: activityRelaySince(),

@@ -87,6 +87,10 @@
 		background-color: hsl(var(--black));
 		backdrop-filter: blur(var(--blur-sm));
 		-webkit-backdrop-filter: blur(var(--blur-sm));
+		box-shadow:
+			0 28px 56px hsl(var(--black) / 0.72),
+			0 12px 24px hsl(var(--black) / 0.5),
+			0 2px 8px hsl(var(--black) / 0.34);
 		transform: translateZ(0);
 	}
 

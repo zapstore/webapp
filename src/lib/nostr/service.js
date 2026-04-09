@@ -13,7 +13,6 @@ import {
 	ZAPSTORE_RELAY,
 	DEFAULT_CATALOG_RELAYS,
 	DEFAULT_SOCIAL_RELAYS,
-	COMMENT_AND_ZAP_READ_RELAYS,
 	COMMENT_PUBLISH_RELAYS,
 	commentZapRelayReadSince,
 	commentZapNakReadSince,
@@ -26,6 +25,7 @@ import {
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
 import { db, putEvents, queryEvents, queryEvent } from './dexie';
+const ZAPSTORE_READ_RELAYS = [ZAPSTORE_RELAY];
 
 /** Set `localStorage.setItem('zapstore_debug','1')` + reload for relay/Dexie logs and `window.__zapstore`. */
 function isNostrDebug() {
@@ -54,7 +54,7 @@ export function installZapstoreDebugHooks() {
 		fetchFromRelays,
 		commentZapRelayReadSince,
 		commentZapNakReadSince,
-		COMMENT_AND_ZAP_READ_RELAYS,
+		ZAPSTORE_READ_RELAYS,
 		/** @param {number} k */
 		countByKind: (k) => db.events.where('kind').equals(Number(k)).count(),
 		/** @param {number} [n] */
@@ -74,7 +74,7 @@ let pool = null;
 function getPool() {
 	if (!pool) {
 		pool = new SimplePool();
-		for (const url of COMMENT_AND_ZAP_READ_RELAYS) {
+		for (const url of ZAPSTORE_READ_RELAYS) {
 			try {
 				pool.trustedRelayURLs.add(utils.normalizeURL(url));
 			} catch {
@@ -888,7 +888,7 @@ export async function fetchComments(pubkey, identifier, options = {}) {
 	const {
 		timeout = 5000,
 		signal,
-		relays = COMMENT_AND_ZAP_READ_RELAYS,
+		relays = ZAPSTORE_READ_RELAYS,
 		aTagKind = 32267,
 		eventId = null,
 		since
@@ -925,7 +925,7 @@ export async function fetchComments(pubkey, identifier, options = {}) {
  * Caller should persist via putEvents.
  */
 export async function fetchCommentsByRootATags(aTagValues, options = {}) {
-	const { timeout = 7000, signal, relays = COMMENT_AND_ZAP_READ_RELAYS, limit = 500, since } = options;
+	const { timeout = 7000, signal, relays = ZAPSTORE_READ_RELAYS, limit = 500, since } = options;
 	if (signal?.aborted || !aTagValues?.length) return [];
 
 	const uniq = [...new Set(aTagValues.map((v) => String(v).trim()).filter(Boolean))];
@@ -973,7 +973,7 @@ const COMMENT_REPLIES_E_BATCH = 100;
  */
 export async function fetchCommentRepliesByE(eventIds, options = {}) {
 	if (eventIds.length === 0) return [];
-	const { timeout = 5000, signal, relays = COMMENT_AND_ZAP_READ_RELAYS, since } = options;
+	const { timeout = 5000, signal, relays = ZAPSTORE_READ_RELAYS, since } = options;
 
 	const byId = new Map();
 	for (let i = 0; i < eventIds.length; i += COMMENT_REPLIES_E_BATCH) {
@@ -1008,14 +1008,14 @@ export async function fetchZapReceiptsByPubkeys(pubkeys, options = {}) {
 		{ since, defaultLimit: limit }
 	);
 
-	return fetchFromRelays(COMMENT_AND_ZAP_READ_RELAYS, filter, { timeout, signal, feature: 'zaps' });
+	return fetchFromRelays(ZAPSTORE_READ_RELAYS, filter, { timeout, signal, feature: 'zaps' });
 }
 
 /**
  * Fetch zap receipts that target any of the given event ids (#e).
  */
 export async function fetchZapsByEventIds(eventIds, options = {}) {
-	const { timeout = 5000, signal, relays = COMMENT_AND_ZAP_READ_RELAYS, since } = options;
+	const { timeout = 5000, signal, relays = ZAPSTORE_READ_RELAYS, since } = options;
 	if (signal?.aborted || !Array.isArray(eventIds) || eventIds.length === 0) return [];
 	const ids = eventIds
 		.map((id) => String(id).trim().toLowerCase())
@@ -1061,7 +1061,7 @@ export async function fetchZaps(pubkey, identifier, options = {}) {
 	const {
 		timeout = 5000,
 		signal,
-		relays = COMMENT_AND_ZAP_READ_RELAYS,
+		relays = ZAPSTORE_READ_RELAYS,
 		since,
 		aTagKind = EVENT_KINDS.APP
 	} = options;

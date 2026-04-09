@@ -1,7 +1,7 @@
 <script lang="js">
 	/**
 	 * Comments on the signed-in developer's apps (NIP-22 root `A` / `a` = 32267:pubkey:d-tag).
-	 * Local-first via Dexie liveQuery; background seed from Zapstore (`COMMENT_AND_ZAP_READ_RELAYS`) with bounded REQ.
+	 * Local-first via Dexie liveQuery; background seed from Zapstore relay with bounded REQ.
 	 */
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
@@ -29,7 +29,7 @@
 		findEnclosingZapReceiptForComment
 	} from '$lib/nostr/zap-thread.js';
 	import { parseApp, parseProfile } from '$lib/nostr/models';
-	import { EVENT_KINDS, COMMENT_AND_ZAP_READ_RELAYS, commentZapRelayReadSince } from '$lib/config';
+	import { EVENT_KINDS, ZAPSTORE_RELAY, commentZapRelayReadSince } from '$lib/config';
 	import { goto } from '$app/navigation';
 	import CommentCard from '$lib/components/community/CommentCard.svelte';
 	import ZapActivityCard from '$lib/components/community/ZapActivityCard.svelte';
@@ -302,12 +302,12 @@
 				const [evs, zLo, zUp] = await Promise.all([
 					fetchCommentsByRootATags(appAddrs, { timeout: 8000 }),
 					fetchFromRelays(
-						COMMENT_AND_ZAP_READ_RELAYS,
+						[ZAPSTORE_RELAY],
 						{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': appAddrs, since: rs, limit: 400 },
 						{ timeout: 8000, feature: 'studio-inbox-zaps' }
 					).catch(() => []),
 					fetchFromRelays(
-						COMMENT_AND_ZAP_READ_RELAYS,
+						[ZAPSTORE_RELAY],
 						{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': appAddrs, since: rs, limit: 400 },
 						{ timeout: 8000, feature: 'studio-inbox-zaps' }
 					).catch(() => [])
@@ -585,22 +585,22 @@
 			const rs = commentZapRelayReadSince();
 			Promise.all([
 				fetchFromRelays(
-					COMMENT_AND_ZAP_READ_RELAYS,
+					[ZAPSTORE_RELAY],
 					{ kinds: [EVENT_KINDS.COMMENT], '#A': [aRoot], since: rs, limit: 500 },
 					{ timeout: 5000, feature: 'studio-zap-thread' }
 				),
 				fetchFromRelays(
-					COMMENT_AND_ZAP_READ_RELAYS,
+					[ZAPSTORE_RELAY],
 					{ kinds: [EVENT_KINDS.COMMENT], '#a': [aRoot], since: rs, limit: 500 },
 					{ timeout: 5000, feature: 'studio-zap-thread' }
 				),
 				fetchFromRelays(
-					COMMENT_AND_ZAP_READ_RELAYS,
+					[ZAPSTORE_RELAY],
 					{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aRoot], since: rs, limit: 400 },
 					{ timeout: 5000, feature: 'studio-zap-thread' }
 				),
 				fetchFromRelays(
-					COMMENT_AND_ZAP_READ_RELAYS,
+					[ZAPSTORE_RELAY],
 					{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aRoot], since: rs, limit: 400 },
 					{ timeout: 5000, feature: 'studio-zap-thread' }
 				)
@@ -734,12 +734,12 @@
 			const rs = commentZapRelayReadSince();
 			Promise.all([
 				fetchFromRelays(
-					COMMENT_AND_ZAP_READ_RELAYS,
+					[ZAPSTORE_RELAY],
 					{ kinds: [EVENT_KINDS.COMMENT], '#A': [aRoot], since: rs, limit: 500 },
 					{ timeout: 5000, feature: 'studio-thread' }
 				),
 				fetchFromRelays(
-					COMMENT_AND_ZAP_READ_RELAYS,
+					[ZAPSTORE_RELAY],
 					{ kinds: [EVENT_KINDS.COMMENT], '#a': [aRoot], since: rs, limit: 500 },
 					{ timeout: 5000, feature: 'studio-thread' }
 				)

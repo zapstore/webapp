@@ -5,7 +5,7 @@
  * Displays tabs for: Comments, Zaps, Labels, Stacks, Details
  * Only loads content for the currently selected tab.
  *
- * Comments and zaps are loaded by parent routes via `fetchComments` / `fetchZaps` (Zapstore read relay; see `COMMENT_AND_ZAP_READ_RELAYS` in config).
+ * Comments and zaps are loaded by parent routes via `fetchComments` / `fetchZaps` from the Zapstore relay.
  */
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { AlertCircle } from "lucide-svelte";

@@ -298,7 +298,7 @@ $effect(() => {
 				</button>
 
 				<div class="cam-section">
-					<h3 class="eyebrow-label cam-eyebrow">Zaps</h3>
+					<h3 class="eyebrow-label cam-eyebrow">Zap</h3>
 					<div class="cam-zap-strip-wrap">
 						<div class="cam-zap-scroll-mask" use:wheelScroll>
 							<div class="cam-zap-chips">

@@ -64,12 +64,6 @@ export const ZAPSTORE_COMMUNITY_RELAY = 'wss://relay.zapstore.dev';
 export const FORUM_RELAY = ZAPSTORE_COMMUNITY_RELAY;
 
 /**
- * Read path for kind 1111 / 9735 — Zapstore only. Comments use `since` + `limit` + NIP-22 `#K` where useful;
- * zap receipts are often read via `kinds`+`since`+`limit` buckets + in-tag filter (`service.js`).
- */
-export const COMMENT_AND_ZAP_READ_RELAYS = [ZAPSTORE_RELAY];
-
-/**
  * Primary catalog target for kind 1111 — `publishComment()` awaits this set only (UI “accepted”).
  * Social + signer NIP-65 write relays are merged and published afterward without blocking the promise.
  *

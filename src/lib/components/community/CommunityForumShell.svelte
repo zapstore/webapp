@@ -22,8 +22,8 @@
 		EVENT_KINDS,
 		ZAPSTORE_COMMUNITY_NPUB,
 		FORUM_RELAY,
+		ZAPSTORE_RELAY,
 		FORUM_CATEGORIES,
-		COMMENT_AND_ZAP_READ_RELAYS,
 		commentZapRelayReadSince
 	} from '$lib/config';
 	import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
@@ -256,7 +256,7 @@
 
 			const rs = commentZapRelayReadSince();
 			const allRelay = await fetchKind1111ReferencingEventIds(
-				COMMENT_AND_ZAP_READ_RELAYS,
+				[ZAPSTORE_RELAY],
 				postIds,
 				{ since: rs, limit: 500, timeout: 6000, feature: 'forum-feed-comment-counts' }
 			);

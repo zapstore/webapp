@@ -23,9 +23,9 @@ import { resolve } from '$app/paths';
 import {
 	EVENT_KINDS,
 	ZAPSTORE_COMMUNITY_NPUB,
+	ZAPSTORE_RELAY,
 	DEFAULT_SOCIAL_RELAYS,
 	COMMENT_PUBLISH_RELAYS,
-	COMMENT_AND_ZAP_READ_RELAYS,
 	commentZapRelayReadSince
 } from '$lib/config';
 import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
@@ -195,7 +195,7 @@ $effect(() => {
 
 		const rs = commentZapRelayReadSince();
 		const relayThread = await fetchKind1111ByTagRef(
-			COMMENT_AND_ZAP_READ_RELAYS,
+			[ZAPSTORE_RELAY],
 			'e',
 			p.id,
 			{ since: rs, limit: 200, timeout: 6000, feature: 'forum-post-comments' }

@@ -504,6 +504,8 @@ $effect(() => {
 	if (actionsModalOpen) {
 		_didOpenStandaloneActions = true;
 	} else if (_didOpenStandaloneActions) {
+		if (modalOpen || zapModalOpen || actionsNestedOpen || emojiPickerOpen || insertModalOpen)
+			return;
 		_didOpenStandaloneActions = false;
 		onModalClose?.();
 	}
