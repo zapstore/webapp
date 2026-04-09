@@ -221,8 +221,8 @@
 	const isZapstorePublisher = $derived(
 		!!app?.pubkey && !!ZAPSTORE_PUBKEY && app.pubkey.toLowerCase() === ZAPSTORE_PUBKEY.toLowerCase()
 	);
-	const isZapstoreApp = $derived(!!app?.dTag && app.dTag === 'dev.zapstore.app');
-	const publishedByDeveloper = $derived(isZapstoreApp || (!isZapstorePublisher && hasRepository));
+	const isZapstoreOfficialAppId = $derived(!!app?.dTag && app.dTag.startsWith('dev.zapstore.'));
+	const publishedByDeveloper = $derived(!isZapstorePublisher || isZapstoreOfficialAppId);
 	// Check if description is truncated
 	function checkTruncation(node) {
 		setTimeout(() => {
@@ -979,7 +979,7 @@
 
 				<!-- Author + timestamp row -->
 				<div class="detail-publisher-row detail-publisher-row-in-app">
-					{#if !isZapstorePublisher || isZapstoreApp}
+					{#if !isZapstorePublisher || isZapstoreOfficialAppId}
 						<a href={publisherUrl} class="detail-publisher-link">
 							<ProfilePic
 								pictureUrl={publisherPictureUrl}
