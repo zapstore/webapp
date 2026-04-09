@@ -494,6 +494,20 @@ $effect(() => {
         onModalClose?.();
     }
 });
+// Feed actions-only path never opens the thread modal; close callback must be driven by sheet close.
+let _didOpenStandaloneActions = $state(false);
+$effect(() => {
+	if (!openActionsOnMount || openThreadOnMount) {
+		_didOpenStandaloneActions = false;
+		return;
+	}
+	if (actionsModalOpen) {
+		_didOpenStandaloneActions = true;
+	} else if (_didOpenStandaloneActions) {
+		_didOpenStandaloneActions = false;
+		onModalClose?.();
+	}
+});
 function handleZapReceived(event) {
     onZapReceived?.(event);
 }
