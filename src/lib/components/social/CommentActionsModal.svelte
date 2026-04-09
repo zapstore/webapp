@@ -12,10 +12,10 @@ import QuotedZapMessage from "./QuotedZapMessage.svelte";
 import ReportModal from "$lib/components/modals/ReportModal.svelte";
 import InputLabel from "$lib/components/common/InputLabel.svelte";
 import LabelChip from "$lib/components/common/Label.svelte";
-import { Reply, Zap, Details, Label, Share, ChevronDown, Id } from "$lib/components/icons";
+import { Reply, Zap, Details, Label, Share, ChevronDown, Id, Copy, Check } from "$lib/components/icons";
 import { wheelScroll } from "$lib/actions/wheelScroll.js";
 import { queryEvent, publishTopicLabelOnEvent } from "$lib/nostr";
-import { EVENT_KINDS, FORUM_CATEGORIES } from "$lib/config.js";
+import { EVENT_KINDS, FORUM_CATEGORIES, SITE_URL } from "$lib/config.js";
 import { getIsSignedIn } from "$lib/stores/auth.svelte.js";
 
 /** Preset sats chips (horizontal row); chevron opens full slider. */
@@ -69,6 +69,8 @@ const displayAuthorLabel = $derived.by(() => {
 let subPanel = $state("main");
 let reportEmbedOpen = $state(false);
 let shareFeedback = $state("");
+let shareLinkCopied = $state(false);
+let shareUrlCopied = $state(false);
 let labelInputValue = $state("");
 let labelError = $state("");
 let labelPublishing = $state(false);
@@ -125,6 +127,17 @@ const detailsNpub = $derived.by(() => {
 });
 
 const canShare = $derived(Boolean(targetEventId?.trim()));
+const shareNevent = $derived.by(() => {
+	if (!canShare) return "";
+	try {
+		return nip19.neventEncode({ id: targetEventId.trim() });
+	} catch {
+		return "";
+	}
+});
+const shareEmbedLink = $derived(shareNevent ? `nostr:${shareNevent}` : "");
+const shareZapstoreUrl = $derived(shareNevent ? `${SITE_URL}/community/forum/${shareNevent}` : "");
+const shareZapstoreDisplay = $derived(shareZapstoreUrl ? shareZapstoreUrl.replace(/^https?:\/\//, "") : "");
 
 const canLabel = $derived(Boolean(targetEventId?.trim() && signEvent));
 
@@ -171,15 +184,34 @@ function openReportPanel() {
 
 async function copyNeventToClipboard() {
 	shareFeedback = "";
-	if (!browser || !canShare) return;
+	if (!browser || !shareEmbedLink) return;
 	try {
-		const ne = nip19.neventEncode({ id: targetEventId.trim() });
-		await navigator.clipboard.writeText(`nostr:${ne}`);
-		shareFeedback = "Copied nevent link";
+		await navigator.clipboard.writeText(shareEmbedLink);
+		shareLinkCopied = true;
+		shareFeedback = "Copied embed link";
 	} catch {
 		shareFeedback = "Could not copy";
+		return;
 	}
 	setTimeout(() => {
+		shareLinkCopied = false;
+		shareFeedback = "";
+	}, 2000);
+}
+
+async function copyZapstoreUrlToClipboard() {
+	shareFeedback = "";
+	if (!browser || !shareZapstoreUrl) return;
+	try {
+		await navigator.clipboard.writeText(shareZapstoreUrl);
+		shareUrlCopied = true;
+		shareFeedback = "Copied zapstore.dev URL";
+	} catch {
+		shareFeedback = "Could not copy";
+		return;
+	}
+	setTimeout(() => {
+		shareUrlCopied = false;
 		shareFeedback = "";
 	}, 2000);
 }
@@ -245,6 +277,8 @@ $effect(() => {
 		subPanel = "main";
 		reportEmbedOpen = false;
 		shareFeedback = "";
+		shareLinkCopied = false;
+		shareUrlCopied = false;
 		labelError = "";
 		labelInputValue = "";
 	}
@@ -363,6 +397,7 @@ $effect(() => {
 							rawData={detailsEvent}
 							shareLink=""
 							repository=""
+							panelBackground="black33"
 						/>
 					{:else}
 						<p class="details-empty">Could not load this event from your device.</p>
@@ -396,25 +431,48 @@ $effect(() => {
 							{/each}
 						</div>
 					</div>
-					<p class="cam-label-hint">Labels are published to social relays and may appear in clients that support them.</p>
 				</div>
 			</div>
 		{:else if subPanel === "share"}
 			<div class="cam-subpanel">
-				<div class="cam-actions-row cam-subpanel-body">
-					<button
-						type="button"
-						class="cam-panel-btn"
-						onclick={copyNeventToClipboard}
-						disabled={!canShare}
-					>
-						<span class="cam-panel-icon-wrap" aria-hidden="true">
-							<Id variant="outline" size={24} strokeWidth={1.4} color="hsl(var(--white66))" />
-						</span>
-						<span class="cam-panel-label">Embed Link</span>
-					</button>
+				<div class="cam-share-panel cam-subpanel-body">
+					<div class="cam-share-row">
+						<div class="cam-share-left">
+							<Id variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white66))" />
+							<span class="cam-share-label">Embed link</span>
+						</div>
+						<span class="cam-share-value" title={shareEmbedLink}>{shareEmbedLink}</span>
+						<button type="button" class="cam-share-copy-btn" onclick={copyNeventToClipboard} disabled={!canShare} aria-label="Copy embed link">
+							{#if shareLinkCopied}
+								<span class="check-icon">
+									<Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+								</span>
+							{:else}
+								<Copy variant="outline" size={16} color="hsl(var(--white66))" />
+							{/if}
+						</button>
+					</div>
+					<div class="cam-share-divider"></div>
+					<div class="cam-share-row">
+						<div class="cam-share-left">
+							<Share variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white66))" />
+							<span class="cam-share-label">Zapstore URL</span>
+						</div>
+						<span class="cam-share-value" title={shareZapstoreUrl}>{shareZapstoreDisplay}</span>
+						<button type="button" class="cam-share-copy-btn" onclick={copyZapstoreUrlToClipboard} disabled={!canShare} aria-label="Copy zapstore URL">
+							{#if shareUrlCopied}
+								<span class="check-icon">
+									<Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+								</span>
+							{:else}
+								<Copy variant="outline" size={16} color="hsl(var(--white66))" />
+							{/if}
+						</button>
+					</div>
 				</div>
-				{#if shareFeedback}
+				{#if !canShare}
+					<p class="cam-share-hint" role="status">No event id available</p>
+				{:else if shareFeedback}
 					<p class="cam-share-hint" role="status">{shareFeedback}</p>
 				{/if}
 			</div>
@@ -674,6 +732,76 @@ $effect(() => {
 		}
 	}
 
+	.cam-share-panel {
+		background: hsl(var(--black33));
+		border-radius: var(--radius-16);
+		overflow: hidden;
+	}
+
+	.cam-share-row {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 8px 8px 8px 14px;
+	}
+
+	.cam-share-left {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 120px;
+	}
+
+	.cam-share-label {
+		font-size: 0.875rem;
+		color: hsl(var(--foreground));
+		white-space: nowrap;
+	}
+
+	.cam-share-value {
+		flex: 1;
+		min-width: 0;
+		font-size: 0.875rem;
+		color: hsl(var(--white66));
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		text-align: right;
+	}
+
+	.cam-share-copy-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		border: none;
+		border-radius: 8px;
+		background: hsl(var(--white8));
+		cursor: pointer;
+		flex-shrink: 0;
+		transition: transform 0.15s ease;
+	}
+
+	.cam-share-copy-btn:disabled {
+		opacity: 0.35;
+		cursor: not-allowed;
+	}
+
+	.cam-share-copy-btn:not(:disabled):hover {
+		transform: scale(1.01);
+	}
+
+	.cam-share-copy-btn:not(:disabled):active {
+		transform: scale(0.97);
+	}
+
+	.cam-share-divider {
+		width: 100%;
+		height: 1.4px;
+		background-color: hsl(var(--white11));
+	}
+
 	.cam-share-hint {
 		margin: 8px 0 0 0;
 		padding: 0 4px;
@@ -733,13 +861,6 @@ $effect(() => {
 		color: hsl(var(--destructive));
 	}
 
-	.cam-label-hint {
-		margin: 0;
-		font-size: 12px;
-		line-height: 1.35;
-		color: hsl(var(--white33));
-	}
-
 	.labels-scroll-row {
 		min-width: 0;
 		overflow-x: auto;
@@ -775,6 +896,17 @@ $effect(() => {
 	.label-tap:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
+	}
+
+	.check-icon {
+		display: flex;
+		animation: popIn 0.3s ease-out;
+	}
+
+	@keyframes popIn {
+		0% { transform: scale(0); }
+		50% { transform: scale(1.2); }
+		100% { transform: scale(1); }
 	}
 
 </style>

@@ -5,7 +5,9 @@
  */
 import { Copy, Check } from '$lib/components/icons';
 
-let { code = '', html = '', language = '' } = $props();
+let { code = '', html = '', language = '', background = 'gray33' } = $props();
+
+const blockBgClass = $derived(background === 'black33' ? 'code-block-black33' : 'code-block-gray33');
 
 let copied = $state(false);
 
@@ -18,7 +20,7 @@ async function handleCopy() {
 }
 </script>
 
-<div class="code-block">
+<div class="code-block {blockBgClass}">
 	<button type="button" class="code-copy-btn" onclick={handleCopy} aria-label="Copy code">
 		{#if copied}
 			<span class="check-icon">
@@ -43,10 +45,17 @@ async function handleCopy() {
 <style>
 	.code-block {
 		position: relative;
-		background-color: hsl(var(--gray33));
 		border-radius: 16px;
 		border: 0.33px solid hsl(var(--white16));
 		padding: 6px 10px;
+	}
+
+	.code-block-gray33 {
+		background-color: hsl(var(--gray33));
+	}
+
+	.code-block-black33 {
+		background-color: hsl(var(--black33));
 	}
 
 	.code-copy-btn {

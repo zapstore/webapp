@@ -6,7 +6,17 @@ import { Copy, Check } from "$lib/components/icons";
 import NpubDisplay from "$lib/components/common/NpubDisplay.svelte";
 import CodeBlock from "$lib/components/common/CodeBlock.svelte";
 import { highlightJson } from "$lib/utils/highlight.js";
-let { shareableId = "", publicationLabel = "Publication", npub = "", pubkey = "", rawData = null, className = "", shareLink = "", repository = "", } = $props();
+let {
+	shareableId = "",
+	publicationLabel = "Publication",
+	npub = "",
+	pubkey = "",
+	rawData = null,
+	className = "",
+	shareLink = "",
+	repository = "",
+	panelBackground = "gray66",
+} = $props();
 let publicationCopied = $state(false);
 let profileCopied = $state(false);
 let shareLinkCopied = $state(false);
@@ -28,6 +38,8 @@ const cleanedRawData = $derived.by(() => {
     return nostrEvent;
 });
 const formattedJson = $derived(cleanedRawData ? JSON.stringify(cleanedRawData, null, 2) : "");
+const panelBgClass = $derived(panelBackground === "black33" ? "panel-black33" : "panel-gray66");
+const codeBlockBackground = $derived(panelBackground === "black33" ? "black33" : "gray33");
 
 let highlightedJson = $state('');
 $effect(() => {
@@ -88,7 +100,7 @@ async function copyRepository() {
 
 <div class="details-tab {className}">
   <h3 class="eyebrow-label section-title">IDENTIFIERS</h3>
-  <div class="panel">
+  <div class="panel {panelBgClass}">
     <div class="identifier-row">
       <span class="identifier-label">{publicationLabel}</span>
       <span class="identifier-value">{formatShareableId(shareableId)}</span>
@@ -158,7 +170,12 @@ async function copyRepository() {
 
   {#if rawData}
     <h3 class="eyebrow-label section-title raw-data-title">RAW DATA</h3>
-    <CodeBlock html={highlightedJson} code={formattedJson} language="JSON" />
+    <CodeBlock
+      html={highlightedJson}
+      code={formattedJson}
+      language="JSON"
+      background={codeBlockBackground}
+    />
   {/if}
 </div>
 
@@ -185,11 +202,18 @@ async function copyRepository() {
   }
 
   .panel {
-    background-color: hsl(var(--gray66));
     border-radius: 16px;
     overflow: hidden;
     padding: 0;
     margin: 0;
+  }
+
+  .panel-gray66 {
+    background-color: hsl(var(--gray66));
+  }
+
+  .panel-black33 {
+    background-color: hsl(var(--black33));
   }
 
   .identifier-row {
