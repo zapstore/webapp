@@ -1,5 +1,5 @@
 /**
- * Fetches catalog author pubkey from the server (Franzaps mapping lives server-side only).
+ * Fetches catalog author pubkey from the server (indexer-view signer list lives server-side only).
  * Caches per signer in sessionStorage so a return visit can work offline after one online resolve.
  */
 
