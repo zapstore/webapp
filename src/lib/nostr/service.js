@@ -675,7 +675,9 @@ export async function fetchKind1111ByTagRef(relayUrls, refType, refValue, option
 	const { timeout = 5000, signal, since, limit = 300, feature = 'comments-1111-ref' } = options;
 	if (!refValue?.trim()) return [];
 
-	const v = refValue.trim();
+	const vRaw = refValue.trim();
+	const v =
+		/^[a-fA-F0-9]{64}$/.test(vRaw) ? vRaw.toLowerCase() : vRaw;
 	if (refType === 'e') {
 		const fl = withZapstoreCommentZapReqBounds(
 			{ kinds: [1111], '#K': [NIP22_FORUM_ROOT_K], '#e': [v], limit },
@@ -1169,7 +1171,7 @@ export function parseZapReceipt(event) {
  * URL uses exactly {@link ZAPSTORE_RELAY} (`wss://relay.zapstore.dev`) as the third list element — not
  * multiple hints per tag, and not other relays.
  *
- * **Publish targets:** {@link COMMENT_PUBLISH_RELAYS} first (awaited — UI treats this as “accepted”), then
+ * **Publish targets:** {@link COMMENT_PUBLISH_RELAYS} first (awaited — UI treats this as "accepted"), then
  * {@link DEFAULT_SOCIAL_RELAYS}, optional `relays`, and NIP-65 write relays are published in the background
  * without blocking the returned promise.
  */
@@ -1288,8 +1290,16 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 	if (primaryRelays.length === 0) primaryRelays = [...COMMENT_PUBLISH_RELAYS];
 	const secondaryRelays = relayUrls.filter((u) => !primarySet.has(u));
 
-	// Await catalog relay only — pending/spinner clears here; outbox/social is best-effort after.
-	await Promise.allSettled(p.publish(primaryRelays, signed));
+	// Await catalog relay — spinner clears here; secondary relays are best-effort.
+	const publishResults = await Promise.allSettled(p.publish(primaryRelays, signed));
+	// Only surface an error if Zapstore specifically rejected — other relay failures are silent.
+	const zapstoreIdx = primaryRelays.indexOf(ZAPSTORE_RELAY);
+	const zapstoreResult = zapstoreIdx >= 0 ? publishResults[zapstoreIdx] : null;
+	if (zapstoreResult?.status === 'rejected') {
+		const reason = zapstoreResult.reason;
+		const msg = typeof reason === 'string' ? reason : reason?.message ?? 'unknown error';
+		throw new Error(`Zapstore relay rejected the comment: ${msg}`);
+	}
 
 	await putEvents([signed]);
 

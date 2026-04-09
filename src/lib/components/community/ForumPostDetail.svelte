@@ -7,7 +7,7 @@ import { nip19 } from 'nostr-tools';
 import {
 	queryEvents,
 	queryEvent,
-	fetchKind1111ByTagRef,
+	fetchComments,
 	fetchProfilesBatch,
 	fetchZapsByEventIds,
 	fetchZapReceiptsByPubkeys,
@@ -23,7 +23,6 @@ import { resolve } from '$app/paths';
 import {
 	EVENT_KINDS,
 	ZAPSTORE_COMMUNITY_NPUB,
-	ZAPSTORE_RELAY,
 	DEFAULT_SOCIAL_RELAYS,
 	COMMENT_PUBLISH_RELAYS,
 	commentZapRelayReadSince
@@ -181,33 +180,19 @@ $effect(() => {
 			authorProfile = ev ? parseProfile(ev) : null;
 		}
 
-		// Comments: Dexie first, then relay (all allowed on enforcing relay)
-		const [dexieE, dexieEUpper] = await Promise.all([
-			queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': [p.id], limit: 200 }),
-			queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': [p.id], limit: 200 })
+		// Comments: Dexie + relay in parallel — mirrors app page pattern.
+		// fetchComments with eventId uses #K + #e / #E on Zapstore relay.
+		const rs = commentZapRelayReadSince();
+		const [relayEvs, dexieEvs] = await Promise.all([
+			fetchComments(p.pubkey, null, { eventId: p.id, since: rs, timeout: 6000 }),
+			queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': [p.id], limit: 500 })
 		]);
 		if (cancelled) return;
 		const byId = new Map();
-		for (const e of [...dexieE, ...dexieEUpper]) {
-			if (!byId.has(e.id)) byId.set(e.id, e);
+		for (const e of [...dexieEvs, ...relayEvs]) {
+			if (e?.id) byId.set(e.id, e);
 		}
 		let evs = Array.from(byId.values()).sort((a, b) => a.created_at - b.created_at);
-
-		const rs = commentZapRelayReadSince();
-		const relayThread = await fetchKind1111ByTagRef(
-			[ZAPSTORE_RELAY],
-			'e',
-			p.id,
-			{ since: rs, limit: 200, timeout: 6000, feature: 'forum-post-comments' }
-		);
-		if (cancelled) return;
-		for (const e of relayThread) {
-			if (!byId.has(e.id)) {
-				byId.set(e.id, e);
-				evs.push(e);
-			}
-		}
-		evs = evs.sort((a, b) => a.created_at - b.created_at);
 		comments = evs.map((e) => {
 			const c = parseComment(e);
 			c.npub = nip19.npubEncode(e.pubkey);
@@ -408,6 +393,7 @@ async function handleCommentSubmit(e) {
 		if (optimisticAdded) {
 			comments = comments.filter((c) => c.id !== tempId);
 		}
+		commentsError = err?.message ?? 'Failed to publish comment. Try again.';
 	}
 }
 

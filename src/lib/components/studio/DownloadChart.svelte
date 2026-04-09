@@ -24,10 +24,8 @@
 		glowOpacity = 0.3,
 		dotColor = '#5C5FFF',
 		badgeBg = 'rgba(60,58,80,0.92)',
-		seedA = 1.2,
-		seedB = 3.1,
 		// Real data: array of { id, name, icon, counts: number[] } aligned to DAY_LABELS.
-		// null = dummy mode — chart generates wave data from seedA / seedB.
+		// null = no data yet — chart renders a flat baseline.
 		appData = null,
 		// Per-app line colors. When provided, each app line uses its color at full weight
 		// instead of faint white, and the total line is hidden.
@@ -93,15 +91,6 @@
 		return [...Array(n - counts.length).fill(0), ...counts];
 	}
 
-	// Used only when appData is null (dummy/fallback mode).
-	function wave(i, seed, base, amp) {
-		const trend = (i / xDenom) * amp * 1.5;
-		const s1 = Math.sin(i * 0.9 + seed) * amp * 0.3;
-		const s2 = Math.sin(i * 2.5 + seed * 1.4) * amp * 0.18;
-		const s3 = Math.sin(i * 0.4 + seed * 2.1) * amp * 0.22;
-		return Math.max(2, Math.round(base * 0.4 + trend + s1 + s2 + s3));
-	}
-
 	// Reactive: re-derives whenever appData prop changes.
 	const allApps = $derived(
 		appData
@@ -111,20 +100,7 @@
 					icon: a.icon,
 					data: alignCounts(a.counts, DAYS)
 				}))
-			: [
-					{
-						id: 'app-a',
-						name: 'App A',
-						icon: '/images/parallax-apps/newpipe.png',
-						data: Array.from({ length: DAYS }, (_, i) => wave(i, seedA, 68, 42))
-					},
-					{
-						id: 'app-b',
-						name: 'App B',
-						icon: '/images/parallax-apps/primal.png',
-						data: Array.from({ length: DAYS }, (_, i) => wave(i, seedB, 36, 24))
-					}
-				]
+			: [{ id: 'empty', name: '', icon: '', data: Array(DAYS).fill(0) }]
 	);
 
 	function seriesTotal(/** @type {{ data: number[] }} */ a) {
