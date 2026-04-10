@@ -19,6 +19,12 @@ let {
 	selectedLabels = $bindable(/** @type {string[]} */ ([])),
 	/** Same as forum feed categories by default */
 	suggestions = FORUM_CATEGORIES,
+	/** When true, shows a header and changes the bottom button to "Publish" */
+	publishMode = false,
+	/** Header text shown above the label input (e.g. "Don't forget some Labels!") */
+	header = '',
+	/** Called when the "Publish" button is tapped in publishMode */
+	onPublish = /** @type {(() => void) | null} */ (null),
 	onclose = () => {}
 } = $props();
 
@@ -67,6 +73,12 @@ function handleClose() {
 	onclose?.();
 }
 
+function handlePublishTap() {
+	isOpen = false;
+	onclose?.();
+	onPublish?.();
+}
+
 function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	if (e.key === 'Escape') handleClose();
 }
@@ -80,6 +92,9 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 
 	<div class="labels-wrapper" role="dialog" aria-modal="true" aria-label="Labels">
 		<div class="labels-sheet" transition:fly={{ y: 80, duration: 200, easing: cubicOut }}>
+			{#if header}
+				<p class="labels-sheet-header">{header}</p>
+			{/if}
 			<InputLabel
 				bind:value={labelInputValue}
 				placeholder="Add a label..."
@@ -104,7 +119,11 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 				</div>
 			</div>
 
-			<button type="button" class="btn-primary-large w-full" onclick={handleClose}>Done</button>
+			<button
+				type="button"
+				class="btn-primary-large w-full"
+				onclick={publishMode ? handlePublishTap : handleClose}
+			>{publishMode ? 'Publish' : 'Done'}</button>
 		</div>
 	</div>
 {/if}
@@ -216,6 +235,22 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		display: flex;
 		flex-wrap: nowrap;
 		gap: 8px;
+	}
+
+	.labels-sheet-header {
+		margin: 0;
+		font-size: 22px;
+		font-weight: 700;
+		color: hsl(var(--white));
+		line-height: 1.25;
+		text-align: center;
+		padding: 4px 0 2px;
+	}
+
+	@media (max-width: 767px) {
+		.labels-sheet-header {
+			font-size: 20px;
+		}
 	}
 
 	.btn-primary-large {

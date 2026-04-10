@@ -1,69 +1,79 @@
 <script lang="js">
-/**
- * Forum Post card — avatar + content column, optional reply row.
- * Content preview: one-line ShortTextPreview (same short format as comments).
- */
-import ProfilePic from '$lib/components/common/ProfilePic.svelte';
-import Label from '$lib/components/common/Label.svelte';
-import ProfilePicStack from '$lib/components/common/ProfilePicStack.svelte';
-import ShortTextPreview from '$lib/components/common/ShortTextPreview.svelte';
+	/**
+	 * Forum Post card — avatar + content column, optional reply row.
+	 * Content preview: one-line ShortTextPreview (same short format as comments).
+	 */
+	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
+	import Label from '$lib/components/common/Label.svelte';
+	import ProfilePicStack from '$lib/components/common/ProfilePicStack.svelte';
+	import ShortTextPreview from '$lib/components/common/ShortTextPreview.svelte';
+	import { Zap } from '$lib/components/icons';
 
-let {
-	author = { name: '', picture: '', npub: '' },
-	title = '',
-	content = '',
-	timestamp = '',
-	labels = [],
-	/** @type {string[]} Media URLs (images/videos) from post event */
-	mediaUrls = [],
-	/** @type {{ shortcode: string, url: string }[]} From post's emoji tags (same as comments) */
-	emojiTags = [],
-	/** @type {{ pubkey: string; displayName?: string; avatarUrl?: string }[]} */
-	commenters = [],
-	commentCount = 0,
-	onClick = () => {}
-} = $props();
+	let {
+		author = { name: '', picture: '', npub: '' },
+		title = '',
+		content = '',
+		timestamp = '',
+		labels = [],
+		/** @type {string[]} Media URLs (images/videos) from post event */
+		mediaUrls = [],
+		/** @type {{ shortcode: string, url: string }[]} From post's emoji tags (same as comments) */
+		emojiTags = [],
+		/** @type {{ pubkey: string; displayName?: string; avatarUrl?: string }[]} */
+		commenters = [],
+		commentCount = 0,
+		/** Total sats zapped on this post. Shows a gold pill when > 0. */
+		totalZapAmount = 0,
+		onClick = () => {}
+	} = $props();
 
-function handleCardClick(e) {
-	if (/** @type {HTMLElement} */ (e.target).closest('[data-short-text-preview]')) return;
-	onClick();
-}
+	function handleCardClick(e) {
+		if (/** @type {HTMLElement} */ (e.target).closest('[data-short-text-preview]')) return;
+		onClick();
+	}
 
-const hasCommenters = $derived(commenters && commenters.length > 0);
-const displayName = $derived(
-	author.name || (author.npub ? author.npub.slice(0, 12) + '...' : '') || 'Anonymous'
-);
-const stackProfiles = $derived(
-	(commenters || []).slice(0, 3).map((r) => ({
-		pubkey: r.pubkey,
-		name: r.displayName ?? '',
-		pictureUrl: r.avatarUrl ?? undefined
-	}))
-);
-const stackText = $derived(
-	commenters?.length === 1
-		? (commenters[0].displayName || 'Someone')
-		: commenters?.length === 2
-			? `${commenters[0].displayName || 'Someone'} & ${commenters[1].displayName || 'Someone'}`
-			: commenters?.length > 2
-				? `${commenters[0].displayName || 'Someone'} & ${commenters.length - 1} Others`
-				: ''
-);
-function formatDateTime(ts) {
-	if (ts == null || ts === '') return '';
-	const date = typeof ts === 'number' ? new Date(ts * 1000) : new Date(ts);
-	if (Number.isNaN(date.getTime())) return '';
-	const now = new Date();
-	const diffMs = now.getTime() - date.getTime();
-	const diffMins = Math.floor(diffMs / 60000);
-	const diffHours = Math.floor(diffMs / 3600000);
-	const diffDays = Math.floor(diffMs / 86400000);
-	if (diffMins < 1) return 'now';
-	if (diffMins < 60) return `${diffMins}m ago`;
-	if (diffHours < 24) return `${diffHours}h ago`;
-	if (diffDays < 7) return `${diffDays}d ago`;
-	return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+	const hasCommenters = $derived(commenters && commenters.length > 0);
+	const showReplyRow = $derived(hasCommenters || totalZapAmount > 0);
+
+	function formatAmount(val) {
+		if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(val % 1_000_000 === 0 ? 0 : 1)}M`;
+		if (val >= 1_000) return `${(val / 1_000).toFixed(val % 1_000 === 0 ? 0 : 1)}K`;
+		return val.toLocaleString();
+	}
+	const displayName = $derived(
+		author.name || (author.npub ? author.npub.slice(0, 12) + '...' : '') || 'Anonymous'
+	);
+	const stackProfiles = $derived(
+		(commenters || []).slice(0, 3).map((r) => ({
+			pubkey: r.pubkey,
+			name: r.displayName ?? '',
+			pictureUrl: r.avatarUrl ?? undefined
+		}))
+	);
+	const stackText = $derived(
+		commenters?.length === 1
+			? commenters[0].displayName || 'Someone'
+			: commenters?.length === 2
+				? `${commenters[0].displayName || 'Someone'} & ${commenters[1].displayName || 'Someone'}`
+				: commenters?.length > 2
+					? `${commenters[0].displayName || 'Someone'} & ${commenters.length - 1} Others`
+					: ''
+	);
+	function formatDateTime(ts) {
+		if (ts == null || ts === '') return '';
+		const date = typeof ts === 'number' ? new Date(ts * 1000) : new Date(ts);
+		if (Number.isNaN(date.getTime())) return '';
+		const now = new Date();
+		const diffMs = now.getTime() - date.getTime();
+		const diffMins = Math.floor(diffMs / 60000);
+		const diffHours = Math.floor(diffMs / 3600000);
+		const diffDays = Math.floor(diffMs / 86400000);
+		if (diffMins < 1) return 'now';
+		if (diffMins < 60) return `${diffMins}m ago`;
+		if (diffHours < 24) return `${diffHours}h ago`;
+		if (diffDays < 7) return `${diffDays}d ago`;
+		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+	}
 </script>
 
 <div
@@ -83,7 +93,7 @@ function formatDateTime(ts) {
 					size="smMd"
 				/>
 			</div>
-			{#if hasCommenters}
+			{#if showReplyRow}
 				<div class="connector-vertical-only"></div>
 			{/if}
 		</div>
@@ -123,7 +133,7 @@ function formatDateTime(ts) {
 			{/if}
 		</div>
 	</div>
-	{#if hasCommenters}
+	{#if showReplyRow}
 		<div class="reply-row">
 			<div class="connector-column">
 				<div class="connector-vertical"></div>
@@ -139,18 +149,35 @@ function formatDateTime(ts) {
 				</div>
 			</div>
 			<div class="repliers-row">
-				<ProfilePicStack
-					profiles={stackProfiles}
-					text={stackText}
-					suffix={String(commentCount || commenters.length)}
-					size="sm"
-					onclick={() => onClick()}
-				/>
+				{#if hasCommenters}
+					<ProfilePicStack
+						profiles={stackProfiles}
+						text={stackText}
+						suffix={String(commentCount || commenters.length)}
+						size="sm"
+						onclick={() => onClick()}
+					/>
+				{/if}
+				{#if totalZapAmount > 0}
+					<div class="zap-pill" aria-label="{formatAmount(totalZapAmount)} sats zapped">
+						<Zap variant="fill" size={12} color="url(#fpc-zap-grad)" />
+						<span class="zap-pill-amount">{formatAmount(totalZapAmount)}</span>
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}
 </div>
 
+<!-- SVG gradient for the zap icon in the pill -->
+<svg width="0" height="0" style="position:absolute;pointer-events:none;" aria-hidden="true">
+	<defs>
+		<linearGradient id="fpc-zap-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+			<stop offset="0%" stop-color="#FFC736" />
+			<stop offset="100%" stop-color="#FFA037" />
+		</linearGradient>
+	</defs>
+</svg>
 
 <style>
 	.forum-post-card {
@@ -358,8 +385,32 @@ function formatDateTime(ts) {
 	.repliers-row {
 		display: flex;
 		align-items: center;
+		justify-content: flex-start;
 		padding-top: 4px;
 		flex: 1;
 		min-width: 0;
+		gap: 10px;
+	}
+
+	.zap-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		height: 28px;
+		padding: 0 12px 0 8px;
+		border-radius: 100px;
+		background: radial-gradient(
+			circle at top left,
+			rgba(255, 199, 54, 0.14) 0%,
+			rgba(255, 160, 55, 0.08) 100%
+		);
+		flex-shrink: 0;
+	}
+
+	.zap-pill-amount {
+		font-size: 0.75rem;
+		font-weight: 600;
+		line-height: 1;
+		color: hsl(var(--white));
 	}
 </style>

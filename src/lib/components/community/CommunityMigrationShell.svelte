@@ -201,9 +201,9 @@
 					</p>
 				</div>
 				{#if pendingApps.length > 1}
-					<button type="button" class="migrate-all-btn" onclick={handleMigrateAll}>
-						Migrate All
-					</button>
+				<button type="button" class="btn-primary migrate-all-btn" onclick={handleMigrateAll}>
+					Migrate All
+				</button>
 				{/if}
 			</div>
 
@@ -238,14 +238,14 @@
 						</div>
 						<div class="app-actions">
 							{#if !isMigrated}
-								<button
-									type="button"
-									class="migrate-btn"
-									disabled={isMigrating}
-									onclick={() => handleMigrate(data)}
-								>
-									{isMigrating ? 'Migrating…' : 'Migrate'}
-								</button>
+							<button
+								type="button"
+								class="btn-secondary migrate-btn"
+								disabled={isMigrating}
+								onclick={() => handleMigrate(data)}
+							>
+								{isMigrating ? 'Migrating…' : 'Migrate'}
+							</button>
 							{/if}
 						</div>
 					</div>
@@ -307,7 +307,7 @@
 		align-items: center;
 		justify-content: center;
 		font-size: 24px;
-		color: hsl(142 71% 45%);
+		color: hsl(var(--primary));
 	}
 
 	.empty-title,
@@ -363,21 +363,15 @@
 		line-height: 1.5;
 	}
 
+	/* Align the global btn class to the flex row */
 	.migrate-all-btn {
 		flex-shrink: 0;
-		padding: 8px 16px;
-		background: hsl(var(--primary));
-		color: hsl(var(--primary-foreground));
-		border: none;
-		border-radius: 8px;
-		font-size: 14px;
-		font-weight: 500;
-		cursor: pointer;
-		transition: opacity 0.15s;
 	}
 
-	.migrate-all-btn:hover {
-		opacity: 0.9;
+	/* Disabled state override for the global btn class */
+	.migrate-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	.app-list {
@@ -394,7 +388,6 @@
 		padding: 12px 16px;
 		background: hsl(var(--white4));
 		border-radius: 12px;
-		border: 1px solid hsl(var(--border));
 	}
 
 	.app-card.migrated {
@@ -451,8 +444,8 @@
 	}
 
 	.status-migrated {
-		background: hsl(142 71% 45% / 0.15);
-		color: hsl(142 71% 45%);
+		background: hsl(var(--primary) / 0.15);
+		color: hsl(var(--primary));
 	}
 
 	.status-failed {
@@ -478,32 +471,10 @@
 		flex-shrink: 0;
 	}
 
-	.migrate-btn {
-		padding: 6px 12px;
-		background: hsl(var(--white8));
-		color: hsl(var(--foreground));
-		border: 1px solid hsl(var(--border));
-		border-radius: 6px;
-		font-size: 13px;
-		font-weight: 500;
-		cursor: pointer;
-		transition: background 0.15s;
-	}
-
-	.migrate-btn:hover:not(:disabled) {
-		background: hsl(var(--white12));
-	}
-
-	.migrate-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
 	.info-section {
 		padding: 16px;
 		background: hsl(var(--white4));
 		border-radius: 12px;
-		border: 1px solid hsl(var(--border));
 		margin-bottom: 24px;
 	}
 
@@ -532,7 +503,6 @@
 		padding: 20px;
 		background: hsl(var(--primary) / 0.08);
 		border-radius: 12px;
-		border: 1px solid hsl(var(--primary) / 0.2);
 	}
 
 	.success-state .zsp-section {

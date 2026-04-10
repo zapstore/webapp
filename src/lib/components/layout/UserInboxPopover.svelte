@@ -82,8 +82,9 @@
 		overflow: visible;
 		/* Only top-right stays tight to header chrome; other corners match sheet tokens */
 		border-radius: 24px 8px 24px 24px;
-		/* Nested fixed modals: clear inbox header */
-		--inbox-modal-top-reserve: 56px;
+		/* Nested fixed modals: reserve top 20% of inbox height so there's always
+		   comfortable tap-to-close space above the thread sheet */
+		--inbox-modal-top-reserve: 20%;
 		background-color: hsl(var(--black));
 		backdrop-filter: blur(var(--blur-sm));
 		-webkit-backdrop-filter: blur(var(--blur-sm));

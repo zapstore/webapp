@@ -188,11 +188,14 @@
 		if (landingNavOpen && !target.closest('.landing-nav-dropdown-wrap')) {
 			landingNavOpen = null;
 		}
-		/* Thread/inner modals port to body; backdrop clicks must not close the inbox. */
+		/* Thread/inner modals port to body; backdrop clicks must not close the inbox.
+		   Tippy suggestion popups are appended to document.body (outside .user-inbox-anchor DOM tree)
+		   so we must also exclude [data-tippy-root] containers from triggering close. */
 		if (
 			inboxOpen &&
 			!target.closest('.user-inbox-anchor') &&
-			!target.closest('.modal-backdrop')
+			!target.closest('.modal-backdrop') &&
+			!target.closest('[data-tippy-root]')
 		) {
 			inboxOpen = false;
 		}

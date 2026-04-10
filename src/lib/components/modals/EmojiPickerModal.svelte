@@ -76,7 +76,8 @@ function selectEmoji(/** @type {{ shortcode: string; url: string; source: string
 	onclose?.();
 }
 
-function handleOverlayClick() {
+function handleOverlayClick(/** @type {MouseEvent} */ e) {
+	e.stopPropagation();
 	isOpen = false;
 	onclose?.();
 }
@@ -99,7 +100,8 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		onclick={handleOverlayClick}
 	></button>
 
-	<div class="picker-wrapper" role="dialog" aria-modal="true" aria-label="Pick an emoji">
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<div class="picker-wrapper" role="dialog" aria-modal="true" aria-label="Pick an emoji" tabindex="-1" onclick={(e) => e.stopPropagation()}>
 		<div class="picker-sheet" transition:fly={{ y: 80, duration: 200, easing: cubicOut }}>
 			<div class="picker-search-row">
 				<div class="picker-search-inner">

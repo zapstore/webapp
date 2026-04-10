@@ -10,12 +10,14 @@
 	import {
 		fetchFromRelays,
 		fetchKind1111ReferencingEventIds,
+		fetchZapsByEventIds,
 		fetchProfilesBatch,
 		putEvents,
 		publishToRelays,
 		queryEvents,
 		liveQuery,
-		parseForumPost
+		parseForumPost,
+		parseZapReceipt
 	} from '$lib/nostr';
 	import { parseProfile } from '$lib/nostr/models';
 	import {
@@ -51,6 +53,8 @@
 	const RELAYS = [FORUM_RELAY];
 
 	let selectedCategory = $state(/** @type {string | null} */ (null));
+	/** @type {'latest' | 'most_zapped'} */
+	let sortOrder = $state('latest');
 	let latestDropdownOpen = $state(false);
 	/** @type {HTMLDivElement | null} */
 	let latestDropdownWrap = $state(null);
@@ -61,6 +65,10 @@
 	let feedProfiles = $state(/** @type {Map<string,any>} */ (new Map()));
 	/** @type {Map<string, { profiles: any[], count: number }>} */
 	let commentersByPostId = $state(new Map());
+	/** @type {Map<string, number>} Total sats zapped per forum post ID. */
+	let zapsByPostId = $state(/** @type {Map<string,number>} */ (new Map()));
+	/** Non-reactive cache for commenter profiles; used by the reactive comment liveQuery. */
+	let commentProfileCache = new Map();
 	let addPostModalOpen = $state(false);
 	let searchModalOpen = $state(false);
 	/** Shown when a post was saved locally but relay publish failed (so other browsers won't see it) */
@@ -92,12 +100,19 @@
 			: null
 	);
 
-	/** Posts filtered by selected category — only posts with that label in their event */
-	const filteredPosts = $derived(
-		selectedCategory
+	/** Posts filtered by selected category and ordered by sort selection. */
+	const filteredPosts = $derived.by(() => {
+		const base = selectedCategory
 			? posts.filter((p) => p.labels?.includes(selectedCategory))
-			: posts
-	);
+			: posts;
+		if (sortOrder === 'most_zapped') {
+			return [...base].sort(
+				(a, b) => (zapsByPostId.get(b.id) ?? 0) - (zapsByPostId.get(a.id) ?? 0)
+			);
+		}
+		// 'latest': liveQuery already sorts by createdAt desc
+		return base;
+	});
 
 	const forumLikelyHasMore = $derived(posts.length >= forumFeedLimit && forumFeedLimit < FORUM_FEED_CAP);
 
@@ -143,6 +158,103 @@
 			}
 		});
 		return () => sub.unsubscribe();
+	});
+
+	// ── Reactive comment counts ──────────────────────────────────────────────
+	// liveQuery re-fires whenever Dexie changes (e.g. new comment published from Inbox).
+	// This keeps comment counts and commenter avatars in sync without a full page reload.
+	const commentCountsQuery = $derived(
+		browser && posts.length > 0
+			? liveQuery(async () => {
+					const ids = posts.map((p) => p.id);
+					const [lo, hi] = await Promise.all([
+						queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': ids, limit: 1000 }),
+						queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': ids, limit: 1000 })
+					]);
+					const all = new Map();
+					for (const e of [...lo, ...hi]) all.set(e.id, e);
+					return Array.from(all.values());
+				})
+			: null
+	);
+
+	$effect(() => {
+		if (!commentCountsQuery) return;
+		const sub = commentCountsQuery.subscribe({
+			next: (commentEvs) => {
+				const evs = commentEvs ?? [];
+				const byPost = new Map();
+				for (const c of evs) {
+					const rootE =
+						c.tags?.find((t) => t[0] === 'E')?.[1] ??
+						c.tags?.find((t) => t[0] === 'e')?.[1];
+					if (!rootE) continue;
+					if (!byPost.has(rootE)) byPost.set(rootE, { profiles: [], count: 0 });
+					const entry = byPost.get(rootE);
+					entry.count += 1;
+					const pk = c.pubkey;
+					if (!entry.profiles.some((p) => p.pubkey === pk)) {
+						const p = commentProfileCache.get(pk);
+						entry.profiles.push({
+							pubkey: pk,
+							displayName: p?.displayName ?? p?.name ?? '',
+							avatarUrl: p?.picture ?? ''
+						});
+					}
+				}
+				commentersByPostId = byPost;
+			}
+		});
+		return () => sub.unsubscribe();
+	});
+
+	// ── Reactive zap totals ─────────────────────────────────────────────────
+	// liveQuery over ZAP_RECEIPT events for the current page of posts.
+	// Uses parseZapReceipt (bolt11 regex) to extract amountSats — the same parser
+	// used everywhere else in the codebase. Re-fires when Dexie changes.
+	const zapTotalsQuery = $derived(
+		browser && posts.length > 0
+			? liveQuery(async () => {
+					const ids = posts.map((p) => p.id);
+					// Zap receipts use lowercase 'e' tag; query both cases for safety
+					const [lo, hi] = await Promise.all([
+						queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#e': ids, limit: 2000 }),
+						queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#E': ids, limit: 2000 })
+					]);
+					// Deduplicate by event ID
+					const byId = new Map();
+					for (const e of [...lo, ...hi]) if (e?.id) byId.set(e.id, e);
+					// Sum sats per post ID using bolt11 parsing
+					const idsSet = new Set(ids.map((id) => id.toLowerCase()));
+					const totals = new Map();
+					for (const e of byId.values()) {
+						const { amountSats, zappedEventId } = parseZapReceipt(e);
+						if (!amountSats || amountSats <= 0 || !zappedEventId) continue;
+						if (!idsSet.has(zappedEventId)) continue;
+						totals.set(zappedEventId, (totals.get(zappedEventId) ?? 0) + amountSats);
+					}
+					return totals;
+				})
+			: null
+	);
+
+	$effect(() => {
+		if (!zapTotalsQuery) return;
+		const sub = zapTotalsQuery.subscribe({
+			next: (totals) => {
+				zapsByPostId = totals ?? new Map();
+			}
+		});
+		return () => sub.unsubscribe();
+	});
+
+	// Best-effort relay fetch: pull zap receipts for the current post list so the liveQuery
+	// above has fresh data even on first load. putEvents (called inside fetchZapsByEventIds)
+	// writes to Dexie, which triggers the liveQuery automatically.
+	$effect(() => {
+		if (!browser || posts.length === 0) return;
+		const ids = posts.map((p) => p.id);
+		fetchZapsByEventIds(ids, { timeout: 5000, limit: 2000 }).catch(() => {});
 	});
 
 	async function syncForumFromRelay() {
@@ -242,6 +354,8 @@
 					/* skip */
 				}
 			}
+			// Populate cache so the reactive liveQuery can enrich profiles on next tick.
+			for (const [pk, p] of profileMap.entries()) commentProfileCache.set(pk, p);
 			for (const entry of byPost.values()) {
 				entry.profiles = entry.profiles.map((r) => {
 					const p = profileMap.get(r.pubkey);
@@ -306,6 +420,8 @@
 						/* keep partial */
 					}
 				}
+				// Merge new profiles into cache so the reactive liveQuery picks them up.
+				for (const [pk, p] of profileMap.entries()) commentProfileCache.set(pk, p);
 				for (const entry of byPost.values()) {
 					entry.profiles = entry.profiles.map((r) => {
 						const p = profileMap.get(r.pubkey);
@@ -403,15 +519,30 @@
 				aria-label="Sort order"
 				aria-expanded={latestDropdownOpen}
 			>
-				<span>Latest</span>
+				<span>{sortOrder === 'most_zapped' ? 'Most Zapped' : 'Latest'}</span>
 				<span class="forum-all-btn-icon">
 					<ChevronDown variant="outline" size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
 				</span>
 			</button>
 			{#if latestDropdownOpen}
 				<div class="forum-latest-dropdown" role="menu">
-					<button type="button" class="forum-latest-dropdown-item" role="menuitem" onclick={() => { selectedCategory = null; latestDropdownOpen = false; }}>
+					<button
+						type="button"
+						class="forum-latest-dropdown-item"
+						class:is-active={sortOrder === 'latest'}
+						role="menuitem"
+						onclick={() => { sortOrder = 'latest'; latestDropdownOpen = false; }}
+					>
 						Latest
+					</button>
+					<button
+						type="button"
+						class="forum-latest-dropdown-item"
+						class:is-active={sortOrder === 'most_zapped'}
+						role="menuitem"
+						onclick={() => { sortOrder = 'most_zapped'; latestDropdownOpen = false; }}
+					>
+						Most Zapped
 					</button>
 				</div>
 			{/if}
@@ -467,6 +598,7 @@
 					emojiTags={post.emojiTags ?? []}
 					commenters={postCommenters?.profiles ?? []}
 					commentCount={postCommenters?.count ?? 0}
+					totalZapAmount={zapsByPostId.get(post.id?.toLowerCase?.() ?? post.id) ?? 0}
 					onClick={() => openPost(post)}
 				/>
 			{/each}
@@ -666,6 +798,11 @@
 
 	.forum-latest-dropdown-item:hover {
 		background: hsl(var(--white8));
+	}
+
+	.forum-latest-dropdown-item.is-active {
+		color: hsl(var(--white));
+		font-weight: 600;
 	}
 
 	.forum-publish-error {

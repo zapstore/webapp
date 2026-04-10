@@ -3,10 +3,12 @@
  * ForumPostDetail - Chateau-style forum post detail view.
  * Simpler than chateau: enforcing relay, all comments allowed, no filtering.
  */
+import { browser } from '$app/environment';
 import { nip19 } from 'nostr-tools';
 import {
 	queryEvents,
 	queryEvent,
+	liveQuery,
 	fetchComments,
 	fetchProfilesBatch,
 	fetchZapsByEventIds,
@@ -67,6 +69,43 @@ let labelFetchNonce = $state(0);
 let lightboxOpen = $state(false);
 let lightboxUrls = $state([]);
 let lightboxIndex = $state(0);
+
+// ── Reactive comment list ──────────────────────────────────────────────────
+// liveQuery re-fires whenever Dexie changes (e.g. new comment published from
+// the Inbox or another tab), keeping the comment list current without a reload.
+const commentQuery = $derived(
+	browser && post?.id
+		? liveQuery(async () => {
+				const id = post.id;
+				const [lo, hi] = await Promise.all([
+					queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': [id], limit: 500 }),
+					queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': [id], limit: 500 })
+				]);
+				const byId = new Map();
+				for (const e of [...lo, ...hi]) if (e?.id) byId.set(e.id, e);
+				return Array.from(byId.values()).sort((a, b) => a.created_at - b.created_at);
+			})
+		: null
+);
+
+$effect(() => {
+	if (!commentQuery) return;
+	const sub = commentQuery.subscribe({
+		next: (evs) => {
+			const all = evs ?? [];
+			// Preserve in-flight optimistic comments (pending: true) until real events land.
+			const realIds = new Set(all.map((e) => e.id));
+			const optimistic = comments.filter((c) => c.pending && !realIds.has(c.id));
+			const parsed = all.map((e) => {
+				const c = parseComment(e);
+				try { c.npub = nip19.npubEncode(e.pubkey); } catch { c.npub = ''; }
+				return c;
+			});
+			comments = [...parsed, ...optimistic];
+		}
+	});
+	return () => sub.unsubscribe();
+});
 
 const npub = $derived(post?.pubkey ? (() => { try { return nip19.npubEncode(post.pubkey); } catch { return ''; } })() : '');
 const postNevent = $derived(post?.id ? (() => { try { return nip19.neventEncode({ id: post.id }); } catch { return ''; } })() : '');

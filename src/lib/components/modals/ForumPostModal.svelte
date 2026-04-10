@@ -46,6 +46,8 @@ let selectedLabels = $state([]);
 /** @type {HTMLInputElement | null} */
 let fileInputEl = $state(null);
 let mediaUploading = $state(false);
+/** True when the labels modal was opened via Publish (no labels selected) — shows header + Publish button */
+let labelsPublishMode = $state(false);
 
 function handleEmojiTap() {
 	emojiPickerOpen = true;
@@ -66,6 +68,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 }
 
 function handleLabelsTap() {
+	labelsPublishMode = false;
 	labelsModalOpen = true;
 }
 
@@ -111,7 +114,7 @@ async function handleFileChange(e) {
 	inputEl.value = '';
 }
 
-async function handlePublish() {
+async function doPublish() {
 	if (!titleValue.trim() || submitting) return;
 	submitting = true;
 	error = '';
@@ -137,6 +140,22 @@ async function handlePublish() {
 	}
 }
 
+async function handlePublish() {
+	if (!titleValue.trim() || submitting) return;
+	if (selectedLabels.length === 0) {
+		labelsPublishMode = true;
+		labelsModalOpen = true;
+		return;
+	}
+	await doPublish();
+}
+
+async function handleLabelsPublish() {
+	labelsPublishMode = false;
+	labelsModalOpen = false;
+	await doPublish();
+}
+
 $effect(() => {
 	if (isOpen) {
 		const t = setTimeout(() => titleInput?.focus(), 80);
@@ -149,6 +168,7 @@ $effect(() => {
 		labelsModalOpen = false;
 		insertModalOpen = false;
 		selectedLabels = [];
+		labelsPublishMode = false;
 	}
 });
 </script>
@@ -217,22 +237,22 @@ $effect(() => {
 						<Plus variant="outline" color="hsl(var(--white33))" size={16} strokeWidth={2.8} />
 					</button>
 					<button
-						type="button"
-						class="labels-trigger"
-						class:has-labels={selectedLabels.length > 0}
-						onclick={handleLabelsTap}
-						aria-label="Add labels"
-					>
-						<span class="labels-trigger-body">
-							<span class="trigger-count">{selectedLabels.length}</span>
-							<span class="trigger-text">Label{selectedLabels.length === 1 ? '' : 's'}</span>
-						</span>
-						<!-- Triangle tip matching the label shape, same intrinsic size (no horizontal squish) -->
-						<svg class="labels-trigger-tip" width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-							<path d="M0 0 L4 0 Q9 2 14 6 Q19 10 23 14 Q23.5 16 23 18 Q19 22 14 26 Q9 30 4 32 L0 32 Z" fill="var(--trigger-bg)" />
-						</svg>
-					</button>
-				</div>
+					type="button"
+					class="labels-trigger"
+					class:has-labels={selectedLabels.length > 0}
+					onclick={handleLabelsTap}
+					aria-label="Add labels"
+				>
+					<span class="labels-trigger-body">
+						<span class="trigger-count">{selectedLabels.length}</span>
+						<span class="trigger-text">Label{selectedLabels.length === 1 ? '' : 's'}</span>
+					</span>
+					<!-- Triangle tip matching the label shape, same intrinsic size (no horizontal squish) -->
+					<svg class="labels-trigger-tip" width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+						<path d="M0 0 L4 0 Q9 2 14 6 Q19 10 23 14 Q23.5 16 23 18 Q19 22 14 26 Q9 30 4 32 L0 32 Z" fill="var(--trigger-bg)" />
+					</svg>
+				</button>
+				</div><!-- end action-buttons-left -->
 				<button
 					type="button"
 					class="next-btn"
@@ -261,7 +281,10 @@ $effect(() => {
 	bind:isOpen={labelsModalOpen}
 	bind:selectedLabels
 	suggestions={FORUM_CATEGORIES}
-	onclose={() => { labelsModalOpen = false; }}
+	publishMode={labelsPublishMode}
+	header={labelsPublishMode ? "Don't forget some Labels!" : ''}
+	onPublish={handleLabelsPublish}
+	onclose={() => { labelsModalOpen = false; labelsPublishMode = false; }}
 />
 
 <InsertModal
