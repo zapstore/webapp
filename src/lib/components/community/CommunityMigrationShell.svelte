@@ -1,49 +1,71 @@
 <script>
 	/**
-	 * Migration tab — helps developers migrate legacy apps (1063 → 3063).
-	 * Only visible to signed-in users who have legacy apps.
+	 * Migration tab — helps developers migrate:
+	 * - Legacy apps (1063 → 3063)
+	 * - Stacks missing h/f tags
 	 */
 	import { browser } from '$app/environment';
 	import { getCurrentPubkey, getIsSignedIn, signEvent } from '$lib/stores/auth.svelte.js';
 	import { fetchFromRelays, putEvents, publishToRelays } from '$lib/nostr';
-	import { parseApp } from '$lib/nostr/models.js';
-	import { isLegacyRelease, migrateApp } from '$lib/nostr/migration';
+	import { parseApp, parseAppStack } from '$lib/nostr/models.js';
+	import {
+		isLegacyRelease,
+		migrateApp,
+		stackNeedsMigration,
+		getStackMissingTags,
+		migrateStack
+	} from '$lib/nostr/migration';
 	import { DEFAULT_CATALOG_RELAYS, EVENT_KINDS, PLATFORM_FILTER } from '$lib/config.js';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 
 	/** @typedef {{ app: any, release: any, artifacts: any[], parsed: any }} LegacyAppData */
+	/** @typedef {{ event: any, parsed: any, missingH: boolean, missingF: boolean }} LegacyStackData */
 
-	let loading = $state(true);
-	let error = $state(/** @type {string | null} */ (null));
+	// ─── App Migration State ───────────────────────────────────────────────────
+	let appLoading = $state(true);
+	let appError = $state(/** @type {string | null} */ (null));
 	/** @type {LegacyAppData[]} */
 	let legacyApps = $state([]);
 	/** @type {Set<string>} */
-	let migratingIds = $state(new Set());
+	let appMigratingIds = $state(new Set());
 	/** @type {Set<string>} */
-	let migratedIds = $state(new Set());
+	let appMigratedIds = $state(new Set());
 	/** @type {Map<string, string>} */
-	let migrationErrors = $state(new Map());
+	let appMigrationErrors = $state(new Map());
+
+	// ─── Stack Migration State ─────────────────────────────────────────────────
+	let stackLoading = $state(true);
+	let stackError = $state(/** @type {string | null} */ (null));
+	/** @type {LegacyStackData[]} */
+	let legacyStacks = $state([]);
+	/** @type {Set<string>} */
+	let stackMigratingIds = $state(new Set());
+	/** @type {Set<string>} */
+	let stackMigratedIds = $state(new Set());
+	/** @type {Map<string, string>} */
+	let stackMigrationErrors = $state(new Map());
 
 	const pubkey = $derived(getCurrentPubkey());
 	const isSignedIn = $derived(getIsSignedIn());
 
+	// ─── App Detection Effect ──────────────────────────────────────────────────
 	$effect(() => {
 		if (!browser || !isSignedIn || !pubkey) {
-			loading = false;
+			appLoading = false;
 			return;
 		}
 
 		let cancelled = false;
 
 		(async () => {
-			loading = true;
-			error = null;
+			appLoading = true;
+			appError = null;
 
 			try {
 				const apps = await fetchFromRelays(
 					DEFAULT_CATALOG_RELAYS,
 					{ kinds: [EVENT_KINDS.APP], authors: [pubkey], ...PLATFORM_FILTER, limit: 100 },
-					{ timeout: 10000, feature: 'migration-detect' }
+					{ timeout: 10000, feature: 'migration-detect-apps' }
 				);
 
 				if (cancelled) return;
@@ -69,7 +91,9 @@
 					if (!releases.length) continue;
 
 					const release = releases[0];
-					const artifactIds = release.tags.filter((t) => t[0] === 'e' || t[0] === 'E').map((t) => t[1]);
+					const artifactIds = release.tags
+						.filter((t) => t[0] === 'e' || t[0] === 'E')
+						.map((t) => t[1]);
 					if (!artifactIds.length) continue;
 
 					const artifacts = await fetchFromRelays(
@@ -96,11 +120,11 @@
 				}
 			} catch (e) {
 				if (!cancelled) {
-					error = e instanceof Error ? e.message : String(e);
+					appError = e instanceof Error ? e.message : String(e);
 				}
 			} finally {
 				if (!cancelled) {
-					loading = false;
+					appLoading = false;
 				}
 			}
 		})();
@@ -110,10 +134,66 @@
 		};
 	});
 
-	async function handleMigrate(data) {
+	// ─── Stack Detection Effect ────────────────────────────────────────────────
+	$effect(() => {
+		if (!browser || !isSignedIn || !pubkey) {
+			stackLoading = false;
+			return;
+		}
+
+		let cancelled = false;
+
+		(async () => {
+			stackLoading = true;
+			stackError = null;
+
+			try {
+				const stacks = await fetchFromRelays(
+					DEFAULT_CATALOG_RELAYS,
+					{ kinds: [EVENT_KINDS.APP_STACK], authors: [pubkey], limit: 100 },
+					{ timeout: 10000, feature: 'migration-detect-stacks' }
+				);
+
+				if (cancelled) return;
+
+				const legacy = [];
+
+				for (const stack of stacks) {
+					if (stackNeedsMigration(stack)) {
+						const { missingH, missingF } = getStackMissingTags(stack);
+						legacy.push({
+							event: stack,
+							parsed: parseAppStack(stack),
+							missingH,
+							missingF
+						});
+					}
+				}
+
+				if (!cancelled) {
+					legacyStacks = legacy;
+				}
+			} catch (e) {
+				if (!cancelled) {
+					stackError = e instanceof Error ? e.message : String(e);
+				}
+			} finally {
+				if (!cancelled) {
+					stackLoading = false;
+				}
+			}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	// ─── App Migration Handlers ────────────────────────────────────────────────
+	async function handleMigrateApp(data) {
 		const appId = data.app.id;
-		migratingIds = new Set([...migratingIds, appId]);
-		migrationErrors = new Map([...migrationErrors].filter(([k]) => k !== appId));
+		appMigratingIds = new Set([...appMigratingIds, appId]);
+		appMigrationErrors = new Map([...appMigrationErrors].filter(([k]) => k !== appId));
 
 		try {
 			const result = await migrateApp(
@@ -126,62 +206,119 @@
 			);
 
 			if (result.success) {
-				migratedIds = new Set([...migratedIds, appId]);
+				appMigratedIds = new Set([...appMigratedIds, appId]);
 			} else {
-				migrationErrors = new Map([...migrationErrors, [appId, result.error || 'Unknown error']]);
+				appMigrationErrors = new Map([
+					...appMigrationErrors,
+					[appId, result.error || 'Unknown error']
+				]);
 			}
 		} catch (e) {
-			migrationErrors = new Map([
-				...migrationErrors,
+			appMigrationErrors = new Map([
+				...appMigrationErrors,
 				[appId, e instanceof Error ? e.message : String(e)]
 			]);
 		} finally {
-			migratingIds = new Set([...migratingIds].filter((id) => id !== appId));
+			appMigratingIds = new Set([...appMigratingIds].filter((id) => id !== appId));
 		}
 	}
 
-	async function handleMigrateAll() {
+	async function handleMigrateAllApps() {
 		for (const data of legacyApps) {
-			if (!migratedIds.has(data.app.id)) {
-				await handleMigrate(data);
+			if (!appMigratedIds.has(data.app.id)) {
+				await handleMigrateApp(data);
 			}
 		}
 	}
 
-	const pendingApps = $derived(legacyApps.filter((d) => !migratedIds.has(d.app.id)));
-	const allMigrated = $derived(legacyApps.length > 0 && pendingApps.length === 0);
+	// ─── Stack Migration Handlers ──────────────────────────────────────────────
+	async function handleMigrateStack(data) {
+		const stackId = data.event.id;
+		stackMigratingIds = new Set([...stackMigratingIds, stackId]);
+		stackMigrationErrors = new Map([...stackMigrationErrors].filter(([k]) => k !== stackId));
+
+		try {
+			const result = await migrateStack(data.event, signEvent, async (event) => {
+				await publishToRelays(DEFAULT_CATALOG_RELAYS, event);
+				await putEvents([event]);
+			});
+
+			if (result.success) {
+				stackMigratedIds = new Set([...stackMigratedIds, stackId]);
+			} else {
+				stackMigrationErrors = new Map([
+					...stackMigrationErrors,
+					[stackId, result.error || 'Unknown error']
+				]);
+			}
+		} catch (e) {
+			stackMigrationErrors = new Map([
+				...stackMigrationErrors,
+				[stackId, e instanceof Error ? e.message : String(e)]
+			]);
+		} finally {
+			stackMigratingIds = new Set([...stackMigratingIds].filter((id) => id !== stackId));
+		}
+	}
+
+	async function handleMigrateAllStacks() {
+		for (const data of legacyStacks) {
+			if (!stackMigratedIds.has(data.event.id)) {
+				await handleMigrateStack(data);
+			}
+		}
+	}
+
+	// ─── Derived State ─────────────────────────────────────────────────────────
+	const loading = $derived(appLoading || stackLoading);
+	const pendingApps = $derived(legacyApps.filter((d) => !appMigratedIds.has(d.app.id)));
+	const pendingStacks = $derived(legacyStacks.filter((d) => !stackMigratedIds.has(d.event.id)));
+	const hasLegacyApps = $derived(legacyApps.length > 0);
+	const hasLegacyStacks = $derived(legacyStacks.length > 0);
+	const allAppsMigrated = $derived(hasLegacyApps && pendingApps.length === 0);
+	const allStacksMigrated = $derived(hasLegacyStacks && pendingStacks.length === 0);
+	const allMigrated = $derived(
+		(!hasLegacyApps || allAppsMigrated) && (!hasLegacyStacks || allStacksMigrated)
+	);
+	const nothingToMigrate = $derived(!hasLegacyApps && !hasLegacyStacks);
+
+	function getMissingTagsLabel(data) {
+		if (data.missingH && data.missingF) return 'Missing h, f tags';
+		if (data.missingH) return 'Missing h tag';
+		if (data.missingF) return 'Missing f tag';
+		return '';
+	}
 </script>
 
 <div class="migration-shell">
 	{#if !isSignedIn}
 		<div class="empty-state">
-			<p class="empty-text">Sign in to check for legacy apps that need migration.</p>
+			<p class="empty-text">Sign in to check for apps and stacks that need migration.</p>
 		</div>
 	{:else if loading}
 		<div class="empty-state">
-			<p class="empty-text">Checking for legacy apps…</p>
+			<p class="empty-text">Checking for items that need migration…</p>
 		</div>
-	{:else if error}
+	{:else if appError || stackError}
 		<div class="empty-state">
-			<p class="error-text">Error: {error}</p>
+			<p class="error-text">Error: {appError || stackError}</p>
 		</div>
-	{:else if legacyApps.length === 0}
+	{:else if nothingToMigrate}
 		<div class="empty-state">
 			<div class="empty-icon">✓</div>
 			<p class="empty-title">No Migration Needed</p>
-			<p class="empty-text">All your apps use the modern event format.</p>
+			<p class="empty-text">All your apps and stacks are up to date.</p>
 		</div>
 	{:else if allMigrated}
 		<div class="success-state">
 			<div class="success-icon">✓</div>
 			<p class="success-title">Migration Complete</p>
-			<p class="success-text">All your apps have been migrated to the modern format.</p>
+			<p class="success-text">All your apps and stacks have been migrated.</p>
 
 			<div class="zsp-section">
 				<h3 class="zsp-title">For Ongoing Publishing</h3>
 				<p class="zsp-text">
-					Use <strong>zsp</strong> — the Zapstore CLI — to publish future releases. It handles APK
-					fetching, metadata enrichment, and Nostr signing automatically.
+					Use <strong>zsp</strong> — the Zapstore CLI — to publish future releases.
 				</p>
 				<div class="zsp-install">
 					<code>go install github.com/zapstore/zsp@latest</code>
@@ -191,83 +328,183 @@
 		</div>
 	{:else}
 		<div class="migration-content">
-			<div class="migration-header">
-				<div class="header-text">
-					<h2 class="header-title">App Migration</h2>
-					<p class="header-description">
-						{pendingApps.length} app{pendingApps.length === 1 ? '' : 's'} use the legacy event format
-						(kind 1063). The relay now requires the modern format (kind 3063). Migrate to ensure
-						your apps remain visible.
-					</p>
-				</div>
-				{#if pendingApps.length > 1}
-				<button type="button" class="btn-primary migrate-all-btn" onclick={handleMigrateAll}>
-					Migrate All
-				</button>
-				{/if}
-			</div>
-
-			<div class="app-list">
-				{#each legacyApps as data (data.app.id)}
-					{@const isMigrating = migratingIds.has(data.app.id)}
-					{@const isMigrated = migratedIds.has(data.app.id)}
-					{@const migrationError = migrationErrors.get(data.app.id)}
-
-					<div class="app-card" class:migrated={isMigrated}>
-						<div class="app-icon">
-							<AppPic icon={data.parsed.icon} name={data.parsed.name} size={48} />
-						</div>
-						<div class="app-info">
-							<span class="app-name">{data.parsed.name}</span>
-							<span class="app-version">v{data.release.tags.find((t) => t[0] === 'version')?.[1] || data.release.tags.find((t) => t[0] === 'd')?.[1]?.split('@')[1] || '?'}</span>
-							<span class="app-artifacts">{data.artifacts.length} artifact{data.artifacts.length === 1 ? '' : 's'}</span>
-						</div>
-						<div class="app-status">
-							{#if isMigrated}
-								<span class="status-badge status-migrated">✓ Migrated</span>
-							{:else if isMigrating}
-								<span class="status-badge status-migrating">Migrating…</span>
-							{:else if migrationError}
-								<div class="status-error">
-									<span class="status-badge status-failed">Failed</span>
-									<span class="error-message">{migrationError}</span>
-								</div>
+			<!-- ═══════════════════════════════════════════════════════════════════ -->
+			<!-- APP MIGRATION SECTION -->
+			<!-- ═══════════════════════════════════════════════════════════════════ -->
+			{#if hasLegacyApps}
+				<section class="migration-section">
+					<div class="migration-header">
+						<div class="header-text">
+							<h2 class="header-title">📦 App Migration</h2>
+							{#if allAppsMigrated}
+								<p class="header-description success-description">
+									✓ All {legacyApps.length} app{legacyApps.length === 1 ? '' : 's'} migrated
+								</p>
 							{:else}
-								<span class="status-badge status-legacy">Legacy</span>
+								<p class="header-description">
+									{pendingApps.length} app{pendingApps.length === 1 ? '' : 's'} use the legacy event
+									format (kind 1063). Migrate to the modern format (kind 3063).
+								</p>
 							{/if}
 						</div>
-						<div class="app-actions">
-							{#if !isMigrated}
-							<button
-								type="button"
-								class="btn-secondary migrate-btn"
-								disabled={isMigrating}
-								onclick={() => handleMigrate(data)}
-							>
-								{isMigrating ? 'Migrating…' : 'Migrate'}
+						{#if pendingApps.length > 1}
+							<button type="button" class="migrate-all-btn" onclick={handleMigrateAllApps}>
+								Migrate All
 							</button>
+						{/if}
+					</div>
+
+					<div class="item-list">
+						{#each legacyApps as data (data.app.id)}
+							{@const isMigrating = appMigratingIds.has(data.app.id)}
+							{@const isMigrated = appMigratedIds.has(data.app.id)}
+							{@const migrationError = appMigrationErrors.get(data.app.id)}
+
+							<div class="item-card" class:migrated={isMigrated}>
+								<div class="item-icon">
+									<AppPic icon={data.parsed.icon} name={data.parsed.name} size={44} />
+								</div>
+								<div class="item-info">
+									<span class="item-name">{data.parsed.name}</span>
+									<span class="item-meta"
+										>v{data.release.tags.find((t) => t[0] === 'version')?.[1] ||
+											data.release.tags.find((t) => t[0] === 'd')?.[1]?.split('@')[1] ||
+											'?'} • {data.artifacts.length} artifact{data.artifacts.length === 1
+											? ''
+											: 's'}</span
+									>
+								</div>
+								<div class="item-status">
+									{#if isMigrated}
+										<span class="status-badge status-migrated">✓ Migrated</span>
+									{:else if isMigrating}
+										<span class="status-badge status-migrating">Migrating…</span>
+									{:else if migrationError}
+										<div class="status-error">
+											<span class="status-badge status-failed">Failed</span>
+											<span class="error-message">{migrationError}</span>
+										</div>
+									{:else}
+										<span class="status-badge status-legacy">Legacy</span>
+									{/if}
+								</div>
+								<div class="item-actions">
+									{#if !isMigrated}
+										<button
+											type="button"
+											class="migrate-btn"
+											disabled={isMigrating}
+											onclick={() => handleMigrateApp(data)}
+										>
+											{isMigrating ? 'Migrating…' : 'Migrate'}
+										</button>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
+			<!-- ═══════════════════════════════════════════════════════════════════ -->
+			<!-- STACK MIGRATION SECTION -->
+			<!-- ═══════════════════════════════════════════════════════════════════ -->
+			{#if hasLegacyStacks}
+				<section class="migration-section">
+					<div class="migration-header">
+						<div class="header-text">
+							<h2 class="header-title">📚 Stack Migration</h2>
+							{#if allStacksMigrated}
+								<p class="header-description success-description">
+									✓ All {legacyStacks.length} stack{legacyStacks.length === 1 ? '' : 's'} migrated
+								</p>
+							{:else}
+								<p class="header-description">
+									{pendingStacks.length} stack{pendingStacks.length === 1 ? '' : 's'} need community
+									and platform tags to be discoverable.
+								</p>
 							{/if}
 						</div>
+						{#if pendingStacks.length > 1}
+							<button type="button" class="migrate-all-btn" onclick={handleMigrateAllStacks}>
+								Migrate All
+							</button>
+						{/if}
 					</div>
-				{/each}
-			</div>
 
+					<div class="item-list">
+						{#each legacyStacks as data (data.event.id)}
+							{@const isMigrating = stackMigratingIds.has(data.event.id)}
+							{@const isMigrated = stackMigratedIds.has(data.event.id)}
+							{@const migrationError = stackMigrationErrors.get(data.event.id)}
+
+							<div class="item-card" class:migrated={isMigrated}>
+								<div class="item-icon stack-icon">📚</div>
+								<div class="item-info">
+									<span class="item-name">{data.parsed.title || data.parsed.dTag}</span>
+									<span class="item-meta"
+										>{data.parsed.appRefs?.length || 0} app{(data.parsed.appRefs?.length || 0) === 1
+											? ''
+											: 's'}</span
+									>
+								</div>
+								<div class="item-status">
+									{#if isMigrated}
+										<span class="status-badge status-migrated">✓ Migrated</span>
+									{:else if isMigrating}
+										<span class="status-badge status-migrating">Migrating…</span>
+									{:else if migrationError}
+										<div class="status-error">
+											<span class="status-badge status-failed">Failed</span>
+											<span class="error-message">{migrationError}</span>
+										</div>
+									{:else}
+										<span class="status-badge status-legacy">{getMissingTagsLabel(data)}</span>
+									{/if}
+								</div>
+								<div class="item-actions">
+									{#if !isMigrated}
+										<button
+											type="button"
+											class="migrate-btn"
+											disabled={isMigrating}
+											onclick={() => handleMigrateStack(data)}
+										>
+											{isMigrating ? 'Migrating…' : 'Migrate'}
+										</button>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
+			<!-- ═══════════════════════════════════════════════════════════════════ -->
+			<!-- INFO + ZSP SECTION -->
+			<!-- ═══════════════════════════════════════════════════════════════════ -->
 			<div class="info-section">
 				<h3 class="info-title">What happens during migration?</h3>
 				<ul class="info-list">
-					<li>New asset events (kind 3063) are created from your existing files</li>
-					<li>New release events (kind 30063) reference the new assets</li>
-					<li>Your app event is updated with the new release</li>
+					{#if hasLegacyApps && !allAppsMigrated}
+						<li>
+							<strong>Apps:</strong> New asset events (kind 3063) replace legacy file events (kind 1063)
+						</li>
+					{/if}
+					{#if hasLegacyStacks && !allStacksMigrated}
+						<li>
+							<strong>Stacks:</strong> Community (h) and platform (f) tags are added for discoverability
+						</li>
+					{/if}
 					<li>All events are signed with your browser extension</li>
-					<li>Legacy events remain on relay for historical reference</li>
+					<li>Original timestamps are preserved</li>
 				</ul>
 			</div>
 
 			<div class="zsp-section">
 				<h3 class="zsp-title">For Ongoing Publishing</h3>
 				<p class="zsp-text">
-					After migration, use <strong>zsp</strong> — the Zapstore CLI — to publish future releases.
-					It generates modern events automatically.
+					Use <strong>zsp</strong> — the Zapstore CLI — to publish future releases.
 				</p>
 				<div class="zsp-install">
 					<code>go install github.com/zapstore/zsp@latest</code>
@@ -337,12 +574,21 @@
 		margin: 0 auto;
 	}
 
+	.migration-section {
+		margin-bottom: 32px;
+	}
+
+	.migration-section + .migration-section {
+		padding-top: 24px;
+		border-top: 1px solid hsl(var(--border));
+	}
+
 	.migration-header {
 		display: flex;
 		align-items: flex-start;
 		justify-content: space-between;
 		gap: 16px;
-		margin-bottom: 24px;
+		margin-bottom: 16px;
 	}
 
 	.header-text {
@@ -350,20 +596,24 @@
 	}
 
 	.header-title {
-		font-size: 18px;
+		font-size: 16px;
 		font-weight: 600;
 		color: hsl(var(--foreground));
-		margin: 0 0 8px;
+		margin: 0 0 6px;
 	}
 
 	.header-description {
-		font-size: 14px;
+		font-size: 13px;
 		color: hsl(var(--white66));
 		margin: 0;
 		line-height: 1.5;
 	}
 
 	/* Align the global btn class to the flex row */
+	.success-description {
+		color: hsl(142 71% 45%);
+	}
+
 	.migrate-all-btn {
 		flex-shrink: 0;
 	}
@@ -374,14 +624,13 @@
 		cursor: not-allowed;
 	}
 
-	.app-list {
+	.item-list {
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		margin-bottom: 32px;
 	}
 
-	.app-card {
+	.item-card {
 		display: flex;
 		align-items: center;
 		gap: 12px;
@@ -390,15 +639,26 @@
 		border-radius: 12px;
 	}
 
-	.app-card.migrated {
+	.item-card.migrated {
 		opacity: 0.6;
 	}
 
-	.app-icon {
+	.item-icon {
 		flex-shrink: 0;
 	}
 
-	.app-info {
+	.stack-icon {
+		width: 44px;
+		height: 44px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 24px;
+		background: hsl(var(--white8));
+		border-radius: 10px;
+	}
+
+	.item-info {
 		flex: 1;
 		min-width: 0;
 		display: flex;
@@ -406,7 +666,7 @@
 		gap: 2px;
 	}
 
-	.app-name {
+	.item-name {
 		font-size: 14px;
 		font-weight: 600;
 		color: hsl(var(--foreground));
@@ -415,13 +675,12 @@
 		text-overflow: ellipsis;
 	}
 
-	.app-version,
-	.app-artifacts {
+	.item-meta {
 		font-size: 12px;
 		color: hsl(var(--white50));
 	}
 
-	.app-status {
+	.item-status {
 		flex-shrink: 0;
 	}
 
@@ -467,7 +726,7 @@
 		text-align: right;
 	}
 
-	.app-actions {
+	.item-actions {
 		flex-shrink: 0;
 	}
 
@@ -497,6 +756,10 @@
 		font-size: 13px;
 		color: hsl(var(--white66));
 		line-height: 1.4;
+	}
+
+	.info-list strong {
+		color: hsl(var(--foreground));
 	}
 
 	.zsp-section {
@@ -558,17 +821,17 @@
 			width: 100%;
 		}
 
-		.app-card {
+		.item-card {
 			flex-wrap: wrap;
 		}
 
-		.app-status {
+		.item-status {
 			order: 4;
 			width: 100%;
 			margin-top: 8px;
 		}
 
-		.app-actions {
+		.item-actions {
 			order: 3;
 			margin-left: auto;
 		}

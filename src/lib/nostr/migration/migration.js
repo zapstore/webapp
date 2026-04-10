@@ -134,6 +134,9 @@ export function transformFile1063ToAsset3063(file1063, appDTag) {
  * - Replaces 'e' tags with new asset IDs
  * - Removes legacy 'a' tag (app reference)
  *
+ * Note: created_at is incremented by 1 second so relays accept the replacement
+ * (replaceable events require strictly newer timestamp).
+ *
  * @param {import('nostr-tools').NostrEvent} legacyRelease - Legacy release event
  * @param {string} appDTag - App identifier (d tag value)
  * @param {string[]} newAssetIds - IDs of the newly created 3063 assets
@@ -145,7 +148,7 @@ export function transformLegacyRelease(legacyRelease, appDTag, newAssetIds) {
 
 	return {
 		kind: 30063,
-		created_at: legacyRelease.created_at,
+		created_at: legacyRelease.created_at + 1,
 		tags: [
 			['i', appDTag],
 			['version', version],
@@ -161,6 +164,9 @@ export function transformLegacyRelease(legacyRelease, appDTag, newAssetIds) {
  * Update app event template with new release reference.
  * Does NOT sign - returns unsigned template.
  *
+ * Note: created_at is incremented by 1 second so relays accept the replacement
+ * (replaceable events require strictly newer timestamp).
+ *
  * @param {import('nostr-tools').NostrEvent} app - Original app event
  * @param {string} version - New release version
  * @returns {{ kind: number, tags: string[][], content: string }}
@@ -170,7 +176,7 @@ export function updateAppWithNewRelease(app, version) {
 
 	return {
 		kind: 32267,
-		created_at: app.created_at,
+		created_at: app.created_at + 1,
 		tags: app.tags.map((t) => {
 			if (t[0] === 'a' && t[1]?.startsWith('30063:')) {
 				return ['a', `30063:${app.pubkey}:${appDTag}@${version}`];
