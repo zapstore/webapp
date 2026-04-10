@@ -16,6 +16,7 @@
 	import { fetchFromRelays, queryEvents, putEvents } from '$lib/nostr';
 	import CommunityForumShell from '$lib/components/community/CommunityForumShell.svelte';
 	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
+	import CommunityMigrationShell from '$lib/components/community/CommunityMigrationShell.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import DetailsTab from '$lib/components/social/DetailsTab.svelte';
 
@@ -85,6 +86,12 @@
 					label: 'Activity',
 					icon: '/images/emoji/activity.png',
 					href: '/community/activity'
+				},
+				{
+					id: 'migration',
+					label: 'Migration',
+					icon: '/images/emoji/repo.png',
+					href: '/community/migration'
 				}
 			]
 		: [
@@ -93,6 +100,12 @@
 					label: 'Support',
 					icon: '/images/emoji/activity.png',
 					href: '/community/support'
+				},
+				{
+					id: 'migration',
+					label: 'Migration',
+					icon: '/images/emoji/repo.png',
+					href: '/community/migration'
 				}
 			];
 
@@ -104,13 +117,21 @@
 	const isCommunityActivity = $derived(
 		path === '/community/activity' || path.startsWith('/community/activity/')
 	);
+	const isCommunityMigration = $derived(
+		path === '/community/migration' || path.startsWith('/community/migration/')
+	);
 	let forumShellMounted = $state(false);
 	let activityShellMounted = $state(false);
+	let migrationShellMounted = $state(false);
 
 	$effect(() => {
 		if (!COMMUNITY_FORUM_AND_ACTIVITY_ENABLED) return;
 		if (isCommunityForumFeed) forumShellMounted = true;
 		if (isCommunityActivity) activityShellMounted = true;
+	});
+
+	$effect(() => {
+		if (isCommunityMigration) migrationShellMounted = true;
 	});
 
 	const activeSection = $derived(
@@ -120,7 +141,9 @@
 				? 'support'
 				: path.startsWith('/community/activity')
 					? 'activity'
-					: defaultSectionId
+					: path.startsWith('/community/migration')
+						? 'migration'
+						: defaultSectionId
 	);
 	const activeSectionLabel = $derived(
 		SECTIONS.find((s) => s.id === activeSection)?.label ??
@@ -144,7 +167,8 @@
 	}
 
 	const hideOutletForShell = $derived(
-		COMMUNITY_FORUM_AND_ACTIVITY_ENABLED && (isCommunityForumFeed || isCommunityActivity)
+		(COMMUNITY_FORUM_AND_ACTIVITY_ENABLED && (isCommunityForumFeed || isCommunityActivity)) ||
+			isCommunityMigration
 	);
 </script>
 
@@ -294,6 +318,15 @@
 						<CommunityActivityShell />
 					</div>
 				{/if}
+			{/if}
+			{#if migrationShellMounted}
+				<div
+					class="community-shell-panel"
+					class:community-shell-panel--active={isCommunityMigration}
+					aria-hidden={!isCommunityMigration}
+				>
+					<CommunityMigrationShell />
+				</div>
 			{/if}
 			<div class="community-route-outlet" class:community-route-outlet--hidden={hideOutletForShell}>
 				{@render children()}
