@@ -3,10 +3,72 @@
 	 * Community layout — sidebar + content. Section derived from URL.
 	 */
 	import { page } from '$app/stores';
+	import { browser } from '$app/environment';
+	import { nip19 } from 'nostr-tools';
 	import { ChevronDown } from '$lib/components/icons';
 	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
+	import {
+		ZAPSTORE_COMMUNITY_PUBKEY,
+		ZAPSTORE_COMMUNITY_NPUB,
+		EVENT_KINDS,
+		FORUM_RELAY
+	} from '$lib/config.js';
+	import { fetchFromRelays, queryEvents, putEvents } from '$lib/nostr';
 	import CommunityForumShell from '$lib/components/community/CommunityForumShell.svelte';
 	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
+	import Modal from '$lib/components/common/Modal.svelte';
+	import DetailsTab from '$lib/components/social/DetailsTab.svelte';
+
+	let detailsModalOpen = $state(false);
+	let termsModalOpen = $state(false);
+
+	// ── Community Details modal data ─────────────────────────────────────────
+	let communityEvent = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
+	let communityDetailsLoading = $state(false);
+
+	const communityNevent = $derived.by(() => {
+		if (!communityEvent?.id) return '';
+		try {
+			return nip19.neventEncode({
+				id: communityEvent.id,
+				kind: EVENT_KINDS.COMMUNITY,
+				author: communityEvent.pubkey,
+				relays: [FORUM_RELAY]
+			});
+		} catch { return ''; }
+	});
+
+	$effect(() => {
+		if (!browser || !detailsModalOpen) return;
+		let cancelled = false;
+		communityDetailsLoading = true;
+
+		(async () => {
+			try {
+				let [ev] = await queryEvents({
+					kinds: [EVENT_KINDS.COMMUNITY],
+					authors: [ZAPSTORE_COMMUNITY_PUBKEY],
+					limit: 1
+				});
+				if (!ev) {
+					const evs = await fetchFromRelays(
+						[FORUM_RELAY],
+						{ kinds: [EVENT_KINDS.COMMUNITY], authors: [ZAPSTORE_COMMUNITY_PUBKEY], limit: 1 },
+						{ timeout: 5000, feature: 'community-details' }
+					);
+					ev = evs[0] ?? null;
+					if (ev) await putEvents([ev]);
+				}
+				if (!cancelled) communityEvent = ev ?? null;
+			} catch (e) {
+				console.warn('[Community] Details modal load failed:', e);
+			} finally {
+				if (!cancelled) communityDetailsLoading = false;
+			}
+		})();
+
+		return () => { cancelled = true; };
+	});
 
 	let { children } = $props();
 
@@ -159,7 +221,58 @@
 					</a>
 				{/each}
 			</nav>
+
+			<!-- Community section — pinned to bottom of sidebar -->
+			<div class="sidebar-section">
+				<span class="eyebrow-label section-eyebrow">Community</span>
+				<button type="button" class="nav-item" onclick={() => (detailsModalOpen = true)}>
+					<span class="nav-label">Details</span>
+				</button>
+				<button type="button" class="nav-item" onclick={() => (termsModalOpen = true)}>
+					<span class="nav-label">Terms of Service</span>
+				</button>
+			</div>
 		</aside>
+
+		<Modal bind:open={detailsModalOpen} title="Details" ariaLabel="Community details" align="bottom" wide>
+			<div class="modal-sheet-body">
+				{#if communityDetailsLoading && !communityEvent}
+					<p class="modal-sheet-loading">Loading…</p>
+				{:else}
+					<DetailsTab
+						shareableId={communityNevent}
+						publicationLabel="Community"
+						npub={ZAPSTORE_COMMUNITY_NPUB}
+						pubkey={ZAPSTORE_COMMUNITY_PUBKEY}
+						rawData={communityEvent}
+						panelBackground="black33"
+					/>
+				{/if}
+			</div>
+		</Modal>
+
+		<Modal bind:open={termsModalOpen} title="Terms of Service" ariaLabel="Terms of service" align="bottom" wide>
+			<div class="modal-sheet-body">
+				<ol class="tos-list">
+					<li>
+						<strong>Be respectful.</strong>
+						<span>No harassment, hate speech, or personal attacks.</span>
+					</li>
+					<li>
+						<strong>Stay on topic.</strong>
+						<span>Posts should relate to apps, Nostr, or open-source software.</span>
+					</li>
+					<li>
+						<strong>No spam.</strong>
+						<span>No repeated posts, unsolicited promotions, or low-effort content.</span>
+					</li>
+					<li>
+						<strong>No illegal content.</strong>
+						<span>Do not share anything unlawful or harmful.</span>
+					</li>
+				</ol>
+			</div>
+		</Modal>
 
 		<div class="content right-page-viewport">
 			{#if COMMUNITY_FORUM_AND_ACTIVITY_ENABLED}
@@ -331,6 +444,8 @@
 		padding: 12px;
 		display: flex;
 		flex-direction: column;
+		min-height: 0;
+		overflow: hidden;
 	}
 
 	@media (max-width: 767px) {
@@ -343,6 +458,29 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
+		flex-shrink: 0;
+	}
+
+	/* About section — pushed to bottom with full-width divider */
+	.sidebar-section {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		flex-shrink: 0;
+		margin-top: auto;
+		margin-left: -12px;
+		margin-right: -12px;
+		padding-top: 16px;
+		padding-left: 12px;
+		padding-right: 12px;
+		border-top: 1px solid hsl(var(--border));
+	}
+
+	.section-eyebrow {
+		padding: 0 10px;
+		margin-bottom: 4px;
+		color: hsl(var(--white33));
+		display: block;
 	}
 
 	.nav-item {
@@ -459,5 +597,53 @@
 			/* Match studio: mobile thread modals must cover the full screen (section switcher is z-90). */
 			transform: none;
 		}
+	}
+
+	/* ── Shared bottom-sheet modal body (Details + Terms) ────────────────── */
+	.modal-sheet-body {
+		padding: 12px 12px 20px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	@media (max-width: 767px) {
+		.modal-sheet-body {
+			padding: 16px 16px max(20px, env(safe-area-inset-bottom, 0px));
+		}
+	}
+
+	.modal-sheet-loading {
+		margin: 8px 0;
+		font-size: 14px;
+		color: hsl(var(--white33));
+		text-align: center;
+	}
+
+	.tos-list {
+		margin: 0;
+		padding-left: 20px;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+
+	.tos-list li {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+
+	.tos-list strong {
+		font-size: 1rem;
+		font-weight: 650;
+		color: hsl(var(--foreground));
+		line-height: 1.3;
+	}
+
+	.tos-list span {
+		font-size: 0.9375rem;
+		color: hsl(var(--white66));
+		line-height: 1.55;
 	}
 </style>
