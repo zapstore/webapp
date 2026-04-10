@@ -328,72 +328,157 @@
 		</div>
 	{:else}
 		<div class="migration-content">
-			<div class="migration-header">
-				<div class="header-text">
-					<h2 class="header-title">App Migration</h2>
-					<p class="header-description">
-						{pendingApps.length} app{pendingApps.length === 1 ? '' : 's'} use the legacy event format
-						(kind 1063). The relay now requires the modern format (kind 3063). Migrate to ensure your
-						apps remain visible.
-					</p>
-				</div>
-				{#if pendingApps.length > 1}
-					<button type="button" class="migrate-all-btn" onclick={handleMigrateAll}>
-						Migrate All
-					</button>
-				{/if}
-			</div>
-
-			<div class="item-list">
-				{#each legacyApps as data (data.app.id)}
-					{@const isMigrating = appMigratingIds.has(data.app.id)}
-					{@const isMigrated = appMigratedIds.has(data.app.id)}
-					{@const migrationError = appMigrationErrors.get(data.app.id)}
-
-					<div class="app-card" class:migrated={isMigrated}>
-						<div class="app-icon">
-							<AppPic icon={data.parsed.icon} name={data.parsed.name} size={48} />
-						</div>
-						<div class="app-info">
-							<span class="app-name">{data.parsed.name}</span>
-							<span class="app-version"
-								>v{data.release.tags.find((t) => t[0] === 'version')?.[1] ||
-									data.release.tags.find((t) => t[0] === 'd')?.[1]?.split('@')[1] ||
-									'?'}</span
-							>
-							<span class="app-artifacts"
-								>{data.artifacts.length} artifact{data.artifacts.length === 1 ? '' : 's'}</span
-							>
-						</div>
-						<div class="app-status">
-							{#if isMigrated}
-								<span class="status-badge status-migrated">✓ Migrated</span>
-							{:else if isMigrating}
-								<span class="status-badge status-migrating">Migrating…</span>
-							{:else if migrationError}
-								<div class="status-error">
-									<span class="status-badge status-failed">Failed</span>
-									<span class="error-message">{migrationError}</span>
-								</div>
+			<!-- ═══════════════════════════════════════════════════════════════════ -->
+			<!-- APP MIGRATION SECTION -->
+			<!-- ═══════════════════════════════════════════════════════════════════ -->
+			{#if hasLegacyApps}
+				<section class="migration-section">
+					<div class="migration-header">
+						<div class="header-text">
+							<h2 class="header-title">📦 App Migration</h2>
+							{#if allAppsMigrated}
+								<p class="header-description success-description">
+									✓ All {legacyApps.length} app{legacyApps.length === 1 ? '' : 's'} migrated
+								</p>
 							{:else}
-								<span class="status-badge status-legacy">Legacy</span>
+								<p class="header-description">
+									{pendingApps.length} app{pendingApps.length === 1 ? '' : 's'} use the legacy event
+									format (kind 1063). Migrate to the modern format (kind 3063).
+								</p>
 							{/if}
 						</div>
-						<div class="app-actions">
-							{#if !isMigrated}
-								<button
-									type="button"
-									class="migrate-btn"
-									disabled={isMigrating}
-									onclick={() => handleMigrate(data)}
-								>
-									{isMigrating ? 'Migrating…' : 'Migrate'}
-								</button>
-							{/if}
-						</div>
+						{#if pendingApps.length > 1}
+							<button type="button" class="migrate-all-btn" onclick={handleMigrateAllApps}>
+								Migrate All
+							</button>
+						{/if}
 					</div>
-				{/each}
-			</div>
+
+					<div class="item-list">
+						{#each legacyApps as data (data.app.id)}
+							{@const isMigrating = appMigratingIds.has(data.app.id)}
+							{@const isMigrated = appMigratedIds.has(data.app.id)}
+							{@const migrationError = appMigrationErrors.get(data.app.id)}
+
+							<div class="item-card" class:migrated={isMigrated}>
+								<div class="item-icon">
+									<AppPic icon={data.parsed.icon} name={data.parsed.name} size={44} />
+								</div>
+								<div class="item-info">
+									<span class="item-name">{data.parsed.name}</span>
+									<span class="item-meta"
+										>v{data.release.tags.find((t) => t[0] === 'version')?.[1] ||
+											data.release.tags.find((t) => t[0] === 'd')?.[1]?.split('@')[1] ||
+											'?'} • {data.artifacts.length} artifact{data.artifacts.length === 1
+											? ''
+											: 's'}</span
+									>
+								</div>
+								<div class="item-status">
+									{#if isMigrated}
+										<span class="status-badge status-migrated">✓ Migrated</span>
+									{:else if isMigrating}
+										<span class="status-badge status-migrating">Migrating…</span>
+									{:else if migrationError}
+										<div class="status-error">
+											<span class="status-badge status-failed">Failed</span>
+											<span class="error-message">{migrationError}</span>
+										</div>
+									{:else}
+										<span class="status-badge status-legacy">Legacy</span>
+									{/if}
+								</div>
+								<div class="item-actions">
+									{#if !isMigrated}
+										<button
+											type="button"
+											class="migrate-btn"
+											disabled={isMigrating}
+											onclick={() => handleMigrateApp(data)}
+										>
+											{isMigrating ? 'Migrating…' : 'Migrate'}
+										</button>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
+			<!-- ═══════════════════════════════════════════════════════════════════ -->
+			<!-- STACK MIGRATION SECTION -->
+			<!-- ═══════════════════════════════════════════════════════════════════ -->
+			{#if hasLegacyStacks}
+				<section class="migration-section">
+					<div class="migration-header">
+						<div class="header-text">
+							<h2 class="header-title">📚 Stack Migration</h2>
+							{#if allStacksMigrated}
+								<p class="header-description success-description">
+									✓ All {legacyStacks.length} stack{legacyStacks.length === 1 ? '' : 's'} migrated
+								</p>
+							{:else}
+								<p class="header-description">
+									{pendingStacks.length} stack{pendingStacks.length === 1 ? '' : 's'} need community
+									and platform tags to be discoverable.
+								</p>
+							{/if}
+						</div>
+						{#if pendingStacks.length > 1}
+							<button type="button" class="migrate-all-btn" onclick={handleMigrateAllStacks}>
+								Migrate All
+							</button>
+						{/if}
+					</div>
+
+					<div class="item-list">
+						{#each legacyStacks as data (data.event.id)}
+							{@const isMigrating = stackMigratingIds.has(data.event.id)}
+							{@const isMigrated = stackMigratedIds.has(data.event.id)}
+							{@const migrationError = stackMigrationErrors.get(data.event.id)}
+
+							<div class="item-card" class:migrated={isMigrated}>
+								<div class="item-icon stack-icon">📚</div>
+								<div class="item-info">
+									<span class="item-name">{data.parsed.title || data.parsed.dTag}</span>
+									<span class="item-meta"
+										>{data.parsed.appRefs?.length || 0} app{(data.parsed.appRefs?.length || 0) === 1
+											? ''
+											: 's'}</span
+									>
+								</div>
+								<div class="item-status">
+									{#if isMigrated}
+										<span class="status-badge status-migrated">✓ Migrated</span>
+									{:else if isMigrating}
+										<span class="status-badge status-migrating">Migrating…</span>
+									{:else if migrationError}
+										<div class="status-error">
+											<span class="status-badge status-failed">Failed</span>
+											<span class="error-message">{migrationError}</span>
+										</div>
+									{:else}
+										<span class="status-badge status-legacy">{getMissingTagsLabel(data)}</span>
+									{/if}
+								</div>
+								<div class="item-actions">
+									{#if !isMigrated}
+										<button
+											type="button"
+											class="migrate-btn"
+											disabled={isMigrating}
+											onclick={() => handleMigrateStack(data)}
+										>
+											{isMigrating ? 'Migrating…' : 'Migrate'}
+										</button>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				</section>
+			{/if}
 
 			<!-- ═══════════════════════════════════════════════════════════════════ -->
 			<!-- INFO + ZSP SECTION -->
@@ -524,12 +609,11 @@
 		line-height: 1.5;
 	}
 
-	/* Align the global btn class to the flex row */
 	.success-description {
 		color: hsl(142 71% 45%);
 	}
 
-	/* Align the global btn class to the flex row */
+	/* Align migrate-all button to the flex row */
 	.migrate-all-btn {
 		flex-shrink: 0;
 	}
