@@ -11,9 +11,13 @@
 		ZAPSTORE_COMMUNITY_PUBKEY,
 		ZAPSTORE_COMMUNITY_NPUB,
 		EVENT_KINDS,
-		FORUM_RELAY
+		FORUM_RELAY,
+		DEFAULT_CATALOG_RELAYS,
+		PLATFORM_FILTER
 	} from '$lib/config.js';
 	import { fetchFromRelays, queryEvents, putEvents } from '$lib/nostr';
+	import { getCurrentPubkey, getIsSignedIn } from '$lib/stores/auth.svelte.js';
+	import { isLegacyRelease, stackNeedsMigration } from '$lib/nostr/migration';
 	import CommunityForumShell from '$lib/components/community/CommunityForumShell.svelte';
 	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
 	import CommunityMigrationShell from '$lib/components/community/CommunityMigrationShell.svelte';
@@ -22,6 +26,91 @@
 
 	let detailsModalOpen = $state(false);
 	let termsModalOpen = $state(false);
+
+	// ── Migration count (for sidebar badge) ──────────────────────────────────
+	let migrationCount = $state(0);
+	const pubkey = $derived(getCurrentPubkey());
+	const isSignedIn = $derived(getIsSignedIn());
+
+	$effect(() => {
+		if (!browser || !isSignedIn || !pubkey) {
+			migrationCount = 0;
+			return;
+		}
+
+		let cancelled = false;
+
+		(async () => {
+			let count = 0;
+
+			try {
+				// Check for legacy apps
+				const apps = await fetchFromRelays(
+					DEFAULT_CATALOG_RELAYS,
+					{ kinds: [EVENT_KINDS.APP], authors: [pubkey], ...PLATFORM_FILTER, limit: 50 },
+					{ timeout: 8000, feature: 'migration-count-apps' }
+				);
+
+				for (const app of apps) {
+					if (cancelled) return;
+					const aTag = app.tags.find((t) => t[0] === 'a')?.[1];
+					if (!aTag?.startsWith('30063:')) continue;
+
+					const parts = aTag.split(':');
+					if (parts.length < 3) continue;
+					const relPubkey = parts[1];
+					const dTag = parts.slice(2).join(':');
+
+					const releases = await fetchFromRelays(
+						DEFAULT_CATALOG_RELAYS,
+						{ kinds: [EVENT_KINDS.RELEASE], authors: [relPubkey], '#d': [dTag], limit: 1 },
+						{ timeout: 3000, feature: 'migration-count-release' }
+					);
+					if (!releases.length) continue;
+
+					const release = releases[0];
+					const artifactIds = release.tags
+						.filter((t) => t[0] === 'e' || t[0] === 'E')
+						.map((t) => t[1]);
+					if (!artifactIds.length) continue;
+
+					const artifacts = await fetchFromRelays(
+						DEFAULT_CATALOG_RELAYS,
+						{ ids: artifactIds, limit: artifactIds.length },
+						{ timeout: 3000, feature: 'migration-count-artifacts' }
+					);
+					if (!artifacts.length) continue;
+
+					if (isLegacyRelease(release, artifacts)) {
+						count++;
+					}
+				}
+
+				// Check for legacy stacks
+				const stacks = await fetchFromRelays(
+					DEFAULT_CATALOG_RELAYS,
+					{ kinds: [EVENT_KINDS.APP_STACK], authors: [pubkey], limit: 50 },
+					{ timeout: 5000, feature: 'migration-count-stacks' }
+				);
+
+				for (const stack of stacks) {
+					if (stackNeedsMigration(stack)) {
+						count++;
+					}
+				}
+
+				if (!cancelled) {
+					migrationCount = count;
+				}
+			} catch (e) {
+				console.warn('[Community] Migration count check failed:', e);
+			}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	// ── Community Details modal data ─────────────────────────────────────────
 	let communityEvent = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
@@ -191,7 +280,12 @@
 				aria-expanded={sectionMenuOpen}
 				aria-haspopup="true"
 			>
-				<span class="section-switcher-label">{activeSectionLabel}</span>
+				<span class="section-switcher-label">
+					{activeSectionLabel}
+					{#if activeSection === 'migration' && migrationCount > 0}
+						<span class="migration-badge">{migrationCount}</span>
+					{/if}
+				</span>
 				<span class="section-chevron" class:open={sectionMenuOpen}>
 					<ChevronDown variant="outline" color="hsl(var(--white33))" size={14} strokeWidth={1.4} />
 				</span>
@@ -210,6 +304,9 @@
 									<img src={section.icon} alt="" class="section-item-icon" />
 								{/if}
 								{section.label}
+								{#if section.id === 'migration' && migrationCount > 0}
+									<span class="migration-badge">{migrationCount}</span>
+								{/if}
 							</a>
 						{/each}
 					</div>
@@ -242,6 +339,9 @@
 							{/if}
 						</span>
 						<span class="nav-label">{section.label}</span>
+						{#if section.id === 'migration' && migrationCount > 0}
+							<span class="migration-badge">{migrationCount}</span>
+						{/if}
 					</a>
 				{/each}
 			</nav>
@@ -576,6 +676,26 @@
 
 	.section-item.active .section-item-icon {
 		opacity: 1;
+	}
+
+	.migration-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 18px;
+		height: 18px;
+		padding: 0 5px;
+		margin-left: auto;
+		border-radius: 9px;
+		background: hsl(0 84% 60%);
+		color: white;
+		font-size: 11px;
+		font-weight: 600;
+		line-height: 1;
+	}
+
+	.section-switcher-label .migration-badge {
+		margin-left: 8px;
 	}
 
 	.right-page-viewport {
