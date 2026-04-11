@@ -32,9 +32,16 @@
 	const pubkey = $derived(getCurrentPubkey());
 	const isSignedIn = $derived(getIsSignedIn());
 
+	// Check migration count whenever user accesses /community or any nested route
 	$effect(() => {
 		if (!browser || !isSignedIn || !pubkey) {
 			migrationCount = 0;
+			return;
+		}
+
+		// Trigger check when accessing any /community route
+		const currentPath = $page.url.pathname;
+		if (!currentPath.startsWith('/community')) {
 			return;
 		}
 
