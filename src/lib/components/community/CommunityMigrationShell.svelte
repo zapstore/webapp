@@ -17,6 +17,9 @@
 	} from '$lib/nostr/migration';
 	import { DEFAULT_CATALOG_RELAYS, EVENT_KINDS, PLATFORM_FILTER } from '$lib/config.js';
 	import AppPic from '$lib/components/common/AppPic.svelte';
+	import CodeBlock from '$lib/components/common/CodeBlock.svelte';
+	import Check from '$lib/components/icons/Check.svelte';
+	import ActivityStackMiniBadge from '$lib/components/community/ActivityStackMiniBadge.svelte';
 
 	/** @typedef {{ app: any, release: any, artifacts: any[], parsed: any }} LegacyAppData */
 	/** @typedef {{ event: any, parsed: any, missingH: boolean, missingF: boolean }} LegacyStackData */
@@ -304,26 +307,38 @@
 			<p class="error-text">Error: {appError || stackError}</p>
 		</div>
 	{:else if nothingToMigrate}
-		<div class="empty-state">
-			<div class="empty-icon">✓</div>
-			<p class="empty-title">No Migration Needed</p>
-			<p class="empty-text">All your apps and stacks are up to date.</p>
-		</div>
-	{:else if allMigrated}
-		<div class="success-state">
-			<div class="success-icon">✓</div>
-			<p class="success-title">Migration Complete</p>
-			<p class="success-text">All your apps and stacks have been migrated.</p>
-
-			<div class="zsp-section">
+		<div class="nothing-state">
+			<div class="empty-state">
+				<div class="empty-icon">
+					<Check variant="outline" size={22} strokeWidth={2.4} color="hsl(var(--primary))" />
+				</div>
+				<p class="empty-title">No Migration Needed</p>
+				<p class="empty-text">All your apps and stacks are up to date.</p>
+			</div>
+			<div class="panel panel-gray33 panel-p-20 zsp-section nothing-zsp">
 				<h3 class="zsp-title">For Ongoing Publishing</h3>
 				<p class="zsp-text">
 					Use <strong>zsp</strong> — the Zapstore CLI — to publish future releases.
 				</p>
-				<div class="zsp-install">
-					<code>go install github.com/zapstore/zsp@latest</code>
-				</div>
-				<a href="/docs/publish" class="zsp-link">Read the publishing docs →</a>
+				<CodeBlock code="go install github.com/zapstore/zsp@latest" />
+				<a href="/docs/publish" class="btn-secondary-small">Read the publishing docs</a>
+			</div>
+		</div>
+	{:else if allMigrated}
+		<div class="success-state">
+			<div class="success-icon">
+				<Check variant="outline" size={22} strokeWidth={2.4} color="hsl(var(--primary))" />
+			</div>
+			<p class="success-title">Migration Complete</p>
+			<p class="success-text">All your apps and stacks have been migrated.</p>
+
+			<div class="panel panel-gray33 panel-p-20 zsp-section">
+				<h3 class="zsp-title">For Ongoing Publishing</h3>
+				<p class="zsp-text">
+					Use <strong>zsp</strong> — the Zapstore CLI — to publish future releases.
+				</p>
+				<CodeBlock code="go install github.com/zapstore/zsp@latest" />
+				<a href="/docs/publish" class="btn-secondary-small">Read the publishing docs</a>
 			</div>
 		</div>
 	{:else}
@@ -335,10 +350,14 @@
 				<section class="migration-section">
 					<div class="migration-header">
 						<div class="header-text">
-							<h2 class="header-title">📦 App Migration</h2>
+							<h2 class="header-title">
+								<img src="/images/emoji/app.png" class="section-emoji" alt="" />
+								App Migration
+							</h2>
 							{#if allAppsMigrated}
 								<p class="header-description success-description">
-									✓ All {legacyApps.length} app{legacyApps.length === 1 ? '' : 's'} migrated
+									<Check variant="outline" size={13} strokeWidth={2.6} color="hsl(142 71% 45%)" />
+									All {legacyApps.length} app{legacyApps.length === 1 ? '' : 's'} migrated
 								</p>
 							{:else}
 								<p class="header-description">
@@ -348,7 +367,7 @@
 							{/if}
 						</div>
 						{#if pendingApps.length > 1}
-							<button type="button" class="migrate-all-btn" onclick={handleMigrateAllApps}>
+							<button type="button" class="btn-secondary-small" onclick={handleMigrateAllApps}>
 								Migrate All
 							</button>
 						{/if}
@@ -376,7 +395,10 @@
 								</div>
 								<div class="item-status">
 									{#if isMigrated}
-										<span class="status-badge status-migrated">✓ Migrated</span>
+										<span class="status-badge status-migrated">
+											<Check variant="outline" size={12} strokeWidth={2.6} color="hsl(var(--primary))" />
+											Migrated
+										</span>
 									{:else if isMigrating}
 										<span class="status-badge status-migrating">Migrating…</span>
 									{:else if migrationError}
@@ -392,7 +414,7 @@
 									{#if !isMigrated}
 										<button
 											type="button"
-											class="migrate-btn"
+											class="btn-primary-small"
 											disabled={isMigrating}
 											onclick={() => handleMigrateApp(data)}
 										>
@@ -413,10 +435,14 @@
 				<section class="migration-section">
 					<div class="migration-header">
 						<div class="header-text">
-							<h2 class="header-title">📚 Stack Migration</h2>
+							<h2 class="header-title">
+								<img src="/images/emoji/stack.png" class="section-emoji" alt="" />
+								Stack Migration
+							</h2>
 							{#if allStacksMigrated}
 								<p class="header-description success-description">
-									✓ All {legacyStacks.length} stack{legacyStacks.length === 1 ? '' : 's'} migrated
+									<Check variant="outline" size={13} strokeWidth={2.6} color="hsl(142 71% 45%)" />
+									All {legacyStacks.length} stack{legacyStacks.length === 1 ? '' : 's'} migrated
 								</p>
 							{:else}
 								<p class="header-description">
@@ -426,7 +452,7 @@
 							{/if}
 						</div>
 						{#if pendingStacks.length > 1}
-							<button type="button" class="migrate-all-btn" onclick={handleMigrateAllStacks}>
+							<button type="button" class="btn-secondary-small" onclick={handleMigrateAllStacks}>
 								Migrate All
 							</button>
 						{/if}
@@ -439,7 +465,9 @@
 							{@const migrationError = stackMigrationErrors.get(data.event.id)}
 
 							<div class="item-card" class:migrated={isMigrated}>
-								<div class="item-icon stack-icon">📚</div>
+								<div class="item-icon">
+									<ActivityStackMiniBadge />
+								</div>
 								<div class="item-info">
 									<span class="item-name">{data.parsed.title || data.parsed.dTag}</span>
 									<span class="item-meta"
@@ -450,7 +478,10 @@
 								</div>
 								<div class="item-status">
 									{#if isMigrated}
-										<span class="status-badge status-migrated">✓ Migrated</span>
+										<span class="status-badge status-migrated">
+											<Check variant="outline" size={12} strokeWidth={2.6} color="hsl(var(--primary))" />
+											Migrated
+										</span>
 									{:else if isMigrating}
 										<span class="status-badge status-migrating">Migrating…</span>
 									{:else if migrationError}
@@ -466,7 +497,7 @@
 									{#if !isMigrated}
 										<button
 											type="button"
-											class="migrate-btn"
+											class="btn-primary-small"
 											disabled={isMigrating}
 											onclick={() => handleMigrateStack(data)}
 										>
@@ -483,7 +514,7 @@
 			<!-- ═══════════════════════════════════════════════════════════════════ -->
 			<!-- INFO + ZSP SECTION -->
 			<!-- ═══════════════════════════════════════════════════════════════════ -->
-			<div class="info-section">
+			<div class="panel info-section">
 				<h3 class="info-title">What happens during migration?</h3>
 				<ul class="info-list">
 					{#if hasLegacyApps && !allAppsMigrated}
@@ -501,15 +532,13 @@
 				</ul>
 			</div>
 
-			<div class="zsp-section">
+			<div class="panel panel-gray33 panel-p-20 zsp-section">
 				<h3 class="zsp-title">For Ongoing Publishing</h3>
 				<p class="zsp-text">
 					Use <strong>zsp</strong> — the Zapstore CLI — to publish future releases.
 				</p>
-				<div class="zsp-install">
-					<code>go install github.com/zapstore/zsp@latest</code>
-				</div>
-				<a href="/docs/publish" class="zsp-link">Read the publishing docs →</a>
+				<CodeBlock code="go install github.com/zapstore/zsp@latest" />
+				<a href="/docs/publish" class="btn-secondary-small">Read the publishing docs</a>
 			</div>
 		</div>
 	{/if}
@@ -521,6 +550,19 @@
 		min-height: 0;
 		overflow-y: auto;
 		padding: 20px;
+	}
+
+	.nothing-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0;
+	}
+
+	.nothing-zsp {
+		width: 100%;
+		max-width: 560px;
+		margin-top: 8px;
 	}
 
 	.empty-state,
@@ -596,10 +638,20 @@
 	}
 
 	.header-title {
-		font-size: 16px;
-		font-weight: 600;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 20px;
+		font-weight: 650;
 		color: hsl(var(--foreground));
 		margin: 0 0 6px;
+	}
+
+	.section-emoji {
+		width: 24px;
+		height: 24px;
+		object-fit: contain;
+		flex-shrink: 0;
 	}
 
 	.header-description {
@@ -610,18 +662,18 @@
 	}
 
 	.success-description {
+		display: flex;
+		align-items: center;
+		gap: 5px;
 		color: hsl(142 71% 45%);
 	}
 
-	/* Align migrate-all button to the flex row */
-	.migrate-all-btn {
-		flex-shrink: 0;
-	}
-
-	/* Disabled state override for the global btn class */
-	.migrate-btn:disabled {
+	/* Disabled state for global btn classes */
+	:global(.btn-primary-small:disabled),
+	:global(.btn-secondary-small:disabled) {
 		opacity: 0.5;
 		cursor: not-allowed;
+		pointer-events: none;
 	}
 
 	.item-list {
@@ -635,7 +687,7 @@
 		align-items: center;
 		gap: 12px;
 		padding: 12px 16px;
-		background: hsl(var(--white4));
+		background: hsl(var(--white8));
 		border-radius: 12px;
 	}
 
@@ -645,17 +697,9 @@
 
 	.item-icon {
 		flex-shrink: 0;
-	}
-
-	.stack-icon {
-		width: 44px;
-		height: 44px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 24px;
-		background: hsl(var(--white8));
-		border-radius: 10px;
 	}
 
 	.item-info {
@@ -685,7 +729,9 @@
 	}
 
 	.status-badge {
-		display: inline-block;
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
 		padding: 4px 8px;
 		border-radius: 6px;
 		font-size: 12px;
@@ -731,9 +777,6 @@
 	}
 
 	.info-section {
-		padding: 16px;
-		background: hsl(var(--white4));
-		border-radius: 12px;
 		margin-bottom: 24px;
 	}
 
@@ -763,62 +806,42 @@
 	}
 
 	.zsp-section {
-		padding: 20px;
-		background: hsl(var(--primary) / 0.08);
-		border-radius: 12px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 12px;
+		text-align: center;
+	}
+
+	/* CodeBlock must fill panel width, not shrink to content */
+	.zsp-section :global(.code-block) {
+		align-self: stretch;
 	}
 
 	.success-state .zsp-section {
 		margin-top: 32px;
-		max-width: 400px;
+		max-width: 560px;
+		width: 100%;
 	}
 
 	.zsp-title {
-		font-size: 14px;
+		font-size: 16px;
 		font-weight: 600;
 		color: hsl(var(--foreground));
-		margin: 0 0 8px;
+		margin: 0;
 	}
 
 	.zsp-text {
 		font-size: 13px;
 		color: hsl(var(--white66));
-		margin: 0 0 12px;
+		margin: 0;
 		line-height: 1.5;
-	}
-
-	.zsp-install {
-		background: hsl(var(--black33));
-		padding: 10px 14px;
-		border-radius: 8px;
-		margin-bottom: 12px;
-	}
-
-	.zsp-install code {
-		font-size: 13px;
-		color: hsl(var(--foreground));
-		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-	}
-
-	.zsp-link {
-		font-size: 13px;
-		color: hsl(var(--primary));
-		text-decoration: none;
-		font-weight: 500;
-	}
-
-	.zsp-link:hover {
-		text-decoration: underline;
 	}
 
 	@media (max-width: 640px) {
 		.migration-header {
 			flex-direction: column;
 			gap: 12px;
-		}
-
-		.migrate-all-btn {
-			width: 100%;
 		}
 
 		.item-card {

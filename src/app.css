@@ -729,6 +729,11 @@ h5, h6 {
   background-color: hsl(var(--black33));
 }
 
+/* Gray33 panel variant - one step darker than default gray66 */
+.panel-gray33 {
+  background-color: hsl(var(--gray33));
+}
+
 /* Panel padding variants */
 .panel-p-12 {
   padding: 12px;

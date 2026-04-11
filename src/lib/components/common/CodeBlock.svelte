@@ -48,6 +48,9 @@ async function handleCopy() {
 		border-radius: 16px;
 		border: 0.33px solid hsl(var(--white16));
 		padding: 6px 10px;
+		/* copy btn is 32px + 8px top + 8px bottom — guarantee it never clips */
+		min-height: 48px;
+		text-align: left;
 	}
 
 	.code-block-gray33 {

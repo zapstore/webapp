@@ -183,27 +183,27 @@
 					icon: '/images/emoji/activity.png',
 					href: '/community/activity'
 				},
-				{
-					id: 'migration',
-					label: 'Migration',
-					icon: '/images/emoji/repo.png',
-					href: '/community/migration'
-				}
-			]
-		: [
-				{
-					id: 'support',
-					label: 'Support',
-					icon: '/images/emoji/activity.png',
-					href: '/community/support'
-				},
-				{
-					id: 'migration',
-					label: 'Migration',
-					icon: '/images/emoji/repo.png',
-					href: '/community/migration'
-				}
-			];
+			{
+				id: 'migration',
+				label: 'Migration',
+				icon: '/images/emoji/migration.png',
+				href: '/community/migration'
+			}
+		]
+	: [
+			{
+				id: 'support',
+				label: 'Support',
+				icon: '/images/emoji/activity.png',
+				href: '/community/support'
+			},
+			{
+				id: 'migration',
+				label: 'Migration',
+				icon: '/images/emoji/migration.png',
+				href: '/community/migration'
+			}
+		];
 
 	const defaultSectionId = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? 'forum' : 'support';
 
