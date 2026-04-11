@@ -174,21 +174,10 @@ $effect(() => {
 						<Options variant="fill" size={20} color="hsl(var(--white33))" />
 					</button>
 				{:else}
-					<a href="/" class="bottom-bar-logo-link" aria-label="Zapstore home">
-						<svg width="19" height="32" viewBox="0 0 19 32" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-6 lg:h-7 w-auto flex-shrink-0">
-							<defs>
-								<linearGradient id="bottombar-logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-									<stop offset="0%" style="stop-color: hsl(252, 100%, 72%);" />
-									<stop offset="100%" style="stop-color: hsl(241, 100%, 68%);" />
-								</linearGradient>
-							</defs>
-							<path d="M18.8379 13.9711L8.84956 0.356086C8.30464 -0.386684 7.10438 0.128479 7.30103 1.02073L9.04686 8.94232C9.16268 9.46783 8.74887 9.96266 8.19641 9.9593L0.871032 9.91477C0.194934 9.91066 -0.223975 10.6293 0.126748 11.1916L7.69743 23.3297C7.99957 23.8141 7.73264 24.4447 7.16744 24.5816L5.40958 25.0076C4.70199 25.179 4.51727 26.0734 5.10186 26.4974L12.4572 31.8326C12.9554 32.194 13.6711 31.9411 13.8147 31.3529L15.8505 23.0152C16.0137 22.3465 15.3281 21.7801 14.6762 22.0452L13.0661 22.7001C12.5619 22.9052 11.991 22.6092 11.8849 22.0877L10.7521 16.5224C10.6486 16.014 11.038 15.5365 11.5704 15.5188L18.1639 15.2998C18.8529 15.2769 19.2383 14.517 18.8379 13.9711Z" fill="url(#bottombar-logo-gradient)" />
-						</svg>
-						<span class="font-semibold text-lg lg:text-xl tracking-tight">Zapstore</span>
-					</a>
-					<button type="button" onclick={() => onGetStarted?.()} class="btn-primary-small h-10 px-4">
+					<button type="button" onclick={() => onGetStarted?.()} class="btn-primary-small h-10 px-4 flex-shrink-0">
 						<span>Sign in</span>
 					</button>
+					<span class="guest-tagline">Join the conversation</span>
 				{/if}
 			</div>
 		</div>
@@ -305,25 +294,20 @@ $effect(() => {
 		align-items: center;
 		gap: 12px;
 	}
-	.bottom-bar-content:has(.bottom-bar-logo-link) {
-		justify-content: space-between;
+	.bottom-bar-content:has(.guest-tagline) {
+		justify-content: flex-start;
 		width: 100%;
+		gap: 16px;
 	}
-	.bottom-bar-logo-link {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		text-decoration: none;
-		color: inherit;
-		flex-shrink: 0;
-	}
-	@media (min-width: 640px) {
-		.bottom-bar-logo-link {
-			gap: 12px;
-		}
-	}
-	.bottom-bar-logo-link:hover {
-		color: inherit;
+	.guest-tagline {
+		font-size: 0.9375rem;
+		font-weight: 500;
+		color: hsl(var(--white66));
+		flex: 1;
+		min-width: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	/* 12px desktop, 16px mobile (match zap/actions modal padding) */
 	.bottom-bar-comment-only {

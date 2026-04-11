@@ -605,33 +605,33 @@ function checkTruncation(node) {
 			</div>
 		</div>
 
-		{#if post && zapTarget && getIsSignedIn()}
-			<BottomBar
-				publisherName={publisherName}
-				contentType="forum"
-				{zapTarget}
-				otherZaps={[]}
-				isSignedIn={getIsSignedIn()}
-				isMember={true}
-				onJoinRequired={() => {}}
-				onGetStarted={() => {}}
-				getCurrentPubkey={getCurrentPubkey}
-				signEvent={signEvent}
-				{searchProfiles}
-				{searchEmojis}
-				oncommentSubmit={handleCommentSubmit}
-				onzapReceived={handleForumBottomBarZap}
-				onZapPending={handleForumZapPending}
-				onZapPendingClear={handleForumZapPendingClear}
-				onoptions={() => {}}
-				onLabelPublished={() => {
-					labelFetchNonce += 1;
-				}}
-				onOwnContentDeleted={() => {
-					goto(resolve('/community/forum'));
-				}}
-			/>
-		{/if}
+	{#if post && zapTarget}
+		<BottomBar
+			publisherName={publisherName}
+			contentType="forum"
+			{zapTarget}
+			otherZaps={[]}
+			isSignedIn={getIsSignedIn()}
+			isMember={true}
+			onJoinRequired={() => {}}
+			onGetStarted={() => { getStartedModalOpen = true; }}
+			getCurrentPubkey={getCurrentPubkey}
+			signEvent={signEvent}
+			{searchProfiles}
+			{searchEmojis}
+			oncommentSubmit={handleCommentSubmit}
+			onzapReceived={handleForumBottomBarZap}
+			onZapPending={handleForumZapPending}
+			onZapPendingClear={handleForumZapPendingClear}
+			onoptions={() => {}}
+			onLabelPublished={() => {
+				labelFetchNonce += 1;
+			}}
+			onOwnContentDeleted={() => {
+				goto(resolve('/community/forum'));
+			}}
+		/>
+	{/if}
 	{/if}
 </div>
 
