@@ -36,6 +36,7 @@
 	import CommunityBottomBar from '$lib/components/community/CommunityBottomBar.svelte';
 	import ForumPostModal from '$lib/components/modals/ForumPostModal.svelte';
 	import ForumSearchModal from '$lib/components/modals/ForumSearchModal.svelte';
+	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Label from '$lib/components/common/Label.svelte';
 	import { ChevronDown } from '$lib/components/icons';
@@ -71,6 +72,7 @@
 	let commentProfileCache = new Map();
 	let addPostModalOpen = $state(false);
 	let searchModalOpen = $state(false);
+	let getStartedModalOpen = $state(false);
 	/** Shown when a post was saved locally but relay publish failed (so other browsers won't see it) */
 	let publishError = $state('');
 	// Defer Dexie/liveQuery until after mount so first paint isn't blocked by DB
@@ -618,12 +620,10 @@
 	showFeedBar={true}
 	selectedSection="forum"
 	modalOpen={addPostModalOpen || searchModalOpen}
-	onAdd={() => {
-		addPostModalOpen = true;
-	}}
-	onSearch={() => {
-		searchModalOpen = true;
-	}}
+	{isSignedIn}
+	onAdd={() => { addPostModalOpen = true; }}
+	onSearch={() => { searchModalOpen = true; }}
+	onGetStarted={() => { getStartedModalOpen = true; }}
 />
 
 <ForumPostModal
@@ -644,6 +644,8 @@
 		searchModalOpen = false;
 	}}
 />
+
+<GetStartedModal bind:open={getStartedModalOpen} onconnected={() => { getStartedModalOpen = false; }} />
 </div>
 
 <style>

@@ -2,6 +2,7 @@
 /**
  * CommunityBottomBar - Fixed bottom bar for community feed view.
  * Feed mode: + Post button + Search Forum. Matches chateau-web layout.
+ * Guest mode (not signed in): Sign in button + "Join the conversation" text, mobile only.
  */
 import { Plus, Search } from '$lib/components/icons';
 
@@ -9,8 +10,10 @@ let {
 	showFeedBar = false,
 	selectedSection = 'forum',
 	modalOpen = false,
+	isSignedIn = true,
 	onAdd = () => {},
 	onSearch = () => {},
+	onGetStarted = () => {},
 	className = ''
 } = $props();
 
@@ -20,10 +23,10 @@ const ctaLabel = $derived(SECTION_CTA[selectedSection] ?? 'Post');
 const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 </script>
 
-<div class="bottom-bar-wrapper {className}" class:modal-open={modalOpen}>
-	<div class="bottom-bar">
+<div class="bottom-bar-wrapper {className}" class:modal-open={modalOpen} class:guest-wrapper={!isSignedIn}>
+	<div class="bottom-bar" class:guest={!isSignedIn}>
 		<div class="bottom-bar-content">
-			{#if showFeedBar}
+			{#if isSignedIn && showFeedBar}
 				<button type="button" class="post-btn post-btn-feed" onclick={onAdd} aria-label="New {ctaLabel}">
 					<Plus variant="outline" size={16} strokeWidth={2.8} color="hsl(var(--whiteEnforced))" />
 					<span>{ctaLabel}</span>
@@ -32,6 +35,11 @@ const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 					<Search variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
 					<span>{searchLabel}</span>
 				</button>
+			{:else if !isSignedIn}
+				<button type="button" onclick={() => onGetStarted()} class="btn-primary-small h-10 px-4 flex-shrink-0">
+					<span>Sign in</span>
+				</button>
+				<span class="guest-tagline">Join the conversation</span>
 			{/if}
 		</div>
 	</div>
@@ -77,10 +85,32 @@ const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 		pointer-events: none;
 	}
 
+	.bottom-bar.guest {
+		padding: 18px 16px 18px 20px;
+		min-height: 56px;
+		box-shadow: 0 -6px 28px hsl(var(--black) / 0.5);
+	}
+
 	.bottom-bar-content {
 		display: flex;
 		align-items: center;
 		gap: 12px;
+	}
+
+	.bottom-bar-content:has(.guest-tagline) {
+		gap: 16px;
+		width: 100%;
+	}
+
+	.guest-tagline {
+		font-size: 0.9375rem;
+		font-weight: 500;
+		color: hsl(var(--white66));
+		flex: 1;
+		min-width: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.post-btn {
@@ -156,6 +186,11 @@ const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 	}
 
 	@media (min-width: 768px) {
+		/* Hide the guest bar on desktop — sidebar has the Sign In CTA */
+		.bottom-bar-wrapper.guest-wrapper {
+			display: none;
+		}
+
 		.bottom-bar {
 			max-width: 560px;
 			margin-bottom: 16px;
