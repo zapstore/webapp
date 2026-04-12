@@ -14,7 +14,7 @@
 	import { cn } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
-	import { getCurrentPubkey, getIsConnecting, connect, signOut } from '$lib/stores/auth.svelte.js';
+	import { getCurrentPubkey, getIsConnecting, connect, signOut, ExtensionMissingError, AndroidSignerMissingError } from '$lib/stores/auth.svelte.js';
 	import { parseProfile } from '$lib/nostr/models';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import SearchModal from '$lib/components/common/SearchModal.svelte';
@@ -247,14 +247,16 @@
 		menuOpen = false;
 		getStartedModalOpen = true;
 	}
-	// Sign in directly via NIP-07 extension — no account creation flow
+	// Sign in — auto-detects NIP-07 (desktop) or NIP-55 (Android)
 	async function handleSignIn() {
 		menuOpen = false;
 		try {
 			await connect();
-		} catch {
-			// If no extension is available, fall back to the modal which shows the error
-			getStartedModalOpen = true;
+		} catch (err) {
+			// If no signer is available, show modal with device-appropriate instructions
+			if (err instanceof ExtensionMissingError || err instanceof AndroidSignerMissingError || err instanceof Error) {
+				getStartedModalOpen = true;
+			}
 		}
 	}
 	function _handleGetStartedStart(_event) {
