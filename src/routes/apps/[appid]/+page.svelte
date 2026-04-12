@@ -6,6 +6,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { Package, X } from 'lucide-svelte';
+	import { isMobileDevice } from '$lib/utils/device.js';
 	import {
 		queryEvents,
 		queryEvent,
@@ -114,6 +115,7 @@
 	let onboardingBuildingModalOpen = $state(false);
 	let onboardingProfileName = $state('');
 	let securityModalOpen = $state(false);
+	let isMobile = $state(false);
 	function _handleGetStartedStart(_event) {
 		onboardingProfileName = _event.profileName;
 		spinKeyModalOpen = true;
@@ -732,6 +734,9 @@
 	}
 	onMount(async () => {
 		if (!browser) return;
+		
+		// Detect mobile device
+		isMobile = isMobileDevice();
 		// Resolve pubkey + identifier: appid may be a plain d-tag or a legacy naddr
 		const pointer = decodeNaddr(appid);
 		let _pubkey = data.app?.pubkey ?? pointer?.pubkey;
@@ -1000,6 +1005,16 @@
 						<Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
 					{/if}
 				</div>
+
+				<!-- Open in Zapstore button (mobile only) -->
+				{#if isMobile}
+					<a 
+						href="https://zapstore.dev/apps/{app.naddr || app.dTag}"
+						class="btn-primary-large w-full mt-3"
+					>
+						Open in Zapstore
+					</a>
+				{/if}
 			</div>
 		</div>
 

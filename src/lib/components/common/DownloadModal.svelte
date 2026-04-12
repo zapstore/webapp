@@ -42,25 +42,18 @@
 	const npubRegex = /^npub1[ac-hj-np-z0-9]{58}$/i;
 
 	// Zapstore-specific constants
-	const ZAPSTORE_APK_FILENAME = 'zapstore-1.0.3.apk';
+	const ZAPSTORE_APK_FILENAME = 'zapstore-1.0.6.apk';
 	const ZAPSTORE_APK_URL =
-		'https://cdn.zapstore.dev/60b61717b1858988f84de04d1e8947f97c6029919209dd71cb0c655aa0850105.apk';
+		'https://cdn.zapstore.dev/8619dabc77c84b7ba5621f1b707153460e0dd643ec65bd814d4e6f32560be66b.apk';
 	/** Intrinsic size of static/images/download-image.png — reserves layout before decode. */
 	const DOWNLOAD_HERO_WIDTH = 512;
 	const DOWNLOAD_HERO_HEIGHT = 636;
-	const ANDROID_APK_SHA256 = '60b61717b1858988f84de04d1e8947f97c6029919209dd71cb0c655aa0850105';
+	const ANDROID_APK_SHA256 = '8619dabc77c84b7ba5621f1b707153460e0dd643ec65bd814d4e6f32560be66b';
 	const APK_CERT_HASH = '99e33b0c2d07e75fcd9df7e40e886646ff667e3aa6648e1a1160b036cf2b9320';
 
 	// App info helpers
-	const minAndroidVersion = 'Android 8.0+';
+	const minAndroidVersion = 'Android 10+';
 	$: sourceUrl = app?.repository || app?.url || null;
-	$: deepLink = app?.dTag ? `zapstore://app/${app.dTag}` : null;
-
-	function handleOpenInZapstore() {
-		if (deepLink) {
-			window.location.href = deepLink;
-		}
-	}
 
 	async function downloadApk() {
 		downloading = true;
@@ -83,7 +76,7 @@
 	}
 
 	async function copyDownloadLink() {
-		const urlToCopy = isZapstore ? ZAPSTORE_APK_URL : deepLink;
+		const urlToCopy = ZAPSTORE_APK_URL;
 		if (!urlToCopy) return;
 		try {
 			await navigator.clipboard.writeText(urlToCopy);
@@ -492,12 +485,9 @@
 
 			<!-- Action buttons -->
 			<div class="download-actions">
-				<a href="/download" class="btn-secondary-large btn-secondary-modal flex-shrink-0">
-					Direct Download
+				<a href="/download" class="btn-secondary-large btn-secondary-modal w-full">
+					Get Zapstore to Install
 				</a>
-				<button type="button" on:click={handleOpenInZapstore} class="btn-primary-large flex-1">
-					Open in Zapstore
-				</button>
 			</div>
 		</div>
 	{/if}
