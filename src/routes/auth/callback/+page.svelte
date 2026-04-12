@@ -1,7 +1,9 @@
 <script>
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+
+	const STORAGE_KEY = 'zapstore:pubkey';
+	const SIGNER_TYPE_KEY = 'zapstore:signer_type';
 
 	onMount(() => {
 		// Parse callback parameters from URL
@@ -25,24 +27,33 @@
 		if (pubkey) result.pubkey = pubkey;
 		if (packageName) result.package = packageName;
 
-		// Dispatch custom event for AndroidSigner to pick up
+		// For authentication callbacks (pubkey present), save directly to localStorage.
+		// The original page navigated away when we opened Amber, so saving to localStorage
+		// ensures initAuth() will pick up the pubkey when the app reloads.
+		if (pubkey) {
+			localStorage.setItem(STORAGE_KEY, pubkey);
+			localStorage.setItem(SIGNER_TYPE_KEY, 'android');
+		}
+
+		// Store callback data in sessionStorage for signing operations
 		if (callbackId && typeof window !== 'undefined') {
-			// Store in sessionStorage as backup
 			sessionStorage.setItem(`nip55_callback_${callbackId}`, JSON.stringify(result));
 			
-			// Dispatch event that AndroidSigner is listening for
+			// Dispatch event for any listeners (signing operations use this)
 			window.dispatchEvent(new CustomEvent('nip55-callback', {
 				detail: { callbackId, result }
 			}));
 		}
 
-		// Redirect back to where user came from (or home)
+		// Redirect back to where user came from (or home).
+		// Use full page reload (not SvelteKit goto) so initAuth() runs fresh
+		// and picks up the pubkey we just saved to localStorage.
 		const returnTo = sessionStorage.getItem('nip55_return_url') || '/';
 		sessionStorage.removeItem('nip55_return_url');
 		
-		// Small delay to ensure event is processed
+		// Small delay to ensure localStorage is written
 		setTimeout(() => {
-			goto(returnTo);
+			window.location.href = returnTo;
 		}, 100);
 	});
 </script>
