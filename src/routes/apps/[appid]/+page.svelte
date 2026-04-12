@@ -1009,7 +1009,7 @@
 				<!-- Open in Zapstore button (mobile only) -->
 				{#if isMobile}
 					<a 
-						href="https://zapstore.dev/apps/{app.naddr || app.dTag}"
+						href="zapstore://app/{app.dTag}"
 						class="btn-primary-large w-full mt-3"
 					>
 						Open in Zapstore
