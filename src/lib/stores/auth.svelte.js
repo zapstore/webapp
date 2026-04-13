@@ -5,8 +5,8 @@
  * Persists pubkey and signer type across sessions.
  */
 import { ExtensionSigner, ExtensionMissingError } from 'applesauce-signers/signers/extension-signer';
-import { AmberClipboardSigner } from 'applesauce-signers/signers/amber-clipboard-signer';
-import { isDesktopDevice, isAndroidDevice } from '$lib/utils/device.js';
+import { AmberSigner } from '$lib/nostr/signers/amber-signer.js';
+import { isDesktopDevice } from '$lib/utils/device.js';
 
 const STORAGE_KEY = 'zapstore:pubkey';
 const SIGNER_TYPE_KEY = 'zapstore:signer_type';
@@ -27,7 +27,7 @@ let amberSigner = null;
 function getSigner() {
 	if (signerType === 'android') {
 		if (!amberSigner) {
-			amberSigner = new AmberClipboardSigner();
+			amberSigner = new AmberSigner();
 		}
 		return amberSigner;
 	} else {
@@ -50,8 +50,8 @@ export function getAvailableSigners() {
 		available.push('extension');
 	}
 	
-	// Android: Amber clipboard signer
-	if (AmberClipboardSigner.SUPPORTED) {
+	// Android: Amber signer via NIP-55
+	if (AmberSigner.SUPPORTED) {
 		available.push('android');
 	}
 	
@@ -133,7 +133,7 @@ export async function connectWithExtension() {
 }
 
 /**
- * Connect using NIP-55 Android signer (Amber) via clipboard API
+ * Connect using NIP-55 Android signer (Amber)
  */
 export async function connectWithAndroid() {
 	if (typeof window === 'undefined') {
@@ -141,7 +141,7 @@ export async function connectWithAndroid() {
 		return false;
 	}
 	
-	if (!AmberClipboardSigner.SUPPORTED) {
+	if (!AmberSigner.SUPPORTED) {
 		throw new AmberSignerMissingError();
 	}
 	
@@ -149,7 +149,7 @@ export async function connectWithAndroid() {
 	signerType = 'android';
 	
 	try {
-		amberSigner = new AmberClipboardSigner();
+		amberSigner = new AmberSigner();
 		const userPubkey = await amberSigner.getPublicKey();
 		
 		pubkey = userPubkey;

@@ -85,20 +85,22 @@ Users without signers cannot:
 
 ### Implementation
 
-Uses `AmberClipboardSigner` from `applesauce-signers` package. This is a battle-tested implementation that:
+Custom `AmberSigner` class following NIP-55 spec for web applications:
 
-1. Opens Amber via Android intent URL: `intent:...#Intent;scheme=nostrsigner;...;end`
-2. Listens for `visibilitychange` event (fires when user returns from Amber)
-3. Reads result from clipboard (Amber copies result before returning)
+1. Navigates to `nostrsigner:?type=get_public_key&...` via `window.location.href`
+2. Amber opens, user approves, Amber copies result to clipboard
+3. User returns to webapp (visibility change detected)
+4. Webapp reads pubkey from clipboard via `navigator.clipboard.readText()`
 
-No callback URLs or page reloads needed.
+No callback URLs needed - Amber copies to clipboard when no callbackUrl is provided.
 
 ### Files
 
 | File | Purpose |
 |------|---------|
 | `src/lib/utils/device.js` | Device detection utilities |
-| `src/lib/stores/auth.svelte.js` | Dual signer support (ExtensionSigner + AmberClipboardSigner) |
+| `src/lib/nostr/signers/amber-signer.js` | NIP-55 web app implementation |
+| `src/lib/stores/auth.svelte.js` | Dual signer support (ExtensionSigner + AmberSigner) |
 | `src/lib/components/modals/GetStartedModal.svelte` | Device-specific UI |
 
 ### State Persistence

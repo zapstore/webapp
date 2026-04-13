@@ -1,56 +1,54 @@
 ---
 date: 2026-04-12
-tags: [nip-55, android, authentication, applesauce]
-problem: Custom NIP-55 callback implementation failed because page state is lost during app switching
+tags: [nip-55, android, authentication, clipboard]
+problem: NIP-55 web app integration requires correct URL format and clipboard communication
 ---
 
-# DEC-001 — Use Applesauce AmberClipboardSigner
+# DEC-001 — NIP-55 Web App Implementation
 
 ## Problem
 
-Custom NIP-55 implementation using callback URLs timed out. When the page redirects to `nostrsigner:` URL, all JavaScript state is destroyed. Callback page dispatched events that nothing received.
+Multiple attempts at NIP-55 integration failed:
+1. Custom callback URL approach - state lost on page navigation
+2. Applesauce AmberClipboardSigner - used wrong URL format (`intent:` instead of `nostrsigner:`)
 
 ## Context
 
-First attempt: custom `AndroidSigner` class that:
-1. Redirected to `nostrsigner:?callbackUrl=...`
-2. Registered Promise callbacks in a Map
-3. Callback page dispatched custom events
+NIP-55 defines two modes for web apps:
+1. With `callbackUrl` - Amber redirects back with result in URL
+2. Without `callbackUrl` - Amber copies result to clipboard
 
-Failed because: page unload destroys all state. Callback event had no listener.
-
-Second attempt: callback page writes directly to localStorage, does full page reload.
-
-Still failed: Amber wasn't redirecting to the callback URL correctly.
+The applesauce library used Android `intent:` URL format which doesn't work from web browsers. Web apps must use `nostrsigner:` scheme directly with `window.location.href`.
 
 ## Decision
 
-Use `AmberClipboardSigner` from `applesauce-signers` package instead of custom implementation.
+Write custom `AmberSigner` class following NIP-55 spec exactly:
+1. Use `nostrsigner:?type=...` URL format
+2. Navigate via `window.location.href`
+3. Listen for `visibilitychange` event
+4. Read from clipboard on return
 
 ## Options Considered
 
-- **Option A: Custom callback URL approach** — Failed. State management across page navigations is fragile.
+- **Option A: Callback URL approach** — Failed. Page state destroyed, callback events lost.
 
-- **Option B: localStorage + full reload** — Still failed. Callback URL flow has issues.
+- **Option B: Applesauce AmberClipboardSigner** — Failed. Uses `intent:` URLs which don't work from web.
 
-- **Option C: AmberClipboardSigner (chosen)** — Battle-tested implementation using clipboard API. No callback URLs needed.
+- **Option C: Custom implementation per NIP-55 spec (chosen)** — Uses correct `nostrsigner:` format for web apps.
 
 ## Rationale
 
-AmberClipboardSigner works differently:
-1. Opens Amber via `intent:` URL (not `nostrsigner:`)
-2. Listens for `visibilitychange` event (fires when user returns)
-3. Reads result from clipboard (Amber copies result before returning)
+The NIP-55 spec explicitly shows web app usage:
+```js
+window.href = `nostrsigner:?compressionType=none&returnType=signature&type=get_public_key`;
+```
 
-Benefits:
-- No callback URLs or page reloads
-- Visibility change event fires reliably
-- Clipboard is the communication channel, not URL params
-- Already tested and maintained by applesauce team
+Without `callbackUrl`, Amber copies result to clipboard. We read it when user returns (visibility change).
 
 ## How to Avoid This Problem Next Time
 
-- **Check if a library already solves the problem** before writing custom code
-- **applesauce-signers has multiple signer implementations** — ExtensionSigner, AmberClipboardSigner, NostrConnectSigner, etc.
-- **Clipboard-based communication** is more reliable than callback URLs for Android app ↔ web communication
-- Reference: `applesauce-signers/signers/amber-clipboard-signer.js`
+- **Read the NIP spec** — NIP-55 has explicit web app examples
+- **Web apps use `nostrsigner:` scheme** — not `intent:` URLs
+- **No callbackUrl = clipboard mode** — simpler, no redirect handling needed
+- **Use `window.location.href`** — not `window.open()` for URL scheme navigation
+- Reference: `src/lib/nostr/signers/amber-signer.js`
