@@ -6,6 +6,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { Package, X } from 'lucide-svelte';
+	import { isAndroidDevice } from '$lib/utils/device.js';
 	import {
 		queryEvents,
 		queryEvent,
@@ -114,6 +115,19 @@
 	let onboardingBuildingModalOpen = $state(false);
 	let onboardingProfileName = $state('');
 	let securityModalOpen = $state(false);
+	let isAndroid = $state(false);
+
+	function openInZapstore() {
+		if (!app?.dTag) return;
+		
+		// Try intent URL (Chrome on Android)
+		// Falls back to download page if app not installed
+		const fallbackUrl = encodeURIComponent(`${window.location.origin}/download`);
+		const intentUrl = `intent://details?id=${app.dTag}#Intent;scheme=market;package=dev.zapstore.alpha;S.browser_fallback_url=${fallbackUrl};end`;
+		
+		window.location.href = intentUrl;
+	}
+
 	function _handleGetStartedStart(_event) {
 		onboardingProfileName = _event.profileName;
 		spinKeyModalOpen = true;
@@ -733,6 +747,8 @@
 	onMount(async () => {
 		if (!browser) return;
 		
+		isAndroid = isAndroidDevice();
+		
 		// Resolve pubkey + identifier: appid may be a plain d-tag or a legacy naddr
 		const pointer = decodeNaddr(appid);
 		let _pubkey = data.app?.pubkey ?? pointer?.pubkey;
@@ -1002,6 +1018,16 @@
 					{/if}
 				</div>
 
+				<!-- Open in Zapstore button (Android only) -->
+				{#if isAndroid}
+					<button
+						type="button"
+						onclick={openInZapstore}
+						class="btn-primary-large w-full mt-3"
+					>
+						Open in Zapstore
+					</button>
+				{/if}
 			</div>
 		</div>
 
