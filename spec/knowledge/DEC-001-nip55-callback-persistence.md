@@ -1,54 +1,56 @@
 ---
 date: 2026-04-12
-tags: [nip-55, android, authentication, callback]
-problem: NIP-55 callback events were never received because the original page unloaded when redirecting to Amber
+tags: [nip-55, android, authentication, applesauce]
+problem: Custom NIP-55 callback implementation failed because page state is lost during app switching
 ---
 
-# DEC-001 — NIP-55 Callback Persistence
+# DEC-001 — Use Applesauce AmberClipboardSigner
 
 ## Problem
 
-When using NIP-55 on Android, the sign-in flow timed out after 60 seconds even though the user approved in Amber. The callback page dispatched a custom event, but no listener received it.
+Custom NIP-55 implementation using callback URLs timed out. When the page redirects to `nostrsigner:` URL, all JavaScript state is destroyed. Callback page dispatched events that nothing received.
 
 ## Context
 
-NIP-55 works via URL scheme redirects:
-1. Web app redirects to `nostrsigner:` URL
-2. Amber opens, user approves
-3. Amber redirects back to callback URL with result
+First attempt: custom `AndroidSigner` class that:
+1. Redirected to `nostrsigner:?callbackUrl=...`
+2. Registered Promise callbacks in a Map
+3. Callback page dispatched custom events
 
-The initial implementation:
-- Created an `AndroidSigner` class with callback handlers stored in a Map
-- Registered a `window.addEventListener('nip55-callback', ...)` listener
-- Callback page dispatched the event on return
+Failed because: page unload destroys all state. Callback event had no listener.
 
-The problem: when the page redirects to `nostrsigner:`, **all JavaScript state is destroyed**. The listener, the Promise, and the callback Map are gone. When Amber redirects back, it's a fresh page load with no listeners.
+Second attempt: callback page writes directly to localStorage, does full page reload.
+
+Still failed: Amber wasn't redirecting to the callback URL correctly.
 
 ## Decision
 
-Save authentication result directly to localStorage in the callback page, then trigger a full page reload instead of client-side navigation.
+Use `AmberClipboardSigner` from `applesauce-signers` package instead of custom implementation.
 
 ## Options Considered
 
-- **Option A: Custom event dispatch** — Callback dispatches event, AndroidSigner listens. Failed because listeners are destroyed on page unload.
+- **Option A: Custom callback URL approach** — Failed. State management across page navigations is fragile.
 
-- **Option B: sessionStorage polling** — Store result in sessionStorage, poll on return. Adds complexity and delay.
+- **Option B: localStorage + full reload** — Still failed. Callback URL flow has issues.
 
-- **Option C: Direct localStorage + full reload (chosen)** — Callback writes `pubkey` to localStorage, does `window.location.href` reload. `initAuth()` picks up pubkey on fresh load.
+- **Option C: AmberClipboardSigner (chosen)** — Battle-tested implementation using clipboard API. No callback URLs needed.
 
 ## Rationale
 
-Option C is simplest and most reliable:
-- No complex event coordination across page boundaries
-- Works with SvelteKit's existing `initAuth()` pattern
-- Full reload ensures clean state (no stale Promises or handlers)
-- localStorage survives page reloads by design
+AmberClipboardSigner works differently:
+1. Opens Amber via `intent:` URL (not `nostrsigner:`)
+2. Listens for `visibilitychange` event (fires when user returns)
+3. Reads result from clipboard (Amber copies result before returning)
 
-The tradeoff (full page reload vs client-side nav) is acceptable for auth which happens once per session.
+Benefits:
+- No callback URLs or page reloads
+- Visibility change event fires reliably
+- Clipboard is the communication channel, not URL params
+- Already tested and maintained by applesauce team
 
 ## How to Avoid This Problem Next Time
 
-- **Never rely on in-memory state across page navigations** when using URL scheme redirects (NIP-55, OAuth, etc.)
-- **Use persistent storage (localStorage) for cross-navigation data**
-- **Full page reload is often simpler** than trying to coordinate state across navigations
-- Reference: `src/routes/auth/callback/+page.svelte` shows the correct pattern
+- **Check if a library already solves the problem** before writing custom code
+- **applesauce-signers has multiple signer implementations** — ExtensionSigner, AmberClipboardSigner, NostrConnectSigner, etc.
+- **Clipboard-based communication** is more reliable than callback URLs for Android app ↔ web communication
+- Reference: `applesauce-signers/signers/amber-clipboard-signer.js`

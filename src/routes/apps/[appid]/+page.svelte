@@ -1009,7 +1009,7 @@
 				<!-- Open in Zapstore button (mobile only) -->
 				{#if isMobile}
 					<a 
-						href="zapstore://app/{app.dTag}"
+						href="intent://details?id={app.dTag}#Intent;scheme=market;package=dev.zapstore.alpha;end"
 						class="btn-primary-large w-full mt-3"
 					>
 						Open in Zapstore
