@@ -1,61 +1,36 @@
 /**
  * Authentication store
  *
- * Manages user's Nostr identity via NIP-07 extension (desktop) or NIP-55 Android signer (mobile).
- * Persists pubkey and signer type across sessions.
+ * Manages user's Nostr identity via NIP-07 browser extension.
+ * Persists pubkey across sessions.
  */
 import { ExtensionSigner, ExtensionMissingError } from 'applesauce-signers/signers/extension-signer';
-import { AmberSigner } from '$lib/nostr/signers/amber-signer.js';
-import { isDesktopDevice } from '$lib/utils/device.js';
 
 const STORAGE_KEY = 'zapstore:pubkey';
-const SIGNER_TYPE_KEY = 'zapstore:signer_type';
 
 // Reactive state
 let pubkey = $state(null);
-let signerType = $state(null); // 'extension' | 'android'
 let connecting = $state(false);
 let initialized = $state(false);
 
-// Singleton signer instances
+// Singleton signer instance
 let extensionSigner = null;
-let amberSigner = null;
 
 /**
- * Get the appropriate signer instance based on current signer type
+ * Get the signer instance
  */
 function getSigner() {
-	if (signerType === 'android') {
-		if (!amberSigner) {
-			amberSigner = new AmberSigner();
-		}
-		return amberSigner;
-	} else {
-		// Default to extension signer
-		if (!extensionSigner) {
-			extensionSigner = new ExtensionSigner();
-		}
-		return extensionSigner;
+	if (!extensionSigner) {
+		extensionSigner = new ExtensionSigner();
 	}
+	return extensionSigner;
 }
 
 /**
- * Detect which signer types are available on this device
+ * Check if NIP-07 extension is available
  */
-export function getAvailableSigners() {
-	const available = [];
-	
-	// Desktop: check for NIP-07 extension
-	if (isDesktopDevice() && typeof window !== 'undefined' && window.nostr) {
-		available.push('extension');
-	}
-	
-	// Android: Amber signer via NIP-55
-	if (AmberSigner.SUPPORTED) {
-		available.push('android');
-	}
-	
-	return available;
+export function hasExtension() {
+	return typeof window !== 'undefined' && !!window.nostr;
 }
 
 /**
@@ -63,13 +38,6 @@ export function getAvailableSigners() {
  */
 export function getCurrentPubkey() {
 	return pubkey;
-}
-
-/**
- * Get current signer type
- */
-export function getSignerType() {
-	return signerType;
 }
 
 /**
@@ -94,22 +62,21 @@ export function initAuth() {
 	
 	if (typeof localStorage !== 'undefined') {
 		pubkey = localStorage.getItem(STORAGE_KEY);
-		signerType = localStorage.getItem(SIGNER_TYPE_KEY) || 'extension';
 	}
 	
 	initialized = true;
 }
+
 /**
- * Connect using NIP-07 extension (desktop)
+ * Connect using NIP-07 extension
  */
-export async function connectWithExtension() {
+export async function connect() {
 	if (typeof window === 'undefined') {
 		console.warn('[Auth] Window not available');
 		return false;
 	}
 	
 	connecting = true;
-	signerType = 'extension';
 	
 	try {
 		extensionSigner = new ExtensionSigner();
@@ -119,7 +86,6 @@ export async function connectWithExtension() {
 		
 		if (typeof localStorage !== 'undefined') {
 			localStorage.setItem(STORAGE_KEY, userPubkey);
-			localStorage.setItem(SIGNER_TYPE_KEY, 'extension');
 		}
 		
 		return true;
@@ -133,74 +99,14 @@ export async function connectWithExtension() {
 }
 
 /**
- * Connect using NIP-55 Android signer (Amber)
- */
-export async function connectWithAndroid() {
-	if (typeof window === 'undefined') {
-		console.warn('[Auth] Window not available');
-		return false;
-	}
-	
-	if (!AmberSigner.SUPPORTED) {
-		throw new AmberSignerMissingError();
-	}
-	
-	connecting = true;
-	signerType = 'android';
-	
-	try {
-		amberSigner = new AmberSigner();
-		const userPubkey = await amberSigner.getPublicKey();
-		
-		pubkey = userPubkey;
-		
-		if (typeof localStorage !== 'undefined') {
-			localStorage.setItem(STORAGE_KEY, userPubkey);
-			localStorage.setItem(SIGNER_TYPE_KEY, 'android');
-		}
-		
-		return true;
-	} catch (err) {
-		console.error('[Auth] Failed to connect with Amber signer:', err);
-		throw err;
-	} finally {
-		connecting = false;
-	}
-}
-
-/**
- * Legacy connect method - auto-detects appropriate signer
- * Desktop: tries NIP-07 extension
- * Android: tries NIP-55 signer
- */
-export async function connect() {
-	const available = getAvailableSigners();
-	
-	if (available.includes('extension')) {
-		return await connectWithExtension();
-	} else if (available.includes('android')) {
-		return await connectWithAndroid();
-	} else {
-		throw new Error('No signer available on this device');
-	}
-}
-/**
  * Sign out (clear stored pubkey and signer)
  */
 export function signOut() {
-	// Clean up Amber signer event listeners
-	if (amberSigner) {
-		amberSigner.destroy();
-	}
-	
 	pubkey = null;
-	signerType = null;
 	extensionSigner = null;
-	amberSigner = null;
 	
 	if (typeof localStorage !== 'undefined') {
 		localStorage.removeItem(STORAGE_KEY);
-		localStorage.removeItem(SIGNER_TYPE_KEY);
 	}
 }
 
@@ -234,16 +140,5 @@ export async function decrypt(senderPubkey, ciphertext) {
 	return await s.nip04.decrypt(senderPubkey, ciphertext);
 }
 
-/**
- * Error thrown when Amber signer is not available (not on Android or clipboard not supported)
- */
-export class AmberSignerMissingError extends Error {
-	constructor(message = 'Amber signer not available on this device') {
-		super(message);
-		this.name = 'AmberSignerMissingError';
-	}
-}
-
-// Export error classes for consumers (keep AndroidSignerMissingError as alias for backwards compat)
+// Export error class for consumers
 export { ExtensionMissingError };
-export { AmberSignerMissingError as AndroidSignerMissingError };

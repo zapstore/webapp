@@ -1,24 +1,18 @@
 <script lang="js">
 	import Modal from '$lib/components/common/Modal.svelte';
 	import { Nostr } from '$lib/components/icons';
-	import { connect, getAvailableSigners, ExtensionMissingError, AndroidSignerMissingError } from '$lib/stores/auth.svelte.js';
-	import { isDesktopDevice, isAndroidDevice } from '$lib/utils/device.js';
+	import { connect, hasExtension, ExtensionMissingError } from '$lib/stores/auth.svelte.js';
+	import { isMobileDevice } from '$lib/utils/device.js';
 	import { SITE_URL } from '$lib/config';
 
 	const PRIMAL_APP_URL = `${SITE_URL}/apps/net.primal.android`;
-	const AMBER_DOWNLOAD_URL = 'https://github.com/greenart7c3/Amber/releases';
 
 	let { open = $bindable(false), onconnected } = $props();
 	let isConnecting = $state(false);
 	let error = $state(null);
 	
-	// Device and signer availability
-	const isDesktop = $derived(isDesktopDevice());
-	const isAndroid = $derived(isAndroidDevice());
-	const availableSigners = $derived(getAvailableSigners());
-	const hasAnySigner = $derived(availableSigners.length > 0);
-	const hasExtension = $derived(availableSigners.includes('extension'));
-	const canUseAndroid = $derived(availableSigners.includes('android'));
+	const extensionAvailable = $derived(hasExtension());
+	const isMobile = $derived(isMobileDevice());
 
 	$effect(() => {
 		if (!open) {
@@ -40,8 +34,6 @@
 		} catch (err) {
 			if (err instanceof ExtensionMissingError) {
 				error = 'Browser extension not found';
-			} else if (err instanceof AndroidSignerMissingError) {
-				error = 'Android signer not available';
 			} else {
 				error = err instanceof Error ? err.message : 'Failed to connect to signer';
 			}
@@ -70,115 +62,67 @@
 			</svg>
 		</div>
 
-	{#if !hasAnySigner}
-		<!-- No signer available -->
+	{#if isMobile}
+		<!-- Mobile: sign in not available -->
 		<h2 class="modal-title text-display text-4xl text-foreground text-center mb-3">
-			{#if isDesktop}
-				No extension found
-			{:else if isAndroid}
-				No signer found
-			{:else}
-				Sign in not available
-			{/if}
+			Sign in not available
 		</h2>
 		
-		{#if isDesktop}
-			<!-- Desktop: needs browser extension -->
-			<p class="description">
-				You'll need a Nostr account and a browser extension like <a
-					href="https://getalby.com/alby-extension"
-					target="_blank"
-					rel="noopener noreferrer"
-					class="link-text">Alby</a
-				> to sign in. Get a free account on <a
-					href={PRIMAL_APP_URL}
-					target="_blank"
-					rel="noopener noreferrer"
-					class="link-text">Primal</a
-				>, then load your key into the extension.
-			</p>
-			<p class="description read-only-notice">
-				You can browse apps in read-only mode without signing in.
-			</p>
-		{:else if isAndroid}
-			<!-- Android: needs Amber -->
-			<p class="description">
-				You'll need a Nostr signer app like <a
-					href={AMBER_DOWNLOAD_URL}
-					target="_blank"
-					rel="noopener noreferrer"
-					class="link-text">Amber</a
-				> to sign in. Get a free Nostr account on <a
-					href={PRIMAL_APP_URL}
-					target="_blank"
-					rel="noopener noreferrer"
-					class="link-text">Primal</a
-				>, then install Amber and import your key.
-			</p>
-			<p class="description read-only-notice">
-				You can browse apps in read-only mode without signing in.
-			</p>
-			<a
-				href={AMBER_DOWNLOAD_URL}
+		<p class="description">
+			Sign in is currently only available on desktop with a Nostr browser extension like <a
+				href="https://getalby.com/alby-extension"
 				target="_blank"
 				rel="noopener noreferrer"
-				class="btn-primary-large w-full flex items-center justify-center gap-2 no-underline"
-			>
-				Get Amber Signer
-			</a>
-		{:else}
-			<!-- Other mobile (iOS, etc.) -->
-			<p class="description">
-				Sign in is currently only available on desktop (with browser extensions) and Android (with Amber signer).
-			</p>
-			<p class="description read-only-notice">
-				You can browse apps in read-only mode without signing in.
-			</p>
-		{/if}
+				class="link-text">Alby</a
+			>.
+		</p>
+		<p class="description read-only-notice">
+			You can browse apps in read-only mode without signing in.
+		</p>
+	{:else if !extensionAvailable}
+		<!-- Desktop: no extension -->
+		<h2 class="modal-title text-display text-4xl text-foreground text-center mb-3">
+			No extension found
+		</h2>
+		
+		<p class="description">
+			You'll need a Nostr account and a browser extension like <a
+				href="https://getalby.com/alby-extension"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="link-text">Alby</a
+			> to sign in. Get a free account on <a
+				href={PRIMAL_APP_URL}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="link-text">Primal</a
+			>, then load your key into the extension.
+		</p>
+		<p class="description read-only-notice">
+			You can browse apps in read-only mode without signing in.
+		</p>
 	{:else}
-		<!-- Has signer available -->
+		<!-- Has extension -->
 		<h2 class="modal-title text-display text-4xl text-foreground text-center mb-4">Sign in</h2>
 		
-		{#if isDesktop && hasExtension}
-			<!-- Desktop with extension -->
-			<p class="description">
-				Connect with your <a
-					href="https://nostr.com"
-					target="_blank"
-					rel="noopener noreferrer"
-					class="link-text">Nostr</a
-				> browser extension
-			</p>
+		<p class="description">
+			Connect with your <a
+				href="https://nostr.com"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="link-text">Nostr</a
+			> browser extension
+		</p>
 
-			<button
-				type="button"
-				class="btn-primary-large w-full flex items-center justify-center gap-3"
-				disabled={isConnecting}
-				onclick={handleConnect}
-			>
-				<Nostr variant="fill" color="hsl(var(--white66))" size={16} />
-				<span>{isConnecting ? 'Connecting...' : 'Sign in with extension'}</span>
-			</button>
-		{:else if isAndroid && canUseAndroid}
-			<!-- Android with signer -->
-			<p class="description">
-				Connect with your Android signer app (Amber)
-			</p>
-
-			<button
-				type="button"
-				class="btn-primary-large w-full flex items-center justify-center gap-3"
-				disabled={isConnecting}
-				onclick={handleConnect}
-			>
-				<Nostr variant="fill" color="hsl(var(--white66))" size={16} />
-				<span>{isConnecting ? 'Opening signer...' : 'Sign in with Amber'}</span>
-			</button>
-			
-			<p class="description helper-text">
-				This will open your Amber app to approve the connection.
-			</p>
-		{/if}
+		<button
+			type="button"
+			class="btn-primary-large w-full flex items-center justify-center gap-3"
+			disabled={isConnecting}
+			onclick={handleConnect}
+		>
+			<Nostr variant="fill" color="hsl(var(--white66))" size={16} />
+			<span>{isConnecting ? 'Connecting...' : 'Sign in with extension'}</span>
+		</button>
 
 		{#if error}
 			<p class="error-message">{error}</p>
@@ -238,10 +182,6 @@
 		text-decoration-color: hsl(var(--white66));
 	}
 
-	.no-underline {
-		text-decoration: none;
-	}
-
 	.error-message {
 		margin-top: 12px;
 		padding: 12px;
@@ -258,12 +198,5 @@
 		color: hsl(var(--white66));
 		font-style: italic;
 		margin-top: 16px;
-	}
-
-	.helper-text {
-		font-size: 0.875rem;
-		color: hsl(var(--white50));
-		margin-top: 8px;
-		margin-bottom: 0;
 	}
 </style>
