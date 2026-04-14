@@ -597,7 +597,7 @@ const contentText = $derived(event?.content ?? '');
 		min-width: 200px;
 		background-color: hsl(var(--gray66));
 		border-radius: 12px 12px 12px 3px;
-		padding: 8px 12px;
+		padding: 8px 12px 6px;
 	}
 
 	.bubble--quoted {

@@ -285,7 +285,7 @@
 							'#d': dChunk,
 							limit: Math.max(100, dChunk.length)
 						},
-						{ timeout: 8000, feature: 'activity-relay-addr-d' }
+						{ timeout: 8000, feature: 'activity-relay-addr-d', immediateFlush: true }
 					).catch(() => [])
 				);
 			}

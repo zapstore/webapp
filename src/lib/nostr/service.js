@@ -252,7 +252,7 @@ export function stopLiveSubscriptions() {
  * @returns {Promise<import('nostr-tools').Event[]>}
  */
 export async function fetchFromRelays(relayUrls, filter, options = {}) {
-	const { timeout = 5000, signal, feature = 'q' } = options;
+	const { timeout = 5000, signal, feature = 'q', immediateFlush = false } = options;
 	if (signal?.aborted) return [];
 
 	return new Promise((resolve) => {
@@ -306,8 +306,11 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 				if (!event?.id) return;
 				events.push(event);
 				pendingPersist.push(event);
-				// Stream writes in medium batches so UI updates before EOSE/timeout.
-				if (pendingPersist.length >= STREAM_PERSIST_BATCH) void queuePersist();
+				// immediateFlush: write every event to Dexie as it arrives so liveQuery
+				// (and therefore the UI) reacts event-by-event rather than waiting for
+				// EOSE. Used for small-result lookups like addr-root resolution where
+				// each event unblocks a specific card.
+				if (immediateFlush || pendingPersist.length >= STREAM_PERSIST_BATCH) void queuePersist();
 			},
 			oneose() {
 				if (!eoseTimer) eoseTimer = setTimeout(finish, EOSE_GRACE_MS);
