@@ -320,7 +320,7 @@
 				<p class="zsp-text">
 					Use <strong>zsp</strong> — the Zapstore CLI — to publish future releases.
 				</p>
-				<CodeBlock code="go install github.com/zapstore/zsp@latest" />
+				<CodeBlock code="go install github.com/zapstore/zsp@latest" background="black33" />
 				<a href="/docs/publish" class="btn-secondary-small">Read the publishing docs</a>
 			</div>
 		</div>
@@ -337,7 +337,7 @@
 				<p class="zsp-text">
 					Use <strong>zsp</strong> — the Zapstore CLI — to publish future releases.
 				</p>
-				<CodeBlock code="go install github.com/zapstore/zsp@latest" />
+				<CodeBlock code="go install github.com/zapstore/zsp@latest" background="black33" />
 				<a href="/docs/publish" class="btn-secondary-small">Read the publishing docs</a>
 			</div>
 		</div>
@@ -537,7 +537,7 @@
 				<p class="zsp-text">
 					Use <strong>zsp</strong> — the Zapstore CLI — to publish future releases.
 				</p>
-				<CodeBlock code="go install github.com/zapstore/zsp@latest" />
+				<CodeBlock code="go install github.com/zapstore/zsp@latest" background="black33" />
 				<a href="/docs/publish" class="btn-secondary-small">Read the publishing docs</a>
 			</div>
 		</div>

@@ -89,6 +89,28 @@ const deletedRootLabel = $derived(
 );
 const showDeletedRoot = $derived(deletedRootKind != null);
 
+/** Kind inferred from the event's A/a/E tags — used for the loading label only. */
+const pendingRootKind = $derived.by(() => {
+	for (const t of event?.tags ?? []) {
+		if ((t[0] === 'A' || t[0] === 'a') && t[1]) {
+			if (t[1].startsWith(`${EVENT_KINDS.APP}:`)) return 'app';
+			if (t[1].startsWith(`${EVENT_KINDS.APP_STACK}:`)) return 'stack';
+		}
+	}
+	if (event?.tags?.find((t) => t[0] === 'E' && t[1])) return 'forum';
+	return null;
+});
+const rootDisplayLabel = $derived.by(() => {
+	if (showDeletedRoot) return deletedRootLabel;
+	if (rootEvent) return rootOneliner.label;
+	if (rootBadgeSkeleton) {
+		if (pendingRootKind === 'app') return 'Loading App…';
+		if (pendingRootKind === 'stack') return 'Loading Stack…';
+		return 'Loading…';
+	}
+	return rootOneliner.label;
+});
+
 const emojiTags = $derived(
 	(event?.tags ?? [])
 		.filter((t) => t[0] === 'emoji' && t[1] && t[2])
@@ -214,7 +236,7 @@ const contentText = $derived(event?.content ?? '');
 		<div class="root-label-row">
 			<div class="root-label-main">
 				{#if showDeletedRoot}
-					<span class="root-label root-label--deleted">{deletedRootLabel}</span>
+					<span class="root-label root-label--deleted">{rootDisplayLabel}</span>
 				{:else if onRootClick}
 					<button
 						type="button"
@@ -224,18 +246,22 @@ const contentText = $derived(event?.content ?? '');
 					>
 						{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
 						{#if isStackRoot}
-							<span class="root-label-ellipsis">{rootOneliner.label}</span>
+							<span class="root-label-ellipsis">{rootDisplayLabel}</span>
 						{:else}
-							{rootOneliner.label}
+							{rootDisplayLabel}
 						{/if}
 					</button>
 				{:else}
-					<span class="root-label" class:root-label--split={isStackRoot}>
+					<span
+						class="root-label"
+						class:root-label--muted={!rootEvent && !showDeletedRoot}
+						class:root-label--split={isStackRoot}
+					>
 						{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
 						{#if isStackRoot}
-							<span class="root-label-ellipsis">{rootOneliner.label}</span>
+							<span class="root-label-ellipsis">{rootDisplayLabel}</span>
 						{:else}
-							{rootOneliner.label}
+							{rootDisplayLabel}
 						{/if}
 					</span>
 				{/if}
@@ -537,6 +563,10 @@ const contentText = $derived(event?.content ?? '');
 	}
 
 	.root-label--deleted {
+		color: hsl(var(--white33));
+	}
+
+	.root-label--muted {
 		color: hsl(var(--white33));
 	}
 

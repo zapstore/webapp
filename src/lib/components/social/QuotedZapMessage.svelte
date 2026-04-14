@@ -88,7 +88,7 @@ const plainPreview = $derived.by(() => {
 	.quoted-zap-body {
 		flex: 1;
 		min-width: 0;
-		padding: 6px 10px 8px 10px;
+		padding: 6px 10px 5px 10px;
 		display: flex;
 		flex-direction: column;
 		gap: 4px;

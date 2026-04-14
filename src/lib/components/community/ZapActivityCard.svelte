@@ -42,9 +42,26 @@
 
 	const showQuote = $derived(!!parentComment && !!parsed?.zappedEventId);
 	const rootOneliner = $derived(getEventOneliner(rootEvent));
-	const rootLabel = $derived(
-		rootEvent ? rootOneliner.label : rootBadgeSkeleton ? 'Loading...' : 'Zap'
-	);
+
+	/** Kind inferred from the zap receipt's A/a tags — used for the loading label only. */
+	const pendingRootKind = $derived.by(() => {
+		for (const t of zapEvent?.tags ?? []) {
+			if ((t[0] === 'A' || t[0] === 'a') && t[1]) {
+				if (t[1].startsWith(`${EVENT_KINDS.APP}:`)) return 'app';
+				if (t[1].startsWith(`${EVENT_KINDS.APP_STACK}:`)) return 'stack';
+			}
+		}
+		return null;
+	});
+	const rootLabel = $derived.by(() => {
+		if (rootEvent) return rootOneliner.label;
+		if (rootBadgeSkeleton) {
+			if (pendingRootKind === 'app') return 'Loading App…';
+			if (pendingRootKind === 'stack') return 'Loading Stack…';
+			return 'Loading…';
+		}
+		return 'Zap';
+	});
 	const isStackRoot = $derived(
 		deletedRootKind === 'stack' || rootEvent?.kind === EVENT_KINDS.APP_STACK
 	);

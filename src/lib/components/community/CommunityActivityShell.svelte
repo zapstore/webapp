@@ -251,6 +251,10 @@
 
 	/**
 	 * One relay round-trip per (kind, pubkey), chunked `#d` — no N+1 per comment.
+	 * All chunks run in parallel (no sequential await).
+	 * No `since` filter: app/stack events are replaceable — the relay returns the latest
+	 * version regardless of when it was created. A `since` cutoff silently drops apps
+	 * that haven't been updated recently.
 	 * @param {string[]} aTags
 	 */
 	async function relayFetchAddrRootEventsByATags(aTags) {
@@ -264,25 +268,29 @@
 			if (!dToFullA.has(gk)) dToFullA.set(gk, new Map());
 			dToFullA.get(gk).set(p.dTag, a);
 		}
+		/** @type {Promise<unknown>[]} */
+		const fetches = [];
 		for (const [gk, dMap] of dToFullA) {
 			const [kindStr, pubkey] = gk.split(':');
 			const kind = parseInt(kindStr, 10);
 			const dTags = [...dMap.keys()];
 			for (const dChunk of chunkArray(dTags, ACTIVITY_ADDR_D_CHUNK)) {
 				if (dChunk.length === 0) continue;
-				await fetchFromRelays(
-					ACTIVITY_CATALOG_RELAYS,
-					{
-						kinds: [kind],
-						authors: [pubkey],
-						'#d': dChunk,
-						since: activityRelaySince(),
-						limit: Math.max(100, dChunk.length)
-					},
-					{ timeout: 9000, feature: 'activity-relay-addr-d' }
-				).catch(() => []);
+				fetches.push(
+					fetchFromRelays(
+						ACTIVITY_CATALOG_RELAYS,
+						{
+							kinds: [kind],
+							authors: [pubkey],
+							'#d': dChunk,
+							limit: Math.max(100, dChunk.length)
+						},
+						{ timeout: 8000, feature: 'activity-relay-addr-d' }
+					).catch(() => [])
+				);
 			}
 		}
+		await Promise.all(fetches);
 	}
 
 	function appBadgeFromAddrRoot(/** @type {import('nostr-tools').NostrEvent | null} */ ev) {
@@ -368,13 +376,15 @@
 	 * @param {import('nostr-tools').NostrEvent[]} comments
 	 * @param {{ event: import('nostr-tools').NostrEvent, parsed: ReturnType<typeof parseZapReceipt> }[]} zapsForFeed
 	 * @param {Map<string, import('nostr-tools').NostrEvent>} commentMap
+	 * @param {boolean} readyForDeletedTimer - true once the initial relay seed has finished (or inbox load has settled); prevents showing "not found" before we've had a chance to load data
 	 */
 	function recomputeActivityRootDeleted(
 		roots,
 		addrRoots,
 		comments,
 		zapsForFeed,
-		commentMap
+		commentMap,
+		readyForDeletedTimer
 	) {
 		const now = Date.now();
 		/** @type {Map<string, 'forum' | 'app' | 'stack'>} */
@@ -391,7 +401,10 @@
 				continue;
 			}
 			needed.set(meta.key, meta.kind);
-			if (!activityRootWaitSince.has(meta.key)) activityRootWaitSince.set(meta.key, now);
+			if (!activityRootWaitSince.has(meta.key)) {
+				if (!readyForDeletedTimer) continue;
+				activityRootWaitSince.set(meta.key, now);
+			}
 		}
 		for (const row of zapsForFeed) {
 			const meta = activityRootKeyMetaFromZap(row.event, row.parsed, roots, commentMap);
@@ -404,7 +417,10 @@
 				continue;
 			}
 			needed.set(meta.key, meta.kind);
-			if (!activityRootWaitSince.has(meta.key)) activityRootWaitSince.set(meta.key, now);
+			if (!activityRootWaitSince.has(meta.key)) {
+				if (!readyForDeletedTimer) continue;
+				activityRootWaitSince.set(meta.key, now);
+			}
 		}
 		for (const k of [...activityRootWaitSince.keys()]) {
 			if (!needed.has(k)) activityRootWaitSince.delete(k);
@@ -620,6 +636,9 @@
 		void activityAddrRootEvents;
 		void activityZapsForFeed;
 		void activityCommentMap;
+		void activityInitialSeedDone;
+		void activityLoading;
+		void activityFeedQuerySettled;
 		const roots = activityRootEvents;
 		const addrRoots = activityAddrRootEvents;
 		const comments = activityThreadComments;
@@ -627,7 +646,16 @@
 		const commentMap = activityCommentMap;
 		let lastDeletedSig = '';
 		const tick = () => {
-			const next = recomputeActivityRootDeleted(roots, addrRoots, comments, zapsForFeed, commentMap);
+			// Compute readyForDeletedTimer fresh on every tick so it reflects the live
+			// values of plain (non-$state) variables like activityAddrRelayInFlight.
+			// Activity route: wait for both the initial seed AND the addr-root relay fetch
+			// to settle before the "not found" countdown begins — the fetch can still be
+			// in-flight when activityInitialSeedDone fires on a fast relay.
+			// Inbox embed: wait for loading to stop and a liveQuery to have fired.
+			const readyForDeletedTimer = inboxEmbed
+				? !activityLoading && activityFeedQuerySettled
+				: activityInitialSeedDone && !activityAddrRelayInFlight;
+			const next = recomputeActivityRootDeleted(roots, addrRoots, comments, zapsForFeed, commentMap, readyForDeletedTimer);
 			const sig = [...next.entries()]
 				.sort((a, b) => a[0].localeCompare(b[0]))
 				.map(([k, v]) => `${k}:${v}`)

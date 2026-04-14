@@ -195,7 +195,7 @@ export function stackDisplayDescription(stack, displayTitle) {
  * @returns {{ label: string, emoji: string }}
  */
 export function getEventOneliner(event) {
-	if (!event) return { label: 'Unknown event', emoji: '/images/emoji/forum.png' };
+	if (!event) return { label: '', emoji: '/images/emoji/forum.png' };
 	const get = (/** @type {string} */ name) => event.tags?.find((t) => t[0] === name)?.[1];
 	const truncate = (/** @type {string|undefined} */ s, n = 80) =>
 		s ? (s.length > n ? s.slice(0, n) + '…' : s) : '';

@@ -154,6 +154,7 @@
 	.short-text-preview.one-line {
 		-webkit-line-clamp: 1;
 		line-clamp: 1;
+		white-space: normal;
 	}
 	.short-text-preview:not(.one-line) {
 		white-space: pre-line;

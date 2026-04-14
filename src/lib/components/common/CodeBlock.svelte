@@ -30,27 +30,38 @@ async function handleCopy() {
 			<Copy variant="outline" size={16} color="hsl(var(--white66))" />
 		{/if}
 	</button>
-	{#if language}
-		<span class="eyebrow-label code-language">{language}</span>
-	{/if}
-	<div class="code-scroll">
-		{#if html}
-			<pre><code>{@html html}</code></pre>
-		{:else}
-			<pre><code>{code}</code></pre>
+	<div class="code-inner">
+		{#if language}
+			<span class="eyebrow-label code-language">{language}</span>
 		{/if}
+		<div class="code-scroll">
+			{#if html}
+				<pre><code>{@html html}</code></pre>
+			{:else}
+				<pre><code>{code}</code></pre>
+			{/if}
+		</div>
 	</div>
 </div>
 
 <style>
 	.code-block {
 		position: relative;
+		display: flex;
+		align-items: center;
 		border-radius: 16px;
 		border: 0.33px solid hsl(var(--white16));
 		padding: 6px 10px;
 		/* copy btn is 32px + 8px top + 8px bottom — guarantee it never clips */
 		min-height: 48px;
 		text-align: left;
+	}
+
+	.code-inner {
+		flex: 1;
+		min-width: 0;
+		/* leave room for the absolutely-positioned copy button */
+		padding-right: 40px;
 	}
 
 	.code-block-gray33 {

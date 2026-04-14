@@ -161,7 +161,7 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     min-width: 200px;
     background-color: hsl(var(--gray66));
     border-radius: 16px 16px 16px 4px;
-    padding: 8px 12px;
+    padding: 8px 12px 5px;
   }
 
   .bubble-light {

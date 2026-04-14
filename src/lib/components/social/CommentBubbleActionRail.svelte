@@ -33,7 +33,7 @@ function stop(e) {
     flex-direction: row;
     align-items: center;
     justify-content: flex-end;
-    gap: 4px;
+    gap: 6px;
     height: 28px;
     opacity: 0;
     pointer-events: none;
