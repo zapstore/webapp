@@ -281,7 +281,7 @@
 			width: 100vw;
 			margin-left: calc(-50vw + 50%);
 			border: none;
-			border-top: 1px solid hsl(var(--border));
+			border-top: 1px solid hsl(var(--white16));
 			margin-top: 1.5rem;
 			margin-bottom: 0;
 		}

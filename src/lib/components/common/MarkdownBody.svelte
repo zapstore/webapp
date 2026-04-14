@@ -157,7 +157,7 @@ $effect(() => {
 
 <style>
 	h1, h2, h3, h4, h5, h6 {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		line-height: 1.3;
 		font-weight: 600;
 		margin-top: 1.5em;
@@ -202,7 +202,7 @@ $effect(() => {
 	}
 	li {
 		margin: 0.25em 0;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 	li::marker {
 		color: hsl(var(--white66));
@@ -233,12 +233,12 @@ $effect(() => {
 		border-bottom: 1px solid hsl(var(--white16));
 		background: hsl(var(--white8));
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		white-space: nowrap;
 	}
 	td {
 		border-bottom: 1px solid hsl(var(--white11));
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 	tr:last-child td {
 		border-bottom: none;

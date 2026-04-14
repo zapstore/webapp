@@ -766,7 +766,7 @@ $effect(() => {
 		font-family: var(--font-display);
 		font-size: 1.875rem;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		text-align: center;
 	}
 
@@ -816,7 +816,7 @@ $effect(() => {
 	.label-error {
 		margin: 8px 0 0 0;
 		font-size: 13px;
-		color: hsl(var(--destructive));
+		color: hsl(var(--rougeColor));
 	}
 
 	/* Full-width button when no stacks (same height as cards) */
@@ -932,7 +932,7 @@ $effect(() => {
 		padding: 0 20px;
 		font-size: 16px;
 		font-weight: 500;
-		color: hsl(var(--destructive));
+		color: hsl(var(--rougeColor));
 		background-color: hsl(var(--black33));
 		border: none;
 		border-radius: var(--radius-16);
@@ -946,10 +946,10 @@ $effect(() => {
 
 	.error-message {
 		padding: 12px 16px;
-		background: hsl(var(--destructive) / 0.1);
-		border: 0.33px solid hsl(var(--destructive) / 0.4);
+		background: hsl(var(--rougeColor) / 0.1);
+		border: 0.33px solid hsl(var(--rougeColor) / 0.4);
 		border-radius: var(--radius-12);
-		color: hsl(var(--destructive));
+		color: hsl(var(--rougeColor));
 		font-size: 14px;
 	}
 
@@ -1018,7 +1018,7 @@ $effect(() => {
 		background: var(--gradient-blurple);
 		border: none;
 		border-radius: var(--radius-16);
-		color: hsl(var(--primary-foreground));
+		color: hsl(var(--whiteEnforced));
 		font-size: 16px;
 		font-weight: 500;
 		cursor: pointer;

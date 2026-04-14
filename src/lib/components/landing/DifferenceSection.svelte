@@ -119,10 +119,10 @@
 		height: 120px;
 		background: linear-gradient(
 			to top,
-			hsl(var(--background)) 0%,
-			hsl(var(--background) / 0.95) 25%,
-			hsl(var(--background) / 0.7) 50%,
-			hsl(var(--background) / 0.3) 75%,
+			hsl(var(--black)) 0%,
+			hsl(var(--black) / 0.95) 25%,
+			hsl(var(--black) / 0.7) 50%,
+			hsl(var(--black) / 0.3) 75%,
 			transparent 100%
 		);
 		pointer-events: none;
@@ -215,7 +215,7 @@
 	}
 
 	.store-name.highlight {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		font-weight: 700;
 	}
 

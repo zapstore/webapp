@@ -85,7 +85,7 @@ let Content = $derived(data.content);
 	.article-title {
 		font-size: 1.75rem;
 		font-weight: 700;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		margin: 0;
 		line-height: 1.25;
 		letter-spacing: -0.02em;
@@ -121,7 +121,7 @@ let Content = $derived(data.content);
 	.prose :global(h2),
 	.prose :global(h3),
 	.prose :global(h4) {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		font-weight: 650;
 		line-height: 1.3;
 		margin-top: 2em;
@@ -151,7 +151,7 @@ let Content = $derived(data.content);
 		background: hsl(var(--white8));
 		padding: 2px 6px;
 		border-radius: 5px;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.prose :global(pre) {

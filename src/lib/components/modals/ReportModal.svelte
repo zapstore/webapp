@@ -327,7 +327,7 @@ $effect(() => {
 	.violation-label {
 		font-size: 0.9375rem;
 		font-weight: 400;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		flex: 1;
 		line-height: 1.4;
 		user-select: none;
@@ -346,7 +346,7 @@ $effect(() => {
 	.error-text {
 		margin: 8px 0 0;
 		font-size: 0.8125rem;
-		color: hsl(var(--destructive));
+		color: hsl(var(--rougeColor));
 		padding-left: 4px;
 	}
 

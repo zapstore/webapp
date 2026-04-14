@@ -644,7 +644,7 @@
 
 	.platform-btn.selected {
 		background-color: hsl(var(--white16));
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.platform-btn.disabled {

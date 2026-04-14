@@ -588,12 +588,12 @@ function stackToCard(s, resolvedApps) {
 
 	.profile-hero-shader-left {
 		left: 0;
-		background: linear-gradient(to right, hsl(var(--background)) 0%, transparent 100%);
+		background: linear-gradient(to right, hsl(var(--black)) 0%, transparent 100%);
 	}
 
 	.profile-hero-shader-right {
 		right: 0;
-		background: linear-gradient(to left, hsl(var(--background)) 0%, transparent 100%);
+		background: linear-gradient(to left, hsl(var(--black)) 0%, transparent 100%);
 	}
 
 	/* Desktop only: show shaders and extend to container gutter + padding */

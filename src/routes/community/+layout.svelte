@@ -448,8 +448,8 @@
 		height: calc(100dvh - 64px);
 		min-height: 0;
 		overflow: hidden;
-		border-left: 1px solid hsl(var(--border));
-		border-right: 1px solid hsl(var(--border));
+		border-left: 1px solid hsl(var(--white16));
+		border-right: 1px solid hsl(var(--white16));
 		margin-left: -16px;
 		margin-right: -16px;
 	}
@@ -492,9 +492,9 @@
 		padding: 10px 16px;
 		background: transparent;
 		border: none;
-		border-bottom: 1px solid hsl(var(--border));
+		border-bottom: 1px solid hsl(var(--white16));
 		cursor: pointer;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		font-size: 14px;
 		font-weight: 500;
 		text-decoration: none;
@@ -525,8 +525,8 @@
 		bottom: 0;
 		display: flex;
 		flex-direction: column;
-		background: hsl(var(--background));
-		border-top: 1px solid hsl(var(--border));
+		background: hsl(var(--black));
+		border-top: 1px solid hsl(var(--white16));
 		box-shadow: 0 12px 40px hsl(var(--black) / 0.35);
 		overflow: hidden;
 	}
@@ -574,7 +574,7 @@
 	}
 
 	.section-item.active {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		background: hsl(var(--white8));
 	}
 
@@ -613,7 +613,7 @@
 		padding-top: 16px;
 		padding-left: 12px;
 		padding-right: 12px;
-		border-top: 1px solid hsl(var(--border));
+		border-top: 1px solid hsl(var(--white16));
 	}
 
 	.section-eyebrow {
@@ -646,7 +646,7 @@
 	}
 
 	.nav-item.active {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		background: hsl(var(--white8));
 	}
 
@@ -744,7 +744,7 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		border-left: 1px solid hsl(var(--border));
+		border-left: 1px solid hsl(var(--white16));
 		min-height: 0;
 	}
 
@@ -797,7 +797,7 @@
 	.tos-list strong {
 		font-size: 1rem;
 		font-weight: 650;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		line-height: 1.3;
 	}
 

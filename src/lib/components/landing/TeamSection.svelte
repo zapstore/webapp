@@ -379,13 +379,13 @@
 		<!-- Left gradient fade -->
 		<div
 			class="absolute left-0 top-0 bottom-0 w-16 sm:w-24 md:w-32 lg:w-48 xl:w-64 z-20 pointer-events-none"
-			style="background: linear-gradient(to right, hsl(var(--background)) 0%, hsl(var(--background) / 0.8) 30%, hsl(var(--background) / 0.4) 60%, transparent 100%);"
+			style="background: linear-gradient(to right, hsl(var(--black)) 0%, hsl(var(--black) / 0.8) 30%, hsl(var(--black) / 0.4) 60%, transparent 100%);"
 		></div>
 
 		<!-- Right gradient fade -->
 		<div
 			class="absolute right-0 top-0 bottom-0 w-16 sm:w-24 md:w-32 lg:w-48 xl:w-64 z-20 pointer-events-none"
-			style="background: linear-gradient(to left, hsl(var(--background)) 0%, hsl(var(--background) / 0.8) 30%, hsl(var(--background) / 0.4) 60%, transparent 100%);"
+			style="background: linear-gradient(to left, hsl(var(--black)) 0%, hsl(var(--black) / 0.8) 30%, hsl(var(--black) / 0.4) 60%, transparent 100%);"
 		></div>
 
 		<div class="team-spread-scaler">
@@ -623,7 +623,7 @@
 	.member-name {
 		font-size: 1.25rem;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		white-space: nowrap;
 	}
 
@@ -666,7 +666,7 @@
 	}
 
 	.donate-button-bottom:hover .btn-text-white {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	/* Blurple glass button hover effect */
@@ -691,7 +691,7 @@
 		box-shadow:
 			0 0 40px rgb(92 95 255 / 0.15),
 			0 0 80px rgb(92 95 255 / 0.08);
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	@media (max-width: 639px) {
@@ -787,7 +787,7 @@
 		gap: 8px;
 		text-align: center;
 		text-decoration: none;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.donate-panel-icon {
@@ -825,7 +825,7 @@
 	.donate-panel-title {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.donate-panel-desc {

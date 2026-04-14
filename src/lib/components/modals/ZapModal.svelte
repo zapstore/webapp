@@ -135,9 +135,9 @@ async function handleZap() {
   .error-message {
     padding: 12px;
     margin-bottom: 16px;
-    background: hsl(var(--destructive) / 0.1);
+    background: hsl(var(--rougeColor) / 0.1);
     border-radius: var(--radius-12);
-    color: hsl(var(--destructive));
+    color: hsl(var(--rougeColor));
     font-size: 14px;
   }
 

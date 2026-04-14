@@ -49,7 +49,7 @@
 		justify-content: space-between;
 		gap: 12px;
 		padding: 10px 16px;
-		border-bottom: 1px solid hsl(var(--border));
+		border-bottom: 1px solid hsl(var(--white16));
 	}
 
 	.user-inbox-head-left {

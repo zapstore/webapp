@@ -225,7 +225,7 @@ async function copyRepository() {
 
   .identifier-label {
     font-size: 0.875rem;
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
     white-space: nowrap;
   }
 

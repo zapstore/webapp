@@ -304,7 +304,7 @@
 	.end-message {
 		text-align: center;
 		padding: 2rem;
-		color: hsl(var(--muted-foreground));
+		color: hsl(var(--white66));
 		font-size: 0.875rem;
 	}
 

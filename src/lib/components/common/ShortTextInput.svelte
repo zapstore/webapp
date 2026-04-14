@@ -1085,7 +1085,7 @@ export { getContent, getSerializedContent, isEmpty };
   }
   .inline-close-btn:hover {
     background: hsl(var(--white16));
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
   }
   .inline-close-btn :global(svg) {
     stroke: hsl(var(--white33)) !important;

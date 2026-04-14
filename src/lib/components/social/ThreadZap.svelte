@@ -167,7 +167,7 @@ function formatAmount(val) {
     font-weight: 600;
     font-size: 1.25rem;
     line-height: 1.2;
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
   }
 
   .publish-spinner {
@@ -189,7 +189,7 @@ function formatAmount(val) {
     margin-top: 8px;
     font-size: 0.9375rem;
     line-height: 1.5;
-    color: hsl(var(--foreground) / 0.85);
+    color: hsl(var(--white) / 0.85);
   }
 
   .content :global(p) {
@@ -201,7 +201,7 @@ function formatAmount(val) {
   }
 
   .content :global(a) {
-    color: hsl(var(--primary));
+    color: hsl(var(--blurpleColor));
     text-decoration: none;
   }
 

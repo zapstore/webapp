@@ -193,7 +193,7 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
   .bubble-content {
     font-size: 0.9375rem;
     line-height: 1.5;
-    color: hsl(var(--foreground) / 0.85);
+    color: hsl(var(--white) / 0.85);
   }
 
   .bubble-content :global(p) {
@@ -205,7 +205,7 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
   }
 
   .bubble-content :global(a) {
-    color: hsl(var(--primary));
+    color: hsl(var(--blurpleColor));
     text-decoration: none;
   }
 

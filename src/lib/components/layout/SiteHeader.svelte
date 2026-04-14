@@ -40,6 +40,20 @@
 
 	let { variant = 'landing', pageTitle = '' } = $props();
 	let scrolled = $state(false);
+	let activeTheme = $state('gray');
+
+	function cycleTheme() {
+		const themes = ['gray', 'dark', 'light'];
+		const next = themes[(themes.indexOf(activeTheme) + 1) % themes.length];
+		activeTheme = next;
+		if (browser) {
+			if (next === 'gray') {
+				document.documentElement.removeAttribute('data-theme');
+			} else {
+				document.documentElement.setAttribute('data-theme', next);
+			}
+		}
+	}
 	let dropdownOpen = $state(false);
 	let menuOpen = $state(false);
 	let landingNavOpen = $state(null); // 'discover' | 'studio' | 'community' | null (desktop hover dropdowns)
@@ -957,6 +971,16 @@
 					</div>
 				{/if}
 			</div>
+			<!-- DEV: theme cycle button — uncomment to test themes
+			<button
+				type="button"
+				onclick={cycleTheme}
+				class="theme-dev-btn"
+				title="Cycle theme (dev only)"
+			>
+				{#if activeTheme === 'light'}☀{:else if activeTheme === 'dark'}🌑{:else}◑{/if}
+			</button>
+			-->
 		</div>
 	</nav>
 </header>
@@ -1761,5 +1785,24 @@
 		font-weight: 600;
 		background-color: hsl(var(--white8));
 		border-radius: 12px;
+	}
+
+	/* DEV ONLY — remove before ship */
+	.theme-dev-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		border: 0.33px solid hsl(var(--white16));
+		background: hsl(var(--white8));
+		font-size: 1rem;
+		cursor: pointer;
+		transition: background-color 0.15s ease;
+		flex-shrink: 0;
+	}
+	.theme-dev-btn:hover {
+		background: hsl(var(--white16));
 	}
 </style>

@@ -136,8 +136,8 @@ const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 	.post-btn:hover {
 		transform: scale(1.015);
 		box-shadow:
-			0 0 20px hsl(var(--primary) / 0.4),
-			0 10px 40px -20px hsl(var(--primary) / 0.6);
+			0 0 20px hsl(var(--blurpleColor) / 0.4),
+			0 10px 40px -20px hsl(var(--blurpleColor) / 0.6);
 	}
 
 	.post-btn:active {

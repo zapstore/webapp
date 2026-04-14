@@ -64,7 +64,7 @@
 
   .selector-button-selected {
     background-color: hsl(var(--white16));
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
   }
 
   .selector-button-unselected {
@@ -99,7 +99,7 @@
   }
 
   .selector-button-large-selected {
-    color: hsl(var(--primary-foreground));
+    color: hsl(var(--whiteEnforced));
     background-image: var(--button-primary-bg);
     background-color: transparent;
   }
@@ -107,8 +107,8 @@
   .selector-button-large-selected:hover {
     transform: scale(1.015);
     box-shadow:
-      0 0 20px hsl(var(--primary) / 0.4),
-      0 10px 40px -20px hsl(var(--primary) / 0.6);
+      0 0 20px hsl(var(--blurpleColor) / 0.4),
+      0 10px 40px -20px hsl(var(--blurpleColor) / 0.6);
   }
 
   .selector-button-large-selected:active {
@@ -116,8 +116,8 @@
   }
 
   .selector-button-large-unselected {
-    color: hsl(var(--foreground));
-    background-color: hsl(var(--card)); /* gray66 */
+    color: hsl(var(--white));
+    background-color: hsl(var(--gray66)); /* gray66 */
   }
 
   .selector-button-large-unselected:hover {
@@ -142,7 +142,7 @@
     width: 300px;
     pointer-events: none;
     border-radius: 0 24px 24px 0;
-    background: hsl(var(--background));
+    background: hsl(var(--black));
     border-top: 0.33px solid;
     border-right: 0.33px solid;
     border-bottom: 0.33px solid;

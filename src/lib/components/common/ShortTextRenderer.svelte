@@ -84,7 +84,7 @@ function mentionStyle(pubkey) {
   .short-text-renderer {
     font-size: inherit;
     line-height: 1.5;
-    color: hsl(var(--foreground) / 0.85);
+    color: hsl(var(--white) / 0.85);
     word-wrap: break-word;
   }
 
@@ -130,6 +130,6 @@ function mentionStyle(pubkey) {
 
   .short-text-emoji-fallback {
     font-size: 0.95em;
-    color: hsl(var(--foreground) / 0.7);
+    color: hsl(var(--white) / 0.7);
   }
 </style>

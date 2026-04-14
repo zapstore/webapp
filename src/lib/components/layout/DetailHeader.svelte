@@ -428,7 +428,7 @@ async function _handleSignIn() {
 	.page-header-title {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		margin: 0;
 		letter-spacing: -0.02em;
 	}
@@ -444,7 +444,7 @@ async function _handleSignIn() {
 		border: none;
 		border-radius: 8px;
 		cursor: pointer;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		transition: background-color 0.15s ease;
 		flex-shrink: 0;
 	}

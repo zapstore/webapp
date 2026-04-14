@@ -209,7 +209,7 @@
 			<div class="eyebrow-badge">
 				<Cross
 					variant="outline"
-					color="hsl(var(--destructive) / 0.66)"
+					color="hsl(var(--rougeColor) / 0.66)"
 					size={12}
 					strokeWidth={1.4}
 				/>
@@ -250,7 +250,7 @@
 				<div class="eyebrow-badge">
 					<Cross
 						variant="outline"
-						color="hsl(var(--destructive) / 0.66)"
+						color="hsl(var(--rougeColor) / 0.66)"
 						size={12}
 						strokeWidth={1.4}
 					/>
@@ -465,7 +465,7 @@
 		font-weight: 600;
 		line-height: 1.3;
 		margin: 0 0 0.4rem;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.mob-desc {
@@ -527,7 +527,7 @@
 	}
 
 	.feature-tab.active .tab-title {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.tab-desc {

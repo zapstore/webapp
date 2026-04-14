@@ -754,7 +754,7 @@ $effect(() => {
 
 	.cam-share-label {
 		font-size: 0.875rem;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		white-space: nowrap;
 	}
 
@@ -817,7 +817,7 @@ $effect(() => {
 		padding: 0 20px;
 		font-size: 16px;
 		font-weight: 500;
-		color: hsl(var(--destructive));
+		color: hsl(var(--rougeColor));
 		background: hsl(var(--black33));
 		border: none;
 		border-radius: var(--radius-16);
@@ -858,7 +858,7 @@ $effect(() => {
 	.cam-label-error {
 		margin: 0;
 		font-size: 13px;
-		color: hsl(var(--destructive));
+		color: hsl(var(--rougeColor));
 	}
 
 	.labels-scroll-row {

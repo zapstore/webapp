@@ -149,7 +149,7 @@ let zapsChartWidth = $state(400);
               <item.icon
                 variant="outline"
                 size={18}
-                color={activeTab === item.id ? "hsl(var(--foreground))" : "hsl(var(--white33))"}
+                color={activeTab === item.id ? "hsl(var(--white))" : "hsl(var(--white33))"}
               />
               <span>{item.label}</span>
             </button>
@@ -249,7 +249,7 @@ let zapsChartWidth = $state(400);
                         <clipPath id="dlAppClip{i}">
                           <circle cx="8" cy="8" r="8" />
                         </clipPath>
-                        <circle cx="8" cy="8" r="8" fill="hsl(var(--background))" stroke={colors.apps} stroke-width="1.5" />
+                        <circle cx="8" cy="8" r="8" fill="hsl(var(--black))" stroke={colors.apps} stroke-width="1.5" />
                         {#if app.icon}
                           <image 
                             href={app.icon} 
@@ -410,12 +410,12 @@ let zapsChartWidth = $state(400);
 
   .nav-item:hover {
     background: hsl(var(--white8));
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
   }
 
   .nav-item-active {
     background: hsl(var(--white11));
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
   }
 
   /* Sidebar Sections */
@@ -438,7 +438,7 @@ let zapsChartWidth = $state(400);
   .sidebar-loading {
     padding: 8px 12px;
     font-size: 13px;
-    color: hsl(var(--muted-foreground));
+    color: hsl(var(--white66));
   }
 
   /* Sidebar Apps */
@@ -481,7 +481,7 @@ let zapsChartWidth = $state(400);
   }
 
   .sidebar-app-item:hover .sidebar-app-name {
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
   }
 
   /* Sidebar Communities */
@@ -519,7 +519,7 @@ let zapsChartWidth = $state(400);
   }
 
   .sidebar-community-item:hover .sidebar-community-name {
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
   }
 
   /* Main Content */
@@ -594,7 +594,7 @@ let zapsChartWidth = $state(400);
   .chart-total {
     font-size: 20px;
     font-weight: 700;
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
   }
 
   .zap-icon-wrapper {

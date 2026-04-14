@@ -72,7 +72,7 @@ function stop(e) {
   }
 
   .rail-btn:focus-visible {
-    outline: 2px solid hsl(var(--primary));
+    outline: 2px solid hsl(var(--blurpleColor));
     outline-offset: 2px;
   }
 </style>

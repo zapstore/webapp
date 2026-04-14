@@ -62,7 +62,7 @@
 	<!-- Bottom gradient shader (section-relative, just enough for the preview text) -->
 	<div
 		class="absolute left-0 right-0 bottom-0 z-20 pointer-events-none"
-		style="height: 72px; background: linear-gradient(to top, hsl(var(--background)) 0%, hsl(var(--background) / 0.85) 30%, hsl(var(--background) / 0.4) 65%, transparent 100%);"
+		style="height: 72px; background: linear-gradient(to top, hsl(var(--black)) 0%, hsl(var(--black) / 0.85) 30%, hsl(var(--black) / 0.4) 65%, transparent 100%);"
 	></div>
 
 	<!-- Preview label: desktop only, right column (same as image) -->

@@ -682,13 +682,13 @@
 	.apps-categories-scroll-wrap .apps-cat-fade.scroll-fade-left {
 		left: -0.75rem;
 		width: 0.75rem;
-		background: linear-gradient(to right, hsl(var(--background)), transparent);
+		background: linear-gradient(to right, hsl(var(--black)), transparent);
 	}
 
 	.apps-categories-scroll-wrap .apps-cat-fade.scroll-fade-right {
 		right: -0.75rem;
 		width: 0.75rem;
-		background: linear-gradient(to left, hsl(var(--background)), transparent);
+		background: linear-gradient(to left, hsl(var(--black)), transparent);
 	}
 
 	@media (min-width: 640px) {
@@ -847,13 +847,13 @@
 	.scroll-fade-left {
 		left: -1rem;
 		width: 1rem;
-		background: linear-gradient(to right, hsl(var(--background)), transparent);
+		background: linear-gradient(to right, hsl(var(--black)), transparent);
 	}
 
 	.scroll-fade-right {
 		right: -1rem;
 		width: 1rem;
-		background: linear-gradient(to left, hsl(var(--background)), transparent);
+		background: linear-gradient(to left, hsl(var(--black)), transparent);
 	}
 
 	@media (min-width: 640px) {
@@ -939,7 +939,7 @@
 		width: 20px;
 		height: 20px;
 		border: 2px solid hsl(var(--white33));
-		border-top-color: hsl(var(--foreground));
+		border-top-color: hsl(var(--white));
 		border-radius: 50%;
 		animation: spin 0.8s linear infinite;
 	}

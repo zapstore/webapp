@@ -125,7 +125,7 @@ async function handleCopy() {
 		font-weight: 400;
 		line-height: 1.5;
 		letter-spacing: 0.15px;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		white-space: pre;
 	}
 </style>

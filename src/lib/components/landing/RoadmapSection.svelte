@@ -103,13 +103,13 @@
 		<!-- Left gradient fade -->
 		<div
 			class="hidden md:block absolute left-0 top-0 bottom-0 w-24 sm:w-32 md:w-48 lg:w-64 xl:w-80 z-30 pointer-events-none"
-			style="background: linear-gradient(to right, hsl(var(--background)) 0%, hsl(var(--background) / 0.95) 20%, hsl(var(--background) / 0.7) 50%, transparent 100%);"
+			style="background: linear-gradient(to right, hsl(var(--black)) 0%, hsl(var(--black) / 0.95) 20%, hsl(var(--black) / 0.7) 50%, transparent 100%);"
 		></div>
 
 		<!-- Right gradient fade -->
 		<div
 			class="hidden md:block absolute right-0 top-0 bottom-0 w-24 sm:w-32 md:w-48 lg:w-64 xl:w-80 z-30 pointer-events-none"
-			style="background: linear-gradient(to left, hsl(var(--background)) 0%, hsl(var(--background) / 0.95) 20%, hsl(var(--background) / 0.7) 50%, transparent 100%);"
+			style="background: linear-gradient(to left, hsl(var(--black)) 0%, hsl(var(--black) / 0.95) 20%, hsl(var(--black) / 0.7) 50%, transparent 100%);"
 		></div>
 
 		<!-- Scrolling container -->
@@ -166,7 +166,7 @@
 	.task-title {
 		font-size: 1.0625rem;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		line-height: 1.3;
 	}
 

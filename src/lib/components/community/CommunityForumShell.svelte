@@ -654,7 +654,7 @@
 		flex-direction: column;
 		flex: 1;
 		min-height: 0;
-		background: hsl(var(--background));
+		background: hsl(var(--black));
 	}
 
 	.panel-content {
@@ -670,7 +670,7 @@
 		position: relative;
 		z-index: 20;
 		overflow: visible;
-		background: hsl(var(--background));
+		background: hsl(var(--black));
 	}
 
 	.forum-categories-wrap {
@@ -678,7 +678,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0;
-		border-bottom: 1px solid hsl(var(--border));
+		border-bottom: 1px solid hsl(var(--white16));
 		/* Let .forum-latest-dropdown extend below the row; horizontal overflow stays in .forum-categories-scroll */
 		overflow: visible;
 		position: relative;
@@ -814,11 +814,11 @@
 		gap: 12px;
 		padding: 10px 14px;
 		margin: 0 12px 12px;
-		background: hsl(var(--destructive) / 0.15);
-		border: 1px solid hsl(var(--destructive) / 0.4);
+		background: hsl(var(--rougeColor) / 0.15);
+		border: 1px solid hsl(var(--rougeColor) / 0.4);
 		border-radius: 10px;
 		font-size: 0.875rem;
-		color: hsl(var(--destructive));
+		color: hsl(var(--rougeColor));
 	}
 
 	.forum-publish-error-dismiss {
@@ -859,7 +859,7 @@
 		border-radius: 12px;
 		border: 1px solid hsl(var(--white22));
 		background: hsl(var(--white6));
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		cursor: pointer;
 		transition: background 0.15s, border-color 0.15s;
 	}
@@ -901,7 +901,7 @@
 		border-radius: 12px;
 		border: 1px solid hsl(var(--white33));
 		background: transparent;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		cursor: pointer;
 		transition: background 0.15s, border-color 0.15s;
 	}

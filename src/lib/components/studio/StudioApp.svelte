@@ -965,8 +965,8 @@
 		height: calc(100dvh - 64px);
 		min-height: 0;
 		overflow: hidden;
-		border-left: 1px solid hsl(var(--border));
-		border-right: 1px solid hsl(var(--border));
+		border-left: 1px solid hsl(var(--white16));
+		border-right: 1px solid hsl(var(--white16));
 		margin-left: -16px;
 		margin-right: -16px;
 	}
@@ -1030,7 +1030,7 @@
 	}
 
 	.nav-item.active {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		background: hsl(var(--white8));
 	}
 
@@ -1104,7 +1104,7 @@
 		padding-top: 16px;
 		padding-left: 12px;
 		padding-right: 12px;
-		border-top: 1px solid hsl(var(--border));
+		border-top: 1px solid hsl(var(--white16));
 	}
 
 	.section-eyebrow {
@@ -1151,9 +1151,9 @@
 			padding: 10px 16px;
 			background: transparent;
 			border: none;
-			border-bottom: 1px solid hsl(var(--border));
+			border-bottom: 1px solid hsl(var(--white16));
 			cursor: pointer;
-			color: hsl(var(--foreground));
+			color: hsl(var(--white));
 		}
 
 		.mobile-nav-label {
@@ -1181,8 +1181,8 @@
 			bottom: 0;
 			display: flex;
 			flex-direction: column;
-			background: hsl(var(--background));
-			border-top: 1px solid hsl(var(--border));
+			background: hsl(var(--black));
+			border-top: 1px solid hsl(var(--white16));
 			box-shadow: 0 12px 40px hsl(var(--black) / 0.35);
 			overflow: hidden;
 			overflow-x: hidden;
@@ -1238,7 +1238,7 @@
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		border-left: 1px solid hsl(var(--border));
+		border-left: 1px solid hsl(var(--white16));
 		position: relative;
 		transform: translateZ(0);
 	}
@@ -1284,7 +1284,7 @@
 	.content-section {
 		position: relative;
 		padding: 18px 26px 26px;
-		border-bottom: 1px solid hsl(var(--border));
+		border-bottom: 1px solid hsl(var(--white16));
 	}
 
 	/* ── Section header — floats over the graph ───────────────────────────── */
@@ -1311,7 +1311,7 @@
 	.dl-count {
 		font-size: 32px;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		line-height: 1;
 		letter-spacing: -0.02em;
 	}
@@ -1355,8 +1355,8 @@
 		top: calc(100% + 4px);
 		right: 0;
 		min-width: 110px;
-		background: hsl(var(--background));
-		border: 1px solid hsl(var(--border));
+		background: hsl(var(--black));
+		border: 1px solid hsl(var(--white16));
 		border-radius: 8px;
 		padding: 4px;
 		display: flex;
@@ -1384,11 +1384,11 @@
 
 	.tr-option:hover {
 		background: hsl(var(--white8));
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.tr-option.tr-selected {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		background: hsl(var(--white8));
 	}
 

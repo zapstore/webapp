@@ -357,7 +357,7 @@
 		justify-content: space-between;
 		gap: 14px;
 		padding: 20px;
-		border-bottom: 1px solid hsl(var(--border));
+		border-bottom: 1px solid hsl(var(--white16));
 	}
 
 	.app-info-left {
@@ -405,7 +405,7 @@
 	.app-name {
 		font-size: 20px;
 		font-weight: 650;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		line-height: 1.15;
 		letter-spacing: -0.02em;
 		margin: 0;
@@ -414,7 +414,7 @@
 	/* ── Counts row ────────────────────────────────────────────────────────── */
 	.counts-row {
 		display: flex;
-		border-bottom: 1px solid hsl(var(--border));
+		border-bottom: 1px solid hsl(var(--white16));
 	}
 
 	.count-item {
@@ -423,7 +423,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
-		border-right: 1px solid hsl(var(--border));
+		border-right: 1px solid hsl(var(--white16));
 		position: relative;
 	}
 
@@ -467,7 +467,7 @@
 	.count-num {
 		font-size: 32px;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		line-height: 1;
 		letter-spacing: -0.02em;
 	}
@@ -485,7 +485,7 @@
 	.chart-section {
 		position: relative;
 		padding: 28px 20px 20px;
-		border-bottom: 1px solid hsl(var(--border));
+		border-bottom: 1px solid hsl(var(--white16));
 	}
 
 	.timerange-wrap {
@@ -522,8 +522,8 @@
 		top: calc(100% + 4px);
 		right: 0;
 		min-width: 110px;
-		background: hsl(var(--background));
-		border: 1px solid hsl(var(--border));
+		background: hsl(var(--black));
+		border: 1px solid hsl(var(--white16));
 		border-radius: 8px;
 		padding: 4px;
 		display: flex;
@@ -551,11 +551,11 @@
 
 	.tr-option:hover {
 		background: hsl(var(--white8));
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.tr-option.tr-selected {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		background: hsl(var(--white8));
 	}
 
@@ -569,7 +569,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-		border-top: 1px solid hsl(var(--border));
+		border-top: 1px solid hsl(var(--white16));
 	}
 
 	.detail-country-head {
@@ -633,7 +633,7 @@
 			width: 100%;
 			padding: 16px;
 			border-right: none;
-			border-bottom: 1px solid hsl(var(--border));
+			border-bottom: 1px solid hsl(var(--white16));
 		}
 
 		.count-item--last {

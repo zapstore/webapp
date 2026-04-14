@@ -553,13 +553,13 @@ const contentText = $derived(event?.content ?? '');
 	}
 
 	.root-label-link:hover {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		text-decoration: underline;
 		text-underline-offset: 2px;
 	}
 
 	.root-label-link:hover .root-label-kind {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.root-label--deleted {
@@ -634,7 +634,7 @@ const contentText = $derived(event?.content ?? '');
 	.bubble-content {
 		font-size: 0.9375rem;
 		line-height: 1.5;
-		color: hsl(var(--foreground) / 0.85);
+		color: hsl(var(--white) / 0.85);
 	}
 
 	.bubble-content :global(p) {
@@ -646,7 +646,7 @@ const contentText = $derived(event?.content ?? '');
 	}
 
 	.bubble-content :global(a) {
-		color: hsl(var(--primary));
+		color: hsl(var(--blurpleColor));
 		text-decoration: none;
 	}
 

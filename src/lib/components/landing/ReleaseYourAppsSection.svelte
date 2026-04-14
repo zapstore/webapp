@@ -44,7 +44,7 @@
 			<!-- Bottom gradient shader -->
 			<div
 				class="absolute left-0 right-0 bottom-0 z-30 pointer-events-none"
-				style="height: 160px; background: linear-gradient(to top, hsl(var(--background)) 0%, hsl(var(--background) / 0.8) 20%, hsl(var(--background) / 0.4) 50%, hsl(var(--background) / 0.15) 75%, transparent 100%);"
+				style="height: 160px; background: linear-gradient(to top, hsl(var(--black)) 0%, hsl(var(--black) / 0.8) 20%, hsl(var(--black) / 0.4) 50%, hsl(var(--black) / 0.15) 75%, transparent 100%);"
 			></div>
 
 			<!-- CTA Button -->

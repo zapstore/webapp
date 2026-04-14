@@ -134,7 +134,7 @@
     font-weight: 600;
     line-height: 1.2;
     margin: 0;
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
   }
 
   .gateway-question {

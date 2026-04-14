@@ -211,9 +211,9 @@
 		height: 110px;
 		background: linear-gradient(
 			to bottom,
-			hsl(var(--background) / 0.92) 0%,
-			hsl(var(--background) / 0.82) 22%,
-			hsl(var(--background) / 0.42) 52%,
+			hsl(var(--black) / 0.92) 0%,
+			hsl(var(--black) / 0.82) 22%,
+			hsl(var(--black) / 0.42) 52%,
 			transparent 100%
 		);
 		pointer-events: none;
@@ -227,9 +227,9 @@
 			border-radius: 0 0 32px 32px;
 			background: linear-gradient(
 				to bottom,
-				hsl(var(--background) / 0.92) 0%,
-				hsl(var(--background) / 0.84) 24%,
-				hsl(var(--background) / 0.44) 56%,
+				hsl(var(--black) / 0.92) 0%,
+				hsl(var(--black) / 0.84) 24%,
+				hsl(var(--black) / 0.44) 56%,
 				transparent 100%
 			);
 		}
@@ -269,7 +269,7 @@
 		font-weight: 400;
 		line-height: 1.5;
 		letter-spacing: 0.15px;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		white-space: pre-wrap;
 		word-break: break-all;
 		overflow-wrap: break-word;

@@ -105,7 +105,7 @@
 	}
 
 	.small-stack-card.selected {
-		border-color: hsl(var(--primary));
+		border-color: hsl(var(--blurpleColor));
 	}
 
 	.title-row {

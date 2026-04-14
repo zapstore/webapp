@@ -492,13 +492,13 @@
 	}
 
 	.root-label-link:hover {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		text-decoration: underline;
 		text-underline-offset: 2px;
 	}
 
 	.root-label-link:hover .root-label-kind {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.root-label--deleted {
@@ -587,7 +587,7 @@
 		font-weight: 500;
 		font-size: 1rem;
 		line-height: 1.2;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.author-name {
@@ -615,7 +615,7 @@
 	.bubble-content {
 		font-size: 0.9375rem;
 		line-height: 1.5;
-		color: hsl(var(--foreground) / 0.85);
+		color: hsl(var(--white) / 0.85);
 		margin-top: 4px;
 	}
 
@@ -628,7 +628,7 @@
 	}
 
 	.bubble-content :global(a) {
-		color: hsl(var(--primary));
+		color: hsl(var(--blurpleColor));
 		text-decoration: none;
 	}
 

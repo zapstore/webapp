@@ -89,7 +89,7 @@ function handleClick(e) {
 	.app-name {
 		font-size: 1rem;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		line-height: 1.3;
 		white-space: nowrap;
 		overflow: hidden;

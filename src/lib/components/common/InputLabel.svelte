@@ -300,7 +300,7 @@
 		margin-right: 32px;
 		font-size: 14px;
 		font-weight: 500;
-		color: hsl(var(--primary-foreground));
+		color: hsl(var(--whiteEnforced));
 		background: var(--gradient-blurple);
 		border: none;
 		border-radius: 9999px;

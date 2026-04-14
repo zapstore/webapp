@@ -100,7 +100,7 @@
   .section-title {
     font-size: 1.25rem;
     font-weight: 650;
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
     margin: 0;
     line-height: 1.2;
   }

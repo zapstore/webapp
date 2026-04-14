@@ -101,7 +101,7 @@
 		font-size: 1.25rem;
 		font-weight: 700;
 		line-height: 1.2;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		margin: 0;
 	}
 	@media (min-width: 1024px) {

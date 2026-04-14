@@ -567,7 +567,7 @@
 		font-weight: 600;
 		line-height: 1.3;
 		margin: 0 0 0.4rem;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 	.mob-desc {
 		font-size: 1rem;
@@ -611,7 +611,7 @@
 		}
 	}
 	.feature-tab.active .tab-title {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 	.tab-desc {
 		font-size: 1rem;
@@ -716,7 +716,7 @@
 	.fsc-title {
 		font-size: 1.8rem;
 		font-weight: 700;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		margin: 0;
 		line-height: 1.2;
 	}
@@ -754,7 +754,7 @@
 	.fsc-app-name {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		line-height: 1.25;
 	}
 	.fsc-app-ver {
@@ -938,12 +938,12 @@
 	.fzb-sats {
 		font-size: 0.9375rem;
 		font-weight: 500;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 	.fzb-msg {
 		font-size: 1rem;
 		line-height: 1.5;
-		color: hsl(var(--foreground) / 0.85);
+		color: hsl(var(--white) / 0.85);
 		margin: 4px 0 0;
 	}
 </style>

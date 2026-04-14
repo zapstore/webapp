@@ -368,10 +368,10 @@ $effect(() => {
     gap: 8px;
     padding: 12px;
     margin-bottom: 16px;
-    background: hsl(var(--destructive) / 0.1);
-    border: 0.33px solid hsl(var(--destructive) / 0.4);
+    background: hsl(var(--rougeColor) / 0.1);
+    border: 0.33px solid hsl(var(--rougeColor) / 0.4);
     border-radius: var(--radius-12);
-    color: hsl(var(--destructive));
+    color: hsl(var(--rougeColor));
     font-size: 14px;
   }
   .invoice-view {
@@ -382,7 +382,7 @@ $effect(() => {
   }
   .invoice-title {
     font-size: 1.875rem;
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
     margin: 0 0 8px;
   }
   .invoice-qr-block {
@@ -429,7 +429,7 @@ $effect(() => {
     transition: color 0.15s ease;
   }
   .copy-invoice-btn:hover:not(:disabled) {
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
   }
   .copy-invoice-btn:disabled {
     opacity: 0.6;

@@ -445,7 +445,7 @@
 		font-weight: 600;
 		line-height: 1.3;
 		margin: 0 0 0.4rem;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.mob-desc {
@@ -518,7 +518,7 @@
 	}
 
 	.feature-tab.active .tab-title {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.tab-desc {
@@ -662,7 +662,7 @@
 	.fake-panel-hdr {
 		font-size: 1rem;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		margin-bottom: 4px;
 	}
 
@@ -909,7 +909,7 @@
 	.fake-cat-name {
 		font-size: 0.9375rem;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;

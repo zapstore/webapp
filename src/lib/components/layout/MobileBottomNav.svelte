@@ -75,7 +75,7 @@ function isActive(href) {
 		flex-direction: row;
 		height: 56px;
 		flex-shrink: 0;
-		background-color: hsl(var(--background) / 0.92);
+		background-color: hsl(var(--black) / 0.92);
 		backdrop-filter: blur(20px);
 		-webkit-backdrop-filter: blur(20px);
 		border-top: 1px solid hsl(var(--border) / 0.5);
@@ -99,7 +99,7 @@ function isActive(href) {
 		gap: 3px;
 		padding: 6px 4px;
 		text-decoration: none;
-		color: hsl(var(--muted-foreground));
+		color: hsl(var(--white66));
 		border: none;
 		background: none;
 		cursor: pointer;
@@ -112,7 +112,7 @@ function isActive(href) {
 	}
 
 	.nav-item:hover {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		background-color: hsl(var(--accent) / 0.06);
 	}
 

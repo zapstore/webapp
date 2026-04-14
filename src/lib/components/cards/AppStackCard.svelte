@@ -234,7 +234,7 @@
 	.stack-name {
 		font-size: 1rem;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		line-height: 1.3;
 		display: -webkit-box;
 		-webkit-line-clamp: 1;

@@ -665,7 +665,7 @@ function checkTruncation(node) {
 		padding-top: 0;
 		margin: 0 0 6px;
 		line-height: 1.3;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 	.description-container {
 		position: relative;
@@ -680,11 +680,11 @@ function checkTruncation(node) {
 	}
 	.post-description {
 		line-height: 1.6;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		font-size: 0.9375rem;
 	}
 	.post-description :global(a) {
-		color: hsl(var(--primary));
+		color: hsl(var(--blurpleColor));
 		text-decoration: underline;
 	}
 	.post-description :global(a:hover) {
@@ -696,7 +696,7 @@ function checkTruncation(node) {
 		left: 0;
 		right: 0;
 		height: 100px;
-		background: linear-gradient(to bottom, transparent, hsl(var(--background)));
+		background: linear-gradient(to bottom, transparent, hsl(var(--black)));
 		pointer-events: none;
 	}
 	.read-more-btn {
@@ -739,7 +739,7 @@ function checkTruncation(node) {
 		transition: transform 0.15s ease;
 	}
 	.show-less-btn:hover {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		transform: scale(1.025);
 	}
 	.show-less-btn:active {

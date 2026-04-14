@@ -108,7 +108,7 @@ import { SITE_URL } from '$lib/config';
 	.terms-title {
 		font-size: 2rem;
 		font-weight: 700;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		margin: 0 0 0.5rem;
 		line-height: 1.2;
 		letter-spacing: -0.02em;
@@ -127,7 +127,7 @@ import { SITE_URL } from '$lib/config';
 	}
 
 	.prose :global(h2) {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		font-size: 1.25rem;
 		font-weight: 650;
 		margin-top: 2em;
@@ -162,11 +162,11 @@ import { SITE_URL } from '$lib/config';
 		background: hsl(var(--white8));
 		padding: 2px 6px;
 		border-radius: 5px;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.prose :global(strong) {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		font-weight: 600;
 	}
 </style>

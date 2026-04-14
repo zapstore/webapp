@@ -974,7 +974,7 @@ const displayDescription = $derived(
   .stack-title {
     font-size: 1.75rem;
     font-weight: 700;
-    color: hsl(var(--foreground));
+    color: hsl(var(--white));
     margin: 0;
     line-height: 1.2;
     flex: 1;
@@ -992,7 +992,7 @@ const displayDescription = $derived(
     background: var(--gradient-blurple);
     border: none;
     border-radius: 50%;
-    color: hsl(var(--primary-foreground));
+    color: hsl(var(--whiteEnforced));
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;

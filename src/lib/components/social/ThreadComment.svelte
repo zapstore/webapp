@@ -176,7 +176,7 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     margin-top: 8px;
     font-size: 0.9375rem;
     line-height: 1.5;
-    color: hsl(var(--foreground) / 0.85);
+    color: hsl(var(--white) / 0.85);
   }
 
   .content :global(p) {
@@ -188,7 +188,7 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
   }
 
   .content :global(a) {
-    color: hsl(var(--primary));
+    color: hsl(var(--blurpleColor));
     text-decoration: none;
   }
 

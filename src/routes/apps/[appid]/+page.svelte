@@ -1061,7 +1061,7 @@
 					onclick={() => (securityModalOpen = true)}
 				>
 					<div class="panel-header">
-						<span class="text-base font-semibold" style="color: hsl(var(--foreground));"
+						<span class="text-base font-semibold" style="color: hsl(var(--white));"
 							>Security</span
 						>
 					</div>
@@ -1155,7 +1155,7 @@
 					onclick={() => (releasesModalOpen = true)}
 				>
 					<div class="panel-header">
-						<span class="text-base font-semibold" style="color: hsl(var(--foreground));"
+						<span class="text-base font-semibold" style="color: hsl(var(--white));"
 							>Releases</span
 						>
 					</div>
@@ -1427,7 +1427,7 @@
 							{@const notesExpanded = expandedReleaseId === releaseId}
 							<div class="release-panel">
 								<div class="release-panel-row release-panel-head">
-									<span class="release-panel-version" style="color: hsl(var(--foreground));"
+									<span class="release-panel-version" style="color: hsl(var(--white));"
 										>{trimVersion(release.version)}</span
 									>
 									<Timestamp
@@ -1886,7 +1886,7 @@
 	.security-item-title {
 		font-size: 1.125rem;
 		font-weight: 500;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		margin: 0 0 0.5rem 0;
 	}
 
@@ -2144,7 +2144,7 @@
 
 	.app-description {
 		line-height: 1.5;
-		color: hsl(var(--foreground) / 0.85);
+		color: hsl(var(--white) / 0.85);
 	}
 
 	.app-description :global(p) {
@@ -2182,7 +2182,7 @@
 		left: 0;
 		right: 0;
 		height: 120px;
-		background: linear-gradient(to bottom, transparent, hsl(var(--background)));
+		background: linear-gradient(to bottom, transparent, hsl(var(--black)));
 		pointer-events: none;
 	}
 
@@ -2429,7 +2429,7 @@
 	.release-notes {
 		font-size: 0.875rem;
 		line-height: 1.5;
-		color: hsl(var(--foreground) / 0.9);
+		color: hsl(var(--white) / 0.9);
 		margin: 0;
 		padding-top: 8px;
 	}

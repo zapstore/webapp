@@ -210,10 +210,10 @@ const _hasChanges = $derived(
 
 	.error-message {
 		padding: 12px 16px;
-		background: hsl(var(--destructive) / 0.1);
-		border: 0.33px solid hsl(var(--destructive) / 0.4);
+		background: hsl(var(--rougeColor) / 0.1);
+		border: 0.33px solid hsl(var(--rougeColor) / 0.4);
 		border-radius: var(--radius-12);
-		color: hsl(var(--destructive));
+		color: hsl(var(--rougeColor));
 		font-size: 14px;
 	}
 
@@ -344,8 +344,8 @@ const _hasChanges = $derived(
 	}
 
 	.remove-app-btn:hover {
-		color: hsl(var(--destructive));
-		background-color: hsl(var(--destructive) / 0.1);
+		color: hsl(var(--rougeColor));
+		background-color: hsl(var(--rougeColor) / 0.1);
 	}
 
 	.empty-apps {
@@ -373,7 +373,7 @@ const _hasChanges = $derived(
 		background-color: hsl(var(--black33));
 		border: none;
 		border-radius: var(--radius-16);
-		color: hsl(var(--destructive));
+		color: hsl(var(--rougeColor));
 		font-size: 16px;
 		font-weight: 500;
 		cursor: pointer;
@@ -401,7 +401,7 @@ const _hasChanges = $derived(
 		background: var(--gradient-blurple);
 		border: none;
 		border-radius: var(--radius-16);
-		color: hsl(var(--primary-foreground));
+		color: hsl(var(--whiteEnforced));
 		font-size: 16px;
 		font-weight: 600;
 		cursor: pointer;

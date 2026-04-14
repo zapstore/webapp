@@ -75,7 +75,7 @@ let { tokens = [] } = $props();
 		font-size: 0.875em;
 		font-family: var(--font-mono);
 		font-weight: 500;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 	img {
 		max-width: 100%;

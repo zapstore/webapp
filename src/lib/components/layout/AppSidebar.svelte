@@ -218,8 +218,8 @@
 		border-right: 1px solid hsl(var(--white16));
 		flex-direction: column;
 		/* Match the subtle gradient tint of the right page */
-		background: radial-gradient(ellipse 160% 40% at 50% -10%, hsl(var(--primary) / 0.06), transparent),
-		            hsl(var(--background));
+		background: radial-gradient(ellipse 160% 40% at 50% -10%, hsl(var(--blurpleColor) / 0.06), transparent),
+		            hsl(var(--black));
 	}
 
 	@media (min-width: 768px) {
@@ -262,7 +262,7 @@
 		background: transparent;
 		cursor: pointer;
 		text-align: left;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		transition: background-color 0.15s ease, border-color 0.15s ease;
 	}
 
@@ -298,7 +298,7 @@
 		font-size: 1.125rem;
 		font-weight: 600;
 		letter-spacing: -0.02em;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.app-sidebar-nav {
@@ -341,14 +341,14 @@
 		padding: 8px 14px;
 		font-size: 0.9375rem;
 		font-weight: 500;
-		color: hsl(var(--muted-foreground));
+		color: hsl(var(--white66));
 		text-decoration: none;
 		border-radius: 10px;
 		transition: color 0.15s ease, background-color 0.15s ease;
 	}
 
 	.app-sidebar-link:hover {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		background-color: hsl(var(--white4));
 	}
 
@@ -379,7 +379,7 @@
 		border-radius: 10px;
 		cursor: pointer;
 		text-align: left;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		transition: background-color 0.15s ease;
 	}
 
@@ -421,7 +421,7 @@
 		padding: 8px 10px;
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		background: none;
 		border: none;
 		border-radius: 8px;

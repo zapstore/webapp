@@ -18,7 +18,7 @@
 
 <SeoHead title="Community error — Zapstore" />
 
-<div class="community-error" style="background: hsl(var(--background)); color: hsl(var(--foreground)); padding: 2rem; max-width: 640px; margin: 0 auto;">
+<div class="community-error" style="background: hsl(var(--black)); color: hsl(var(--white)); padding: 2rem; max-width: 640px; margin: 0 auto;">
 	<h1 style="font-size: 1.25rem; margin-bottom: 0.5rem;">Community route error</h1>
 	<p style="font-family: monospace; font-size: 0.875rem; color: hsl(var(--white66)); margin-bottom: 1rem;">{message}</p>
 	{#if stack}

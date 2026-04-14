@@ -474,7 +474,7 @@ $effect(() => {
 	.error-text {
 		margin: 8px 0 0;
 		font-size: 13px;
-		color: hsl(var(--destructive));
+		color: hsl(var(--rougeColor));
 		padding: 0 4px;
 	}
 

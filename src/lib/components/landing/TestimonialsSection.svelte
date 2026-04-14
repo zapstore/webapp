@@ -228,13 +228,13 @@
 			<!-- Left gradient fade -->
 			<div
 				class="hidden md:block absolute left-0 top-0 bottom-0 w-24 sm:w-32 md:w-48 lg:w-64 xl:w-80 z-30 pointer-events-none"
-				style="background: linear-gradient(to right, hsl(var(--background)) 0%, hsl(var(--background) / 0.95) 20%, hsl(var(--background) / 0.7) 50%, transparent 100%);"
+				style="background: linear-gradient(to right, hsl(var(--black)) 0%, hsl(var(--black) / 0.95) 20%, hsl(var(--black) / 0.7) 50%, transparent 100%);"
 			></div>
 
 			<!-- Right gradient fade -->
 			<div
 				class="hidden md:block absolute right-0 top-0 bottom-0 w-24 sm:w-32 md:w-48 lg:w-64 xl:w-80 z-30 pointer-events-none"
-				style="background: linear-gradient(to left, hsl(var(--background)) 0%, hsl(var(--background) / 0.95) 20%, hsl(var(--background) / 0.7) 50%, transparent 100%);"
+				style="background: linear-gradient(to left, hsl(var(--black)) 0%, hsl(var(--black) / 0.95) 20%, hsl(var(--black) / 0.7) 50%, transparent 100%);"
 			></div>
 
 			<!-- Mobile: Bottom shadow mask over scrollable row (stronger fade) -->
@@ -332,11 +332,11 @@
 		height: 120px;
 		background: linear-gradient(
 			to top,
-			hsl(var(--background)) 0%,
-			hsl(var(--background) / 0.99) 10%,
-			hsl(var(--background) / 0.95) 25%,
-			hsl(var(--background) / 0.8) 50%,
-			hsl(var(--background) / 0.4) 75%,
+			hsl(var(--black)) 0%,
+			hsl(var(--black) / 0.99) 10%,
+			hsl(var(--black) / 0.95) 25%,
+			hsl(var(--black) / 0.8) 50%,
+			hsl(var(--black) / 0.4) 75%,
 			transparent 100%
 		);
 	}

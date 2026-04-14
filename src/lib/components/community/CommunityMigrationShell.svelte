@@ -310,7 +310,7 @@
 		<div class="nothing-state">
 			<div class="empty-state">
 				<div class="empty-icon">
-					<Check variant="outline" size={22} strokeWidth={2.4} color="hsl(var(--primary))" />
+					<Check variant="outline" size={22} strokeWidth={2.4} color="hsl(var(--blurpleColor))" />
 				</div>
 				<p class="empty-title">No Migration Needed</p>
 				<p class="empty-text">All your apps and stacks are up to date.</p>
@@ -327,7 +327,7 @@
 	{:else if allMigrated}
 		<div class="success-state">
 			<div class="success-icon">
-				<Check variant="outline" size={22} strokeWidth={2.4} color="hsl(var(--primary))" />
+				<Check variant="outline" size={22} strokeWidth={2.4} color="hsl(var(--blurpleColor))" />
 			</div>
 			<p class="success-title">Migration Complete</p>
 			<p class="success-text">All your apps and stacks have been migrated.</p>
@@ -396,7 +396,7 @@
 								<div class="item-status">
 									{#if isMigrated}
 										<span class="status-badge status-migrated">
-											<Check variant="outline" size={12} strokeWidth={2.6} color="hsl(var(--primary))" />
+											<Check variant="outline" size={12} strokeWidth={2.6} color="hsl(var(--blurpleColor))" />
 											Migrated
 										</span>
 									{:else if isMigrating}
@@ -479,7 +479,7 @@
 								<div class="item-status">
 									{#if isMigrated}
 										<span class="status-badge status-migrated">
-											<Check variant="outline" size={12} strokeWidth={2.6} color="hsl(var(--primary))" />
+											<Check variant="outline" size={12} strokeWidth={2.6} color="hsl(var(--blurpleColor))" />
 											Migrated
 										</span>
 									{:else if isMigrating}
@@ -586,14 +586,14 @@
 		align-items: center;
 		justify-content: center;
 		font-size: 24px;
-		color: hsl(var(--primary));
+		color: hsl(var(--blurpleColor));
 	}
 
 	.empty-title,
 	.success-title {
 		font-size: 18px;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		margin: 0;
 	}
 
@@ -622,7 +622,7 @@
 
 	.migration-section + .migration-section {
 		padding-top: 24px;
-		border-top: 1px solid hsl(var(--border));
+		border-top: 1px solid hsl(var(--white16));
 	}
 
 	.migration-header {
@@ -643,7 +643,7 @@
 		gap: 8px;
 		font-size: 20px;
 		font-weight: 650;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		margin: 0 0 6px;
 	}
 
@@ -713,7 +713,7 @@
 	.item-name {
 		font-size: 14px;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -744,13 +744,13 @@
 	}
 
 	.status-migrating {
-		background: hsl(var(--primary) / 0.15);
-		color: hsl(var(--primary));
+		background: hsl(var(--blurpleColor) / 0.15);
+		color: hsl(var(--blurpleColor));
 	}
 
 	.status-migrated {
-		background: hsl(var(--primary) / 0.15);
-		color: hsl(var(--primary));
+		background: hsl(var(--blurpleColor) / 0.15);
+		color: hsl(var(--blurpleColor));
 	}
 
 	.status-failed {
@@ -783,7 +783,7 @@
 	.info-title {
 		font-size: 14px;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		margin: 0 0 12px;
 	}
 
@@ -802,7 +802,7 @@
 	}
 
 	.info-list strong {
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 	}
 
 	.zsp-section {
@@ -827,7 +827,7 @@
 	.zsp-title {
 		font-size: 16px;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: hsl(var(--white));
 		margin: 0;
 	}
 
