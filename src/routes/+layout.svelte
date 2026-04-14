@@ -21,14 +21,15 @@ import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 import SiteHeader from '$lib/components/layout/SiteHeader.svelte';
 import Footer from '$lib/components/layout/Footer.svelte';
 import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
+import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
 import '../app.css';
 let { children } = $props();
 let online = $derived(isOnline());
 const path = $derived($page.url.pathname);
 let isClearingLocalData = $state(false);
-// Marketing pages show the footer; studio when logged in has no footer
+// Hide footer on studio only when the signed-in dashboard is actually being shown
 const isStudio = $derived(path === '/studio' || path.startsWith('/studio/'));
-const isLoggedInStudio = $derived(isStudio && getCurrentPubkey() !== null);
+const showingStudioDashboard = $derived(isStudio && getCurrentPubkey() !== null && SHOW_STUDIO_SIGNED_IN_DASHBOARD);
 let showFooter = $derived(
 	(path === '/' ||
 		path === '/apps' ||
@@ -39,7 +40,7 @@ let showFooter = $derived(
 		path === '/docs' ||
 		path.startsWith('/docs/') ||
 		path === '/terms') &&
-		!isLoggedInStudio
+		!showingStudioDashboard
 );
 onMount(() => {
     if (browser) {
