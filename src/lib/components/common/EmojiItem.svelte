@@ -65,7 +65,7 @@ let imgError = $state(false);
 	}
 
 	.emoji-item:hover {
-		background: hsl(var(--white11));
+		background: var(--white11);
 		transform: scale(1.15);
 	}
 
@@ -96,9 +96,9 @@ let imgError = $state(false);
 		border-radius: 4px;
 		background: linear-gradient(
 			90deg,
-			hsl(var(--white8)) 25%,
-			hsl(var(--white16)) 50%,
-			hsl(var(--white8)) 75%
+			var(--white8) 25%,
+			var(--white16) 50%,
+			var(--white8) 75%
 		);
 		background-size: 200% 100%;
 		animation: emoji-shimmer 1.4s ease infinite;
@@ -112,7 +112,7 @@ let imgError = $state(false);
 
 	.emoji-fallback {
 		font-size: 12px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		line-height: 1;
 	}
 </style>

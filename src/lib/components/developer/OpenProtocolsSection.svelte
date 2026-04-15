@@ -71,7 +71,7 @@
             <p class="open-protocols-row-subtitle">{protocol.subtitle}</p>
           </div>
           <span class="open-protocols-row-chevron">
-            <ChevronRight size={16} color="hsl(var(--white33))" />
+            <ChevronRight size={16} color="var(--white33)" />
           </span>
         </a>
       {/each}
@@ -82,7 +82,7 @@
 <style>
   .open-protocols-section {
     padding: 3rem 1rem 3rem;
-    border-bottom: 1.4px solid hsl(var(--white11));
+    border-bottom: 1.4px solid var(--white11);
   }
 
   .open-protocols-col-left {
@@ -173,7 +173,7 @@
   }
 
   .open-protocols-panel {
-    background-color: hsl(var(--gray33));
+    background-color: var(--gray33);
     border-radius: var(--radius-32);
     overflow: hidden;
   }
@@ -190,7 +190,7 @@
     gap: 1.5rem;
     align-items: center;
     padding: 1.5rem 1.5rem;
-    border-bottom: 1.4px solid hsl(var(--white11));
+    border-bottom: 1.4px solid var(--white11);
   }
 
   .open-protocols-row-link {
@@ -227,7 +227,7 @@
     margin: 0 0 0.25rem;
     font-size: 1.375rem;
     font-weight: 600;
-    color: hsl(var(--white));
+    color: var(--white);
   }
 
   .open-protocols-row-subtitle {
@@ -235,6 +235,6 @@
     font-size: 1rem;
     font-weight: 500;
     line-height: 1.4;
-    color: hsl(var(--white66));
+    color: var(--white66);
   }
 </style>

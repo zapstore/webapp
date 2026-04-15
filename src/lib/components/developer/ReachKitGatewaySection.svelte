@@ -64,7 +64,7 @@
     align-items: flex-start;
     text-align: left;
     padding: 2rem 1.5rem;
-    background-color: hsl(var(--gray33));
+    background-color: var(--gray33);
     border-radius: var(--radius-32);
   }
 
@@ -95,8 +95,8 @@
   }
 
   .gateway-pill-gold {
-    background: hsl(var(--goldColor) / 0.12);
-    color: hsl(var(--goldColor) / 0.9);
+    background: color-mix(in srgb, var(--goldColor) 12%, transparent);
+    color: color-mix(in srgb, var(--goldColor) 90%, transparent);
   }
 
   .gateway-pill-green {
@@ -111,7 +111,7 @@
   }
 
   .gateway-pill-dot-gold {
-    background: hsl(var(--goldColor));
+    background: var(--goldColor);
     animation: gateway-pulse 1.5s ease-in-out infinite;
   }
 
@@ -134,7 +134,7 @@
     font-weight: 600;
     line-height: 1.2;
     margin: 0;
-    color: hsl(var(--white));
+    color: var(--white);
   }
 
   .gateway-question {
@@ -159,7 +159,7 @@
   }
 
   .gateway-desc {
-    color: hsl(var(--white66));
+    color: var(--white66);
     line-height: 1.5;
     margin: 0 0 1.5rem 0;
   }

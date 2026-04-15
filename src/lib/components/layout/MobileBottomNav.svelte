@@ -75,10 +75,10 @@ function isActive(href) {
 		flex-direction: row;
 		height: 56px;
 		flex-shrink: 0;
-		background-color: hsl(var(--black) / 0.92);
+		background-color: color-mix(in srgb, var(--black) 92%, transparent);
 		backdrop-filter: blur(20px);
 		-webkit-backdrop-filter: blur(20px);
-		border-top: 1px solid hsl(var(--border) / 0.5);
+		border-top: 1px solid color-mix(in srgb, var(--white16) 50%, transparent);
 		padding: 0 4px;
 		/* Account for iOS home indicator */
 		padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -99,7 +99,7 @@ function isActive(href) {
 		gap: 3px;
 		padding: 6px 4px;
 		text-decoration: none;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		border: none;
 		background: none;
 		cursor: pointer;
@@ -112,13 +112,13 @@ function isActive(href) {
 	}
 
 	.nav-item:hover {
-		color: hsl(var(--white));
-		background-color: hsl(var(--accent) / 0.06);
+		color: var(--white);
+		background-color: color-mix(in srgb, var(--blurpleLightColor) 6%, transparent);
 	}
 
 	.nav-item.active {
-		color: hsl(var(--blurpleLightColor));
-		background-color: hsl(var(--accent) / 0.1);
+		color: var(--blurpleLightColor);
+		background-color: color-mix(in srgb, var(--blurpleLightColor) 10%, transparent);
 	}
 
 	.nav-label {

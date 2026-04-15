@@ -126,8 +126,8 @@
 
   /* Placeholder styling - replace with actual images */
   .screenshot-placeholder {
-    background: hsl(var(--gray33));
-    border: 1px dashed hsl(var(--white22));
+    background: var(--gray33);
+    border: 1px dashed var(--white22);
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -153,7 +153,7 @@
 
   .placeholder-label {
     font-size: 12px;
-    color: hsl(var(--white33));
+    color: var(--white33);
     text-transform: uppercase;
     letter-spacing: 0.1em;
   }

@@ -84,8 +84,8 @@
 	<div class="lg:hidden">
 		<div class="eyebrow-badge-wrap">
 			<div class="eyebrow-badge">
-				<Check variant="outline" color="hsl(var(--blurpleColor))" size={16} strokeWidth={1.4} />
-				<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">A Better Way</p>
+				<Check variant="outline" color="var(--blurpleColor)" size={16} strokeWidth={1.4} />
+				<p class="eyebrow-label" style="color: var(--white33); font-size: 1rem;">A Better Way</p>
 			</div>
 		</div>
 	</div>
@@ -124,8 +124,8 @@
 		<div class="container mx-auto px-4 sm:px-6 md:px-8 lg:px-8">
 			<div class="eyebrow-badge-wrap">
 				<div class="eyebrow-badge">
-					<Check variant="outline" color="hsl(var(--blurpleColor))" size={16} strokeWidth={1.4} />
-					<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">A Better Way</p>
+					<Check variant="outline" color="var(--blurpleColor)" size={16} strokeWidth={1.4} />
+					<p class="eyebrow-label" style="color: var(--white33); font-size: 1rem;">A Better Way</p>
 				</div>
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-stretch">
@@ -436,7 +436,7 @@
 
 	.mob-panel {
 		padding: 1.25rem 1.5rem 1.5rem;
-		background: hsl(var(--gray33));
+		background: var(--gray33);
 		border-radius: 1.125rem;
 	}
 
@@ -445,14 +445,14 @@
 		font-weight: 600;
 		line-height: 1.3;
 		margin: 0 0 0.4rem;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.mob-desc {
 		font-size: 1rem;
 		line-height: 1.55;
 		margin: 0;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	/* ════════════════════════════════════════════════════════════
@@ -483,7 +483,7 @@
 		gap: 0.75rem;
 		padding: 0.5rem 1.375rem 0.625rem 1.375rem;
 		border-radius: 0 0 0.875rem 0.875rem;
-		background-color: hsl(var(--white4));
+		background-color: var(--white4);
 	}
 
 	.feature-tab {
@@ -499,7 +499,7 @@
 	}
 
 	.feature-tab.active {
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 	}
 
 	.tab-title {
@@ -508,7 +508,7 @@
 		line-height: 1.3;
 		margin: 0 0 0.35rem;
 		transition: color 0.4s ease;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	@media (min-width: 640px) {
@@ -518,7 +518,7 @@
 	}
 
 	.feature-tab.active .tab-title {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.tab-desc {
@@ -526,11 +526,11 @@
 		line-height: 1.55;
 		margin: 0;
 		transition: color 0.4s ease;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.feature-tab.active .tab-desc {
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.feature-image-wrap {
@@ -619,7 +619,7 @@
 	.fake-desc {
 		font-size: 0.9375rem;
 		line-height: 1.1;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		margin: 0;
 		white-space: nowrap;
 	}
@@ -632,7 +632,7 @@
 	}
 
 	.fake-desc-dim {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.fake-panels {
@@ -642,7 +642,7 @@
 
 	/* matches .info-panel */
 	.fake-panel {
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		border-radius: 16px;
 		padding: 8px 16px 10px;
 		display: flex;
@@ -662,7 +662,7 @@
 	.fake-panel-hdr {
 		font-size: 1rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin-bottom: 4px;
 	}
 
@@ -673,7 +673,7 @@
 		gap: 8px;
 		padding: 1px 0;
 		font-size: 0.875rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.fake-chk {
@@ -683,10 +683,10 @@
 		overflow: visible;
 	}
 
-	/* Stroke via CSS so hsl(var(--blurpleColor)) resolves on WebKit (presentation attrs often do not). */
+	/* Stroke via CSS so var(--blurpleColor) resolves on WebKit (presentation attrs often do not). */
 	.fake-chk path {
 		fill: none;
-		stroke: hsl(var(--blurpleColor));
+		stroke: var(--blurpleColor);
 		stroke-width: 2.8;
 		stroke-linecap: round;
 		stroke-linejoin: round;
@@ -725,8 +725,8 @@
 		padding: 0 14px;
 		font-size: 14px;
 		font-weight: 500;
-		color: hsl(var(--white66));
-		background-color: hsl(var(--gray66));
+		color: var(--white66);
+		background-color: var(--gray66);
 		border-radius: 9999px;
 		flex-shrink: 0;
 	}
@@ -833,10 +833,10 @@
 
 	/* ── Fake catalog list UI ─────────────────────────────────── */
 	.fake-cat-card {
-		background: hsl(var(--gray33));
+		background: var(--gray33);
 		border-radius: 16px;
 		overflow: hidden;
-		border: 0.5px solid hsl(var(--white8));
+		border: 0.5px solid var(--white8);
 	}
 
 	/* Header: more breathing room above, tight gap below so it hugs first row */
@@ -846,12 +846,12 @@
 		font-weight: 600;
 		letter-spacing: 0.07em;
 		text-transform: uppercase;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.fake-cat-div {
 		height: 1px;
-		background: hsl(var(--white8));
+		background: var(--white8);
 	}
 
 	.fake-cat-row {
@@ -866,7 +866,7 @@
 		width: 42px;
 		height: 42px;
 		border-radius: 50%;
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
@@ -874,7 +874,7 @@
 		overflow: hidden;
 	}
 	.fake-cp-zap {
-		background: hsl(var(--blurpleColor));
+		background: var(--blurpleColor);
 	}
 	.fake-cp-alpha {
 		background: linear-gradient(135deg, #4f35bb, #8866dd);
@@ -909,14 +909,14 @@
 	.fake-cat-name {
 		font-size: 0.9375rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 	.fake-cat-desc {
 		font-size: 0.8125rem;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -927,8 +927,8 @@
 		width: 24px;
 		height: 24px;
 		border-radius: 8px;
-		border: 1.5px solid hsl(var(--white33));
-		background: hsl(var(--black33));
+		border: 1.5px solid var(--white33);
+		background: var(--black33);
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;

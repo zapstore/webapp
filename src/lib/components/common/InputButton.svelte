@@ -20,9 +20,9 @@ let { placeholder = "", className = "", onclick, icon, trailing, } = $props();
     min-width: 0;
     height: 42px;
     padding: 0 16px;
-    background-color: hsl(var(--black33));
+    background-color: var(--black33);
     border-radius: 16px;
-    border: 0.33px solid hsl(var(--white33));
+    border: 0.33px solid var(--white33);
     cursor: pointer;
   }
 
@@ -35,7 +35,7 @@ let { placeholder = "", className = "", onclick, icon, trailing, } = $props();
   .input-placeholder {
     font-size: 16px;
     font-weight: 500;
-    color: hsl(var(--white33));
+    color: var(--white33);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

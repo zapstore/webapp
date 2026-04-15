@@ -83,7 +83,7 @@ onMount(() => {
     margin-bottom: 8px;
     border-radius: var(--radius-8);
     overflow: hidden;
-    background: hsl(var(--white4));
+    background: var(--white4);
   }
 
   .quoted-bar {
@@ -113,7 +113,7 @@ onMount(() => {
   .quoted-content {
     font-size: 0.8125rem;
     line-height: 1.3;
-    color: hsl(var(--white66));
+    color: var(--white66);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

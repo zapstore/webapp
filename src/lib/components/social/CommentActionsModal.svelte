@@ -324,7 +324,7 @@ $effect(() => {
 							variant="outline"
 							size={18}
 							strokeWidth={1.4}
-							color="hsl(var(--white33))"
+							color="var(--white33)"
 							className="cam-comment-card-icon"
 						/>
 						<span class="cam-comment-card-label">Comment</span>
@@ -338,14 +338,14 @@ $effect(() => {
 							<div class="cam-zap-chips">
 								{#each ZAP_PRESET_AMOUNTS as amt (amt)}
 									<button type="button" class="cam-zap-chip" onclick={() => pickPresetZap(amt)}>
-										<Zap variant="fill" size={12} color="hsl(var(--goldColor))" />
+										<Zap variant="fill" size={12} color="var(--goldColor)" />
 										<span class="cam-zap-chip-num">{formatChipAmount(amt)}</span>
 									</button>
 								{/each}
 							</div>
 						</div>
 						<button type="button" class="cam-zap-chevron" aria-label="Open zap" onclick={openFullZap}>
-							<ChevronDown variant="outline" size={14} strokeWidth={2} color="hsl(var(--white66))" />
+							<ChevronDown variant="outline" size={14} strokeWidth={2} color="var(--white66)" />
 						</button>
 					</div>
 				</div>
@@ -361,19 +361,19 @@ $effect(() => {
 						disabled={!targetEventId?.trim()}
 					>
 						<span class="cam-panel-icon-wrap" aria-hidden="true">
-							<Details variant="outline" size={24} strokeWidth={1.4} color="hsl(var(--white66))" />
+							<Details variant="outline" size={24} strokeWidth={1.4} color="var(--white66)" />
 						</span>
 						<span class="cam-panel-label">Details</span>
 					</button>
 					<button type="button" class="cam-panel-btn" onclick={openLabelPanel} disabled={!canLabel}>
 						<span class="cam-panel-icon-wrap" aria-hidden="true">
-							<Label variant="outline" size={24} strokeWidth={1.4} color="hsl(var(--white66))" />
+							<Label variant="outline" size={24} strokeWidth={1.4} color="var(--white66)" />
 						</span>
 						<span class="cam-panel-label">Label</span>
 					</button>
 					<button type="button" class="cam-panel-btn" onclick={openSharePanel} disabled={!canShare}>
 						<span class="cam-panel-icon-wrap" aria-hidden="true">
-							<Share variant="outline" size={24} strokeWidth={1.4} color="hsl(var(--white66))" />
+							<Share variant="outline" size={24} strokeWidth={1.4} color="var(--white66)" />
 						</span>
 						<span class="cam-panel-label">Share</span>
 					</button>
@@ -438,34 +438,34 @@ $effect(() => {
 				<div class="cam-share-panel cam-subpanel-body">
 					<div class="cam-share-row">
 						<div class="cam-share-left">
-							<Id variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white66))" />
+							<Id variant="outline" size={18} strokeWidth={1.4} color="var(--white66)" />
 							<span class="cam-share-label">Embed link</span>
 						</div>
 						<span class="cam-share-value" title={shareEmbedLink}>{shareEmbedLink}</span>
 						<button type="button" class="cam-share-copy-btn" onclick={copyNeventToClipboard} disabled={!canShare} aria-label="Copy embed link">
 							{#if shareLinkCopied}
 								<span class="check-icon">
-									<Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+									<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
 								</span>
 							{:else}
-								<Copy variant="outline" size={16} color="hsl(var(--white66))" />
+								<Copy variant="outline" size={16} color="var(--white66)" />
 							{/if}
 						</button>
 					</div>
 					<div class="cam-share-divider"></div>
 					<div class="cam-share-row">
 						<div class="cam-share-left">
-							<Share variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white66))" />
+							<Share variant="outline" size={18} strokeWidth={1.4} color="var(--white66)" />
 							<span class="cam-share-label">Zapstore URL</span>
 						</div>
 						<span class="cam-share-value" title={shareZapstoreUrl}>{shareZapstoreDisplay}</span>
 						<button type="button" class="cam-share-copy-btn" onclick={copyZapstoreUrlToClipboard} disabled={!canShare} aria-label="Copy zapstore URL">
 							{#if shareUrlCopied}
 								<span class="check-icon">
-									<Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+									<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
 								</span>
 							{:else}
-								<Copy variant="outline" size={16} color="hsl(var(--white66))" />
+								<Copy variant="outline" size={16} color="var(--white66)" />
 							{/if}
 						</button>
 					</div>
@@ -536,9 +536,9 @@ $effect(() => {
 		padding: 8px;
 		text-align: left;
 		cursor: pointer;
-		border: 0.33px solid hsl(var(--white33));
+		border: 0.33px solid var(--white33);
 		border-radius: var(--radius-16);
-		background: hsl(var(--black33));
+		background: var(--black33);
 		box-sizing: border-box;
 	}
 
@@ -578,7 +578,7 @@ $effect(() => {
 	.cam-comment-card-label {
 		font-size: 14px;
 		font-weight: 500;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	@media (min-width: 768px) {
@@ -597,7 +597,7 @@ $effect(() => {
 		position: relative;
 		min-height: 52px;
 		border-radius: var(--radius-16);
-		background: hsl(var(--black33));
+		background: var(--black33);
 		padding: 8px 40px 8px 0;
 		box-sizing: border-box;
 	}
@@ -638,9 +638,9 @@ $effect(() => {
 		margin: 0;
 		border: none;
 		border-radius: var(--radius-8);
-		background: hsl(var(--white8));
+		background: var(--white8);
 		cursor: pointer;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-size: 16px;
 		font-weight: 650;
 	}
@@ -667,7 +667,7 @@ $effect(() => {
 		border: none;
 		border-radius: var(--radius-8);
 		cursor: pointer;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		backdrop-filter: blur(4px);
 		-webkit-backdrop-filter: blur(4px);
 		z-index: 2;
@@ -705,7 +705,7 @@ $effect(() => {
 		margin: 0;
 		border: none;
 		border-radius: var(--radius-16);
-		background: hsl(var(--black33));
+		background: var(--black33);
 		cursor: pointer;
 		box-sizing: border-box;
 	}
@@ -722,7 +722,7 @@ $effect(() => {
 	.cam-panel-label {
 		font-size: 14px;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 		text-align: center;
 	}
 
@@ -733,7 +733,7 @@ $effect(() => {
 	}
 
 	.cam-share-panel {
-		background: hsl(var(--black33));
+		background: var(--black33);
 		border-radius: var(--radius-16);
 		overflow: hidden;
 	}
@@ -754,7 +754,7 @@ $effect(() => {
 
 	.cam-share-label {
 		font-size: 0.875rem;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: nowrap;
 	}
 
@@ -762,7 +762,7 @@ $effect(() => {
 		flex: 1;
 		min-width: 0;
 		font-size: 0.875rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -777,7 +777,7 @@ $effect(() => {
 		height: 32px;
 		border: none;
 		border-radius: 8px;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		cursor: pointer;
 		flex-shrink: 0;
 		transition: transform 0.15s ease;
@@ -799,14 +799,14 @@ $effect(() => {
 	.cam-share-divider {
 		width: 100%;
 		height: 1.4px;
-		background-color: hsl(var(--white11));
+		background-color: var(--white11);
 	}
 
 	.cam-share-hint {
 		margin: 8px 0 0 0;
 		padding: 0 4px;
 		font-size: 13px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		text-align: center;
 	}
 
@@ -817,8 +817,8 @@ $effect(() => {
 		padding: 0 20px;
 		font-size: 16px;
 		font-weight: 500;
-		color: hsl(var(--rougeColor));
-		background: hsl(var(--black33));
+		color: var(--rougeColor);
+		background: var(--black33);
 		border: none;
 		border-radius: var(--radius-16);
 		cursor: pointer;
@@ -845,7 +845,7 @@ $effect(() => {
 	.details-empty {
 		margin: 16px 12px;
 		font-size: 14px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		text-align: center;
 	}
 
@@ -858,7 +858,7 @@ $effect(() => {
 	.cam-label-error {
 		margin: 0;
 		font-size: 13px;
-		color: hsl(var(--rougeColor));
+		color: var(--rougeColor);
 	}
 
 	.labels-scroll-row {

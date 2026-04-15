@@ -13,7 +13,7 @@
 			<!-- Left: Install panel (gray33) -->
 			<div
 				class="studio-panel"
-				style="background-color: hsl(var(--gray33)); border-radius: var(--radius-32);"
+				style="background-color: var(--gray33); border-radius: var(--radius-32);"
 			>
 				<div class="studio-panel-inner">
 					<div class="studio-panel-header">
@@ -26,7 +26,7 @@
 							<span class="studio-panel-row-desc">CLI for publishing and managing apps</span>
 						</div>
 						<span class="studio-panel-row-chevron"
-							><ChevronRight size={16} color="hsl(var(--white33))" /></span
+							><ChevronRight size={16} color="var(--white33)" /></span
 						>
 					</a>
 					<div class="studio-panel-row studio-panel-row-static">
@@ -44,7 +44,7 @@
 			<!-- Right: Documentation panel (gray33) -->
 			<div
 				class="studio-panel"
-				style="background-color: hsl(var(--gray33)); border-radius: var(--radius-32);"
+				style="background-color: var(--gray33); border-radius: var(--radius-32);"
 			>
 				<div class="studio-panel-inner">
 					<div class="studio-panel-header">
@@ -61,7 +61,7 @@
 							<span class="studio-panel-row-desc">Get up and running with Zapstore</span>
 						</div>
 						<span class="studio-panel-row-chevron"
-							><ChevronRight size={16} color="hsl(var(--white33))" /></span
+							><ChevronRight size={16} color="var(--white33)" /></span
 						>
 					</a>
 					<a href="/docs/faq" class="studio-panel-row studio-panel-row-link" rel="noopener">
@@ -70,7 +70,7 @@
 							<span class="studio-panel-row-desc">Common questions and answers</span>
 						</div>
 						<span class="studio-panel-row-chevron"
-							><ChevronRight size={16} color="hsl(var(--white33))" /></span
+							><ChevronRight size={16} color="var(--white33)" /></span
 						>
 					</a>
 				</div>
@@ -147,7 +147,7 @@
 		gap: 0.5rem;
 		font-size: 0.8125rem;
 		font-weight: 500;
-		color: hsl(var(--goldColor) / 0.6);
+		color: color-mix(in srgb, var(--goldColor) 60%, transparent);
 		margin-top: 0.15rem;
 	}
 
@@ -161,8 +161,8 @@
 		width: 6px;
 		height: 6px;
 		border-radius: 50%;
-		background: hsl(var(--goldColor));
-		box-shadow: 0 0 8px hsl(var(--goldColor) / 0.8);
+		background: var(--goldColor);
+		box-shadow: 0 0 8px color-mix(in srgb, var(--goldColor) 80%, transparent);
 		animation: studio-coming-soon-pulse 1.5s ease-in-out infinite;
 	}
 
@@ -202,7 +202,7 @@
 		gap: 1.05rem;
 		margin: 0 -1.5rem 0 -1.5rem;
 		padding: 1.35rem 1.5rem 1rem 1.5rem;
-		border-bottom: 1.4px solid hsl(var(--white11));
+		border-bottom: 1.4px solid var(--white11);
 	}
 
 	.studio-panel-header-img {
@@ -214,7 +214,7 @@
 	.studio-panel-header-title {
 		font-size: 1.0625rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0;
 	}
 
@@ -240,7 +240,7 @@
 		padding: 0.9rem 1.5rem;
 		text-decoration: none;
 		color: inherit;
-		border-bottom: 1.4px solid hsl(var(--white11));
+		border-bottom: 1.4px solid var(--white11);
 	}
 
 	.studio-panel-row:last-child {
@@ -259,13 +259,13 @@
 	.studio-panel-row-name {
 		font-weight: 600;
 		font-size: 0.875rem;
-		color: hsl(var(--white));
+		color: var(--white);
 		display: block;
 	}
 
 	.studio-panel-row-desc {
 		font-size: 0.8125rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		display: block;
 	}
 
@@ -284,7 +284,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.studio-panel-row-static {

@@ -49,7 +49,7 @@ onMount(() => {
 	.preview-nostr-ref-inline {
 		display: inline;
 		margin: 0 0.35em;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-size: inherit;
 		font-weight: 500;
 		white-space: nowrap;
@@ -62,7 +62,7 @@ onMount(() => {
 		margin-right: 0.2em;
 		border-radius: 4px;
 		overflow: hidden;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		text-align: center;
 		line-height: 1.2em;
 	}
@@ -76,6 +76,6 @@ onMount(() => {
 	.preview-nostr-ref-initial {
 		font-size: 0.65em;
 		font-weight: 700;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 </style>

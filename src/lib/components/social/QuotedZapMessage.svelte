@@ -130,7 +130,7 @@ const plainPreview = $derived.by(() => {
 		font-size: 0.8125rem;
 		font-weight: 500;
 		line-height: 1.2;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.quoted-zap-sats {
@@ -140,7 +140,7 @@ const plainPreview = $derived.by(() => {
 	.quoted-zap-content {
 		font-size: 0.8125rem;
 		line-height: 1.3;
-		color: hsl(var(--white) / 0.85);
+		color: color-mix(in srgb, var(--white) 85%, transparent);
 		min-width: 0;
 		white-space: nowrap;
 		overflow: hidden;

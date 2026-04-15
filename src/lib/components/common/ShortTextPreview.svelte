@@ -127,7 +127,7 @@
 			{/each}
 		{:else if segment.type === 'media'}
 			<span class="preview-media-inline">
-				<span class="preview-media-icon-wrap"><Camera color="hsl(var(--white33))" size={16} /></span
+				<span class="preview-media-icon-wrap"><Camera color="var(--white33)" size={16} /></span
 				>
 				<span class="preview-media-label">{mediaLabel(segment.url)}</span>
 			</span>
@@ -135,7 +135,7 @@
 	{/each}
 	{#each trailingUrls as url (url)}
 		<span class="preview-media-inline">
-			<span class="preview-media-icon-wrap"><Camera color="hsl(var(--white33))" size={16} /></span>
+			<span class="preview-media-icon-wrap"><Camera color="var(--white33)" size={16} /></span>
 			<span class="preview-media-label">{mediaLabel(url)}</span>
 		</span>
 	{/each}
@@ -149,7 +149,7 @@
 		word-wrap: break-word;
 		font-size: inherit;
 		line-height: 1.4;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 	.short-text-preview.one-line {
 		-webkit-line-clamp: 1;
@@ -160,7 +160,7 @@
 		white-space: pre-line;
 	}
 	.preview-url {
-		color: hsl(var(--blurpleLightColor66));
+		color: var(--blurpleLightColor66);
 		text-decoration: none;
 		word-break: break-word;
 	}
@@ -189,7 +189,7 @@
 	.preview-media-inline {
 		display: inline;
 		margin: 0 0.35em;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-size: inherit;
 		font-weight: 500;
 		white-space: nowrap;

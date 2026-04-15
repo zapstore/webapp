@@ -209,11 +209,11 @@
 			<div class="eyebrow-badge">
 				<Cross
 					variant="outline"
-					color="hsl(var(--rougeColor) / 0.66)"
+					color="color-mix(in srgb, var(--rougeColor) 66%, transparent)"
 					size={12}
 					strokeWidth={1.4}
 				/>
-				<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">
+				<p class="eyebrow-label" style="color: var(--white33); font-size: 1rem;">
 					The Old Way
 				</p>
 			</div>
@@ -250,11 +250,11 @@
 				<div class="eyebrow-badge">
 					<Cross
 						variant="outline"
-						color="hsl(var(--rougeColor) / 0.66)"
+						color="color-mix(in srgb, var(--rougeColor) 66%, transparent)"
 						size={12}
 						strokeWidth={1.4}
 					/>
-					<p class="eyebrow-label" style="color: hsl(var(--white33)); font-size: 1rem;">
+					<p class="eyebrow-label" style="color: var(--white33); font-size: 1rem;">
 						The Old Way
 					</p>
 				</div>
@@ -313,13 +313,13 @@
 			</svg>
 		</div>
 		<div class="verify-arrow" aria-hidden="true">
-			<ArrowUp variant="outline" color="hsl(var(--white33))" size={20} strokeWidth={1.4} className="verify-arrow-icon" />
+			<ArrowUp variant="outline" color="var(--white33)" size={20} strokeWidth={1.4} className="verify-arrow-icon" />
 		</div>
 		<div class="verify-icon-box verify-mystery">
 			<span class="verify-question">?</span>
 		</div>
 		<div class="verify-arrow" aria-hidden="true">
-			<ArrowUp variant="outline" color="hsl(var(--white33))" size={20} strokeWidth={1.4} className="verify-arrow-icon" />
+			<ArrowUp variant="outline" color="var(--white33)" size={20} strokeWidth={1.4} className="verify-arrow-icon" />
 		</div>
 		<img src={jane.pic} alt="User" class="verify-user-pic" />
 		<span class="verify-lbl verify-lbl-dev">Developer</span>
@@ -344,7 +344,7 @@
 		<div class="fake-ps-body">
 			<div class="fake-ps-result-box">
 				<div class="fake-ps-result-inner" class:ps-hidden={psState !== 'typing'}>
-					<Spinner size={26} color="hsl(var(--white16))" strokeWidth={3.5} />
+					<Spinner size={26} color="var(--white16)" strokeWidth={3.5} />
 				</div>
 				<div class="fake-ps-result-inner" class:ps-hidden={psState !== 'noresults' && psState !== 'deleting'}>
 					<p class="fake-ps-no-results">No apps found</p>
@@ -370,7 +370,7 @@
 		gap: 0.75rem;
 		padding: 0.5rem 1.375rem 0.625rem 1.375rem;
 		border-radius: 0 0 0.875rem 0.875rem;
-		background-color: hsl(var(--white4));
+		background-color: var(--white4);
 	}
 
 	.mobile-scroll {
@@ -450,13 +450,13 @@
 	.mob-verify-wrap {
 		align-items: center;
 		justify-content: center;
-		background-color: hsl(var(--gray33) / 0.5);
+		background-color: color-mix(in srgb, var(--gray33) 50%, transparent);
 		padding: 1.25rem 0.5rem;
 	}
 
 	.mob-panel {
 		padding: 1.25rem 1.5rem 1.5rem;
-		background: hsl(var(--gray33));
+		background: var(--gray33);
 		border-radius: 1.125rem;
 	}
 
@@ -465,14 +465,14 @@
 		font-weight: 600;
 		line-height: 1.3;
 		margin: 0 0 0.4rem;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.mob-desc {
 		font-size: 1rem;
 		line-height: 1.55;
 		margin: 0;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	/* ════════════════════════════════════════════════════════════
@@ -508,7 +508,7 @@
 	}
 
 	.feature-tab.active {
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 	}
 
 	.tab-title {
@@ -517,7 +517,7 @@
 		line-height: 1.3;
 		margin: 0 0 0.35rem;
 		transition: color 0.4s ease;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	@media (min-width: 640px) {
@@ -527,7 +527,7 @@
 	}
 
 	.feature-tab.active .tab-title {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.tab-desc {
@@ -535,11 +535,11 @@
 		line-height: 1.55;
 		margin: 0;
 		transition: color 0.4s ease;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.feature-tab.active .tab-desc {
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	/* ── Image / panel wrap ─────────────────────────────────── */
@@ -598,18 +598,18 @@
 	}
 
 	.verify-app-icon {
-		background: linear-gradient(135deg, hsl(var(--blurpleColor) / 0.6), hsl(var(--blurpleColor)));
+		background: linear-gradient(135deg, color-mix(in srgb, var(--blurpleColor) 60%, transparent), var(--blurpleColor));
 	}
 
 	.verify-mystery {
-		background: hsl(var(--gray33));
-		border: 1.4px solid hsl(var(--white16));
+		background: var(--gray33);
+		border: 1.4px solid var(--white16);
 	}
 
 	.verify-question {
 		font-size: 2rem;
 		font-weight: 700;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		line-height: 1;
 	}
 
@@ -631,13 +631,13 @@
 		height: 72px;
 		border-radius: 50%;
 		object-fit: cover;
-		border: 1px solid hsl(var(--white8));
+		border: 1px solid var(--white8);
 	}
 
 	.verify-lbl {
 		font-size: 0.9375rem;
 		font-weight: 600;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		text-align: center;
 		line-height: 1;
 	}
@@ -747,8 +747,8 @@
 	.fake-ps-ui {
 		width: 100%;
 		height: 440px;
-		background: hsl(var(--gray33));
-		border: 1px solid hsl(var(--white8));
+		background: var(--gray33);
+		border: 1px solid var(--white8);
 		border-radius: 2rem;
 		overflow: hidden;
 		display: flex;
@@ -770,8 +770,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		background: hsl(var(--black33));
-		border: 1.4px solid hsl(var(--white16));
+		background: var(--black33);
+		border: 1.4px solid var(--white16);
 		border-radius: 1rem;
 		padding: 0.6rem 1rem;
 		margin-bottom: 0.75rem;
@@ -795,7 +795,7 @@
 	.fake-ps-query {
 		font-size: 1.25rem;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 		line-height: 1;
 		flex: 1;
 		display: flex;
@@ -805,14 +805,14 @@
 	}
 
 	.fake-ps-placeholder {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.ps-cursor {
 		display: inline-block;
 		width: 2px;
 		height: 1.1em;
-		background: hsl(var(--white));
+		background: var(--white);
 		border-radius: 1px;
 		opacity: 1;
 		vertical-align: text-bottom;
@@ -853,7 +853,7 @@
 	.fake-ps-no-results {
 		font-size: 1.5rem;
 		font-weight: 600;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		margin: 0;
 		text-align: center;
 		line-height: 1.15;

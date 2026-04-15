@@ -132,7 +132,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	.labels-overlay {
 		position: fixed;
 		inset: 0;
-		z-index: 61;
+		z-index: 109;
 		background: transparent;
 	}
 
@@ -141,7 +141,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		bottom: 0;
 		left: 0;
 		right: 0;
-		z-index: 62;
+		z-index: 110;
 		display: flex;
 		justify-content: center;
 		pointer-events: none;
@@ -151,9 +151,9 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		width: 100%;
 		max-width: 100%;
 		margin: 0;
-		background: hsl(var(--gray66));
+		background: var(--gray66);
 		border-radius: var(--radius-32) var(--radius-32) 0 0;
-		border: 0.33px solid hsl(var(--white8));
+		border: 0.33px solid var(--white8);
 		padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
 		pointer-events: auto;
 		backdrop-filter: blur(24px);
@@ -168,7 +168,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 			max-width: 560px;
 			margin-bottom: 16px;
 			border-radius: 24px;
-			border-bottom: 0.33px solid hsl(var(--white8));
+			border-bottom: 0.33px solid var(--white8);
 			padding: 12px;
 		}
 	}
@@ -241,7 +241,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		margin: 0;
 		font-size: 22px;
 		font-weight: 700;
-		color: hsl(var(--white));
+		color: var(--white);
 		line-height: 1.25;
 		text-align: center;
 		padding: 4px 0 2px;
@@ -262,7 +262,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		background: var(--gradient-blurple);
 		border: none;
 		border-radius: var(--radius-16);
-		color: hsl(var(--whiteEnforced));
+		color: var(--whiteEnforced);
 		font-size: 16px;
 		font-weight: 500;
 		cursor: pointer;

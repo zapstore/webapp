@@ -159,8 +159,8 @@
 	/* Icons grid container */
 	.icons-grid {
 		flex-shrink: 0;
-		background-color: hsl(var(--gray33));
-		border: 1.4px solid hsl(var(--white16));
+		background-color: var(--gray33);
+		border: 1.4px solid var(--white16);
 		border-radius: 16px;
 		padding: 8px;
 	}
@@ -205,7 +205,7 @@
 		width: 32px;
 		height: 32px;
 		border-radius: 8px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	@media (min-width: 768px) {
@@ -234,7 +234,7 @@
 	.stack-name {
 		font-size: 1rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		line-height: 1.3;
 		display: -webkit-box;
 		-webkit-line-clamp: 1;
@@ -245,7 +245,7 @@
 
 	.stack-description {
 		font-size: 0.75rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		line-height: 1.4;
 		display: -webkit-box;
 		-webkit-line-clamp: 1;
@@ -282,7 +282,7 @@
 
 	.creator-name {
 		font-size: 0.75rem;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;

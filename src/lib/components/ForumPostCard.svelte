@@ -141,7 +141,7 @@
 					<svg viewBox="0 0 27 16" fill="none">
 						<path
 							d="M1 0 L1 0 Q1 15 16 15 L27 15"
-							stroke="hsl(var(--white16))"
+							stroke="var(--white16)"
 							stroke-width="1.5"
 							fill="none"
 						/>
@@ -186,7 +186,7 @@
 		background: transparent;
 		border: none;
 		border-radius: 0;
-		border-bottom: 1.4px solid hsl(var(--white11));
+		border-bottom: 1.4px solid var(--white11);
 		cursor: pointer;
 		overflow: visible;
 		padding: 16px;
@@ -225,7 +225,7 @@
 		width: 1.5px;
 		flex: 1;
 		min-height: 8px;
-		background: hsl(var(--white16));
+		background: var(--white16);
 		margin-top: 0;
 	}
 
@@ -256,21 +256,21 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.timestamp {
 		font-size: 0.75rem;
 		white-space: nowrap;
 		flex-shrink: 0;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.post-title {
 		font-size: 1.1875rem;
 		font-weight: 600;
 		line-height: 1.3;
-		color: hsl(var(--white));
+		color: var(--white);
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
 		line-clamp: 2;
@@ -288,7 +288,7 @@
 		font-size: 0.9375rem;
 		line-height: 1.45;
 		margin: 0;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
 		line-clamp: 2;
@@ -366,7 +366,7 @@
 	.connector-vertical {
 		width: 1.5px;
 		height: 12px;
-		background: hsl(var(--white16));
+		background: var(--white16);
 		margin-left: 0;
 	}
 
@@ -411,6 +411,6 @@
 		font-size: 0.75rem;
 		font-weight: 600;
 		line-height: 1;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 </style>

@@ -523,7 +523,7 @@
 			>
 				<span>{sortOrder === 'most_zapped' ? 'Most Zapped' : 'Latest'}</span>
 				<span class="forum-all-btn-icon">
-					<ChevronDown variant="outline" size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+					<ChevronDown variant="outline" size={14} strokeWidth={1.4} color="var(--white66)" />
 				</span>
 			</button>
 			{#if latestDropdownOpen}
@@ -654,7 +654,7 @@
 		flex-direction: column;
 		flex: 1;
 		min-height: 0;
-		background: hsl(var(--black));
+		background: var(--black);
 	}
 
 	.panel-content {
@@ -670,7 +670,7 @@
 		position: relative;
 		z-index: 20;
 		overflow: visible;
-		background: hsl(var(--black));
+		background: var(--black);
 	}
 
 	.forum-categories-wrap {
@@ -678,7 +678,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0;
-		border-bottom: 1px solid hsl(var(--white16));
+		border-bottom: 1px solid var(--white16);
 		/* Let .forum-latest-dropdown extend below the row; horizontal overflow stays in .forum-categories-scroll */
 		overflow: visible;
 		position: relative;
@@ -726,8 +726,8 @@
 		padding: 0 12px 0 16px;
 		font-size: 14px;
 		font-weight: 500;
-		color: hsl(var(--white66));
-		background: hsl(var(--white16));
+		color: var(--white66);
+		background: var(--white16);
 		border: none;
 		border-radius: 12px;
 		cursor: pointer;
@@ -741,14 +741,14 @@
 	}
 
 	.forum-all-btn:hover:not(.forum-latest-btn) {
-		background: hsl(var(--white33));
-		color: hsl(var(--white66));
+		background: var(--white33);
+		color: var(--white66);
 	}
 
 	/* Strong gray look for Latest only — always on, independent of category chips */
 	.forum-all-btn.forum-latest-btn {
-		background: hsl(var(--gray66));
-		color: hsl(var(--white));
+		background: var(--gray66);
+		color: var(--white);
 	}
 
 	.forum-all-btn.forum-latest-btn:hover {
@@ -777,10 +777,10 @@
 		top: calc(100% + 4px);
 		right: 0;
 		min-width: 200px;
-		background: hsl(var(--gray));
-		border: 0.33px solid hsl(var(--white8));
+		background: var(--gray);
+		border: 0.33px solid var(--white8);
 		border-radius: 12px;
-		box-shadow: 0 8px 24px hsl(var(--black));
+		box-shadow: 0 8px 24px var(--black);
 		padding: 6px 0;
 		z-index: 50;
 	}
@@ -791,7 +791,7 @@
 		padding: 8px 16px;
 		border: none;
 		background: none;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-size: 14px;
 		font-weight: 500;
 		text-align: left;
@@ -799,11 +799,11 @@
 	}
 
 	.forum-latest-dropdown-item:hover {
-		background: hsl(var(--white8));
+		background: var(--white8);
 	}
 
 	.forum-latest-dropdown-item.is-active {
-		color: hsl(var(--white));
+		color: var(--white);
 		font-weight: 600;
 	}
 
@@ -814,11 +814,11 @@
 		gap: 12px;
 		padding: 10px 14px;
 		margin: 0 12px 12px;
-		background: hsl(var(--rougeColor) / 0.15);
-		border: 1px solid hsl(var(--rougeColor) / 0.4);
+		background: color-mix(in srgb, var(--rougeColor) 15%, transparent);
+		border: 1px solid color-mix(in srgb, var(--rougeColor) 40%, transparent);
 		border-radius: 10px;
 		font-size: 0.875rem;
-		color: hsl(var(--rougeColor));
+		color: var(--rougeColor);
 	}
 
 	.forum-publish-error-dismiss {
@@ -857,16 +857,16 @@
 		font-size: 0.9375rem;
 		font-weight: 500;
 		border-radius: 12px;
-		border: 1px solid hsl(var(--white22));
-		background: hsl(var(--white6));
-		color: hsl(var(--white));
+		border: 1px solid var(--white22);
+		background: var(--white6);
+		color: var(--white);
 		cursor: pointer;
 		transition: background 0.15s, border-color 0.15s;
 	}
 
 	.forum-load-more-btn:hover {
-		background: hsl(var(--white11));
-		border-color: hsl(var(--white33));
+		background: var(--white11);
+		border-color: var(--white33);
 	}
 
 	.loading-wrap {
@@ -875,7 +875,7 @@
 		justify-content: center;
 		gap: 12px;
 		padding: 60px 24px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-size: 0.9375rem;
 	}
 
@@ -899,15 +899,15 @@
 		font-size: 0.9375rem;
 		font-weight: 500;
 		border-radius: 12px;
-		border: 1px solid hsl(var(--white33));
+		border: 1px solid var(--white33);
 		background: transparent;
-		color: hsl(var(--white));
+		color: var(--white);
 		cursor: pointer;
 		transition: background 0.15s, border-color 0.15s;
 	}
 
 	.btn-secondary-large:hover {
-		background: hsl(var(--white8));
-		border-color: hsl(var(--white66));
+		background: var(--white8);
+		border-color: var(--white66);
 	}
 </style>

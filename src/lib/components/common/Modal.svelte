@@ -14,7 +14,7 @@ import { fade, fly } from "svelte/transition";
 import { cubicOut } from "svelte/easing";
 import { browser } from "$app/environment";
 import { onDestroy } from "svelte";
-let { open = $bindable(false), ariaLabel = "Modal dialog", ariaLabelledby = null, align = "center", zIndex = 50, maxWidth = "max-w-lg", wide = false, class: className = "", maxHeight = 80, fillHeight = false, closeOnBackdropClick = true, closeOnEscape = true, noBackdrop = false, title = "", description = "", closeButtonMobile = false,
+let { open = $bindable(false), ariaLabel = "Modal dialog", ariaLabelledby = null, align = "center", zIndex = 100, maxWidth = "max-w-lg", wide = false, class: className = "", maxHeight = 80, fillHeight = false, closeOnBackdropClick = true, closeOnEscape = true, noBackdrop = false, title = "", description = "", closeButtonMobile = false,
 /** When false, body scroll is not locked (e.g. thread modal inside a transformed header panel). */
 lockBodyScroll = true,
 /**
@@ -205,8 +205,8 @@ function handleResize() {
     margin-bottom: auto;
     border-radius: 0 0 var(--radius-32) var(--radius-32);
     max-height: var(--modal-max-height);
-    background: hsl(var(--gray66));
-    border: 0.33px solid hsl(var(--white8));
+    background: var(--gray66);
+    border: 0.33px solid var(--white8);
     border-top: none;
   }
 
@@ -214,8 +214,8 @@ function handleResize() {
     margin: 1rem;
     border-radius: var(--radius-32);
     max-height: calc(100vh - 2rem);
-    background: hsl(var(--gray66));
-    border: 0.33px solid hsl(var(--white8));
+    background: var(--gray66);
+    border: 0.33px solid var(--white8);
   }
 
   .modal-bottom {
@@ -223,8 +223,8 @@ function handleResize() {
     padding: 0;
     border-radius: var(--radius-32) var(--radius-32) 0 0;
     max-height: var(--modal-max-height);
-    background: hsl(var(--gray66));
-    border: 0.33px solid hsl(var(--white8));
+    background: var(--gray66);
+    border: 0.33px solid var(--white8);
     border-bottom: none;
   }
 
@@ -238,13 +238,13 @@ function handleResize() {
     .modal-bottom {
       margin-bottom: 16px;
       border-radius: 24px;
-      border-bottom: 0.33px solid hsl(var(--white8));
+      border-bottom: 0.33px solid var(--white8);
     }
 
     .modal-bottom.modal-scoped-in-panel {
       margin-bottom: 0 !important;
       border-radius: 24px;
-      border-bottom: 0.33px solid hsl(var(--white8));
+      border-bottom: 0.33px solid var(--white8);
     }
   }
 
@@ -255,7 +255,7 @@ function handleResize() {
     );
     margin-bottom: 0;
     border-radius: 24px;
-    border-bottom: 0.33px solid hsl(var(--white8));
+    border-bottom: 0.33px solid var(--white8);
   }
 
   /* Mobile: full-viewport dim + sheet (inbox/header transform is off; same as non-scoped bottom sheet). */
@@ -324,7 +324,7 @@ function handleResize() {
     margin: 0 0 8px 0;
     font-size: 0.9375rem;
     text-align: center;
-    color: hsl(var(--white66));
+    color: var(--white66);
   }
   @media (min-width: 768px) {
     .modal-title-block {
@@ -350,22 +350,22 @@ function handleResize() {
     padding: 12px 16px;
     font-size: 0.9375rem;
     font-weight: 500;
-    color: hsl(var(--white66));
-    background: hsl(var(--white8));
-    border: 0.33px solid hsl(var(--white16));
+    color: var(--white66);
+    background: var(--white8);
+    border: 0.33px solid var(--white16);
     border-radius: 12px;
     cursor: pointer;
   }
   .modal-mobile-close-btn:hover {
-    background: hsl(var(--white16));
-    color: hsl(var(--white));
+    background: var(--white16);
+    color: var(--white);
   }
 
   .modal-content {
     overflow-y: auto;
     max-height: inherit;
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--white16)) transparent;
+    scrollbar-color: var(--white16) transparent;
   }
 
   .modal-content::-webkit-scrollbar {
@@ -377,12 +377,12 @@ function handleResize() {
   }
 
   .modal-content::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--white16));
+    background-color: var(--white16);
     border-radius: 3px;
   }
 
   .modal-content::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--white33));
+    background-color: var(--white33);
   }
 
   :global(body[data-scroll-y]) {

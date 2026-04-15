@@ -72,8 +72,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: hsl(var(--black33));
-		border: 1.5px solid hsl(var(--white33));
+		background: var(--black33);
+		border: 1.5px solid var(--white33);
 		transition: background 0.15s ease, border-color 0.15s ease;
 	}
 	/* Promote to GPU layer only while animating */
@@ -98,7 +98,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: hsl(var(--whiteEnforced));
+		color: var(--whiteEnforced);
 		will-change: transform, opacity;
 		/* Check pop: 0 → 1.18 (60%) → 1.0 */
 		animation: check-pop 0.24s cubic-bezier(0.22, 1, 0.36, 1);

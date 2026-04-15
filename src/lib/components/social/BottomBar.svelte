@@ -158,12 +158,12 @@ $effect(() => {
 			<div class="bottom-bar-content">
 				{#if isSignedIn}
 					<button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
-						<Zap variant="fill" size={18} color="hsl(var(--whiteEnforced))" />
+						<Zap variant="fill" size={18} color="var(--whiteEnforced)" />
 						<span>Zap</span>
 					</button>
 					<InputButton className="comment-btn" placeholder="Comment" onclick={handleComment}>
 						{#snippet icon()}
-							<Reply variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
+							<Reply variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
 						{/snippet}
 					</InputButton>
 					<button
@@ -171,7 +171,7 @@ $effect(() => {
 						class="btn-secondary-large btn-secondary-dark options-button"
 						onclick={() => { actionsModalOpen = true; onoptions?.(); }}
 					>
-						<Options variant="fill" size={20} color="hsl(var(--white33))" />
+						<Options variant="fill" size={20} color="var(--white33)" />
 					</button>
 				{:else}
 					<button type="button" onclick={() => onGetStarted?.()} class="btn-primary-small h-10 px-4 flex-shrink-0">
@@ -249,11 +249,11 @@ $effect(() => {
 		width: 100%;
 		max-width: 100%;
 		margin: 0;
-		background: hsl(var(--gray66));
+		background: var(--gray66);
 		border-radius: var(--radius-32) var(--radius-32) 0 0;
-		border: 0.33px solid hsl(var(--white8));
+		border: 0.33px solid var(--white8);
 		border-bottom: none;
-		box-shadow: 0 -4px 24px hsl(var(--black));
+		box-shadow: 0 -4px 24px var(--black);
 		padding: 16px 6px 16px 16px;
 		pointer-events: auto;
 		backdrop-filter: blur(24px);
@@ -268,7 +268,7 @@ $effect(() => {
 	.bottom-bar.guest {
 		padding: 18px 16px 18px 20px;
 		min-height: 56px;
-		box-shadow: 0 -6px 28px hsl(var(--black) / 0.5);
+		box-shadow: 0 -6px 28px color-mix(in srgb, var(--black) 50%, transparent);
 	}
 
 	/* Morph: expand to show comment form */
@@ -302,7 +302,7 @@ $effect(() => {
 	.guest-tagline {
 		font-size: 0.9375rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		flex: 1;
 		min-width: 0;
 		white-space: nowrap;
@@ -314,11 +314,11 @@ $effect(() => {
 		align-self: center;
 		width: 100%;
 		max-width: 100%;
-		background: hsl(var(--gray66));
+		background: var(--gray66);
 		border-radius: var(--radius-32) var(--radius-32) 0 0;
-		border: 0.33px solid hsl(var(--white8));
+		border: 0.33px solid var(--white8);
 		border-bottom: none;
-		box-shadow: 0 -4px 24px hsl(var(--black));
+		box-shadow: 0 -4px 24px var(--black);
 		padding: 12px;
 		pointer-events: auto;
 		backdrop-filter: blur(24px);
@@ -335,8 +335,8 @@ $effect(() => {
 			max-width: 560px;
 			margin-bottom: 16px;
 			border-radius: 24px;
-			border-bottom: 0.33px solid hsl(var(--white8));
-			box-shadow: 0 40px 64px 12px hsl(var(--black));
+			border-bottom: 0.33px solid var(--white8);
+			box-shadow: 0 40px 64px 12px var(--black);
 		}
 	}
 
@@ -349,9 +349,9 @@ $effect(() => {
 
 	.comment-input-wrap {
 		position: relative;
-		background: hsl(var(--black33));
+		background: var(--black33);
 		border-radius: var(--radius-16);
-		border: 0.33px solid hsl(var(--white33));
+		border: 0.33px solid var(--white33);
 		min-height: 0;
 		flex: 1;
 	}
@@ -398,14 +398,14 @@ $effect(() => {
 			max-width: 560px;
 			margin-bottom: 16px;
 			border-radius: 24px;
-			border-bottom: 0.33px solid hsl(var(--white8));
+			border-bottom: 0.33px solid var(--white8);
 			padding: 12px 2px 12px 12px;
-			box-shadow: 0 40px 64px 12px hsl(var(--black));
+			box-shadow: 0 40px 64px 12px var(--black);
 		}
 		.bottom-bar.guest {
 			padding: 18px 16px 18px 20px;
 			min-height: 64px;
-			box-shadow: 0 48px 72px 16px hsl(var(--black) / 0.5);
+			box-shadow: 0 48px 72px 16px color-mix(in srgb, var(--black) 50%, transparent);
 		}
 		.bottom-bar.expanded {
 			padding: 12px;

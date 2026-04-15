@@ -239,10 +239,10 @@
 
 		/* Shape with thin outline */
 		border-radius: var(--radius);
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 
 		/* Background */
-		background-color: hsl(var(--gray66));
+		background-color: var(--gray66);
 
 		/* Clip content to rounded square */
 		overflow: hidden;
@@ -301,7 +301,7 @@
 	}
 
 	.fallback-generic {
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	/* Initial letter */
@@ -318,7 +318,7 @@
 		position: absolute;
 		font-size: var(--font-size);
 		font-weight: 700;
-		color: hsl(var(--white16));
+		color: var(--white16);
 		line-height: 1;
 		user-select: none;
 		pointer-events: none;
@@ -328,6 +328,6 @@
 	.app-icon {
 		width: 50%;
 		height: 50%;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 </style>

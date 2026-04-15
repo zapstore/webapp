@@ -57,13 +57,13 @@ let isOfflineError = $derived(
 	.error-title {
 		font-size: 1.5rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin-bottom: 0.75rem;
 	}
 
 	.error-message {
 		font-size: 0.9375rem;
-		color: hsl(var(--white50));
+		color: var(--white50);
 		line-height: 1.5;
 		margin-bottom: 2rem;
 	}

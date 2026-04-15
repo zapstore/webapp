@@ -61,21 +61,21 @@ let { tokens = [] } = $props();
 
 <style>
 	a {
-		color: hsl(var(--blurpleLightColor));
+		color: var(--blurpleLightColor);
 		text-decoration: none;
 	}
 	a:hover {
 		text-decoration: underline;
 	}
 	code {
-		background: hsl(var(--gray33));
-		border: 0.33px solid hsl(var(--white16));
+		background: var(--gray33);
+		border: 0.33px solid var(--white16);
 		padding: 0.15em 0.45em;
 		border-radius: 6px;
 		font-size: 0.875em;
 		font-family: var(--font-mono);
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 	img {
 		max-width: 100%;

@@ -47,7 +47,7 @@ function handleRemove(e) {
 			aria-label="Remove media"
 			onclick={handleRemove}
 		>
-			<Cross variant="outline" color="hsl(var(--white66))" size={14} strokeWidth={2} />
+			<Cross variant="outline" color="var(--white66)" size={14} strokeWidth={2} />
 		</button>
 	{/if}
 	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions a11y_no_noninteractive_tabindex -->
@@ -99,16 +99,16 @@ function handleRemove(e) {
 		min-height: 80px;
 		max-width: 300px;
 		max-height: 240px;
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		border-radius: 12px;
 		overflow: hidden;
-		background: hsl(var(--gray33));
+		background: var(--gray33);
 	}
 	.media-block.clickable {
 		cursor: pointer;
 	}
 	.media-block.clickable:focus-visible {
-		outline: 2px solid hsl(var(--white33));
+		outline: 2px solid var(--white33);
 		outline-offset: 2px;
 	}
 	.media-element {
@@ -128,15 +128,15 @@ function handleRemove(e) {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: hsl(var(--gray33));
+		background: var(--gray33);
 		border: none;
 		border-radius: 50%;
 		cursor: pointer;
 		z-index: 2;
-		box-shadow: 0 1px 3px hsl(var(--black) / 0.3);
+		box-shadow: 0 1px 3px color-mix(in srgb, var(--black) 30%, transparent);
 	}
 	.media-remove-btn:hover {
-		background: hsl(var(--gray50));
+		background: var(--gray50);
 	}
 	.media-remove-btn:active {
 		transform: scale(0.96);

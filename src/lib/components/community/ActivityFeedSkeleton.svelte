@@ -65,7 +65,7 @@
 		gap: 8px;
 		align-items: stretch;
 		padding: 12px 16px;
-		border-bottom: 1px solid hsl(var(--white11));
+		border-bottom: 1px solid var(--white11);
 	}
 
 	.sk-row:last-child {
@@ -95,7 +95,7 @@
 		flex: 1;
 		min-height: 12px;
 		align-self: center;
-		background: hsl(var(--white16));
+		background: var(--white16);
 	}
 
 	.sk-avatar {

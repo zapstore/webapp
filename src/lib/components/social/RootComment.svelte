@@ -67,6 +67,11 @@ let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl 
     standaloneZapOpenKey = 0,
     /** @type {null | { id: string, pubkey: string, displayName?: string, avatarUrl?: string | null, content?: string, createdAt?: number, emojiTags?: { shortcode: string, url: string }[], mediaUrls?: string[] }} */
     feedInitialZapTarget = null,
+    /**
+     * When set (e.g. from Activity/Inbox ?comment=id), auto-expand that reply's text inside the thread modal.
+     * @type {string | null}
+     */
+    expandCommentId = null,
     /** When true, also open the reply composer immediately when the modal mounts. */
     openReplyOnMount = false,
     /**
@@ -664,6 +669,7 @@ function handleRootContextNav(e) {
           {resolveMentionLabel}
           onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
           class="root-comment-body"
+          readMorePassthrough={true}
         />
       {:else}
         {@render children?.()}
@@ -679,7 +685,7 @@ function handleRootContextNav(e) {
           <svg viewBox="0 0 27 16" fill="none">
             <path
               d="M1 0 L1 0 Q1 15 16 15 L27 15"
-              stroke="hsl(var(--white16))"
+              stroke="var(--white16)"
               stroke-width="1.5"
               fill="none"
             />
@@ -792,6 +798,7 @@ function handleRootContextNav(e) {
                   {resolveMentionLabel}
                   onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
                   class="root-comment-body"
+                  disableTruncation={true}
                 />
               {:else}
                 {@render children?.()}
@@ -866,6 +873,7 @@ function handleRootContextNav(e) {
                         {resolveMentionLabel}
                         onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
                         class="reply-comment-body"
+                        forceExpanded={expandCommentId != null && reply.id === expandCommentId}
                       />
                     {:else}
                       <!-- eslint-disable-next-line svelte/no-at-html-tags -- from parseComment(): escaped text + <br> only; no raw author tags -->
@@ -938,14 +946,14 @@ function handleRootContextNav(e) {
         {#if !commentExpanded}
           <div class="thread-bottom-bar-content">
             <button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
-              <Zap variant="fill" size={18} color="hsl(var(--whiteEnforced))" />
+              <Zap variant="fill" size={18} color="var(--whiteEnforced)" />
               <span>Zap</span>
             </button>
 
             {#if getIsSignedIn()}
               <InputButton placeholder="Comment" onclick={handleReply}>
                 {#snippet icon()}
-                  <Reply variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
+                  <Reply variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
                 {/snippet}
               </InputButton>
             {:else}
@@ -959,7 +967,7 @@ function handleRootContextNav(e) {
             {/if}
 
             <button type="button" class="btn-secondary-large btn-secondary-dark options-button" onclick={handleOptions}>
-              <Options variant="fill" size={20} color="hsl(var(--white33))" />
+              <Options variant="fill" size={20} color="var(--white33)" />
             </button>
           </div>
         {:else}
@@ -1122,7 +1130,7 @@ function handleRootContextNav(e) {
   .connector-vertical {
     width: 1.5px;
     height: 12px;
-    background: hsl(var(--white16));
+    background: var(--white16);
     margin-left: 0.25px;
   }
 
@@ -1162,7 +1170,7 @@ function handleRootContextNav(e) {
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: hsl(var(--black33));
+    background: var(--black33);
     z-index: 1;
     pointer-events: none;
     opacity: 0;
@@ -1203,9 +1211,9 @@ function handleRootContextNav(e) {
     align-items: center;
     gap: 10px;
     padding: 16px 16px 12px;
-    border-bottom: 1px solid hsl(var(--white16));
+    border-bottom: 1px solid var(--white16);
     text-decoration: none;
-    color: hsl(var(--white66));
+    color: var(--white66);
     font-size: 0.8125rem;
     font-weight: 500;
     transition: background 0.15s, color 0.15s;
@@ -1213,12 +1221,12 @@ function handleRootContextNav(e) {
   }
 
   .thread-root-context:hover {
-    background: hsl(var(--white) / 0.025);
+    background: color-mix(in srgb, var(--white) 2.5%, transparent);
   }
 
   .thread-root-context--deleted {
     cursor: default;
-    color: hsl(var(--white33));
+    color: var(--white33);
   }
 
   .thread-root-context--deleted:hover {
@@ -1309,7 +1317,7 @@ function handleRootContextNav(e) {
 
   .thread-divider {
     height: 1.4px;
-    background-color: hsl(var(--white11));
+    background-color: var(--white11);
     margin: 0;
   }
 
@@ -1326,8 +1334,8 @@ function handleRootContextNav(e) {
   }
 
   .thread-bottom-bar {
-    background: hsl(var(--gray66));
-    border-top: 0.33px solid hsl(var(--white16));
+    background: var(--gray66);
+    border-top: 0.33px solid var(--white16);
     padding: 16px 6px 16px 16px;
     max-height: 88px;
     overflow: hidden;
@@ -1361,9 +1369,9 @@ function handleRootContextNav(e) {
 
   .thread-reply-input-wrap {
     position: relative;
-    background: hsl(var(--black33));
+    background: var(--black33);
     border-radius: var(--radius-16);
-    border: 0.33px solid hsl(var(--white33));
+    border: 0.33px solid var(--white33);
     min-height: 0;
     flex: 1;
   }
@@ -1389,14 +1397,14 @@ function handleRootContextNav(e) {
     min-width: 0;
     height: 42px;
     padding: 0 16px;
-    background-color: hsl(var(--black33));
+    background-color: var(--black33);
     border-radius: 16px;
-    border: 0.33px solid hsl(var(--white33));
+    border: 0.33px solid var(--white33);
     cursor: pointer;
     justify-content: flex-start;
   }
   .thread-get-started-comment-btn .get-started-text {
-    color: hsl(var(--white33));
+    color: var(--white33);
     font-size: 16px;
     font-weight: 500;
   }

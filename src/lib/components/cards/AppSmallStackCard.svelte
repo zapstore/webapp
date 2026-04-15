@@ -65,9 +65,9 @@
 	<div class="title-row">
 		<span class="stack-title">{displayTitle}</span>
 		{#if loading}
-			<Spinner size={14} color="hsl(var(--white66))" />
+			<Spinner size={14} color="var(--white66)" />
 		{:else if hasApp}
-			<Check variant="outline" size={16} color="hsl(var(--blurpleLightColor))" strokeWidth={2.8} />
+			<Check variant="outline" size={16} color="var(--blurpleLightColor)" strokeWidth={2.8} />
 		{/if}
 	</div>
 	<div class="icons-row">
@@ -91,8 +91,8 @@
 		width: 208px;
 		height: 100px;
 		padding: 10px 12px 12px 12px;
-		background-color: hsl(var(--black33));
-		border: 1.4px solid hsl(var(--white16));
+		background-color: var(--black33);
+		border: 1.4px solid var(--white16);
 		border-radius: 16px;
 		cursor: pointer;
 		flex-shrink: 0;
@@ -105,7 +105,7 @@
 	}
 
 	.small-stack-card.selected {
-		border-color: hsl(var(--blurpleColor));
+		border-color: var(--blurpleColor);
 	}
 
 	.title-row {
@@ -118,7 +118,7 @@
 	.stack-title {
 		font-size: 15px;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -144,7 +144,7 @@
 		width: 40px;
 		height: 40px;
 		border-radius: 10px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	@media (max-width: 767px) {

@@ -28,11 +28,11 @@ const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 		<div class="bottom-bar-content">
 			{#if isSignedIn && showFeedBar}
 				<button type="button" class="post-btn post-btn-feed" onclick={onAdd} aria-label="New {ctaLabel}">
-					<Plus variant="outline" size={16} strokeWidth={2.8} color="hsl(var(--whiteEnforced))" />
+					<Plus variant="outline" size={16} strokeWidth={2.8} color="var(--whiteEnforced)" />
 					<span>{ctaLabel}</span>
 				</button>
 				<button type="button" class="search-forum-btn" onclick={onSearch} aria-label={searchLabel}>
-					<Search variant="outline" size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
+					<Search variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
 					<span>{searchLabel}</span>
 				</button>
 			{:else if !isSignedIn}
@@ -63,11 +63,11 @@ const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 		width: 100%;
 		max-width: 100%;
 		margin: 0;
-		background: hsl(var(--gray66));
+		background: var(--gray66);
 		border-radius: var(--radius-32) var(--radius-32) 0 0;
-		border: 0.33px solid hsl(var(--white8));
+		border: 0.33px solid var(--white8);
 		border-bottom: none;
-		box-shadow: 0 -4px 24px hsl(var(--black));
+		box-shadow: 0 -4px 24px var(--black);
 		padding: 12px;
 		pointer-events: auto;
 		backdrop-filter: blur(24px);
@@ -88,7 +88,7 @@ const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 	.bottom-bar.guest {
 		padding: 18px 16px 18px 20px;
 		min-height: 56px;
-		box-shadow: 0 -6px 28px hsl(var(--black) / 0.5);
+		box-shadow: 0 -6px 28px color-mix(in srgb, var(--black) 50%, transparent);
 	}
 
 	.bottom-bar-content {
@@ -105,7 +105,7 @@ const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 	.guest-tagline {
 		font-size: 0.9375rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		flex: 1;
 		min-width: 0;
 		white-space: nowrap;
@@ -126,7 +126,7 @@ const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 		border: none;
 		border-radius: var(--radius-16);
 		cursor: pointer;
-		color: hsl(var(--whiteEnforced));
+		color: var(--whiteEnforced);
 		font-size: 16px;
 		font-weight: 500;
 		transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -136,8 +136,8 @@ const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 	.post-btn:hover {
 		transform: scale(1.015);
 		box-shadow:
-			0 0 20px hsl(var(--blurpleColor) / 0.4),
-			0 10px 40px -20px hsl(var(--blurpleColor) / 0.6);
+			0 0 20px color-mix(in srgb, var(--blurpleColor) 40%, transparent),
+			0 10px 40px -20px color-mix(in srgb, var(--blurpleColor) 60%, transparent);
 	}
 
 	.post-btn:active {
@@ -158,11 +158,11 @@ const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 		justify-content: flex-start;
 		gap: 8px;
 		padding: 0 16px;
-		background: hsl(var(--black33));
-		border: 0.33px solid hsl(var(--white33));
+		background: var(--black33);
+		border: 0.33px solid var(--white33);
 		border-radius: var(--radius-16);
 		cursor: pointer;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-size: 16px;
 		font-weight: 500;
 		text-align: left;
@@ -195,8 +195,8 @@ const searchLabel = $derived(SECTION_SEARCH_LABEL[selectedSection] ?? 'Search');
 			max-width: 560px;
 			margin-bottom: 16px;
 			border-radius: 24px;
-			border-bottom: 0.33px solid hsl(var(--white8));
-			box-shadow: 0 40px 64px 12px hsl(var(--black));
+			border-bottom: 0.33px solid var(--white8);
+			box-shadow: 0 40px 64px 12px var(--black);
 		}
 
 		.post-btn {

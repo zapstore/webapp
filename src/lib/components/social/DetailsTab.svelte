@@ -107,10 +107,10 @@ async function copyRepository() {
       <button type="button" class="copy-btn" onclick={copyPublicationId} aria-label="Copy">
         {#if publicationCopied}
           <span class="check-icon">
-            <Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+            <Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
           </span>
         {:else}
-          <Copy variant="outline" size={16} color="hsl(var(--white66))" />
+          <Copy variant="outline" size={16} color="var(--white66)" />
         {/if}
       </button>
     </div>
@@ -123,10 +123,10 @@ async function copyRepository() {
         <button type="button" class="copy-btn" onclick={copyShareLink} aria-label="Copy share link">
           {#if shareLinkCopied}
             <span class="check-icon">
-              <Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+              <Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
             </span>
           {:else}
-            <Copy variant="outline" size={16} color="hsl(var(--white66))" />
+            <Copy variant="outline" size={16} color="var(--white66)" />
           {/if}
         </button>
       </div>
@@ -142,10 +142,10 @@ async function copyRepository() {
       <button type="button" class="copy-btn" onclick={copyProfileId} aria-label="Copy">
         {#if profileCopied}
           <span class="check-icon">
-            <Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+            <Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
           </span>
         {:else}
-          <Copy variant="outline" size={16} color="hsl(var(--white66))" />
+          <Copy variant="outline" size={16} color="var(--white66)" />
         {/if}
       </button>
     </div>
@@ -158,10 +158,10 @@ async function copyRepository() {
         <button type="button" class="copy-btn" onclick={copyRepository} aria-label="Copy repository">
           {#if repositoryCopied}
             <span class="check-icon">
-              <Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+              <Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
             </span>
           {:else}
-            <Copy variant="outline" size={16} color="hsl(var(--white66))" />
+            <Copy variant="outline" size={16} color="var(--white66)" />
           {/if}
         </button>
       </div>
@@ -197,7 +197,7 @@ async function copyRepository() {
   .section-divider {
     width: 100%;
     height: 1.4px;
-    background-color: hsl(var(--white11));
+    background-color: var(--white11);
     margin: 12px 0;
   }
 
@@ -209,11 +209,11 @@ async function copyRepository() {
   }
 
   .panel-gray66 {
-    background-color: hsl(var(--gray66));
+    background-color: var(--gray66);
   }
 
   .panel-black33 {
-    background-color: hsl(var(--black33));
+    background-color: var(--black33);
   }
 
   .identifier-row {
@@ -225,13 +225,13 @@ async function copyRepository() {
 
   .identifier-label {
     font-size: 0.875rem;
-    color: hsl(var(--white));
+    color: var(--white);
     white-space: nowrap;
   }
 
   .identifier-value {
     font-size: 0.875rem;
-    color: hsl(var(--white66));
+    color: var(--white66);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -254,7 +254,7 @@ async function copyRepository() {
     margin: 0;
     padding: 0;
     height: 1.4px;
-    background-color: hsl(var(--white11));
+    background-color: var(--white11);
   }
 
   .copy-btn {
@@ -263,7 +263,7 @@ async function copyRepository() {
     justify-content: center;
     width: 32px;
     height: 32px;
-    background-color: hsl(var(--white8));
+    background-color: var(--white8);
     border: none;
     border-radius: 8px;
     cursor: pointer;

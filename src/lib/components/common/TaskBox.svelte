@@ -31,7 +31,7 @@
     <div class="progress-wrapper">
       <Circle50
         variant="fill"
-        color="hsl(var(--goldColor))"
+        color="var(--goldColor)"
         size={size * 0.58}
       />
     </div>
@@ -40,7 +40,7 @@
     <div class="review-stack">
       <Circle75
         variant="fill"
-        color="hsl(var(--blurpleColor))"
+        color="var(--blurpleColor)"
         size={size * 0.58}
       />
     </div>
@@ -58,8 +58,8 @@
   }
 
   .state-open {
-    background-color: hsl(var(--black33));
-    border: 1.4px solid hsl(var(--white33));
+    background-color: var(--black33);
+    border: 1.4px solid var(--white33);
   }
 
   .state-closed {
@@ -68,13 +68,13 @@
   }
 
   .state-in-progress {
-    background-color: hsl(var(--black33));
-    border: 1.4px solid hsl(var(--goldColor66));
+    background-color: var(--black33);
+    border: 1.4px solid var(--goldColor66);
   }
 
   .state-in-review {
-    background-color: hsl(var(--black33));
-    border: 1.4px solid hsl(var(--blurpleColor66));
+    background-color: var(--black33);
+    border: 1.4px solid var(--blurpleColor66);
   }
 
   /* Offset circle50 to the right like Flutter: SizedBox(width: 7) */

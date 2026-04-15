@@ -157,7 +157,7 @@ $effect(() => {
 
 <style>
 	h1, h2, h3, h4, h5, h6 {
-		color: hsl(var(--white));
+		color: var(--white);
 		line-height: 1.3;
 		font-weight: 600;
 		margin-top: 1.5em;
@@ -177,15 +177,15 @@ $effect(() => {
 
 	hr {
 		border: none;
-		border-top: 1px solid hsl(var(--white11));
+		border-top: 1px solid var(--white11);
 		margin: 1.5em 0;
 	}
 
 	blockquote {
-		border-left: 3px solid hsl(var(--white16));
+		border-left: 3px solid var(--white16);
 		margin: 1em 0;
 		padding-left: 1em;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	ul {
@@ -202,17 +202,17 @@ $effect(() => {
 	}
 	li {
 		margin: 0.25em 0;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 	li::marker {
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.table-wrap {
 		border-radius: 12px;
 		overflow-x: auto;
 		-webkit-overflow-scrolling: touch;
-		border: 1px solid hsl(var(--white16));
+		border: 1px solid var(--white16);
 		margin: 1em 0;
 	}
 	table {
@@ -230,15 +230,15 @@ $effect(() => {
 		word-break: break-word;
 	}
 	th {
-		border-bottom: 1px solid hsl(var(--white16));
-		background: hsl(var(--white8));
+		border-bottom: 1px solid var(--white16);
+		background: var(--white8);
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: nowrap;
 	}
 	td {
-		border-bottom: 1px solid hsl(var(--white11));
-		color: hsl(var(--white));
+		border-bottom: 1px solid var(--white11);
+		color: var(--white);
 	}
 	tr:last-child td {
 		border-bottom: none;

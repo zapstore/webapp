@@ -5,7 +5,7 @@
 
 <button type="button" class="back-button" aria-label="Back" onclick={onBack}>
 	<span class="back-button-icon">
-		<ChevronLeft variant="outline" size={14} strokeWidth={1.4} color="hsl(var(--white33))" />
+		<ChevronLeft variant="outline" size={14} strokeWidth={1.4} color="var(--white33)" />
 	</span>
 </button>
 
@@ -18,7 +18,7 @@
 		height: 28px;
 		min-width: 28px;
 		min-height: 28px;
-		background: hsl(var(--gray33));
+		background: var(--gray33);
 		border: none;
 		border-radius: 50%;
 		cursor: pointer;
@@ -26,7 +26,7 @@
 	}
 
 	.back-button:hover {
-		background: hsl(var(--white8));
+		background: var(--white8);
 	}
 
 	.back-button:active {

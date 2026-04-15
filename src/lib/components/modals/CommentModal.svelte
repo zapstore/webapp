@@ -171,7 +171,7 @@ $effect(() => {
   .overlay {
     position: fixed;
     inset: 0;
-    z-index: 49;
+    z-index: 99;
     background: transparent;
   }
 
@@ -180,7 +180,7 @@ $effect(() => {
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 50;
+    z-index: 100;
     display: flex;
     justify-content: center;
     pointer-events: none;
@@ -190,9 +190,9 @@ $effect(() => {
     width: 100%;
     max-width: 100%;
     margin: 0;
-    background: hsl(var(--gray66));
+    background: var(--gray66);
     border-radius: var(--radius-32) var(--radius-32) 0 0;
-    border: 0.33px solid hsl(var(--white8));
+    border: 0.33px solid var(--white8);
     border-bottom: none;
     padding: 16px;
     pointer-events: auto;
@@ -210,7 +210,7 @@ $effect(() => {
   .child-overlay {
     position: absolute;
     inset: 0;
-    background: hsl(var(--black33));
+    background: var(--black33);
     z-index: 10;
     pointer-events: none;
     opacity: 0;
@@ -227,15 +227,15 @@ $effect(() => {
       max-width: 560px;
       margin-bottom: 16px;
       border-radius: 24px;
-      border-bottom: 0.33px solid hsl(var(--white8));
+      border-bottom: 0.33px solid var(--white8);
       padding: 12px;
     }
   }
 
   .input-container {
-    background: hsl(var(--black33));
+    background: var(--black33);
     border-radius: var(--radius-16);
-    border: 0.33px solid hsl(var(--white33));
+    border: 0.33px solid var(--white33);
     width: 100%;
   }
   .comment-file-input {

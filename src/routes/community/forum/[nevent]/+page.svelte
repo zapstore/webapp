@@ -145,7 +145,7 @@
 		justify-content: center;
 		gap: 12px;
 		padding: 60px 24px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-size: 0.9375rem;
 	}
 
@@ -156,11 +156,11 @@
 		justify-content: center;
 		gap: 16px;
 		padding: 60px 24px;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.back-link {
-		color: hsl(var(--blurpleLightColor));
+		color: var(--blurpleLightColor);
 		font-weight: 500;
 		text-decoration: none;
 	}

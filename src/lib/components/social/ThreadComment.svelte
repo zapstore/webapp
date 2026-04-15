@@ -162,7 +162,7 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
   .version-tag {
     font-size: 0.75rem;
     font-weight: 500;
-    color: hsl(var(--white66));
+    color: var(--white66);
     white-space: nowrap;
     line-height: 1.4;
     flex-shrink: 0;
@@ -176,7 +176,7 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     margin-top: 8px;
     font-size: 0.9375rem;
     line-height: 1.5;
-    color: hsl(var(--white) / 0.85);
+    color: color-mix(in srgb, var(--white) 85%, transparent);
   }
 
   .content :global(p) {
@@ -188,7 +188,7 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
   }
 
   .content :global(a) {
-    color: hsl(var(--blurpleColor));
+    color: var(--blurpleColor);
     text-decoration: none;
   }
 

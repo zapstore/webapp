@@ -241,7 +241,7 @@
 	>
 		<path
 			d="M0 0 L4 0 Q9 2 14 6 Q19 10 23 14 Q23.5 16 23 18 Q19 22 14 26 Q9 30 4 32 L0 32 Z"
-			fill="hsl(var(--gray33))"
+			fill="var(--gray33)"
 		/>
 	</svg>
 
@@ -258,7 +258,7 @@
 			<path
 				d={outlinePathD}
 				fill="none"
-				stroke="hsl(var(--white33))"
+				stroke="var(--white33)"
 				stroke-width="0.5"
 				vector-effect="non-scaling-stroke"
 			/>
@@ -272,9 +272,9 @@
 		aria-expanded={open}
 	>
 		{#if open}
-			<Cross variant="outline" size={10} color="hsl(var(--white33))" strokeWidth={1.4} />
+			<Cross variant="outline" size={10} color="var(--white33)" strokeWidth={1.4} />
 		{:else}
-			<ChevronDown variant="outline" size={14} color="hsl(var(--white33))" strokeWidth={1.4} />
+			<ChevronDown variant="outline" size={14} color="var(--white33)" strokeWidth={1.4} />
 		{/if}
 	</button>
 </div>
@@ -320,7 +320,7 @@
 		height: 32px;
 		padding-left: 12px;
 		padding-right: 8px;
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 		border-radius: 12px 0 0 12px;
 		overflow: hidden;
 		box-sizing: border-box;
@@ -353,7 +353,7 @@
 		font-size: 14px;
 		font-weight: 500;
 		line-height: 32px;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		white-space: pre;
 		flex-shrink: 0;
 		transition: color 0.12s ease;
@@ -363,14 +363,14 @@
 		font-size: 14px;
 		font-weight: 500;
 		line-height: 32px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		flex-shrink: 0;
 		transition: color 0.12s ease;
 	}
 
 	.alt-faux-ph--focused .alt-faux-prefix,
 	.alt-faux-ph--focused .alt-faux-dots {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.alt-input {
@@ -386,8 +386,8 @@
 		font-size: 14px;
 		font-weight: 500;
 		line-height: 32px;
-		color: hsl(var(--white));
-		caret-color: hsl(var(--white));
+		color: var(--white);
+		caret-color: var(--white);
 		font-family: inherit;
 		position: relative;
 		z-index: 1;
@@ -424,7 +424,7 @@
 		border: none;
 		background: transparent;
 		cursor: pointer;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		z-index: 3;
 		transition: opacity 0.15s ease;
 	}
@@ -439,10 +439,10 @@
 		display: flex;
 		flex-direction: column;
 		padding: 0;
-		background: hsl(var(--gray66));
+		background: var(--gray66);
 		backdrop-filter: blur(14px);
 		-webkit-backdrop-filter: blur(14px);
-		border: 0.33px solid hsl(var(--white33));
+		border: 0.33px solid var(--white33);
 		border-radius: 12px;
 		overflow: hidden;
 		box-shadow: 0 8px 24px hsl(0 0% 0% / 0.25);
@@ -465,10 +465,10 @@
 		font-size: 14px;
 		font-weight: 500;
 		font-family: var(--font-sans), 'Inter', sans-serif;
-		color: hsl(var(--white));
+		color: var(--white);
 		background: transparent;
 		border: none;
-		border-bottom: 0.33px solid hsl(var(--white8));
+		border-bottom: 0.33px solid var(--white8);
 		cursor: pointer;
 		transition: background-color 0.1s ease;
 	}
@@ -478,14 +478,14 @@
 	}
 
 	.alt-menu-item:hover {
-		background: hsl(var(--white8));
+		background: var(--white8);
 	}
 
 	.alt-menu-empty {
 		padding: 14px 12px;
 		font-size: 13px;
 		font-weight: 500;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		text-align: center;
 		line-height: 1.35;
 	}

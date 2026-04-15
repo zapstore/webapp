@@ -240,13 +240,13 @@ function stopCardEventBubble(e) {
 		align-items: center;
 		gap: 10px;
 		padding: 8px 16px 8px 8px;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		border-radius: 12px;
 	}
 	.nostr-ref-card-name {
 		font-size: 15px;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -255,15 +255,15 @@ function stopCardEventBubble(e) {
 	.nostr-ref-card-placeholder {
 		font-size: 14px;
 		font-weight: 500;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 	.nostr-ref-card-pic {
 		width: 38px;
 		height: 38px;
 		flex-shrink: 0;
 		border-radius: 8px;
-		border: 0.33px solid hsl(var(--white16));
-		background: hsl(var(--gray66));
+		border: 0.33px solid var(--white16);
+		background: var(--gray66);
 		overflow: hidden;
 		display: flex;
 		align-items: center;
@@ -277,7 +277,7 @@ function stopCardEventBubble(e) {
 	.nostr-ref-card-initial {
 		font-size: 18px;
 		font-weight: 700;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.nostr-ref-card--forum {
@@ -289,7 +289,7 @@ function stopCardEventBubble(e) {
 		flex-direction: column;
 		gap: 6px;
 		padding: 10px 12px;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		border-radius: 12px;
 		max-width: min(520px, 90vw);
 	}
@@ -312,25 +312,25 @@ function stopCardEventBubble(e) {
 	.nostr-ref-forum-author-name {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
 	.nostr-ref-forum-timestamp {
-		color: hsl(var(--white33)) !important;
+		color: var(--white33) !important;
 	}
 
 	.nostr-ref-forum-content {
 		font-size: 0.875rem;
 		line-height: 1.45;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.nostr-ref-card--forum-post .nostr-ref-forum-author-name {
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.nostr-ref-card--comment .nostr-ref-forum-author-name {
@@ -341,7 +341,7 @@ function stopCardEventBubble(e) {
 		font-size: 0.96rem;
 		line-height: 1.35;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
 		line-clamp: 2;
@@ -350,10 +350,10 @@ function stopCardEventBubble(e) {
 	}
 
 	.nostr-ref-forum-content--single-line {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.nostr-ref-forum-content--single-line :global(.short-text-preview) {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 </style>

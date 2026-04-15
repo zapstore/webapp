@@ -227,7 +227,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	.insert-overlay {
 		position: fixed;
 		inset: 0;
-		z-index: 61;
+		z-index: 109;
 		background: transparent;
 	}
 
@@ -236,7 +236,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		bottom: 0;
 		left: 0;
 		right: 0;
-		z-index: 62;
+		z-index: 110;
 		display: flex;
 		justify-content: center;
 		pointer-events: none;
@@ -246,9 +246,9 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		width: 100%;
 		max-width: 100%;
 		margin: 0;
-		background: hsl(var(--gray66));
+		background: var(--gray66);
 		border-radius: var(--radius-32) var(--radius-32) 0 0;
-		border: 0.33px solid hsl(var(--white8));
+		border: 0.33px solid var(--white8);
 		border-bottom: none;
 		padding: 16px;
 		pointer-events: auto;
@@ -264,7 +264,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 			max-width: 560px;
 			margin-bottom: 16px;
 			border-radius: 24px;
-			border-bottom: 0.33px solid hsl(var(--white8));
+			border-bottom: 0.33px solid var(--white8);
 			padding: 12px;
 		}
 	}
@@ -277,7 +277,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		margin: 0;
 		font-size: 1.875rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		text-align: center;
 	}
 
@@ -291,8 +291,8 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		gap: 10px;
 		height: 40px;
 		padding: 0 12px;
-		background: hsl(var(--black33));
-		border: 0.33px solid hsl(var(--white33));
+		background: var(--black33);
+		border: 0.33px solid var(--white33);
 		border-radius: 16px;
 	}
 
@@ -303,7 +303,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		width: 18px;
 		height: 18px;
 		flex-shrink: 0;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.insert-search-input {
@@ -312,13 +312,13 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		background: none;
 		border: none;
 		outline: none;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-family: 'Inter', sans-serif;
 		font-size: 16px;
 	}
 
 	.insert-search-input::placeholder {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.insert-body-wrap {
@@ -330,7 +330,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	}
 
 	.insert-body-inner {
-		background: hsl(var(--black33));
+		background: var(--black33);
 		border-radius: var(--radius-12);
 		min-height: 160px;
 		overflow: hidden;
@@ -341,13 +341,13 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		max-height: 280px;
 		overflow-y: auto;
 		scrollbar-width: thin;
-		scrollbar-color: hsl(var(--white33)) transparent;
+		scrollbar-color: var(--white33) transparent;
 	}
 	.insert-body-inner-scroll::-webkit-scrollbar {
 		width: 4px;
 	}
 	.insert-body-inner-scroll::-webkit-scrollbar-thumb {
-		background: hsl(var(--white33));
+		background: var(--white33);
 		border-radius: 2px;
 	}
 
@@ -361,7 +361,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	.insert-empty-text {
 		font-size: 1.5rem;
 		font-weight: 600;
-		color: hsl(var(--white16));
+		color: var(--white16);
 		text-align: center;
 		margin: 0;
 		padding: 24px 16px;
@@ -370,7 +370,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 	.insert-spinner svg {
 		animation: insert-spin 0.8s linear infinite;
@@ -392,7 +392,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		align-items: center;
 		justify-content: space-between;
 		padding: 10px 12px;
-		border-bottom: 1px solid hsl(var(--white8));
+		border-bottom: 1px solid var(--white8);
 	}
 	.insert-row:last-child {
 		border-bottom: none;
@@ -409,7 +409,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	.insert-name {
 		font-size: 15px;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;

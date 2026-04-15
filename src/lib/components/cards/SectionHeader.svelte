@@ -60,11 +60,11 @@
       <span class="filter-btn-text">{filterText}</span>
       {#if filterChevron === "down"}
         <span class="filter-btn-chevron-down">
-          <ChevronDown size={12} variant="outline" color="hsl(var(--white33))" strokeWidth={1.6} />
+          <ChevronDown size={12} variant="outline" color="var(--white33)" strokeWidth={1.6} />
         </span>
       {:else}
         <span class="filter-btn-chevron-right">
-          <ChevronRight size={12} variant="outline" color="hsl(var(--white33))" strokeWidth={1.6} />
+          <ChevronRight size={12} variant="outline" color="var(--white33)" strokeWidth={1.6} />
         </span>
       {/if}
     </button>
@@ -74,14 +74,14 @@
       <a {href} class="section-link">
         <span>{linkText}</span>
         <span class="filter-btn-chevron-right">
-          <ChevronRight variant="outline" color="hsl(var(--white33))" size={14} />
+          <ChevronRight variant="outline" color="var(--white33)" size={14} />
         </span>
       </a>
     {:else if onClick}
       <button type="button" class="section-link" on:click={onClick}>
         <span>{linkText}</span>
         <span class="filter-btn-chevron-right">
-          <ChevronRight variant="outline" color="hsl(var(--white33))" size={14} />
+          <ChevronRight variant="outline" color="var(--white33)" size={14} />
         </span>
       </button>
     {/if}
@@ -100,7 +100,7 @@
   .section-title {
     font-size: 1.25rem;
     font-weight: 650;
-    color: hsl(var(--white));
+    color: var(--white);
     margin: 0;
     line-height: 1.2;
   }
@@ -124,7 +124,7 @@
     border-radius: 9999px;
     font-size: 0.875rem;
     font-weight: 500;
-    color: hsl(var(--white33));
+    color: var(--white33);
     text-decoration: none;
     cursor: pointer;
     transition: background-color 0.15s ease, color 0.15s ease;
@@ -135,8 +135,8 @@
   .filter-btn:hover,
   .filter-btn-open,
   .section-link:hover {
-    background-color: hsl(var(--white8));
-    color: hsl(var(--white66));
+    background-color: var(--white8);
+    color: var(--white66);
   }
 
   .filter-btn-text {

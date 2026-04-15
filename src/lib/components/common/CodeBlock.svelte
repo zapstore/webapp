@@ -24,10 +24,10 @@ async function handleCopy() {
 	<button type="button" class="code-copy-btn" onclick={handleCopy} aria-label="Copy code">
 		{#if copied}
 			<span class="check-icon">
-				<Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+				<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
 			</span>
 		{:else}
-			<Copy variant="outline" size={16} color="hsl(var(--white66))" />
+			<Copy variant="outline" size={16} color="var(--white66)" />
 		{/if}
 	</button>
 	<div class="code-inner">
@@ -50,7 +50,7 @@ async function handleCopy() {
 		display: flex;
 		align-items: center;
 		border-radius: 16px;
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		padding: 6px 10px;
 		/* copy btn is 32px + 8px top + 8px bottom — guarantee it never clips */
 		min-height: 48px;
@@ -65,11 +65,11 @@ async function handleCopy() {
 	}
 
 	.code-block-gray33 {
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 	}
 
 	.code-block-black33 {
-		background-color: hsl(var(--black33));
+		background-color: var(--black33);
 	}
 
 	.code-copy-btn {
@@ -81,7 +81,7 @@ async function handleCopy() {
 		justify-content: center;
 		width: 32px;
 		height: 32px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		border: none;
 		border-radius: 8px;
 		cursor: pointer;
@@ -104,7 +104,7 @@ async function handleCopy() {
 
 	.code-language {
 		font-family: var(--font-sans);
-		color: hsl(var(--white33));
+		color: var(--white33);
 		display: block;
 		margin-bottom: 2px;
 	}
@@ -112,7 +112,7 @@ async function handleCopy() {
 	.code-scroll {
 		overflow-x: auto;
 		scrollbar-width: thin;
-		scrollbar-color: hsl(var(--white16)) transparent;
+		scrollbar-color: var(--white16) transparent;
 	}
 
 	.code-scroll pre {
@@ -125,7 +125,7 @@ async function handleCopy() {
 		font-weight: 400;
 		line-height: 1.5;
 		letter-spacing: 0.15px;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: pre;
 	}
 </style>

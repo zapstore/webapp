@@ -379,13 +379,13 @@
 		<!-- Left gradient fade -->
 		<div
 			class="absolute left-0 top-0 bottom-0 w-16 sm:w-24 md:w-32 lg:w-48 xl:w-64 z-20 pointer-events-none"
-			style="background: linear-gradient(to right, hsl(var(--black)) 0%, hsl(var(--black) / 0.8) 30%, hsl(var(--black) / 0.4) 60%, transparent 100%);"
+			style="background: linear-gradient(to right, var(--black) 0%, color-mix(in srgb, var(--black) 80%, transparent) 30%, color-mix(in srgb, var(--black) 40%, transparent) 60%, transparent 100%);"
 		></div>
 
 		<!-- Right gradient fade -->
 		<div
 			class="absolute right-0 top-0 bottom-0 w-16 sm:w-24 md:w-32 lg:w-48 xl:w-64 z-20 pointer-events-none"
-			style="background: linear-gradient(to left, hsl(var(--black)) 0%, hsl(var(--black) / 0.8) 30%, hsl(var(--black) / 0.4) 60%, transparent 100%);"
+			style="background: linear-gradient(to left, var(--black) 0%, color-mix(in srgb, var(--black) 80%, transparent) 30%, color-mix(in srgb, var(--black) 40%, transparent) 60%, transparent 100%);"
 		></div>
 
 		<div class="team-spread-scaler">
@@ -546,7 +546,7 @@
 		width: 120px;
 		height: 120px;
 		border-radius: 50%;
-		border: 2px solid hsl(var(--white8));
+		border: 2px solid var(--white8);
 		flex-shrink: 0;
 	}
 
@@ -576,7 +576,7 @@
 	}
 
 	.profile-pic-placeholder {
-		background-color: hsl(var(--gray66));
+		background-color: var(--gray66);
 	}
 
 	.profile-pic-skeleton {
@@ -584,9 +584,9 @@
 		height: 120px;
 		border-radius: 50%;
 		overflow: hidden;
-		border: 2px solid hsl(var(--white8));
+		border: 2px solid var(--white8);
 		flex-shrink: 0;
-		background-color: hsl(var(--gray66));
+		background-color: var(--gray66);
 	}
 
 	.profile-pic-img {
@@ -623,14 +623,14 @@
 	.member-name {
 		font-size: 1.25rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: nowrap;
 	}
 
 	.member-role {
 		font-size: 1rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		white-space: nowrap;
 	}
 
@@ -662,11 +662,11 @@
 
 	.btn-text-white {
 		transition: color 0.3s ease;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.donate-button-bottom:hover .btn-text-white {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	/* Blurple glass button hover effect */
@@ -691,7 +691,7 @@
 		box-shadow:
 			0 0 40px rgb(92 95 255 / 0.15),
 			0 0 80px rgb(92 95 255 / 0.08);
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	@media (max-width: 639px) {
@@ -779,7 +779,7 @@
 		min-width: 0;
 		padding: 20px;
 		border-radius: var(--radius-16);
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -787,7 +787,7 @@
 		gap: 8px;
 		text-align: center;
 		text-decoration: none;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.donate-panel-icon {
@@ -825,11 +825,11 @@
 	.donate-panel-title {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.donate-panel-desc {
 		font-size: 0.9375rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 </style>

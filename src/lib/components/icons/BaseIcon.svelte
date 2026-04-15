@@ -8,7 +8,7 @@
 
   export let variant = "fill"; // "fill" | "outline"
   export let strokeWidth = 1.4; // 1.4 | 2.8
-  export let color = "hsl(var(--white))";
+  export let color = "var(--white)";
   export let size = 24;
   export let className = "";
 

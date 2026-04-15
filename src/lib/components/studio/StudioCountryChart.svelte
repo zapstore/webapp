@@ -129,7 +129,7 @@
 		min-width: 0;
 		font-size: 13px;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		line-height: 1.3;
 		padding-top: 2px;
 	}
@@ -164,7 +164,7 @@
 	.bar-track {
 		height: 8px;
 		border-radius: 4px;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		overflow: hidden;
 		min-width: 0;
 	}
@@ -177,7 +177,7 @@
 	}
 
 	.bar-fill--imp {
-		background: linear-gradient(90deg, hsl(var(--white33)), hsl(var(--white66)));
+		background: linear-gradient(90deg, var(--white33), var(--white66));
 	}
 
 	.bar-fill--dl {
@@ -187,19 +187,19 @@
 	.metric-num {
 		font-size: 12px;
 		font-variant-numeric: tabular-nums;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		min-width: 3.25rem;
 		text-align: right;
 		flex-shrink: 0;
 	}
 
 	.metric-num--zero {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.country-empty {
 		font-size: 13px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		line-height: 1.45;
 		margin: 0;
 	}

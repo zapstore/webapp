@@ -88,7 +88,7 @@ function handleClick() {
 
   /* Shadow on the right side of each pic using box-shadow */
   .stacked-pic:not(:last-child) :global(.profile-pic) {
-    box-shadow: 4px 0 8px -2px hsl(var(--black66));
+    box-shadow: 4px 0 8px -2px var(--black66);
   }
 
   .text-pill {
@@ -97,7 +97,7 @@ function handleClick() {
     gap: 6px;
     padding: 0 12px 0 16px;
     margin-left: var(--overlap, -8px);
-    background-color: hsl(var(--white8));
+    background-color: var(--white8);
     border-radius: 9999px;
     min-width: 0;
   }
@@ -105,7 +105,7 @@ function handleClick() {
   .text-content {
     font-size: 0.8125rem;
     font-weight: 500;
-    color: hsl(var(--white66));
+    color: var(--white66);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -115,7 +115,7 @@ function handleClick() {
   .text-suffix {
     font-size: 0.8125rem;
     font-weight: 600;
-    color: hsl(var(--white33));
+    color: var(--white33);
     flex-shrink: 0;
   }
 </style>

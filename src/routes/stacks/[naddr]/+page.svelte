@@ -739,7 +739,7 @@ const displayDescription = $derived(
               onclick={() => editStackModalOpen = true}
               aria-label="Edit stack"
             >
-              <Pen size={14} variant="fill" color="hsl(var(--white66))" />
+              <Pen size={14} variant="fill" color="var(--white66)" />
               <span class="edit-btn-text">Edit</span>
             </button>
           {/if}
@@ -778,7 +778,7 @@ const displayDescription = $derived(
                 onclick={() => scrollStackApps(-1)}
                 aria-label="Scroll apps left"
               >
-                <ChevronLeft size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+                <ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
               </button>
             {/if}
             {#if stackAppsCanScrollRight}
@@ -788,7 +788,7 @@ const displayDescription = $derived(
                 onclick={() => scrollStackApps(1)}
                 aria-label="Scroll apps right"
               >
-                <ChevronRight size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+                <ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
               </button>
             {/if}
           </div>
@@ -944,14 +944,14 @@ const displayDescription = $derived(
   .detail-publisher-name {
     font-size: 0.875rem;
     font-weight: 500;
-    color: hsl(var(--white66));
+    color: var(--white66);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   :global(.detail-publisher-timestamp) {
-    color: hsl(var(--white33)) !important;
+    color: var(--white33) !important;
     flex-shrink: 0;
   }
 
@@ -974,7 +974,7 @@ const displayDescription = $derived(
   .stack-title {
     font-size: 1.75rem;
     font-weight: 700;
-    color: hsl(var(--white));
+    color: var(--white);
     margin: 0;
     line-height: 1.2;
     flex: 1;
@@ -992,7 +992,7 @@ const displayDescription = $derived(
     background: var(--gradient-blurple);
     border: none;
     border-radius: 50%;
-    color: hsl(var(--whiteEnforced));
+    color: var(--whiteEnforced);
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -1038,7 +1038,7 @@ const displayDescription = $derived(
     flex: 1;
     min-width: 0;
     font-size: 1rem;
-    color: hsl(var(--white66));
+    color: var(--white66);
     margin: 0;
     line-height: 1.5;
   }
@@ -1046,7 +1046,7 @@ const displayDescription = $derived(
   .stack-page-app-count {
     flex-shrink: 0;
     font-size: 1rem;
-    color: hsl(var(--white33));
+    color: var(--white33);
   }
 
   @media (min-width: 768px) {
@@ -1089,7 +1089,7 @@ const displayDescription = $derived(
       height: 38px;
       border-radius: 50%;
       border: none;
-      background: hsl(var(--white16));
+      background: var(--white16);
       backdrop-filter: blur(var(--blur-sm));
       -webkit-backdrop-filter: blur(var(--blur-sm));
       cursor: pointer;
@@ -1226,7 +1226,7 @@ const displayDescription = $derived(
 
   .placeholder-content {
     padding: 24px;
-    background-color: hsl(var(--gray66));
+    background-color: var(--gray66);
     border-radius: 16px;
     text-align: center;
   }
@@ -1256,7 +1256,7 @@ const displayDescription = $derived(
     width: 100px;
     height: 16px;
     border-radius: 6px;
-    background-color: hsl(var(--gray33));
+    background-color: var(--gray33);
   }
 
   .stack-header-skeleton {
@@ -1275,7 +1275,7 @@ const displayDescription = $derived(
     width: 300px;
     height: 20px;
     border-radius: 6px;
-    background-color: hsl(var(--gray33));
+    background-color: var(--gray33);
   }
 
   .skeleton-card {
@@ -1310,7 +1310,7 @@ const displayDescription = $derived(
     width: 180px;
     height: 14px;
     border-radius: 6px;
-    background-color: hsl(var(--gray33));
+    background-color: var(--gray33);
   }
 
   @media (min-width: 768px) {

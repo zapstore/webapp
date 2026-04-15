@@ -125,7 +125,7 @@
 	.signed-section {
 		overflow: hidden;
 		padding: 0 1rem 3rem;
-		border-bottom: 1.4px solid hsl(var(--white11));
+		border-bottom: 1.4px solid var(--white11);
 	}
 
 	.signed-text-col,
@@ -185,10 +185,10 @@
 
 	.signed-code-outer {
 		position: relative;
-		background-color: hsl(var(--gray44));
+		background-color: var(--gray44);
 		padding: 0 1.25rem 1rem;
 		border-radius: 0 0 24px 24px;
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		border-top: none;
 		height: 218px;
 	}
@@ -211,9 +211,9 @@
 		height: 110px;
 		background: linear-gradient(
 			to bottom,
-			hsl(var(--black) / 0.92) 0%,
-			hsl(var(--black) / 0.82) 22%,
-			hsl(var(--black) / 0.42) 52%,
+			color-mix(in srgb, var(--black) 92%, transparent) 0%,
+			color-mix(in srgb, var(--black) 82%, transparent) 22%,
+			color-mix(in srgb, var(--black) 42%, transparent) 52%,
 			transparent 100%
 		);
 		pointer-events: none;
@@ -227,9 +227,9 @@
 			border-radius: 0 0 32px 32px;
 			background: linear-gradient(
 				to bottom,
-				hsl(var(--black) / 0.92) 0%,
-				hsl(var(--black) / 0.84) 24%,
-				hsl(var(--black) / 0.44) 56%,
+				color-mix(in srgb, var(--black) 92%, transparent) 0%,
+				color-mix(in srgb, var(--black) 84%, transparent) 24%,
+				color-mix(in srgb, var(--black) 44%, transparent) 56%,
 				transparent 100%
 			);
 		}
@@ -269,7 +269,7 @@
 		font-weight: 400;
 		line-height: 1.5;
 		letter-spacing: 0.15px;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: pre-wrap;
 		word-break: break-all;
 		overflow-wrap: break-word;
@@ -283,7 +283,7 @@
 	}
 
 	.signed-code-fixed :global(.hl-key) {
-		color: hsl(var(--blurpleLightColor));
+		color: var(--blurpleLightColor);
 	}
 
 	.signed-code-fixed :global(.hl-value) {
@@ -291,15 +291,15 @@
 	}
 
 	.signed-code-fixed :global(.hl-punct) {
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.signed-code-fixed :global(.hl-brace) {
-		color: hsl(var(--goldColor));
+		color: var(--goldColor);
 	}
 
 	.signed-code-fixed :global(.hl-bracket) {
-		color: hsl(var(--goldColor66));
+		color: var(--goldColor66);
 	}
 
 	/* Text column: centered one-liner on mobile; left-aligned multi-line on desktop */

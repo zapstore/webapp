@@ -1342,6 +1342,8 @@
 	let threadModalZapEvent = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
 	/** App/stack thread: NIP-33 `a` value (32267:… or 30267:…). Null when modal is forum-only. */
 	let threadModalAddrATag = $state(/** @type {string | null} */ (null));
+	/** When set, auto-expand that reply's content in the thread modal (activity-feed click on a nested comment). */
+	let threadModalExpandCommentId = $state(/** @type {string | null} */ (null));
 
 	const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
 	const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
@@ -1410,6 +1412,7 @@
 		threadModalRootId = null;
 		threadModalRootEvent = null;
 		threadModalAddrATag = null;
+		threadModalExpandCommentId = null;
 		initialReplyTargetForModal = null;
 
 		const cmap = new Map();
@@ -1435,28 +1438,31 @@
 					const postIdZap = forumPostIdForZapParsed(zp);
 					if (!postIdZap) return;
 
-					threadModalKind = 'zap';
-					threadModalRootId = null;
-					threadModalRootEvent = null;
-					threadModalAddrATag = null;
-					threadModalZapId = encZap.id;
-					threadModalZapEvent = encZap;
-					initialReplyTargetForModal =
-						withReply && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
-							? enrichReplyTargetForModal(commentEv)
-							: null;
+				threadModalKind = 'zap';
+				threadModalRootId = null;
+				threadModalRootEvent = null;
+				threadModalAddrATag = null;
+				threadModalZapId = encZap.id;
+				threadModalZapEvent = encZap;
+				threadModalExpandCommentId =
+					!openActionsSheet && !openZapOnly && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
+						? commentEv.id : null;
+				initialReplyTargetForModal =
+					withReply && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
+						? enrichReplyTargetForModal(commentEv)
+						: null;
 
-					if (threadOpenActionsOnMount && pendingActionsCommentEv) {
-						const isRoot =
-							pendingActionsCommentEv.id.toLowerCase() === encZap.id.toLowerCase();
-						threadInitialActionsTarget = isRoot
-							? 'root'
-							: enrichReplyTargetForModal(pendingActionsCommentEv);
-					} else {
-						threadInitialActionsTarget = null;
-					}
+				if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+					const isRoot =
+						pendingActionsCommentEv.id.toLowerCase() === encZap.id.toLowerCase();
+					threadInitialActionsTarget = isRoot
+						? 'root'
+						: enrichReplyTargetForModal(pendingActionsCommentEv);
+				} else {
+					threadInitialActionsTarget = null;
+				}
 
-					loadZapForumThread(postIdZap, encZap.id, gen);
+				loadZapForumThread(postIdZap, encZap.id, gen);
 					return;
 				}
 
@@ -1472,27 +1478,30 @@
 				}
 				if (!rootEv || gen !== threadLoadGen) return;
 
-				threadModalKind = 'comment';
-				threadModalRootId = rootId;
-				threadModalRootEvent = rootEv;
-				threadModalAddrATag = null;
-				scheduleActivityProfileFetch(rootEv.pubkey);
-				initialReplyTargetForModal =
-					withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
-						? enrichReplyTargetForModal(commentEv)
-						: null;
+			threadModalKind = 'comment';
+			threadModalRootId = rootId;
+			threadModalRootEvent = rootEv;
+			threadModalAddrATag = null;
+			threadModalExpandCommentId =
+				!openActionsSheet && !openZapOnly && commentEv.id.toLowerCase() !== rootId.toLowerCase()
+					? commentEv.id : null;
+			scheduleActivityProfileFetch(rootEv.pubkey);
+			initialReplyTargetForModal =
+				withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
+					? enrichReplyTargetForModal(commentEv)
+					: null;
 
-				if (threadOpenActionsOnMount && pendingActionsCommentEv) {
-					const isRoot =
-						pendingActionsCommentEv.id.toLowerCase() === rootId.toLowerCase();
-					threadInitialActionsTarget = isRoot
-						? 'root'
-						: enrichReplyTargetForModal(pendingActionsCommentEv);
-				} else {
-					threadInitialActionsTarget = null;
-				}
+			if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+				const isRoot =
+					pendingActionsCommentEv.id.toLowerCase() === rootId.toLowerCase();
+				threadInitialActionsTarget = isRoot
+					? 'root'
+					: enrichReplyTargetForModal(pendingActionsCommentEv);
+			} else {
+				threadInitialActionsTarget = null;
+			}
 
-				await loadActivityThread(postId, rootId, gen, rootEv);
+			await loadActivityThread(postId, rootId, gen, rootEv);
 			})();
 			return;
 		}
@@ -1519,28 +1528,31 @@
 			if (encZap) {
 				const aRootZ = appATagFromZapEvent(encZap) ?? aRoot;
 				if (!isAddressableActivityATag(aRootZ)) return;
-				threadModalKind = 'zap';
-				threadModalRootId = null;
-				threadModalRootEvent = null;
-				threadModalAddrATag = aRootZ;
-				threadModalZapId = encZap.id;
-				threadModalZapEvent = encZap;
-				initialReplyTargetForModal =
-					withReply && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
-						? enrichReplyTargetForModal(commentEv)
-						: null;
+			threadModalKind = 'zap';
+			threadModalRootId = null;
+			threadModalRootEvent = null;
+			threadModalAddrATag = aRootZ;
+			threadModalZapId = encZap.id;
+			threadModalZapEvent = encZap;
+			threadModalExpandCommentId =
+				!openActionsSheet && !openZapOnly && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
+					? commentEv.id : null;
+			initialReplyTargetForModal =
+				withReply && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
+					? enrichReplyTargetForModal(commentEv)
+					: null;
 
-				if (threadOpenActionsOnMount && pendingActionsCommentEv) {
-					const isRoot =
-						pendingActionsCommentEv.id.toLowerCase() === encZap.id.toLowerCase();
-					threadInitialActionsTarget = isRoot
-						? 'root'
-						: enrichReplyTargetForModal(pendingActionsCommentEv);
-				} else {
-					threadInitialActionsTarget = null;
-				}
+			if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+				const isRoot =
+					pendingActionsCommentEv.id.toLowerCase() === encZap.id.toLowerCase();
+				threadInitialActionsTarget = isRoot
+					? 'root'
+					: enrichReplyTargetForModal(pendingActionsCommentEv);
+			} else {
+				threadInitialActionsTarget = null;
+			}
 
-				loadZapAddrThread(encZap.id, aRootZ, gen);
+			loadZapAddrThread(encZap.id, aRootZ, gen);
 				return;
 			}
 
@@ -1559,26 +1571,29 @@
 			}
 			if (!rootEv || gen !== threadLoadGen) return;
 
-			threadModalKind = 'comment';
-			threadModalRootId = rootId;
-			threadModalRootEvent = rootEv;
-			threadModalAddrATag = aRoot;
-			scheduleActivityProfileFetch(rootEv.pubkey);
-			initialReplyTargetForModal =
-				withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
-					? enrichReplyTargetForModal(commentEv)
-					: null;
+		threadModalKind = 'comment';
+		threadModalRootId = rootId;
+		threadModalRootEvent = rootEv;
+		threadModalAddrATag = aRoot;
+		threadModalExpandCommentId =
+			!openActionsSheet && !openZapOnly && commentEv.id.toLowerCase() !== rootId.toLowerCase()
+				? commentEv.id : null;
+		scheduleActivityProfileFetch(rootEv.pubkey);
+		initialReplyTargetForModal =
+			withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
+				? enrichReplyTargetForModal(commentEv)
+				: null;
 
-			if (threadOpenActionsOnMount && pendingActionsCommentEv) {
-				const isRoot = pendingActionsCommentEv.id.toLowerCase() === rootId.toLowerCase();
-				threadInitialActionsTarget = isRoot
-					? 'root'
-					: enrichReplyTargetForModal(pendingActionsCommentEv);
-			} else {
-				threadInitialActionsTarget = null;
-			}
+		if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+			const isRoot = pendingActionsCommentEv.id.toLowerCase() === rootId.toLowerCase();
+			threadInitialActionsTarget = isRoot
+				? 'root'
+				: enrichReplyTargetForModal(pendingActionsCommentEv);
+		} else {
+			threadInitialActionsTarget = null;
+		}
 
-			await loadAddrActivityThread(rootId, aRoot, gen, rootEv);
+		await loadAddrActivityThread(rootId, aRoot, gen, rootEv);
 		})();
 	}
 
@@ -2430,6 +2445,7 @@
 		<RootComment
 			hideRoot={true}
 			openThreadOnMount={!threadOpenFeedActionsOnly && !threadOpenFeedZapOnly}
+			expandCommentId={threadModalExpandCommentId}
 			openActionsOnMount={threadOpenActionsOnMount}
 			initialActionsTarget={threadInitialActionsTarget}
 			standaloneActionsOpenKey={standaloneActionsOpenKey}
@@ -2470,33 +2486,34 @@
 				: _bannerDeletedKind
 					? { label: activityDeletedRootLabel(_bannerDeletedKind), deleted: true }
 					: null}
-			onModalClose={() => {
-				threadLoadGen++;
-				threadModalKind = null;
-				threadModalRootId = null;
-				threadModalRootEvent = null;
-				threadModalAddrATag = null;
-				initialReplyTargetForModal = null;
-				threadOpenActionsOnMount = false;
-				threadOpenFeedActionsOnly = false;
-				threadOpenFeedZapOnly = false;
-				threadInitialActionsTarget = null;
-				pendingActionsCommentEv = null;
-				pendingZapCommentEv = null;
-				selectedThreadComments = [];
-				selectedThreadZaps = [];
-			}}
-			{signEvent}
-			{searchProfiles}
-			{searchEmojis}
-			onReplySubmit={threadModalAddrATag
-				? (e) => handleActivityThreadReply(null, null, e)
-				: _rootPost
-					? (e) => handleActivityThreadReply(_rootPost.id, _rootPost.pubkey, e)
-					: undefined}
-			onZapReceived={() => {}}
-			onGetStarted={() => {}}
-		/>
+		onModalClose={() => {
+			threadLoadGen++;
+			threadModalKind = null;
+			threadModalRootId = null;
+			threadModalRootEvent = null;
+			threadModalAddrATag = null;
+			threadModalExpandCommentId = null;
+			initialReplyTargetForModal = null;
+			threadOpenActionsOnMount = false;
+			threadOpenFeedActionsOnly = false;
+			threadOpenFeedZapOnly = false;
+			threadInitialActionsTarget = null;
+			pendingActionsCommentEv = null;
+			pendingZapCommentEv = null;
+			selectedThreadComments = [];
+			selectedThreadZaps = [];
+		}}
+		{signEvent}
+		{searchProfiles}
+		{searchEmojis}
+		onReplySubmit={threadModalAddrATag
+			? (e) => handleActivityThreadReply(null, null, e)
+			: _rootPost
+				? (e) => handleActivityThreadReply(_rootPost.id, _rootPost.pubkey, e)
+				: undefined}
+		onZapReceived={() => {}}
+		onGetStarted={() => {}}
+	/>
 	{/key}
 {/if}
 
@@ -2537,6 +2554,7 @@
 		<RootComment
 			hideRoot={true}
 			openThreadOnMount={!threadOpenFeedActionsOnly && !threadOpenFeedZapOnly}
+			expandCommentId={threadModalExpandCommentId}
 			openActionsOnMount={threadOpenActionsOnMount}
 			initialActionsTarget={threadInitialActionsTarget}
 			standaloneActionsOpenKey={standaloneActionsOpenKey}
@@ -2581,22 +2599,23 @@
 				: _zapBannerDeletedKind
 					? { label: activityDeletedRootLabel(_zapBannerDeletedKind), deleted: true }
 					: null}
-			onModalClose={() => {
-				threadLoadGen++;
-				threadModalKind = null;
-				threadModalZapId = null;
-				threadModalZapEvent = null;
-				threadModalAddrATag = null;
-				initialReplyTargetForModal = null;
-				threadOpenActionsOnMount = false;
-				threadOpenFeedActionsOnly = false;
-				threadOpenFeedZapOnly = false;
-				threadInitialActionsTarget = null;
-				pendingActionsCommentEv = null;
-				pendingZapCommentEv = null;
-				selectedThreadComments = [];
-				selectedThreadZaps = [];
-			}}
+		onModalClose={() => {
+			threadLoadGen++;
+			threadModalKind = null;
+			threadModalZapId = null;
+			threadModalZapEvent = null;
+			threadModalAddrATag = null;
+			threadModalExpandCommentId = null;
+			initialReplyTargetForModal = null;
+			threadOpenActionsOnMount = false;
+			threadOpenFeedActionsOnly = false;
+			threadOpenFeedZapOnly = false;
+			threadInitialActionsTarget = null;
+			pendingActionsCommentEv = null;
+			pendingZapCommentEv = null;
+			selectedThreadComments = [];
+			selectedThreadZaps = [];
+		}}
 			{signEvent}
 			{searchProfiles}
 			{searchEmojis}
@@ -2701,7 +2720,7 @@
 
 	.activity-item {
 		padding: 12px 16px;
-		border-bottom: 1px solid hsl(var(--white11));
+		border-bottom: 1px solid var(--white11);
 		cursor: pointer;
 	}
 

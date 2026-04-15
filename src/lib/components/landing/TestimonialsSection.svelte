@@ -228,13 +228,13 @@
 			<!-- Left gradient fade -->
 			<div
 				class="hidden md:block absolute left-0 top-0 bottom-0 w-24 sm:w-32 md:w-48 lg:w-64 xl:w-80 z-30 pointer-events-none"
-				style="background: linear-gradient(to right, hsl(var(--black)) 0%, hsl(var(--black) / 0.95) 20%, hsl(var(--black) / 0.7) 50%, transparent 100%);"
+				style="background: linear-gradient(to right, var(--black) 0%, color-mix(in srgb, var(--black) 95%, transparent) 20%, color-mix(in srgb, var(--black) 70%, transparent) 50%, transparent 100%);"
 			></div>
 
 			<!-- Right gradient fade -->
 			<div
 				class="hidden md:block absolute right-0 top-0 bottom-0 w-24 sm:w-32 md:w-48 lg:w-64 xl:w-80 z-30 pointer-events-none"
-				style="background: linear-gradient(to left, hsl(var(--black)) 0%, hsl(var(--black) / 0.95) 20%, hsl(var(--black) / 0.7) 50%, transparent 100%);"
+				style="background: linear-gradient(to left, var(--black) 0%, color-mix(in srgb, var(--black) 95%, transparent) 20%, color-mix(in srgb, var(--black) 70%, transparent) 50%, transparent 100%);"
 			></div>
 
 			<!-- Mobile: Bottom shadow mask over scrollable row (stronger fade) -->
@@ -277,7 +277,7 @@
 										</span>
 										<span
 											class="text-xs whitespace-nowrap flex-shrink-0"
-											style="color: hsl(var(--white33));"
+											style="color: var(--white33);"
 										>
 											{formatDateTime(testimonial.created_at)}
 										</span>
@@ -302,8 +302,8 @@
 	.testimonial-card {
 		display: block;
 		padding: 1rem;
-		background: hsl(var(--gray44));
-		border: 1px solid hsl(var(--border) / 0.4);
+		background: var(--gray44);
+		border: 1px solid color-mix(in srgb, var(--white16) 40%, transparent);
 		border-radius: 1.25rem;
 		transition: transform 0.2s ease;
 		text-decoration: none;
@@ -332,11 +332,11 @@
 		height: 120px;
 		background: linear-gradient(
 			to top,
-			hsl(var(--black)) 0%,
-			hsl(var(--black) / 0.99) 10%,
-			hsl(var(--black) / 0.95) 25%,
-			hsl(var(--black) / 0.8) 50%,
-			hsl(var(--black) / 0.4) 75%,
+			var(--black) 0%,
+			color-mix(in srgb, var(--black) 99%, transparent) 10%,
+			color-mix(in srgb, var(--black) 95%, transparent) 25%,
+			color-mix(in srgb, var(--black) 80%, transparent) 50%,
+			color-mix(in srgb, var(--black) 40%, transparent) 75%,
 			transparent 100%
 		);
 	}

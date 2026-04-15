@@ -56,7 +56,7 @@ async function handleZap() {
     {#if !isConnected}
       <div class="sign-in-prompt">
         <div class="sign-in-icon">
-          <Zap variant="fill" size={28} color="hsl(var(--goldColor))" />
+          <Zap variant="fill" size={28} color="var(--goldColor)" />
         </div>
         <p class="sign-in-text">Sign in with your Nostr extension to send zaps.</p>
         <button type="button" class="btn-primary" onclick={close}>Close</button>
@@ -120,7 +120,7 @@ async function handleZap() {
         disabled={loading || zapValue < 1}
         onclick={handleZap}
       >
-        <Zap variant="fill" size={18} color="hsl(var(--whiteEnforced))" />
+        <Zap variant="fill" size={18} color="var(--whiteEnforced)" />
         {loading ? "Sending…" : `Zap ${zapValue.toLocaleString()} sats`}
       </button>
     {/if}
@@ -135,9 +135,9 @@ async function handleZap() {
   .error-message {
     padding: 12px;
     margin-bottom: 16px;
-    background: hsl(var(--rougeColor) / 0.1);
+    background: color-mix(in srgb, var(--rougeColor) 10%, transparent);
     border-radius: var(--radius-12);
-    color: hsl(var(--rougeColor));
+    color: var(--rougeColor);
     font-size: 14px;
   }
 
@@ -155,13 +155,13 @@ async function handleZap() {
     justify-content: center;
     width: 64px;
     height: 64px;
-    background: hsl(var(--goldColor) / 0.1);
+    background: color-mix(in srgb, var(--goldColor) 10%, transparent);
     border-radius: 50%;
     margin-bottom: 16px;
   }
 
   .sign-in-text {
-    color: hsl(var(--white66));
+    color: var(--white66);
     font-size: 14px;
     margin-bottom: 20px;
   }
@@ -175,7 +175,7 @@ async function handleZap() {
 
   .zap-target-name {
     font-weight: 600;
-    color: hsl(var(--white));
+    color: var(--white);
   }
 
   .amount-section {
@@ -186,7 +186,7 @@ async function handleZap() {
   .message-label {
     display: block;
     font-size: 0.875rem;
-    color: hsl(var(--white66));
+    color: var(--white66);
     margin-bottom: 8px;
   }
 
@@ -200,17 +200,17 @@ async function handleZap() {
   .preset-btn {
     padding: 6px 12px;
     border-radius: 9999px;
-    border: 0.33px solid hsl(var(--white33));
-    background: hsl(var(--black33));
-    color: hsl(var(--white66));
+    border: 0.33px solid var(--white33);
+    background: var(--black33);
+    color: var(--white66);
     font-size: 0.875rem;
     cursor: pointer;
   }
 
   .preset-btn:hover,
   .preset-btn.active {
-    background: hsl(var(--white16));
-    color: hsl(var(--white));
+    background: var(--white16);
+    color: var(--white);
   }
 
   .amount-slider {
@@ -221,7 +221,7 @@ async function handleZap() {
   .amount-value {
     font-size: 1.25rem;
     font-weight: 600;
-    color: hsl(var(--goldColor));
+    color: var(--goldColor);
   }
 
   .message-section {
@@ -232,16 +232,16 @@ async function handleZap() {
     width: 100%;
     padding: 12px;
     border-radius: var(--radius-16);
-    border: 0.33px solid hsl(var(--white33));
-    background: hsl(var(--black33));
-    color: hsl(var(--white));
+    border: 0.33px solid var(--white33);
+    background: var(--black33);
+    color: var(--white);
     font-size: 1rem;
     resize: vertical;
     min-height: 60px;
   }
 
   .message-input::placeholder {
-    color: hsl(var(--white33));
+    color: var(--white33);
   }
 
   .zap-button {

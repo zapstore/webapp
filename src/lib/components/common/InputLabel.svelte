@@ -89,8 +89,8 @@
 			   L0.5 16
 			   A15.5 15.5 0 0 1 16 0.5
 			   Z"
-				fill="hsl(var(--black33))"
-				stroke="hsl(var(--white33))"
+				fill="var(--black33)"
+				stroke="var(--white33)"
 				stroke-width="0.5"
 				vector-effect="non-scaling-stroke"
 			/>
@@ -121,7 +121,7 @@
 				onclick={clearAll}
 				aria-label="Clear label"
 			>
-				<Cross variant="outline" size={10} color="hsl(var(--white33))" strokeWidth={1.4} />
+				<Cross variant="outline" size={10} color="var(--white33)" strokeWidth={1.4} />
 			</button>
 			{#if hasText}
 				<button type="button" class="add-button" onclick={handleAddClick} disabled={addDisabled}>
@@ -142,7 +142,7 @@
 				aria-expanded={optionsOpen}
 				aria-label={enableStructuredModes ? 'Label type' : 'More options'}
 			>
-				<ChevronDown variant="outline" size={16} color="hsl(var(--white33))" />
+				<ChevronDown variant="outline" size={16} color="var(--white33)" />
 			</button>
 		{/if}
 	</div>
@@ -215,7 +215,7 @@
 		font-size: 16px;
 		font-weight: 500;
 		line-height: 42px;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		white-space: pre;
 	}
 
@@ -238,7 +238,7 @@
 		background: transparent;
 		border: none;
 		outline: none;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-family: 'Inter', sans-serif;
 		font-size: 16px;
 		font-weight: 500;
@@ -253,7 +253,7 @@
 	}
 
 	.input-label-input::placeholder {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.clear-round-btn {
@@ -266,7 +266,7 @@
 		align-items: center;
 		justify-content: center;
 		margin-right: 8px;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		border: none;
 		border-radius: 9999px;
 		cursor: pointer;
@@ -300,7 +300,7 @@
 		margin-right: 32px;
 		font-size: 14px;
 		font-weight: 500;
-		color: hsl(var(--whiteEnforced));
+		color: var(--whiteEnforced);
 		background: var(--gradient-blurple);
 		border: none;
 		border-radius: 9999px;
@@ -340,7 +340,7 @@
 		width: 1.4px;
 		height: 100%;
 		margin-left: 8px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		flex-shrink: 0;
 	}
 
@@ -378,7 +378,7 @@
 	.structured-options-empty-text {
 		font-size: 14px;
 		font-weight: 500;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-family: var(--font-sans);
 	}
 
@@ -399,10 +399,10 @@
 		min-width: 240px;
 		max-width: 320px;
 		padding: 0;
-		background: hsl(var(--gray66));
+		background: var(--gray66);
 		backdrop-filter: blur(14px);
 		-webkit-backdrop-filter: blur(14px);
-		border: 0.33px solid hsl(var(--white33));
+		border: 0.33px solid var(--white33);
 		border-radius: 12px;
 		overflow: hidden;
 	}
@@ -416,10 +416,10 @@
 		font-size: 14px;
 		font-weight: 500;
 		line-height: 1.25;
-		color: hsl(var(--white));
+		color: var(--white);
 		background: transparent;
 		border: none;
-		border-bottom: 0.33px solid hsl(var(--white8));
+		border-bottom: 0.33px solid var(--white8);
 		cursor: pointer;
 		font-family: var(--font-sans);
 		transition: background-color 0.1s ease;
@@ -437,17 +437,17 @@
 
 	.structured-option-text {
 		flex-shrink: 0;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.structured-option-ellipsis {
-		color: hsl(var(--white33));
+		color: var(--white33);
 		flex-shrink: 0;
 		font-size: 14px;
 		font-weight: 500;
 	}
 
 	.structured-option:hover {
-		background: hsl(var(--white8));
+		background: var(--white8);
 	}
 </style>

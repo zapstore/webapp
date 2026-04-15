@@ -310,7 +310,7 @@
 		<div class="nothing-state">
 			<div class="empty-state">
 				<div class="empty-icon">
-					<Check variant="outline" size={22} strokeWidth={2.4} color="hsl(var(--blurpleColor))" />
+					<Check variant="outline" size={22} strokeWidth={2.4} color="var(--blurpleColor)" />
 				</div>
 				<p class="empty-title">No Migration Needed</p>
 				<p class="empty-text">All your apps and stacks are up to date.</p>
@@ -327,7 +327,7 @@
 	{:else if allMigrated}
 		<div class="success-state">
 			<div class="success-icon">
-				<Check variant="outline" size={22} strokeWidth={2.4} color="hsl(var(--blurpleColor))" />
+				<Check variant="outline" size={22} strokeWidth={2.4} color="var(--blurpleColor)" />
 			</div>
 			<p class="success-title">Migration Complete</p>
 			<p class="success-text">All your apps and stacks have been migrated.</p>
@@ -396,7 +396,7 @@
 								<div class="item-status">
 									{#if isMigrated}
 										<span class="status-badge status-migrated">
-											<Check variant="outline" size={12} strokeWidth={2.6} color="hsl(var(--blurpleColor))" />
+											<Check variant="outline" size={12} strokeWidth={2.6} color="var(--blurpleColor)" />
 											Migrated
 										</span>
 									{:else if isMigrating}
@@ -479,7 +479,7 @@
 								<div class="item-status">
 									{#if isMigrated}
 										<span class="status-badge status-migrated">
-											<Check variant="outline" size={12} strokeWidth={2.6} color="hsl(var(--blurpleColor))" />
+											<Check variant="outline" size={12} strokeWidth={2.6} color="var(--blurpleColor)" />
 											Migrated
 										</span>
 									{:else if isMigrating}
@@ -581,26 +581,26 @@
 		width: 48px;
 		height: 48px;
 		border-radius: 50%;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		font-size: 24px;
-		color: hsl(var(--blurpleColor));
+		color: var(--blurpleColor);
 	}
 
 	.empty-title,
 	.success-title {
 		font-size: 18px;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0;
 	}
 
 	.empty-text,
 	.success-text {
 		font-size: 14px;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		margin: 0;
 		max-width: 320px;
 	}
@@ -622,7 +622,7 @@
 
 	.migration-section + .migration-section {
 		padding-top: 24px;
-		border-top: 1px solid hsl(var(--white16));
+		border-top: 1px solid var(--white16);
 	}
 
 	.migration-header {
@@ -643,7 +643,7 @@
 		gap: 8px;
 		font-size: 20px;
 		font-weight: 650;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0 0 6px;
 	}
 
@@ -656,7 +656,7 @@
 
 	.header-description {
 		font-size: 13px;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		margin: 0;
 		line-height: 1.5;
 	}
@@ -687,7 +687,7 @@
 		align-items: center;
 		gap: 12px;
 		padding: 12px 16px;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		border-radius: 12px;
 	}
 
@@ -713,7 +713,7 @@
 	.item-name {
 		font-size: 14px;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -721,7 +721,7 @@
 
 	.item-meta {
 		font-size: 12px;
-		color: hsl(var(--white50));
+		color: var(--white50);
 	}
 
 	.item-status {
@@ -744,13 +744,13 @@
 	}
 
 	.status-migrating {
-		background: hsl(var(--blurpleColor) / 0.15);
-		color: hsl(var(--blurpleColor));
+		background: color-mix(in srgb, var(--blurpleColor) 15%, transparent);
+		color: var(--blurpleColor);
 	}
 
 	.status-migrated {
-		background: hsl(var(--blurpleColor) / 0.15);
-		color: hsl(var(--blurpleColor));
+		background: color-mix(in srgb, var(--blurpleColor) 15%, transparent);
+		color: var(--blurpleColor);
 	}
 
 	.status-failed {
@@ -783,7 +783,7 @@
 	.info-title {
 		font-size: 14px;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0 0 12px;
 	}
 
@@ -797,12 +797,12 @@
 
 	.info-list li {
 		font-size: 13px;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		line-height: 1.4;
 	}
 
 	.info-list strong {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.zsp-section {
@@ -827,13 +827,13 @@
 	.zsp-title {
 		font-size: 16px;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0;
 	}
 
 	.zsp-text {
 		font-size: 13px;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		margin: 0;
 		line-height: 1.5;
 	}

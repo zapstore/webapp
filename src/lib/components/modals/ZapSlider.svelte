@@ -413,9 +413,9 @@ export function getSerializedContent() {
     pointer-events: none;
   }
   .input-container {
-    background: hsl(var(--black33));
+    background: var(--black33);
     border-radius: var(--radius-16);
-    border: 0.33px solid hsl(var(--white33));
+    border: 0.33px solid var(--white33);
     width: 100%;
   }
   .amount-row {
@@ -438,7 +438,7 @@ export function getSerializedContent() {
   .amount-input {
     font-size: 18px;
     font-weight: 700;
-    color: hsl(var(--white));
+    color: var(--white);
     font-family: var(--font-sans);
     background: transparent;
     border: none;
@@ -449,7 +449,7 @@ export function getSerializedContent() {
     cursor: text;
   }
   .amount-input::placeholder {
-    color: hsl(var(--white33));
+    color: var(--white33);
   }
   .top-zap-badge {
     display: flex;
@@ -475,7 +475,7 @@ export function getSerializedContent() {
   }
   .divider {
     height: 1.4px;
-    background: hsl(var(--white8));
+    background: var(--white8);
     margin: 0;
   }
 </style>

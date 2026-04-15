@@ -20,8 +20,8 @@
 		grid-template-rows: 9px 9px;
 		gap: 2px;
 		place-content: center;
-		background-color: hsl(var(--gray33));
-		border: 1px solid hsl(var(--white16));
+		background-color: var(--gray33);
+		border: 1px solid var(--white16);
 		border-radius: 6px;
 	}
 
@@ -29,7 +29,7 @@
 		width: 9px;
 		height: 9px;
 		border-radius: 2px;
-		background: hsl(var(--blurpleColor66));
+		background: var(--blurpleColor66);
 		flex-shrink: 0;
 	}
 </style>

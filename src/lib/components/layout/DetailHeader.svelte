@@ -242,7 +242,7 @@ async function _handleSignIn() {
 					aria-label="Open menu"
 					aria-expanded={menuOpen}
 				>
-					<Menu size={20} strokeWidth={1.5} color="hsl(var(--white33))" />
+					<Menu size={20} strokeWidth={1.5} color="var(--white33)" />
 				</button>
 			</div>
 		</div>
@@ -276,7 +276,7 @@ async function _handleSignIn() {
 		</div>
 
 		<button type="button" class="menu-search-btn" onclick={openSearch}>
-			<Search class="h-5 w-5 flex-shrink-0" style="color: hsl(var(--white33));" />
+			<Search class="h-5 w-5 flex-shrink-0" style="color: var(--white33);" />
 			<span class="menu-search-text">Search Any App</span>
 		</button>
 
@@ -428,7 +428,7 @@ async function _handleSignIn() {
 	.page-header-title {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0;
 		letter-spacing: -0.02em;
 	}
@@ -444,13 +444,13 @@ async function _handleSignIn() {
 		border: none;
 		border-radius: 8px;
 		cursor: pointer;
-		color: hsl(var(--white));
+		color: var(--white);
 		transition: background-color 0.15s ease;
 		flex-shrink: 0;
 	}
 
 	.page-menu-btn:hover {
-		background-color: hsl(var(--accent) / 0.08);
+		background-color: color-mix(in srgb, var(--blurpleLightColor) 8%, transparent);
 	}
 
 	/* Hidden on desktop — sidebar handles navigation */
@@ -495,13 +495,13 @@ async function _handleSignIn() {
 		border: none;
 		border-radius: 16px;
 		cursor: pointer;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		transition: background-color 0.15s ease;
 		flex-shrink: 0;
 	}
 
 	.menu-close-icon-btn:hover {
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	/* ── Detail variant ────────────────────────────────────────────────────── */
@@ -608,11 +608,11 @@ async function _handleSignIn() {
 	}
 
 	.menu-button:hover {
-		background-color: hsl(var(--gray66));
+		background-color: var(--gray66);
 	}
 
 	.menu-button-open {
-		background-color: hsl(var(--gray66));
+		background-color: var(--gray66);
 	}
 
 	.menu-button:active {
@@ -624,7 +624,7 @@ async function _handleSignIn() {
 		display: block;
 		position: fixed;
 		inset: 0;
-		background-color: hsl(var(--overlay));
+		background-color: var(--overlay);
 		z-index: 99;
 	}
 
@@ -645,11 +645,11 @@ async function _handleSignIn() {
 		background-color: hsla(240, 6%, 18%, 0.8);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
-		border-right: 0.33px solid hsl(var(--white16));
+		border-right: 0.33px solid var(--white16);
 		border-radius: 0;
 		padding: 12px;
 		z-index: 100;
-		box-shadow: 8px 0 32px hsl(var(--black33));
+		box-shadow: 8px 0 32px var(--black33);
 		overflow-y: auto;
 	}
 
@@ -662,9 +662,9 @@ async function _handleSignIn() {
 			width: 280px;
 			max-width: none;
 			height: auto;
-			border: 0.33px solid hsl(var(--white16));
+			border: 0.33px solid var(--white16);
 			border-radius: 12px 32px 32px 32px;
-			box-shadow: 0 8px 32px hsl(var(--black33));
+			box-shadow: 0 8px 32px var(--black33);
 			padding: 12px;
 			overflow-y: visible;
 		}
@@ -692,7 +692,7 @@ async function _handleSignIn() {
 	}
 
 	.menu-logo:hover {
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	.menu-logo-icon {
@@ -704,7 +704,7 @@ async function _handleSignIn() {
 	.menu-logo-text {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		letter-spacing: -0.01em;
 	}
 
@@ -722,7 +722,7 @@ async function _handleSignIn() {
 	}
 
 	.menu-user-pic-btn:hover {
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	/* Responsive profile pic sizes in menu */
@@ -752,27 +752,27 @@ async function _handleSignIn() {
 		width: 100%;
 		margin: 12px 0;
 		padding: 8px 16px 8px 12px;
-		background-color: hsl(var(--white8));
-		border: 0.33px solid hsl(var(--white16));
+		background-color: var(--white8);
+		border: 0.33px solid var(--white16);
 		border-radius: 12px;
 		cursor: pointer;
 		transition: background-color 0.15s ease;
 	}
 
 	.menu-search-btn:hover {
-		background-color: hsl(var(--white16));
+		background-color: var(--white16);
 	}
 
 	.menu-search-text {
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	/* Menu divider */
 	.menu-divider {
 		height: 1.4px;
-		background-color: hsl(var(--white11));
+		background-color: var(--white11);
 		margin: 12px 0;
 	}
 
@@ -790,14 +790,14 @@ async function _handleSignIn() {
 		padding: 6px 10px;
 		font-size: 0.9375rem;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 		text-decoration: none;
 		border-radius: 10px;
 		transition: background-color 0.15s ease;
 	}
 
 	.menu-section-link:hover {
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	.menu-section-label {
@@ -805,7 +805,7 @@ async function _handleSignIn() {
 		padding: 6px 10px;
 		font-size: 0.9375rem;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	/* Sub navigation */
@@ -827,7 +827,7 @@ async function _handleSignIn() {
 	}
 
 	.menu-sublink:hover {
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		opacity: 1;
 	}
 
@@ -840,14 +840,14 @@ async function _handleSignIn() {
 	.publisher-name {
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
 	:global(.publisher-timestamp) {
-		color: hsl(var(--white33)) !important;
+		color: var(--white33) !important;
 		flex-shrink: 0;
 	}
 
@@ -867,16 +867,16 @@ async function _handleSignIn() {
 		padding: 12px 14px;
 		/* Solid non-transparent background (no blur) */
 		background: hsl(241 15% 18%);
-		border: 1px solid hsl(var(--white16));
+		border: 1px solid var(--white16);
 		border-radius: 12px;
-		box-shadow: 0 8px 24px hsl(var(--black66) / 0.4);
+		box-shadow: 0 8px 24px color-mix(in srgb, var(--black66) 40%, transparent);
 	}
 
 	.catalog-dropdown-text {
 		margin: 0;
 		font-size: 0.8125rem;
 		line-height: 1.45;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	/* CTA button wrapper for padding */

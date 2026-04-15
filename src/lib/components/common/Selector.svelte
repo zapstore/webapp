@@ -17,8 +17,8 @@
     ? 'rounded-xl w-full selector-container-large'
     : 'rounded-lg'}"
   style={size === "large"
-    ? "background: linear-gradient(to right, hsl(var(--white4)), hsl(0 0% 100% / 0.02));"
-    : "background-color: hsl(var(--black33));"}
+    ? "background: linear-gradient(to right, var(--white4), hsl(0 0% 100% / 0.02));"
+    : "background-color: var(--black33);"}
 >
   {#each options as option (option)}
     {@const isSelected = selectedOption === option}
@@ -63,13 +63,13 @@
   }
 
   .selector-button-selected {
-    background-color: hsl(var(--white16));
-    color: hsl(var(--white));
+    background-color: var(--white16);
+    color: var(--white);
   }
 
   .selector-button-unselected {
     background-color: transparent;
-    color: hsl(var(--white66));
+    color: var(--white66);
   }
 
   .selector-button:hover {
@@ -99,7 +99,7 @@
   }
 
   .selector-button-large-selected {
-    color: hsl(var(--whiteEnforced));
+    color: var(--whiteEnforced);
     background-image: var(--button-primary-bg);
     background-color: transparent;
   }
@@ -107,8 +107,8 @@
   .selector-button-large-selected:hover {
     transform: scale(1.015);
     box-shadow:
-      0 0 20px hsl(var(--blurpleColor) / 0.4),
-      0 10px 40px -20px hsl(var(--blurpleColor) / 0.6);
+      0 0 20px color-mix(in srgb, var(--blurpleColor) 40%, transparent),
+      0 10px 40px -20px color-mix(in srgb, var(--blurpleColor) 60%, transparent);
   }
 
   .selector-button-large-selected:active {
@@ -116,8 +116,8 @@
   }
 
   .selector-button-large-unselected {
-    color: hsl(var(--white));
-    background-color: hsl(var(--gray66)); /* gray66 */
+    color: var(--white);
+    background-color: var(--gray66); /* gray66 */
   }
 
   .selector-button-large-unselected:hover {
@@ -130,7 +130,7 @@
 
   .selector-container-large {
     position: relative;
-    border: 0.33px solid hsl(var(--white16));
+    border: 0.33px solid var(--white16);
   }
 
   .selector-container-large::after {
@@ -142,11 +142,11 @@
     width: 300px;
     pointer-events: none;
     border-radius: 0 24px 24px 0;
-    background: hsl(var(--black));
+    background: var(--black);
     border-top: 0.33px solid;
     border-right: 0.33px solid;
     border-bottom: 0.33px solid;
-    border-image: linear-gradient(to right, hsl(var(--white16)), transparent) 1;
+    border-image: linear-gradient(to right, var(--white16), transparent) 1;
     mask-image: linear-gradient(to right, transparent, black);
     -webkit-mask-image: linear-gradient(to right, transparent, black);
   }

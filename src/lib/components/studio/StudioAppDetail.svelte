@@ -165,7 +165,7 @@
 				<span class="chevron-wrap">
 					<ChevronDownIcon
 						variant="outline"
-						color="hsl(var(--white16))"
+						color="var(--white16)"
 						size={12}
 						strokeWidth={1.4}
 					/>
@@ -193,7 +193,7 @@
 		<div class="count-item">
 			<span class="eyebrow-label count-eyebrow">Downloads</span>
 			<div class="count-value-row">
-				<DownloadIcon size={24} color="hsl(var(--blurpleColor66))" strokeWidth={1.4} />
+				<DownloadIcon size={24} color="var(--blurpleColor66)" strokeWidth={1.4} />
 				{#if dlMetricsLoading}
 					<div class="detail-count-skel"><SkeletonLoader /></div>
 				{:else}
@@ -205,14 +205,14 @@
 					{#if dlPct > 0}
 						<ArrowUpIcon
 							size={12}
-							color="hsl(var(--greenColor66))"
+							color="var(--greenColor66)"
 							strokeWidth={1.4}
 							variant="outline"
 						/>
 					{:else}
 						<ArrowDownIcon
 							size={12}
-							color="hsl(var(--rougeColor66))"
+							color="var(--rougeColor66)"
 							strokeWidth={1.4}
 							variant="outline"
 						/>
@@ -224,7 +224,7 @@
 		<div class="count-item">
 			<span class="eyebrow-label count-eyebrow">Zaps</span>
 			<div class="count-value-row">
-				<ZapIcon size={24} color="hsl(var(--goldColor66))" strokeWidth={1.4} />
+				<ZapIcon size={24} color="var(--goldColor66)" strokeWidth={1.4} />
 				{#if zapMetricsLoading}
 					<div class="detail-count-skel"><SkeletonLoader /></div>
 				{:else}
@@ -236,14 +236,14 @@
 					{#if zapPct > 0}
 						<ArrowUpIcon
 							size={12}
-							color="hsl(var(--greenColor66))"
+							color="var(--greenColor66)"
 							strokeWidth={1.4}
 							variant="outline"
 						/>
 					{:else}
 						<ArrowDownIcon
 							size={12}
-							color="hsl(var(--rougeColor66))"
+							color="var(--rougeColor66)"
 							strokeWidth={1.4}
 							variant="outline"
 						/>
@@ -267,14 +267,14 @@
 					{#if impPct > 0}
 						<ArrowUpIcon
 							size={12}
-							color="hsl(var(--greenColor66))"
+							color="var(--greenColor66)"
 							strokeWidth={1.4}
 							variant="outline"
 						/>
 					{:else}
 						<ArrowDownIcon
 							size={12}
-							color="hsl(var(--rougeColor66))"
+							color="var(--rougeColor66)"
 							strokeWidth={1.4}
 							variant="outline"
 						/>
@@ -296,19 +296,19 @@
 				glowColor="#5445FF"
 				glowOpacity={0.3}
 				dotColor="#5C5FFF"
-				appColors={['#636AFF', '#FFB237', 'hsl(var(--white66))']}
+				appColors={['#636AFF', '#FFB237', 'var(--white66)']}
 				appGlowColors={['#5445FF', '#FFB237']}
 				appGlowOpacities={[0.3, 0.12, 0.16]}
 				appLineGradients={[
 					null,
 					null,
 					{
-						color0: 'hsl(var(--white33))',
-						color1: 'hsl(var(--white66))',
-						glowColor: 'hsl(var(--white33))'
+						color0: 'var(--white33)',
+						color1: 'var(--white66)',
+						glowColor: 'var(--white33)'
 					}
 				]}
-				appDotBackdropFills={[null, null, 'hsl(var(--black))']}
+				appDotBackdropFills={[null, null, 'var(--black)']}
 				appBadgeBgs={['rgba(60,58,80,0.92)', 'rgba(90,55,0,0.92)', 'rgba(52,52,58,0.94)']}
 				hideTotalLine={true}
 				perSeriesYScale={true}
@@ -332,7 +332,7 @@
 				</span>
 				<span class="detail-legend-item">
 					<span class="detail-legend-icon-wrap">
-						<DownloadIcon size={14} color="hsl(var(--blurpleColor66))" strokeWidth={1.4} />
+						<DownloadIcon size={14} color="var(--blurpleColor66)" strokeWidth={1.4} />
 					</span>
 					<span class="detail-legend-text">Downloads</span>
 				</span>
@@ -357,7 +357,7 @@
 		justify-content: space-between;
 		gap: 14px;
 		padding: 20px;
-		border-bottom: 1px solid hsl(var(--white16));
+		border-bottom: 1px solid var(--white16);
 	}
 
 	.app-info-left {
@@ -398,14 +398,14 @@
 	}
 
 	.studio-detail-action-btn {
-		color: hsl(var(--white33));
+		color: var(--white33);
 		text-decoration: none;
 	}
 
 	.app-name {
 		font-size: 20px;
 		font-weight: 650;
-		color: hsl(var(--white));
+		color: var(--white);
 		line-height: 1.15;
 		letter-spacing: -0.02em;
 		margin: 0;
@@ -414,7 +414,7 @@
 	/* ── Counts row ────────────────────────────────────────────────────────── */
 	.counts-row {
 		display: flex;
-		border-bottom: 1px solid hsl(var(--white16));
+		border-bottom: 1px solid var(--white16);
 	}
 
 	.count-item {
@@ -423,12 +423,12 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
-		border-right: 1px solid hsl(var(--white16));
+		border-right: 1px solid var(--white16);
 		position: relative;
 	}
 
 	.count-eyebrow {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.count-item--last {
@@ -453,11 +453,11 @@
 	}
 
 	.count-ticker.ticker-up {
-		color: hsl(var(--greenColor66));
+		color: var(--greenColor66);
 	}
 
 	.count-ticker.ticker-down {
-		color: hsl(var(--rougeColor66));
+		color: var(--rougeColor66);
 	}
 
 	.ticker-pct {
@@ -467,7 +467,7 @@
 	.count-num {
 		font-size: 32px;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		line-height: 1;
 		letter-spacing: -0.02em;
 	}
@@ -485,7 +485,7 @@
 	.chart-section {
 		position: relative;
 		padding: 28px 20px 20px;
-		border-bottom: 1px solid hsl(var(--white16));
+		border-bottom: 1px solid var(--white16);
 	}
 
 	.timerange-wrap {
@@ -501,14 +501,14 @@
 		align-items: center;
 		gap: 4px;
 		padding: 8px 12px;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		border: none;
 		cursor: pointer;
 		border-radius: 8px;
 	}
 
 	.tr-label--white66 {
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.chevron-wrap {
@@ -522,8 +522,8 @@
 		top: calc(100% + 4px);
 		right: 0;
 		min-width: 110px;
-		background: hsl(var(--black));
-		border: 1px solid hsl(var(--white16));
+		background: var(--black);
+		border: 1px solid var(--white16);
 		border-radius: 8px;
 		padding: 4px;
 		display: flex;
@@ -542,7 +542,7 @@
 		border: none;
 		border-radius: 6px;
 		font-size: 13px;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		cursor: pointer;
 		transition:
 			background 0.12s,
@@ -550,13 +550,13 @@
 	}
 
 	.tr-option:hover {
-		background: hsl(var(--white8));
-		color: hsl(var(--white));
+		background: var(--white8);
+		color: var(--white);
 	}
 
 	.tr-option.tr-selected {
-		color: hsl(var(--white));
-		background: hsl(var(--white8));
+		color: var(--white);
+		background: var(--white8);
 	}
 
 	.chart-area {
@@ -569,7 +569,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-		border-top: 1px solid hsl(var(--white16));
+		border-top: 1px solid var(--white16);
 	}
 
 	.detail-country-head {
@@ -580,7 +580,7 @@
 	}
 
 	.detail-country-title {
-		color: hsl(var(--white66));
+		color: var(--white66);
 		flex-shrink: 0;
 	}
 
@@ -610,7 +610,7 @@
 	.detail-legend-text {
 		font-size: 12px;
 		font-weight: 500;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.detail-country-chart-wrap {
@@ -633,7 +633,7 @@
 			width: 100%;
 			padding: 16px;
 			border-right: none;
-			border-bottom: 1px solid hsl(var(--white16));
+			border-bottom: 1px solid var(--white16);
 		}
 
 		.count-item--last {

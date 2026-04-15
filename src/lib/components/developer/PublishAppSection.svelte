@@ -137,7 +137,7 @@ onMount(() => {
 			Start Publishing
 			<ChevronRight
 				variant="outline"
-				color="hsl(var(--white33))"
+				color="var(--white33)"
 				size={18}
 				className="transition-transform group-hover:translate-x-0.5"
 			/>

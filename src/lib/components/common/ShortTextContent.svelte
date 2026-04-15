@@ -20,6 +20,9 @@ let {
 	resolveMentionLabel = null,
 	onMediaClick = null,
 	class: className = "",
+	disableTruncation = false,
+	forceExpanded = false,
+	readMorePassthrough = false,
 } = $props();
 
 /** Split content into segments: text blocks and inline URL lines (media). */
@@ -58,11 +61,14 @@ const orderedMediaUrls = $derived(segments.filter((s) => s.type === "media").map
 		{#if segment.type === "text"}
 			{#if segment.value !== ""}
 				<div class="short-text-content-text">
-					<ShortTextRenderer
-						content={segment.value}
-						{emojiTags}
-						{resolveMentionLabel}
-					/>
+				<ShortTextRenderer
+					content={segment.value}
+					{emojiTags}
+					{resolveMentionLabel}
+					{disableTruncation}
+					{forceExpanded}
+					{readMorePassthrough}
+				/>
 				</div>
 			{/if}
 		{:else if segment.type === "media"}

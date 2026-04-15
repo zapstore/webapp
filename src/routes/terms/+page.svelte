@@ -108,7 +108,7 @@ import { SITE_URL } from '$lib/config';
 	.terms-title {
 		font-size: 2rem;
 		font-weight: 700;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0 0 0.5rem;
 		line-height: 1.2;
 		letter-spacing: -0.02em;
@@ -116,18 +116,18 @@ import { SITE_URL } from '$lib/config';
 
 	.terms-effective {
 		font-size: 0.875rem;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		margin: 0;
 	}
 
 	.prose {
-		color: hsl(var(--white66));
+		color: var(--white66);
 		line-height: 1.75;
 		font-size: 1rem;
 	}
 
 	.prose :global(h2) {
-		color: hsl(var(--white));
+		color: var(--white);
 		font-size: 1.25rem;
 		font-weight: 650;
 		margin-top: 2em;
@@ -148,7 +148,7 @@ import { SITE_URL } from '$lib/config';
 	}
 
 	.prose :global(a) {
-		color: hsl(var(--blurple-bright-0));
+		color: var(--blurple-bright-0);
 		text-decoration: underline;
 		text-underline-offset: 3px;
 	}
@@ -159,14 +159,14 @@ import { SITE_URL } from '$lib/config';
 
 	.prose :global(code) {
 		font-size: 0.875em;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		padding: 2px 6px;
 		border-radius: 5px;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.prose :global(strong) {
-		color: hsl(var(--white));
+		color: var(--white);
 		font-weight: 600;
 	}
 </style>

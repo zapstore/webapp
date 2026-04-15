@@ -228,13 +228,13 @@ $effect(() => {
 						onclick={handleCameraTap}
 						disabled={!signEvent || mediaUploading}
 					>
-						<Camera variant="fill" color="hsl(var(--white33))" size={20} />
+						<Camera variant="fill" color="var(--white33)" size={20} />
 					</button>
 				<button type="button" class="action-btn" aria-label="Add emoji" onclick={handleEmojiTap}>
-					<EmojiFill variant="fill" color="hsl(var(--white33))" size={18} />
+					<EmojiFill variant="fill" color="var(--white33)" size={18} />
 				</button>
 				<button type="button" class="action-btn" aria-label="Insert app or link" onclick={handleInsertTap}>
-						<Plus variant="outline" color="hsl(var(--white33))" size={16} strokeWidth={2.8} />
+						<Plus variant="outline" color="var(--white33)" size={16} strokeWidth={2.8} />
 					</button>
 					<button
 					type="button"
@@ -299,13 +299,7 @@ $effect(() => {
 	.overlay {
 		position: fixed;
 		inset: 0;
-		z-index: 49;
-	}
-
-	.bg-overlay {
-		background: hsl(var(--black) / 0.65);
-		backdrop-filter: blur(4px);
-		-webkit-backdrop-filter: blur(4px);
+		z-index: 99;
 	}
 
 	.post-sheet-wrapper {
@@ -313,7 +307,7 @@ $effect(() => {
 		bottom: 0;
 		left: 0;
 		right: 0;
-		z-index: 50;
+		z-index: 100;
 		display: flex;
 		justify-content: center;
 		pointer-events: none;
@@ -323,9 +317,9 @@ $effect(() => {
 		width: 100%;
 		max-width: 100%;
 		margin: 0;
-		background: hsl(var(--gray66));
+		background: var(--gray66);
 		border-radius: var(--radius-32) var(--radius-32) 0 0;
-		border: 0.33px solid hsl(var(--white8));
+		border: 0.33px solid var(--white8);
 		border-bottom: none;
 		padding: 16px;
 		pointer-events: auto;
@@ -343,7 +337,7 @@ $effect(() => {
 	.child-overlay {
 		position: absolute;
 		inset: 0;
-		background: hsl(var(--black33));
+		background: var(--black33);
 		z-index: 10;
 		pointer-events: none;
 		opacity: 0;
@@ -360,7 +354,7 @@ $effect(() => {
 			max-width: 560px;
 			margin-bottom: 16px;
 			border-radius: 24px;
-			border-bottom: 0.33px solid hsl(var(--white8));
+			border-bottom: 0.33px solid var(--white8);
 			padding: 12px;
 		}
 	}
@@ -368,8 +362,8 @@ $effect(() => {
 	.post-form-box {
 		display: flex;
 		flex-direction: column;
-		background-color: hsl(var(--black33));
-		border: 0.33px solid hsl(var(--white33));
+		background-color: var(--black33);
+		border: 0.33px solid var(--white33);
 		border-radius: var(--radius-16);
 		overflow: hidden;
 	}
@@ -380,7 +374,7 @@ $effect(() => {
 		background: transparent;
 		border: none;
 		outline: none;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-family: 'Inter', sans-serif;
 		font-size: 18px;
 		font-weight: 600;
@@ -388,7 +382,7 @@ $effect(() => {
 	}
 
 	.post-title-input::placeholder {
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-weight: 500;
 	}
 
@@ -399,7 +393,7 @@ $effect(() => {
 	.post-form-divider {
 		width: 100%;
 		height: 1.4px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		flex-shrink: 0;
 	}
 
@@ -435,7 +429,7 @@ $effect(() => {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		border: none;
 		border-radius: 8px;
 		cursor: pointer;
@@ -474,7 +468,7 @@ $effect(() => {
 	.error-text {
 		margin: 8px 0 0;
 		font-size: 13px;
-		color: hsl(var(--rougeColor));
+		color: var(--rougeColor);
 		padding: 0 4px;
 	}
 
@@ -488,12 +482,12 @@ $effect(() => {
 		padding: 0;
 		cursor: pointer;
 		flex-shrink: 0;
-		--trigger-bg: hsl(var(--white8));
+		--trigger-bg: var(--white8);
 		transition: opacity 0.15s ease;
 	}
 
 	.labels-trigger.has-labels {
-		--trigger-bg: hsl(var(--white16));
+		--trigger-bg: var(--white16);
 	}
 
 	.labels-trigger:active {
@@ -515,23 +509,23 @@ $effect(() => {
 	.trigger-count {
 		font-size: 15px;
 		font-weight: 600;
-		color: hsl(var(--white16));
+		color: var(--white16);
 		transition: color 0.15s ease;
 	}
 
 	.labels-trigger.has-labels .trigger-count {
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.trigger-text {
 		font-size: 15px;
 		font-weight: 500;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		transition: color 0.15s ease;
 	}
 
 	.labels-trigger.has-labels .trigger-text {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.labels-trigger-tip {

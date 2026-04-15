@@ -65,11 +65,11 @@ let Content = $derived(data.content);
 		align-items: center;
 		gap: 10px;
 		font-size: 0.8125rem;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.article-date {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.badge-draft {
@@ -85,7 +85,7 @@ let Content = $derived(data.content);
 	.article-title {
 		font-size: 1.75rem;
 		font-weight: 700;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0;
 		line-height: 1.25;
 		letter-spacing: -0.02em;
@@ -105,14 +105,14 @@ let Content = $derived(data.content);
 
 	.article-desc {
 		font-size: 1.0625rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		line-height: 1.6;
 		margin: 0;
 	}
 
 	/* Prose styles for rendered markdown */
 	.prose {
-		color: hsl(var(--white66));
+		color: var(--white66);
 		line-height: 1.75;
 		font-size: 1rem;
 	}
@@ -121,7 +121,7 @@ let Content = $derived(data.content);
 	.prose :global(h2),
 	.prose :global(h3),
 	.prose :global(h4) {
-		color: hsl(var(--white));
+		color: var(--white);
 		font-weight: 650;
 		line-height: 1.3;
 		margin-top: 2em;
@@ -137,7 +137,7 @@ let Content = $derived(data.content);
 	}
 
 	.prose :global(a) {
-		color: hsl(var(--blurple-bright-0));
+		color: var(--blurple-bright-0);
 		text-decoration: underline;
 		text-underline-offset: 3px;
 	}
@@ -148,15 +148,15 @@ let Content = $derived(data.content);
 
 	.prose :global(code) {
 		font-size: 0.875em;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		padding: 2px 6px;
 		border-radius: 5px;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.prose :global(pre) {
-		background: hsl(var(--white8));
-		border: 1px solid hsl(var(--white16));
+		background: var(--white8);
+		border: 1px solid var(--white16);
 		border-radius: 10px;
 		padding: 1rem 1.25rem;
 		overflow-x: auto;
@@ -180,16 +180,16 @@ let Content = $derived(data.content);
 	}
 
 	.prose :global(blockquote) {
-		border-left: 3px solid hsl(var(--white16));
+		border-left: 3px solid var(--white16);
 		padding-left: 1rem;
 		margin: 0 0 1.25em;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-style: italic;
 	}
 
 	.prose :global(hr) {
 		border: none;
-		border-top: 1px solid hsl(var(--white8));
+		border-top: 1px solid var(--white8);
 		margin: 2em 0;
 	}
 

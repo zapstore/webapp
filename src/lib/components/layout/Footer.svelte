@@ -52,7 +52,7 @@
 							rel="noopener noreferrer"
 							aria-label="Nostr"
 						>
-							<Nostr variant="fill" size={18} color="hsl(var(--white66))" class="block" />
+							<Nostr variant="fill" size={18} color="var(--white66)" class="block" />
 						</a>
 						<a
 							href="https://github.com/zapstore/zapstore"
@@ -87,7 +87,7 @@
 					<button
 						onclick={handleClearLocalData}
 						class="mt-3 text-xs cursor-pointer transition-colors hover:text-destructive"
-						style="color: hsl(var(--white33));"
+						style="color: var(--white33);"
 					>
 						Clear local data
 					</button>
@@ -156,7 +156,7 @@
 						rel="noopener noreferrer"
 						aria-label="Nostr"
 					>
-						<Nostr variant="fill" size={18} color="hsl(var(--white66))" class="block" />
+						<Nostr variant="fill" size={18} color="var(--white66)" class="block" />
 					</a>
 					<a
 						href="https://github.com/zapstore/zapstore"
@@ -188,7 +188,7 @@
 				<button
 					onclick={handleClearLocalData}
 					class="mt-3 text-xs cursor-pointer transition-colors hover:text-destructive"
-					style="color: hsl(var(--white33));"
+					style="color: var(--white33);"
 				>
 					Clear local data
 				</button>
@@ -294,7 +294,7 @@
 	/* ── Horizontal divider: mobile only, full-bleed ─────────── */
 	.footer-divider-h {
 		height: 1px;
-		background-color: hsl(var(--border) / 0.5);
+		background-color: color-mix(in srgb, var(--white16) 50%, transparent);
 		margin: 1.75rem calc(-1 * 1rem);
 	}
 	@media (min-width: 640px) {
@@ -325,8 +325,8 @@
 	}
 	/* Vertical dividers on the middle column */
 	.footer-link-col-mid {
-		border-left: 1px solid hsl(var(--border) / 0.5);
-		border-right: 1px solid hsl(var(--border) / 0.5);
+		border-left: 1px solid color-mix(in srgb, var(--white16) 50%, transparent);
+		border-right: 1px solid color-mix(in srgb, var(--white16) 50%, transparent);
 		padding: 0 0.75rem;
 	}
 

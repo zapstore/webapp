@@ -1,5 +1,5 @@
 <script>
-  export let color = "hsl(var(--white))";
+  export let color = "var(--white)";
   export let strokeWidth = 1.4;
   export let size = 18;
 </script>

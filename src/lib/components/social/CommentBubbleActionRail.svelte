@@ -3,7 +3,7 @@
  * Desktop-only horizontal action row beside comment/zap bubbles (hover to show).
  */
 import { Reply, Zap, Options } from "$lib/components/icons";
-const white33 = "hsl(var(--white33))";
+const white33 = "var(--white33)";
 let {
     onReply = () => {},
     onZap = () => {},
@@ -61,18 +61,18 @@ function stop(e) {
     margin: 0;
     border: none;
     border-radius: 50%;
-    background: hsl(var(--white4));
+    background: var(--white4);
     color: inherit;
     cursor: pointer;
     flex-shrink: 0;
   }
 
   .rail-btn:hover {
-    background: hsl(var(--white8));
+    background: var(--white8);
   }
 
   .rail-btn:focus-visible {
-    outline: 2px solid hsl(var(--blurpleColor));
+    outline: 2px solid var(--blurpleColor);
     outline-offset: 2px;
   }
 </style>

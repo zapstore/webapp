@@ -315,7 +315,7 @@ function stackToCard(s, resolvedApps) {
 					<div class="profile-name-row flex items-center justify-between gap-3 mb-3">
 						<h1
 							class="profile-name text-[1.625rem] sm:text-4xl font-black"
-							style="color: hsl(var(--white));"
+							style="color: var(--white);"
 						>
 							{profileName}
 						</h1>
@@ -337,7 +337,7 @@ function stackToCard(s, resolvedApps) {
 							<button
 								type="button"
 								class="profile-description text-base text-left"
-								style="color: hsl(var(--white66)); cursor: pointer; background: none; border: none; padding: 0; width: 100%;"
+								style="color: var(--white66); cursor: pointer; background: none; border: none; padding: 0; width: 100%;"
 								onclick={() => (descriptionModalOpen = true)}
 								aria-label="View full description"
 							>
@@ -385,9 +385,9 @@ function stackToCard(s, resolvedApps) {
 										aria-label="Copy npub"
 									>
 										{#if npubCopied}
-											<Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+											<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
 										{:else}
-											<Copy variant="outline" size={14} color="hsl(var(--white66))" />
+											<Copy variant="outline" size={14} color="var(--white66)" />
 										{/if}
 									</button>
 								</div>
@@ -406,9 +406,9 @@ function stackToCard(s, resolvedApps) {
 										aria-label="Copy color"
 									>
 										{#if colorCopied}
-											<Check variant="outline" size={14} strokeWidth={2.8} color="hsl(var(--blurpleLightColor))" />
+											<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
 										{:else}
-											<Copy variant="outline" size={14} color="hsl(var(--white66))" />
+											<Copy variant="outline" size={14} color="var(--white66)" />
 										{/if}
 									</button>
 								</div>
@@ -426,11 +426,11 @@ function stackToCard(s, resolvedApps) {
 										variant="outline"
 										size={14}
 										strokeWidth={2.8}
-										color="hsl(var(--blurpleLightColor))"
+										color="var(--blurpleLightColor)"
 									/>
 								</span>
 							{:else}
-								<Copy variant="outline" size={16} color="hsl(var(--white66))" />
+								<Copy variant="outline" size={16} color="var(--white66)" />
 							{/if}
 						</button>
 					</div>
@@ -542,7 +542,7 @@ function stackToCard(s, resolvedApps) {
 		<Modal bind:open={descriptionModalOpen} ariaLabel="Profile Description" maxHeight={90}>
 			<div class="description-modal-content">
 				<h2 class="text-display text-4xl text-foreground text-center mb-4">About</h2>
-				<div class="description-modal-text" style="color: hsl(var(--white66));">
+				<div class="description-modal-text" style="color: var(--white66);">
 					<ShortTextRenderer
 						content={profile.about}
 						resolveMentionLabel={(pk) => mentionProfiles[pk]}
@@ -557,7 +557,7 @@ function stackToCard(s, resolvedApps) {
 	.profile-hero {
 		position: relative;
 		width: 100%;
-		background-color: hsl(var(--gray44));
+		background-color: var(--gray44);
 		overflow: hidden;
 	}
 
@@ -588,12 +588,12 @@ function stackToCard(s, resolvedApps) {
 
 	.profile-hero-shader-left {
 		left: 0;
-		background: linear-gradient(to right, hsl(var(--black)) 0%, transparent 100%);
+		background: linear-gradient(to right, var(--black) 0%, transparent 100%);
 	}
 
 	.profile-hero-shader-right {
 		right: 0;
-		background: linear-gradient(to left, hsl(var(--black)) 0%, transparent 100%);
+		background: linear-gradient(to left, var(--black) 0%, transparent 100%);
 	}
 
 	/* Desktop only: show shaders and extend to container gutter + padding */
@@ -683,7 +683,7 @@ function stackToCard(s, resolvedApps) {
 		margin: 0;
 		font-size: 1rem;
 		line-height: 1.375;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.description-modal-content {
@@ -713,7 +713,7 @@ function stackToCard(s, resolvedApps) {
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		flex-shrink: 0;
 	}
 
@@ -727,9 +727,9 @@ function stackToCard(s, resolvedApps) {
 		max-width: min(360px, 90vw);
 		padding: 12px 14px 8px;
 		background: hsl(241 15% 18%);
-		border: 1px solid hsl(var(--white16));
+		border: 1px solid var(--white16);
 		border-radius: 12px;
-		box-shadow: 0 8px 24px hsl(var(--black66) / 0.4);
+		box-shadow: 0 8px 24px color-mix(in srgb, var(--black66) 40%, transparent);
 		z-index: 100;
 		pointer-events: auto;
 	}
@@ -742,7 +742,7 @@ function stackToCard(s, resolvedApps) {
 		margin: 0 0 10px 0;
 		font-size: 0.8125rem;
 		line-height: 1.45;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.profile-npub-overlay-row {
@@ -752,7 +752,7 @@ function stackToCard(s, resolvedApps) {
 		gap: 10px;
 		min-height: 28px;
 		padding: 2px 0;
-		border-bottom: 1px solid hsl(var(--white11));
+		border-bottom: 1px solid var(--white11);
 	}
 
 	.profile-npub-overlay-row:last-child {
@@ -761,7 +761,7 @@ function stackToCard(s, resolvedApps) {
 
 	.profile-npub-overlay-value {
 		font-size: 0.8125rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -785,18 +785,18 @@ function stackToCard(s, resolvedApps) {
 		border: none;
 		background: none;
 		cursor: pointer;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		transition: color 0.15s ease;
 		flex-shrink: 0;
 	}
 
 	.profile-npub-overlay-copy:hover {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.npub-text {
 		font-size: 0.875rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		white-space: nowrap;
 	}
 
@@ -809,12 +809,12 @@ function stackToCard(s, resolvedApps) {
 		border: none;
 		background: none;
 		cursor: pointer;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		transition: color 0.15s ease;
 	}
 
 	.profile-npub-copy:hover {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.profile-npub-copy .profile-npub-copy-check {
@@ -921,7 +921,7 @@ function stackToCard(s, resolvedApps) {
 	.skeleton-desc {
 		height: 10px;
 		border-radius: 12px;
-		background: hsl(var(--gray33));
+		background: var(--gray33);
 	}
 
 	.skeleton-desc-1 {
@@ -990,7 +990,7 @@ function stackToCard(s, resolvedApps) {
 	.skeleton-stack-desc {
 		height: 10px;
 		border-radius: 12px;
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 	}
 
 	.skeleton-stack-desc-1 {
@@ -1019,7 +1019,7 @@ function stackToCard(s, resolvedApps) {
 		width: 60px;
 		height: 12px;
 		border-radius: 12px;
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 	}
 
 	@media (min-width: 768px) {

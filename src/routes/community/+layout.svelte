@@ -266,6 +266,11 @@
 		(COMMUNITY_FORUM_AND_ACTIVITY_ENABLED && (isCommunityForumFeed || isCommunityActivity)) ||
 			isCommunityMigration
 	);
+
+	/** True when viewing a forum post detail page — hides the mobile section switcher. */
+	const isForumDetailPage = $derived(
+		path.startsWith('/community/forum/') && path !== '/community/forum/'
+	);
 </script>
 
 <svelte:head>
@@ -279,6 +284,8 @@
 <div class="dashboard-outer container mx-auto px-0 sm:px-6 lg:px-8">
 	<div class="dashboard">
 		<!-- Section switcher — mobile only: anchored dropdown below header, does not cover site nav -->
+		<!-- Hidden on forum post detail pages -->
+		{#if !isForumDetailPage}
 		<div class="section-switcher">
 			<button
 				type="button"
@@ -294,7 +301,7 @@
 					{/if}
 				</span>
 				<span class="section-chevron" class:open={sectionMenuOpen}>
-					<ChevronDown variant="outline" color="hsl(var(--white33))" size={14} strokeWidth={1.4} />
+					<ChevronDown variant="outline" color="var(--white33)" size={14} strokeWidth={1.4} />
 				</span>
 			</button>
 			{#if sectionMenuOpen}
@@ -326,6 +333,7 @@
 				</div>
 			{/if}
 		</div>
+		{/if}
 
 		<!-- Sidebar — desktop only -->
 		<aside class="sidebar">
@@ -448,8 +456,8 @@
 		height: calc(100dvh - 64px);
 		min-height: 0;
 		overflow: hidden;
-		border-left: 1px solid hsl(var(--white16));
-		border-right: 1px solid hsl(var(--white16));
+		border-left: 1px solid var(--white16);
+		border-right: 1px solid var(--white16);
 		margin-left: -16px;
 		margin-right: -16px;
 	}
@@ -492,9 +500,9 @@
 		padding: 10px 16px;
 		background: transparent;
 		border: none;
-		border-bottom: 1px solid hsl(var(--white16));
+		border-bottom: 1px solid var(--white16);
 		cursor: pointer;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-size: 14px;
 		font-weight: 500;
 		text-decoration: none;
@@ -525,9 +533,9 @@
 		bottom: 0;
 		display: flex;
 		flex-direction: column;
-		background: hsl(var(--black));
-		border-top: 1px solid hsl(var(--white16));
-		box-shadow: 0 12px 40px hsl(var(--black) / 0.35);
+		background: var(--black);
+		border-top: 1px solid var(--white16);
+		box-shadow: 0 12px 40px color-mix(in srgb, var(--black) 35%, transparent);
 		overflow: hidden;
 	}
 
@@ -547,7 +555,7 @@
 		margin: 0;
 		padding: 0;
 		border: none;
-		background: hsl(var(--black) / 0.35);
+		background: color-mix(in srgb, var(--black) 35%, transparent);
 		cursor: default;
 	}
 
@@ -559,7 +567,7 @@
 		border-radius: 8px;
 		border: none;
 		background: transparent;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		font-size: 14px;
 		font-weight: 500;
 		cursor: pointer;
@@ -570,12 +578,12 @@
 	}
 
 	.section-item:hover:not(.active) {
-		background: hsl(var(--white4));
+		background: var(--white4);
 	}
 
 	.section-item.active {
-		color: hsl(var(--white));
-		background: hsl(var(--white8));
+		color: var(--white);
+		background: var(--white8);
 	}
 
 	.sidebar {
@@ -613,13 +621,13 @@
 		padding-top: 16px;
 		padding-left: 12px;
 		padding-right: 12px;
-		border-top: 1px solid hsl(var(--white16));
+		border-top: 1px solid var(--white16);
 	}
 
 	.section-eyebrow {
 		padding: 0 10px;
 		margin-bottom: 4px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		display: block;
 	}
 
@@ -631,7 +639,7 @@
 		border-radius: 8px;
 		border: none;
 		background: transparent;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		font-size: 14px;
 		font-weight: 500;
 		cursor: pointer;
@@ -642,12 +650,12 @@
 	}
 
 	.nav-item:hover:not(.active) {
-		background: hsl(var(--white4));
+		background: var(--white4);
 	}
 
 	.nav-item.active {
-		color: hsl(var(--white));
-		background: hsl(var(--white8));
+		color: var(--white);
+		background: var(--white8);
 	}
 
 	.icon-wrap {
@@ -744,7 +752,7 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		border-left: 1px solid hsl(var(--white16));
+		border-left: 1px solid var(--white16);
 		min-height: 0;
 	}
 
@@ -776,7 +784,7 @@
 	.modal-sheet-loading {
 		margin: 8px 0;
 		font-size: 14px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		text-align: center;
 	}
 
@@ -797,13 +805,13 @@
 	.tos-list strong {
 		font-size: 1rem;
 		font-weight: 650;
-		color: hsl(var(--white));
+		color: var(--white);
 		line-height: 1.3;
 	}
 
 	.tos-list span {
 		font-size: 0.9375rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		line-height: 1.55;
 	}
 </style>

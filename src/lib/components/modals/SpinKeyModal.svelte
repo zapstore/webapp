@@ -261,10 +261,10 @@ $effect(() => {
       <button
         type="button"
         class="btn-secondary-large btn-secondary-light w-full flex items-center justify-center gap-3"
-        style="color: hsl(var(--white66));"
+        style="color: var(--white66);"
         onclick={() => window.open(SITE_URL, "_blank")}
       >
-        <Download variant="fill" color="hsl(var(--white33))" size={20} />
+        <Download variant="fill" color="var(--white33)" size={20} />
         Download Zapstore
       </button>
     </div>
@@ -292,7 +292,7 @@ $effect(() => {
 
   .divider {
     height: 1.4px;
-    background-color: hsl(var(--white11));
+    background-color: var(--white11);
     width: 100%;
   }
 
@@ -311,7 +311,7 @@ $effect(() => {
 
   .app-description {
     font-size: 1rem;
-    color: hsl(var(--white33));
+    color: var(--white33);
     text-align: center;
     margin: 0 0 12px;
   }
@@ -319,7 +319,7 @@ $effect(() => {
   .title {
     font-size: 1.875rem;
     font-weight: 650;
-    color: hsl(var(--white));
+    color: var(--white);
     margin: 0 0 8px;
     text-align: center;
   }
@@ -336,7 +336,7 @@ $effect(() => {
 
   .description {
     font-size: 1rem;
-    color: hsl(var(--white66));
+    color: var(--white66);
     margin: 0 0 24px;
     text-align: center;
     line-height: 1.5;
@@ -344,9 +344,9 @@ $effect(() => {
   }
 
   .link-text {
-    color: hsl(var(--white66));
+    color: var(--white66);
     text-decoration: underline;
-    text-decoration-color: hsl(var(--white33));
+    text-decoration-color: var(--white33);
     background: none;
     border: none;
     padding: 0;
@@ -355,8 +355,8 @@ $effect(() => {
   }
 
   .link-text:hover {
-    color: hsl(var(--white));
-    text-decoration-color: hsl(var(--white66));
+    color: var(--white);
+    text-decoration-color: var(--white66);
   }
 
   .slot-machine {
@@ -376,9 +376,9 @@ $effect(() => {
     gap: 4px;
     padding: 0 8px;
     height: 88px;
-    background-color: hsl(var(--black66));
+    background-color: var(--black66);
     border-radius: 16px;
-    border: 0.33px solid hsl(var(--white16));
+    border: 0.33px solid var(--white16);
     position: relative;
     overflow: hidden;
     align-items: center;
@@ -387,7 +387,7 @@ $effect(() => {
   .slot {
     width: 64px;
     height: 88px;
-    background-color: hsl(var(--white16));
+    background-color: var(--white16);
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -401,13 +401,13 @@ $effect(() => {
     justify-content: center;
     width: 100%;
     height: 56px;
-    border-bottom: 0.33px solid hsl(var(--black33));
+    border-bottom: 0.33px solid var(--black33);
   }
 
   .slot-placeholder {
     width: 24px;
     height: 8px;
-    background-color: hsl(var(--white33));
+    background-color: var(--white33);
     border-radius: 2px;
   }
 
@@ -415,7 +415,7 @@ $effect(() => {
     font-family: "Geist Mono", monospace;
     font-size: 13px;
     font-weight: 600;
-    color: hsl(var(--white));
+    color: var(--white);
     letter-spacing: -0.3px;
     text-transform: uppercase;
   }
@@ -454,7 +454,7 @@ $effect(() => {
     height: 88px;
     background-color: rgba(0, 0, 0, 0.53);
     border-radius: 16px;
-    border: 0.33px solid hsl(var(--white16));
+    border: 0.33px solid var(--white16);
   }
 
   .handle-bar {
@@ -480,7 +480,7 @@ $effect(() => {
     border-radius: 50%;
     background: var(--gradient-blurple);
     cursor: grab;
-    box-shadow: 0 4px 8px hsl(var(--black33));
+    box-shadow: 0 4px 8px var(--black33);
     touch-action: none;
     user-select: none;
     transition: transform 0.1s ease;
@@ -499,6 +499,6 @@ $effect(() => {
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, transparent 0%, hsl(var(--black33)) 100%);
+    background: radial-gradient(circle at 30% 30%, transparent 0%, var(--black33) 100%);
   }
 </style>

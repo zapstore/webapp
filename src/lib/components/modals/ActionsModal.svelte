@@ -538,7 +538,7 @@ $effect(() => {
 				{:else if stacksLoaded && userStacks.length === 0}
 					<div class="section-content">
 						<button type="button" class="create-stack-button-empty" onclick={openCreateStack}>
-							<Plus variant="outline" size={24} color="hsl(var(--white16))" strokeWidth={2} />
+							<Plus variant="outline" size={24} color="var(--white16)" strokeWidth={2} />
 							<span>New Stack</span>
 						</button>
 					</div>
@@ -554,7 +554,7 @@ $effect(() => {
 								/>
 							{/each}
 							<button type="button" class="create-stack-button-inline" onclick={openCreateStack}>
-								<Plus variant="outline" size={24} color="hsl(var(--white16))" strokeWidth={2} />
+								<Plus variant="outline" size={24} color="var(--white16)" strokeWidth={2} />
 								<span>New Stack</span>
 							</button>
 						</div>
@@ -692,7 +692,7 @@ $effect(() => {
 	.child-overlay {
 		position: absolute;
 		inset: 0;
-		background: hsl(var(--black33));
+		background: var(--black33);
 		z-index: 10;
 		pointer-events: none;
 		opacity: 0;
@@ -707,7 +707,7 @@ $effect(() => {
 	.new-stack-overlay {
 		position: fixed;
 		inset: 0;
-		z-index: 59;
+		z-index: 109;
 		background: transparent;
 	}
 
@@ -716,7 +716,7 @@ $effect(() => {
 		bottom: 0;
 		left: 0;
 		right: 0;
-		z-index: 60;
+		z-index: 110;
 		display: flex;
 		justify-content: center;
 		pointer-events: none;
@@ -726,9 +726,9 @@ $effect(() => {
 		width: 100%;
 		max-width: 100%;
 		margin: 0;
-		background: hsl(var(--gray66));
+		background: var(--gray66);
 		border-radius: var(--radius-32) var(--radius-32) 0 0;
-		border: 0.33px solid hsl(var(--white8));
+		border: 0.33px solid var(--white8);
 		border-bottom: none;
 		padding: 16px;
 		pointer-events: auto;
@@ -744,7 +744,7 @@ $effect(() => {
 			max-width: 560px;
 			margin-bottom: 16px;
 			border-radius: 24px;
-			border-bottom: 0.33px solid hsl(var(--white8));
+			border-bottom: 0.33px solid var(--white8);
 			padding: 12px;
 		}
 	}
@@ -766,14 +766,14 @@ $effect(() => {
 		font-family: var(--font-display);
 		font-size: 1.875rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		text-align: center;
 	}
 
 	.section-divider {
 		width: 100%;
 		height: 1px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	.actions-modal-header {
@@ -783,7 +783,7 @@ $effect(() => {
 		font-weight: 600;
 		letter-spacing: 0.18em;
 		text-transform: uppercase;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.section-content {
@@ -816,7 +816,7 @@ $effect(() => {
 	.label-error {
 		margin: 8px 0 0 0;
 		font-size: 13px;
-		color: hsl(var(--rougeColor));
+		color: var(--rougeColor);
 	}
 
 	/* Full-width button when no stacks (same height as cards) */
@@ -828,7 +828,7 @@ $effect(() => {
 		width: 100%;
 		height: 100px;
 		padding: 0 16px;
-		background-color: hsl(var(--black33));
+		background-color: var(--black33);
 		border: none;
 		border-radius: 16px;
 		cursor: pointer;
@@ -838,7 +838,7 @@ $effect(() => {
 	.create-stack-button-empty span {
 		font-size: 17px;
 		font-weight: 500;
-		color: hsl(var(--white16));
+		color: var(--white16);
 	}
 
 	@media (max-width: 767px) {
@@ -861,7 +861,7 @@ $effect(() => {
 		width: 200px;
 		height: 100px;
 		padding: 0 12px;
-		background-color: hsl(var(--black33));
+		background-color: var(--black33);
 		border: none;
 		border-radius: 16px;
 		cursor: pointer;
@@ -874,7 +874,7 @@ $effect(() => {
 	.create-stack-button-inline span {
 		font-size: 17px;
 		font-weight: 500;
-		color: hsl(var(--white16));
+		color: var(--white16);
 		line-height: 1;
 	}
 
@@ -932,8 +932,8 @@ $effect(() => {
 		padding: 0 20px;
 		font-size: 16px;
 		font-weight: 500;
-		color: hsl(var(--rougeColor));
-		background-color: hsl(var(--black33));
+		color: var(--rougeColor);
+		background-color: var(--black33);
 		border: none;
 		border-radius: var(--radius-16);
 		cursor: pointer;
@@ -946,18 +946,18 @@ $effect(() => {
 
 	.error-message {
 		padding: 12px 16px;
-		background: hsl(var(--rougeColor) / 0.1);
-		border: 0.33px solid hsl(var(--rougeColor) / 0.4);
+		background: color-mix(in srgb, var(--rougeColor) 10%, transparent);
+		border: 0.33px solid color-mix(in srgb, var(--rougeColor) 40%, transparent);
 		border-radius: var(--radius-12);
-		color: hsl(var(--rougeColor));
+		color: var(--rougeColor);
 		font-size: 14px;
 	}
 
 	.stack-form-box {
 		display: flex;
 		flex-direction: column;
-		background-color: hsl(var(--black33));
-		border: 0.33px solid hsl(var(--white33));
+		background-color: var(--black33);
+		border: 0.33px solid var(--white33);
 		border-radius: var(--radius-16);
 		overflow: hidden;
 	}
@@ -968,7 +968,7 @@ $effect(() => {
 		background: transparent;
 		border: none;
 		outline: none;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-family: "Inter", sans-serif;
 		font-size: 18px;
 		font-weight: 600;
@@ -976,14 +976,14 @@ $effect(() => {
 	}
 
 	.stack-name-input::placeholder {
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-weight: 500;
 	}
 
 	.stack-form-divider {
 		width: 100%;
 		height: 1.4px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	.stack-description-input {
@@ -992,7 +992,7 @@ $effect(() => {
 		background: transparent;
 		border: none;
 		outline: none;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-family: "Inter", sans-serif;
 		font-size: 16px;
 		font-weight: 400;
@@ -1003,7 +1003,7 @@ $effect(() => {
 	}
 
 	.stack-description-input::placeholder {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.stack-button-row {
@@ -1018,7 +1018,7 @@ $effect(() => {
 		background: var(--gradient-blurple);
 		border: none;
 		border-radius: var(--radius-16);
-		color: hsl(var(--whiteEnforced));
+		color: var(--whiteEnforced);
 		font-size: 16px;
 		font-weight: 500;
 		cursor: pointer;

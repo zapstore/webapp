@@ -37,7 +37,7 @@
     height: 100%;
 
     /* Base appearance - matches Flutter's white8 */
-    background-color: hsl(var(--white8));
+    background-color: var(--white8);
 
     /* Overflow hidden to contain the shimmer effect */
     overflow: hidden;
@@ -60,11 +60,11 @@
     background: linear-gradient(
       100deg,
       transparent 0%,
-      hsl(var(--white4)) 10%,
-      hsl(var(--white8)) 20%,
-      hsl(var(--white16)) 50%,
-      hsl(var(--white8)) 80%,
-      hsl(var(--white4)) 90%,
+      var(--white4) 10%,
+      var(--white8) 20%,
+      var(--white16) 50%,
+      var(--white8) 80%,
+      var(--white4) 90%,
       transparent 100%
     );
 
@@ -91,7 +91,7 @@
   @media (prefers-reduced-motion: reduce) {
     .skeleton-loader::after {
       animation: none;
-      background: hsl(var(--white8));
+      background: var(--white8);
       transform: none;
     }
   }

@@ -665,7 +665,7 @@ function checkTruncation(node) {
 		padding-top: 0;
 		margin: 0 0 6px;
 		line-height: 1.3;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 	.description-container {
 		position: relative;
@@ -680,11 +680,11 @@ function checkTruncation(node) {
 	}
 	.post-description {
 		line-height: 1.6;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-size: 0.9375rem;
 	}
 	.post-description :global(a) {
-		color: hsl(var(--blurpleColor));
+		color: var(--blurpleColor);
 		text-decoration: underline;
 	}
 	.post-description :global(a:hover) {
@@ -696,7 +696,7 @@ function checkTruncation(node) {
 		left: 0;
 		right: 0;
 		height: 100px;
-		background: linear-gradient(to bottom, transparent, hsl(var(--black)));
+		background: linear-gradient(to bottom, transparent, var(--black));
 		pointer-events: none;
 	}
 	.read-more-btn {
@@ -705,14 +705,14 @@ function checkTruncation(node) {
 		left: 0;
 		height: 32px;
 		padding: 0 14px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		backdrop-filter: blur(12px);
 		-webkit-backdrop-filter: blur(12px);
 		border: none;
 		border-radius: 9999px;
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		cursor: pointer;
 		transition: transform 0.15s ease;
 	}
@@ -727,19 +727,19 @@ function checkTruncation(node) {
 		margin-top: 8px;
 		height: 32px;
 		padding: 0 14px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		backdrop-filter: blur(12px);
 		-webkit-backdrop-filter: blur(12px);
 		border: none;
 		border-radius: 9999px;
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		cursor: pointer;
 		transition: transform 0.15s ease;
 	}
 	.show-less-btn:hover {
-		color: hsl(var(--white));
+		color: var(--white);
 		transform: scale(1.025);
 	}
 	.show-less-btn:active {

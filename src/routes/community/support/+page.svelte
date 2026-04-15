@@ -51,7 +51,7 @@
 		font-size: 1.5rem;
 		font-weight: 650;
 		letter-spacing: -0.02em;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0 0 0.5rem;
 	}
 
@@ -79,11 +79,11 @@
 	.support-panel-label {
 		font-weight: 600;
 		font-size: 1rem;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.support-panel-hint {
 		font-size: 0.875rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 </style>

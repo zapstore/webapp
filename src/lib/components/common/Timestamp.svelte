@@ -99,7 +99,7 @@
 <time
   class="timestamp {sizeClass} {className}"
   datetime={normalizeToDate(timestamp)?.toISOString() || ""}
-  style="color: hsl(var(--white33));"
+  style="color: var(--white33);"
 >
   {displayTime}
 </time>

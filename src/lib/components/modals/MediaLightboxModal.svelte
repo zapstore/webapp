@@ -138,7 +138,7 @@ $effect(() => {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: hsl(var(--black) / 0.92);
+		background: color-mix(in srgb, var(--black) 92%, transparent);
 		backdrop-filter: blur(8px);
 		-webkit-backdrop-filter: blur(8px);
 		overflow: hidden;
@@ -151,14 +151,14 @@ $effect(() => {
 		z-index: 10;
 		padding: 8px;
 		border-radius: 50%;
-		background-color: hsl(var(--white16));
+		background-color: var(--white16);
 		color: white;
 		border: none;
 		cursor: pointer;
 		transition: background-color 0.15s ease;
 	}
 	.carousel-close-btn:hover {
-		background-color: hsl(var(--white33));
+		background-color: var(--white33);
 	}
 	.media-lightbox-nav {
 		position: absolute;
@@ -169,14 +169,14 @@ $effect(() => {
 		align-items: center;
 		justify-content: center;
 		border-radius: 50%;
-		background: hsl(var(--white16));
+		background: var(--white16);
 		color: white;
 		border: none;
 		cursor: pointer;
 		transition: background 0.15s ease;
 	}
 	.media-lightbox-nav:hover {
-		background: hsl(var(--white33));
+		background: var(--white33);
 	}
 	.media-lightbox-prev {
 		left: 16px;
@@ -211,10 +211,10 @@ $effect(() => {
 		align-items: center;
 		justify-content: center;
 		border-radius: 8px;
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		overflow: hidden;
-		background: hsl(var(--gray33));
-		box-shadow: 0 0 80px 20px hsl(var(--black33));
+		background: var(--gray33);
+		box-shadow: 0 0 80px 20px var(--black33);
 	}
 	@media (min-width: 768px) {
 		.media-lightbox-wrapper {
@@ -239,16 +239,16 @@ $effect(() => {
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		background: hsl(var(--white33));
+		background: var(--white33);
 		border: none;
 		cursor: pointer;
 		padding: 0;
 		transition: background 0.15s ease;
 	}
 	.media-lightbox-dot:hover {
-		background: hsl(var(--white50));
+		background: var(--white50);
 	}
 	.media-lightbox-dot.active {
-		background: hsl(var(--white));
+		background: var(--white);
 	}
 </style>

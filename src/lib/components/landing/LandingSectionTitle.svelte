@@ -91,7 +91,7 @@
 						{seeMoreText}
 						<ChevronRight
 							variant="outline"
-							color="hsl(var(--white33))"
+							color="var(--white33)"
 							size={18}
 							className="transition-transform group-hover:translate-x-0.5"
 						/>
@@ -149,15 +149,15 @@
 		max-width: 320px;
 		padding: 12px 14px;
 		background: hsl(241 15% 18%);
-		border: 1px solid hsl(var(--white16));
+		border: 1px solid var(--white16);
 		border-radius: 12px;
-		box-shadow: 0 8px 24px hsl(var(--black66) / 0.4);
+		box-shadow: 0 8px 24px color-mix(in srgb, var(--black66) 40%, transparent);
 	}
 
 	.see-more-dropdown-text {
 		margin: 0;
 		font-size: 0.8125rem;
 		line-height: 1.45;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 </style>

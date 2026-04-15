@@ -215,11 +215,11 @@
 		height: 100%;
 		position: relative;
 		flex-shrink: 0;
-		border-right: 1px solid hsl(var(--white16));
+		border-right: 1px solid var(--white16);
 		flex-direction: column;
 		/* Match the subtle gradient tint of the right page */
-		background: radial-gradient(ellipse 160% 40% at 50% -10%, hsl(var(--blurpleColor) / 0.06), transparent),
-		            hsl(var(--black));
+		background: radial-gradient(ellipse 160% 40% at 50% -10%, color-mix(in srgb, var(--blurpleColor) 6%, transparent), transparent),
+		            var(--black);
 	}
 
 	@media (min-width: 768px) {
@@ -257,23 +257,23 @@
 		width: 100%;
 		height: 32px;
 		padding: 0 10px;
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		border-radius: 10px;
 		background: transparent;
 		cursor: pointer;
 		text-align: left;
-		color: hsl(var(--white));
+		color: var(--white);
 		transition: background-color 0.15s ease, border-color 0.15s ease;
 	}
 
 	.sidebar-search-btn:hover {
-		background-color: hsl(var(--white4));
-		border-color: hsl(var(--white33));
+		background-color: var(--white4);
+		border-color: var(--white33);
 	}
 
 	.sidebar-search-placeholder {
 		font-size: 0.8125rem;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -281,11 +281,11 @@
 
 	:global(.sidebar-search-icon) {
 		flex-shrink: 0;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.app-sidebar-brand:hover {
-		color: hsl(var(--blurpleLightColor));
+		color: var(--blurpleLightColor);
 	}
 
 	.app-sidebar-logo {
@@ -298,7 +298,7 @@
 		font-size: 1.125rem;
 		font-weight: 600;
 		letter-spacing: -0.02em;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.app-sidebar-nav {
@@ -321,7 +321,7 @@
 		font-weight: 600;
 		letter-spacing: 0.18em;
 		text-transform: uppercase;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		padding: 0 0 4px 14px;
 		margin: 0;
 	}
@@ -341,20 +341,20 @@
 		padding: 8px 14px;
 		font-size: 0.9375rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		text-decoration: none;
 		border-radius: 10px;
 		transition: color 0.15s ease, background-color 0.15s ease;
 	}
 
 	.app-sidebar-link:hover {
-		color: hsl(var(--white));
-		background-color: hsl(var(--white4));
+		color: var(--white);
+		background-color: var(--white4);
 	}
 
 	.app-sidebar-link.active {
-		color: hsl(var(--white));
-		background-color: hsl(var(--white8));
+		color: var(--white);
+		background-color: var(--white8);
 	}
 
 	.app-sidebar-footer {
@@ -379,13 +379,13 @@
 		border-radius: 10px;
 		cursor: pointer;
 		text-align: left;
-		color: hsl(var(--white));
+		color: var(--white);
 		transition: background-color 0.15s ease;
 	}
 
 	.sidebar-user-btn:hover,
 	.sidebar-user.open .sidebar-user-btn {
-		background-color: hsl(var(--accent) / 0.08);
+		background-color: color-mix(in srgb, var(--blurpleLightColor) 8%, transparent);
 	}
 
 	.sidebar-user-name {
@@ -395,7 +395,7 @@
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.sidebar-user-dropdown {
@@ -406,10 +406,10 @@
 		background: hsla(240, 6%, 18%, 0.92);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		border-radius: 12px;
 		padding: 4px;
-		box-shadow: 0 4px 24px hsl(var(--black66) / 0.5);
+		box-shadow: 0 4px 24px color-mix(in srgb, var(--black66) 50%, transparent);
 		z-index: 60;
 	}
 
@@ -421,7 +421,7 @@
 		padding: 8px 10px;
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 		background: none;
 		border: none;
 		border-radius: 8px;
@@ -432,12 +432,12 @@
 	}
 
 	.sidebar-user-dropdown-item:hover {
-		background-color: hsl(var(--accent) / 0.1);
+		background-color: color-mix(in srgb, var(--blurpleLightColor) 10%, transparent);
 	}
 
 	.sidebar-user-dropdown-divider {
 		height: 0.33px;
-		background-color: hsl(var(--white16));
+		background-color: var(--white16);
 		margin: 4px 0;
 	}
 </style>

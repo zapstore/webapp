@@ -144,7 +144,7 @@
 		align-items: stretch;
 		gap: 14px;
 		padding: 24px 26px;
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 		border-radius: var(--radius-32);
 	}
 
@@ -182,7 +182,7 @@
 	.hero-zsp-panel-desc {
 		font-size: 0.9375rem;
 		line-height: 1.45;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		margin: 0;
 	}
 
@@ -317,7 +317,7 @@
 	.terminal-window {
 		background: hsl(240 10% 11% / 0.94);
 		border-radius: 10px;
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		overflow: hidden;
 	}
 
@@ -327,7 +327,7 @@
 		gap: 6px;
 		padding: 8px 12px;
 		background: hsl(240 8% 14% / 0.9);
-		border-bottom: 0.33px solid hsl(var(--white11));
+		border-bottom: 0.33px solid var(--white11);
 	}
 
 	.terminal-dot {
@@ -352,7 +352,7 @@
 	.terminal-title {
 		margin-left: 8px;
 		font-size: 12px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.terminal-body {
@@ -427,16 +427,16 @@
 	}
 
 	.terminal-prompt {
-		color: hsl(var(--blurpleColor));
+		color: var(--blurpleColor);
 		margin-right: 6px;
 	}
 
 	.terminal-cmd {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.terminal-output {
-		color: hsl(var(--white66));
+		color: var(--white66);
 		padding-left: 1.2em;
 	}
 
@@ -446,11 +446,11 @@
 	}
 
 	.terminal-muted {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.terminal-cursor {
-		color: hsl(var(--white));
+		color: var(--white);
 		animation: blink 1s step-end infinite;
 	}
 
@@ -461,8 +461,8 @@
 	}
 
 	.screenshot-placeholder {
-		background: hsl(var(--gray33));
-		border: 1px dashed hsl(var(--white22));
+		background: var(--gray33);
+		border: 1px dashed var(--white22);
 		border-radius: 12px;
 		display: flex;
 		align-items: center;
@@ -487,7 +487,7 @@
 
 	.placeholder-label {
 		font-size: 11px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
 	}

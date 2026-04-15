@@ -75,7 +75,7 @@ function handleBlur(e) {
     <div class="warning-wrapper">
       <div class="warning-triangle"></div>
       <div class="warning-container">
-        <Alert variant="outline" color="hsl(var(--white66))" size={20} />
+        <Alert variant="outline" color="var(--white66)" size={20} />
         <span class="warning-text">{warning}</span>
       </div>
     </div>
@@ -93,7 +93,7 @@ function handleBlur(e) {
     display: block;
     font-size: 1rem;
     font-weight: 400;
-    color: hsl(var(--white));
+    color: var(--white);
     margin-bottom: 8px;
     padding-left: 14px;
   }
@@ -104,8 +104,8 @@ function handleBlur(e) {
     align-items: center;
     height: 42px;
     padding: 0 14px;
-    background-color: hsl(var(--black33));
-    border: 0.33px solid hsl(var(--white33));
+    background-color: var(--black33);
+    border: 0.33px solid var(--white33);
     border-radius: 16px;
     overflow: hidden;
     box-sizing: border-box;
@@ -136,7 +136,7 @@ function handleBlur(e) {
     background: transparent;
     border: none;
     outline: none;
-    color: hsl(var(--white));
+    color: var(--white);
     font-family: "Inter", sans-serif;
     font-size: 1rem;
     line-height: 1.5;
@@ -145,7 +145,7 @@ function handleBlur(e) {
   }
 
   .input-element::placeholder {
-    color: hsl(var(--white33));
+    color: var(--white33);
   }
 
   .textarea {
@@ -175,7 +175,7 @@ function handleBlur(e) {
     height: 0;
     border-left: 12px solid transparent;
     border-right: 12px solid transparent;
-    border-bottom: 10px solid hsl(var(--white16));
+    border-bottom: 10px solid var(--white16);
     margin-left: 10px;
   }
 
@@ -184,13 +184,13 @@ function handleBlur(e) {
     align-items: center;
     gap: 12px;
     padding: 10px 14px;
-    background-color: hsl(var(--white16));
+    background-color: var(--white16);
     border-radius: 16px;
   }
 
   .warning-text {
     font-size: 0.875rem;
-    color: hsl(var(--white66));
+    color: var(--white66);
     line-height: 1.4;
   }
 </style>

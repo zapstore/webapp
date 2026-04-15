@@ -829,29 +829,27 @@ export { getContent, getSerializedContent, isEmpty };
     {#if aboveEditor}
       <div class="above-editor">{@render aboveEditor()}</div>
     {/if}
-    <div class="shader-top"></div>
     <div class="editor-container" class:has-close={showClose} class:has-above={!!aboveEditor}>
       {#if showClose}
         <button type="button" class="inline-close-btn" onclick={onClose} aria-label="Close">
-          <Cross variant="outline" color="hsl(var(--white33))" size={10} strokeWidth={1.4} />
+          <Cross variant="outline" color="var(--white33)" size={10} strokeWidth={1.4} />
         </button>
       {/if}
       <div bind:this={editorElement} class="editor-mount"></div>
     </div>
-    <div class="shader-bottom"></div>
   </div>
 
   {#if showActionRow}
     <div class="action-row">
       <div class="action-buttons-left">
         <button type="button" class="action-btn" onclick={onCameraTap} aria-label="Add photo">
-          <Camera variant="fill" color="hsl(var(--white33))" size={20} />
+          <Camera variant="fill" color="var(--white33)" size={20} />
         </button>
         <button type="button" class="action-btn" onclick={onEmojiTap} aria-label="Add emoji">
-          <EmojiFill variant="fill" color="hsl(var(--white33))" size={18} />
+          <EmojiFill variant="fill" color="var(--white33)" size={18} />
         </button>
         <button type="button" class="action-btn" onclick={onAddTap} aria-label="Add attachment">
-          <Plus variant="outline" color="hsl(var(--white33))" size={16} strokeWidth={2.8} />
+          <Plus variant="outline" color="var(--white33)" size={16} strokeWidth={2.8} />
         </button>
       </div>
       <div class="send-button-container" bind:this={sendOptionsWrap}>
@@ -917,7 +915,7 @@ export { getContent, getSerializedContent, isEmpty };
     overflow-y: auto;
     padding: 10px 8px 10px 12px;
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--white16)) transparent;
+    scrollbar-color: var(--white16) transparent;
   }
   .editor-container.has-close .editor-mount {
     padding-right: 36px;
@@ -933,8 +931,8 @@ export { getContent, getSerializedContent, isEmpty };
     max-height: 160px;
     border-radius: 12px;
     overflow: hidden;
-    border: 0.33px solid hsl(var(--white16));
-    background: hsl(var(--gray33));
+    border: 0.33px solid var(--white16);
+    background: var(--gray33);
   }
   :global(.media-block-editor-remove) {
     position: absolute;
@@ -945,8 +943,8 @@ export { getContent, getSerializedContent, isEmpty };
     height: 26px;
     border-radius: 50%;
     border: none;
-    background: hsl(var(--gray33));
-    color: hsl(var(--white66));
+    background: var(--gray33);
+    color: var(--white66);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -954,8 +952,8 @@ export { getContent, getSerializedContent, isEmpty };
     padding: 0;
   }
   :global(.media-block-editor-remove:hover) {
-    background: hsl(var(--gray44));
-    color: hsl(var(--white));
+    background: var(--gray44);
+    color: var(--white);
   }
   :global(.media-block-editor-remove svg) {
     width: 10px;
@@ -973,8 +971,8 @@ export { getContent, getSerializedContent, isEmpty };
     display: flex;
     align-items: center;
     justify-content: center;
-    background: hsl(var(--black) / 0.2);
-    color: hsl(var(--white66));
+    background: color-mix(in srgb, var(--black) 20%, transparent);
+    color: var(--white66);
   }
   :global(.media-block-editor-spinner svg) {
     animation: media-block-spin 0.8s linear infinite;
@@ -1007,19 +1005,19 @@ export { getContent, getSerializedContent, isEmpty };
     align-items: center;
     gap: 10px;
     padding: 8px 16px 8px 8px;
-    background: hsl(var(--white8));
+    background: var(--white8);
     border-radius: 12px;
     font-size: 15px;
     font-weight: 500;
-    color: hsl(var(--white));
+    color: var(--white);
   }
   :global(.nostr-ref-block-editor-pic) {
     width: 38px;
     height: 38px;
     flex-shrink: 0;
     border-radius: 8px;
-    border: 0.33px solid hsl(var(--white16));
-    background: hsl(var(--gray66));
+    border: 0.33px solid var(--white16);
+    background: var(--gray66);
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -1033,7 +1031,7 @@ export { getContent, getSerializedContent, isEmpty };
   :global(.nostr-ref-block-editor-initial) {
     font-size: 18px;
     font-weight: 700;
-    color: hsl(var(--white66));
+    color: var(--white66);
   }
   :global(.nostr-ref-block-editor-name) {
     white-space: nowrap;
@@ -1050,8 +1048,8 @@ export { getContent, getSerializedContent, isEmpty };
     height: 26px;
     border-radius: 50%;
     border: none;
-    background: hsl(var(--gray33));
-    color: hsl(var(--white66));
+    background: var(--gray33);
+    color: var(--white66);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -1059,8 +1057,8 @@ export { getContent, getSerializedContent, isEmpty };
     padding: 0;
   }
   :global(.nostr-ref-block-editor-remove:hover) {
-    background: hsl(var(--gray44));
-    color: hsl(var(--white));
+    background: var(--gray44);
+    color: var(--white);
   }
   :global(.nostr-ref-block-editor-remove svg) {
     width: 10px;
@@ -1078,17 +1076,17 @@ export { getContent, getSerializedContent, isEmpty };
     height: 24px;
     padding: 0;
     border: none;
-    background: hsl(var(--white4));
+    background: var(--white4);
     border-radius: 50%;
-    color: hsl(var(--white33));
+    color: var(--white33);
     cursor: pointer;
   }
   .inline-close-btn:hover {
-    background: hsl(var(--white16));
-    color: hsl(var(--white));
+    background: var(--white16);
+    color: var(--white);
   }
   .inline-close-btn :global(svg) {
-    stroke: hsl(var(--white33)) !important;
+    stroke: var(--white33) !important;
     fill: none !important;
   }
   .editor-mount::-webkit-scrollbar {
@@ -1098,25 +1096,8 @@ export { getContent, getSerializedContent, isEmpty };
     background: transparent;
   }
   .editor-mount::-webkit-scrollbar-thumb {
-    background: hsl(var(--white16));
+    background: var(--white16);
     border-radius: 2px;
-  }
-  .shader-top,
-  .shader-bottom {
-    position: absolute;
-    left: 0;
-    right: 4px;
-    height: 8px;
-    pointer-events: none;
-    z-index: 1;
-  }
-  .shader-top {
-    top: 0;
-    background: linear-gradient(to bottom, hsl(var(--black33)) 0%, hsl(var(--black33) / 0) 100%);
-  }
-  .shader-bottom {
-    bottom: 0;
-    background: linear-gradient(to top, hsl(var(--black33)) 0%, hsl(var(--black33) / 0) 100%);
   }
   .editor-mount :global(.ProseMirror) {
     outline: none;
@@ -1126,11 +1107,11 @@ export { getContent, getSerializedContent, isEmpty };
     margin: 0;
     font-size: 16px;
     line-height: 1.5;
-    color: hsl(var(--white));
+    color: var(--white);
   }
   .editor-mount :global(.ProseMirror p.is-editor-empty:first-child::before) {
     content: attr(data-placeholder);
-    color: hsl(var(--white33));
+    color: var(--white33);
     pointer-events: none;
     float: left;
     height: 0;
@@ -1180,15 +1161,15 @@ export { getContent, getSerializedContent, isEmpty };
     border-radius: 6px;
     cursor: pointer;
     background: transparent;
-    color: hsl(var(--white66));
+    color: var(--white66);
     transition: background-color 0.15s ease, color 0.15s ease;
   }
   :global(.suggestion-tab:hover) {
-    color: hsl(var(--white));
+    color: var(--white);
   }
   :global(.suggestion-tab-selected) {
-    background: hsl(var(--white16));
-    color: hsl(var(--white));
+    background: var(--white16);
+    color: var(--white);
   }
   :global(.suggestion-list) {
     background: transparent;
@@ -1217,10 +1198,10 @@ export { getContent, getSerializedContent, isEmpty };
     to { transform: rotate(360deg); }
   }
   :global(.suggestion-menu) {
-    background: hsl(var(--gray33));
+    background: var(--gray33);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    border: 0.33px solid hsl(var(--white33));
+    border: 0.33px solid var(--white33);
     border-radius: 12px;
     overflow: hidden;
     min-width: 240px;
@@ -1238,7 +1219,7 @@ export { getContent, getSerializedContent, isEmpty };
   }
   :global(.suggestion-empty-text) {
     font-size: 13px;
-    color: hsl(var(--white33));
+    color: var(--white33);
   }
   :global(.suggestion-item) {
     display: flex;
@@ -1254,20 +1235,20 @@ export { getContent, getSerializedContent, isEmpty };
   }
   :global(.suggestion-item:hover),
   :global(.suggestion-item.selected) {
-    background: hsl(var(--white8));
+    background: var(--white8);
   }
   :global(.suggestion-item:not(:last-child)) {
-    border-bottom: 0.33px solid hsl(var(--white8));
+    border-bottom: 0.33px solid var(--white8);
   }
   :global(.suggestion-profile-pic) {
     width: 28px;
     height: 28px;
     min-width: 28px;
     border-radius: 50%;
-    border: 0.33px solid hsl(var(--white16));
+    border: 0.33px solid var(--white16);
     overflow: hidden;
     flex-shrink: 0;
-    background-color: var(--pic-bg, hsl(var(--white16)));
+    background-color: var(--pic-bg, var(--white16));
     position: relative;
     display: flex;
     align-items: center;
@@ -1281,13 +1262,13 @@ export { getContent, getSerializedContent, isEmpty };
     justify-content: center;
     font-size: 13px;
     font-weight: 700;
-    color: var(--pic-text, hsl(var(--white)));
+    color: var(--pic-text, var(--white));
     user-select: none;
   }
   :global(.suggestion-profile-pic .profile-user-icon) {
     width: 56%;
     height: 56%;
-    color: var(--pic-text, hsl(var(--white)));
+    color: var(--pic-text, var(--white));
   }
   :global(.suggestion-profile-pic .profile-img) {
     position: absolute;
@@ -1311,7 +1292,7 @@ export { getContent, getSerializedContent, isEmpty };
   :global(.suggestion-profile-name) {
     font-size: 14px;
     font-weight: 500;
-    color: hsl(var(--white));
+    color: var(--white);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1324,7 +1305,7 @@ export { getContent, getSerializedContent, isEmpty };
     width: 100%;
     padding: 8px 12px;
     box-sizing: border-box;
-    border-bottom: 0.33px solid hsl(var(--white8));
+    border-bottom: 0.33px solid var(--white8);
     flex-shrink: 0;
   }
   :global(.suggestion-emoji-custom-loading .suggestion-tab-spinner-svg) {
@@ -1332,7 +1313,7 @@ export { getContent, getSerializedContent, isEmpty };
   }
   :global(.suggestion-emoji-custom-loading-text) {
     font-size: 13px;
-    color: hsl(var(--white66));
+    color: var(--white66);
   }
   :global(.suggestion-menu-emoji) {
     min-width: 220px;
@@ -1353,7 +1334,7 @@ export { getContent, getSerializedContent, isEmpty };
   }
   :global(.emoji-shortcode) {
     font-size: 13px;
-    color: hsl(var(--white66));
+    color: var(--white66);
   }
   :global(.suggestion-gif-thumb) {
     width: 40px;
@@ -1364,7 +1345,7 @@ export { getContent, getSerializedContent, isEmpty };
   }
   :global(.suggestion-gif-label) {
     font-size: 13px;
-    color: hsl(var(--white66));
+    color: var(--white66);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1398,7 +1379,7 @@ export { getContent, getSerializedContent, isEmpty };
     display: flex;
     align-items: center;
     justify-content: center;
-    background: hsl(var(--white8));
+    background: var(--white8);
     border: none;
     border-radius: 8px;
     cursor: pointer;
@@ -1455,9 +1436,9 @@ export { getContent, getSerializedContent, isEmpty };
     max-width: 280px;
     padding: 12px 14px;
     background: hsl(241 15% 18%);
-    border: 1px solid hsl(var(--white16));
+    border: 1px solid var(--white16);
     border-radius: 12px;
-    box-shadow: 0 8px 24px hsl(var(--black66) / 0.4);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--black66) 40%, transparent);
     z-index: 20;
   }
 
@@ -1465,6 +1446,6 @@ export { getContent, getSerializedContent, isEmpty };
     margin: 0;
     font-size: 0.8125rem;
     line-height: 1.45;
-    color: hsl(var(--white66));
+    color: var(--white66);
   }
 </style>

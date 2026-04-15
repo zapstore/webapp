@@ -208,7 +208,7 @@
 						<!-- Vertical Divider - Hidden on mobile -->
 						<div
 							class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"
-							style="background-color: hsl(var(--white16));"
+							style="background-color: var(--white16);"
 						></div>
 						<!-- Left Column (Android info) - Only on mobile -->
 						<div class="flex-1 md:hidden flex flex-col justify-center">
@@ -226,7 +226,7 @@
 									</svg>
 									<span class="text-sm">Android 10+</span>
 								</span>
-								<span class="text-sm" style="color: hsl(var(--white33));"
+								<span class="text-sm" style="color: var(--white33);"
 									><strong>arm64-v8a</strong> only</span
 								>
 							</div>
@@ -234,7 +234,7 @@
 						<!-- Vertical Divider - Only on mobile -->
 						<div
 							class="md:hidden w-[1.4px] flex-shrink-0 self-stretch"
-							style="background-color: hsl(var(--white16));"
+							style="background-color: var(--white16);"
 						></div>
 						<div class="flex-1 flex flex-col">
 							<!-- Android 10+ Info - Hidden on mobile (shown in left column instead) -->
@@ -254,7 +254,7 @@
 									</svg>
 									<span class="text-sm">Android 10+</span>
 								</span>
-								<span class="text-sm" style="color: hsl(var(--white33));"
+								<span class="text-sm" style="color: var(--white33);"
 									><strong>arm64-v8a</strong> only</span
 								>
 							</div>
@@ -262,7 +262,7 @@
 							<!-- Horizontal Divider - Hidden on mobile -->
 							<div
 								class="hidden md:block w-full h-[1.4px] flex-shrink-0"
-								style="background-color: hsl(var(--white16));"
+								style="background-color: var(--white16);"
 							></div>
 
 							<!-- Verify APK -->
@@ -275,7 +275,7 @@
 								<ChevronRight
 									variant="outline"
 									strokeWidth={1.4}
-									color="hsl(var(--white33))"
+									color="var(--white33)"
 									size={16}
 									className="ml-auto"
 								/>
@@ -284,7 +284,7 @@
 							<!-- Horizontal Divider -->
 							<div
 								class="w-full h-[1.4px] flex-shrink-0"
-								style="background-color: hsl(var(--white16));"
+								style="background-color: var(--white16);"
 							></div>
 
 							<!-- View Source Code -->
@@ -298,7 +298,7 @@
 								<ChevronRight
 									variant="outline"
 									strokeWidth={1.4}
-									color="hsl(var(--white33))"
+									color="var(--white33)"
 									size={16}
 									className="ml-auto"
 								/>
@@ -319,7 +319,7 @@
 								></div>
 								Downloading...
 							{:else}
-								<Download variant="fill" color="hsl(var(--white66))" size={20} />
+								<Download variant="fill" color="var(--white66)" size={20} />
 								Download Android App
 							{/if}
 						</button>
@@ -432,7 +432,7 @@
 				<!-- Vertical Divider - Hidden on mobile -->
 				<div
 					class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"
-					style="background-color: hsl(var(--white16));"
+					style="background-color: var(--white16);"
 				></div>
 
 				<!-- Single column on mobile, right column on desktop -->
@@ -460,7 +460,7 @@
 					{#if sourceUrl}
 						<div
 							class="w-full h-[1.4px] flex-shrink-0"
-							style="background-color: hsl(var(--white16));"
+							style="background-color: var(--white16);"
 						></div>
 
 						<!-- Source Code -->
@@ -474,7 +474,7 @@
 							<ChevronRight
 								variant="outline"
 								strokeWidth={1.4}
-								color="hsl(var(--white33))"
+								color="var(--white33)"
 								size={16}
 								className="ml-auto"
 							/>
@@ -604,7 +604,7 @@
 
 	/* Gradient background for Zapstore download modal */
 	:global(.download-modal-bg) {
-		background: linear-gradient(to bottom, hsl(var(--black66)), hsl(var(--gray66))) !important;
+		background: linear-gradient(to bottom, var(--black66), var(--gray66)) !important;
 	}
 
 	/* Zapstore content overlap with image - less overlap on smaller screens */
@@ -623,7 +623,7 @@
 		display: flex;
 		gap: 0.5rem;
 		padding: 0.5rem;
-		background-color: hsl(var(--black33));
+		background-color: var(--black33);
 		border-radius: 16px;
 	}
 
@@ -643,13 +643,13 @@
 	}
 
 	.platform-btn.selected {
-		background-color: hsl(var(--white16));
-		color: hsl(var(--white));
+		background-color: var(--white16);
+		color: var(--white);
 	}
 
 	.platform-btn.disabled {
 		background-color: transparent;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		cursor: not-allowed;
 	}
 

@@ -28,20 +28,20 @@ const prefixLabel = $derived(
 
 /** Structured: prefix softer than value. Selected uses white66+white (readable hierarchy; avoids white33 or flat white/white). Emphasized-only: white33+white. */
 const prefixColor = $derived(
-	isSelected ? "hsl(var(--white66))" : isEmphasized ? "hsl(var(--white33))" : "hsl(var(--white66))"
+	isSelected ? "var(--white66)" : isEmphasized ? "var(--white33)" : "var(--white66)"
 );
 const valueColor = $derived(
-	isSelected ? "hsl(var(--white))" : isEmphasized ? "hsl(var(--white))" : "hsl(var(--white66))"
+	isSelected ? "var(--white)" : isEmphasized ? "var(--white)" : "var(--white66)"
 );
 
 const colorKey = $derived(structured?.value ?? text);
 const baseColor = $derived(stringToColor(colorKey));
 const bgColor = $derived(neutral
-    ? (isSelected || isEmphasized ? "hsl(var(--gray66))" : "hsl(var(--white16))")
+    ? (isSelected || isEmphasized ? "var(--gray66)" : "var(--white16)")
     : (isSelected || isEmphasized
         ? `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0.40)`
         : `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0.16)`));
-const textColor = $derived(isSelected || isEmphasized ? "hsl(var(--white))" : "hsl(var(--white66))");
+const textColor = $derived(isSelected || isEmphasized ? "var(--white)" : "var(--white66)");
 </script>
 
 <button

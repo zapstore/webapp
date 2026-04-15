@@ -210,18 +210,18 @@ const _hasChanges = $derived(
 
 	.error-message {
 		padding: 12px 16px;
-		background: hsl(var(--rougeColor) / 0.1);
-		border: 0.33px solid hsl(var(--rougeColor) / 0.4);
+		background: color-mix(in srgb, var(--rougeColor) 10%, transparent);
+		border: 0.33px solid color-mix(in srgb, var(--rougeColor) 40%, transparent);
 		border-radius: var(--radius-12);
-		color: hsl(var(--rougeColor));
+		color: var(--rougeColor);
 		font-size: 14px;
 	}
 
 	.edit-form-box {
 		display: flex;
 		flex-direction: column;
-		background-color: hsl(var(--black33));
-		border: 0.33px solid hsl(var(--white33));
+		background-color: var(--black33);
+		border: 0.33px solid var(--white33);
 		border-radius: var(--radius-16);
 		overflow: hidden;
 	}
@@ -232,7 +232,7 @@ const _hasChanges = $derived(
 		background: transparent;
 		border: none;
 		outline: none;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-family: "Inter", sans-serif;
 		font-size: 18px;
 		font-weight: 600;
@@ -240,14 +240,14 @@ const _hasChanges = $derived(
 	}
 
 	.edit-name-input::placeholder {
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-weight: 500;
 	}
 
 	.form-divider {
 		width: 100%;
 		height: 1.4px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	.edit-description-input {
@@ -256,7 +256,7 @@ const _hasChanges = $derived(
 		background: transparent;
 		border: none;
 		outline: none;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-family: "Inter", sans-serif;
 		font-size: 16px;
 		font-weight: 400;
@@ -267,7 +267,7 @@ const _hasChanges = $derived(
 	}
 
 	.edit-description-input::placeholder {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.apps-list-section {
@@ -283,19 +283,19 @@ const _hasChanges = $derived(
 		font-weight: 600;
 		letter-spacing: 0.18em;
 		text-transform: uppercase;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.apps-list {
 		display: flex;
 		flex-direction: column;
-		background-color: hsl(var(--black33));
+		background-color: var(--black33);
 		border-radius: var(--radius-12);
 		overflow: hidden;
 		max-height: 280px;
 		overflow-y: auto;
 		scrollbar-width: thin;
-		scrollbar-color: hsl(var(--white33)) transparent;
+		scrollbar-color: var(--white33) transparent;
 	}
 
 	.app-row {
@@ -303,7 +303,7 @@ const _hasChanges = $derived(
 		align-items: center;
 		justify-content: space-between;
 		padding: 10px 12px;
-		border-bottom: 1px solid hsl(var(--white8));
+		border-bottom: 1px solid var(--white8);
 	}
 
 	.app-row:last-child {
@@ -321,7 +321,7 @@ const _hasChanges = $derived(
 	.app-name {
 		font-size: 15px;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -337,27 +337,27 @@ const _hasChanges = $derived(
 		background: transparent;
 		border: none;
 		border-radius: 8px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		cursor: pointer;
 		transition: color 0.15s ease, background-color 0.15s ease;
 		flex-shrink: 0;
 	}
 
 	.remove-app-btn:hover {
-		color: hsl(var(--rougeColor));
-		background-color: hsl(var(--rougeColor) / 0.1);
+		color: var(--rougeColor);
+		background-color: color-mix(in srgb, var(--rougeColor) 10%, transparent);
 	}
 
 	.empty-apps {
 		padding: 24px;
-		background-color: hsl(var(--black33));
+		background-color: var(--black33);
 		border-radius: var(--radius-12);
 		text-align: center;
 	}
 
 	.empty-apps p {
 		margin: 0;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-size: 14px;
 	}
 
@@ -370,10 +370,10 @@ const _hasChanges = $derived(
 	.delete-button {
 		height: 46px;
 		padding: 0 20px;
-		background-color: hsl(var(--black33));
+		background-color: var(--black33);
 		border: none;
 		border-radius: var(--radius-16);
-		color: hsl(var(--rougeColor));
+		color: var(--rougeColor);
 		font-size: 16px;
 		font-weight: 500;
 		cursor: pointer;
@@ -401,7 +401,7 @@ const _hasChanges = $derived(
 		background: var(--gradient-blurple);
 		border: none;
 		border-radius: var(--radius-16);
-		color: hsl(var(--whiteEnforced));
+		color: var(--whiteEnforced);
 		font-size: 16px;
 		font-weight: 600;
 		cursor: pointer;

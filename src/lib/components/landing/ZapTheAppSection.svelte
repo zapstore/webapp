@@ -56,7 +56,7 @@
         Open Feed
         <ChevronRight
           variant="outline"
-          color="hsl(var(--white33))"
+          color="var(--white33)"
           size={18}
           className="transition-transform group-hover:translate-x-0.5"
         />
@@ -77,12 +77,12 @@
   .feed-bg {
     background: linear-gradient(
       to bottom,
-      hsl(var(--gray33)) 0%,
-      hsl(var(--gray) / 0.08) 100%
+      var(--gray33) 0%,
+      color-mix(in srgb, var(--gray) 8%, transparent) 100%
     );
   }
 
   .feed-container-border {
-    border: var(--border-base) solid hsl(var(--white8));
+    border: var(--border-base) solid var(--white8);
   }
 </style>

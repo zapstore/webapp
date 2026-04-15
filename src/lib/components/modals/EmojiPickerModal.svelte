@@ -120,7 +120,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 			<div class="picker-body">
 				{#if showCustomEmojiLoadingRow}
 					<div class="custom-emoji-loading-banner" role="status" aria-live="polite">
-						<Spinner size={14} color="hsl(var(--white33))" />
+						<Spinner size={14} color="var(--white33)" />
 						<span class="custom-emoji-loading-text">Loading custom emoji...</span>
 					</div>
 				{/if}
@@ -148,7 +148,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	.picker-overlay {
 		position: fixed;
 		inset: 0;
-		z-index: 59;
+		z-index: 109;
 		background: transparent;
 		border: none;
 		margin: 0;
@@ -164,7 +164,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		bottom: 0;
 		left: 0;
 		right: 0;
-		z-index: 60;
+		z-index: 110;
 		display: flex;
 		justify-content: center;
 		pointer-events: none;
@@ -174,9 +174,9 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		width: 100%;
 		max-width: 100%;
 		margin: 0;
-		background: hsl(var(--gray66));
+		background: var(--gray66);
 		border-radius: var(--radius-32) var(--radius-32) 0 0;
-		border: 0.33px solid hsl(var(--white8));
+		border: 0.33px solid var(--white8);
 		border-bottom: none;
 		padding: 12px 12px 0;
 		pointer-events: auto;
@@ -192,7 +192,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 			max-width: 560px;
 			margin-bottom: 16px;
 			border-radius: 24px;
-			border-bottom: 0.33px solid hsl(var(--white8));
+			border-bottom: 0.33px solid var(--white8);
 		}
 	}
 
@@ -207,8 +207,8 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		gap: 10px;
 		height: 40px;
 		padding: 0 12px;
-		background: hsl(var(--black33));
-		border: 0.33px solid hsl(var(--white33));
+		background: var(--black33);
+		border: 0.33px solid var(--white33);
 		border-radius: 16px;
 	}
 
@@ -219,7 +219,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		width: 18px;
 		height: 18px;
 		flex-shrink: 0;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.picker-search-input {
@@ -230,14 +230,14 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		background: none;
 		border: none;
 		outline: none;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-family: 'Inter', sans-serif;
 		font-size: 16px;
 		box-sizing: border-box;
 	}
 
 	.picker-search-input::placeholder {
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-size: 16px;
 	}
 
@@ -251,7 +251,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		padding: 6px 12px;
 		margin-bottom: 6px;
 		box-sizing: border-box;
-		background: hsl(var(--black33));
+		background: var(--black33);
 		border: none;
 		border-radius: 16px;
 		flex-shrink: 0;
@@ -260,7 +260,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	.custom-emoji-loading-text {
 		font-size: 13px;
 		font-weight: 500;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.picker-body {
@@ -269,7 +269,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		overflow-y: auto;
 		padding-bottom: 16px;
 		scrollbar-width: thin;
-		scrollbar-color: hsl(var(--white16)) transparent;
+		scrollbar-color: var(--white16) transparent;
 	}
 
 	.picker-body::-webkit-scrollbar {
@@ -277,7 +277,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	}
 
 	.picker-body::-webkit-scrollbar-thumb {
-		background: hsl(var(--white16));
+		background: var(--white16);
 		border-radius: 2px;
 	}
 
@@ -292,6 +292,6 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		padding: 24px 0;
 		text-align: center;
 		font-size: 14px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 </style>

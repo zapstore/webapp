@@ -430,6 +430,7 @@ const combinedFeed = $derived.by(() => {
                 emojiTags={item.emojiTags}
                 mediaUrls={item.mediaUrls ?? []}
                 openThreadOnMount={item.id === openThreadRootId}
+                expandCommentId={item.id === openThreadRootId ? openCommentId : null}
                 resolveMentionLabel={(pk) => profiles[pk]?.displayName ?? profiles[pk]?.name}
                 appIconUrl={app?.icon}
                 appName={app?.name}
@@ -561,7 +562,7 @@ const combinedFeed = $derived.by(() => {
   .labels-list {
     display: flex;
     flex-direction: column;
-    background: hsl(var(--gray33));
+    background: var(--gray33);
     border-radius: 16px;
     overflow: hidden;
   }
@@ -572,7 +573,7 @@ const combinedFeed = $derived.by(() => {
     justify-content: space-between;
     gap: 12px;
     padding: 12px;
-    border-bottom: 1px solid hsl(var(--white8));
+    border-bottom: 1px solid var(--white8);
   }
 
   .label-entry:last-child {

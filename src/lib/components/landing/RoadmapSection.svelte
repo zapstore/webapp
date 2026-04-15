@@ -103,13 +103,13 @@
 		<!-- Left gradient fade -->
 		<div
 			class="hidden md:block absolute left-0 top-0 bottom-0 w-24 sm:w-32 md:w-48 lg:w-64 xl:w-80 z-30 pointer-events-none"
-			style="background: linear-gradient(to right, hsl(var(--black)) 0%, hsl(var(--black) / 0.95) 20%, hsl(var(--black) / 0.7) 50%, transparent 100%);"
+			style="background: linear-gradient(to right, var(--black) 0%, color-mix(in srgb, var(--black) 95%, transparent) 20%, color-mix(in srgb, var(--black) 70%, transparent) 50%, transparent 100%);"
 		></div>
 
 		<!-- Right gradient fade -->
 		<div
 			class="hidden md:block absolute right-0 top-0 bottom-0 w-24 sm:w-32 md:w-48 lg:w-64 xl:w-80 z-30 pointer-events-none"
-			style="background: linear-gradient(to left, hsl(var(--black)) 0%, hsl(var(--black) / 0.95) 20%, hsl(var(--black) / 0.7) 50%, transparent 100%);"
+			style="background: linear-gradient(to left, var(--black) 0%, color-mix(in srgb, var(--black) 95%, transparent) 20%, color-mix(in srgb, var(--black) 70%, transparent) 50%, transparent 100%);"
 		></div>
 
 		<!-- Scrolling container -->
@@ -141,8 +141,8 @@
 		width: 262px;
 		min-height: 160px;
 		padding: 1rem 1.25rem 0.9rem;
-		background: hsl(var(--gray44));
-		border: 1px solid hsl(var(--border) / 0.4);
+		background: var(--gray44);
+		border: 1px solid color-mix(in srgb, var(--white16) 40%, transparent);
 		border-radius: 1.25rem;
 		display: flex;
 		flex-direction: column;
@@ -166,13 +166,13 @@
 	.task-title {
 		font-size: 1.0625rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		line-height: 1.3;
 	}
 
 	.task-description {
 		font-size: 0.875rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		line-height: 1.6;
 		flex: 1;
 	}
@@ -182,7 +182,7 @@
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		margin-top: auto;
 		padding-top: 0.35rem;
 	}

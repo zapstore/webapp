@@ -39,10 +39,10 @@
 </button>
 
 <style>
-  .forum-post { padding: 1rem; border-radius: 12px; background: hsl(var(--gray44)); cursor: pointer; border: none; width: 100%; text-align: left; }
+  .forum-post { padding: 1rem; border-radius: 12px; background: var(--gray44); cursor: pointer; border: none; width: 100%; text-align: left; }
   .post-header { display: flex; gap: .5rem; align-items: center; margin-bottom: .75rem; }
   .post-meta { display: flex; flex-direction: column; }
   .author { font-weight: 600; }
   .labels { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .5rem; }
-  .labels span { font-size: .75rem; color: hsl(var(--white66)); }
+  .labels span { font-size: .75rem; color: var(--white66); }
 </style>

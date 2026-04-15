@@ -181,8 +181,8 @@ async function _clearAllLocalCaches() {
 		justify-content: center;
 		gap: 0.5rem;
 		padding: 0.75rem 1rem;
-		background: hsl(var(--goldColor33));
-		color: hsl(var(--goldColor));
+		background: var(--goldColor33);
+		color: var(--goldColor);
 		font-size: 0.875rem;
 		font-weight: 500;
 		flex-shrink: 0;

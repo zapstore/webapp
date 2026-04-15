@@ -311,7 +311,7 @@ $effect(() => {
           disabled={!invoice}
         >
           {#if copied}
-            <Check size={18} class="flex-shrink-0" style="color: hsl(var(--blurpleColor));" />
+            <Check size={18} class="flex-shrink-0" style="color: var(--blurpleColor);" />
             <span>Copied!</span>
           {:else}
             <Copy size={18} class="flex-shrink-0" />
@@ -336,7 +336,7 @@ $effect(() => {
     {:else if step === "success"}
       <div class="success-view">
         <div class="success-icon">
-          <CheckCircle size={48} style="color: hsl(var(--blurpleColor));" />
+          <CheckCircle size={48} style="color: var(--blurpleColor);" />
         </div>
         <h2 class="modal-title success-title text-display text-foreground text-center">Zap Sent!</h2>
         <p class="success-message">{formatAmount(Math.round(zapValue))} zapped successfully</p>
@@ -368,10 +368,10 @@ $effect(() => {
     gap: 8px;
     padding: 12px;
     margin-bottom: 16px;
-    background: hsl(var(--rougeColor) / 0.1);
-    border: 0.33px solid hsl(var(--rougeColor) / 0.4);
+    background: color-mix(in srgb, var(--rougeColor) 10%, transparent);
+    border: 0.33px solid color-mix(in srgb, var(--rougeColor) 40%, transparent);
     border-radius: var(--radius-12);
-    color: hsl(var(--rougeColor));
+    color: var(--rougeColor);
     font-size: 14px;
   }
   .invoice-view {
@@ -382,7 +382,7 @@ $effect(() => {
   }
   .invoice-title {
     font-size: 1.875rem;
-    color: hsl(var(--white));
+    color: var(--white);
     margin: 0 0 8px;
   }
   .invoice-qr-block {
@@ -391,7 +391,7 @@ $effect(() => {
   .invoice-qr-skeleton {
     width: 200px;
     height: 200px;
-    background: hsl(var(--white16));
+    background: var(--white16);
     border-radius: 12px;
     animation: invoice-skeleton-pulse 1.2s ease-in-out infinite;
   }
@@ -404,7 +404,7 @@ $effect(() => {
     padding: 8px;
     background: white;
     border-radius: 12px;
-    border: 1px solid hsl(var(--border) / 0.4);
+    border: 1px solid color-mix(in srgb, var(--white16) 40%, transparent);
     transition: box-shadow 0.15s ease;
   }
   .invoice-qr-link:hover {
@@ -423,13 +423,13 @@ $effect(() => {
     padding: 10px 14px;
     background: transparent;
     border: none;
-    color: hsl(var(--white66));
+    color: var(--white66);
     font-size: 14px;
     cursor: pointer;
     transition: color 0.15s ease;
   }
   .copy-invoice-btn:hover:not(:disabled) {
-    color: hsl(var(--white));
+    color: var(--white);
   }
   .copy-invoice-btn:disabled {
     opacity: 0.6;
@@ -444,17 +444,17 @@ $effect(() => {
   }
   .invoice-back-btn {
     padding: 12px 16px;
-    background: hsl(var(--black33));
+    background: var(--black33);
     border: none;
     border-radius: var(--radius-12);
-    color: hsl(var(--white66));
+    color: var(--white66);
     font-size: 14px;
     cursor: pointer;
     transition: color 0.15s ease, background-color 0.15s ease;
   }
   .invoice-back-btn:hover {
-    color: hsl(var(--white));
-    background: hsl(var(--white16));
+    color: var(--white);
+    background: var(--white16);
   }
   .invoice-waiting-btn {
     flex: 1;
@@ -463,10 +463,10 @@ $effect(() => {
     justify-content: center;
     gap: 8px;
     padding: 12px 16px;
-    background: hsl(var(--blurpleColor33));
+    background: var(--blurpleColor33);
     border: none;
     border-radius: var(--radius-12);
-    color: hsl(var(--white66));
+    color: var(--white66);
     font-size: 14px;
     cursor: not-allowed;
   }
@@ -477,10 +477,10 @@ $effect(() => {
     justify-content: center;
     gap: 8px;
     padding: 12px 16px;
-    background: hsl(var(--blurpleColor));
+    background: var(--blurpleColor);
     border: none;
     border-radius: var(--radius-12);
-    color: hsl(var(--whiteEnforced));
+    color: var(--whiteEnforced);
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
@@ -502,18 +502,18 @@ $effect(() => {
     justify-content: center;
     width: 80px;
     height: 80px;
-    background: hsl(var(--blurpleColor) / 0.15);
+    background: color-mix(in srgb, var(--blurpleColor) 15%, transparent);
     border-radius: 50%;
     margin-bottom: 16px;
   }
   .success-title {
     font-size: 1.875rem;
-    color: hsl(var(--blurpleColor));
+    color: var(--blurpleColor);
     margin: 0 0 8px;
   }
   .success-message {
     font-size: 14px;
-    color: hsl(var(--white66));
+    color: var(--white66);
     margin: 0;
   }
   :global(.animate-spin) {

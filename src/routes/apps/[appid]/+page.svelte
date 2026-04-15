@@ -953,7 +953,7 @@
 				<div class="app-name-row flex items-start gap-3 mb-2 sm:mb-3">
 					<h1
 						class="app-name text-[1.5rem] sm:text-4xl font-black min-w-0"
-						style="color: hsl(var(--white));"
+						style="color: var(--white);"
 					>
 						{app.name}
 					</h1>
@@ -970,7 +970,7 @@
 								</svg>
 								<span
 									class="platform-text text-sm whitespace-nowrap"
-									style="color: hsl(var(--white66));"
+									style="color: var(--white66);"
 								>
 									{platform.charAt(0).toUpperCase() + platform.slice(1)}
 								</span>
@@ -1061,7 +1061,7 @@
 					onclick={() => (securityModalOpen = true)}
 				>
 					<div class="panel-header">
-						<span class="text-base font-semibold" style="color: hsl(var(--white));"
+						<span class="text-base font-semibold" style="color: var(--white);"
 							>Security</span
 						>
 					</div>
@@ -1069,7 +1069,7 @@
 						<!-- 1. Published by Developer (check) or Published by Indexer (line) -->
 						<div
 							class="panel-list-item flex items-center gap-2"
-							style="color: hsl(var(--white66)); opacity: 1; transform: scale(1); transform-origin: left;"
+							style="color: var(--white66); opacity: 1; transform: scale(1); transform-origin: left;"
 						>
 							{#if publishedByDeveloper}
 								<svg
@@ -1082,7 +1082,7 @@
 								>
 									<path
 										d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z"
-										stroke="hsl(var(--blurpleColor))"
+										stroke="var(--blurpleColor)"
 										stroke-width="2.8"
 										stroke-linecap="round"
 										stroke-linejoin="round"
@@ -1097,7 +1097,7 @@
 						<!-- 2. Open source (check) or Closed-source (line) — step down -->
 						<div
 							class="panel-list-item flex items-center gap-2"
-							style="color: hsl(var(--white66)); opacity: 0.78; transform: scale(0.96); transform-origin: left;"
+							style="color: var(--white66); opacity: 0.78; transform: scale(0.96); transform-origin: left;"
 						>
 							{#if hasRepository}
 								<svg
@@ -1110,7 +1110,7 @@
 								>
 									<path
 										d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z"
-										stroke="hsl(var(--blurpleColor))"
+										stroke="var(--blurpleColor)"
 										stroke-width="2.8"
 										stroke-linecap="round"
 										stroke-linejoin="round"
@@ -1125,7 +1125,7 @@
 						<!-- 3. Trusted Catalog — step down again -->
 						<div
 							class="panel-list-item panel-list-item-last flex items-center gap-2"
-							style="color: hsl(var(--white66)); opacity: 0.56; transform: scale(0.92); transform-origin: left;"
+							style="color: var(--white66); opacity: 0.56; transform: scale(0.92); transform-origin: left;"
 						>
 							<svg
 								class="security-check flex-shrink-0"
@@ -1137,7 +1137,7 @@
 							>
 								<path
 									d="M6.2 11.2L0.7 5.7L6.2 10.95L16.7 0.7L6.2 11.2Z"
-									stroke="hsl(var(--blurpleColor))"
+									stroke="var(--blurpleColor)"
 									stroke-width="2.8"
 									stroke-linecap="round"
 									stroke-linejoin="round"
@@ -1155,15 +1155,15 @@
 					onclick={() => (releasesModalOpen = true)}
 				>
 					<div class="panel-header">
-						<span class="text-base font-semibold" style="color: hsl(var(--white));"
+						<span class="text-base font-semibold" style="color: var(--white);"
 							>Releases</span
 						>
 					</div>
 					<div class="panel-list flex flex-col">
 						{#if releasesLoading}
-							<p class="text-sm" style="color: hsl(var(--white33));">Loading releases...</p>
+							<p class="text-sm" style="color: var(--white33);">Loading releases...</p>
 						{:else if releases.length === 0}
-							<p class="text-sm" style="color: hsl(var(--white33));">No releases found.</p>
+							<p class="text-sm" style="color: var(--white33);">No releases found.</p>
 						{:else}
 							{#each releases.slice(0, 3) as release, i (release.id ?? `release-${i}`)}
 								{@const preview = releaseNotesPreview(release.notes)}
@@ -1175,13 +1175,13 @@
 								>
 									<span
 										class="text-sm font-medium flex-shrink-0"
-										style="color: hsl(var(--white33));"
+										style="color: var(--white33);"
 									>
 										{trimVersion(release.version)}
 									</span>
 									<span
 										class="text-sm truncate"
-										style="color: hsl(var(--white66)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+										style="color: var(--white66); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
 									>
 										{preview || 'No notes'}
 									</span>
@@ -1406,11 +1406,11 @@
 													variant="outline"
 													size={14}
 													strokeWidth={2.8}
-													color="hsl(var(--blurpleLightColor))"
+													color="var(--blurpleLightColor)"
 												/></span
 											>
 										{:else}
-											<Copy variant="outline" size={16} color="hsl(var(--white66))" />
+											<Copy variant="outline" size={16} color="var(--white66)" />
 										{/if}
 									</button>
 								{/if}
@@ -1427,7 +1427,7 @@
 							{@const notesExpanded = expandedReleaseId === releaseId}
 							<div class="release-panel">
 								<div class="release-panel-row release-panel-head">
-									<span class="release-panel-version" style="color: hsl(var(--white));"
+									<span class="release-panel-version" style="color: var(--white);"
 										>{trimVersion(release.version)}</span
 									>
 									<Timestamp
@@ -1495,7 +1495,7 @@
 								>
 									<path
 										d="M8 17L2 11L8 16.5L22 3L8 17Z"
-										stroke="hsl(var(--blurpleColor))"
+										stroke="var(--blurpleColor)"
 										stroke-width="2.8"
 										stroke-linecap="round"
 										stroke-linejoin="round"
@@ -1548,7 +1548,7 @@
 								>
 									<path
 										d="M8 17L2 11L8 16.5L22 3L8 17Z"
-										stroke="hsl(var(--blurpleColor))"
+										stroke="var(--blurpleColor)"
 										stroke-width="2.8"
 										stroke-linecap="round"
 										stroke-linejoin="round"
@@ -1599,7 +1599,7 @@
 							>
 								<path
 									d="M8 17L2 11L8 16.5L22 3L8 17Z"
-									stroke="hsl(var(--blurpleColor))"
+									stroke="var(--blurpleColor)"
 									stroke-width="2.8"
 									stroke-linecap="round"
 									stroke-linejoin="round"
@@ -1773,14 +1773,14 @@
 	.detail-publisher-name {
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
 	:global(.detail-publisher-timestamp) {
-		color: hsl(var(--white33)) !important;
+		color: var(--white33) !important;
 		flex-shrink: 0;
 	}
 
@@ -1826,7 +1826,7 @@
 	.security-modal-divider {
 		width: 100%;
 		height: 1px;
-		background-color: hsl(var(--white16));
+		background-color: var(--white16);
 		flex-shrink: 0;
 	}
 
@@ -1854,7 +1854,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		border-radius: 12px;
 		overflow: visible;
 	}
@@ -1874,7 +1874,7 @@
 		width: 20px;
 		height: 2.8px;
 		min-height: 2.8px;
-		background-color: hsl(var(--white33));
+		background-color: var(--white33);
 		border-radius: 1.4px;
 	}
 
@@ -1886,7 +1886,7 @@
 	.security-item-title {
 		font-size: 1.125rem;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0 0 0.5rem 0;
 	}
 
@@ -1894,7 +1894,7 @@
 		margin: 0 0 0.75rem 0;
 		font-size: 0.875rem;
 		line-height: 1.5;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.security-profile-row {
@@ -1907,7 +1907,7 @@
 	.security-inline-label {
 		flex-shrink: 0;
 		padding-right: 0.5rem;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.security-profile :global(button),
@@ -1928,18 +1928,18 @@
 
 	.security-profile-name {
 		font-size: 0.875rem;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-weight: 500;
 	}
 
 	.security-profile-muted {
 		font-size: 0.875rem;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.security-profile-link {
 		font-size: 0.875rem;
-		color: hsl(var(--blurpleLightColor));
+		color: var(--blurpleLightColor);
 		text-decoration: none;
 		font-weight: 500;
 		word-break: break-all;
@@ -1967,7 +1967,7 @@
 	}
 
 	.info-panel {
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		border-radius: 16px;
 		padding: 8px 16px 10px;
 		cursor: pointer;
@@ -2097,8 +2097,8 @@
 		width: 80px;
 		aspect-ratio: 9 / 19.5;
 		border-radius: 12px;
-		background-color: hsl(var(--gray33));
-		border: 0.33px solid hsl(var(--white16));
+		background-color: var(--gray33);
+		border: 0.33px solid var(--white16);
 	}
 
 	@media (min-width: 640px) {
@@ -2144,7 +2144,7 @@
 
 	.app-description {
 		line-height: 1.5;
-		color: hsl(var(--white) / 0.85);
+		color: color-mix(in srgb, var(--white) 85%, transparent);
 	}
 
 	.app-description :global(p) {
@@ -2182,7 +2182,7 @@
 		left: 0;
 		right: 0;
 		height: 120px;
-		background: linear-gradient(to bottom, transparent, hsl(var(--black)));
+		background: linear-gradient(to bottom, transparent, var(--black));
 		pointer-events: none;
 	}
 
@@ -2193,14 +2193,14 @@
 		left: 0;
 		height: 32px;
 		padding: 0 14px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		backdrop-filter: blur(12px);
 		-webkit-backdrop-filter: blur(12px);
 		border: none;
 		border-radius: 9999px;
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		cursor: pointer;
 		transition: transform 0.15s ease;
 	}
@@ -2224,7 +2224,7 @@
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.18em;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		margin: 0;
 		padding: 12px 16px 12px;
 	}
@@ -2259,11 +2259,11 @@
 	.releases-detail-label {
 		flex-shrink: 0;
 		width: 6.5rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.releases-naddr-row .releases-naddr-text {
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.releases-detail-value {
@@ -2292,17 +2292,17 @@
 		background: none;
 		border: none;
 		cursor: pointer;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		transition: color 0.15s ease;
 	}
 
 	.releases-naddr-copy:hover {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.releases-naddr-copy-check {
 		display: flex;
-		color: hsl(var(--blurpleLightColor));
+		color: var(--blurpleLightColor);
 		animation: releasesPopIn 0.3s ease-out;
 	}
 
@@ -2319,14 +2319,14 @@
 	}
 
 	.meta-muted {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.releases-modal-divider {
 		flex-shrink: 0;
 		width: 100%;
 		height: 1px;
-		background-color: hsl(var(--white16));
+		background-color: var(--white16);
 	}
 
 	.releases-modal-list {
@@ -2343,7 +2343,7 @@
 	}
 
 	.release-panel {
-		background: hsl(var(--white4));
+		background: var(--white4);
 		border-radius: 12px;
 		padding: 0 0 12px 0;
 		overflow: visible;
@@ -2383,7 +2383,7 @@
 
 	.release-panel-divider {
 		height: 1px;
-		background-color: hsl(var(--white16));
+		background-color: var(--white16);
 		width: 100%;
 	}
 
@@ -2394,7 +2394,7 @@
 	}
 
 	.meta-link {
-		color: hsl(var(--blurpleLightColor));
+		color: var(--blurpleLightColor);
 		text-decoration: none;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -2429,7 +2429,7 @@
 	.release-notes {
 		font-size: 0.875rem;
 		line-height: 1.5;
-		color: hsl(var(--white) / 0.9);
+		color: color-mix(in srgb, var(--white) 90%, transparent);
 		margin: 0;
 		padding-top: 8px;
 	}
@@ -2469,14 +2469,14 @@
 		font-size: 0.8125rem;
 		padding: 0.125em 0.3em;
 		border-radius: 4px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	.release-notes :global(pre) {
 		font-size: 0.8125rem;
 		padding: 0.75em 1em;
 		border-radius: 8px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		overflow-x: auto;
 	}
 
@@ -2502,7 +2502,7 @@
 		border-radius: 9999px;
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		cursor: pointer;
 		transition: transform 0.15s ease;
 	}
@@ -2532,7 +2532,7 @@
 		height: 32px;
 		padding: 0 0.875rem 0 0.5rem;
 		border-radius: 9999px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		box-sizing: border-box;
 	}
 
@@ -2540,7 +2540,7 @@
 		width: 1.25rem;
 		height: 1.25rem;
 		flex-shrink: 0;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.scrollbar-hide {
@@ -2569,7 +2569,7 @@
 		z-index: 10;
 		padding: 8px;
 		border-radius: 50%;
-		background-color: hsl(var(--white16));
+		background-color: var(--white16);
 		color: white;
 		border: none;
 		cursor: pointer;
@@ -2577,7 +2577,7 @@
 	}
 
 	.carousel-close-btn:hover {
-		background-color: hsl(var(--white33));
+		background-color: var(--white33);
 	}
 
 	.carousel-nav-btn {
@@ -2589,7 +2589,7 @@
 		align-items: center;
 		justify-content: center;
 		border-radius: 50%;
-		background-color: hsl(var(--white16));
+		background-color: var(--white16);
 		color: white;
 		border: none;
 		cursor: pointer;
@@ -2597,7 +2597,7 @@
 	}
 
 	.carousel-nav-btn:hover {
-		background-color: hsl(var(--white33));
+		background-color: var(--white33);
 	}
 
 	.carousel-nav-prev {
@@ -2625,10 +2625,10 @@
 		max-width: 100%;
 		max-height: calc(90vh - 48px);
 		border-radius: 8px;
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		overflow: hidden;
-		background-color: hsl(var(--gray33));
-		box-shadow: 0 0 80px 20px hsl(var(--black33));
+		background-color: var(--gray33);
+		box-shadow: 0 0 80px 20px var(--black33);
 	}
 
 	@media (min-width: 768px) {
@@ -2666,14 +2666,14 @@
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		background-color: hsl(var(--white33));
+		background-color: var(--white33);
 		border: none;
 		cursor: pointer;
 		transition: all 0.15s ease;
 	}
 
 	.carousel-dot:hover {
-		background-color: hsl(var(--white66));
+		background-color: var(--white66);
 	}
 
 	.carousel-dot.active {

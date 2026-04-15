@@ -57,7 +57,7 @@ function formatAmount(val) {
           <Timestamp {timestamp} size="xs" />
         {:else}
           <span class="publish-spinner" aria-label="Confirming zap">
-            <Loader2 class="h-3.5 w-3.5 animate-spin" style="color: hsl(var(--blurpleLightColor));" />
+            <Loader2 class="h-3.5 w-3.5 animate-spin" style="color: var(--blurpleLightColor);" />
           </span>
         {/if}
       </div>
@@ -173,7 +173,7 @@ function formatAmount(val) {
     font-weight: 500;
     font-size: 1rem;
     line-height: 1.2;
-    color: hsl(var(--white));
+    color: var(--white);
   }
 
   .author-name {
@@ -196,7 +196,7 @@ function formatAmount(val) {
   .bubble-content {
     font-size: 0.9375rem;
     line-height: 1.5;
-    color: hsl(var(--white) / 0.85);
+    color: color-mix(in srgb, var(--white) 85%, transparent);
     margin-top: 4px;
   }
 
@@ -209,7 +209,7 @@ function formatAmount(val) {
   }
 
   .bubble-content :global(a) {
-    color: hsl(var(--blurpleColor));
+    color: var(--blurpleColor);
     text-decoration: none;
   }
 

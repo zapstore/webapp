@@ -557,7 +557,7 @@
 				<span class="mobile-chevron" class:open={mobileMenuOpen}>
 					<ChevronDownIcon
 						variant="outline"
-						color="hsl(var(--white33))"
+						color="var(--white33)"
 						size={14}
 						strokeWidth={1.4}
 					/>
@@ -569,7 +569,7 @@
 						<nav class="sidebar-nav">
 							{#each navItems as item (item.id)}
 								{@const isActive = activeNav === item.id && selectedApp === null}
-								{@const iconColor = isActive ? 'hsl(var(--white66))' : 'hsl(var(--white33))'}
+								{@const iconColor = isActive ? 'var(--white66)' : 'var(--white33)'}
 								<button class="nav-item" class:active={isActive} onclick={() => selectNav(item.id)}>
 									<span class="icon-wrap">
 										{#if item.id === 'insights'}
@@ -635,7 +635,7 @@
 			<nav class="sidebar-nav">
 				{#each navItems as item (item.id)}
 					{@const isActive = activeNav === item.id && selectedApp === null}
-					{@const iconColor = isActive ? 'hsl(var(--white66))' : 'hsl(var(--white33))'}
+					{@const iconColor = isActive ? 'var(--white66)' : 'var(--white33)'}
 					<button class="nav-item" class:active={isActive} onclick={() => selectNav(item.id)}>
 						<span class="icon-wrap">
 							{#if item.id === 'insights'}
@@ -722,7 +722,7 @@
 				<section class="content-section">
 					<div class="section-head">
 						<div class="dl-meta">
-							<DownloadIcon size={24} color="hsl(var(--blurpleColor66))" />
+							<DownloadIcon size={24} color="var(--blurpleColor66)" />
 							{#if !DUMMY_MODE && dlChartLoading}
 								<div class="studio-metric-count-skel">
 									<SkeletonLoader />
@@ -737,7 +737,7 @@
 								<span class="chevron-wrap">
 									<ChevronDownIcon
 										variant="outline"
-										color="hsl(var(--white16))"
+										color="var(--white16)"
 										size={12}
 										strokeWidth={1.4}
 									/>
@@ -780,7 +780,7 @@
 				<section class="content-section">
 					<div class="section-head">
 						<div class="dl-meta">
-							<ZapIcon size={24} color="hsl(var(--goldColor66))" />
+							<ZapIcon size={24} color="var(--goldColor66)" />
 							{#if !DUMMY_MODE && zapChartLoading}
 								<div class="studio-metric-count-skel">
 									<SkeletonLoader />
@@ -795,7 +795,7 @@
 								<span class="chevron-wrap">
 									<ChevronDownIcon
 										variant="outline"
-										color="hsl(var(--white16))"
+										color="var(--white16)"
 										size={12}
 										strokeWidth={1.4}
 									/>
@@ -854,7 +854,7 @@
 								<span class="chevron-wrap">
 									<ChevronDownIcon
 										variant="outline"
-										color="hsl(var(--white16))"
+										color="var(--white16)"
 										size={12}
 										strokeWidth={1.4}
 									/>
@@ -882,12 +882,12 @@
 						<DownloadChart
 							chartId="imp"
 							dayCount={DUMMY_MODE ? STUDIO_DAYS : impInsightDays}
-							color0="hsl(var(--white33))"
-							color1="hsl(var(--white66))"
-							glowColor="hsl(var(--white33))"
+							color0="var(--white33)"
+							color1="var(--white66)"
+							glowColor="var(--white33)"
 							glowOpacity={0.16}
-							dotColor="hsl(var(--white66))"
-							totalDotBackdropFill="hsl(var(--black))"
+							dotColor="var(--white66)"
+							totalDotBackdropFill="var(--black)"
 							badgeBg="rgba(52, 52, 58, 0.94)"
 							appData={impAppData}
 							maxPerAppLines={2}
@@ -909,7 +909,7 @@
 								</span>
 								<span class="country-legend-item">
 									<span class="country-legend-icon-wrap">
-										<DownloadIcon size={14} color="hsl(var(--blurpleColor66))" strokeWidth={1.4} />
+										<DownloadIcon size={14} color="var(--blurpleColor66)" strokeWidth={1.4} />
 									</span>
 									<span class="country-legend-text">Downloads</span>
 								</span>
@@ -924,7 +924,7 @@
 								<span class="chevron-wrap">
 									<ChevronDownIcon
 										variant="outline"
-										color="hsl(var(--white16))"
+										color="var(--white16)"
 										size={12}
 										strokeWidth={1.4}
 									/>
@@ -965,8 +965,8 @@
 		height: calc(100dvh - 64px);
 		min-height: 0;
 		overflow: hidden;
-		border-left: 1px solid hsl(var(--white16));
-		border-right: 1px solid hsl(var(--white16));
+		border-left: 1px solid var(--white16);
+		border-right: 1px solid var(--white16);
 		margin-left: -16px;
 		margin-right: -16px;
 	}
@@ -1014,7 +1014,7 @@
 		border-radius: 8px;
 		border: none;
 		background: transparent;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		font-size: 14px;
 		font-weight: 500;
 		cursor: pointer;
@@ -1026,12 +1026,12 @@
 	}
 
 	.nav-item:hover:not(.active) {
-		background: hsl(var(--white4));
+		background: var(--white4);
 	}
 
 	.nav-item.active {
-		color: hsl(var(--white));
-		background: hsl(var(--white8));
+		color: var(--white);
+		background: var(--white8);
 	}
 
 	/* Fixed-width icon container for consistent alignment */
@@ -1069,7 +1069,7 @@
 	}
 
 	.apps-eyebrow {
-		color: hsl(var(--white33));
+		color: var(--white33);
 		display: block;
 		min-width: 0;
 	}
@@ -1080,7 +1080,7 @@
 		font-weight: 500;
 		letter-spacing: 0.06em;
 		font-variant-numeric: tabular-nums;
-		color: hsl(var(--blurpleColor66));
+		color: var(--blurpleColor66);
 	}
 
 	.app-img {
@@ -1104,13 +1104,13 @@
 		padding-top: 16px;
 		padding-left: 12px;
 		padding-right: 12px;
-		border-top: 1px solid hsl(var(--white16));
+		border-top: 1px solid var(--white16);
 	}
 
 	.section-eyebrow {
 		padding: 0 10px;
 		margin-bottom: 4px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		display: block;
 	}
 
@@ -1151,9 +1151,9 @@
 			padding: 10px 16px;
 			background: transparent;
 			border: none;
-			border-bottom: 1px solid hsl(var(--white16));
+			border-bottom: 1px solid var(--white16);
 			cursor: pointer;
-			color: hsl(var(--white));
+			color: var(--white);
 		}
 
 		.mobile-nav-label {
@@ -1181,9 +1181,9 @@
 			bottom: 0;
 			display: flex;
 			flex-direction: column;
-			background: hsl(var(--black));
-			border-top: 1px solid hsl(var(--white16));
-			box-shadow: 0 12px 40px hsl(var(--black) / 0.35);
+			background: var(--black);
+			border-top: 1px solid var(--white16);
+			box-shadow: 0 12px 40px color-mix(in srgb, var(--black) 35%, transparent);
 			overflow: hidden;
 			overflow-x: hidden;
 			max-width: 100%;
@@ -1207,7 +1207,7 @@
 			margin: 0;
 			padding: 0;
 			border: none;
-			background: hsl(var(--black) / 0.35);
+			background: color-mix(in srgb, var(--black) 35%, transparent);
 			cursor: default;
 		}
 
@@ -1238,7 +1238,7 @@
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		border-left: 1px solid hsl(var(--white16));
+		border-left: 1px solid var(--white16);
 		position: relative;
 		transform: translateZ(0);
 	}
@@ -1284,7 +1284,7 @@
 	.content-section {
 		position: relative;
 		padding: 18px 26px 26px;
-		border-bottom: 1px solid hsl(var(--white16));
+		border-bottom: 1px solid var(--white16);
 	}
 
 	/* ── Section header — floats over the graph ───────────────────────────── */
@@ -1311,7 +1311,7 @@
 	.dl-count {
 		font-size: 32px;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		line-height: 1;
 		letter-spacing: -0.02em;
 	}
@@ -1336,12 +1336,12 @@
 	}
 
 	.timerange-btn:hover {
-		background: hsl(var(--white8));
+		background: var(--white8);
 	}
 
 	/* .eyebrow-label global class handles size/weight/spacing/uppercase */
 	.tr-label {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.chevron-wrap {
@@ -1355,8 +1355,8 @@
 		top: calc(100% + 4px);
 		right: 0;
 		min-width: 110px;
-		background: hsl(var(--black));
-		border: 1px solid hsl(var(--white16));
+		background: var(--black);
+		border: 1px solid var(--white16);
 		border-radius: 8px;
 		padding: 4px;
 		display: flex;
@@ -1375,7 +1375,7 @@
 		border: none;
 		border-radius: 6px;
 		font-size: 13px;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		cursor: pointer;
 		transition:
 			background 0.12s,
@@ -1383,13 +1383,13 @@
 	}
 
 	.tr-option:hover {
-		background: hsl(var(--white8));
-		color: hsl(var(--white));
+		background: var(--white8);
+		color: var(--white);
 	}
 
 	.tr-option.tr-selected {
-		color: hsl(var(--white));
-		background: hsl(var(--white8));
+		color: var(--white);
+		background: var(--white8);
 	}
 
 	/* ── Insights header: skeleton for count only (~32px cap height) ───────── */
@@ -1449,11 +1449,11 @@
 	.country-legend-text {
 		font-size: 12px;
 		font-weight: 500;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.country-section-title {
-		color: hsl(var(--white66));
+		color: var(--white66);
 		flex-shrink: 0;
 	}
 

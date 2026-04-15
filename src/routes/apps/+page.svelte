@@ -511,7 +511,7 @@
 
 						<a href="/stacks" class="stacks-see-more-column" aria-label="See all stacks">
 							<span class="stacks-see-more-label">See more</span>
-							<ChevronRight size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
+							<ChevronRight size={18} strokeWidth={1.4} color="var(--white33)" />
 						</a>
 					</div>
 				</div>
@@ -524,11 +524,11 @@
 
 				{#if stacksScrolledRight}
 					<button class="scroll-btn scroll-btn-left" onclick={() => scrollStacks(-1)} aria-label="Scroll left">
-						<ChevronLeft size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+						<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
 					</button>
 				{/if}
 				<button class="scroll-btn scroll-btn-right" onclick={() => scrollStacks(1)} aria-label="Scroll right">
-					<ChevronRight size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+					<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
 				</button>
 			</div>
 		</div>
@@ -589,11 +589,11 @@
 
 				{#if appsScrolledRight}
 					<button class="scroll-btn scroll-btn-left" onclick={() => scrollApps(-1)} aria-label="Scroll left">
-						<ChevronLeft size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+						<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
 					</button>
 				{/if}
 				<button class="scroll-btn scroll-btn-right" onclick={() => scrollApps(1)} aria-label="Scroll right">
-					<ChevronRight size={14} strokeWidth={1.4} color="hsl(var(--white66))" />
+					<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
 				</button>
 			</div>
 		</div>
@@ -682,13 +682,13 @@
 	.apps-categories-scroll-wrap .apps-cat-fade.scroll-fade-left {
 		left: -0.75rem;
 		width: 0.75rem;
-		background: linear-gradient(to right, hsl(var(--black)), transparent);
+		background: linear-gradient(to right, var(--black), transparent);
 	}
 
 	.apps-categories-scroll-wrap .apps-cat-fade.scroll-fade-right {
 		right: -0.75rem;
 		width: 0.75rem;
-		background: linear-gradient(to left, hsl(var(--black)), transparent);
+		background: linear-gradient(to left, var(--black), transparent);
 	}
 
 	@media (min-width: 640px) {
@@ -726,7 +726,7 @@
 		padding: 0 16px;
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		text-decoration: none;
 		border-radius: 9999px;
 		transition: background-color 0.15s ease, color 0.15s ease;
@@ -734,8 +734,8 @@
 	}
 
 	.see-more-link:hover {
-		background-color: hsl(var(--white8));
-		color: hsl(var(--white66));
+		background-color: var(--white8);
+		color: var(--white66);
 	}
 
 	/* Apps section: extra margin after header */
@@ -770,7 +770,7 @@
 			height: 38px;
 			border-radius: 50%;
 			border: none;
-			background: hsl(var(--white16));
+			background: var(--white16);
 			backdrop-filter: blur(var(--blur-sm));
 			-webkit-backdrop-filter: blur(var(--blur-sm));
 			cursor: pointer;
@@ -847,13 +847,13 @@
 	.scroll-fade-left {
 		left: -1rem;
 		width: 1rem;
-		background: linear-gradient(to right, hsl(var(--black)), transparent);
+		background: linear-gradient(to right, var(--black), transparent);
 	}
 
 	.scroll-fade-right {
 		right: -1rem;
 		width: 1rem;
-		background: linear-gradient(to left, hsl(var(--black)), transparent);
+		background: linear-gradient(to left, var(--black), transparent);
 	}
 
 	@media (min-width: 640px) {
@@ -918,15 +918,15 @@
 		justify-content: center;
 		gap: 6px;
 		text-decoration: none;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		border-radius: 12px;
 		transition: color 0.15s ease, background-color 0.15s ease;
 		padding: 8px;
 	}
 
 	.stacks-see-more-column:hover {
-		color: hsl(var(--white66));
-		background-color: hsl(var(--white8));
+		color: var(--white66);
+		background-color: var(--white8);
 	}
 
 	.stacks-see-more-label {
@@ -938,8 +938,8 @@
 	.spinner {
 		width: 20px;
 		height: 20px;
-		border: 2px solid hsl(var(--white33));
-		border-top-color: hsl(var(--white));
+		border: 2px solid var(--white33);
+		border-top-color: var(--white);
 		border-radius: 50%;
 		animation: spin 0.8s linear infinite;
 	}
@@ -997,7 +997,7 @@
 	.skeleton-desc {
 		height: 10px;
 		border-radius: 12px;
-		background: hsl(var(--gray33));
+		background: var(--gray33);
 	}
 
 	.skeleton-desc-1 { width: 180px; }
@@ -1056,7 +1056,7 @@
 	.skeleton-stack-desc {
 		height: 10px;
 		border-radius: 12px;
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 	}
 
 	.skeleton-stack-desc-1 { width: 160px; }
@@ -1080,7 +1080,7 @@
 		width: 60px;
 		height: 12px;
 		border-radius: 12px;
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 	}
 
 	@media (min-width: 768px) {

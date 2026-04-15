@@ -28,7 +28,7 @@
 		width: 28px;
 		height: 28px;
 		border-radius: 6px;
-		background: hsl(var(--white8));
+		background: var(--white8);
 	}
 
 	.activity-deleted-root-badge--embedded {
@@ -42,6 +42,6 @@
 		font-size: 0.8125rem;
 		font-weight: 700;
 		line-height: 1;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 </style>

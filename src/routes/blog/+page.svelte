@@ -87,11 +87,11 @@ let { data } = $props();
 		align-items: center;
 		gap: 10px;
 		font-size: 0.8125rem;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.post-date {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.badge {
@@ -108,15 +108,15 @@ let { data } = $props();
 	}
 
 	.badge-category {
-		background: hsl(var(--blurple) / 0.12);
-		color: hsl(var(--blurple-bright-0));
-		border: 1px solid hsl(var(--blurple) / 0.25);
+		background: color-mix(in srgb, var(--blurpleColor) 12%, transparent);
+		color: var(--blurple-bright-0);
+		border: 1px solid color-mix(in srgb, var(--blurpleColor) 25%, transparent);
 	}
 
 	.post-title {
 		font-size: 1.25rem;
 		font-weight: 650;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0;
 		line-height: 1.3;
 		transition: color 0.15s ease;
@@ -130,12 +130,12 @@ let { data } = $props();
 
 	.post-item:global(.group):hover .post-title,
 	.post-link:hover .post-title {
-		color: hsl(var(--blurple-bright-0));
+		color: var(--blurple-bright-0);
 	}
 
 	.post-desc {
 		font-size: 0.9375rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		line-height: 1.6;
 		margin: 0;
 	}
@@ -146,12 +146,12 @@ let { data } = $props();
 		gap: 4px;
 		font-size: 0.8125rem;
 		font-weight: 500;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		transition: color 0.15s ease;
 	}
 
 	.post-link:hover .read-more {
-		color: hsl(var(--blurple-bright-0));
+		color: var(--blurple-bright-0);
 	}
 
 	.read-more :global(.read-more-icon) {
@@ -166,6 +166,6 @@ let { data } = $props();
 
 	.post-divider {
 		height: 1px;
-		background: hsl(var(--white8));
+		background: var(--white8);
 	}
 </style>

@@ -233,9 +233,9 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		width: 100%;
 		max-width: 100%;
 		margin: 0;
-		background: hsl(var(--gray66));
+		background: var(--gray66);
 		border-radius: var(--radius-32) var(--radius-32) 0 0;
-		border: 0.33px solid hsl(var(--white8));
+		border: 0.33px solid var(--white8);
 		border-bottom: none;
 		padding: 16px;
 		pointer-events: auto;
@@ -251,7 +251,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 			max-width: 560px;
 			margin-bottom: 16px;
 			border-radius: 24px;
-			border-bottom: 0.33px solid hsl(var(--white8));
+			border-bottom: 0.33px solid var(--white8);
 			padding: 12px;
 		}
 	}
@@ -266,8 +266,8 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		gap: 10px;
 		height: 40px;
 		padding: 0 12px;
-		background: hsl(var(--black33));
-		border: 0.33px solid hsl(var(--white33));
+		background: var(--black33);
+		border: 0.33px solid var(--white33);
 		border-radius: 16px;
 	}
 
@@ -278,7 +278,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		width: 18px;
 		height: 18px;
 		flex-shrink: 0;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.forum-search-input {
@@ -287,13 +287,13 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		background: none;
 		border: none;
 		outline: none;
-		color: hsl(var(--white));
+		color: var(--white);
 		font-family: 'Inter', sans-serif;
 		font-size: 16px;
 	}
 
 	.forum-search-input::placeholder {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.forum-search-body-wrap {
@@ -305,7 +305,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	}
 
 	.forum-search-body-inner {
-		background: hsl(var(--black33));
+		background: var(--black33);
 		border-radius: var(--radius-12);
 		min-height: 160px;
 		overflow: hidden;
@@ -316,13 +316,13 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		max-height: 280px;
 		overflow-y: auto;
 		scrollbar-width: thin;
-		scrollbar-color: hsl(var(--white33)) transparent;
+		scrollbar-color: var(--white33) transparent;
 	}
 	.forum-search-body-inner-scroll::-webkit-scrollbar {
 		width: 4px;
 	}
 	.forum-search-body-inner-scroll::-webkit-scrollbar-thumb {
-		background: hsl(var(--white33));
+		background: var(--white33);
 		border-radius: 2px;
 	}
 
@@ -336,7 +336,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	.forum-search-empty-text {
 		font-size: 1.5rem;
 		font-weight: 600;
-		color: hsl(var(--white16));
+		color: var(--white16);
 		text-align: center;
 		margin: 0;
 		padding: 24px 16px;
@@ -345,7 +345,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 	.forum-search-spinner svg {
 		animation: forum-search-spin 0.8s linear infinite;
@@ -363,7 +363,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	}
 
 	.forum-search-row-item {
-		border-bottom: 1px solid hsl(var(--white8));
+		border-bottom: 1px solid var(--white8);
 	}
 	.forum-search-row-item:last-child {
 		border-bottom: none;
@@ -398,7 +398,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	.forum-search-author {
 		font-size: 13px;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -407,7 +407,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	.forum-search-title {
 		font-size: 15px;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;

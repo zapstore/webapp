@@ -26,7 +26,7 @@
 		align-items: center;
 		justify-content: center;
 		padding: 2rem;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-size: 0.9375rem;
 	}
 </style>

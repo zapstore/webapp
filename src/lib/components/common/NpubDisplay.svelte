@@ -47,13 +47,13 @@ const fontSize = $derived(fontSizes[size] || fontSizes.md);
 		width: var(--dot-size);
 		height: var(--dot-size);
 		border-radius: 50%;
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		flex-shrink: 0;
 	}
 
 	.npub-text {
 		font-size: var(--font-size);
-		color: hsl(var(--white66));
+		color: var(--white66);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;

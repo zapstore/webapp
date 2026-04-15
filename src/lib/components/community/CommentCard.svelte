@@ -399,7 +399,7 @@ const contentText = $derived(event?.content ?? '');
 		width: 28px;
 		height: 28px;
 		border-radius: 6px;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -456,8 +456,8 @@ const contentText = $derived(event?.content ?? '');
 		flex: 1;
 		background: repeating-linear-gradient(
 			to bottom,
-			hsl(var(--white16)) 0px,
-			hsl(var(--white16)) 6px,
+			var(--white16) 0px,
+			var(--white16) 6px,
 			transparent 6px,
 			transparent 10px
 		);
@@ -466,7 +466,7 @@ const contentText = $derived(event?.content ?? '');
 	.line-solid {
 		width: 2px;
 		flex: 1;
-		background: hsl(var(--white16));
+		background: var(--white16);
 	}
 
 	.avatar-wrap {
@@ -509,7 +509,7 @@ const contentText = $derived(event?.content ?? '');
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		background: hsl(var(--blurpleColor));
+		background: var(--blurpleColor);
 		flex-shrink: 0;
 		margin-left: auto;
 	}
@@ -517,7 +517,7 @@ const contentText = $derived(event?.content ?? '');
 	.root-label {
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -534,7 +534,7 @@ const contentText = $derived(event?.content ?? '');
 
 	.root-label-kind {
 		flex-shrink: 0;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.root-label-ellipsis {
@@ -553,21 +553,21 @@ const contentText = $derived(event?.content ?? '');
 	}
 
 	.root-label-link:hover {
-		color: hsl(var(--white));
+		color: var(--white);
 		text-decoration: underline;
 		text-underline-offset: 2px;
 	}
 
 	.root-label-link:hover .root-label-kind {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.root-label--deleted {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	.root-label--muted {
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	/* Match MessageBubble + CommentBubbleActionRail (RootComment feed) */
@@ -595,7 +595,7 @@ const contentText = $derived(event?.content ?? '');
 		width: fit-content;
 		max-width: 100%;
 		min-width: 200px;
-		background-color: hsl(var(--gray66));
+		background-color: var(--gray66);
 		border-radius: 12px 12px 12px 3px;
 		padding: 8px 12px 6px;
 	}
@@ -634,7 +634,7 @@ const contentText = $derived(event?.content ?? '');
 	.bubble-content {
 		font-size: 0.9375rem;
 		line-height: 1.5;
-		color: hsl(var(--white) / 0.85);
+		color: color-mix(in srgb, var(--white) 85%, transparent);
 	}
 
 	.bubble-content :global(p) {
@@ -646,7 +646,7 @@ const contentText = $derived(event?.content ?? '');
 	}
 
 	.bubble-content :global(a) {
-		color: hsl(var(--blurpleColor));
+		color: var(--blurpleColor);
 		text-decoration: none;
 	}
 

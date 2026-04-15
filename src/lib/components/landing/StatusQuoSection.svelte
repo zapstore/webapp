@@ -79,7 +79,7 @@
 		width: 260px;
 		flex-shrink: 0;
 		scroll-snap-align: start;
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 		border-radius: var(--radius-32) var(--radius-32) 0 0;
 		padding: 1.5rem 1.75rem 2rem;
 		display: flex;
@@ -101,7 +101,7 @@
 		font-size: 1.25rem;
 		font-weight: 700;
 		line-height: 1.2;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0;
 	}
 	@media (min-width: 1024px) {
@@ -113,7 +113,7 @@
 	.card-body {
 		font-size: 0.9375rem;
 		line-height: 1.55;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		margin: 0;
 	}
 

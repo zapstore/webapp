@@ -231,7 +231,7 @@
 
 		<p
 			class="hero-description text-xl sm:text-2xl mx-auto mt-2 sm:mt-8 mb-10"
-			style="color: hsl(var(--white66));"
+			style="color: var(--white66);"
 		>
 			Published by developers.<br class="sm:hidden" /> Curated by communities.
 		</p>
@@ -259,7 +259,7 @@
 					Browse 3,000+ apps
 					<ChevronRight
 						variant="outline"
-						color="hsl(var(--white33))"
+						color="var(--white33)"
 						size={18}
 						className="transition-transform group-hover:translate-x-0.5"
 					/>
@@ -281,7 +281,7 @@
 			width: 100vw;
 			margin-left: calc(-50vw + 50%);
 			border: none;
-			border-top: 1px solid hsl(var(--white16));
+			border-top: 1px solid var(--white16);
 			margin-top: 1.5rem;
 			margin-bottom: 0;
 		}
@@ -520,7 +520,7 @@
 
 	.hero-browse-pic-wrap:not(:last-child) :global(.app-pic),
 	.hero-browse-pic-wrap:not(:last-child) .hero-app-pic {
-		filter: drop-shadow(3px 0 4px hsl(var(--black66)));
+		filter: drop-shadow(3px 0 4px var(--black66));
 	}
 
 	.hero-app-pic {

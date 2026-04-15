@@ -36,14 +36,14 @@ let { open = $bindable(false), zIndex = 56 } = $props();
   .title {
     font-size: 1.875rem;
     font-weight: 650;
-    color: hsl(var(--white));
+    color: var(--white);
     margin: 0 0 12px;
     text-align: center;
   }
 
   .description {
     font-size: 1rem;
-    color: hsl(var(--white66));
+    color: var(--white66);
     margin: 0 0 24px;
     text-align: center;
     line-height: 1.5;

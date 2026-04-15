@@ -22,7 +22,7 @@
 	>
 		<div class="user-inbox-head shrink-0">
 			<div class="user-inbox-head-left">
-				<Inbox size={20} strokeWidth={1.4} color="hsl(var(--white33))" className="shrink-0" />
+				<Inbox size={20} strokeWidth={1.4} color="var(--white33)" className="shrink-0" />
 				<h2 class="text-sm font-medium text-foreground m-0">Inbox</h2>
 			</div>
 			<button
@@ -49,7 +49,7 @@
 		justify-content: space-between;
 		gap: 12px;
 		padding: 10px 16px;
-		border-bottom: 1px solid hsl(var(--white16));
+		border-bottom: 1px solid var(--white16);
 	}
 
 	.user-inbox-head-left {
@@ -65,13 +65,13 @@
 		margin: 0;
 		cursor: pointer;
 		font-size: 0.75rem;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		white-space: nowrap;
 		line-height: 1;
 	}
 
 	.mark-all-read-btn:hover {
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	.user-inbox-popover {
@@ -85,13 +85,13 @@
 		/* Nested fixed modals: reserve top 20% of inbox height so there's always
 		   comfortable tap-to-close space above the thread sheet */
 		--inbox-modal-top-reserve: 20%;
-		background-color: hsl(var(--black));
+		background-color: var(--black);
 		backdrop-filter: blur(var(--blur-sm));
 		-webkit-backdrop-filter: blur(var(--blur-sm));
 		box-shadow:
-			0 28px 56px hsl(var(--black) / 0.72),
-			0 12px 24px hsl(var(--black) / 0.5),
-			0 2px 8px hsl(var(--black) / 0.34);
+			0 28px 56px color-mix(in srgb, var(--black) 72%, transparent),
+			0 12px 24px color-mix(in srgb, var(--black) 50%, transparent),
+			0 2px 8px color-mix(in srgb, var(--black) 34%, transparent);
 		transform: translateZ(0);
 	}
 

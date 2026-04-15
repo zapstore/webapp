@@ -35,9 +35,9 @@ const demoCommunities = [
 ];
 // Colors
 const colors = {
-    downloads: "hsl(var(--blurpleColor))",
-    zaps: "hsl(var(--goldColor))",
-    apps: "hsl(var(--white33))"
+    downloads: "var(--blurpleColor)",
+    zaps: "var(--goldColor)",
+    apps: "var(--white33)"
 };
 // Demo stats
 const totalDownloads = 2100;
@@ -149,7 +149,7 @@ let zapsChartWidth = $state(400);
               <item.icon
                 variant="outline"
                 size={18}
-                color={activeTab === item.id ? "hsl(var(--white))" : "hsl(var(--white33))"}
+                color={activeTab === item.id ? "var(--white)" : "var(--white33)"}
               />
               <span>{item.label}</span>
             </button>
@@ -203,11 +203,11 @@ let zapsChartWidth = $state(400);
                   <span class="chart-title">Downloads</span>
                   <button type="button" class="period-dropdown">
                     <span>Last 30 days</span>
-                    <ChevronDown variant="outline" size={12} color="hsl(var(--white33))" />
+                    <ChevronDown variant="outline" size={12} color="var(--white33)" />
                   </button>
                 </div>
                 <div class="chart-header-right">
-                  <Download variant="outline" size={20} color="hsl(var(--white33))" />
+                  <Download variant="outline" size={20} color="var(--white33)" />
                   <span class="chart-total">{totalDownloads.toLocaleString()}</span>
                 </div>
               </div>
@@ -219,8 +219,8 @@ let zapsChartWidth = $state(400);
                 >
                   <defs>
                     <linearGradient id="downloadsGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" style="stop-color: hsl(var(--blurpleColor)); stop-opacity: 0.25" />
-                      <stop offset="100%" style="stop-color: hsl(var(--blurpleColor)); stop-opacity: 0" />
+                      <stop offset="0%" style="stop-color: var(--blurpleColor); stop-opacity: 0.25" />
+                      <stop offset="100%" style="stop-color: var(--blurpleColor); stop-opacity: 0" />
                     </linearGradient>
                   </defs>
                   
@@ -231,7 +231,7 @@ let zapsChartWidth = $state(400);
                       y1={chartPadding.top} 
                       x2={graphWidth} 
                       y2={chartHeight - chartPadding.bottom} 
-                      stroke="hsl(var(--white11))" 
+                      stroke="var(--white11)" 
                       stroke-width="1"
                     />
 
@@ -249,7 +249,7 @@ let zapsChartWidth = $state(400);
                         <clipPath id="dlAppClip{i}">
                           <circle cx="8" cy="8" r="8" />
                         </clipPath>
-                        <circle cx="8" cy="8" r="8" fill="hsl(var(--black))" stroke={colors.apps} stroke-width="1.5" />
+                        <circle cx="8" cy="8" r="8" fill="var(--black)" stroke={colors.apps} stroke-width="1.5" />
                         {#if app.icon}
                           <image 
                             href={app.icon} 
@@ -292,12 +292,12 @@ let zapsChartWidth = $state(400);
                   <span class="chart-title">Zaps</span>
                   <button type="button" class="period-dropdown">
                     <span>Last 30 days</span>
-                    <ChevronDown variant="outline" size={12} color="hsl(var(--white33))" />
+                    <ChevronDown variant="outline" size={12} color="var(--white33)" />
                   </button>
                 </div>
                 <div class="chart-header-right">
                   <span class="zap-icon-wrapper">
-                    <Zap variant="fill" size={20} color="hsl(var(--goldColor66))" />
+                    <Zap variant="fill" size={20} color="var(--goldColor66)" />
                   </span>
                   <span class="chart-total">{formatSats(totalZaps)}</span>
                 </div>
@@ -310,8 +310,8 @@ let zapsChartWidth = $state(400);
                 >
                   <defs>
                     <linearGradient id="zapsGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" style="stop-color: hsl(var(--goldColor)); stop-opacity: 0.25" />
-                      <stop offset="100%" style="stop-color: hsl(var(--goldColor)); stop-opacity: 0" />
+                      <stop offset="0%" style="stop-color: var(--goldColor); stop-opacity: 0.25" />
+                      <stop offset="100%" style="stop-color: var(--goldColor); stop-opacity: 0" />
                     </linearGradient>
                   </defs>
                   
@@ -322,7 +322,7 @@ let zapsChartWidth = $state(400);
                       y1={chartPadding.top} 
                       x2={graphWidth} 
                       y2={chartHeight - chartPadding.bottom} 
-                      stroke="hsl(var(--white11))" 
+                      stroke="var(--white11)" 
                       stroke-width="1"
                     />
 
@@ -379,7 +379,7 @@ let zapsChartWidth = $state(400);
   .sidebar-panel {
     width: 200px;
     flex-shrink: 0;
-    background: hsl(var(--gray33));
+    background: var(--gray33);
     border-radius: 16px;
     padding: 12px;
     height: fit-content;
@@ -399,7 +399,7 @@ let zapsChartWidth = $state(400);
     padding: 10px 12px;
     font-size: 14px;
     font-weight: 500;
-    color: hsl(var(--white66));
+    color: var(--white66);
     background: transparent;
     border: none;
     border-radius: 10px;
@@ -409,20 +409,20 @@ let zapsChartWidth = $state(400);
   }
 
   .nav-item:hover {
-    background: hsl(var(--white8));
-    color: hsl(var(--white));
+    background: var(--white8);
+    color: var(--white);
   }
 
   .nav-item-active {
-    background: hsl(var(--white11));
-    color: hsl(var(--white));
+    background: var(--white11);
+    color: var(--white);
   }
 
   /* Sidebar Sections */
   .sidebar-section {
     margin-top: 20px;
     padding-top: 16px;
-    border-top: 1px solid hsl(var(--white11));
+    border-top: 1px solid var(--white11);
   }
 
   .sidebar-section-title {
@@ -430,7 +430,7 @@ let zapsChartWidth = $state(400);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.18em;
-    color: hsl(var(--white44));
+    color: var(--white44);
     margin-bottom: 10px;
     padding: 0 12px;
   }
@@ -438,7 +438,7 @@ let zapsChartWidth = $state(400);
   .sidebar-loading {
     padding: 8px 12px;
     font-size: 13px;
-    color: hsl(var(--white66));
+    color: var(--white66);
   }
 
   /* Sidebar Apps */
@@ -460,7 +460,7 @@ let zapsChartWidth = $state(400);
   }
 
   .sidebar-app-item:hover {
-    background: hsl(var(--white8));
+    background: var(--white8);
   }
 
   .sidebar-app-icon {
@@ -474,14 +474,14 @@ let zapsChartWidth = $state(400);
   .sidebar-app-name {
     font-size: 13px;
     font-weight: 500;
-    color: hsl(var(--white66));
+    color: var(--white66);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .sidebar-app-item:hover .sidebar-app-name {
-    color: hsl(var(--white));
+    color: var(--white);
   }
 
   /* Sidebar Communities */
@@ -506,20 +506,20 @@ let zapsChartWidth = $state(400);
   }
 
   .sidebar-community-item:hover {
-    background: hsl(var(--white8));
+    background: var(--white8);
   }
 
   .sidebar-community-name {
     font-size: 13px;
     font-weight: 500;
-    color: hsl(var(--white66));
+    color: var(--white66);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .sidebar-community-item:hover .sidebar-community-name {
-    color: hsl(var(--white));
+    color: var(--white);
   }
 
   /* Main Content */
@@ -537,13 +537,13 @@ let zapsChartWidth = $state(400);
   .tab-content-placeholder {
     padding: 48px 24px;
     text-align: center;
-    background: hsl(var(--gray33));
+    background: var(--gray33);
     border-radius: 16px;
   }
 
   /* Chart Panel */
   .chart-panel {
-    background: hsl(var(--gray33));
+    background: var(--gray33);
     border-radius: 16px;
     padding: 16px 20px;
   }
@@ -564,7 +564,7 @@ let zapsChartWidth = $state(400);
   .chart-title {
     font-size: 18px;
     font-weight: 600;
-    color: hsl(var(--white66));
+    color: var(--white66);
   }
 
   .period-dropdown {
@@ -574,7 +574,7 @@ let zapsChartWidth = $state(400);
     padding: 0;
     font-size: 11px;
     font-weight: 400;
-    color: hsl(var(--white33));
+    color: var(--white33);
     background: transparent;
     border: none;
     cursor: pointer;
@@ -582,7 +582,7 @@ let zapsChartWidth = $state(400);
   }
 
   .period-dropdown:hover {
-    color: hsl(var(--white66));
+    color: var(--white66);
   }
 
   .chart-header-right {
@@ -594,7 +594,7 @@ let zapsChartWidth = $state(400);
   .chart-total {
     font-size: 20px;
     font-weight: 700;
-    color: hsl(var(--white));
+    color: var(--white);
   }
 
   .zap-icon-wrapper {

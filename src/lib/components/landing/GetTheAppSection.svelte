@@ -14,7 +14,7 @@
 			<!-- Left: Content -->
 			<div
 				class="space-y-4 sm:space-y-6 p-6 sm:p-8 rounded-2xl lg:order-2"
-				style="background-color: hsl(var(--gray33)); border-radius: var(--radius-32);"
+				style="background-color: var(--gray33); border-radius: var(--radius-32);"
 			>
 				<h2
 					class="section-title text-display-lg text-3xl sm:text-4xl lg:text-4xl xl:text-5xl leading-tight section-title-gradient mb-2 text-left"
@@ -29,7 +29,7 @@
 					<a
 						href="/apps/dev.zapstore.app"
 						class="btn-secondary-large btn-secondary-light"
-						style="color: hsl(var(--white66));"
+						style="color: var(--white66);"
 					>
 						More Info
 					</a>
@@ -38,7 +38,7 @@
 						on:click={showDownloadModal}
 						class="btn-primary-large flex-1 flex items-center justify-center gap-3"
 					>
-						<Download variant="fill" color="hsl(var(--white66))" size={18} />
+						<Download variant="fill" color="var(--white66)" size={18} />
 						Download
 					</button>
 				</div>
@@ -51,7 +51,7 @@
 						src={`${assets}/images/android-app-screenshot.png`}
 						alt="Zapstore Android app screenshot"
 						class="w-full h-full object-cover object-top"
-						style="filter: drop-shadow(0 0 60px hsl(var(--blurpleColor) / 0.02)) drop-shadow(0 0 120px hsl(var(--blurpleColor) / 0.01));"
+						style="filter: drop-shadow(0 0 60px color-mix(in srgb, var(--blurpleColor) 2%, transparent)) drop-shadow(0 0 120px color-mix(in srgb, var(--blurpleColor) 1%, transparent));"
 						loading="lazy"
 					/>
 				</div>
@@ -62,7 +62,7 @@
 	<!-- Bottom gradient shader (section-relative, just enough for the preview text) -->
 	<div
 		class="absolute left-0 right-0 bottom-0 z-20 pointer-events-none"
-		style="height: 72px; background: linear-gradient(to top, hsl(var(--black)) 0%, hsl(var(--black) / 0.85) 30%, hsl(var(--black) / 0.4) 65%, transparent 100%);"
+		style="height: 72px; background: linear-gradient(to top, var(--black) 0%, color-mix(in srgb, var(--black) 85%, transparent) 30%, color-mix(in srgb, var(--black) 40%, transparent) 65%, transparent 100%);"
 	></div>
 
 	<!-- Preview label: desktop only, right column (same as image) -->
@@ -72,7 +72,7 @@
 		<div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
 			<div class="hidden lg:block"></div>
 			<div class="flex justify-start items-end">
-				<p class="text-left" style="color: hsl(var(--white33)); font-size: 12px;">
+				<p class="text-left" style="color: var(--white33); font-size: 12px;">
 					* This is a preview of the coming version
 				</p>
 			</div>

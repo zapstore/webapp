@@ -23,7 +23,7 @@ let { message = '', minHeight, topAlign = false, compact = false } = $props();
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: hsl(var(--gray16));
+		background: var(--gray16);
 		border-radius: var(--radius-16, 16px);
 	}
 
@@ -40,7 +40,7 @@ let { message = '', minHeight, topAlign = false, compact = false } = $props();
 	.empty-state-text {
 		font-size: 1.5rem;
 		font-weight: 600;
-		color: hsl(var(--white16));
+		color: var(--white16);
 		text-align: center;
 		padding: 50px 0;
 		margin: 0;

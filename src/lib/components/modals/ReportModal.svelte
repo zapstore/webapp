@@ -299,8 +299,8 @@ $effect(() => {
 	}
 
 	.violations-container {
-		background: hsl(var(--black33));
-		border: 0.33px solid hsl(var(--white33));
+		background: var(--black33);
+		border: 0.33px solid var(--white33);
 		border-radius: var(--radius-16);
 		overflow: hidden;
 	}
@@ -313,28 +313,28 @@ $effect(() => {
 		padding: 12px 16px;
 		cursor: pointer;
 		transition: background 0.12s ease;
-		border-bottom: 0.33px solid hsl(var(--white8));
+		border-bottom: 0.33px solid var(--white8);
 	}
 
 	.violation-row:hover {
-		background: hsl(var(--white4));
+		background: var(--white4);
 	}
 
 	.violation-row:active {
-		background: hsl(var(--white8));
+		background: var(--white8);
 	}
 
 	.violation-label {
 		font-size: 0.9375rem;
 		font-weight: 400;
-		color: hsl(var(--white));
+		color: var(--white);
 		flex: 1;
 		line-height: 1.4;
 		user-select: none;
 	}
 
 	.violation-row.selected .violation-label {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.comment-input-wrap :global(.editor-mount),
@@ -346,7 +346,7 @@ $effect(() => {
 	.error-text {
 		margin: 8px 0 0;
 		font-size: 0.8125rem;
-		color: hsl(var(--rougeColor));
+		color: var(--rougeColor);
 		padding-left: 4px;
 	}
 
@@ -360,7 +360,7 @@ $effect(() => {
 	.submitted-text {
 		margin: 0;
 		font-size: 0.9375rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		text-align: center;
 	}
 </style>

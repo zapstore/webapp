@@ -275,12 +275,12 @@
 		min-width: 220px;
 		padding: 12px 14px;
 		background: hsl(240, 8%, 13%);
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		border-radius: 12px;
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 		font-size: 0.8125rem;
 		line-height: 1.45;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		z-index: 200;
 	}
 
@@ -304,13 +304,13 @@
 	.end-message {
 		text-align: center;
 		padding: 2rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		font-size: 0.875rem;
 	}
 
 	.empty-state {
 		padding: 48px 24px;
-		background-color: hsl(var(--gray66));
+		background-color: var(--gray66);
 		border-radius: 16px;
 		text-align: center;
 	}
@@ -350,7 +350,7 @@
 		width: 140px;
 		height: 10px;
 		border-radius: 4px;
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 	}
 
 	.skeleton-stack-creator {
@@ -372,7 +372,7 @@
 		width: 60px;
 		height: 12px;
 		border-radius: 4px;
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 	}
 
 	@media (min-width: 768px) {

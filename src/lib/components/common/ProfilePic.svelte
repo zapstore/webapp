@@ -267,10 +267,10 @@
 
 		/* Shape with thin outline */
 		border-radius: 50%;
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 
 		/* Background with blur */
-		background-color: hsl(var(--gray66) / 0.8);
+		background-color: color-mix(in srgb, var(--gray66) 80%, transparent);
 		backdrop-filter: blur(12px);
 		-webkit-backdrop-filter: blur(12px);
 

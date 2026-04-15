@@ -119,10 +119,10 @@
 		height: 120px;
 		background: linear-gradient(
 			to top,
-			hsl(var(--black)) 0%,
-			hsl(var(--black) / 0.95) 25%,
-			hsl(var(--black) / 0.7) 50%,
-			hsl(var(--black) / 0.3) 75%,
+			var(--black) 0%,
+			color-mix(in srgb, var(--black) 95%, transparent) 25%,
+			color-mix(in srgb, var(--black) 70%, transparent) 50%,
+			color-mix(in srgb, var(--black) 30%, transparent) 75%,
 			transparent 100%
 		);
 		pointer-events: none;
@@ -130,7 +130,7 @@
 	}
 
 	.comparison-table {
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 		border-radius: var(--radius-24) var(--radius-24) 0 0;
 		overflow: hidden;
 		border-collapse: collapse;
@@ -149,18 +149,18 @@
 
 	/* Header row */
 	thead tr {
-		border-bottom: 1.4px solid hsl(var(--white11));
+		border-bottom: 1.4px solid var(--white11);
 	}
 
 	.criteria-header {
 		padding: 1rem 1.25rem;
-		border-right: 1.4px solid hsl(var(--white11));
+		border-right: 1.4px solid var(--white11);
 	}
 
 	.store-header {
 		padding: 1rem 0.5rem;
 		text-align: center;
-		border-right: 1.4px solid hsl(var(--white11));
+		border-right: 1.4px solid var(--white11);
 		vertical-align: middle;
 	}
 
@@ -179,7 +179,7 @@
 		width: 44px;
 		height: 44px;
 		border-radius: 12px;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -195,8 +195,8 @@
 	.store-icon-wrapper.zapstore-icon {
 		background: linear-gradient(
 			135deg,
-			hsl(var(--blurpleColor) / 0.28) 0%,
-			hsl(var(--blurpleColor) / 0.12) 100%
+			color-mix(in srgb, var(--blurpleColor) 28%, transparent) 0%,
+			color-mix(in srgb, var(--blurpleColor) 12%, transparent) 100%
 		);
 	}
 
@@ -210,12 +210,12 @@
 	.store-name {
 		font-size: 0.75rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		white-space: nowrap;
 	}
 
 	.store-name.highlight {
-		color: hsl(var(--white));
+		color: var(--white);
 		font-weight: 700;
 	}
 
@@ -233,7 +233,7 @@
 
 	/* Data rows */
 	tbody tr {
-		border-bottom: 1.4px solid hsl(var(--white11));
+		border-bottom: 1.4px solid var(--white11);
 	}
 
 	tbody tr.last-row {
@@ -245,15 +245,15 @@
 		text-align: left;
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		white-space: nowrap;
-		border-right: 1.4px solid hsl(var(--white11));
+		border-right: 1.4px solid var(--white11);
 	}
 
 	.value-cell {
 		padding: 0.875rem 0.5rem;
 		text-align: center;
-		border-right: 1.4px solid hsl(var(--white11));
+		border-right: 1.4px solid var(--white11);
 		vertical-align: middle;
 	}
 
@@ -264,21 +264,21 @@
 	.check-icon {
 		width: 18px;
 		height: 18px;
-		color: hsl(var(--blurpleColor));
+		color: var(--blurpleColor);
 		display: inline-block;
 	}
 
 	.cross-icon {
 		width: 14px;
 		height: 14px;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		display: inline-block;
 	}
 
 	.value-text {
 		font-size: 0.75rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	@media (min-width: 1024px) {

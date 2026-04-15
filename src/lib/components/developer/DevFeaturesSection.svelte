@@ -83,7 +83,7 @@
 										<div class="fsc-top">
 											<Check
 												size={40}
-												color="hsl(var(--blurpleColor))"
+												color="var(--blurpleColor)"
 												variant="outline"
 												strokeWidth={2.1}
 											/>
@@ -312,7 +312,7 @@
 											<div class="fsc-top">
 												<Check
 													size={40}
-													color="hsl(var(--blurpleColor))"
+													color="var(--blurpleColor)"
 													variant="outline"
 													strokeWidth={2.1}
 												/>
@@ -559,7 +559,7 @@
 	}
 	.mob-panel {
 		padding: 1.25rem 1.5rem 1.5rem;
-		background: hsl(var(--gray33));
+		background: var(--gray33);
 		border-radius: 1.125rem;
 	}
 	.mob-title {
@@ -567,13 +567,13 @@
 		font-weight: 600;
 		line-height: 1.3;
 		margin: 0 0 0.4rem;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 	.mob-desc {
 		font-size: 1rem;
 		line-height: 1.55;
 		margin: 0;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	/* ── Desktop tabs ───────────────────────────────────────────────── */
@@ -595,7 +595,7 @@
 		transition: background-color 0.4s ease;
 	}
 	.feature-tab.active {
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 	}
 	.tab-title {
 		font-size: 1.125rem;
@@ -603,7 +603,7 @@
 		line-height: 1.3;
 		margin: 0 0 0.35rem;
 		transition: color 0.4s ease;
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 	@media (min-width: 640px) {
 		.tab-title {
@@ -611,17 +611,17 @@
 		}
 	}
 	.feature-tab.active .tab-title {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 	.tab-desc {
 		font-size: 1rem;
 		line-height: 1.55;
 		margin: 0;
 		transition: color 0.4s ease;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 	.feature-tab.active .tab-desc {
-		color: hsl(var(--white66));
+		color: var(--white66);
 	}
 
 	/* ── Desktop visual panel ───────────────────────────────────────── */
@@ -697,8 +697,8 @@
 	}
 	.fake-success-screen {
 		width: 100%;
-		background: hsl(var(--gray33));
-		border: 1px solid hsl(var(--white8));
+		background: var(--gray33);
+		border: 1px solid var(--white8);
 		border-radius: 1.25rem;
 		overflow: hidden;
 		display: flex;
@@ -716,13 +716,13 @@
 	.fsc-title {
 		font-size: 1.8rem;
 		font-weight: 700;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 0;
 		line-height: 1.2;
 	}
 	.fsc-divider {
 		height: 1px;
-		background: hsl(var(--white8));
+		background: var(--white8);
 		width: 100%;
 	}
 	.fsc-app-row {
@@ -754,12 +754,12 @@
 	.fsc-app-name {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		line-height: 1.25;
 	}
 	.fsc-app-ver {
 		font-size: 0.975rem;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 	.fsc-checks {
 		width: 100%;
@@ -773,14 +773,14 @@
 		align-items: center;
 		gap: 11px;
 		font-size: 1.05rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		text-align: left;
 	}
 	.fsc-cat-pic {
 		width: 26px;
 		height: 26px;
 		border-radius: 50%;
-		background: hsl(var(--blurpleColor));
+		background: var(--blurpleColor);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -901,7 +901,7 @@
 		border-radius: 50%;
 		flex-shrink: 0;
 		object-fit: cover;
-		border: 1px solid hsl(var(--white8));
+		border: 1px solid var(--white8);
 	}
 	.fzb-bubble {
 		background: radial-gradient(
@@ -938,12 +938,12 @@
 	.fzb-sats {
 		font-size: 0.9375rem;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 	.fzb-msg {
 		font-size: 1rem;
 		line-height: 1.5;
-		color: hsl(var(--white) / 0.85);
+		color: color-mix(in srgb, var(--white) 85%, transparent);
 		margin: 4px 0 0;
 	}
 </style>

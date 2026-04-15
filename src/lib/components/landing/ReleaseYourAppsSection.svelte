@@ -19,7 +19,7 @@
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-12 lg:pt-16 pb-0">
 		<!-- Center text -->
 		<div class="relative z-20 text-center mb-6 sm:mb-12">
-			<p class="eyebrow-label release-eyebrow mb-4" style="color: hsl(var(--white33));">
+			<p class="eyebrow-label release-eyebrow mb-4" style="color: var(--white33);">
 				For Developers
 			</p>
 			<h2 class="section-title text-display-lg leading-tight">
@@ -44,7 +44,7 @@
 			<!-- Bottom gradient shader -->
 			<div
 				class="absolute left-0 right-0 bottom-0 z-30 pointer-events-none"
-				style="height: 160px; background: linear-gradient(to top, hsl(var(--black)) 0%, hsl(var(--black) / 0.8) 20%, hsl(var(--black) / 0.4) 50%, hsl(var(--black) / 0.15) 75%, transparent 100%);"
+				style="height: 160px; background: linear-gradient(to top, var(--black) 0%, color-mix(in srgb, var(--black) 80%, transparent) 20%, color-mix(in srgb, var(--black) 40%, transparent) 50%, color-mix(in srgb, var(--black) 15%, transparent) 75%, transparent 100%);"
 			></div>
 
 			<!-- CTA Button -->
@@ -76,7 +76,7 @@
 					<span class="whitespace-nowrap">Zapstore Studio</span>
 					<ChevronRight
 						variant="outline"
-						color="hsl(var(--white33))"
+						color="var(--white33)"
 						size={18}
 						className="transition-transform group-hover:translate-x-0.5"
 					/>

@@ -406,7 +406,7 @@
 									</div>
 
 									<button type="button" class="menu-search-btn" onclick={openMenuSearch}>
-										<Search class="h-5 w-5 flex-shrink-0" style="color: hsl(var(--white33));" />
+										<Search class="h-5 w-5 flex-shrink-0" style="color: var(--white33);" />
 										<span class="menu-search-text">Search Any App</span>
 									</button>
 
@@ -427,40 +427,40 @@
 										<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 									</div>
 
-									<div class="menu-section">
-										<span class="menu-section-label">Developers</span>
-										<nav class="menu-subnav">
-											<a
-												href="/docs/publish"
-												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}>Docs</a
-											>
-											<a
-												href="/terms"
-												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}>Terms</a
-											>
-										</nav>
-									</div>
-
-									<div class="menu-section">
-										<span class="menu-section-label">Community</span>
-										<nav class="menu-subnav">
-											<a
-												href={communityFirstHref}
-												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}>{communityFirstLabel}</a
-											>
-											<a
-												href="/blog"
-												class="menu-sublink text-sm font-medium text-white/66"
-												onclick={closeMenu}>Blog</a
-											>
-										</nav>
-									</div>
+								<div class="menu-section">
+									<a href="/studio" class="menu-section-link" onclick={closeMenu}>Developers</a>
+									<nav class="menu-subnav">
+										<a
+											href="/docs/publish"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}>Docs</a
+										>
+										<a
+											href="/terms"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}>Terms</a
+										>
+									</nav>
 								</div>
-							{/if}
-						</div>
+
+								<div class="menu-section">
+									<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
+									<nav class="menu-subnav">
+										<a
+											href={communityFirstHref}
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}>{communityFirstLabel}</a
+										>
+										<a
+											href="/blog"
+											class="menu-sublink text-sm font-medium text-white/66"
+											onclick={closeMenu}>Blog</a
+										>
+									</nav>
+								</div>
+							</div>
+						{/if}
+					</div>
 
 						{#if pageTitle && pageTitle !== 'Profile'}
 							<button
@@ -587,7 +587,7 @@
 										</svg>
 										<span
 											class="font-semibold text-lg tracking-tight"
-											style="color: hsl(var(--white));">Zapstore</span
+											style="color: var(--white);">Zapstore</span
 										>
 									</a>
 									<button
@@ -602,7 +602,7 @@
 										<Cross
 											variant="outline"
 											size={20}
-											color="hsl(var(--white33))"
+											color="var(--white33)"
 											class="menu-close-icon"
 										/>
 									</button>
@@ -613,7 +613,7 @@
 									class="menu-search-btn menu-search-mobile-only"
 									onclick={openMenuSearch}
 								>
-									<Search class="h-5 w-5 flex-shrink-0" style="color: hsl(var(--white33));" />
+									<Search class="h-5 w-5 flex-shrink-0" style="color: var(--white33);" />
 									<span class="menu-search-text">Search Any App</span>
 								</button>
 
@@ -635,7 +635,7 @@
 								</div>
 
 								<div class="menu-section">
-									<span class="menu-section-label">Developers</span>
+									<a href="/studio" class="menu-section-link" onclick={closeMenu}>Developers</a>
 									<nav class="menu-subnav">
 										<a
 											href="/docs/publish"
@@ -651,7 +651,7 @@
 								</div>
 
 								<div class="menu-section">
-									<span class="menu-section-label">Community</span>
+									<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
 									<nav class="menu-subnav">
 										<a
 											href={communityFirstHref}
@@ -698,13 +698,13 @@
 							'search-bar-btn flex items-center gap-2 relative z-10 cursor-pointer text-base',
 							'search-bar-width gap-3 pl-2.5 pr-3 sm:pl-3 sm:pr-4 h-10 min-w-0 lg:min-w-fit'
 						)}
-						style="border-color: hsl(var(--white16)); pointer-events: auto;"
+						style="border-color: var(--white16); pointer-events: auto;"
 					>
 						<Search
 							class="h-5 w-5 flex-shrink-0 pointer-events-none"
-							style="color: hsl(var(--white33));"
+							style="color: var(--white33);"
 						/>
-						<span class="flex-1 text-left pointer-events-none" style="color: hsl(var(--white33));">
+						<span class="flex-1 text-left pointer-events-none" style="color: var(--white33);">
 							{variant === 'studio' ? 'Search / Command' : 'Search Any App'}
 						</span>
 					</button>
@@ -722,7 +722,7 @@
 							<button
 								type="button"
 								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4"
-								style="color: hsl(var(--white66));"
+								style="color: var(--white66);"
 								onclick={() => (downloadModalOpen = true)}
 							>
 								Download
@@ -731,7 +731,7 @@
 								href="/apps"
 								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
 								class:landing-nav-studio-selected={isDiscoverActive}
-								style="color: hsl(var(--white66));"
+								style="color: var(--white66);"
 							>
 								Apps
 							</a>
@@ -739,7 +739,7 @@
 								href="/studio"
 								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
 								class:landing-nav-studio-selected={isStudioPage}
-								style="color: hsl(var(--white66));"
+								style="color: var(--white66);"
 							>
 								Developers
 							</a>
@@ -747,13 +747,13 @@
 								href="/community"
 								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
 								class:landing-nav-studio-selected={isCommunityActive}
-								style="color: hsl(var(--white66));"
+								style="color: var(--white66);"
 							>
 								Community
 							</a>
 							<!-- Search button -->
 							<button type="button" class="nav-search-btn" onclick={openSearch} aria-label="Search">
-								<Search size={16} style="color: hsl(var(--white33));" />
+								<Search size={16} style="color: var(--white33);" />
 								<span class="nav-search-text">Search</span>
 							</button>
 						</div>
@@ -761,7 +761,7 @@
 						{#if isConnecting}
 							<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
 								<div class="h-10 w-10 flex items-center justify-center">
-									<Loader2 class="h-5 w-5 animate-spin" style="color: hsl(var(--white66));" />
+									<Loader2 class="h-5 w-5 animate-spin" style="color: var(--white66);" />
 								</div>
 								<a
 									href={SITE_GITHUB}
@@ -789,9 +789,9 @@
 											aria-expanded={inboxOpen}
 										>
 											{#if inboxOpen}
-												<Cross variant="outline" size={12} strokeWidth={1.4} color="hsl(var(--white33))" />
+												<Cross variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" />
 											{:else}
-												<Inbox size={18} strokeWidth={1.4} color="hsl(var(--white33))" />
+												<Inbox size={18} strokeWidth={1.4} color="var(--white33)" />
 												{#if headerInboxShowDot}
 													<span class="header-inbox-unread-dot" aria-hidden="true"></span>
 												{/if}
@@ -842,7 +842,7 @@
 										}}
 										aria-label="Open menu"
 									>
-										<Menu size={20} variant="outline" color="hsl(var(--white33))" />
+										<Menu size={20} variant="outline" color="var(--white33)" />
 									</button>
 								</div>
 							</div>
@@ -879,7 +879,7 @@
 								}}
 								aria-label="Open menu"
 							>
-								<Menu size={20} variant="outline" color="hsl(var(--white33))" />
+								<Menu size={20} variant="outline" color="var(--white33)" />
 							</button>
 						{/if}
 					</div>
@@ -900,9 +900,9 @@
 										aria-expanded={inboxOpen}
 									>
 										{#if inboxOpen}
-											<Cross variant="outline" size={15} strokeWidth={1.4} color="hsl(var(--white33))" />
+											<Cross variant="outline" size={15} strokeWidth={1.4} color="var(--white33)" />
 										{:else}
-											<Inbox size={22} strokeWidth={1.4} color="hsl(var(--white33))" />
+											<Inbox size={22} strokeWidth={1.4} color="var(--white33)" />
 											{#if headerInboxShowDot}
 												<span class="header-inbox-unread-dot" aria-hidden="true"></span>
 											{/if}
@@ -996,12 +996,12 @@
 <SpinKeyModal
 	bind:open={spinKeyModalOpen}
 	profileName={onboardingProfileName}
-	zIndex={55}
+	zIndex={105}
 	onspinComplete={handleSpinComplete}
 	onuseExistingKey={handleUseExistingKey}
 />
 
-<OnboardingBuildingModal bind:open={onboardingBuildingModalOpen} zIndex={56} />
+<OnboardingBuildingModal bind:open={onboardingBuildingModalOpen} zIndex={106} />
 
 <style>
 	.header {
@@ -1048,7 +1048,7 @@
 
 	.menu-button:hover,
 	.menu-button-open {
-		background-color: hsl(var(--gray66));
+		background-color: var(--gray66);
 	}
 
 	.menu-button :global(svg) {
@@ -1056,7 +1056,7 @@
 	}
 
 	.page-title {
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.page-title-tap {
@@ -1084,7 +1084,7 @@
 		display: block;
 		position: fixed;
 		inset: 0;
-		background-color: hsl(var(--overlay));
+		background-color: var(--overlay);
 		z-index: 9998;
 	}
 
@@ -1112,11 +1112,11 @@
 		background-color: hsla(240, 6%, 18%, 0.8);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
-		border-right: 0.33px solid hsl(var(--white16));
+		border-right: 0.33px solid var(--white16);
 		border-radius: 0;
 		padding: 12px;
 		z-index: 9999;
-		box-shadow: 8px 0 32px hsl(var(--black33));
+		box-shadow: 8px 0 32px var(--black33);
 		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
@@ -1208,18 +1208,7 @@
 
 	@media (min-width: 768px) {
 		.menu-dropdown {
-			position: absolute;
-			top: calc(100% + 4px);
-			left: 0;
-			width: 280px;
-			max-width: none;
-			height: auto;
-			border: 0.33px solid hsl(var(--white16));
-			border-radius: 12px 32px 32px 32px;
-			box-shadow: 0 8px 32px hsl(var(--black33));
-			padding: 12px;
-			overflow-y: visible;
-			display: block;
+			display: none !important;
 		}
 	}
 
@@ -1243,7 +1232,7 @@
 	}
 
 	.menu-logo:hover {
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	.menu-logo-icon {
@@ -1255,7 +1244,7 @@
 	.menu-logo-text {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.landing-header-left-mobile {
@@ -1280,19 +1269,19 @@
 		width: 100%;
 		margin: 12px 0;
 		padding: 8px 16px 8px 12px;
-		background-color: hsl(var(--white8));
-		border: 0.33px solid hsl(var(--white16));
+		background-color: var(--white8);
+		border: 0.33px solid var(--white16);
 		border-radius: 12px;
 		cursor: pointer;
 		transition: background-color 0.15s ease;
 	}
 
 	.menu-search-btn:hover {
-		background-color: hsl(var(--white16));
+		background-color: var(--white16);
 	}
 
 	.menu-search-text {
-		color: hsl(var(--white33));
+		color: var(--white33);
 		font-size: 1rem;
 	}
 
@@ -1327,7 +1316,7 @@
 	}
 
 	.menu-user-pic-btn:hover {
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	.menu-section {
@@ -1339,14 +1328,14 @@
 		padding: 6px 10px;
 		font-size: 0.9375rem;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 		text-decoration: none;
 		border-radius: 10px;
 		transition: background-color 0.15s ease;
 	}
 
 	.menu-section-link:hover {
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	button.menu-section-link {
@@ -1360,7 +1349,7 @@
 		font-size: 0.9375rem;
 		font-weight: 500;
 		line-height: normal;
-		color: hsl(var(--white));
+		color: var(--white);
 		-webkit-tap-highlight-color: transparent;
 	}
 
@@ -1369,7 +1358,7 @@
 		padding: 6px 10px;
 		font-size: 0.9375rem;
 		font-weight: 500;
-		color: hsl(var(--white));
+		color: var(--white);
 	}
 
 	.menu-subnav {
@@ -1386,12 +1375,12 @@
 	}
 
 	.menu-sublink:hover {
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 	}
 
 	.menu-divider {
 		height: 1.4px;
-		background-color: hsl(var(--white11));
+		background-color: var(--white11);
 		margin: 6px 0;
 	}
 
@@ -1421,13 +1410,13 @@
 		background-color: hsla(240, 6%, 18%, 0.9);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 	}
 
 	.landing-nav-btn:hover,
 	.landing-nav-btn-open,
 	.landing-nav-studio-trigger:hover {
-		color: hsl(var(--white)) !important;
+		color: var(--white) !important;
 	}
 
 	.landing-nav-studio-trigger {
@@ -1456,12 +1445,12 @@
 	}
 
 	.landing-nav-panel-bg {
-		background-color: hsl(var(--black66));
+		background-color: var(--black66);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
-		border: 0.33px solid hsl(var(--white16));
+		border: 0.33px solid var(--white16);
 		border-radius: 16px;
-		border-top: 1.4px solid hsl(var(--white11));
+		border-top: 1.4px solid var(--white11);
 	}
 
 	.landing-nav-panel-centered {
@@ -1470,19 +1459,19 @@
 	}
 
 	.landing-nav-panel-inner-bg {
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 		border-radius: 12px;
 	}
 
 	.landing-nav-panel-card {
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 		border-radius: 12px;
 		padding: 16px;
 		transition: background-color 0.15s ease;
 	}
 
 	.landing-nav-panel-card:hover {
-		background-color: hsl(var(--gray66));
+		background-color: var(--gray66);
 	}
 
 	.landing-nav-panel-inner {
@@ -1498,8 +1487,8 @@
 		height: 32px;
 		padding: 0 12px 0 8px;
 		margin-left: 14px;
-		background: hsl(var(--white8));
-		border: 0.33px solid hsl(var(--white16));
+		background: var(--white8);
+		border: 0.33px solid var(--white16);
 		border-radius: 12px;
 		cursor: pointer;
 		transition: border-color 0.15s ease;
@@ -1507,13 +1496,13 @@
 	}
 
 	.nav-search-btn:hover {
-		border-color: hsl(var(--white33));
+		border-color: var(--white33);
 	}
 
 	.nav-search-text {
 		font-size: 0.8125rem;
 		font-weight: 500;
-		color: hsl(var(--white33));
+		color: var(--white33);
 		white-space: nowrap;
 	}
 
@@ -1524,8 +1513,8 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		background-color: hsl(var(--gray66));
-		color: hsl(var(--white66));
+		background-color: var(--gray66);
+		color: var(--white66);
 		text-decoration: none;
 		cursor: pointer;
 		transition: transform 0.2s ease;
@@ -1562,7 +1551,7 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		background-color: hsl(var(--gray66));
+		background-color: var(--gray66);
 		border: none;
 		cursor: pointer;
 		transition: transform 0.2s ease;
@@ -1596,7 +1585,7 @@
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		background: hsl(var(--blurpleColor));
+		background: var(--blurpleColor);
 		pointer-events: none;
 	}
 
@@ -1604,7 +1593,7 @@
 		display: grid;
 		grid-template-columns: 1fr 1px 1fr;
 		gap: 0;
-		background-color: hsl(var(--gray33));
+		background-color: var(--gray33);
 		border-radius: 12px;
 		min-height: 120px;
 	}
@@ -1622,7 +1611,7 @@
 	}
 
 	.landing-nav-studio-dropdown-left:hover {
-		background-color: hsl(var(--white4));
+		background-color: var(--white4);
 	}
 
 	.landing-nav-studio-icon {
@@ -1646,19 +1635,19 @@
 	.landing-nav-studio-title {
 		font-size: 1rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 10px 0 0 0;
 	}
 
 	.landing-nav-studio-desc {
 		font-size: 0.8125rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		margin: 4px 0 0 0;
 		line-height: 1.55;
 	}
 
 	.landing-nav-studio-dropdown-divider {
-		background-color: hsl(var(--white11));
+		background-color: var(--white11);
 		width: 1px;
 		align-self: stretch;
 	}
@@ -1675,11 +1664,11 @@
 		align-items: center;
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		text-decoration: none;
 		padding: 0 20px;
 		min-height: 44px;
-		border-bottom: 1.4px solid hsl(var(--white11));
+		border-bottom: 1.4px solid var(--white11);
 		transition:
 			color 0.15s ease,
 			background-color 0.15s ease;
@@ -1690,8 +1679,8 @@
 	}
 
 	.landing-nav-studio-row:hover {
-		color: hsl(var(--white));
-		background-color: hsl(var(--white4));
+		color: var(--white);
+		background-color: var(--white4);
 	}
 
 	.landing-nav-contact-list {
@@ -1705,11 +1694,11 @@
 		align-items: center;
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		text-decoration: none;
 		padding: 0 20px;
 		min-height: 44px;
-		border-bottom: 1.4px solid hsl(var(--white11));
+		border-bottom: 1.4px solid var(--white11);
 		transition:
 			color 0.15s ease,
 			background-color 0.15s ease;
@@ -1720,8 +1709,8 @@
 	}
 
 	.landing-nav-contact-row:hover {
-		color: hsl(var(--white));
-		background-color: hsl(var(--white4));
+		color: var(--white);
+		background-color: var(--white4);
 	}
 
 	.landing-nav-grid {
@@ -1737,14 +1726,14 @@
 		gap: 0;
 		padding: 22px 22px 20px 22px;
 		text-decoration: none;
-		color: hsl(var(--white66));
-		border-right: 1.4px solid hsl(var(--white11));
-		border-bottom: 1.4px solid hsl(var(--white11));
+		color: var(--white66);
+		border-right: 1.4px solid var(--white11);
+		border-bottom: 1.4px solid var(--white11);
 		transition: background-color 0.15s ease;
 	}
 
 	.landing-nav-grid-item:hover {
-		background-color: hsl(var(--white4));
+		background-color: var(--white4);
 	}
 
 	.landing-nav-grid-item:nth-child(2n) {
@@ -1765,25 +1754,25 @@
 	.landing-nav-grid-title {
 		font-size: 1rem;
 		font-weight: 600;
-		color: hsl(var(--white));
+		color: var(--white);
 		margin: 10px 0 0 0;
 	}
 
 	.landing-nav-grid-desc {
 		font-size: 0.8125rem;
-		color: hsl(var(--white66));
+		color: var(--white66);
 		opacity: 0.9;
 		margin: 4px 0 0 0;
 	}
 
 	.landing-nav-link:hover {
-		color: hsl(var(--white)) !important;
+		color: var(--white) !important;
 	}
 
 	.landing-nav-studio-selected {
-		color: hsl(var(--white)) !important;
+		color: var(--white) !important;
 		font-weight: 600;
-		background-color: hsl(var(--white8));
+		background-color: var(--white8);
 		border-radius: 12px;
 	}
 
@@ -1795,14 +1784,14 @@
 		width: 32px;
 		height: 32px;
 		border-radius: 50%;
-		border: 0.33px solid hsl(var(--white16));
-		background: hsl(var(--white8));
+		border: 0.33px solid var(--white16);
+		background: var(--white8);
 		font-size: 1rem;
 		cursor: pointer;
 		transition: background-color 0.15s ease;
 		flex-shrink: 0;
 	}
 	.theme-dev-btn:hover {
-		background: hsl(var(--white16));
+		background: var(--white16);
 	}
 </style>

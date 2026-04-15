@@ -104,7 +104,7 @@ function handleLabelTap(label) {
 			style="
         background: linear-gradient(
           to bottom,
-          hsl(var(--gray33)),
+          var(--gray33),
           hsl(241 15% 25% / 0.5)
         );
         border-top-left-radius: 0;
@@ -117,8 +117,8 @@ function handleLabelTap(label) {
 			<!-- Search Bar -->
 			<div class="p-3 pb-1">
 				<div
-					class="search-bar-btn flex items-center gap-3 pl-3 pr-4 h-10 transition-all duration-200 focus-within:shadow-[0_0_80px_hsl(var(--blurpleColor)/0.2),0_0_160px_hsl(var(--blurpleColor)/0.15),0_0_240px_hsl(var(--blurpleColor)/0.12),0_0_320px_hsl(var(--blurpleColor)/0.08)]"
-					style="border-color: hsl(var(--white16)); background-color: hsl(var(--black16));"
+					class="search-bar-btn flex items-center gap-3 pl-3 pr-4 h-10 transition-all duration-200 focus-within:shadow-[0_0_80px_color-mix(in srgb, var(--blurpleColor) 20%, transparent),0_0_160px_color-mix(in srgb, var(--blurpleColor) 15%, transparent),0_0_240px_color-mix(in srgb, var(--blurpleColor) 12%, transparent),0_0_320px_color-mix(in srgb, var(--blurpleColor) 8%, transparent)]"
+					style="border-color: var(--white16); background-color: var(--black16);"
 				>
 					<Search class="h-5 w-5 text-muted-foreground flex-shrink-0" />
 					<input
@@ -134,7 +134,7 @@ function handleLabelTap(label) {
 						class="close-btn rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
 						aria-label="Close search"
 					>
-						<X class="h-5 w-5" style="color: hsl(var(--white33));" />
+						<X class="h-5 w-5" style="color: var(--white33);" />
 					</button>
 				</div>
 			</div>
@@ -147,8 +147,8 @@ function handleLabelTap(label) {
 						class="suggestion-item w-full text-left px-3 py-1.5 hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-3"
 						onclick={handleSuggestionClick}
 					>
-						<Search class="h-5 w-5 flex-shrink-0" style="color: hsl(var(--white16));" />
-						<span style="color: hsl(var(--white66));">{suggestionText}</span>
+						<Search class="h-5 w-5 flex-shrink-0" style="color: var(--white16);" />
+						<span style="color: var(--white66);">{suggestionText}</span>
 					</button>
 					<!-- Search with description – commented out for now
           <button ... onclick={handleDescribeClick}>
@@ -165,8 +165,8 @@ function handleLabelTap(label) {
 					<div class="section-header flex items-center justify-between mb-2">
 						<h3 class="eyebrow-label">Labels</h3>
 						<button type="button" class="more-btn flex items-center gap-1.5 cursor-pointer">
-							<span class="text-xs" style="color: hsl(var(--white33));">More</span>
-							<ChevronRight variant="outline" color="hsl(var(--white33))" size={10} />
+							<span class="text-xs" style="color: var(--white33);">More</span>
+							<ChevronRight variant="outline" color="var(--white33)" size={10} />
 						</button>
 					</div>
 					<div class="scrollable-row scrollbar-hide" use:wheelScroll>
@@ -190,8 +190,8 @@ function handleLabelTap(label) {
 					<div class="section-header flex items-center justify-between mb-2">
 						<h3 class="eyebrow-label">Catalogs</h3>
 						<button type="button" class="more-btn flex items-center gap-1.5 cursor-pointer">
-							<span class="text-xs" style="color: hsl(var(--white33));">More</span>
-							<ChevronRight variant="outline" color="hsl(var(--white33))" size={10} />
+							<span class="text-xs" style="color: var(--white33);">More</span>
+							<ChevronRight variant="outline" color="var(--white33)" size={10} />
 						</button>
 					</div>
 					<div class="scrollable-row scrollbar-hide" use:wheelScroll>
@@ -208,12 +208,12 @@ function handleLabelTap(label) {
 										size="sm"
 									/>
 								</span>
-								<span class="text-sm whitespace-nowrap" style="color: hsl(var(--white66));"
+								<span class="text-sm whitespace-nowrap" style="color: var(--white66);"
 									>Zapstore</span
 								>
 							</button>
 							<span class="pill coming-soon-pill--catalog flex items-center flex-shrink-0">
-								<span class="text-sm whitespace-nowrap" style="color: hsl(var(--white33));"
+								<span class="text-sm whitespace-nowrap" style="color: var(--white33);"
 									>More catalogs coming soon</span
 								>
 							</span>
@@ -232,12 +232,12 @@ function handleLabelTap(label) {
 							class="pill flex items-center gap-2 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
 						>
 							{@render AndroidIcon()}
-							<span class="text-sm whitespace-nowrap" style="color: hsl(var(--white66));"
+							<span class="text-sm whitespace-nowrap" style="color: var(--white66);"
 								>Android</span
 							>
 						</button>
 						<span class="pill flex items-center">
-							<span class="text-sm whitespace-nowrap" style="color: hsl(var(--white33));"
+							<span class="text-sm whitespace-nowrap" style="color: var(--white33);"
 								>More platforms coming soon</span
 							>
 						</span>
@@ -270,7 +270,7 @@ function handleLabelTap(label) {
 	}
 
 	.more-btn:hover span {
-		color: hsl(var(--white66)) !important;
+		color: var(--white66) !important;
 	}
 
 	.scrollable-row {
@@ -313,7 +313,7 @@ function handleLabelTap(label) {
 		width: 1rem;
 		height: 1rem;
 		flex-shrink: 0;
-		color: hsl(var(--white33));
+		color: var(--white33);
 	}
 
 	/* Match height to Zapstore pill (~36px): nudge "More catalogs coming soon" up so it aligns */
@@ -329,7 +329,7 @@ function handleLabelTap(label) {
 	}
 
 	.suggestions-area {
-		border-bottom: 1px solid hsl(var(--white8));
+		border-bottom: 1px solid var(--white8);
 		margin-bottom: 0.5rem;
 	}
 

@@ -41,16 +41,16 @@
 
 <style>
 	.stakes-section {
-		border-top: 1px solid hsl(var(--white11));
-		border-bottom: 1px solid hsl(var(--white11));
+		border-top: 1px solid var(--white11);
+		border-bottom: 1px solid var(--white11);
 	}
 
 	.stakes-bg-wash {
 		position: absolute;
 		inset: 0;
 		background:
-			radial-gradient(ellipse 70% 100% at 50% 50%, hsl(var(--blurpleColor) / 0.055) 0%, transparent 70%),
-			linear-gradient(180deg, hsl(var(--blurpleColor) / 0.025) 0%, transparent 100%);
+			radial-gradient(ellipse 70% 100% at 50% 50%, color-mix(in srgb, var(--blurpleColor) 5.5%, transparent) 0%, transparent 70%),
+			linear-gradient(180deg, color-mix(in srgb, var(--blurpleColor) 2.5%, transparent) 0%, transparent 100%);
 	}
 
 	.stakes-wrap {
@@ -66,11 +66,11 @@
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
 		padding-bottom: 0.75rem;
-		border-bottom: 1.4px solid hsl(var(--white11));
+		border-bottom: 1.4px solid var(--white11);
 	}
 
 	.col-head-old {
-		color: hsl(var(--white33));
+		color: var(--white33);
 		padding-right: 2rem;
 	}
 
@@ -80,7 +80,7 @@
 		background-clip: text;
 		color: transparent;
 		padding-left: 2rem;
-		border-left: 1.4px solid hsl(var(--white11));
+		border-left: 1.4px solid var(--white11);
 	}
 
 	.row-cell {
@@ -88,7 +88,7 @@
 		align-items: flex-start;
 		gap: 0.5rem;
 		padding: 0.875rem 0;
-		border-bottom: 1.4px solid hsl(var(--white7));
+		border-bottom: 1.4px solid var(--white7);
 		font-size: 0.9375rem;
 	}
 
@@ -102,30 +102,30 @@
 
 	.row-cell-new {
 		padding-left: 2rem;
-		border-left: 1.4px solid hsl(var(--white11));
+		border-left: 1.4px solid var(--white11);
 	}
 
 	.x-icon {
 		font-size: 0.625rem;
-		color: hsl(var(--white22));
+		color: var(--white22);
 		flex-shrink: 0;
 		padding-top: 0.3rem;
 	}
 
 	.check-icon {
 		font-size: 0.75rem;
-		color: hsl(var(--blurpleLightColor));
+		color: var(--blurpleLightColor);
 		flex-shrink: 0;
 		padding-top: 0.25rem;
 	}
 
 	.row-text-old {
-		color: hsl(var(--white33));
+		color: var(--white33);
 		line-height: 1.6;
 	}
 
 	.row-text-new {
-		color: hsl(var(--white66));
+		color: var(--white66);
 		line-height: 1.6;
 	}
 
