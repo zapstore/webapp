@@ -1,6 +1,7 @@
 <script>
 	import { Download } from '$lib/components/icons';
 	import { assets } from '$app/paths';
+	import '$lib/styles/landing-display.css';
 
 	export let showDownloadModal = () => {};
 </script>
@@ -17,7 +18,7 @@
 				style="background-color: var(--gray33); border-radius: var(--radius-32);"
 			>
 				<h2
-					class="section-title text-display-lg text-3xl sm:text-4xl lg:text-4xl xl:text-5xl leading-tight section-title-gradient mb-2 text-left"
+					class="section-title display-section section-title-gradient mb-2 text-left"
 				>
 					Get Zapstore
 				</h2>

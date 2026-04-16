@@ -1,4 +1,6 @@
 <script>
+  import '$lib/styles/landing-display.css';
+
   const primaryPlatforms = [
     { name: 'Apple App Store', icon: 'apple' },
     { name: 'Google Play', icon: 'google' },
@@ -12,9 +14,9 @@
 <section class="py-24 lg:py-32 border-t border-border/50" id="platforms">
   <div class="container mx-auto px-4 sm:px-6 lg:px-8">
     <div class="max-w-2xl mx-auto text-center mb-16">
-      <span class="inline-block text-xs font-semibold tracking-widest uppercase reachkit-gradient mb-4">Distribution</span>
-      <h2 class="text-display text-3xl sm:text-4xl lg:text-5xl mb-6">One command.<br />Every major store.</h2>
-      <p class="text-lg text-muted-foreground">
+      <span class="inline-block semibold12 tracking-widest uppercase reachkit-gradient mb-4">Distribution</span>
+      <h2 class="display-section mb-6">One command.<br />Every major store.</h2>
+      <p class="display-lead text-muted-foreground">
         Ship to <strong class="text-foreground">iOS and Android</strong> simultaneously. From <strong class="text-foreground">App Store to AltStore</strong>, from <strong class="text-foreground">Google Play to F-Droid</strong>.
       </p>
     </div>

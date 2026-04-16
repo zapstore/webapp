@@ -28,14 +28,14 @@
 			<div class="footer-brand">
 				<a href="/" class="footer-brand-link no-underline text-inherit">
 					<img src={`${assets}/images/logo-dark.svg`} alt="Zapstore" class="footer-logo w-auto" />
-					<span class="footer-brand-name font-semibold tracking-tight">Zapstore</span>
+					<span class="footer-brand-name semibold16 tracking-tight">Zapstore</span>
 				</a>
-				<p class="text-sm text-muted-foreground leading-relaxed footer-brand-desc">
+				<p class="regular14 text-muted-foreground leading-relaxed footer-brand-desc">
 					The open app store powered by your social network.
 				</p>
 				<!-- Desktop only: copyright in first column -->
 				<div class="footer-desktop-copyright">
-					<p class="text-sm text-muted-foreground pt-4">
+					<p class="regular14 text-muted-foreground pt-4">
 						© {new Date().getFullYear()} Zapstore
 					</p>
 				</div>
@@ -81,12 +81,12 @@
 							</svg>
 						</a>
 					</div>
-					<p class="text-sm text-muted-foreground pt-4 text-center md:text-left">
+					<p class="regular14 text-muted-foreground pt-4 text-center md:text-left">
 						© {new Date().getFullYear()} Zapstore
 					</p>
 					<button
 						onclick={handleClearLocalData}
-						class="mt-3 text-xs cursor-pointer transition-colors hover:text-destructive"
+						class="mt-3 regular12 cursor-pointer transition-colors hover:text-destructive"
 						style="color: var(--white33);"
 					>
 						Clear local data
@@ -101,19 +101,19 @@
 			<div class="footer-links-row">
 				<!-- Developers -->
 				<div class="footer-link-col footer-link-col-mid">
-					<h3 class="font-semibold text-base text-foreground mb-4">Developers</h3>
+					<h3 class="semibold16 text-foreground mb-4">Developers</h3>
 					<ul class="space-y-3">
 						<li>
 							<a
 								href="/docs/publish"
-								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+								class="regular14 text-muted-foreground hover:text-foreground transition-colors"
 								>Docs</a
 							>
 						</li>
 						<li>
 							<a
 								href="/terms"
-								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+								class="regular14 text-muted-foreground hover:text-foreground transition-colors"
 								><span class="md:hidden">Terms</span><span class="hidden md:inline">Terms of Service</span></a
 							>
 						</li>
@@ -122,19 +122,19 @@
 
 				<!-- Community -->
 				<div class="footer-link-col">
-					<h3 class="font-semibold text-base text-foreground mb-4">Community</h3>
+					<h3 class="semibold16 text-foreground mb-4">Community</h3>
 					<ul class="space-y-3">
 						<li>
 							<a
 								href={communityFirstHref}
-								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+								class="regular14 text-muted-foreground hover:text-foreground transition-colors"
 								>{communityFirstLabel}</a
 							>
 						</li>
 						<li>
 							<a
 								href="/blog"
-								class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+								class="regular14 text-muted-foreground hover:text-foreground transition-colors"
 								>Blog</a
 							>
 						</li>
@@ -144,7 +144,7 @@
 
 			<!-- Column 4 (desktop only): Find Us + social icons + copyright + clear local data -->
 			<div class="footer-fourth">
-				<h3 class="footer-fourth-title font-semibold text-base text-foreground">Find Us</h3>
+				<h3 class="footer-fourth-title semibold16 text-foreground">Find Us</h3>
 				<div
 					class="flex items-center gap-4"
 					aria-label="Contact links"
@@ -187,7 +187,7 @@
 				</div>
 				<button
 					onclick={handleClearLocalData}
-					class="mt-3 text-xs cursor-pointer transition-colors hover:text-destructive"
+					class="mt-3 regular12 cursor-pointer transition-colors hover:text-destructive"
 					style="color: var(--white33);"
 				>
 					Clear local data

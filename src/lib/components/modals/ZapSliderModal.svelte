@@ -263,8 +263,8 @@ $effect(() => {
     {#if step === "slider"}
       <!-- Same zap flow for guest (anon keypair) and signed-in users -->
       <div class="pt-4">
-        <h2 class="modal-title text-display text-4xl text-foreground text-center mb-2">Zap</h2>
-        <p class="text-base text-muted-foreground text-center mb-4">
+        <h2 class="modal-title modal-heading mb-2">Zap</h2>
+        <p class="regular16 text-muted-foreground text-center mb-4">
           {publisherName || "Creator"} for publishing {target?.name ?? "this content"}
         </p>
       </div>
@@ -284,7 +284,7 @@ $effect(() => {
       </div>
     {:else if step === "invoice"}
       <div class="invoice-view">
-        <h2 class="modal-title invoice-title text-display text-foreground text-center">Invoice</h2>
+        <h2 class="modal-title invoice-title modal-heading">Invoice</h2>
         <div class="invoice-qr-block">
           {#if invoiceLoading || !qrCodeUrl}
             <div class="invoice-qr-skeleton" aria-hidden="true"></div>
@@ -338,7 +338,7 @@ $effect(() => {
         <div class="success-icon">
           <CheckCircle size={48} style="color: var(--blurpleColor);" />
         </div>
-        <h2 class="modal-title success-title text-display text-foreground text-center">Zap Sent!</h2>
+        <h2 class="modal-title success-title modal-heading">Zap Sent!</h2>
         <p class="success-message">{formatAmount(Math.round(zapValue))} zapped successfully</p>
       </div>
     {/if}

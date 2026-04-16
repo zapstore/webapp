@@ -23,7 +23,7 @@
 		<div class="user-inbox-head shrink-0">
 			<div class="user-inbox-head-left">
 				<Inbox size={20} strokeWidth={1.4} color="var(--white33)" className="shrink-0" />
-				<h2 class="text-sm font-medium text-foreground m-0">Inbox</h2>
+				<h2 class="medium14 text-foreground m-0">Inbox</h2>
 			</div>
 			<button
 				type="button"

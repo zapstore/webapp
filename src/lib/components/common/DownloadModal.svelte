@@ -153,7 +153,7 @@
 			decoding="async"
 		/>
 		<div class="zapstore-content p-4 md:p-6 relative">
-			<h2 class="modal-title text-display text-4xl text-foreground text-center mb-6">
+			<h2 class="modal-title modal-heading mb-6">
 				Download Zapstore
 			</h2>
 
@@ -182,8 +182,8 @@
 							/>
 							<button
 								type="button"
-								class="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-								on:click={copyDownloadLink}
+								class="flex items-center gap-2 regular14 text-muted-foreground hover:text-foreground transition-colors"
+							on:click={copyDownloadLink}
 							>
 								<span>Download Link</span>
 								{#if linkCopied}
@@ -224,14 +224,14 @@
 											d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 00-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 003 18h18a10.78 10.78 0 00-3.4-8.52zM8.5 14c-.83 0-1.5-.67-1.5-1.5S7.67 11 8.5 11s1.5.67 1.5 1.5S9.33 14 8.5 14zm7 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
 										/>
 									</svg>
-									<span class="text-sm">Android 10+</span>
-								</span>
-								<span class="text-sm" style="color: var(--white33);"
-									><strong>arm64-v8a</strong> only</span
-								>
-							</div>
+								<span class="regular14">Android 10+</span>
+							</span>
+							<span class="regular14" style="color: var(--white33);"
+								><strong>arm64-v8a</strong> only</span
+							>
 						</div>
-						<!-- Vertical Divider - Only on mobile -->
+					</div>
+					<!-- Vertical Divider - Only on mobile -->
 						<div
 							class="md:hidden w-[1.4px] flex-shrink-0 self-stretch"
 							style="background-color: var(--white16);"
@@ -252,14 +252,14 @@
 											d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 00-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 003 18h18a10.78 10.78 0 00-3.4-8.52zM8.5 14c-.83 0-1.5-.67-1.5-1.5S7.67 11 8.5 11s1.5.67 1.5 1.5S9.33 14 8.5 14zm7 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
 										/>
 									</svg>
-									<span class="text-sm">Android 10+</span>
-								</span>
-								<span class="text-sm" style="color: var(--white33);"
-									><strong>arm64-v8a</strong> only</span
-								>
-							</div>
+								<span class="regular14">Android 10+</span>
+							</span>
+							<span class="regular14" style="color: var(--white33);"
+								><strong>arm64-v8a</strong> only</span
+							>
+						</div>
 
-							<!-- Horizontal Divider - Hidden on mobile -->
+						<!-- Horizontal Divider - Hidden on mobile -->
 							<div
 								class="hidden md:block w-full h-[1.4px] flex-shrink-0"
 								style="background-color: var(--white16);"
@@ -268,7 +268,7 @@
 							<!-- Verify APK -->
 							<button
 								type="button"
-								class="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors pl-6 pr-4 py-4 cursor-pointer"
+								class="flex items-center gap-2 regular14 text-muted-foreground hover:text-foreground transition-colors pl-6 pr-4 py-4 cursor-pointer"
 								on:click={() => (showVerifyOverlay = true)}
 							>
 								<span>Verify APK</span>
@@ -290,7 +290,7 @@
 							<!-- View Source Code -->
 							<a
 								href="https://github.com/zapstore/zapstore"
-								class="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors pl-6 pr-4 py-4"
+								class="flex items-center gap-2 regular14 text-muted-foreground hover:text-foreground transition-colors pl-6 pr-4 py-4"
 								target="_blank"
 								rel="noopener noreferrer"
 							>
@@ -327,8 +327,8 @@
 				</div>
 			{:else if selectedPlatform === 'iOS'}
 				<div class="space-y-5">
-					<p class="text-sm text-muted-foreground">
-						We're designing Zapstore iOS to bypass the App Store and deliver an even better UX. <strong
+				<p class="regular14 text-muted-foreground">
+					We're designing Zapstore iOS to bypass the App Store and deliver an even better UX. <strong
 							>It will require an Apple Developer Account ($100/yr) and a monthly fee</strong
 						>. Drop an email or npub and we'll share more as it gets ready.
 					</p>
@@ -341,7 +341,7 @@
 							inputmode="text"
 							autocomplete="off"
 							placeholder="you@example.com or npub1..."
-							class="w-full rounded-lg border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/40 transition-colors"
+							class="w-full rounded-lg border border-border bg-background px-4 py-3 regular14 text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/40 transition-colors"
 						/>
 						<button
 							type="submit"
@@ -356,9 +356,9 @@
 							<ArrowRight class="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
 						</button>
 						{#if iosWaitlistStatus === 'error'}
-							<p class="text-sm text-rose-400">{iosWaitlistMessage}</p>
-						{:else if iosWaitlistStatus === 'success'}
-							<p class="text-sm text-emerald-400">{iosWaitlistMessage}</p>
+						<p class="regular14 text-rose-400">{iosWaitlistMessage}</p>
+					{:else if iosWaitlistStatus === 'success'}
+						<p class="regular14 text-emerald-400">{iosWaitlistMessage}</p>
 						{/if}
 					</form>
 				</div>
@@ -379,7 +379,7 @@
 			</div>
 
 			<!-- Header same size as Zapstore modal -->
-			<h2 class="modal-title text-display text-4xl text-foreground text-center mb-6">
+			<h2 class="modal-title modal-heading mb-6">
 				{app?.name || 'App'}
 			</h2>
 
@@ -405,8 +405,8 @@
 					/>
 					<button
 						type="button"
-						class="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-						on:click={copyDownloadLink}
+						class="flex items-center gap-2 regular14 text-muted-foreground hover:text-foreground transition-colors"
+							on:click={copyDownloadLink}
 					>
 						<span>Download Link</span>
 						{#if linkCopied}
@@ -452,7 +452,7 @@
 									d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 00-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 003 18h18a10.78 10.78 0 00-3.4-8.52zM8.5 14c-.83 0-1.5-.67-1.5-1.5S7.67 11 8.5 11s1.5.67 1.5 1.5S9.33 14 8.5 14zm7 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
 								/>
 							</svg>
-							<span class="text-sm">{minAndroidVersion}</span>
+							<span class="regular14">{minAndroidVersion}</span>
 						</span>
 					</div>
 
@@ -466,7 +466,7 @@
 						<!-- Source Code -->
 						<a
 							href={sourceUrl}
-							class="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors pl-6 pr-4 py-4"
+							class="flex items-center gap-2 regular14 text-muted-foreground hover:text-foreground transition-colors pl-6 pr-4 py-4"
 							target="_blank"
 							rel="noopener noreferrer"
 						>
@@ -503,7 +503,7 @@
 	>
 		<div class="p-6">
 			<div class="flex items-center justify-between mb-6">
-				<h3 class="text-display text-2xl text-foreground">Verify APK Authenticity</h3>
+				<h3 class="bold18 text-foreground">Verify APK Authenticity</h3>
 				<button
 					type="button"
 					class="text-muted-foreground hover:text-foreground transition-colors"
@@ -513,15 +513,15 @@
 				</button>
 			</div>
 
-			<div class="rounded-xl bg-white/5 border border-border/30 text-sm overflow-hidden">
+			<div class="rounded-xl bg-white/5 border border-border/30 regular14 overflow-hidden">
 				<!-- Tabs -->
 				<div class="flex border-b border-border/30">
 					<button
 						type="button"
-						class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors {verifyTab ===
-						'desktop'
-							? 'text-foreground bg-white/5'
-							: 'text-muted-foreground hover:text-foreground'}"
+					class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 medium12 transition-colors {verifyTab ===
+					'desktop'
+						? 'text-foreground bg-white/5'
+						: 'text-muted-foreground hover:text-foreground'}"
 						on:click={() => (verifyTab = 'desktop')}
 					>
 						<Monitor class="w-3.5 h-3.5" />
@@ -529,10 +529,10 @@
 					</button>
 					<button
 						type="button"
-						class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors {verifyTab ===
-						'mobile'
-							? 'text-foreground bg-white/5'
-							: 'text-muted-foreground hover:text-foreground'}"
+					class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 medium12 transition-colors {verifyTab ===
+					'mobile'
+						? 'text-foreground bg-white/5'
+						: 'text-muted-foreground hover:text-foreground'}"
 						on:click={() => (verifyTab = 'mobile')}
 					>
 						<Smartphone class="w-3.5 h-3.5" />
@@ -543,13 +543,13 @@
 				<!-- Tab content -->
 				<div class="p-4">
 					{#if verifyTab === 'desktop'}
-						<p class="text-xs text-muted-foreground mb-2">Run in terminal:</p>
-						<div
-							class="font-mono text-xs text-muted-foreground bg-muted/30 p-2.5 rounded-lg border border-border/30 mb-3"
-						>
-							shasum -a 256 {ZAPSTORE_APK_FILENAME}
-						</div>
-						<p class="text-xs text-muted-foreground mb-1.5">Should equal:</p>
+					<p class="regular12 text-muted-foreground mb-2">Run in terminal:</p>
+					<div
+						class="font-mono regular12 text-muted-foreground bg-muted/30 p-2.5 rounded-lg border border-border/30 mb-3"
+					>
+						shasum -a 256 {ZAPSTORE_APK_FILENAME}
+					</div>
+					<p class="regular12 text-muted-foreground mb-1.5">Should equal:</p>
 						<div
 							class="font-mono text-[11px] text-muted-foreground break-all bg-muted/30 p-2.5 rounded-lg border border-border/30 mb-3"
 						>
@@ -565,8 +565,8 @@
 							>
 						</p>
 					{:else}
-						<p class="text-xs text-muted-foreground mb-2">
-							Use
+					<p class="regular12 text-muted-foreground mb-2">
+						Use
 							<a
 								href="https://github.com/soupslurpr/AppVerifier"
 								target="_blank"
@@ -575,7 +575,7 @@
 							>
 							to verify the APK certificate:
 						</p>
-						<p class="text-xs text-muted-foreground mb-1.5">Certificate hash:</p>
+						<p class="regular12 text-muted-foreground mb-1.5">Certificate hash:</p>
 						<div
 							class="font-mono text-[11px] text-muted-foreground break-all bg-muted/30 p-2.5 rounded-lg border border-border/30 mb-3"
 						>

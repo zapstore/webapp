@@ -1,4 +1,6 @@
 <script>
+  import '$lib/styles/landing-display.css';
+
   const painPoints = [
     { icon: 'clock', title: 'Weeks lost to review cycles', description: 'Every rejection means days of back-and-forth. A single screenshot issue can delay your launch by a week.' },
     { icon: 'target', title: 'Guessing what reviewers want', description: 'Guidelines are hundreds of pages. Requirements change constantly. You never know what will trigger a rejection.' },
@@ -9,9 +11,9 @@
 <section class="py-24 lg:py-32 border-t border-border/50" id="problem">
   <div class="container mx-auto px-4 sm:px-6 lg:px-8">
     <div class="max-w-2xl mx-auto text-center mb-16">
-      <span class="inline-block text-xs font-semibold tracking-widest uppercase reachkit-gradient mb-4">The problem</span>
-      <h2 class="text-display text-3xl sm:text-4xl lg:text-5xl mb-6">You're shipping blind.</h2>
-      <p class="text-lg text-muted-foreground">
+      <span class="inline-block semibold12 tracking-widest uppercase reachkit-gradient mb-4">The problem</span>
+      <h2 class="display-section mb-6">You're shipping blind.</h2>
+      <p class="display-lead text-muted-foreground">
         Every app store submission is a coin flip. You spend hours preparing, then wait days hoping for approval — only to get a <strong class="text-foreground">cryptic rejection</strong> that sends you back to square one.
       </p>
     </div>
@@ -37,8 +39,8 @@
               </svg>
             {/if}
           </div>
-          <h3 class="text-xl font-semibold text-foreground mb-3">{point.title}</h3>
-          <p class="text-muted-foreground text-sm leading-relaxed">{point.description}</p>
+          <h3 class="semibold20 text-foreground mb-3">{point.title}</h3>
+          <p class="text-muted-foreground regular14 leading-relaxed">{point.description}</p>
         </div>
       {/each}
     </div>
@@ -58,21 +60,21 @@
       </svg>
 
       <div class="flex flex-wrap justify-center gap-8 mb-6">
-        <div class="flex items-center gap-2 text-sm text-muted-foreground">
+        <div class="flex items-center gap-2 regular14 text-muted-foreground">
           <span class="w-2 h-2 rounded-full bg-rose-500"></span>
           Submit
         </div>
-        <div class="flex items-center gap-2 text-sm text-muted-foreground">
+        <div class="flex items-center gap-2 regular14 text-muted-foreground">
           <span class="w-2 h-2 rounded-full bg-amber-500"></span>
           Wait 3-7 days
         </div>
-        <div class="flex items-center gap-2 text-sm text-muted-foreground">
+        <div class="flex items-center gap-2 regular14 text-muted-foreground">
           <span class="w-2 h-2 rounded-full bg-rose-500"></span>
           Rejected
         </div>
       </div>
 
-      <p class="text-sm text-muted-foreground italic">
+      <p class="regular14 text-muted-foreground italic">
         The average app goes through this cycle <strong class="text-foreground not-italic">2-3 times</strong> before approval.
       </p>
     </div>

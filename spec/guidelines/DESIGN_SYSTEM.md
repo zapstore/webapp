@@ -53,8 +53,37 @@ When displaying text in a user's profile color, use `getProfileTextColor()` from
 
 - **Inter** (`--font-sans`) — body and headings
 - **JetBrains Mono** (`--font-mono`) — code blocks only (not npubs, not user IDs)
-- Sizes: `text-display-lg` (large headings), default 18px, `text-sm` 14px, `text-xs` 12px
-- Weights: 650 bold headings, 600 semibold smaller headings, 500 medium buttons, 400 regular body
+- Body default: 18px regular (`regular18` on `body`)
+
+### Literal tokens — `[weight][size]`
+
+Weight scale: `regular` = 400, `medium` = 500, `semibold` = 600, `bold` = 650.
+
+| Token | Size | Weight |
+|-------|------|--------|
+| `regular12`, `semibold12` | 12px | 400 / 600 |
+| `regular14`, `medium14`, `semibold14` | 14px | 400 / 500 / 600 |
+| `regular16`, `medium16`, `semibold16` | 16px | 400 / 500 / 600 |
+| `regular18`, `semibold18`, `bold18` | 18px | 400 / 600 / 650 |
+| `semibold20` | 20px | 600 |
+
+### Compositional classes (app.css)
+
+| Class | Use | Properties |
+|-------|-----|------------|
+| `.modal-heading` | Modal/overlay titles | 30px, 650, tight tracking, centered |
+| `.header-title` | Site brand name, page titles | 18px → 20px at 1024px, 600, tight tracking |
+| `.eyebrow-label` | Section eyebrows | 12px, 500, uppercase, wide tracking |
+
+### Landing display classes (`src/lib/styles/landing-display.css`)
+
+Import via `import '$lib/styles/landing-display.css'` in landing component scripts.
+
+| Class | Use | Size |
+|-------|-----|------|
+| `.display-hero` | Main h1 hero headings | `clamp(36px, 7vw, 72px)`, 650 |
+| `.display-section` | Section h2 headings | `clamp(28px, 4vw, 48px)`, 650 |
+| `.display-lead` | Lead body paragraphs | 18px → 20px at 768px, 400 |
 
 ## Panels
 

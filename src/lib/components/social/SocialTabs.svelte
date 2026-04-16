@@ -357,7 +357,7 @@ const combinedFeed = $derived.by(() => {
   <div class="tab-content">
     {#if activeTab === "comments"}
       {#if commentsError}
-        <div class="mb-4 flex items-start gap-2 rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+        <div class="mb-4 flex items-start gap-2 rounded border border-destructive/40 bg-destructive/10 p-3 regular14 text-destructive">
           <AlertCircle class="h-4 w-4 mt-0.5" />
           <div class="flex-1">{commentsError}</div>
         </div>

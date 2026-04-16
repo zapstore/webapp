@@ -272,11 +272,11 @@
 									/>
 
 									<div class="flex-1 min-w-0 flex items-center justify-between gap-2">
-										<span class="font-semibold text-foreground truncate text-sm">
+										<span class="semibold14 text-foreground truncate">
 											{getDisplayName(testimonial)}
 										</span>
 										<span
-											class="text-xs whitespace-nowrap flex-shrink-0"
+											class="regular12 whitespace-nowrap flex-shrink-0"
 											style="color: var(--white33);"
 										>
 											{formatDateTime(testimonial.created_at)}
@@ -285,7 +285,7 @@
 								</div>
 
 								<!-- Content -->
-								<p class="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+								<p class="regular14 text-foreground leading-relaxed whitespace-pre-wrap">
 									{testimonial.content}
 								</p>
 							</a>

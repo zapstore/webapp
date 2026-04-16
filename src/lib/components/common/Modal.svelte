@@ -158,7 +158,7 @@ function handleResize() {
       <div class="modal-content">
         {#if title}
           <div class="modal-title-block">
-            <h2 class="modal-title text-display text-4xl text-foreground text-center">{title}</h2>
+            <h2 class="modal-title modal-heading">{title}</h2>
             {#if description}
               <p class="modal-description">{description}</p>
             {/if}
@@ -315,7 +315,6 @@ function handleResize() {
   }
   .modal-title {
     margin: 0;
-    font-size: 1.875rem;
   }
   .modal-title-block:has(.modal-description) .modal-title {
     margin-bottom: 10px;

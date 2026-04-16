@@ -64,7 +64,7 @@
 
 	{#if isMobile}
 		<!-- Mobile: sign in not available -->
-		<h2 class="modal-title text-display text-4xl text-foreground text-center mb-3">
+		<h2 class="modal-title modal-heading mb-3">
 			Sign in not available
 		</h2>
 		
@@ -81,7 +81,7 @@
 		</p>
 	{:else if !extensionAvailable}
 		<!-- Desktop: no extension -->
-		<h2 class="modal-title text-display text-4xl text-foreground text-center mb-3">
+		<h2 class="modal-title modal-heading mb-3">
 			No extension found
 		</h2>
 		
@@ -103,7 +103,7 @@
 		</p>
 	{:else}
 		<!-- Has extension -->
-		<h2 class="modal-title text-display text-4xl text-foreground text-center mb-4">Sign in</h2>
+		<h2 class="modal-title modal-heading mb-4">Sign in</h2>
 		
 		<p class="description">
 			Connect with your <a

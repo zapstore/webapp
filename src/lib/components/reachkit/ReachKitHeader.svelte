@@ -34,7 +34,7 @@
         <div class="flex flex-col">
           <a
             href="/studio"
-            class="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3"
+            class="inline-flex items-center gap-1.5 regular12 text-muted-foreground hover:text-foreground transition-colors mb-3"
           >
             <ArrowLeft class="h-3 w-3" />
             Back to Studio
@@ -52,7 +52,7 @@
               <path d="M12 16L20 8L28 16L20 24L12 16Z" fill="url(#header-reachkit-gradient)" opacity="0.6" />
             </svg>
             <div class="flex flex-col">
-              <span class="font-semibold text-lg tracking-tight leading-tight">ReachKit</span>
+              <span class="header-title leading-tight">ReachKit</span>
               <span class="text-[10px] text-muted-foreground -mt-0.5">by Zapstore</span>
             </div>
           </a>
@@ -63,7 +63,7 @@
         {#each navigation as item (item.href)}
           <a
             href={item.href}
-            class="relative px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:text-foreground"
+            class="relative px-3 py-2 medium14 transition-colors text-muted-foreground hover:text-foreground"
           >
             {item.name}
           </a>
@@ -72,7 +72,7 @@
         <div class="ml-4 pl-4 border-l border-border/50">
           <a
             href="#waitlist"
-            class="group inline-flex items-center justify-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-black transition-all hover:bg-amber-400 hover:shadow-lg hover:shadow-amber-500/25"
+            class="group inline-flex items-center justify-center rounded-lg bg-amber-500 px-4 py-2 medium14 text-black transition-all hover:bg-amber-400 hover:shadow-lg hover:shadow-amber-500/25"
           >
             Get Early Access
           </a>
@@ -102,7 +102,7 @@
         {#each navigation as item (item.href)}
           <a
             href={item.href}
-            class="block rounded-lg px-4 py-2.5 text-base font-medium transition-colors text-muted-foreground hover:bg-white/5 hover:text-foreground"
+            class="block rounded-lg px-4 py-2.5 medium16 transition-colors text-muted-foreground hover:bg-white/5 hover:text-foreground"
             on:click={() => (mobileMenuOpen = false)}
           >
             {item.name}
@@ -110,7 +110,7 @@
         {/each}
         <a
           href="#waitlist"
-          class="block rounded-lg px-4 py-2.5 text-base font-medium bg-amber-500 text-black text-center mt-4"
+          class="block rounded-lg px-4 py-2.5 medium16 bg-amber-500 text-black text-center mt-4"
           on:click={() => (mobileMenuOpen = false)}
         >
           Get Early Access

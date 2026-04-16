@@ -1,5 +1,6 @@
 <script>
   import { ChevronRight } from "$lib/components/icons";
+  import '$lib/styles/landing-display.css';
 
   /** @type {HTMLButtonElement | null} */
   let openFeedButton = null;
@@ -23,7 +24,7 @@
   <div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-16 lg:pt-20 pb-0">
     <!-- Center text -->
     <div class="relative z-20 text-center mb-8">
-      <h2 class="section-title text-display-lg leading-tight">
+      <h2 class="section-title display-section leading-tight">
         <span class="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl"
           ><span
             class="hash-gradient"

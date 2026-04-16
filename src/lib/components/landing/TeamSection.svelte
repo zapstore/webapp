@@ -482,7 +482,7 @@
 				</radialGradient>
 			</defs>
 		</svg>
-		<h2 class="text-display text-4xl text-foreground text-center mb-6">Donate</h2>
+		<h2 class="modal-heading mb-6">Donate</h2>
 		<div class="donate-modal-panels">
 			<a href={ZAPSTORE_APP_NADDR} class="donate-panel">
 				<div class="donate-panel-icon donate-panel-icon-zap">

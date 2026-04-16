@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { assets } from '$app/paths';
+	import '$lib/styles/landing-display.css';
 
 	let mounted = false;
 
@@ -21,7 +22,7 @@
 	>
 		<div class="mx-auto sm:mx-0 max-w-lg">
 			<h1
-				class="text-display-lg text-4xl sm:text-4xl lg:text-5xl xl:text-6xl leading-tight mb-3 sm:mb-4 mx-auto sm:mx-0 max-w-lg"
+				class="display-hero studio-h1 mb-3 sm:mb-4 mx-auto sm:mx-0 max-w-lg"
 			>
 				<span
 					style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
@@ -36,7 +37,7 @@
 				</span>
 			</h1>
 			<p
-				class="text-lg sm:text-xl text-muted-foreground max-w-lg mb-6 sm:mb-8 lg:mb-10 leading-relaxed mx-auto sm:mx-0"
+				class="display-lead text-muted-foreground max-w-lg mb-6 sm:mb-8 lg:mb-10 mx-auto sm:mx-0"
 			>
 				Reliable tools for shipping apps and interacting<br class="hidden sm:block" /> with communities
 				of users.
@@ -552,11 +553,16 @@
 			height: 180px;
 		}
 
-		.screenshot-cli {
-			width: 162px;
-			right: 22%;
-			top: 192px;
-			transform: rotateY(5deg) rotateX(2deg) rotateZ(-8deg) translateZ(80px);
-		}
+	.screenshot-cli {
+		width: 162px;
+		right: 22%;
+		top: 192px;
+		transform: rotateY(5deg) rotateX(2deg) rotateZ(-8deg) translateZ(80px);
 	}
+}
+
+/* Override display-hero's clamp — studio h1 peaks at 60px, not 72px */
+.studio-h1 { font-size: 36px; }
+@media (min-width: 1024px) { .studio-h1 { font-size: 48px; } }
+@media (min-width: 1280px) { .studio-h1 { font-size: 60px; } }
 </style>

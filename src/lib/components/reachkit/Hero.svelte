@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import '$lib/styles/landing-display.css';
 
   let mounted = false;
 
@@ -49,24 +50,24 @@
 
   <div class="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
     <div class="max-w-4xl mx-auto text-center">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-sm text-primary mb-8 animate-fade-in-up">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 regular14 text-primary mb-8 animate-fade-in-up">
         <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
         <span>Coming Soon</span>
       </div>
 
-      <h1 class="text-display-lg text-4xl sm:text-6xl lg:text-7xl mb-6 animate-fade-in-up delay-100">
+      <h1 class="display-hero mb-6 animate-fade-in-up delay-100">
         Fewer rejections, faster approvals.
         <span class="reachkit-gradient">On all stores.</span>
       </h1>
 
-      <p class="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed animate-fade-in-up delay-200">
+      <p class="display-lead text-muted-foreground max-w-2xl mx-auto mb-10 animate-fade-in-up delay-200">
         Simulate app store review before you submit. Our AI predicts what reviewers will flag and suggests <strong class="text-foreground">concrete fixes</strong>.
       </p>
 
       <div class="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-up delay-300">
         <a
           href="#waitlist"
-          class="group inline-flex items-center justify-center rounded-lg bg-amber-500 px-6 py-3.5 text-sm font-medium text-black transition-all hover:bg-amber-400 hover:shadow-lg hover:shadow-amber-500/25"
+          class="group inline-flex items-center justify-center rounded-lg bg-amber-500 px-6 py-3.5 medium14 text-black transition-all hover:bg-amber-400 hover:shadow-lg hover:shadow-amber-500/25"
         >
           Get early access
           <svg class="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,7 +76,7 @@
         </a>
         <a
           href="#features"
-          class="group inline-flex items-center justify-center rounded-lg border border-border px-6 py-3.5 text-sm font-medium text-foreground transition-all hover:bg-card hover:border-border/80"
+          class="group inline-flex items-center justify-center rounded-lg border border-border px-6 py-3.5 medium14 text-foreground transition-all hover:bg-card hover:border-border/80"
         >
           See how it works
         </a>
@@ -92,7 +93,7 @@
           <span class="w-3 h-3 rounded-full bg-[#28c840] shadow-inner"></span>
         </div>
         <div class="flex-1 flex justify-center">
-          <span class="px-3 py-0.5 rounded bg-white/5 text-[11px] text-white/50 font-medium">zsh — reachkit</span>
+          <span class="px-3 py-0.5 rounded bg-white/5 text-[11px] text-white/50" style="font-weight: 500;">zsh — reachkit</span>
         </div>
         <div class="w-[52px]"></div>
       </div>

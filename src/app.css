@@ -471,13 +471,62 @@ body {
 /* Base heading styles - all h1-h6 use Inter */
 h1, h2, h3, h4 {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-weight: 650; /* Bold for large headings */
-  letter-spacing: -0.03em; /* Tighter letter spacing for headers */
+  font-weight: 650;
+  letter-spacing: -0.03em;
 }
 h5, h6 {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-weight: 600; /* Semibold for smaller headings */
-  letter-spacing: -0.02em; /* Tighter letter spacing for smaller headers */
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* ── Literal typography tokens ──────────────────────────────────────────────
+   Naming: [weight][size] — e.g. semibold16, medium14.
+   Weight scale: regular=400, medium=500, semibold=600, bold=650.
+   Only combinations actually used in the codebase are defined.
+   ────────────────────────────────────────────────────────────────────────── */
+.regular12  { font-size: 12px; font-weight: 400; }
+.semibold12 { font-size: 12px; font-weight: 600; }
+
+.regular14  { font-size: 14px; font-weight: 400; }
+.medium14   { font-size: 14px; font-weight: 500; }
+.semibold14 { font-size: 14px; font-weight: 600; }
+
+.regular16  { font-size: 16px; font-weight: 400; }
+.medium16   { font-size: 16px; font-weight: 500; }
+.semibold16 { font-size: 16px; font-weight: 600; }
+
+.regular18  { font-size: 18px; font-weight: 400; }
+.semibold18 { font-size: 18px; font-weight: 600; }
+.bold18     { font-size: 18px; font-weight: 650; }
+
+.semibold20 { font-size: 20px; font-weight: 600; }
+
+/* ── Compositional typography classes ───────────────────────────────────────
+   For recurring multi-property patterns that appear 5+ times verbatim.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Modal/overlay titles: used across Modal, GetStartedModal, ZapSliderModal,
+   DownloadModal, TeamSection, profile page. Replaces the
+   text-display + text-4xl + text-foreground + text-center combo. */
+.modal-heading {
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--white);
+}
+
+/* Site/app header brand name and page titles. Replaces
+   font-semibold + text-lg + lg:text-xl + tracking-tight. */
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+@media (min-width: 1024px) {
+  .header-title { font-size: 20px; }
 }
 
 /* Eyebrow label / section label text */
@@ -487,21 +536,6 @@ h5, h6 {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   color: var(--white66);
-}
-
-/* Display headings with Inter */
-.text-display {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-weight: 650; /* Bold for display text */
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.text-display-lg {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-weight: 650; /* Bold for large display text */
-  letter-spacing: -0.025em;
-  line-height: 1.1;
 }
 
 /* ========================================

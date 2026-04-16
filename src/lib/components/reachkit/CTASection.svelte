@@ -1,4 +1,5 @@
 <script lang="js">
+import '$lib/styles/landing-display.css';
 let email = '';
 let submitted = false;
 let loading = false;
@@ -52,12 +53,12 @@ async function handleSubmit(e) {
 
   <div class="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
     <div class="max-w-xl mx-auto text-center">
-      <h2 class="text-display text-3xl sm:text-4xl lg:text-5xl mb-6">
+      <h2 class="display-section mb-6">
         Stop guessing.<br />
         <span class="reachkit-gradient">Start shipping.</span>
       </h2>
 
-      <p class="text-lg text-muted-foreground mb-10">
+      <p class="display-lead text-muted-foreground mb-10">
         Join the waitlist and be among the <strong class="text-foreground">first to experience</strong> streamlined app submissions with fewer rejections.
       </p>
 
@@ -68,13 +69,13 @@ async function handleSubmit(e) {
               <path d="M20 6L9 17l-5-5" />
             </svg>
           </div>
-          <p class="text-emerald-400 font-medium">You're on the list. We'll be in touch soon.</p>
+          <p class="text-emerald-400 medium16">You're on the list. We'll be in touch soon.</p>
         </div>
       {:else if error}
         <div class="flex flex-col items-center gap-4 p-8 rounded-2xl bg-rose-500/10 border border-rose-500/30 mb-6">
-          <p class="text-rose-400 font-medium">{error}</p>
+          <p class="text-rose-400 medium16">{error}</p>
           <button
-            class="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-card transition-colors"
+            class="px-4 py-2 rounded-lg border border-border medium14 hover:bg-card transition-colors"
             on:click={() => (error = '')}
           >
             Try again
@@ -93,7 +94,7 @@ async function handleSubmit(e) {
             />
             <button
               type="submit"
-              class="px-6 py-3 rounded-xl bg-amber-500 text-black font-medium transition-all hover:bg-amber-400 hover:shadow-lg hover:shadow-amber-500/25 disabled:opacity-50"
+              class="px-6 py-3 rounded-xl bg-amber-500 text-black medium16 transition-all hover:bg-amber-400 hover:shadow-lg hover:shadow-amber-500/25 disabled:opacity-50"
               disabled={loading}
             >
               {#if loading}
@@ -103,7 +104,7 @@ async function handleSubmit(e) {
               {/if}
             </button>
           </div>
-          <p class="text-sm text-muted-foreground mt-3">No spam. Unsubscribe anytime.</p>
+          <p class="regular14 text-muted-foreground mt-3">No spam. Unsubscribe anytime.</p>
         </form>
       {/if}
     </div>

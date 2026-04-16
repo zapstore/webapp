@@ -1,5 +1,6 @@
 <script>
 	import { ChevronRight } from '$lib/components/icons';
+	import '$lib/styles/landing-display.css';
 
 	/** @type {HTMLAnchorElement | null} */
 	let ctaButton = null;
@@ -22,8 +23,8 @@
 			<p class="eyebrow-label release-eyebrow mb-4" style="color: var(--white33);">
 				For Developers
 			</p>
-			<h2 class="section-title text-display-lg leading-tight">
-				<span class="text-3xl sm:text-5xl lg:text-6xl xl:text-7xl section-title-gradient">
+			<h2 class="section-title display-section leading-tight">
+				<span class="display-hero section-title-gradient">
 					Release with ease
 				</span>
 			</h2>

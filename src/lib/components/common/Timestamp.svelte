@@ -27,9 +27,9 @@
 
   // Size classes mapping
   const sizeClasses = {
-    xs: "text-xs",
-    sm: "text-sm",
-    md: "text-base",
+    xs: "regular12",
+    sm: "regular14",
+    md: "regular16",
   };
 
   /**

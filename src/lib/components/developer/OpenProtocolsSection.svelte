@@ -1,6 +1,7 @@
 <script>
   import { assets } from '$app/paths';
   import { ChevronRight } from '$lib/components/icons';
+  import '$lib/styles/landing-display.css';
 
   const protocols = [
     {
@@ -31,7 +32,7 @@
   <div class="open-protocols-container">
     <!-- Left: header + description, no panel -->
     <div class="open-protocols-col-left">
-      <h2 class="open-protocols-title section-title text-display-lg">
+      <h2 class="open-protocols-title section-title display-section">
         <span
           class="open-protocols-line open-protocols-line-1"
           style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"

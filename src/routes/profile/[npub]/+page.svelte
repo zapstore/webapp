@@ -265,7 +265,7 @@ function stackToCard(s, resolvedApps) {
 		<div
 			class="rounded-lg bg-destructive/10 border border-destructive/20 p-6 max-w-md mx-auto text-center"
 		>
-			<h3 class="text-lg font-semibold text-destructive mb-2">Invalid profile</h3>
+			<h3 class="semibold18 text-destructive mb-2">Invalid profile</h3>
 			<p class="text-muted-foreground">The profile address (npub) is not valid.</p>
 		</div>
 	</div>
@@ -336,7 +336,7 @@ function stackToCard(s, resolvedApps) {
 						{#if profile?.about?.trim()}
 							<button
 								type="button"
-								class="profile-description text-base text-left"
+								class="profile-description regular16 text-left"
 								style="color: var(--white66); cursor: pointer; background: none; border: none; padding: 0; width: 100%;"
 								onclick={() => (descriptionModalOpen = true)}
 								aria-label="View full description"
@@ -541,7 +541,7 @@ function stackToCard(s, resolvedApps) {
 	{#if profile?.about?.trim()}
 		<Modal bind:open={descriptionModalOpen} ariaLabel="Profile Description" maxHeight={90}>
 			<div class="description-modal-content">
-				<h2 class="text-display text-4xl text-foreground text-center mb-4">About</h2>
+				<h2 class="modal-heading mb-4">About</h2>
 				<div class="description-modal-text" style="color: var(--white66);">
 					<ShortTextRenderer
 						content={profile.about}

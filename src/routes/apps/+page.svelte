@@ -422,7 +422,7 @@
 					{/each}
 				</div>
 			{:else if searchResults !== null}
-				<p class="text-muted-foreground text-sm px-1 py-4">No apps found for "{searchQ}".</p>
+				<p class="text-muted-foreground regular14 px-1 py-4">No apps found for "{searchQ}".</p>
 			{/if}
 		</div>
 	{:else}

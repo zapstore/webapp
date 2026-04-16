@@ -1,5 +1,6 @@
 <script>
 	import { onMount, onDestroy, tick } from 'svelte';
+	import '$lib/styles/landing-display.css';
 	import { ChevronRight } from '$lib/components/icons';
 
 	/** @type {HTMLAnchorElement | null} */
@@ -141,7 +142,7 @@
 </script>
 
 <section
-	class="relative flex items-center justify-center overflow-hidden pt-12 pb-14 sm:pt-16 sm:pb-16 lg:pt-20 lg:pb-24"
+	class="relative flex items-center justify-center overflow-hidden pt-12 pb-10 sm:pt-16 sm:pb-16 lg:pt-20 lg:pb-24"
 	class:proximity-cursor={showProximityCursor}
 	on:mousemove={handleSectionMouseMove}
 	on:mouseleave={() => (showProximityCursor = false)}
@@ -158,7 +159,7 @@
 			<!-- h1: flip-out rotates to edge-on, flip-in snaps back revealing new text -->
 			<h1
 				bind:this={h1Ref}
-				class="text-display-lg text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-normal sm:leading-relaxed mb-4"
+				class="display-hero mb-4"
 				class:hero-flip-out={permissionState === 'imploding' || permissionState === 'restoring'}
 				class:hero-flip-in={permissionState === 'transformed' || permissionState === 'returning'}
 				style="{h1MinHeight > 0 ? `min-height: ${h1MinHeight}px;` : ''} position: relative;"
@@ -230,10 +231,10 @@
 		<hr class="hero-divider" />
 
 		<p
-			class="hero-description text-xl sm:text-2xl mx-auto mt-2 sm:mt-8 mb-10"
+			class="hero-description mx-auto mt-2 sm:mt-8 mb-10"
 			style="color: var(--white66);"
 		>
-			Published by developers.<br class="sm:hidden" /> Curated by communities.
+			Published by their developers.<br class="sm:hidden" /> Curated by communities.
 		</p>
 
 		<!-- Browse CTA: stacked app pics + glass pill -->
@@ -256,7 +257,9 @@
 					class="btn-glass-large btn-glass-with-chevron hero-browse-pill flex items-center gap-2 group"
 					on:mousemove={handleMouseMove}
 				>
-					Browse 3,000+ apps
+					<span class="sm:hidden">3,000+ Apps</span><span class="hidden sm:inline"
+						>Browse 3,000+ apps</span
+					>
 					<ChevronRight
 						variant="outline"
 						color="var(--white33)"
@@ -287,13 +290,18 @@
 		}
 		.hero-cta-wrap {
 			order: 3;
-			margin-top: 3rem !important;
+			margin-top: 3.25rem !important;
 		}
-		.hero-description {
-			order: 4;
-			margin-top: 1.25rem !important;
-			margin-bottom: 0 !important;
-		}
+	.hero-description {
+		order: 4;
+		margin-top: 1.5rem !important;
+		margin-bottom: 0 !important;
+		font-size: 20px;
+		line-height: 2.25rem;
+	}
+	@media (min-width: 640px) {
+		.hero-description { font-size: 24px; }
+	}
 	}
 
 	/* Desktop: hide divider, natural order */

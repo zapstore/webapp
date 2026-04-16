@@ -1,5 +1,6 @@
 <script>
   import { onMount } from "svelte";
+  import '$lib/styles/landing-display.css';
 
   let mounted = false;
 
@@ -14,7 +15,7 @@
   <!-- Header Content -->
   <div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 lg:pt-20">
     <h1
-      class="text-display-lg text-3xl sm:text-4xl lg:text-5xl xl:text-6xl leading-tight mb-4 sm:mb-6"
+      class="display-hero dev-h1 mb-4 sm:mb-6"
     >
       <span
         style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
@@ -29,7 +30,7 @@
       </span>
     </h1>
     <p
-      class="text-lg sm:text-xl text-muted-foreground max-w-lg mb-10 sm:mb-12 lg:mb-16"
+      class="display-lead text-muted-foreground max-w-lg mb-10 sm:mb-12 lg:mb-16"
     >
       Reliable tools for shipping apps and interacting with communities of users.
     </p>
@@ -211,4 +212,10 @@
       display: none;
     }
   }
+
+/* Override display-hero's clamp — developer h1 peaks at 60px, not 72px */
+.dev-h1 { font-size: 30px; }
+@media (min-width: 640px) { .dev-h1 { font-size: 36px; } }
+@media (min-width: 1024px) { .dev-h1 { font-size: 48px; } }
+@media (min-width: 1280px) { .dev-h1 { font-size: 60px; } }
 </style>

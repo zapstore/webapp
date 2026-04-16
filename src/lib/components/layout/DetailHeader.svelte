@@ -283,27 +283,27 @@ async function _handleSignIn() {
 		<div class="menu-section">
 			<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 			<nav class="menu-subnav">
-				<a href="/apps" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Apps</a>
-				<a href="/stacks" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Stacks</a>
+				<a href="/apps" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Apps</a>
+				<a href="/stacks" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Stacks</a>
 			</nav>
 		</div>
 
 		<div class="menu-section">
 			<a href="/studio" class="menu-section-link" onclick={closeMenu}>Studio</a>
 			<nav class="menu-subnav">
-				<a href="/studio#quickstart" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Quickstart</a>
-				<a href="/docs/publish" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu}>Docs</a>
+				<a href="/studio#quickstart" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Quickstart</a>
+				<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
 			</nav>
 		</div>
 
 		<div class="menu-section">
 			<span class="menu-section-label">Contact</span>
 			<nav class="menu-subnav">
-				<a href="https://github.com/zapstore/zapstore" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">GitHub</a>
-				<a href={SIGNAL_USER_SUPPORT_GROUP_URL} class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">User Support on Signal</a>
-				<a href={SIGNAL_DEV_SUPPORT_GROUP_URL} class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Dev Support on Signal</a>
-				<a href="https://npub.world/npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Follow us on Nostr</a>
-				<a href="https://x.com/zapstore_" class="menu-sublink text-sm font-medium text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Follow us on Twitter</a>
+				<a href="https://github.com/zapstore/zapstore" class="menu-sublink medium14 text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">GitHub</a>
+				<a href={SIGNAL_USER_SUPPORT_GROUP_URL} class="menu-sublink medium14 text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">User Support on Signal</a>
+				<a href={SIGNAL_DEV_SUPPORT_GROUP_URL} class="menu-sublink medium14 text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Dev Support on Signal</a>
+				<a href="https://npub.world/npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8" class="menu-sublink medium14 text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Follow us on Nostr</a>
+				<a href="https://x.com/zapstore_" class="menu-sublink medium14 text-white/66" onclick={closeMenu} target="_blank" rel="noopener noreferrer">Follow us on Twitter</a>
 			</nav>
 		</div>
 

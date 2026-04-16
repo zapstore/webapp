@@ -1,12 +1,13 @@
 <script>
 	import { ChevronRight } from '$lib/components/icons';
 	import { assets } from '$app/paths';
+	import '$lib/styles/landing-display.css';
 
 </script>
 
 <section id="quickstart" class="studio-tools-section border-b border-border/50">
   <div class="studio-tools-container">
-		<h2 class="studio-quick-start-title section-title text-display-lg section-title-gradient hidden sm:block">Quickstart</h2>
+		<h2 class="studio-quick-start-title section-title display-section section-title-gradient hidden sm:block">Quickstart</h2>
 		<p class="section-description studio-quick-start-desc hidden sm:block">Get started with the tools we currently have. Get excited about the ones that are coming.</p>
 
 		<div class="studio-tools-grid">

@@ -924,11 +924,11 @@
 			<div class="text-center">
 				<div class="rounded-lg bg-destructive/10 border border-destructive/20 p-6 max-w-md">
 					<Package class="h-16 w-16 text-destructive mx-auto mb-4" />
-					<h3 class="text-lg font-semibold text-destructive mb-2">App Not Found</h3>
+					<h3 class="semibold18 text-destructive mb-2">App Not Found</h3>
 					<p class="text-muted-foreground mb-4">{error}</p>
 					<button
 						onclick={retryLoad}
-						class="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 w-full"
+						class="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 medium14 text-primary-foreground hover:bg-primary/90 w-full"
 					>
 						Try Again
 					</button>
@@ -969,7 +969,7 @@
 									/>
 								</svg>
 								<span
-									class="platform-text text-sm whitespace-nowrap"
+									class="platform-text regular14 whitespace-nowrap"
 									style="color: var(--white66);"
 								>
 									{platform.charAt(0).toUpperCase() + platform.slice(1)}
@@ -1061,7 +1061,7 @@
 					onclick={() => (securityModalOpen = true)}
 				>
 					<div class="panel-header">
-						<span class="text-base font-semibold" style="color: var(--white);"
+						<span class="semibold16" style="color: var(--white);"
 							>Security</span
 						>
 					</div>
@@ -1088,10 +1088,10 @@
 										stroke-linejoin="round"
 									/>
 								</svg>
-								<span class="text-sm">Published by Developer</span>
+								<span class="regular14">Published by Developer</span>
 							{:else}
 								<span class="security-line flex-shrink-0" aria-hidden="true"></span>
-								<span class="text-sm">Published by Indexer</span>
+								<span class="regular14">Published by Indexer</span>
 							{/if}
 						</div>
 						<!-- 2. Open source (check) or Closed-source (line) — step down -->
@@ -1116,10 +1116,10 @@
 										stroke-linejoin="round"
 									/>
 								</svg>
-								<span class="text-sm">Open source</span>
+								<span class="regular14">Open source</span>
 							{:else}
 								<span class="security-line flex-shrink-0" aria-hidden="true"></span>
-								<span class="text-sm">Closed-source</span>
+								<span class="regular14">Closed-source</span>
 							{/if}
 						</div>
 						<!-- 3. Trusted Catalog — step down again -->
@@ -1143,7 +1143,7 @@
 									stroke-linejoin="round"
 								/>
 							</svg>
-							<span class="text-sm">Trusted Catalog</span>
+							<span class="regular14">Trusted Catalog</span>
 						</div>
 					</div>
 				</button>
@@ -1155,15 +1155,15 @@
 					onclick={() => (releasesModalOpen = true)}
 				>
 					<div class="panel-header">
-						<span class="text-base font-semibold" style="color: var(--white);"
+						<span class="semibold16" style="color: var(--white);"
 							>Releases</span
 						>
 					</div>
 					<div class="panel-list flex flex-col">
 						{#if releasesLoading}
-							<p class="text-sm" style="color: var(--white33);">Loading releases...</p>
-						{:else if releases.length === 0}
-							<p class="text-sm" style="color: var(--white33);">No releases found.</p>
+						<p class="regular14" style="color: var(--white33);">Loading releases...</p>
+					{:else if releases.length === 0}
+						<p class="regular14" style="color: var(--white33);">No releases found.</p>
 						{:else}
 							{#each releases.slice(0, 3) as release, i (release.id ?? `release-${i}`)}
 								{@const preview = releaseNotesPreview(release.notes)}
@@ -1174,13 +1174,13 @@
 										i * 0.04}); transform-origin: left;"
 								>
 									<span
-										class="text-sm font-medium flex-shrink-0"
+										class="medium14 flex-shrink-0"
 										style="color: var(--white33);"
 									>
 										{trimVersion(release.version)}
 									</span>
 									<span
-										class="text-sm truncate"
+										class="regular14 truncate"
 										style="color: var(--white66); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
 									>
 										{preview || 'No notes'}
@@ -1458,7 +1458,7 @@
 											</button>
 										</div>
 									{:else}
-										<p class="text-sm meta-muted">No release notes.</p>
+										<p class="regular14 meta-muted">No release notes.</p>
 									{/if}
 								</div>
 							</div>

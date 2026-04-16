@@ -432,12 +432,12 @@
 									<nav class="menu-subnav">
 										<a
 											href="/docs/publish"
-											class="menu-sublink text-sm font-medium text-white/66"
+											class="menu-sublink medium14 text-white/66"
 											onclick={closeMenu}>Docs</a
 										>
 										<a
 											href="/terms"
-											class="menu-sublink text-sm font-medium text-white/66"
+											class="menu-sublink medium14 text-white/66"
 											onclick={closeMenu}>Terms</a
 										>
 									</nav>
@@ -448,12 +448,12 @@
 									<nav class="menu-subnav">
 										<a
 											href={communityFirstHref}
-											class="menu-sublink text-sm font-medium text-white/66"
+											class="menu-sublink medium14 text-white/66"
 											onclick={closeMenu}>{communityFirstLabel}</a
 										>
 										<a
 											href="/blog"
-											class="menu-sublink text-sm font-medium text-white/66"
+											class="menu-sublink medium14 text-white/66"
 											onclick={closeMenu}>Blog</a
 										>
 									</nav>
@@ -499,13 +499,13 @@
 										/>
 									</svg>
 								{/if}
-								<span class="page-title font-semibold text-lg lg:text-xl tracking-tight"
+								<span class="page-title header-title"
 									>{pageTitle}</span
 								>
 							</button>
 						{:else if pageTitle}
 							<span
-								class="page-title font-semibold text-lg lg:text-xl tracking-tight page-title-spacing"
+								class="page-title header-title page-title-spacing"
 								>{pageTitle}</span
 							>
 						{/if}
@@ -536,7 +536,7 @@
 									fill="white"
 								/>
 							</svg>
-							<span class="font-semibold text-lg lg:text-xl tracking-tight">Zapstore</span>
+							<span class="header-title">Zapstore</span>
 						</a>
 
 						{#if menuOpen}
@@ -586,8 +586,8 @@
 											/>
 										</svg>
 										<span
-											class="font-semibold text-lg tracking-tight"
-											style="color: var(--white);">Zapstore</span
+										class="header-title"
+										style="color: var(--white);">Zapstore</span
 										>
 									</a>
 									<button
@@ -639,12 +639,12 @@
 									<nav class="menu-subnav">
 										<a
 											href="/docs/publish"
-											class="menu-sublink text-sm font-medium text-white/66"
+											class="menu-sublink medium14 text-white/66"
 											onclick={closeMenu}>Docs</a
 										>
 										<a
 											href="/terms"
-											class="menu-sublink text-sm font-medium text-white/66"
+											class="menu-sublink medium14 text-white/66"
 											onclick={closeMenu}>Terms</a
 										>
 									</nav>
@@ -655,12 +655,12 @@
 									<nav class="menu-subnav">
 										<a
 											href={communityFirstHref}
-											class="menu-sublink text-sm font-medium text-white/66"
+											class="menu-sublink medium14 text-white/66"
 											onclick={closeMenu}>{communityFirstLabel}</a
 										>
 										<a
 											href="/blog"
-											class="menu-sublink text-sm font-medium text-white/66"
+											class="menu-sublink medium14 text-white/66"
 											onclick={closeMenu}>Blog</a
 										>
 									</nav>
@@ -695,7 +695,7 @@
 						type="button"
 						onclick={openSearch}
 						class={cn(
-							'search-bar-btn flex items-center gap-2 relative z-10 cursor-pointer text-base',
+							'search-bar-btn flex items-center gap-2 relative z-10 cursor-pointer regular16',
 							'search-bar-width gap-3 pl-2.5 pr-3 sm:pl-3 sm:pr-4 h-10 min-w-0 lg:min-w-fit'
 						)}
 						style="border-color: var(--white16); pointer-events: auto;"
@@ -721,7 +721,7 @@
 							<!-- Download button -->
 							<button
 								type="button"
-								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4"
+								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4"
 								style="color: var(--white66);"
 								onclick={() => (downloadModalOpen = true)}
 							>
@@ -729,7 +729,7 @@
 							</button>
 							<a
 								href="/apps"
-								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
 								class:landing-nav-studio-selected={isDiscoverActive}
 								style="color: var(--white66);"
 							>
@@ -737,7 +737,7 @@
 							</a>
 							<a
 								href="/studio"
-								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
 								class:landing-nav-studio-selected={isStudioPage}
 								style="color: var(--white66);"
 							>
@@ -745,7 +745,7 @@
 							</a>
 							<a
 								href="/community"
-								class="landing-nav-btn text-sm font-medium transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
 								class:landing-nav-studio-selected={isCommunityActive}
 								style="color: var(--white66);"
 							>
@@ -815,7 +815,7 @@
 											>
 												<a
 													href={profileHref}
-													class="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-white/5 transition-colors"
+													class="flex items-center gap-2 px-4 py-2.5 regular14 text-foreground hover:bg-white/5 transition-colors"
 													onclick={() => (dropdownOpen = false)}
 												>
 													<User class="h-4 w-4" />
@@ -825,7 +825,7 @@
 												<button
 													type="button"
 													onclick={handleSignOut}
-													class="flex items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
+													class="flex items-center gap-2 px-4 py-2.5 regular14 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
 												>
 													<LogOut class="h-4 w-4" />
 													Disconnect
@@ -928,7 +928,7 @@
 									>
 										<a
 											href={profileHref}
-											class="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-white/5 transition-colors"
+											class="flex items-center gap-2 px-4 py-2.5 regular14 text-foreground hover:bg-white/5 transition-colors"
 											onclick={() => (dropdownOpen = false)}
 										>
 											<User class="h-4 w-4" />
@@ -938,7 +938,7 @@
 										<button
 											type="button"
 											onclick={handleSignOut}
-											class="flex items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
+											class="flex items-center gap-2 px-4 py-2.5 regular14 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
 										>
 											<LogOut class="h-4 w-4" />
 											Disconnect

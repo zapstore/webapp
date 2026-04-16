@@ -126,7 +126,7 @@ function handleLabelTap(label) {
 						type="text"
 						bind:value={searchQuery}
 						placeholder="Search or Describe apps"
-						class="search-input flex-1 bg-transparent text-foreground placeholder:text-muted-foreground outline-none text-base"
+						class="search-input flex-1 bg-transparent text-foreground placeholder:text-muted-foreground outline-none regular16"
 					/>
 					<button
 						type="button"
@@ -165,7 +165,7 @@ function handleLabelTap(label) {
 					<div class="section-header flex items-center justify-between mb-2">
 						<h3 class="eyebrow-label">Labels</h3>
 						<button type="button" class="more-btn flex items-center gap-1.5 cursor-pointer">
-							<span class="text-xs" style="color: var(--white33);">More</span>
+							<span class="regular12" style="color: var(--white33);">More</span>
 							<ChevronRight variant="outline" color="var(--white33)" size={10} />
 						</button>
 					</div>
@@ -190,7 +190,7 @@ function handleLabelTap(label) {
 					<div class="section-header flex items-center justify-between mb-2">
 						<h3 class="eyebrow-label">Catalogs</h3>
 						<button type="button" class="more-btn flex items-center gap-1.5 cursor-pointer">
-							<span class="text-xs" style="color: var(--white33);">More</span>
+							<span class="regular12" style="color: var(--white33);">More</span>
 							<ChevronRight variant="outline" color="var(--white33)" size={10} />
 						</button>
 					</div>
@@ -208,12 +208,12 @@ function handleLabelTap(label) {
 										size="sm"
 									/>
 								</span>
-								<span class="text-sm whitespace-nowrap" style="color: var(--white66);"
+								<span class="regular14 whitespace-nowrap" style="color: var(--white66);"
 									>Zapstore</span
 								>
 							</button>
 							<span class="pill coming-soon-pill--catalog flex items-center flex-shrink-0">
-								<span class="text-sm whitespace-nowrap" style="color: var(--white33);"
+								<span class="regular14 whitespace-nowrap" style="color: var(--white33);"
 									>More catalogs coming soon</span
 								>
 							</span>
@@ -232,12 +232,12 @@ function handleLabelTap(label) {
 							class="pill flex items-center gap-2 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
 						>
 							{@render AndroidIcon()}
-							<span class="text-sm whitespace-nowrap" style="color: var(--white66);"
+							<span class="regular14 whitespace-nowrap" style="color: var(--white66);"
 								>Android</span
 							>
 						</button>
 						<span class="pill flex items-center">
-							<span class="text-sm whitespace-nowrap" style="color: var(--white33);"
+							<span class="regular14 whitespace-nowrap" style="color: var(--white33);"
 								>More platforms coming soon</span
 							>
 						</span>

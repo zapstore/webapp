@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { ChevronRight } from '$lib/components/icons';
+	import '$lib/styles/landing-display.css';
 
 	export let title = '';
 	export let description = '';
@@ -72,7 +73,7 @@
 	<!-- Title row with button -->
 	<div class="flex items-center justify-between gap-4 title-row">
 		<h2
-			class="section-title text-display-lg text-3xl sm:text-4xl lg:text-4xl xl:text-5xl leading-tight section-title-gradient flex-1 min-w-0"
+			class="section-title display-section section-title-gradient flex-1 min-w-0"
 		>
 			{title}
 		</h2>

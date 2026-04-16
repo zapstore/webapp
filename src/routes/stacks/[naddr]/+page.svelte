@@ -697,7 +697,7 @@ const displayDescription = $derived(
           <div
             class="rounded-lg bg-destructive/10 border border-destructive/20 p-6 max-w-md"
           >
-            <h3 class="text-lg font-semibold text-destructive mb-2">
+            <h3 class="semibold18 text-destructive mb-2">
               Error Loading Stack
             </h3>
             <p class="text-muted-foreground mb-4">{error}</p>
@@ -794,7 +794,7 @@ const displayDescription = $derived(
           </div>
         {:else}
           <div class="placeholder-content">
-            <p class="text-muted-foreground text-sm">
+            <p class="text-muted-foreground regular14">
               No apps found in this stack.
             </p>
           </div>

@@ -2,6 +2,7 @@
 import { onMount } from 'svelte';
 import { assets } from '$app/paths';
 import { ChevronRight } from '$lib/components/icons';
+import '$lib/styles/landing-display.css';
 let sectionElement;
 let scrollProgress = 0;
 let chainLeftOffset = 0;
@@ -92,7 +93,7 @@ onMount(() => {
 		style="opacity: {textOpacity}; transform: scale({textScale}); transition: opacity 0.2s ease-out, transform 0.2s ease-out;"
 	>
 		<!-- Mobile: three lines, Without + Permission smaller + blurple -->
-		<h2 class="section-title text-display-lg sm:hidden publish-three-lines">
+		<h2 class="section-title display-section sm:hidden publish-three-lines">
 			<span
 				class="block text-4xl"
 				style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
@@ -110,7 +111,7 @@ onMount(() => {
 			>
 		</h2>
 		<!-- Desktop: original two lines -->
-		<h2 class="section-title text-display-lg leading-tight hidden sm:block">
+		<h2 class="section-title display-section leading-tight hidden sm:block">
 			<span
 				class="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl"
 				style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"

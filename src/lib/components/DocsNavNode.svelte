@@ -21,24 +21,24 @@ let isFolder = $derived(Array.isArray(node.children) && node.children.length > 0
 
 <li>
 	{#if isFolder}
-		<div class="flex items-center justify-between w-full text-left text-sm mb-1">
+		<div class="flex items-center justify-between w-full text-left regular14 mb-1">
 			{#if node.href}
 				<a
 					href={node.href}
 					data-sveltekit-reload
-					class="flex-1 px-3 py-1.5 rounded-lg transition-colors {isActive(node.href)
-						? 'bg-[var(--color-accent)]/10 text-[var(--color-text-primary)] font-medium'
-						: isAncestorActive(node.href)
-							? 'text-[var(--color-text-primary)] font-medium'
-							: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'}"
+				class="flex-1 px-3 py-1.5 rounded-lg transition-colors {isActive(node.href)
+					? 'bg-[var(--color-accent)]/10 text-[var(--color-text-primary)] medium14'
+					: isAncestorActive(node.href)
+						? 'text-[var(--color-text-primary)] medium14'
+						: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'}"
 				>
 					{node.title}
 				</a>
 			{:else}
 				<span
-					class="flex-1 px-3 py-1.5 {isAncestorActive(node.id)
-						? 'text-[var(--color-text-primary)] font-medium'
-						: 'text-[var(--color-text-secondary)]'}"
+				class="flex-1 px-3 py-1.5 {isAncestorActive(node.id)
+					? 'text-[var(--color-text-primary)] medium14'
+					: 'text-[var(--color-text-secondary)]'}"
 				>
 					{node.title}
 				</span>
@@ -70,9 +70,9 @@ let isFolder = $derived(Array.isArray(node.children) && node.children.length > 0
 		<a
 			href={node.href}
 			data-sveltekit-reload
-			class="block text-sm px-3 py-1.5 rounded-lg transition-colors {isActive(node.href)
-				? 'bg-[var(--color-accent)]/10 text-[var(--color-text-primary)] font-medium'
-				: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'}"
+			class="block regular14 px-3 py-1.5 rounded-lg transition-colors {isActive(node.href)
+			? 'bg-[var(--color-accent)]/10 text-[var(--color-text-primary)] medium14'
+			: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'}"
 		>
 			{node.title}
 		</a>
