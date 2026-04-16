@@ -8,6 +8,7 @@
 	import InboxIcon from '$lib/components/icons/Inbox.svelte';
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import StudioAppDetail from './StudioAppDetail.svelte';
+	import StudioAppEdit from './StudioAppEdit.svelte';
 	import StudioAppActivity from './StudioAppActivity.svelte';
 	import StudioCountryChart from './StudioCountryChart.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
@@ -110,6 +111,7 @@
 
 	function selectApp(app) {
 		selectedApp = selectedApp?.id === app.id ? null : app;
+		editingApp = false;
 		mobileMenuOpen = false;
 	}
 
@@ -144,9 +146,11 @@
 		!DUMMY_MODE && studioPubkey != null && isStudioIndexerCatalogPubkey(studioPubkey)
 	);
 
-	// ── App detail view ──────────────────────────────────────────────────────
-	// When set, show the app detail panel instead of the overview charts.
+	// ── App detail / edit view ───────────────────────────────────────────────
+	// selectedApp: show app detail panel. editingApp: show edit screen.
 	let selectedApp = $state(null);
+	/** When true, right panel shows StudioAppEdit instead of StudioAppDetail. */
+	let editingApp = $state(false);
 	/** True while the inbox thread modal is open — used to lock .content scroll. */
 	let inboxThreadOpen = $state(false);
 
@@ -692,7 +696,18 @@
 
 		<!-- Content area (border-left acts as the column divider) -->
 		<div class="content">
-			{#if selectedApp !== null}
+			{#if selectedApp !== null && editingApp}
+				<div class="detail-scroll">
+					<StudioAppEdit
+						app={selectedApp}
+						onBack={() => (editingApp = false)}
+						onSaved={(updatedApp) => {
+							if (updatedApp) selectedApp = updatedApp;
+							editingApp = false;
+						}}
+					/>
+				</div>
+			{:else if selectedApp !== null}
 				<div class="detail-scroll">
 					<StudioAppDetail
 						app={selectedApp}
@@ -709,6 +724,7 @@
 						countryRows={detailCountryRows}
 						countryLoading={!DUMMY_MODE && detailCountryLoading}
 						onBack={() => (selectedApp = null)}
+						onEdit={() => (editingApp = true)}
 					/>
 				</div>
 			{:else if activeNav === 'inbox'}

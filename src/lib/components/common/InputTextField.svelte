@@ -10,7 +10,7 @@
  * - Warning has triangle pointer
  */
 import { Alert } from "$lib/components/icons";
-let { value = $bindable(""), placeholder = "", title = null, warning = null, size = "small", singleLine = true, autoCapitalize = true, obscureText = false, id = "", autocomplete = "off", inputElement = $bindable(null), oninput, onkeydown, onfocus, onblur, } = $props();
+let { value = $bindable(""), placeholder = "", title = null, warning = null, size = "small", singleLine = true, autoCapitalize = true, obscureText = false, id = "", autocomplete = "off", light = false, inputElement = $bindable(null), oninput, onkeydown, onfocus, onblur, } = $props();
 function handleInput(e) {
     const target = e.target;
     value = target.value;
@@ -36,6 +36,7 @@ function handleBlur(e) {
     class="input-container"
     class:input-medium={size === "medium"}
     class:input-large={size === "large"}
+    class:input-light={light}
   >
     {#if singleLine}
       <input
@@ -109,6 +110,11 @@ function handleBlur(e) {
     border-radius: 16px;
     overflow: hidden;
     box-sizing: border-box;
+  }
+
+  /* Light variant: gray66 background instead of black33 */
+  .input-container.input-light {
+    background-color: var(--gray66);
   }
 
   /* Responsive: Scale down on mobile (matches btn-*-large behavior) */

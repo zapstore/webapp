@@ -31,7 +31,8 @@
 		countryRows = [],
 		/** While parent loads country breakdown for this app */
 		countryLoading = false,
-		onBack: _onBack
+		onBack: _onBack,
+		onEdit = () => {}
 	} = $props();
 
 	const detailChartLoading = $derived(dlMetricsLoading || zapMetricsLoading || impMetricsLoading);
@@ -142,16 +143,13 @@
 					>
 						View
 					</a>
-					<!-- Edit — restore when publisher flow is ready
-					<a
+					<button
+						type="button"
 						class="btn-secondary-xs btn-secondary-light studio-detail-action-btn"
-						href="https://docs.zapstore.dev"
-						target="_blank"
-						rel="noopener noreferrer"
+						onclick={onEdit}
 					>
 						Edit
-					</a>
-					-->
+					</button>
 				</div>
 			</div>
 		</div>

@@ -45,7 +45,8 @@ export {
 	publishStack,
 	updateStackApps,
 	updateStack,
-	deleteStack
+	deleteStack,
+	updateAppMetadata
 } from './service';
 
 // Models (event parsing)

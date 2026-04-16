@@ -55,7 +55,7 @@
 	import { SITE_URL, SITE_ICON } from '$lib/config';
 	import Timestamp from '$lib/components/common/Timestamp.svelte';
 	import { stripUrlForDisplay } from '$lib/utils/url.js';
-	import { Copy, Check, Index } from '$lib/components/icons';
+	import { Copy, Check, Index, ChevronLeft, ChevronRight } from '$lib/components/icons';
 	let { data } = $props();
 	const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
 	const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
@@ -91,6 +91,20 @@
 	let carouselImageLoaded = $state(false);
 	// Track which thumbnail screenshots have loaded
 	let thumbsLoaded = new SvelteSet();
+	// Track which thumbnails are landscape (wider than tall) — these get auto width
+	let landscapeImages = new SvelteSet();
+	// Screenshots horizontal scroll
+	let screenshotsScrollContainer = $state(null);
+	let screenshotsScrolledRight = $state(false);
+	const SCREENSHOTS_SCROLL_STEP = 260;
+	function scrollScreenshots(dir) {
+		if (!screenshotsScrollContainer) return;
+		screenshotsScrollContainer.scrollBy({ left: dir * SCREENSHOTS_SCROLL_STEP, behavior: 'smooth' });
+	}
+	function handleScreenshotsScroll() {
+		if (!screenshotsScrollContainer) return;
+		screenshotsScrolledRight = screenshotsScrollContainer.scrollLeft > 4;
+	}
 	// Comments and zaps state (comments may have pending + npub for display)
 	let comments = $state([]);
 	let commentsLoading = $state(false);
@@ -1008,13 +1022,19 @@
 
 		<!-- Screenshots -->
 		{#if app.images && app.images.length > 0}
-			<div class="screenshots-scroll mb-4" use:wheelScroll>
-				<div class="screenshots-content">
-					{#each app.images as image, index (index)}
+			<div class="screenshots-scroll-wrap mb-4">
+				<div
+					class="screenshots-scroll"
+					bind:this={screenshotsScrollContainer}
+					onscroll={handleScreenshotsScroll}
+				>
+					<div class="screenshots-content">
+						{#each app.images as image, index (index)}
 						<button
 							type="button"
 							onclick={() => openCarousel(index)}
-							class="screenshot-thumb relative flex-shrink-0 overflow-hidden cursor-pointer group focus:outline-none"
+							class="screenshot-thumb relative flex-shrink-0 overflow-hidden cursor-pointer focus:outline-none"
+							class:landscape={landscapeImages.has(index)}
 						>
 							{#if !thumbsLoaded.has(index)}
 								<div class="screenshot-skeleton">
@@ -1027,13 +1047,30 @@
 								class="screenshot-img"
 								class:loaded={thumbsLoaded.has(index)}
 								loading="lazy"
-								onload={() => {
+								onload={(e) => {
 									thumbsLoaded.add(index);
+									const img = /** @type {HTMLImageElement} */ (e.target);
+									if (img.naturalWidth > img.naturalHeight) landscapeImages.add(index);
 								}}
 							/>
 						</button>
-					{/each}
+						{/each}
+					</div>
 				</div>
+
+				{#if screenshotsScrolledRight}
+					<div class="screenshots-fade screenshots-fade-left" aria-hidden="true"></div>
+				{/if}
+				<div class="screenshots-fade screenshots-fade-right" aria-hidden="true"></div>
+
+				{#if screenshotsScrolledRight}
+					<button class="screenshots-btn screenshots-btn-left" onclick={() => scrollScreenshots(-1)} aria-label="Scroll left">
+						<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
+					</button>
+				{/if}
+				<button class="screenshots-btn screenshots-btn-right" onclick={() => scrollScreenshots(1)} aria-label="Scroll right">
+					<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
+				</button>
 			</div>
 		{/if}
 
@@ -2012,6 +2049,10 @@
 	}
 
 	/* Screenshots */
+	.screenshots-scroll-wrap {
+		position: relative;
+	}
+
 	.screenshots-scroll {
 		margin-left: -1rem;
 		margin-right: -1rem;
@@ -2021,20 +2062,6 @@
 		overflow-y: hidden;
 		scrollbar-width: none;
 		-ms-overflow-style: none;
-		mask-image: linear-gradient(
-			to right,
-			transparent 0%,
-			black 1rem,
-			black calc(100% - 1rem),
-			transparent 100%
-		);
-		-webkit-mask-image: linear-gradient(
-			to right,
-			transparent 0%,
-			black 1rem,
-			black calc(100% - 1rem),
-			transparent 100%
-		);
 	}
 
 	.screenshots-scroll::-webkit-scrollbar {
@@ -2047,20 +2074,6 @@
 			margin-right: -1.5rem;
 			padding-left: 1.5rem;
 			padding-right: 1.5rem;
-			mask-image: linear-gradient(
-				to right,
-				transparent 0%,
-				black 1.5rem,
-				black calc(100% - 1.5rem),
-				transparent 100%
-			);
-			-webkit-mask-image: linear-gradient(
-				to right,
-				transparent 0%,
-				black 1.5rem,
-				black calc(100% - 1.5rem),
-				transparent 100%
-			);
 		}
 	}
 
@@ -2070,20 +2083,6 @@
 			margin-right: -2rem;
 			padding-left: 2rem;
 			padding-right: 2rem;
-			mask-image: linear-gradient(
-				to right,
-				transparent 0%,
-				black 2rem,
-				black calc(100% - 2rem),
-				transparent 100%
-			);
-			-webkit-mask-image: linear-gradient(
-				to right,
-				transparent 0%,
-				black 2rem,
-				black calc(100% - 2rem),
-				transparent 100%
-			);
 		}
 	}
 
@@ -2091,20 +2090,33 @@
 		display: flex;
 		gap: 12px;
 		padding-bottom: 8px;
+		align-items: flex-start;
 	}
 
+	/* Portrait default (width fixed); landscape class expands to natural width after load */
 	.screenshot-thumb {
 		width: 80px;
-		aspect-ratio: 9 / 19.5;
+		height: 180px;
+		flex-shrink: 0;
 		border-radius: 12px;
 		background-color: var(--gray33);
 		border: 0.33px solid var(--white16);
 	}
 
+	/* Landscape images: let width adapt to natural aspect ratio */
+	.screenshot-thumb.landscape {
+		width: auto;
+	}
+
 	@media (min-width: 640px) {
 		.screenshot-thumb {
 			width: 96px;
+			height: 200px;
 			border-radius: 16px;
+		}
+
+		.screenshot-thumb.landscape {
+			width: auto;
 		}
 	}
 
@@ -2115,15 +2127,96 @@
 	}
 
 	.screenshot-img {
-		width: 100%;
 		height: 100%;
-		object-fit: cover;
+		width: auto;
+		display: block;
 		opacity: 0;
 		transition: opacity 0.2s ease;
 	}
 
 	.screenshot-img.loaded {
 		opacity: 1;
+	}
+
+	/* Scroll fade overlays */
+	.screenshots-fade {
+		position: absolute;
+		top: 0;
+		bottom: 8px;
+		pointer-events: none;
+		z-index: 5;
+	}
+
+	.screenshots-fade-left {
+		left: -1rem;
+		width: 1rem;
+		background: linear-gradient(to right, var(--black), transparent);
+	}
+
+	.screenshots-fade-right {
+		right: -1rem;
+		width: 1rem;
+		background: linear-gradient(to left, var(--black), transparent);
+	}
+
+	@media (min-width: 640px) {
+		.screenshots-fade-left { left: -1.5rem; width: 1.5rem; }
+		.screenshots-fade-right { right: -1.5rem; width: 1.5rem; }
+	}
+
+	@media (min-width: 1024px) {
+		.screenshots-fade-left { left: -2rem; width: 2rem; }
+		.screenshots-fade-right { right: -2rem; width: 2rem; }
+	}
+
+	/* Chevron scroll buttons — desktop + mouse only */
+	.screenshots-btn {
+		display: none;
+	}
+
+	@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+		.screenshots-btn {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			position: absolute;
+			top: 50%;
+			transform: translateY(-60%) scale(1);
+			width: 34px;
+			height: 34px;
+			border-radius: 50%;
+			border: none;
+			background: var(--white16);
+			backdrop-filter: blur(var(--blur-sm));
+			-webkit-backdrop-filter: blur(var(--blur-sm));
+			cursor: pointer;
+			z-index: 10;
+			transition: transform 0.2s ease;
+		}
+
+		.screenshots-btn:hover {
+			transform: translateY(-60%) scale(1.08);
+		}
+
+		.screenshots-btn:active {
+			transform: translateY(-60%) scale(0.95);
+		}
+
+		.screenshots-btn-right {
+			right: -48px;
+		}
+
+		.screenshots-btn-right :global(svg) {
+			padding-left: 2px;
+		}
+
+		.screenshots-btn-left {
+			left: -48px;
+		}
+
+		.screenshots-btn-left :global(svg) {
+			padding-right: 2px;
+		}
 	}
 
 	/* Description */

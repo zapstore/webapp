@@ -1,520 +1,529 @@
 <script lang="js">
-/**
- * ActionsModal - Actions sheet for content (add labels, add to stacks, report).
- * Opened from BottomBar when signed in. Content type (app, stack, etc.) drives report label.
- */
-import { fly } from "svelte/transition";
-import { cubicOut } from "svelte/easing";
-import { browser } from "$app/environment";
-import Modal from "$lib/components/common/Modal.svelte";
-import InputLabel from "$lib/components/common/InputLabel.svelte";
-import AppSmallStackCard from "$lib/components/cards/AppSmallStackCard.svelte";
-import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
-import { Plus } from "$lib/components/icons";
-import Label from "$lib/components/common/Label.svelte";
-import { SvelteSet, SvelteMap } from "svelte/reactivity";
-import {
-	publishStack,
-	publishAddressableLabel,
-	publishForumPostLabel,
-	publishLabelDeletion,
-	publishDeletionRequest,
-	queryEvents,
-	parseAppStack,
-	parseApp,
-	liveQuery,
-	updateStackApps
-} from "$lib/nostr";
-import { signEvent, getIsSignedIn, getCurrentPubkey } from "$lib/stores/auth.svelte.js";
-import {
-	EVENT_KINDS,
-	FORUM_CATEGORIES,
-	FORUM_RELAY,
-	DEFAULT_SOCIAL_RELAYS,
-	DEFAULT_CATALOG_RELAYS,
-	ACTIONS_DELETABLE_CONTENT_LABELS
-} from "$lib/config.js";
-import { wheelScroll } from "$lib/actions/wheelScroll.js";
+	/**
+	 * ActionsModal - Actions sheet for content (add labels, add to stacks, report).
+	 * Opened from BottomBar when signed in. Content type (app, stack, etc.) drives report label.
+	 */
+	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+	import { browser } from '$app/environment';
+	import Modal from '$lib/components/common/Modal.svelte';
+	import InputLabel from '$lib/components/common/InputLabel.svelte';
+	import AppSmallStackCard from '$lib/components/cards/AppSmallStackCard.svelte';
+	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
+	import { Plus } from '$lib/components/icons';
+	import Label from '$lib/components/common/Label.svelte';
+	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
+	import {
+		publishStack,
+		publishAddressableLabel,
+		publishForumPostLabel,
+		publishLabelDeletion,
+		publishDeletionRequest,
+		queryEvents,
+		parseAppStack,
+		parseApp,
+		liveQuery,
+		updateStackApps
+	} from '$lib/nostr';
+	import { signEvent, getIsSignedIn, getCurrentPubkey } from '$lib/stores/auth.svelte.js';
+	import {
+		EVENT_KINDS,
+		FORUM_CATEGORIES,
+		FORUM_RELAY,
+		DEFAULT_SOCIAL_RELAYS,
+		DEFAULT_CATALOG_RELAYS,
+		ACTIONS_DELETABLE_CONTENT_LABELS
+	} from '$lib/config.js';
+	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 
-let { 
-	isOpen = $bindable(false), 
-	contentType = "app", 
-	targetApp = null,
-	onReport = () => {},
-	onLabelPublished = () => {},
-	/** After successful “delete your content” (kind 5); parent may navigate away */
-	onOwnContentDeleted = () => {}
-} = $props();
+	let {
+		isOpen = $bindable(false),
+		contentType = 'app',
+		targetApp = null,
+		onReport = () => {},
+		onLabelPublished = () => {},
+		/** After successful “delete your content” (kind 5); parent may navigate away */
+		onOwnContentDeleted = () => {}
+	} = $props();
 
-const contentTypeLabel = $derived(contentType.charAt(0).toUpperCase() + contentType.slice(1));
-const actionsContentNoun = $derived(
-	ACTIONS_DELETABLE_CONTENT_LABELS[contentType] ?? contentTypeLabel
-);
-const showStacksSection = $derived(contentType === 'app');
-const isSignedIn = $derived(getIsSignedIn());
-const currentPubkey = $derived(getCurrentPubkey());
-const isContentAuthor = $derived(
-	Boolean(
-		currentPubkey &&
+	const contentTypeLabel = $derived(contentType.charAt(0).toUpperCase() + contentType.slice(1));
+	const actionsContentNoun = $derived(
+		ACTIONS_DELETABLE_CONTENT_LABELS[contentType] ?? contentTypeLabel
+	);
+	const showStacksSection = $derived(contentType === 'app');
+	const isSignedIn = $derived(getIsSignedIn());
+	const currentPubkey = $derived(getCurrentPubkey());
+	const isContentAuthor = $derived(
+		Boolean(
+			currentPubkey &&
 			targetApp?.pubkey &&
 			String(currentPubkey).trim().toLowerCase() === String(targetApp.pubkey).trim().toLowerCase()
-	)
-);
-let labelValue = $state("");
-/** @type {'alternative' | 'reads' | 'writes' | null} */
-let labelStructuredKind = $state(null);
-let labelError = $state("");
-let labelPublishing = $state(false);
+		)
+	);
+	let labelValue = $state('');
+	/** @type {'alternative' | 'reads' | 'writes' | null} */
+	let labelStructuredKind = $state(null);
+	let labelError = $state('');
+	let labelPublishing = $state(false);
 
-/** Quick-add chips for apps/stacks (forum posts use `FORUM_CATEGORIES` — same as /community/forum). */
-const DEFAULT_LABEL_CHIPS = ['Security', 'Privacy', 'Open Source', 'Productivity', 'Social', 'Developer'];
+	/** Quick-add chips for apps/stacks (forum posts use `FORUM_CATEGORIES` — same as /community/forum). */
+	const DEFAULT_LABEL_CHIPS = [
+		'Security',
+		'Privacy',
+		'Open Source',
+		'Productivity',
+		'Social',
+		'Developer'
+	];
 
-const labelChipSuggestions = $derived(
-	contentType === 'forum' ? FORUM_CATEGORIES : DEFAULT_LABEL_CHIPS
-);
+	const labelChipSuggestions = $derived(
+		contentType === 'forum' ? FORUM_CATEGORIES : DEFAULT_LABEL_CHIPS
+	);
 
-/** User-published labels not in the default chip list — show first in the scroll row */
-const userAddedLabelChips = $derived.by(() => {
-	const sug = labelChipSuggestions;
-	const isSuggested = (/** @type {string} */ k) => sug.includes(k);
-	const seen = /** @type {Record<string, true>} */ ({});
-	const out = /** @type {string[]} */ ([]);
-	for (const k of userLabelEventIdsByText.keys()) {
-		if (isSuggested(k) || seen[k]) continue;
-		seen[k] = true;
-		out.push(k);
-	}
-	for (const k of optimisticAddedLabels) {
-		if (isSuggested(k) || seen[k]) continue;
-		seen[k] = true;
-		out.push(k);
-	}
-	return out.sort((a, b) => a.localeCompare(b));
-});
-
-const labelChipsRow = $derived([...userAddedLabelChips, ...labelChipSuggestions]);
-
-/** @type {Map<string, string>} */
-let userLabelEventIdsByText = $state(new Map());
-let optimisticAddedLabels = $state(/** @type {Set<string>} */ (new Set()));
-let deleteOwnContentInFlight = $state(false);
-let contentActionError = $state('');
-
-function normPk(pk) {
-	return String(pk ?? '').trim().toLowerCase();
-}
-
-/** @param {any[]} events */
-function buildUserLabelEventMap(events) {
-	const map = new Map();
-	const sorted = [...events].sort((a, b) => b.created_at - a.created_at);
-	for (const ev of sorted) {
-		for (const t of ev.tags ?? []) {
-			if (t[0] === 'l' && t[1]) {
-				const text = String(t[1]);
-				if (!map.has(text)) map.set(text, ev.id);
-			}
-		}
-	}
-	return map;
-}
-
-function labelSubscriptionFilter() {
-	if (!currentPubkey) return null;
-	const pk = normPk(currentPubkey);
-	if (contentType === 'forum') {
-		const id = targetApp?.id?.trim();
-		const h = targetApp?.communityPubkey?.trim();
-		if (!id || !h) return null;
-		return {
-			kinds: [EVENT_KINDS.LABEL],
-			authors: [pk],
-			'#e': [normPk(id)],
-			'#h': [normPk(h)]
-		};
-	}
-	if (!targetApp?.pubkey || !targetApp?.dTag) return null;
-	const aKind = contentType === 'stack' ? EVENT_KINDS.APP_STACK : EVENT_KINDS.APP;
-	const aTag = `${aKind}:${normPk(targetApp.pubkey)}:${String(targetApp.dTag).trim()}`;
-	return { kinds: [EVENT_KINDS.LABEL], authors: [pk], '#a': [aTag] };
-}
-
-/** @param {string} label */
-function chipLabelIsSelected(label) {
-	if (optimisticAddedLabels.has(label)) return true;
-	return userLabelEventIdsByText.has(label);
-}
-
-$effect(() => {
-	if (!browser || !isOpen || !currentPubkey) {
-		userLabelEventIdsByText = new Map();
-		return;
-	}
-	const filter = labelSubscriptionFilter();
-	if (!filter) {
-		userLabelEventIdsByText = new Map();
-		return;
-	}
-	const sub = liveQuery(() => queryEvents(filter)).subscribe({
-		next: (evs) => {
-			userLabelEventIdsByText = buildUserLabelEventMap(evs ?? []);
-		},
-		error: (err) => {
-			console.error('[ActionsModal] user label query', err);
-		}
+	/**
+	 * Label chips row ordered by: optimistic (just tapped, unconfirmed) → confirmed user labels
+	 * most-recently-applied first (Map insertion order from buildUserLabelEventMap) → unapplied defaults.
+	 */
+	const labelChipsRow = $derived.by(() => {
+		const applied = [...userLabelEventIdsByText.keys()];
+		const appliedSet = new Set(applied);
+		const optimisticNew = [...optimisticAddedLabels].filter((k) => !appliedSet.has(k));
+		const optimisticSet = new Set(optimisticNew);
+		const unappliedDefaults = labelChipSuggestions.filter(
+			(k) => !appliedSet.has(k) && !optimisticSet.has(k)
+		);
+		return [...optimisticNew, ...applied, ...unappliedDefaults];
 	});
-	return () => sub.unsubscribe();
-});
 
-// User's stacks (fetched from Dexie) - includes raw event for updates
-let userStacks = $state([]);
-let stacksLoading = $state(false);
-let stacksLoaded = $state(false);
+	/** @type {Map<string, string>} */
+	let userLabelEventIdsByText = $state(new Map());
+	let optimisticAddedLabels = $state(/** @type {Set<string>} */ (new Set()));
+	let deleteOwnContentInFlight = $state(false);
+	let contentActionError = $state('');
 
-// Track which stacks are being updated
-let updatingStacks = $state(new SvelteSet());
-
-let createStackOpen = $state(false);
-let stackName = $state("");
-let stackDescription = $state("");
-let saving = $state(false);
-let error = $state("");
-/** @type {HTMLInputElement | null} */
-let stackNameInput = $state(null);
-/** @type {HTMLTextAreaElement | null} */
-let stackDescInput = $state(null);
-
-$effect(() => {
-	if (createStackOpen) {
-		const t = globalThis.setTimeout(() => stackNameInput?.focus(), 80);
-		return () => globalThis.clearTimeout(t);
+	function normPk(pk) {
+		return String(pk ?? '')
+			.trim()
+			.toLowerCase();
 	}
-});
 
-// Check if target app is in a stack
-function stackContainsApp(stack) {
-	if (!targetApp?.pubkey || !targetApp?.dTag) return false;
-	const appATag = `${EVENT_KINDS.APP}:${targetApp.pubkey}:${targetApp.dTag}`;
-	return stack.event?.tags?.some(t => t[0] === 'a' && t[1] === appATag) ?? false;
-}
-
-// Fetch user stacks when modal opens and user is signed in
-$effect(() => {
-	if (!browser || !isOpen || !currentPubkey) {
-		userStacks = [];
-		stacksLoaded = false;
-		return;
-	}
-	
-	stacksLoading = true;
-	
-	// Use liveQuery to reactively update when stacks change
-	const subscription = liveQuery(() => 
-		queryEvents({ kinds: [EVENT_KINDS.APP_STACK], authors: [currentPubkey] })
-	).subscribe({
-		next: async (stackEvents) => {
-			const parsedStacks = stackEvents.map(parseAppStack);
-			
-			// Resolve app details for each stack
-			const allIds = new SvelteSet();
-			for (const s of parsedStacks) {
-				for (const ref of s.appRefs || []) {
-					if (ref.kind === EVENT_KINDS.APP) allIds.add(ref.identifier);
+	/** @param {any[]} events */
+	function buildUserLabelEventMap(events) {
+		const map = new Map();
+		const sorted = [...events].sort((a, b) => b.created_at - a.created_at);
+		for (const ev of sorted) {
+			for (const t of ev.tags ?? []) {
+				if (t[0] === 'l' && t[1]) {
+					const text = String(t[1]);
+					if (!map.has(text)) map.set(text, ev.id);
 				}
 			}
-			
-			let appsByKey = new SvelteMap();
-			if (allIds.size > 0) {
-				const appEvents = await queryEvents({ kinds: [EVENT_KINDS.APP], '#d': [...allIds] });
-				for (const e of appEvents) {
-					const a = parseApp(e);
-					if (a.pubkey && a.dTag) appsByKey.set(`${a.pubkey}:${a.dTag}`, a);
-				}
+		}
+		return map;
+	}
+
+	function labelSubscriptionFilter() {
+		if (!currentPubkey) return null;
+		const pk = normPk(currentPubkey);
+		if (contentType === 'forum') {
+			const id = targetApp?.id?.trim();
+			const h = targetApp?.communityPubkey?.trim();
+			if (!id || !h) return null;
+			return {
+				kinds: [EVENT_KINDS.LABEL],
+				authors: [pk],
+				'#e': [normPk(id)],
+				'#h': [normPk(h)]
+			};
+		}
+		if (!targetApp?.pubkey || !targetApp?.dTag) return null;
+		const aKind = contentType === 'stack' ? EVENT_KINDS.APP_STACK : EVENT_KINDS.APP;
+		const aTag = `${aKind}:${normPk(targetApp.pubkey)}:${String(targetApp.dTag).trim()}`;
+		return { kinds: [EVENT_KINDS.LABEL], authors: [pk], '#a': [aTag] };
+	}
+
+	/** @param {string} label */
+	function chipLabelIsSelected(label) {
+		if (optimisticAddedLabels.has(label)) return true;
+		return userLabelEventIdsByText.has(label);
+	}
+
+	$effect(() => {
+		if (!browser || !isOpen || !currentPubkey) {
+			userLabelEventIdsByText = new Map();
+			return;
+		}
+		const filter = labelSubscriptionFilter();
+		if (!filter) {
+			userLabelEventIdsByText = new Map();
+			return;
+		}
+		const sub = liveQuery(() => queryEvents(filter)).subscribe({
+			next: (evs) => {
+				userLabelEventIdsByText = buildUserLabelEventMap(evs ?? []);
+			},
+			error: (err) => {
+				console.error('[ActionsModal] user label query', err);
 			}
-			
-			// Build resolved stacks with app details AND keep the raw event
-			userStacks = parsedStacks.map((stack, index) => ({
-				id: stack.id,
-				name: stack.title,
-				event: stackEvents[index], // Keep raw event for updates
-				apps: (stack.appRefs || [])
-					.filter(ref => ref.kind === EVENT_KINDS.APP)
-					.map(ref => {
-						const app = appsByKey.get(`${ref.pubkey}:${ref.identifier}`);
-						return app ? { icon: app.icon, name: app.name, dTag: app.dTag } : null;
-					})
-					.filter(Boolean)
-			}));
-			
-			stacksLoading = false;
-			stacksLoaded = true;
-		},
-		error: (err) => {
-			console.error('Failed to load user stacks:', err);
-			stacksLoading = false;
-			stacksLoaded = true;
+		});
+		return () => sub.unsubscribe();
+	});
+
+	// User's stacks (fetched from Dexie) - includes raw event for updates
+	let userStacks = $state([]);
+	let stacksLoading = $state(false);
+	let stacksLoaded = $state(false);
+
+	// Track which stacks are being updated
+	let updatingStacks = $state(new SvelteSet());
+
+	let createStackOpen = $state(false);
+	let stackName = $state('');
+	let stackDescription = $state('');
+	let saving = $state(false);
+	let error = $state('');
+	/** @type {HTMLInputElement | null} */
+	let stackNameInput = $state(null);
+	/** @type {HTMLTextAreaElement | null} */
+	let stackDescInput = $state(null);
+
+	$effect(() => {
+		if (createStackOpen) {
+			const t = globalThis.setTimeout(() => stackNameInput?.focus(), 80);
+			return () => globalThis.clearTimeout(t);
 		}
 	});
-	
-	return () => subscription.unsubscribe();
-});
 
-async function handleStackClick(stack) {
-	if (!targetApp?.pubkey || !targetApp?.dTag) {
-		console.error('[ActionsModal] Missing targetApp pubkey/dTag');
-		return;
+	// Check if target app is in a stack
+	function stackContainsApp(stack) {
+		if (!targetApp?.pubkey || !targetApp?.dTag) return false;
+		const appATag = `${EVENT_KINDS.APP}:${targetApp.pubkey}:${targetApp.dTag}`;
+		return stack.event?.tags?.some((t) => t[0] === 'a' && t[1] === appATag) ?? false;
 	}
-	if (!stack.event) {
-		console.error('[ActionsModal] Missing stack.event');
-		return;
-	}
-	if (updatingStacks.has(stack.id)) {
-		return;
-	}
-	
-	const hasApp = stackContainsApp(stack);
-	const action = hasApp ? 'remove' : 'add';
-	
-	updatingStacks.add(stack.id);
-	
-	try {
-		// Convert Svelte 5 Proxy objects to plain objects
-		const plainEvent = JSON.parse(JSON.stringify(stack.event));
-		const plainApp = { pubkey: targetApp.pubkey, dTag: targetApp.dTag };
-		
-		await updateStackApps(plainEvent, plainApp, action, signEvent);
-	} catch (err) {
-		console.error('[ActionsModal] Failed:', err);
-	} finally {
-		updatingStacks.delete(stack.id);
-	}
-}
 
-function openCreateStack() {
-	createStackOpen = true;
-	error = "";
-}
+	// Fetch user stacks when modal opens and user is signed in
+	$effect(() => {
+		if (!browser || !isOpen || !currentPubkey) {
+			userStacks = [];
+			stacksLoaded = false;
+			return;
+		}
 
-function assertLabelTarget() {
-	if (contentType === "forum") {
-		if (!targetApp?.id?.trim() || !targetApp?.communityPubkey?.trim()) {
-			labelError = "Nothing to attach this label to";
+		stacksLoading = true;
+
+		// Use liveQuery to reactively update when stacks change
+		const subscription = liveQuery(() =>
+			queryEvents({ kinds: [EVENT_KINDS.APP_STACK], authors: [currentPubkey] })
+		).subscribe({
+			next: async (stackEvents) => {
+				const parsedStacks = stackEvents.map(parseAppStack);
+
+				// Resolve app details for each stack
+				const allIds = new SvelteSet();
+				for (const s of parsedStacks) {
+					for (const ref of s.appRefs || []) {
+						if (ref.kind === EVENT_KINDS.APP) allIds.add(ref.identifier);
+					}
+				}
+
+				let appsByKey = new SvelteMap();
+				if (allIds.size > 0) {
+					const appEvents = await queryEvents({ kinds: [EVENT_KINDS.APP], '#d': [...allIds] });
+					for (const e of appEvents) {
+						const a = parseApp(e);
+						if (a.pubkey && a.dTag) appsByKey.set(`${a.pubkey}:${a.dTag}`, a);
+					}
+				}
+
+				// Build resolved stacks with app details AND keep the raw event
+				userStacks = parsedStacks.map((stack, index) => ({
+					id: stack.id,
+					name: stack.title,
+					event: stackEvents[index], // Keep raw event for updates
+					apps: (stack.appRefs || [])
+						.filter((ref) => ref.kind === EVENT_KINDS.APP)
+						.map((ref) => {
+							const app = appsByKey.get(`${ref.pubkey}:${ref.identifier}`);
+							return app ? { icon: app.icon, name: app.name, dTag: app.dTag } : null;
+						})
+						.filter(Boolean)
+				}));
+
+				stacksLoading = false;
+				stacksLoaded = true;
+			},
+			error: (err) => {
+				console.error('Failed to load user stacks:', err);
+				stacksLoading = false;
+				stacksLoaded = true;
+			}
+		});
+
+		return () => subscription.unsubscribe();
+	});
+
+	async function handleStackClick(stack) {
+		if (!targetApp?.pubkey || !targetApp?.dTag) {
+			console.error('[ActionsModal] Missing targetApp pubkey/dTag');
+			return;
+		}
+		if (!stack.event) {
+			console.error('[ActionsModal] Missing stack.event');
+			return;
+		}
+		if (updatingStacks.has(stack.id)) {
+			return;
+		}
+
+		const hasApp = stackContainsApp(stack);
+		const action = hasApp ? 'remove' : 'add';
+
+		updatingStacks.add(stack.id);
+
+		try {
+			// Convert Svelte 5 Proxy objects to plain objects
+			const plainEvent = JSON.parse(JSON.stringify(stack.event));
+			const plainApp = { pubkey: targetApp.pubkey, dTag: targetApp.dTag };
+
+			await updateStackApps(plainEvent, plainApp, action, signEvent);
+		} catch (err) {
+			console.error('[ActionsModal] Failed:', err);
+		} finally {
+			updatingStacks.delete(stack.id);
+		}
+	}
+
+	function openCreateStack() {
+		createStackOpen = true;
+		error = '';
+	}
+
+	function assertLabelTarget() {
+		if (contentType === 'forum') {
+			if (!targetApp?.id?.trim() || !targetApp?.communityPubkey?.trim()) {
+				labelError = 'Nothing to attach this label to';
+				return false;
+			}
+		} else if (!targetApp?.pubkey || !targetApp?.dTag) {
+			labelError = 'Nothing to attach this label to';
 			return false;
 		}
-	} else if (!targetApp?.pubkey || !targetApp?.dTag) {
-		labelError = "Nothing to attach this label to";
-		return false;
+		return true;
 	}
-	return true;
-}
 
-async function toggleChipLabel(/** @type {string} */ label) {
-	if (labelPublishing) return;
-	if (!getIsSignedIn()) {
-		labelError = "Please sign in to add a label";
-		return;
-	}
-	if (!assertLabelTarget()) return;
+	async function toggleChipLabel(/** @type {string} */ label) {
+		if (labelPublishing) return;
+		if (!getIsSignedIn()) {
+			labelError = 'Please sign in to add a label';
+			return;
+		}
+		if (!assertLabelTarget()) return;
 
-	const applied = chipLabelIsSelected(label);
-	const existingEventId = userLabelEventIdsByText.get(label);
+		const applied = chipLabelIsSelected(label);
+		const existingEventId = userLabelEventIdsByText.get(label);
 
-	if (applied) {
-		if (!existingEventId) return;
-		labelError = "";
+		if (applied) {
+			if (!existingEventId) return;
+			labelError = '';
+			labelPublishing = true;
+			try {
+				await publishLabelDeletion(signEvent, existingEventId, DEFAULT_SOCIAL_RELAYS);
+				onLabelPublished();
+			} catch (err) {
+				labelError = err instanceof Error ? err.message : 'Failed to remove label';
+			} finally {
+				labelPublishing = false;
+			}
+			return;
+		}
+
+		labelError = '';
 		labelPublishing = true;
+		optimisticAddedLabels = new Set(optimisticAddedLabels).add(label);
 		try {
-			await publishLabelDeletion(signEvent, existingEventId, DEFAULT_SOCIAL_RELAYS);
+			if (contentType === 'forum') {
+				await publishForumPostLabel(signEvent, {
+					eventId: targetApp.id,
+					communityPubkey: targetApp.communityPubkey,
+					labelValue: label
+				});
+			} else {
+				await publishAddressableLabel(signEvent, {
+					pubkey: targetApp.pubkey,
+					identifier: targetApp.dTag,
+					contentType,
+					labelValue: label
+				});
+			}
 			onLabelPublished();
 		} catch (err) {
-			labelError = err instanceof Error ? err.message : "Failed to remove label";
+			labelError = err instanceof Error ? err.message : 'Failed to publish label';
+			const next = new Set(optimisticAddedLabels);
+			next.delete(label);
+			optimisticAddedLabels = next;
 		} finally {
+			const next = new Set(optimisticAddedLabels);
+			next.delete(label);
+			optimisticAddedLabels = next;
 			labelPublishing = false;
 		}
-		return;
 	}
 
-	labelError = "";
-	labelPublishing = true;
-	optimisticAddedLabels = new Set(optimisticAddedLabels).add(label);
-	try {
-		if (contentType === "forum") {
-			await publishForumPostLabel(signEvent, {
-				eventId: targetApp.id,
-				communityPubkey: targetApp.communityPubkey,
-				labelValue: label
-			});
-		} else {
-			await publishAddressableLabel(signEvent, {
-				pubkey: targetApp.pubkey,
-				identifier: targetApp.dTag,
-				contentType,
-				labelValue: label
-			});
+	async function handlePublishLabel() {
+		const body = labelValue.trim();
+		if (!body) return;
+		if (!getIsSignedIn()) {
+			labelError = 'Please sign in to add a label';
+			return;
 		}
-		onLabelPublished();
-	} catch (err) {
-		labelError = err instanceof Error ? err.message : "Failed to publish label";
-		const next = new Set(optimisticAddedLabels);
-		next.delete(label);
-		optimisticAddedLabels = next;
-	} finally {
-		const next = new Set(optimisticAddedLabels);
-		next.delete(label);
-		optimisticAddedLabels = next;
-		labelPublishing = false;
-	}
-}
+		if (!assertLabelTarget()) return;
 
-async function handlePublishLabel() {
-	const body = labelValue.trim();
-	if (!body) return;
-	if (!getIsSignedIn()) {
-		labelError = "Please sign in to add a label";
-		return;
-	}
-	if (!assertLabelTarget()) return;
+		const labelPayload = labelStructuredKind ? `${labelStructuredKind}:${body}` : body;
+		const existingEventId = userLabelEventIdsByText.get(labelPayload);
+		const applied = chipLabelIsSelected(labelPayload);
 
-	const labelPayload = labelStructuredKind ? `${labelStructuredKind}:${body}` : body;
-	const existingEventId = userLabelEventIdsByText.get(labelPayload);
-	const applied = chipLabelIsSelected(labelPayload);
+		if (applied && existingEventId) {
+			labelError = '';
+			labelPublishing = true;
+			try {
+				await publishLabelDeletion(signEvent, existingEventId, DEFAULT_SOCIAL_RELAYS);
+				labelValue = '';
+				labelStructuredKind = null;
+				onLabelPublished();
+			} catch (err) {
+				labelError = err instanceof Error ? err.message : 'Failed to remove label';
+			} finally {
+				labelPublishing = false;
+			}
+			return;
+		}
 
-	if (applied && existingEventId) {
-		labelError = "";
+		labelError = '';
 		labelPublishing = true;
+		optimisticAddedLabels = new Set(optimisticAddedLabels).add(labelPayload);
 		try {
-			await publishLabelDeletion(signEvent, existingEventId, DEFAULT_SOCIAL_RELAYS);
-			labelValue = "";
+			if (contentType === 'forum') {
+				await publishForumPostLabel(signEvent, {
+					eventId: targetApp.id,
+					communityPubkey: targetApp.communityPubkey,
+					labelValue: labelPayload
+				});
+			} else {
+				await publishAddressableLabel(signEvent, {
+					pubkey: targetApp.pubkey,
+					identifier: targetApp.dTag,
+					contentType,
+					labelValue: labelPayload
+				});
+			}
+			labelValue = '';
 			labelStructuredKind = null;
 			onLabelPublished();
 		} catch (err) {
-			labelError = err instanceof Error ? err.message : "Failed to remove label";
+			labelError = err instanceof Error ? err.message : 'Failed to publish label';
+			const next = new Set(optimisticAddedLabels);
+			next.delete(labelPayload);
+			optimisticAddedLabels = next;
 		} finally {
+			const next = new Set(optimisticAddedLabels);
+			next.delete(labelPayload);
+			optimisticAddedLabels = next;
 			labelPublishing = false;
 		}
-		return;
 	}
 
-	labelError = "";
-	labelPublishing = true;
-	optimisticAddedLabels = new Set(optimisticAddedLabels).add(labelPayload);
-	try {
-		if (contentType === "forum") {
-			await publishForumPostLabel(signEvent, {
-				eventId: targetApp.id,
-				communityPubkey: targetApp.communityPubkey,
-				labelValue: labelPayload
-			});
-		} else {
-			await publishAddressableLabel(signEvent, {
-				pubkey: targetApp.pubkey,
-				identifier: targetApp.dTag,
-				contentType,
-				labelValue: labelPayload
-			});
+	async function handleDeleteOwnContent() {
+		if (!isContentAuthor || !targetApp || deleteOwnContentInFlight) return;
+		if (!globalThis.confirm(`Delete your ${actionsContentNoun}? This cannot be undone.`)) return;
+		contentActionError = '';
+		deleteOwnContentInFlight = true;
+		try {
+			if (contentType === 'forum') {
+				await publishDeletionRequest(signEvent, {
+					eventId: targetApp.id,
+					eventKind: EVENT_KINDS.FORUM_POST,
+					relays: [...new Set([...DEFAULT_SOCIAL_RELAYS, FORUM_RELAY])]
+				});
+			} else if (contentType === 'app') {
+				const appEvId = String(targetApp.ownContentEventId ?? targetApp.id ?? '').trim();
+				await publishDeletionRequest(signEvent, {
+					eventId: appEvId,
+					eventKind: EVENT_KINDS.APP,
+					aTagValue: `${EVENT_KINDS.APP}:${normPk(targetApp.pubkey)}:${String(targetApp.dTag).trim()}`,
+					relays: DEFAULT_CATALOG_RELAYS
+				});
+			} else if (contentType === 'stack') {
+				await publishDeletionRequest(signEvent, {
+					eventId: targetApp.id,
+					eventKind: EVENT_KINDS.APP_STACK,
+					aTagValue: `${EVENT_KINDS.APP_STACK}:${normPk(targetApp.pubkey)}:${String(targetApp.dTag).trim()}`,
+					relays: DEFAULT_CATALOG_RELAYS
+				});
+			} else {
+				return;
+			}
+			isOpen = false;
+			onOwnContentDeleted();
+		} catch (err) {
+			contentActionError = err instanceof Error ? err.message : 'Failed to delete';
+		} finally {
+			deleteOwnContentInFlight = false;
 		}
-		labelValue = "";
-		labelStructuredKind = null;
-		onLabelPublished();
-	} catch (err) {
-		labelError = err instanceof Error ? err.message : "Failed to publish label";
-		const next = new Set(optimisticAddedLabels);
-		next.delete(labelPayload);
-		optimisticAddedLabels = next;
-	} finally {
-		const next = new Set(optimisticAddedLabels);
-		next.delete(labelPayload);
-		optimisticAddedLabels = next;
-		labelPublishing = false;
 	}
-}
 
-async function handleDeleteOwnContent() {
-	if (!isContentAuthor || !targetApp || deleteOwnContentInFlight) return;
-	if (!globalThis.confirm(`Delete your ${actionsContentNoun}? This cannot be undone.`)) return;
-	contentActionError = "";
-	deleteOwnContentInFlight = true;
-	try {
-		if (contentType === "forum") {
-			await publishDeletionRequest(signEvent, {
-				eventId: targetApp.id,
-				eventKind: EVENT_KINDS.FORUM_POST,
-				relays: [...new Set([...DEFAULT_SOCIAL_RELAYS, FORUM_RELAY])]
-			});
-		} else if (contentType === "app") {
-			const appEvId = String(targetApp.ownContentEventId ?? targetApp.id ?? "").trim();
-			await publishDeletionRequest(signEvent, {
-				eventId: appEvId,
-				eventKind: EVENT_KINDS.APP,
-				aTagValue: `${EVENT_KINDS.APP}:${normPk(targetApp.pubkey)}:${String(targetApp.dTag).trim()}`,
-				relays: DEFAULT_CATALOG_RELAYS
-			});
-		} else if (contentType === "stack") {
-			await publishDeletionRequest(signEvent, {
-				eventId: targetApp.id,
-				eventKind: EVENT_KINDS.APP_STACK,
-				aTagValue: `${EVENT_KINDS.APP_STACK}:${normPk(targetApp.pubkey)}:${String(targetApp.dTag).trim()}`,
-				relays: DEFAULT_CATALOG_RELAYS
-			});
-		} else {
+	async function handleSaveStack() {
+		if (!stackName.trim() || saving) return;
+		if (!isSignedIn) {
+			error = 'Please sign in to create a stack';
 			return;
 		}
-		isOpen = false;
-		onOwnContentDeleted();
-	} catch (err) {
-		contentActionError = err instanceof Error ? err.message : "Failed to delete";
-	} finally {
-		deleteOwnContentInFlight = false;
-	}
-}
 
-async function handleSaveStack() {
-	if (!stackName.trim() || saving) return;
-	if (!isSignedIn) {
-		error = "Please sign in to create a stack";
-		return;
-	}
-	
-	saving = true;
-	error = "";
-	
-	try {
-		const apps = targetApp ? [targetApp] : [];
-		await publishStack(stackName.trim(), stackDescription.trim(), apps, signEvent);
-		
-		// Close overlay; stacks update via liveQuery
-		createStackOpen = false;
-		stackName = "";
-		stackDescription = "";
-	} catch (err) {
-		console.error('Failed to create stack:', err);
-		error = err instanceof Error ? err.message : 'Failed to create stack';
-	} finally {
-		saving = false;
-	}
-}
+		saving = true;
+		error = '';
 
-// Reset when modal closes
-$effect(() => {
-	if (!isOpen) {
-		createStackOpen = false;
-		stackName = "";
-		stackDescription = "";
-		error = "";
-		saving = false;
-		updatingStacks = new SvelteSet();
-		labelValue = "";
-		labelStructuredKind = null;
-		labelError = "";
-		labelPublishing = false;
-		contentActionError = "";
-		optimisticAddedLabels = new Set();
-		userLabelEventIdsByText = new Map();
+		try {
+			const apps = targetApp ? [targetApp] : [];
+			await publishStack(stackName.trim(), stackDescription.trim(), apps, signEvent);
+
+			// Close overlay; stacks update via liveQuery
+			createStackOpen = false;
+			stackName = '';
+			stackDescription = '';
+		} catch (err) {
+			console.error('Failed to create stack:', err);
+			error = err instanceof Error ? err.message : 'Failed to create stack';
+		} finally {
+			saving = false;
+		}
 	}
-});
+
+	// Reset when modal closes
+	$effect(() => {
+		if (!isOpen) {
+			createStackOpen = false;
+			stackName = '';
+			stackDescription = '';
+			error = '';
+			saving = false;
+			updatingStacks = new SvelteSet();
+			labelValue = '';
+			labelStructuredKind = null;
+			labelError = '';
+			labelPublishing = false;
+			contentActionError = '';
+			optimisticAddedLabels = new Set();
+			userLabelEventIdsByText = new Map();
+		}
+	});
 </script>
 
-<Modal bind:open={isOpen} align="bottom" wide={true} ariaLabel="Content actions" class="actions-modal {createStackOpen ? 'actions-modal-child-open' : ''}">
+<Modal
+	bind:open={isOpen}
+	align="bottom"
+	wide={true}
+	ariaLabel="Content actions"
+	class="actions-modal {createStackOpen ? 'actions-modal-child-open' : ''}"
+>
 	<div class="actions-modal-content">
 		<div class="child-overlay" class:visible={createStackOpen} aria-hidden="true"></div>
 		<!-- Title section -->
@@ -522,20 +531,17 @@ $effect(() => {
 			<h2 class="modal-title-text">Actions</h2>
 		</div>
 
-			<div class="section-divider"></div>
+		<div class="section-divider"></div>
 
-			<!-- Stacks section (apps only) -->
-			{#if showStacksSection}
+		<!-- Stacks section (apps only) -->
+		{#if showStacksSection}
 			<div class="actions-section">
 				<p class="actions-modal-header">ADD TO STACKS</p>
-				{#if stacksLoading}
-					<div class="stacks-scroll-row" use:wheelScroll>
-						<div class="stacks-row-inner">
-							<SkeletonLoader width="140px" height="80px" borderRadius="12px" />
-							<SkeletonLoader width="140px" height="80px" borderRadius="12px" />
-						</div>
-					</div>
-				{:else if stacksLoaded && userStacks.length === 0}
+			{#if !stacksLoaded}
+				<div class="section-content">
+					<SkeletonLoader width="100%" height="100px" borderRadius="16px" class="stacks-loading-skeleton" />
+				</div>
+			{:else if userStacks.length === 0}
 					<div class="section-content">
 						<button type="button" class="create-stack-button-empty" onclick={openCreateStack}>
 							<Plus variant="outline" size={24} color="var(--white16)" strokeWidth={2} />
@@ -546,8 +552,8 @@ $effect(() => {
 					<div class="stacks-scroll-row" use:wheelScroll>
 						<div class="stacks-row-inner">
 							{#each userStacks as stack (stack.id)}
-								<AppSmallStackCard 
-									{stack} 
+								<AppSmallStackCard
+									{stack}
 									hasApp={stackContainsApp(stack)}
 									loading={updatingStacks.has(stack.id)}
 									onclick={() => handleStackClick(stack)}
@@ -563,74 +569,85 @@ $effect(() => {
 			</div>
 
 			<div class="section-divider"></div>
-			{/if}
+		{/if}
 
-			<!-- Labels section -->
-			<div class="actions-section">
-				<p class="actions-modal-header">ADD LABELS</p>
-				<div class="section-content">
-					<InputLabel
-						bind:value={labelValue}
-						bind:structuredKind={labelStructuredKind}
-						enableStructuredModes={contentType === 'app'}
-						placeholder="Your label"
-						onAdd={handlePublishLabel}
-						addDisabled={labelPublishing}
-					/>
-					{#if labelError}
-						<p class="label-error" role="alert">{labelError}</p>
-					{/if}
-				</div>
-				<div class="labels-scroll-row" use:wheelScroll>
-					<div class="labels-row-inner">
-						{#each labelChipsRow as label (label)}
-							<button
-								type="button"
-								class="label-tap"
-								onclick={() => toggleChipLabel(label)}
-								disabled={labelPublishing}
-								aria-label={chipLabelIsSelected(label) ? `Remove label ${label}` : `Add label ${label}`}
-							>
-								<Label text={label} isSelected={chipLabelIsSelected(label)} isEmphasized={false} />
-							</button>
-						{/each}
-					</div>
-				</div>
+		<!-- Labels section -->
+		<div class="actions-section">
+			<p class="actions-modal-header">ADD LABELS</p>
+			<div class="section-content">
+				<InputLabel
+					bind:value={labelValue}
+					bind:structuredKind={labelStructuredKind}
+					enableStructuredModes={contentType === 'app'}
+					placeholder="Your label"
+					onAdd={handlePublishLabel}
+					addDisabled={labelPublishing}
+				/>
+				{#if labelError}
+					<p class="label-error" role="alert">{labelError}</p>
+				{/if}
 			</div>
-
-			<div class="section-divider"></div>
-
-			<!-- Report / delete own content -->
-			<div class="actions-section">
-				<div class="section-content">
-					{#if contentActionError}
-						<p class="label-error" role="alert">{contentActionError}</p>
-					{/if}
-					{#if isContentAuthor && (contentType === 'app' || contentType === 'stack' || contentType === 'forum')}
+			<div class="labels-scroll-row" use:wheelScroll>
+				<div class="labels-row-inner">
+					{#each labelChipsRow as label (label)}
 						<button
 							type="button"
-							class="report-button"
-							disabled={deleteOwnContentInFlight}
-							onclick={handleDeleteOwnContent}
+							class="label-tap"
+							onclick={() => toggleChipLabel(label)}
+							disabled={labelPublishing}
+							aria-label={chipLabelIsSelected(label)
+								? `Remove label ${label}`
+								: `Add label ${label}`}
 						>
-							{deleteOwnContentInFlight ? 'Deleting…' : `Delete your ${actionsContentNoun}`}
+							<Label text={label} isSelected={chipLabelIsSelected(label)} isEmphasized={false} />
 						</button>
-					{:else}
-						<button
-							type="button"
-							class="report-button"
-							onclick={() => { isOpen = false; onReport(); }}
-						>
-							Report this {actionsContentNoun}
-						</button>
-					{/if}
+					{/each}
 				</div>
 			</div>
+		</div>
+
+		<div class="section-divider"></div>
+
+		<!-- Report / delete own content -->
+		<div class="actions-section">
+			<div class="section-content">
+				{#if contentActionError}
+					<p class="label-error" role="alert">{contentActionError}</p>
+				{/if}
+				{#if isContentAuthor && (contentType === 'app' || contentType === 'stack' || contentType === 'forum')}
+					<button
+						type="button"
+						class="report-button"
+						disabled={deleteOwnContentInFlight}
+						onclick={handleDeleteOwnContent}
+					>
+						{deleteOwnContentInFlight ? 'Deleting…' : `Delete your ${actionsContentNoun}`}
+					</button>
+				{:else}
+					<button
+						type="button"
+						class="report-button"
+						onclick={() => {
+							isOpen = false;
+							onReport();
+						}}
+					>
+						Report this {actionsContentNoun}
+					</button>
+				{/if}
+			</div>
+		</div>
 	</div>
 </Modal>
 
 {#if createStackOpen}
-	<div class="new-stack-overlay" onclick={() => { createStackOpen = false; }} role="presentation"></div>
+	<div
+		class="new-stack-overlay"
+		onclick={() => {
+			createStackOpen = false;
+		}}
+		role="presentation"
+	></div>
 
 	<div class="new-stack-wrapper" role="dialog" aria-modal="true" aria-label="New stack">
 		<div class="new-stack-sheet" transition:fly={{ y: 80, duration: 200, easing: cubicOut }}>
@@ -645,7 +662,12 @@ $effect(() => {
 					bind:value={stackName}
 					bind:this={stackNameInput}
 					disabled={saving}
-					onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); stackDescInput?.focus(); } }}
+					onkeydown={(e) => {
+						if (e.key === 'Enter') {
+							e.preventDefault();
+							stackDescInput?.focus();
+						}
+					}}
 				/>
 				<div class="stack-form-divider"></div>
 				<textarea
@@ -849,6 +871,10 @@ $effect(() => {
 		.create-stack-button-empty span {
 			font-size: 16px;
 		}
+
+		:global(.stacks-loading-skeleton) {
+			height: 88px !important;
+		}
 	}
 
 	/* Inline button at end of row */
@@ -893,7 +919,7 @@ $effect(() => {
 	.labels-scroll-row {
 		overflow-x: auto;
 		overflow-y: hidden;
-		padding: 4px 12px;
+		padding: 5px 16px 2px 16px;
 		-webkit-overflow-scrolling: touch;
 	}
 
@@ -969,7 +995,7 @@ $effect(() => {
 		border: none;
 		outline: none;
 		color: var(--white);
-		font-family: "Inter", sans-serif;
+		font-family: 'Inter', sans-serif;
 		font-size: 18px;
 		font-weight: 600;
 		box-sizing: border-box;
@@ -993,7 +1019,7 @@ $effect(() => {
 		border: none;
 		outline: none;
 		color: var(--white);
-		font-family: "Inter", sans-serif;
+		font-family: 'Inter', sans-serif;
 		font-size: 16px;
 		font-weight: 400;
 		line-height: 1.5;
@@ -1022,7 +1048,9 @@ $effect(() => {
 		font-size: 16px;
 		font-weight: 500;
 		cursor: pointer;
-		transition: transform 0.15s ease, opacity 0.15s ease;
+		transition:
+			transform 0.15s ease,
+			opacity 0.15s ease;
 	}
 
 	.save-stack-button:hover:not(:disabled) {

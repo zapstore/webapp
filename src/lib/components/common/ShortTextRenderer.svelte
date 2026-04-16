@@ -44,30 +44,42 @@
 	const segments = $derived(parseShortText(input));
 	const magnifyFewEmojis = $derived(isShortTextOnlyOneOrTwoEmojis(segments));
 
-	const LINES_LIMIT = 21;
+	const LINES_LIMIT = 16;
 	const NOSTR_REF_LINES = 10;
+	// Rough estimate of characters that fit on one display line. Conservative (narrow)
+	// so dense prose truncates correctly across different container widths.
+	const CHARS_PER_LINE = 60;
 
-	/** Returns truncated segments and whether truncation occurred. Pure line counting — no DOM. */
+	/** Returns truncated segments and whether truncation occurred. Pure line counting — no DOM.
+	 *  Each paragraph (text between \n) contributes ceil(chars/CHARS_PER_LINE) visual lines,
+	 *  which catches wrapping prose that contains few or no explicit newlines.
+	 */
 	function buildDisplaySegments(segs, isExpanded) {
 		if (isExpanded) return { segs, isTruncated: false };
-		let lines = 1;
+		let lines = 0;
 		for (let i = 0; i < segs.length; i++) {
 			const seg = segs[i];
 			if (seg.type === 'text') {
-				for (let j = 0; j < seg.value.length; j++) {
-					if (seg.value[j] === '\n') {
-						lines++;
-						if (lines > LINES_LIMIT) {
-							const truncatedText = seg.value.slice(0, j);
-							return {
-								segs: [
-									...segs.slice(0, i),
-									...(truncatedText ? [{ ...seg, value: truncatedText }] : [])
-								],
-								isTruncated: true
-							};
-						}
+				const paragraphs = seg.value.split('\n');
+				let paraStart = 0;
+				for (let p = 0; p < paragraphs.length; p++) {
+					const para = paragraphs[p];
+					// Empty paragraph (blank line from consecutive \n) still occupies 1 visual line.
+					const paraLines = Math.max(1, Math.ceil(para.length / CHARS_PER_LINE));
+					if (lines + paraLines > LINES_LIMIT) {
+						const remainingLines = LINES_LIMIT - lines;
+						const truncatedPara = para.slice(0, remainingLines * CHARS_PER_LINE);
+						const truncatedText = seg.value.slice(0, paraStart) + truncatedPara;
+						return {
+							segs: [
+								...segs.slice(0, i),
+								...(truncatedText ? [{ ...seg, value: truncatedText }] : [])
+							],
+							isTruncated: true
+						};
 					}
+					lines += paraLines;
+					paraStart += para.length + 1; // +1 for the '\n' separator
 				}
 			} else if (seg.type === 'nostr_ref') {
 				if (lines + NOSTR_REF_LINES > LINES_LIMIT) {

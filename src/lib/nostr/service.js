@@ -1730,6 +1730,80 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
  * Delete a stack by publishing a kind 5 deletion event.
  * NIP-09: Event Deletion
  */
+/**
+ * Update a kind 32267 app's editable metadata (name, description, icon, url, images).
+ * Preserves all existing tags that are not being updated.
+ *
+ * @param {import('nostr-tools').NostrEvent} appEvent - Original kind 32267 event
+ * @param {{ name?: string, description?: string, icon?: string, url?: string, images?: string[] }} updates
+ * @param {function} signEvent - NIP-07 signer function
+ */
+export async function updateAppMetadata(appEvent, updates, signEvent) {
+	if (!appEvent?.id) throw new Error('App event is required');
+
+	const dTag = appEvent.tags.find((t) => t[0] === 'd')?.[1];
+	if (!dTag) throw new Error('App must have a d tag');
+
+	// Tags to preserve as-is (platform, repository, license, f, h, etc.)
+	const preservedTagNames = new Set(['d', 'f', 'h', 'platform', 'repository', 'license', 'version', 'a', 'A', 'e', 'E', 'p', 'L', 'l']);
+	const preservedTags = appEvent.tags.filter((t) => preservedTagNames.has(t[0]));
+
+	const tags = [...preservedTags];
+
+	// Apply updated values (or fall back to existing)
+	const name = updates.name?.trim() ?? appEvent.tags.find((t) => t[0] === 'name')?.[1] ?? '';
+	const icon = updates.icon?.trim() ?? appEvent.tags.find((t) => t[0] === 'icon')?.[1] ?? '';
+	const url = updates.url?.trim() ?? appEvent.tags.find((t) => t[0] === 'url')?.[1] ?? '';
+	const images = updates.images ?? appEvent.tags.filter((t) => t[0] === 'image').map((t) => t[1]);
+
+	if (name) tags.push(['name', name]);
+	if (icon) tags.push(['icon', icon]);
+	if (url) tags.push(['url', url]);
+	for (const img of images) {
+		if (img?.trim()) tags.push(['image', img.trim()]);
+	}
+
+	// Build content: preserve existing content JSON, update description
+	let existingContent = {};
+	try { existingContent = JSON.parse(appEvent.content); } catch { /* ignore */ }
+	const description = updates.description !== undefined ? updates.description : (existingContent.description ?? '');
+	const content = JSON.stringify({ ...existingContent, description });
+
+	const template = {
+		kind: EVENT_KINDS.APP,
+		content,
+		tags,
+		created_at: Math.floor(Date.now() / 1000)
+	};
+
+	let signed;
+	try {
+		signed = await signEvent(template);
+	} catch (signErr) {
+		console.error('[updateAppMetadata] signing failed:', signErr);
+		throw signErr;
+	}
+	if (!signed?.id) throw new Error('Signing failed - no valid event returned');
+
+	const p = getPool();
+	try {
+		const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
+		const failed = results.filter((r) => r.status === 'rejected');
+		if (failed.length > 0) console.warn('[updateAppMetadata] some publishes failed:', failed.map((f) => f.reason));
+	} catch (pubErr) {
+		console.error('[updateAppMetadata] publish failed:', pubErr);
+	}
+
+	try {
+		await putEvents([signed]);
+	} catch (dexieErr) {
+		console.error('[updateAppMetadata] Dexie write failed:', dexieErr);
+		throw dexieErr;
+	}
+
+	return signed;
+}
+
 export async function deleteStack(stackEvent, signEvent) {
 	
 	if (!stackEvent?.id) throw new Error('Stack event is required');

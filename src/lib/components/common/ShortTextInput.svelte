@@ -939,8 +939,8 @@ export { getContent, getSerializedContent, isEmpty };
     top: 8px;
     right: 8px;
     z-index: 2;
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     border: none;
     background: var(--gray33);
@@ -956,8 +956,8 @@ export { getContent, getSerializedContent, isEmpty };
     color: var(--white);
   }
   :global(.media-block-editor-remove svg) {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
   }
   :global(.media-block-editor-pending) {
     opacity: 0.33;
