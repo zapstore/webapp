@@ -201,9 +201,12 @@ const orderedMediaUrls = $derived(allSegments.filter((s) => s.type === "media").
 		gap: 4px;
 		align-items: flex-start;
 		margin-top: 4px;
+		min-width: 0;
 	}
 	.short-text-content-media-slot {
-		flex-shrink: 0;
+		flex-shrink: 1;
+		min-width: 0;
+		max-width: 100%;
 	}
 	.short-text-content-nostr-ref {
 		margin: 0;

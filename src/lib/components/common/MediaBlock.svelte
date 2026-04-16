@@ -91,13 +91,15 @@ function handleRemove(e) {
 <style>
 	.media-block-wrap {
 		position: relative;
-		display: inline-block;
+		display: block;
+		max-width: 300px;
+		width: 100%;
 	}
 	.media-block {
-		display: inline-block;
+		display: block;
 		min-width: 80px;
 		min-height: 80px;
-		max-width: 300px;
+		max-width: 100%;
 		max-height: 240px;
 		border: 0.33px solid var(--white16);
 		border-radius: 12px;
@@ -113,7 +115,7 @@ function handleRemove(e) {
 	}
 	.media-element {
 		display: block;
-		max-width: 300px;
+		max-width: 100%;
 		max-height: 240px;
 		width: auto;
 		height: auto;
