@@ -100,11 +100,14 @@ let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl 
     modalZIndex = 50,
     /** Thread/sheets sized to header inbox panel (`container-type: size` + cqh). */
     modalScopedInPanel = false,
+    /** When true, disable media lightbox (e.g. inside inbox panel where full-screen is meaningless). */
+    disableMediaLightbox = false,
 } = $props();
 let lightboxOpen = $state(false);
 let lightboxUrls = $state([]);
 let lightboxIndex = $state(0);
 function openLightbox(url, _type, urls) {
+    if (disableMediaLightbox) return;
     const list = urls?.length ? urls : [url];
     lightboxUrls = list;
     lightboxIndex = Math.max(0, list.indexOf(url));
@@ -742,8 +745,6 @@ function handleRootContextNav(e) {
               </span>
             {:else if rootContext.iconUrl}
               <img src={rootContext.iconUrl} alt="" class="thread-root-context-icon" />
-            {:else}
-              <span class="thread-root-context-emoji" aria-hidden="true">💬</span>
             {/if}
             <span class="thread-root-context-label">{rootContext.label}</span>
             <svg class="thread-root-context-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1102,7 +1103,7 @@ function handleRootContextNav(e) {
   onclose={() => { insertModalOpen = false; }}
 />
 
-<MediaLightboxModal bind:isOpen={lightboxOpen} urls={lightboxUrls} initialIndex={lightboxIndex} />
+<MediaLightboxModal bind:isOpen={lightboxOpen} urls={lightboxUrls} initialIndex={lightboxIndex} zIndex={modalZIndex + 90} />
 
 <style>
   .root-comment {
@@ -1234,32 +1235,26 @@ function handleRootContextNav(e) {
   }
 
   .thread-root-context-icon {
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
     object-fit: cover;
     flex-shrink: 0;
   }
 
-  /* Mini stack grid (28px) scaled to align with 24px app icons in this row */
+  /* Mini stack grid (28px) scaled to align with 18px icons in this row */
   .thread-root-context-stack-badge {
     flex-shrink: 0;
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
   .thread-root-context-stack-badge :global(.stack-mini-badge) {
-    transform: scale(calc(24 / 28));
+    transform: scale(calc(18 / 28));
     transform-origin: center center;
-  }
-
-  .thread-root-context-emoji {
-    font-size: 20px;
-    line-height: 1;
-    flex-shrink: 0;
   }
 
   .thread-root-context-label {

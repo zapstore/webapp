@@ -2454,10 +2454,11 @@
 			feedInitialZapTarget={pendingZapCommentEv ? enrichReplyTargetForModal(pendingZapCommentEv) : null}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
-			modalLockBodyScroll={!inboxEmbed}
-			modalZIndex={inboxEmbed ? 130 : 110}
-			modalScopedInPanel={inboxEmbed}
-			id={_rootEv.id}
+		modalLockBodyScroll={!inboxEmbed}
+		modalZIndex={inboxEmbed ? 130 : 110}
+		modalScopedInPanel={inboxEmbed}
+		disableMediaLightbox={inboxEmbed}
+		id={_rootEv.id}
 			content={_rootEv.content ?? ''}
 			version={_evVersion}
 			emojiTags={(_rootEv.tags ?? [])
@@ -2563,10 +2564,11 @@
 			feedInitialZapTarget={pendingZapCommentEv ? enrichReplyTargetForModal(pendingZapCommentEv) : null}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
-			modalLockBodyScroll={!inboxEmbed}
-			modalZIndex={inboxEmbed ? 130 : 110}
-			modalScopedInPanel={inboxEmbed}
-			isZapRoot={true}
+		modalLockBodyScroll={!inboxEmbed}
+		modalZIndex={inboxEmbed ? 130 : 110}
+		modalScopedInPanel={inboxEmbed}
+		disableMediaLightbox={inboxEmbed}
+		isZapRoot={true}
 			id={_zEv.id}
 			content={_zParsed.comment ?? ''}
 			zapAmount={_zParsed.amountSats ?? 0}

@@ -154,7 +154,13 @@ async function copyRepository() {
       <div class="row-divider"></div>
       <div class="identifier-row">
         <span class="identifier-label">Repository</span>
-        <span class="identifier-value" title={repository}>{urlDisplayWithoutProtocol(repository)}</span>
+        <a
+          class="identifier-value identifier-link"
+          href={repository}
+          title={repository}
+          target="_blank"
+          rel="noopener noreferrer"
+        >{urlDisplayWithoutProtocol(repository)}</a>
         <button type="button" class="copy-btn" onclick={copyRepository} aria-label="Copy repository">
           {#if repositoryCopied}
             <span class="check-icon">
@@ -239,6 +245,15 @@ async function copyRepository() {
     text-align: right;
     margin-left: 40px;
     margin-right: 14px;
+  }
+
+  .identifier-link {
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .identifier-link:hover {
+    color: var(--white);
   }
 
   .identifier-value-right {

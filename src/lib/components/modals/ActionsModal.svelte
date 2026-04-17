@@ -97,7 +97,7 @@
 
 	/** @type {Map<string, string>} */
 	let userLabelEventIdsByText = $state(new Map());
-	let optimisticAddedLabels = $state(/** @type {Set<string>} */ (new Set()));
+	let optimisticAddedLabels = new SvelteSet();
 	let deleteOwnContentInFlight = $state(false);
 	let contentActionError = $state('');
 
@@ -109,7 +109,7 @@
 
 	/** @param {any[]} events */
 	function buildUserLabelEventMap(events) {
-		const map = new Map();
+		const map = new SvelteMap();
 		const sorted = [...events].sort((a, b) => b.created_at - a.created_at);
 		for (const ev of sorted) {
 			for (const t of ev.tags ?? []) {
@@ -171,11 +171,10 @@
 
 	// User's stacks (fetched from Dexie) - includes raw event for updates
 	let userStacks = $state([]);
-	let stacksLoading = $state(false);
 	let stacksLoaded = $state(false);
 
 	// Track which stacks are being updated
-	let updatingStacks = $state(new SvelteSet());
+	let updatingStacks = new SvelteSet();
 
 	let createStackOpen = $state(false);
 	let stackName = $state('');
@@ -209,9 +208,7 @@
 			return;
 		}
 
-		stacksLoading = true;
-
-		// Use liveQuery to reactively update when stacks change
+	// Use liveQuery to reactively update when stacks change
 		const subscription = liveQuery(() =>
 			queryEvents({ kinds: [EVENT_KINDS.APP_STACK], authors: [currentPubkey] })
 		).subscribe({
@@ -249,14 +246,12 @@
 						.filter(Boolean)
 				}));
 
-				stacksLoading = false;
-				stacksLoaded = true;
-			},
-			error: (err) => {
-				console.error('Failed to load user stacks:', err);
-				stacksLoading = false;
-				stacksLoaded = true;
-			}
+			stacksLoaded = true;
+		},
+		error: (err) => {
+			console.error('Failed to load user stacks:', err);
+			stacksLoaded = true;
+		}
 		});
 
 		return () => subscription.unsubscribe();
@@ -337,37 +332,33 @@
 			return;
 		}
 
-		labelError = '';
-		labelPublishing = true;
-		optimisticAddedLabels = new Set(optimisticAddedLabels).add(label);
-		try {
-			if (contentType === 'forum') {
-				await publishForumPostLabel(signEvent, {
-					eventId: targetApp.id,
-					communityPubkey: targetApp.communityPubkey,
-					labelValue: label
-				});
-			} else {
-				await publishAddressableLabel(signEvent, {
-					pubkey: targetApp.pubkey,
-					identifier: targetApp.dTag,
-					contentType,
-					labelValue: label
-				});
-			}
-			onLabelPublished();
-		} catch (err) {
-			labelError = err instanceof Error ? err.message : 'Failed to publish label';
-			const next = new Set(optimisticAddedLabels);
-			next.delete(label);
-			optimisticAddedLabels = next;
-		} finally {
-			const next = new Set(optimisticAddedLabels);
-			next.delete(label);
-			optimisticAddedLabels = next;
-			labelPublishing = false;
+	labelError = '';
+	labelPublishing = true;
+	optimisticAddedLabels.add(label);
+	try {
+		if (contentType === 'forum') {
+			await publishForumPostLabel(signEvent, {
+				eventId: targetApp.id,
+				communityPubkey: targetApp.communityPubkey,
+				labelValue: label
+			});
+		} else {
+			await publishAddressableLabel(signEvent, {
+				pubkey: targetApp.pubkey,
+				identifier: targetApp.dTag,
+				contentType,
+				labelValue: label
+			});
 		}
+		onLabelPublished();
+	} catch (err) {
+		labelError = err instanceof Error ? err.message : 'Failed to publish label';
+		optimisticAddedLabels.delete(label);
+	} finally {
+		optimisticAddedLabels.delete(label);
+		labelPublishing = false;
 	}
+}
 
 	async function handlePublishLabel() {
 		const body = labelValue.trim();
@@ -398,39 +389,35 @@
 			return;
 		}
 
-		labelError = '';
-		labelPublishing = true;
-		optimisticAddedLabels = new Set(optimisticAddedLabels).add(labelPayload);
-		try {
-			if (contentType === 'forum') {
-				await publishForumPostLabel(signEvent, {
-					eventId: targetApp.id,
-					communityPubkey: targetApp.communityPubkey,
-					labelValue: labelPayload
-				});
-			} else {
-				await publishAddressableLabel(signEvent, {
-					pubkey: targetApp.pubkey,
-					identifier: targetApp.dTag,
-					contentType,
-					labelValue: labelPayload
-				});
-			}
-			labelValue = '';
-			labelStructuredKind = null;
-			onLabelPublished();
-		} catch (err) {
-			labelError = err instanceof Error ? err.message : 'Failed to publish label';
-			const next = new Set(optimisticAddedLabels);
-			next.delete(labelPayload);
-			optimisticAddedLabels = next;
-		} finally {
-			const next = new Set(optimisticAddedLabels);
-			next.delete(labelPayload);
-			optimisticAddedLabels = next;
-			labelPublishing = false;
+	labelError = '';
+	labelPublishing = true;
+	optimisticAddedLabels.add(labelPayload);
+	try {
+		if (contentType === 'forum') {
+			await publishForumPostLabel(signEvent, {
+				eventId: targetApp.id,
+				communityPubkey: targetApp.communityPubkey,
+				labelValue: labelPayload
+			});
+		} else {
+			await publishAddressableLabel(signEvent, {
+				pubkey: targetApp.pubkey,
+				identifier: targetApp.dTag,
+				contentType,
+				labelValue: labelPayload
+			});
 		}
+		labelValue = '';
+		labelStructuredKind = null;
+		onLabelPublished();
+	} catch (err) {
+		labelError = err instanceof Error ? err.message : 'Failed to publish label';
+		optimisticAddedLabels.delete(labelPayload);
+	} finally {
+		optimisticAddedLabels.delete(labelPayload);
+		labelPublishing = false;
 	}
+}
 
 	async function handleDeleteOwnContent() {
 		if (!isContentAuthor || !targetApp || deleteOwnContentInFlight) return;
@@ -505,13 +492,13 @@
 			stackDescription = '';
 			error = '';
 			saving = false;
-			updatingStacks = new SvelteSet();
+			updatingStacks.clear();
 			labelValue = '';
 			labelStructuredKind = null;
 			labelError = '';
 			labelPublishing = false;
 			contentActionError = '';
-			optimisticAddedLabels = new Set();
+			optimisticAddedLabels.clear();
 			userLabelEventIdsByText = new Map();
 		}
 	});

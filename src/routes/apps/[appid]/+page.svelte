@@ -35,7 +35,6 @@
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
-	import ProfilePicStack from '$lib/components/common/ProfilePicStack.svelte';
 	import { SocialTabs, BottomBar } from '$lib/components/social';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
@@ -96,15 +95,29 @@
 	// Screenshots horizontal scroll
 	let screenshotsScrollContainer = $state(null);
 	let screenshotsScrolledRight = $state(false);
+	let screenshotsCanScrollRight = $state(false);
 	const SCREENSHOTS_SCROLL_STEP = 260;
 	function scrollScreenshots(dir) {
 		if (!screenshotsScrollContainer) return;
 		screenshotsScrollContainer.scrollBy({ left: dir * SCREENSHOTS_SCROLL_STEP, behavior: 'smooth' });
 	}
-	function handleScreenshotsScroll() {
+	function updateScreenshotsScrollState() {
 		if (!screenshotsScrollContainer) return;
-		screenshotsScrolledRight = screenshotsScrollContainer.scrollLeft > 4;
+		const { scrollLeft, scrollWidth, clientWidth } = screenshotsScrollContainer;
+		screenshotsScrolledRight = scrollLeft > 4;
+		screenshotsCanScrollRight = scrollLeft + clientWidth < scrollWidth - 4;
 	}
+	function handleScreenshotsScroll() {
+		updateScreenshotsScrollState();
+	}
+	$effect(() => {
+		const container = screenshotsScrollContainer;
+		if (!container) return;
+		updateScreenshotsScrollState();
+		const observer = new ResizeObserver(() => updateScreenshotsScrollState());
+		observer.observe(container);
+		return () => observer.disconnect();
+	});
 	// Comments and zaps state (comments may have pending + npub for display)
 	let comments = $state([]);
 	let commentsLoading = $state(false);
@@ -326,11 +339,11 @@
 		if (!hadCached) commentsLoading = true;
 		commentsError = '';
 		try {
-			const [relayEvents, storeEvents] = await Promise.all([
-				fetchComments(app.pubkey, app.dTag),
-				queryCommentsFromStore(app.pubkey, app.dTag)
-			]);
-			const byId = new Map();
+		const [relayEvents, storeEvents] = await Promise.all([
+			fetchComments(app.pubkey, app.dTag),
+			queryCommentsFromStore(app.pubkey, app.dTag)
+		]);
+		const byId = new SvelteMap();
 			for (const e of storeEvents) {
 				if (e?.id) byId.set(e.id.toLowerCase(), e);
 			}
@@ -402,15 +415,15 @@
 		try {
 			// Step 1: zaps on the main event (app) — merge relay one-shot + Dexie (live sub + prior visits)
 			const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-			const [initialEvents, zLo, zUp] = await Promise.all([
-				fetchZaps(app.pubkey, app.dTag),
-				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aTagValue], limit: 200 }),
-				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aTagValue], limit: 200 })
-			]);
-			const byId = new Map();
-			for (const e of [...zLo, ...zUp]) {
-				if (e?.id) byId.set(e.id, e);
-			}
+		const [initialEvents, zLo, zUp] = await Promise.all([
+			fetchZaps(app.pubkey, app.dTag),
+			queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aTagValue], limit: 200 }),
+			queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aTagValue], limit: 200 })
+		]);
+		const byId = new SvelteMap();
+		for (const e of [...zLo, ...zUp]) {
+			if (e?.id) byId.set(e.id, e);
+		}
 			for (const e of initialEvents) {
 				if (e?.id) byId.set(e.id, e);
 			}
@@ -437,12 +450,12 @@
 		const aVal = `${EVENT_KINDS.APP}:${pk}:${d}`;
 		labelsLoading = true;
 		try {
-			const [lo, up] = await Promise.all([
-				queryEvents({ kinds: [EVENT_KINDS.LABEL], '#a': [aVal], limit: 300 }),
-				queryEvents({ kinds: [EVENT_KINDS.LABEL], '#A': [aVal], limit: 300 })
-			]);
-			const byId = new Map();
-			for (const e of [...lo, ...up]) {
+		const [lo, up] = await Promise.all([
+			queryEvents({ kinds: [EVENT_KINDS.LABEL], '#a': [aVal], limit: 300 }),
+			queryEvents({ kinds: [EVENT_KINDS.LABEL], '#A': [aVal], limit: 300 })
+		]);
+		const byId = new SvelteMap();
+		for (const e of [...lo, ...up]) {
 				if (e?.id && !byId.has(e.id)) byId.set(e.id, e);
 			}
 			labelEntries = groupLabelEventsToEntries(Array.from(byId.values()));
@@ -975,7 +988,7 @@
 						class="platforms-row platforms-scroll flex items-start gap-2 flex-shrink-0 overflow-x-auto scrollbar-hide min-w-0"
 						use:wheelScroll
 					>
-						{#each platforms as platform}
+						{#each platforms as platform (platform)}
 							<div class="platform-pill flex items-center gap-2 flex-shrink-0 self-start">
 								<svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor">
 									<path
@@ -1058,19 +1071,23 @@
 					</div>
 				</div>
 
-				{#if screenshotsScrolledRight}
-					<div class="screenshots-fade screenshots-fade-left" aria-hidden="true"></div>
-				{/if}
+			{#if screenshotsScrolledRight}
+				<div class="screenshots-fade screenshots-fade-left" aria-hidden="true"></div>
+			{/if}
+			{#if screenshotsCanScrollRight}
 				<div class="screenshots-fade screenshots-fade-right" aria-hidden="true"></div>
+			{/if}
 
-				{#if screenshotsScrolledRight}
-					<button class="screenshots-btn screenshots-btn-left" onclick={() => scrollScreenshots(-1)} aria-label="Scroll left">
-						<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
-					</button>
-				{/if}
+			{#if screenshotsScrolledRight}
+				<button class="screenshots-btn screenshots-btn-left" onclick={() => scrollScreenshots(-1)} aria-label="Scroll left">
+					<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
+				</button>
+			{/if}
+			{#if screenshotsCanScrollRight}
 				<button class="screenshots-btn screenshots-btn-right" onclick={() => scrollScreenshots(1)} aria-label="Scroll right">
 					<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
 				</button>
+			{/if}
 			</div>
 		{/if}
 
@@ -1276,14 +1293,15 @@
 
 		<!-- Screenshot Carousel Modal -->
 		{#if carouselOpen && app.images && app.images.length > 0}
-			<div
-				class="carousel-modal bg-overlay"
-				onclick={closeCarousel}
-				role="dialog"
-				aria-modal="true"
-				aria-label="Screenshot carousel"
-				tabindex="-1"
-			>
+		<div
+			class="carousel-modal bg-overlay"
+			onclick={closeCarousel}
+			onkeydown={(e) => e.key === 'Escape' && closeCarousel()}
+			role="dialog"
+			aria-modal="true"
+			aria-label="Screenshot carousel"
+			tabindex="-1"
+		>
 				<button
 					type="button"
 					onclick={closeCarousel}
@@ -1341,7 +1359,7 @@
 					</button>
 				{/if}
 
-				<div class="carousel-content" onclick={(e) => e.stopPropagation()}>
+				<div class="carousel-content" role="presentation" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
 					<div class="carousel-image-wrapper">
 						{#if !carouselImageLoaded}
 							<div class="carousel-skeleton">
@@ -2615,10 +2633,6 @@
 		gap: 10px;
 		flex-shrink: 0;
 		min-width: 0;
-	}
-
-	.detail-indexed-icon {
-		display: block;
 	}
 
 	.platform-pill {

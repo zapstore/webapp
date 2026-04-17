@@ -144,6 +144,7 @@
 <section
 	class="relative flex items-center justify-center overflow-hidden pt-12 pb-10 sm:pt-16 sm:pb-16 lg:pt-20 lg:pb-24"
 	class:proximity-cursor={showProximityCursor}
+	role="presentation"
 	on:mousemove={handleSectionMouseMove}
 	on:mouseleave={() => (showProximityCursor = false)}
 >

@@ -23,6 +23,8 @@ let {
 	/** Index into urls to show first when opening */
 	initialIndex = 0,
 	type: typeProp = null,
+	/** z-index for the backdrop — must exceed any modal it may open above */
+	zIndex = 200,
 	onclose = () => {}
 } = $props();
 
@@ -87,6 +89,7 @@ $effect(() => {
 		tabindex="-1"
 		onclick={handleBackdropClick}
 		transition:fade={{ duration: 150 }}
+		style="z-index: {zIndex};"
 	>
 		<button type="button" class="carousel-close-btn" aria-label="Close carousel" onclick={(e) => { e.stopPropagation(); close(); }}>
 			<X class="h-5 w-5" />
@@ -134,7 +137,6 @@ $effect(() => {
 	.media-lightbox-backdrop {
 		position: fixed;
 		inset: 0;
-		z-index: 60;
 		display: flex;
 		align-items: center;
 		justify-content: center;
