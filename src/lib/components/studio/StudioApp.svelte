@@ -332,7 +332,10 @@
 			name: a.name,
 			icon: a.icon ?? '',
 			description: a.description ?? '',
-			eventId: a.id
+			url: a.url ?? '',
+			images: a.images ?? [],
+			eventId: a.id,
+			event: a.event
 		}));
 		if (isStudioIndexerCatalogPubkey(catalogPubkey)) {
 			nextUserApps = sortStudioIndexerAppsZapstoreFirst(nextUserApps);
@@ -702,7 +705,35 @@
 						app={selectedApp}
 						onBack={() => (editingApp = false)}
 						onSaved={(updatedApp) => {
-							if (updatedApp) selectedApp = updatedApp;
+							if (updatedApp) {
+								// Keep sidebar shape (`id` = d-tag); `parseApp` uses `id` for event id.
+								const row = {
+									id: updatedApp.dTag,
+									name: updatedApp.name,
+									icon: updatedApp.icon ?? '',
+									description: updatedApp.description ?? '',
+									url: updatedApp.url ?? '',
+									images: updatedApp.images ?? [],
+									eventId: updatedApp.id,
+									event: updatedApp.event
+								};
+								selectedApp = row;
+								const d = updatedApp.dTag.toLowerCase();
+								userApps = userApps.map((a) =>
+									a.id.toLowerCase() === d
+										? {
+												...a,
+												name: row.name,
+												icon: row.icon,
+												description: row.description,
+												url: row.url,
+												images: row.images,
+												eventId: row.eventId,
+												event: row.event
+											}
+										: a
+								);
+							}
 							editingApp = false;
 						}}
 					/>

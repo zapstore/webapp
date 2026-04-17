@@ -75,6 +75,7 @@ $effect(() => {
 });
 
 // ── Image handling ─────────────────────────────────────────────────────────
+/** Drops screenshot from draft only — does not DELETE blobs on Blossom/CDN (same as zsp: unused blobs are orphaned). */
 function removeImage(id) {
 	const entry = editImages.find((img) => img.id === id);
 	if (entry?.pending && entry.url.startsWith('blob:')) URL.revokeObjectURL(entry.url);
@@ -132,7 +133,11 @@ async function handleScreenshotFilesChange(e) {
 
 // ── Save ───────────────────────────────────────────────────────────────────
 async function handleSave() {
-	if (saving || !app?.event) return;
+	if (saving) return;
+	if (!app?.event) {
+		saveError = 'Cannot save — app data is incomplete. Reload Studio and try again.';
+		return;
+	}
 	if (!editName.trim()) {
 		saveError = 'App name is required.';
 		return;
@@ -155,6 +160,7 @@ async function handleSave() {
 	} catch (err) {
 		console.error('[StudioAppEdit] save failed:', err);
 		saveError = err?.message ?? 'Failed to save. Please try again.';
+	} finally {
 		saving = false;
 	}
 }
@@ -195,7 +201,7 @@ async function handleSave() {
 						<AppPic
 							iconUrl={iconPreviewError ? null : editIconUrl}
 							name={editName || app.name}
-							identifier={app.dTag}
+							identifier={app.dTag ?? app.id}
 							size="2xl"
 							className="edit-app-pic"
 							onClick={() => {}}

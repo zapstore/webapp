@@ -115,7 +115,13 @@ export function signOut() {
  */
 export async function signEvent(event) {
 	const s = getSigner();
-	return await s.signEvent(event);
+	// NIP-07 bridges use structured clone; Svelte `$state` / Proxy-wrapped objects throw
+	// "Proxy object could not be cloned" unless we pass a plain JSON tree.
+	const plain =
+		event !== null && typeof event === 'object'
+			? /** @type {typeof event} */ (JSON.parse(JSON.stringify(event)))
+			: event;
+	return await s.signEvent(plain);
 }
 
 /**
