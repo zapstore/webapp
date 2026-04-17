@@ -16,6 +16,7 @@ const SHA256_PATTERN = /[a-f0-9]{64}/i;
 const BLOSSOM_HOSTS = [
     'blossom.band',
     'cdn.satellite.earth',
+    'cdn.zapstore.dev',
     'nostr.build',
     'void.cat',
     'files.v0l.io',

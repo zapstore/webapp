@@ -13,6 +13,8 @@ export const SITE_TWITTER = '@zapstore_';
 export const SITE_GITHUB = 'https://github.com/zapstore/zapstore';
 // Primary catalog relay — source of app/release/stack events
 export const ZAPSTORE_RELAY = 'wss://relay.zapstore.dev';
+/** Zapstore Blossom CDN — same as zsp `BLOSSOM_URL` default; kind 24242 auth + PUT `/upload`. */
+export const ZAPSTORE_BLOSSOM_URL = 'https://cdn.zapstore.dev';
 // Profile relay — kind 0 profiles only
 export const VERTEXLAB_RELAY = 'wss://relay.vertexlab.io';
 // Both catalog relays (used for publishing and profile resolution)

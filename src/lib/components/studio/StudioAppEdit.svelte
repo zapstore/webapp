@@ -15,7 +15,7 @@ import AppPic from '$lib/components/common/AppPic.svelte';
 import { Camera, Cross, ChevronLeft, ChevronRight, Link } from '$lib/components/icons';
 import { updateAppMetadata, parseApp } from '$lib/nostr';
 import { signEvent } from '$lib/stores/auth.svelte.js';
-import { uploadFileToNostrBuild } from '$lib/services/upload-nostr-build.js';
+import { uploadFileToZapstoreCdn } from '$lib/services/upload-nostr-build.js';
 
 let {
 	app = null,
@@ -93,7 +93,7 @@ async function handleIconFileChange(e) {
 	iconUploading = true;
 	iconPreviewError = false;
 	try {
-		editIconUrl = await uploadFileToNostrBuild(file, signEvent);
+		editIconUrl = await uploadFileToZapstoreCdn(file, signEvent);
 	} catch (err) {
 		console.error('[StudioAppEdit] icon upload failed:', err);
 	} finally {
@@ -117,7 +117,7 @@ async function handleScreenshotFilesChange(e) {
 		files.map(async (file, i) => {
 			const { id, url: blobUrl } = pending[i];
 			try {
-				const realUrl = await uploadFileToNostrBuild(file, signEvent);
+				const realUrl = await uploadFileToZapstoreCdn(file, signEvent);
 				URL.revokeObjectURL(blobUrl);
 				editImages = editImages.map((img) => img.id === id ? { ...img, url: realUrl, pending: false } : img);
 			} catch (err) {
