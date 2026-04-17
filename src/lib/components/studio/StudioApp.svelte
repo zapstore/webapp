@@ -735,8 +735,8 @@
 			{:else}
 				<!-- Insights: wrap in scrollable div so .content itself stays overflow:hidden -->
 				<div class="insights-scroll">
-				<section class="content-section">
-					<div class="section-head">
+				<section class="content-section insights-chart-section">
+					<div class="insights-metric-head">
 						<div class="dl-meta">
 							<DownloadIcon size={24} color="var(--blurpleColor66)" />
 							{#if !DUMMY_MODE && dlChartLoading}
@@ -747,6 +747,8 @@
 								<span class="dl-count">{formattedDownloads}</span>
 							{/if}
 						</div>
+					</div>
+					<div class="insights-timerange-head">
 						<div class="timerange-wrap" data-studio-dropdown="dl">
 							<button class="timerange-btn" onclick={() => (dlDropdownOpen = !dlDropdownOpen)}>
 								<span class="eyebrow-label tr-label">{selectedDlTimeframe}</span>
@@ -793,8 +795,8 @@
 				</section>
 
 				<!-- Zaps section -->
-				<section class="content-section">
-					<div class="section-head">
+				<section class="content-section insights-chart-section">
+					<div class="insights-metric-head">
 						<div class="dl-meta">
 							<ZapIcon size={24} color="var(--goldColor66)" />
 							{#if !DUMMY_MODE && zapChartLoading}
@@ -805,6 +807,8 @@
 								<span class="dl-count">{formattedZaps}</span>
 							{/if}
 						</div>
+					</div>
+					<div class="insights-timerange-head">
 						<div class="timerange-wrap" data-studio-dropdown="zap">
 							<button class="timerange-btn" onclick={() => (zapDropdownOpen = !zapDropdownOpen)}>
 								<span class="eyebrow-label tr-label">{selectedZapTimeframe}</span>
@@ -852,8 +856,8 @@
 					</div>
 				</section>
 
-				<section class="content-section">
-					<div class="section-head">
+				<section class="content-section insights-chart-section">
+					<div class="insights-metric-head">
 						<div class="dl-meta">
 							<ImpressionIcon size={24} />
 							{#if !DUMMY_MODE && impChartLoading}
@@ -864,6 +868,8 @@
 								<span class="dl-count">{formattedImpressions}</span>
 							{/if}
 						</div>
+					</div>
+					<div class="insights-timerange-head">
 						<div class="timerange-wrap" data-studio-dropdown="imp">
 							<button class="timerange-btn" onclick={() => (impDropdownOpen = !impDropdownOpen)}>
 								<span class="eyebrow-label tr-label">{selectedImpTimeframe}</span>
@@ -1299,8 +1305,35 @@
 
 	.content-section {
 		position: relative;
-		padding: 18px 26px 26px;
+		/* Bottom matches per-app detail chart section (StudioAppDetail .chart-section). */
+		padding: 18px 26px 20px;
 		border-bottom: 1px solid var(--white16);
+	}
+
+	/* Downloads / Zaps / Impressions: count row sits under the chart so hover badges paint on top;
+	   timerange stays above the chart for clicks. */
+	.insights-chart-section .insights-metric-head {
+		position: absolute;
+		top: 18px;
+		left: 26px;
+		z-index: 1;
+		pointer-events: none;
+	}
+
+	.insights-chart-section .insights-metric-head .dl-meta {
+		flex: 0 1 auto;
+	}
+
+	.insights-chart-section .insights-timerange-head {
+		position: absolute;
+		top: 18px;
+		right: 26px;
+		z-index: 20;
+	}
+
+	.insights-chart-section .chart-area {
+		z-index: 5;
+		isolation: auto;
 	}
 
 	/* ── Section header — floats over the graph ───────────────────────────── */
