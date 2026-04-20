@@ -14,11 +14,12 @@
 	import { cn } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
-	import { getCurrentPubkey, getIsConnecting, connect, signOut, ExtensionMissingError } from '$lib/stores/auth.svelte.js';
+	import { getCurrentPubkey, getIsConnecting, signOut } from '$lib/stores/auth.svelte.js';
 	import { parseProfile } from '$lib/nostr/models';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import SearchModal from '$lib/components/common/SearchModal.svelte';
 	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
+	import SignInModal from '$lib/components/modals/SignInModal.svelte';
 	import OnboardingBuildingModal from '$lib/components/modals/OnboardingBuildingModal.svelte';
 	import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
@@ -65,6 +66,7 @@
 	let spinKeyModalOpen = $state(false);
 	let onboardingBuildingModalOpen = $state(false);
 	let onboardingProfileName = $state('');
+	let signInModalOpen = $state(false);
 	let inboxOpen = $state(false);
 	/** Boolean only — never show a numeric badge on the inbox icon. */
 	let headerInboxShowDot = $state(false);
@@ -261,17 +263,13 @@
 		menuOpen = false;
 		getStartedModalOpen = true;
 	}
-	// Sign in — auto-detects NIP-07 (desktop) or NIP-55 (Android)
-	async function handleSignIn() {
+	function openSignInModal() {
 		menuOpen = false;
-		try {
-			await connect();
-		} catch (err) {
-			// If no extension, show modal with instructions
-			if (err instanceof ExtensionMissingError || err instanceof Error) {
-				getStartedModalOpen = true;
-			}
-		}
+		signInModalOpen = true;
+	}
+
+	function openGetStartedFromSignIn() {
+		getStartedModalOpen = true;
 	}
 	function _handleGetStartedStart(_event) {
 		onboardingProfileName = _event.profileName;
@@ -670,7 +668,7 @@
 									<div class="menu-cta-wrapper">
 										<button
 											type="button"
-											onclick={handleSignIn}
+											onclick={openSignInModal}
 											class="btn-primary-large w-full justify-center"
 										>
 											Sign In
@@ -797,7 +795,12 @@
 												{/if}
 											{/if}
 										</button>
-										<UserInboxPopover {pubkey} open={inboxOpen} />
+										<UserInboxPopover
+											{pubkey}
+											open={inboxOpen}
+											onClose={() => (inboxOpen = false)}
+											inboxHeaderVariant={variant === 'landing' ? 'landing' : 'browse'}
+										/>
 									</div>
 									<div class="relative profile-dropdown">
 										<button type="button" onclick={toggleDropdown} class="profile-btn">
@@ -847,10 +850,10 @@
 								</div>
 							</div>
 						{:else}
-							<div class="hidden md:flex items-center gap-4 md:gap-3 lg:gap-4">
+							<div class="hidden md:flex items-center gap-3 md:gap-2 lg:gap-3">
 								<button
 									type="button"
-									onclick={handleSignIn}
+									onclick={openSignInModal}
 									class="btn-primary-small h-10 px-4 whitespace-nowrap"
 								>
 									Sign In
@@ -884,7 +887,12 @@
 						{/if}
 					</div>
 				{:else}
-					<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
+					<div
+						class={cn(
+							'flex items-center',
+							!isConnected && !isConnecting ? 'gap-3 md:gap-2 lg:gap-3' : 'gap-4 md:gap-3 lg:gap-4'
+						)}
+					>
 						{#if isConnecting}
 							<div class="h-10 w-10 flex items-center justify-center">
 								<Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />
@@ -908,7 +916,12 @@
 											{/if}
 										{/if}
 									</button>
-									<UserInboxPopover {pubkey} open={inboxOpen} />
+									<UserInboxPopover
+											{pubkey}
+											open={inboxOpen}
+											onClose={() => (inboxOpen = false)}
+											inboxHeaderVariant={variant === 'landing' ? 'landing' : 'browse'}
+										/>
 								</div>
 								<!-- Profile Avatar with Dropdown -->
 								<div class="relative profile-dropdown flex items-center">
@@ -949,7 +962,7 @@
 							</div>
 						{:else}
 							<!-- Sign In Button -->
-							<button type="button" onclick={handleSignIn} class="btn-primary-small h-10 px-4">
+							<button type="button" onclick={openSignInModal} class="btn-primary-small h-10 px-4">
 								Sign In
 							</button>
 						{/if}
@@ -989,6 +1002,8 @@
 <SearchModal bind:open={searchOpen} bind:searchQuery {categories} {platforms} />
 
 <DownloadModal bind:open={downloadModalOpen} isZapstore={true} />
+
+<SignInModal bind:open={signInModalOpen} onOpenGetStarted={openGetStartedFromSignIn} />
 
 <!-- Onboarding Modals -->
 <GetStartedModal bind:open={getStartedModalOpen} onconnected={handleGetStartedConnected} />

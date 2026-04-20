@@ -3,7 +3,7 @@ import { onMount } from 'svelte';
 import { browser } from '$app/environment';
 import { page } from '$app/stores';
 import { afterNavigate } from '$app/navigation';
-import { initAuth } from '$lib/stores/auth.svelte.js';
+import { initAuth, restoreNostrConnectSession } from '$lib/stores/auth.svelte.js';
 import { initCatalogs } from '$lib/stores/catalogs.svelte.js';
 import { initOnlineStatus, isOnline } from '$lib/stores/online.svelte.js';
 import { startProfileSearchBackground } from '$lib/services/profile-search';
@@ -43,31 +43,29 @@ let showFooter = $derived(
 		!showingStudioDashboard
 );
 onMount(() => {
+    let cancelled = false;
     if (browser) {
-        // When user landed from another site or direct, back button will go to / instead of leaving the app
         setBackGoesHomeIfLandedFromOutside();
-        // Restore auth from localStorage so "logged in" persists across reloads/navigation
         initAuth();
-        // Initialize online/offline detection
         initOnlineStatus();
-        // Start persistent relay connections for live catalog updates
-        startLiveSubscriptions();
-        installZapstoreDebugHooks();
-        if (import.meta.env.DEV) {
-            console.info(
-                '[Zapstore] Nostr client started. For relay/Dexie logs: localStorage.setItem("zapstore_debug","1"); location.reload() — then check [Zapstore] lines and globalThis.__zapstore'
-            );
-        }
-        // Fetch NIP-09 deletions since last check and bust Dexie cache
-        syncDeletions([ZAPSTORE_RELAY]);
-        // Evict old non-replaceable events to prevent unbounded IndexedDB growth
-        evictOldEvents();
-        // Start background load of default profiles for @ mention suggestions (local-first)
-        startProfileSearchBackground();
-        // Initialize catalog preferences from localStorage
-        initCatalogs();
+        void (async () => {
+            await restoreNostrConnectSession();
+            if (cancelled) return;
+            startLiveSubscriptions();
+            installZapstoreDebugHooks();
+            if (import.meta.env.DEV) {
+                console.info(
+                    '[Zapstore] Nostr client started. For relay/Dexie logs: localStorage.setItem("zapstore_debug","1"); location.reload() — then check [Zapstore] lines and globalThis.__zapstore'
+                );
+            }
+            syncDeletions([ZAPSTORE_RELAY]);
+            evictOldEvents();
+            startProfileSearchBackground();
+            initCatalogs();
+        })();
     }
     return () => {
+        cancelled = true;
         stopLiveSubscriptions();
     };
 });

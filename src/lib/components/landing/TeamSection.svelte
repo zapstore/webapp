@@ -766,6 +766,7 @@
 		display: flex;
 		flex-direction: row;
 		gap: 16px;
+		align-items: stretch;
 	}
 
 	@media (max-width: 480px) {
@@ -775,11 +776,12 @@
 	}
 
 	.donate-panel {
-		flex: 1;
+		flex: 1 1 0;
 		min-width: 0;
 		padding: 20px;
-		border-radius: var(--radius-16);
-		background-color: var(--white8);
+		border-radius: 16px;
+		overflow: hidden;
+		background-color: var(--black33);
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -787,6 +789,13 @@
 		gap: 8px;
 		text-align: center;
 		text-decoration: none;
+		color: var(--white);
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	.donate-panel:hover,
+	.donate-panel:focus-visible {
+		background-color: var(--black33);
 		color: var(--white);
 	}
 

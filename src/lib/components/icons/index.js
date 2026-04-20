@@ -44,6 +44,7 @@ export { default as Draw } from './Draw.svelte';
 export { default as EmojiFill } from './EmojiFill.svelte';
 export { default as EmojiLine } from './EmojiLine.svelte';
 export { default as Expand } from './Expand.svelte';
+export { default as Extension } from './Extension.svelte';
 export { default as Filter } from './Filter.svelte';
 export { default as Flip } from './Flip.svelte';
 export { default as Focus } from './Focus.svelte';

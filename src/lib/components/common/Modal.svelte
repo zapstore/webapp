@@ -15,6 +15,8 @@ import { cubicOut } from "svelte/easing";
 import { browser } from "$app/environment";
 import { onDestroy } from "svelte";
 let { open = $bindable(false), ariaLabel = "Modal dialog", ariaLabelledby = null, align = "center", zIndex = 100, maxWidth = "max-w-lg", wide = false, class: className = "", maxHeight = 80, fillHeight = false, closeOnBackdropClick = true, closeOnEscape = true, noBackdrop = false, title = "", description = "", closeButtonMobile = false,
+/** Tighter padding under title/description (e.g. Sign In matching Donate-style density). */
+compactTitleSpacing = false,
 /** When false, body scroll is not locked (e.g. thread modal inside a transformed header panel). */
 lockBodyScroll = true,
 /**
@@ -157,7 +159,7 @@ function handleResize() {
     >
       <div class="modal-content">
         {#if title}
-          <div class="modal-title-block">
+          <div class="modal-title-block" class:modal-title-block--compact={compactTitleSpacing}>
             <h2 class="modal-title modal-heading">{title}</h2>
             {#if description}
               <p class="modal-description">{description}</p>
@@ -331,6 +333,24 @@ function handleResize() {
     }
     .modal-title-block:has(.modal-description) .modal-description {
       margin-bottom: 10px;
+    }
+  }
+
+  .modal-title-block.modal-title-block--compact {
+    padding: 16px 16px 0;
+  }
+  .modal-title-block--compact:has(.modal-description) .modal-title {
+    margin-bottom: 6px;
+  }
+  .modal-title-block--compact:has(.modal-description) .modal-description {
+    margin: 0 0 2px 0;
+  }
+  @media (min-width: 768px) {
+    .modal-title-block.modal-title-block--compact {
+      padding: 16px 20px 0;
+    }
+    .modal-title-block--compact:has(.modal-description) .modal-description {
+      margin: 0 0 4px 0;
     }
   }
 

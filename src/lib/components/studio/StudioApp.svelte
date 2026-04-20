@@ -27,6 +27,7 @@
 		totalCountInLastNDays
 	} from './studio-config.js';
 	import { resolveStudioCatalogPubkey } from '$lib/studio/resolve-studio-catalog-pubkey.js';
+	import { getCurrentPubkey, getIsSignedIn, signEvent } from '$lib/stores/auth.svelte.js';
 	import { queryEvents, putEvents } from '$lib/nostr/dexie.js';
 	import { parseApp } from '$lib/nostr/models.js';
 	import { fetchAllAppsByAuthorFromRelays, fetchAppsByAuthorFromRelays } from '$lib/nostr/service.js';
@@ -237,12 +238,12 @@
 				return null;
 			}
 		}
-		if (typeof window !== 'undefined' && window.nostr) {
+		const fromAuth = getCurrentPubkey();
+		if (fromAuth) {
 			try {
-				const pk = await window.nostr.getPublicKey();
-				return String(pk).toLowerCase();
+				return npubToHex(fromAuth);
 			} catch {
-				return null;
+				return String(fromAuth).toLowerCase();
 			}
 		}
 		return null;
@@ -266,7 +267,7 @@
 		if (studioLoadStale(gen)) return;
 		if (!signerPubkey) {
 			console.warn(
-				'[Studio] Set TEST_PUBKEY in studio-config.js (npub or hex) or unlock NIP-07 to load apps and analytics.'
+				'[Studio] Set TEST_PUBKEY in studio-config.js (npub or hex) or sign in to load apps and analytics.'
 			);
 			studioPubkey = null;
 			userApps = [];
@@ -499,15 +500,15 @@
 	async function loadLegacyNip98Impressions(pubkeyHex, days, gen) {
 		const apiUrl = `${location.origin}/api/studio/analytics?pubkey=${pubkeyHex}`;
 
-		if (!window.nostr) {
-			console.warn('[Studio] No NIP-07 — legacy impressions skipped (v1 downloads unchanged if loaded).');
+		if (!getIsSignedIn()) {
+			console.warn('[Studio] Not signed in — legacy impressions skipped (v1 downloads unchanged if loaded).');
 			if (!studioLoadStale(gen)) impAppData = null;
 			return;
 		}
 
 		let authEvent;
 		try {
-			authEvent = await window.nostr.signEvent({
+			authEvent = await signEvent({
 				kind: 27235,
 				created_at: Math.floor(Date.now() / 1000),
 				tags: [
