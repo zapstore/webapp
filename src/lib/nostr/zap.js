@@ -10,7 +10,7 @@
  */
 import { SimplePool } from 'nostr-tools';
 import { resolveLightningAddress, fetchInvoiceFromCallback, validateZapSupport } from '$lib/lnurl';
-import { fetchProfile } from './service';
+import { fetchProfile, fetchRecipientInboxRelayUrls } from './service';
 import { putEvents } from './dexie';
 import { DEFAULT_SOCIAL_RELAYS, SUB_PREFIX, ZAPSTORE_RELAY } from '$lib/config';
 
@@ -40,8 +40,11 @@ export async function createZap(target, amountSats, comment, signEvent, emojiTag
 		throw new Error('Amount must be at least 1 sat');
 	}
 
-	// 1. Get recipient profile for lud16
-	const profileEvent = await fetchProfile(recipientHex);
+	// 1. Get recipient profile for lud16 and inbox relays in parallel
+	const [profileEvent, recipientInboxUrls] = await Promise.all([
+		fetchProfile(recipientHex),
+		fetchRecipientInboxRelayUrls(recipientHex)
+	]);
 	if (!profileEvent?.content) {
 		throw new Error('Could not load recipient profile');
 	}
@@ -76,7 +79,7 @@ export async function createZap(target, amountSats, comment, signEvent, emojiTag
 	}
 
 	// 3. Build zap request (kind 9734)
-	const relays = zapReceiptPublishRelays();
+	const relays = [...new Set([...zapReceiptPublishRelays(), ...recipientInboxUrls])];
 	const tags = [
 		['p', recipientHex],
 		['amount', amountMillisats.toString()],

@@ -5,7 +5,7 @@ import { page } from '$app/stores';
 import { afterNavigate } from '$app/navigation';
 import { initAuth, restoreNostrConnectSession } from '$lib/stores/auth.svelte.js';
 import { initCatalogs } from '$lib/stores/catalogs.svelte.js';
-import { initOnlineStatus, isOnline } from '$lib/stores/online.svelte.js';
+import { initOnlineStatus } from '$lib/stores/online.svelte.js';
 import { startProfileSearchBackground } from '$lib/services/profile-search';
 import {
 	startLiveSubscriptions,
@@ -24,7 +24,6 @@ import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte
 import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
 import '../app.css';
 let { children } = $props();
-let online = $derived(isOnline());
 const path = $derived($page.url.pathname);
 let isClearingLocalData = $state(false);
 // Hide footer on studio only when the signed-in dashboard is actually being shown
@@ -142,13 +141,6 @@ async function _clearAllLocalCaches() {
 
 		<SiteHeader variant="landing" />
 
-		{#if !online}
-			<div class="offline-banner">
-				<span class="offline-icon">📡</span>
-				<span>You're offline — showing cached data</span>
-			</div>
-		{/if}
-
 		<main class="flex-1 main-content has-header">
 			{@render children()}
 		</main>
@@ -170,25 +162,6 @@ async function _clearAllLocalCaches() {
 		display: flex;
 		flex-direction: column;
 		min-height: 100dvh;
-	}
-
-	/* ── Offline banner ───────────────────────────────────────────────────── */
-	.offline-banner {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1rem;
-		background: var(--goldColor33);
-		color: var(--goldColor);
-		font-size: 0.875rem;
-		font-weight: 500;
-		flex-shrink: 0;
-		z-index: 10;
-	}
-
-	.offline-icon {
-		font-size: 1rem;
 	}
 
 	/* ── Header offset ────────────────────────────────────────────────────── */

@@ -19,7 +19,7 @@ Use preset gradients from `src/app.css`. Never define ad-hoc gradients.
 | `--gradient-blurple`, `-hover` | Primary CTAs |
 | `--gradient-gold`, `-hover`, `-gold66/33/16` | Gold accents (zaps) |
 | `--gradient-gray`, `-hover`, `-gray66/33/16` | Neutral accents |
-| `--gradient-rouge`, `-hover` | Destructive actions |
+| `--gradient-rouge`, `-rouge66/33/16` | Destructive actions |
 | `--gradient-green`, `-hover` | Success |
 | `--gradient-white-blurple`, `--gradient-white-gold`, etc. | Header/text gradients |
 

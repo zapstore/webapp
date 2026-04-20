@@ -204,16 +204,26 @@
     rgba(255, 160, 55, 0.16) 100%
   );
 
-  /* Rouge gradient (destructive) */
+  /* Rouge gradient (destructive) — #FF4778 to #FF005E; opacity via 8-digit hex stops */
   --gradient-rouge: radial-gradient(
     circle at top left,
     #FF4778 0%,
     #FF005E 100%
   );
-  --gradient-rouge-hover: radial-gradient(
+  --gradient-rouge66: radial-gradient(
     circle at top left,
-    #FF618B 0%,
-    #FF1A6E 100%
+    #FF4778A8 0%,
+    #FF005EA8 100%
+  );
+  --gradient-rouge33: radial-gradient(
+    circle at top left,
+    #FF477854 0%,
+    #FF005E54 100%
+  );
+  --gradient-rouge16: radial-gradient(
+    circle at top left,
+    #FF477829 0%,
+    #FF005E29 100%
   );
 
   /* White-to-color gradients for headers */

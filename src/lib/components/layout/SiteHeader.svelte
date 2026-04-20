@@ -8,7 +8,7 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import { Search, User, Loader2, LogOut } from 'lucide-svelte';
-	import { Menu, Cross, Inbox } from '$lib/components/icons';
+	import { Menu, Cross, Inbox, Alert } from '$lib/components/icons';
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import { handleBack } from '$lib/utils/back.js';
 	import { cn } from '$lib/utils';
@@ -33,6 +33,7 @@
 		getInboxHeaderOpenedAtSec,
 		markInboxHeaderOpenedNow
 	} from '$lib/stores/user-inbox-seen.svelte.js';
+	import { isOnline } from '$lib/stores/online.svelte.js';
 
 	const communityFirstHref = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED
 		? '/community/forum'
@@ -91,6 +92,7 @@
 			$page.url.pathname === '/stacks'
 	);
 	const isCommunityActive = $derived($page.url.pathname.startsWith('/community'));
+	const offline = $derived(browser && !isOnline());
 	// Current user profile (local-first: EventStore then background fetch) for header avatar
 	let currentUserProfile = $state(null);
 	// Close Studio dropdown when navigating to studio page (reopen only after hover away and rehover)
@@ -774,6 +776,16 @@
 										/>
 									</svg>
 								</a>
+								{#if offline}
+									<div
+										class="header-offline-pill header-offline-pill--mobile shrink-0"
+										role="status"
+										aria-live="polite"
+									>
+										<Alert variant="outline" strokeWidth={1.4} color="var(--rougeColor)" size={16} />
+										<span class="medium14 header-offline-pill-label">Offline</span>
+									</div>
+								{/if}
 							</div>
 						{:else if isConnected}
 							<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
@@ -836,6 +848,16 @@
 											</div>
 										{/if}
 									</div>
+									{#if offline}
+										<div
+											class="header-offline-pill header-offline-pill--mobile shrink-0"
+											role="status"
+											aria-live="polite"
+										>
+											<Alert variant="outline" strokeWidth={1.4} color="var(--rougeColor)" size={16} />
+											<span class="medium14 header-offline-pill-label">Offline</span>
+										</div>
+									{/if}
 									<button
 										type="button"
 										class="landing-menu-btn flex md:hidden items-center justify-center w-7 h-7 rounded-lg border-none bg-transparent cursor-pointer hover:opacity-80 transition-opacity"
@@ -873,6 +895,16 @@
 								</a>
 							</div>
 							<!-- Mobile: menu icon to the right of Start -->
+							{#if offline}
+								<div
+									class="header-offline-pill header-offline-pill--mobile shrink-0"
+									role="status"
+									aria-live="polite"
+								>
+									<Alert variant="outline" strokeWidth={1.4} color="var(--rougeColor)" size={16} />
+									<span class="medium14 header-offline-pill-label">Offline</span>
+								</div>
+							{/if}
 							<button
 								type="button"
 								class="landing-menu-btn flex md:hidden items-center justify-center w-7 h-7 rounded-lg border-none bg-transparent cursor-pointer hover:opacity-80 transition-opacity"
@@ -897,6 +929,16 @@
 							<div class="h-10 w-10 flex items-center justify-center">
 								<Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />
 							</div>
+							{#if offline}
+								<div
+									class="header-offline-pill header-offline-pill--mobile shrink-0"
+									role="status"
+									aria-live="polite"
+								>
+									<Alert variant="outline" strokeWidth={1.4} color="var(--rougeColor)" size={16} />
+									<span class="medium14 header-offline-pill-label">Offline</span>
+								</div>
+							{/if}
 						{:else if isConnected}
 							<div class="flex items-center gap-2">
 								<div class="relative user-inbox-anchor header-inbox-anchor">
@@ -959,12 +1001,32 @@
 									</div>
 									{/if}
 								</div>
+								{#if offline}
+									<div
+										class="header-offline-pill header-offline-pill--mobile shrink-0"
+										role="status"
+										aria-live="polite"
+									>
+										<Alert variant="outline" strokeWidth={1.4} color="var(--rougeColor)" size={16} />
+										<span class="medium14 header-offline-pill-label">Offline</span>
+									</div>
+								{/if}
 							</div>
 						{:else}
 							<!-- Sign In Button -->
 							<button type="button" onclick={openSignInModal} class="btn-primary-small h-10 px-4">
 								Sign In
 							</button>
+							{#if offline}
+								<div
+									class="header-offline-pill header-offline-pill--mobile shrink-0"
+									role="status"
+									aria-live="polite"
+								>
+									<Alert variant="outline" strokeWidth={1.4} color="var(--rougeColor)" size={16} />
+									<span class="medium14 header-offline-pill-label">Offline</span>
+								</div>
+							{/if}
 						{/if}
 						{#if !isConnected}
 							<a
@@ -981,6 +1043,16 @@
 								</svg>
 							</a>
 						{/if}
+					</div>
+				{/if}
+				{#if offline}
+					<div
+						class="header-offline-pill header-offline-pill--desktop shrink-0"
+						role="status"
+						aria-live="polite"
+					>
+						<Alert variant="outline" strokeWidth={1.4} color="var(--rougeColor)" size={16} />
+						<span class="medium14 header-offline-pill-label">Offline</span>
 					</div>
 				{/if}
 			</div>
@@ -1019,6 +1091,41 @@
 <OnboardingBuildingModal bind:open={onboardingBuildingModalOpen} zIndex={106} />
 
 <style>
+	.header-offline-pill {
+		align-items: center;
+		gap: 6px;
+		padding: 5px 12px 5px 10px;
+		border-radius: 9999px;
+		border: 0.33px solid color-mix(in srgb, var(--rougeColor) 40%, transparent);
+		background: var(--gradient-rouge16);
+		flex-shrink: 0;
+	}
+
+	.header-offline-pill-label {
+		color: var(--rougeColor);
+	}
+
+	/* Scoped display beats Tailwind here — use explicit breakpoints so mobile/desktop pills never stack. */
+	.header-offline-pill--mobile {
+		display: none;
+	}
+
+	@media (max-width: 767px) {
+		.header-offline-pill--mobile {
+			display: inline-flex;
+		}
+	}
+
+	.header-offline-pill--desktop {
+		display: none;
+	}
+
+	@media (min-width: 768px) {
+		.header-offline-pill--desktop {
+			display: inline-flex;
+		}
+	}
+
 	.header {
 		height: 64px;
 	}

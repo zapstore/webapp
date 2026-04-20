@@ -823,6 +823,55 @@ function parseNip65WriteRelayUrls(event) {
 	return urls;
 }
 
+/** Cap best-effort inbox fan-out so a long NIP-65 read list doesn't bloat the publish set. */
+const MAX_RECIPIENT_INBOX_RELAYS = 6;
+
+/**
+ * NIP-65 kind 10002: `r` tags that are `read`-marked or unmarked (dual-purpose) — inbox relays.
+ * @param {import('nostr-tools').Event | null | undefined} event
+ * @returns {string[]}
+ */
+function parseNip65ReadRelayUrls(event) {
+	if (!event?.tags) return [];
+	const urls = [];
+	for (const tag of event.tags) {
+		if (tag[0] !== 'r' || typeof tag[1] !== 'string') continue;
+		const url = tag[1].trim();
+		if (!/^wss?:\/\//i.test(url)) continue;
+		const marker = (tag[2] || '').toLowerCase();
+		if (marker === 'write') continue;
+		urls.push(url);
+	}
+	return urls;
+}
+
+/**
+ * Look up the NIP-65 inbox (read) relay URLs for a pubkey.
+ * Checks Dexie first; falls back to a short relay fetch. Never throws.
+ * Result is capped at {@link MAX_RECIPIENT_INBOX_RELAYS}.
+ * @param {string} pubkey - hex pubkey of the recipient
+ * @returns {Promise<string[]>}
+ */
+export async function fetchRecipientInboxRelayUrls(pubkey) {
+	if (!pubkey || typeof window === 'undefined') return [];
+	try {
+		const pk = pubkey.trim().toLowerCase();
+		let ev = await queryEvent({ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 });
+		if (!ev) {
+			const arr = await fetchFromRelays(
+				[...DEFAULT_SOCIAL_RELAYS, ZAPSTORE_RELAY],
+				{ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 },
+				{ timeout: 4000, feature: 'nip65-recipient-inbox' }
+			);
+			ev = arr[0];
+			if (ev) await putEvents([ev]).catch(() => {});
+		}
+		return parseNip65ReadRelayUrls(ev).slice(0, MAX_RECIPIENT_INBOX_RELAYS);
+	} catch {
+		return [];
+	}
+}
+
 /**
  * Zapstore + default social + optional caller extras + signer’s NIP-65 write relays (Dexie, then relay fetch).
  * @param {string} signerPubkey - hex pubkey of the signed comment author
@@ -1287,7 +1336,10 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 
 	const signed = await signEvent(template);
 	const p = getPool();
-	const relayUrls = await buildCommentPublishRelayUrls(signed.pubkey, relays);
+	const [relayUrls, recipientInboxUrls] = await Promise.all([
+		buildCommentPublishRelayUrls(signed.pubkey, relays),
+		fetchRecipientInboxRelayUrls(target.pubkey)
+	]);
 	const primarySet = new Set(COMMENT_PUBLISH_RELAYS);
 	let primaryRelays = relayUrls.filter((u) => primarySet.has(u));
 	if (primaryRelays.length === 0) primaryRelays = [...COMMENT_PUBLISH_RELAYS];
@@ -1306,8 +1358,11 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 
 	await putEvents([signed]);
 
-	if (secondaryRelays.length > 0) {
-		void Promise.allSettled(p.publish(secondaryRelays, signed)).catch(() => {});
+	const allRelaysSet = new Set(relayUrls);
+	const inboxOnly = recipientInboxUrls.filter((u) => !allRelaysSet.has(u));
+	const allSecondary = [...secondaryRelays, ...inboxOnly];
+	if (allSecondary.length > 0) {
+		void Promise.allSettled(p.publish(allSecondary, signed)).catch(() => {});
 	}
 
 	return signed;
