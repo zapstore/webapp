@@ -325,9 +325,13 @@
 	}
 	/* Vertical dividers on the middle column */
 	.footer-link-col-mid {
-		border-left: 1px solid color-mix(in srgb, var(--white16) 50%, transparent);
 		border-right: 1px solid color-mix(in srgb, var(--white16) 50%, transparent);
-		padding: 0 0.75rem;
+		padding: 0 0.75rem 0 0;
+	}
+	@media (max-width: 767px) {
+		.footer-link-col:not(.footer-link-col-mid) {
+			padding-left: 0.75rem;
+		}
 	}
 
 	/* ── Desktop: dissolve wrapper; column centering/padding in footer-inner rule above ─────── */
