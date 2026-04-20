@@ -1733,6 +1733,7 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
 /**
  * Update a kind 32267 app's editable metadata (name, description, icon, url, images).
  * Preserves all existing tags that are not being updated.
+ * Event `content` is the plain-text description only (same as zsp / catalog convention); metadata lives in tags.
  *
  * @param {import('nostr-tools').NostrEvent} appEvent - Original kind 32267 event
  * @param {{ name?: string, description?: string, icon?: string, url?: string, images?: string[] }} updates
@@ -1763,11 +1764,22 @@ export async function updateAppMetadata(appEvent, updates, signEvent) {
 		if (img?.trim()) tags.push(['image', img.trim()]);
 	}
 
-	// Build content: preserve existing content JSON, update description
-	let existingContent = {};
-	try { existingContent = JSON.parse(appEvent.content); } catch { /* ignore */ }
-	const description = updates.description !== undefined ? updates.description : (existingContent.description ?? '');
-	const content = JSON.stringify({ ...existingContent, description });
+	// Long-form text: plain `content` (or legacy JSON { description }). Do not re-emit enriched JSON blobs — tags hold the rest.
+	let priorDescription = '';
+	const raw = appEvent.content ?? '';
+	if (updates.description !== undefined) {
+		priorDescription = updates.description;
+	} else if (raw) {
+		try {
+			const parsed = JSON.parse(raw);
+			if (parsed && typeof parsed === 'object' && 'description' in parsed) {
+				priorDescription = typeof parsed.description === 'string' ? parsed.description : String(parsed.description ?? '');
+			}
+		} catch {
+			priorDescription = raw;
+		}
+	}
+	const content = priorDescription;
 
 	const template = {
 		kind: EVENT_KINDS.APP,
