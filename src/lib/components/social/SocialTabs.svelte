@@ -19,8 +19,9 @@ import Spinner from "$lib/components/common/Spinner.svelte";
 import Label from "$lib/components/common/Label.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import { Zap } from "$lib/components/icons";
-import { queryEvent } from "$lib/nostr";
+import { queryEvent, queryEvents, parseRelease } from "$lib/nostr";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
+import { nip19 } from "nostr-tools";
 let {
     app = {}, stack = null, version = "", publisherProfile: _publisherProfile = null,
     zaps = [], zapperProfiles = new SvelteMap(), className = "",
@@ -99,6 +100,38 @@ $effect(() => {
 });
 /** Resolved details data: explicit prop wins over Dexie auto-fetch. */
 const resolvedDetailsRawData = $derived(detailsRawDataProp ?? autoFetchedDetails);
+/** Release events auto-fetched from Dexie for the Details tab (apps only). */
+let autoFetchedReleases = $state([]);
+$effect(() => {
+    if (activeTab !== "details" || stack || !app?.pubkey || !app?.dTag) {
+        autoFetchedReleases = [];
+        return;
+    }
+    const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
+    Promise.all([
+        queryEvents({ kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue], limit: 50 }),
+        queryEvents({ kinds: [EVENT_KINDS.RELEASE], "#i": [app.dTag], limit: 50 }),
+    ]).then(([byA, byI]) => {
+        const seen = new SvelteSet();
+        const merged = [];
+        for (const e of [...byA, ...byI]) {
+            if (!seen.has(e.id)) { seen.add(e.id); merged.push(e); }
+        }
+        merged.sort((a, b) => b.created_at - a.created_at);
+        autoFetchedReleases = merged.slice(0, 50).map((e) => {
+            const parsed = parseRelease(e);
+            let naddr = '';
+            try {
+                naddr = nip19.naddrEncode({
+                    kind: EVENT_KINDS.RELEASE,
+                    pubkey: e.pubkey,
+                    identifier: parsed.dTag,
+                });
+            } catch { /* ignore encoding errors */ }
+            return { ...parsed, naddr, rawEvent: e };
+        });
+    });
+});
 const totalZapAmount = $derived(zaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0));
 const zapsInCommentsFeed = $derived(
     zaps.filter((z) =>
@@ -515,6 +548,7 @@ const combinedFeed = $derived.by(() => {
         rawData={resolvedDetailsRawData}
         shareLink={detailsShareLink}
         repository={detailsRepository || app?.repository || ""}
+        releases={autoFetchedReleases}
       />
     {/if}
   </div>

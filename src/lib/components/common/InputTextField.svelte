@@ -10,7 +10,7 @@
  * - Warning has triangle pointer
  */
 import { Alert } from "$lib/components/icons";
-let { value = $bindable(""), placeholder = "", title = null, warning = null, size = "small", singleLine = true, autoCapitalize = true, obscureText = false, id = "", autocomplete = "off", light = false, inputElement = $bindable(null), oninput, onkeydown, onfocus, onblur, } = $props();
+let { value = $bindable(""), placeholder = "", title = null, warning = null, size = "small", singleLine = true, autoCapitalize = true, obscureText = false, id = "", autocomplete = "off", light = false, inputElement = $bindable(null), oninput, onkeydown, onfocus, onblur, /** iOS: avoid “smart” edits on pasted URLs (Nostr Connect bunker strings) */ spellcheck = true, autocorrect = undefined, } = $props();
 function handleInput(e) {
     const target = e.target;
     value = target.value;
@@ -47,6 +47,8 @@ function handleBlur(e) {
         {placeholder}
         autocomplete={autocomplete}
         autocapitalize={autoCapitalize ? "words" : "none"}
+        spellcheck={spellcheck}
+        autocorrect={autocorrect}
         class="input-element"
         oninput={handleInput}
         onkeydown={handleKeydown}
@@ -61,6 +63,8 @@ function handleBlur(e) {
         {placeholder}
         autocomplete={autocomplete}
         autocapitalize={autoCapitalize ? "sentences" : "none"}
+        spellcheck={spellcheck}
+        autocorrect={autocorrect}
         class="input-element textarea"
         class:textarea-medium={size === "medium"}
         class:textarea-large={size === "large"}

@@ -132,6 +132,8 @@
 				placeholder="bunker://… or nostr+walletconnect://…"
 				autocomplete="off"
 				autoCapitalize={false}
+				spellcheck={false}
+				autocorrect="off"
 				warning={nostrFieldWarning}
 				oninput={() => {
 					nostrFieldWarning = null;
