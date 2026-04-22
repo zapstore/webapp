@@ -606,7 +606,7 @@
 									onclick={() => selectApp(app)}
 								>
 									<span class="icon-wrap">
-										<img src={app.icon} alt={app.name} class="app-img" />
+										<img src={app.icon} alt={app.name} class="app-img" loading="lazy" />
 									</span>
 									<span class="nav-label">{app.name}</span>
 								</button>
@@ -674,7 +674,7 @@
 						onclick={() => selectApp(app)}
 					>
 						<span class="icon-wrap">
-							<img src={app.icon} alt={app.name} class="app-img" />
+							<img src={app.icon} alt={app.name} class="app-img" loading="lazy" />
 						</span>
 						<span class="nav-label">{app.name}</span>
 					</button>
