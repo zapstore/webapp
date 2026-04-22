@@ -395,6 +395,69 @@ export async function searchApps(relays, query, options = {}) {
 }
 
 /**
+ * Search forum comments (kind 1111 with K:11 root) using NIP-50 full-text search.
+ * Uses a dedicated pool; events are written to Dexie for local merging.
+ * Note: comments have no #h community tag — community filtering is done client-side after
+ * the relay results land in Dexie (root post lookup checks #h there).
+ * @param {string[]} relays
+ * @param {string} query
+ * @param {{ limit?: number, timeout?: number, signal?: AbortSignal }} options
+ * @returns {Promise<import('nostr-tools').NostrEvent[]>}
+ */
+export async function searchForumComments(relays, query, options = {}) {
+	const { limit = 50, timeout = 6000, signal } = options;
+	if (signal?.aborted || !query.trim()) return [];
+
+	const filter = {
+		kinds: [EVENT_KINDS.COMMENT],
+		'#K': [String(EVENT_KINDS.FORUM_POST)],
+		search: query.trim(),
+		limit
+	};
+
+	const searchPool = new SimplePool();
+
+	return new Promise((resolve) => {
+		const events = [];
+		let sub = null;
+		let settled = false;
+		let eoseTimer = null;
+		let timeoutTimer = null;
+
+		const finish = async () => {
+			if (settled) return;
+			settled = true;
+			if (eoseTimer) clearTimeout(eoseTimer);
+			if (timeoutTimer) clearTimeout(timeoutTimer);
+			try { sub?.close(); } catch { /* noop */ }
+			searchPool.close(relays);
+			if (events.length > 0) {
+				await putEvents(events).catch((err) =>
+					console.error('[ForumCommentSearch] Failed to persist events:', err)
+				);
+			}
+			resolve(events);
+		};
+
+		sub = searchPool.subscribeMany(relays, filter, {
+			id: subId('forum-comment-search'),
+			onevent(event) {
+				if (event?.id) events.push(event);
+			},
+			oneose() {
+				if (!eoseTimer) eoseTimer = setTimeout(finish, EOSE_GRACE_MS);
+			},
+			onclose() {
+				if (!settled) finish();
+			}
+		});
+
+		signal?.addEventListener('abort', finish, { once: true });
+		timeoutTimer = setTimeout(finish, timeout);
+	});
+}
+
+/**
  * Search forum posts (kind 11) by title, content, or tags using NIP-50 full-text search.
  * Uses a dedicated pool; events are written to Dexie.
  * @param {string[]} relays - Relay URLs (e.g. FORUM_RELAY)

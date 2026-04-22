@@ -20,7 +20,7 @@ export const DISCOVER_APPS_INITIAL = 16;
 export const DISCOVER_STACKS_INITIAL = 8;
 
 /** `/studio`: when true, signed-in users see the StudioApp dashboard; when false, same marketing page as logged-out. */
-export const SHOW_STUDIO_SIGNED_IN_DASHBOARD = true;
+export const SHOW_STUDIO_SIGNED_IN_DASHBOARD = false;
 
 /**
  * Community sidebar/tabs: when true, Forum + Activity (default landing `/community/forum`).

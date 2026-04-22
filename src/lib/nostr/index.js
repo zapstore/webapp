@@ -11,6 +11,7 @@ export { db, putEvents, queryEvents, queryEvent, liveQuery } from './dexie';
 export {
 	searchApps,
 	searchForumPosts,
+	searchForumComments,
 	fetchAppsByAuthorFromRelays,
 	fetchAllAppsByAuthorFromRelays,
 	fetchAppFromRelays,
