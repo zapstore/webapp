@@ -136,7 +136,7 @@ $effect(() => {
 				/>
 				<ShortTextInput
 					bind:this={commentInput}
-					placeholder="Comment on {zapTarget?.name ?? 'this'}"
+					placeholder="Write your comment..."
 					size="medium"
 					{getCurrentPubkey}
 					{searchProfiles}
@@ -188,6 +188,7 @@ $effect(() => {
 	bind:isOpen={zapModalOpen}
 	target={zapTarget}
 	{publisherName}
+	{contentType}
 	{otherZaps}
 	{searchProfiles}
 	{searchEmojis}

@@ -197,7 +197,7 @@ $effect(() => {
 				<div class="post-content-area">
 					<ShortTextInput
 						bind:this={contentInput}
-						placeholder="Write something{communityName ? ` in ${communityName}` : ''}"
+						placeholder="Write your forum post..."
 						size="large"
 						{getCurrentPubkey}
 						{searchProfiles}

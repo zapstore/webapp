@@ -12,7 +12,7 @@ import InsertModal from "$lib/components/modals/InsertModal.svelte";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { createSearchProfilesFunction } from "$lib/services/profile-search";
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
-let { isOpen = $bindable(false), target = null, placeholder = "Write a comment...", getCurrentPubkey = () => null, searchProfiles: searchProfilesProp = null, searchEmojis: searchEmojisProp = null, signEvent = null, onsubmit, onclose, } = $props();
+let { isOpen = $bindable(false), target = null, placeholder = "Write your comment...", getCurrentPubkey = () => null, searchProfiles: searchProfilesProp = null, searchEmojis: searchEmojisProp = null, signEvent = null, onsubmit, onclose, } = $props();
 const searchProfiles = $derived(searchProfilesProp ?? createSearchProfilesFunction(getCurrentPubkey));
 const searchEmojis = $derived(searchEmojisProp ?? createSearchEmojisFunction(getCurrentPubkey));
 let textInput = $state(null);

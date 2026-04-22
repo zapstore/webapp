@@ -15,7 +15,7 @@ async function signWithAnonymousKey(template) {
     const sk = generateSecretKey();
     return finalizeEvent(template, sk);
 }
-let { target = null, publisherName = "", otherZaps = [], isOpen = $bindable(false), nestedModal = false, lockBodyScroll = true, scopedInPanel = false, zIndex = 50, searchProfiles = async () => [], searchEmojis = async () => [], onclose, onzapReceived, onZapPending, onZapPendingClear, /** When set, opening the modal pre-fills this amount on the slider (e.g. quick chips). */
+let { target = null, publisherName = "", contentType = "app", otherZaps = [], isOpen = $bindable(false), nestedModal = false, lockBodyScroll = true, scopedInPanel = false, zIndex = 50, searchProfiles = async () => [], searchEmojis = async () => [], onclose, onzapReceived, onZapPending, onZapPendingClear, /** When set, opening the modal pre-fills this amount on the slider (e.g. quick chips). */
 presetZapSats = null, } = $props();
 let sliderComponent = $state(null);
 let zapValue = $state(100);
@@ -41,6 +41,16 @@ const qrCodeUrl = $derived(invoice
 const targetProfile = $derived(target
     ? { pictureUrl: target.pictureUrl, name: target.name, pubkey: target.pubkey }
     : null);
+const zapDescription = $derived(() => {
+    const authorName = publisherName || "Creator";
+    switch (contentType) {
+        case "app": return `${authorName} for publishing ${target?.name ?? "this app"}`;
+        case "stack": return `${authorName} for their stack`;
+        case "forum": return `${authorName} for their forum post`;
+        case "comment": return `${target?.name || authorName} for their comment`;
+        default: return authorName;
+    }
+});
 function cleanup() {
     if (unsubscribe) {
         unsubscribe();
@@ -265,7 +275,7 @@ $effect(() => {
       <div class="pt-4">
         <h2 class="modal-title modal-heading mb-2">Zap</h2>
         <p class="regular16 text-muted-foreground text-center mb-4">
-          {publisherName || "Creator"} for publishing {target?.name ?? "this content"}
+          {zapDescription()}
         </p>
       </div>
       <div class="slider-wrapper">
@@ -277,7 +287,7 @@ $effect(() => {
           bind:message
           {searchProfiles}
           {searchEmojis}
-          placeholder="Comment on {target?.name ?? 'this'}"
+          placeholder="Write your comment..."
           onvalueChanged={handleValueChanged}
           onsendZap={handleSendZap}
         />

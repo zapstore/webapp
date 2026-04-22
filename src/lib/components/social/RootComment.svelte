@@ -986,7 +986,7 @@ function handleRootContextNav(e) {
               />
               <ShortTextInput
                 bind:this={replyInput}
-                placeholder="Comment on {replyingToComment?.displayName ?? name ?? 'this'}"
+                placeholder="Write your comment..."
                 size="medium"
                 getCurrentPubkey={getCurrentPubkey}
                 {searchProfiles}
@@ -1074,6 +1074,7 @@ function handleRootContextNav(e) {
   bind:isOpen={zapModalOpen}
   target={zapTarget}
   publisherName={displayNameOrNpubShort(name, pubkey)}
+  contentType="comment"
   otherZaps={[]}
   nestedModal={modalOpen}
   lockBodyScroll={modalLockBodyScroll}

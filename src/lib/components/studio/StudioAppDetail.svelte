@@ -164,12 +164,7 @@
 			>
 				<span class="eyebrow-label tr-label tr-label--white66">{selectedDlTimeframe}</span>
 				<span class="chevron-wrap">
-					<ChevronDownIcon
-						variant="outline"
-						color="var(--white16)"
-						size={12}
-						strokeWidth={1.4}
-					/>
+					<ChevronDownIcon variant="outline" color="var(--white16)" size={12} strokeWidth={1.4} />
 				</span>
 			</button>
 			{#if detailRangeOpen}
@@ -395,7 +390,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 8px;
+		gap: 12px;
 	}
 
 	.studio-detail-action-btn {

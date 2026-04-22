@@ -109,7 +109,7 @@ async function handleZap() {
           id="zap-message-input"
           bind:value={message}
           class="message-input"
-          placeholder="Add a comment..."
+          placeholder="Write your comment..."
           rows="2"
         ></textarea>
       </div>

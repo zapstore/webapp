@@ -6,7 +6,7 @@ import { onMount } from "svelte";
 import Zap from "$lib/components/icons/Zap.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
-let { profile = null, initialValue = 100, otherZaps = [], message = $bindable(""), searchProfiles = async () => [], searchEmojis = async () => [], placeholder = "Add a comment...", onvalueChanged, onsendZap, } = $props();
+let { profile = null, initialValue = 100, otherZaps = [], message = $bindable(""), searchProfiles = async () => [], searchEmojis = async () => [], placeholder = "Write your comment...", onvalueChanged, onsendZap, } = $props();
 let shortTextInput = $state(null);
 let amountInputElement = $state(null);
 const START_ANGLE = (Math.PI * 3) / 4;
