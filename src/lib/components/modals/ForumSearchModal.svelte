@@ -10,13 +10,15 @@
 	 *   2. Parallel NIP-50 relay search for both posts and comments — after EOSE, re-queries Dexie
 	 *      to merge any new events without replacing visible local results until relay is done.
 	 */
-	import { fly, fade } from 'svelte/transition';
+	import { SvelteMap } from 'svelte/reactivity';
+import { fly, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { Search } from 'lucide-svelte';
 	import { nip19 } from 'nostr-tools';
 	import { goto } from '$app/navigation';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import ShortTextPreview from '$lib/components/common/ShortTextPreview.svelte';
+import Spinner from '$lib/components/common/Spinner.svelte';
 import { Reply } from '$lib/components/icons';
 	import {
 		queryEvents,
@@ -105,7 +107,7 @@ import { Reply } from '$lib/components/icons';
 		const rootIdSet = new Set(
 			matchingComments.map((e) => e.tags?.find((t) => t[0] === 'E' && t[1])?.[1]).filter(Boolean)
 		);
-		let rootPostMap = new Map();
+		let rootPostMap = new SvelteMap();
 		if (rootIdSet.size > 0) {
 			const rootPosts = await queryEvents({ ids: [...rootIdSet], limit: rootIdSet.size });
 			if (signal.aborted) return;
@@ -146,7 +148,7 @@ import { Reply } from '$lib/components/icons';
 		if (pubkeys.length > 0 && !signal.aborted) {
 			const batch = await fetchProfilesBatch(pubkeys, { signal });
 			if (signal.aborted) return;
-			const map = new Map();
+			const map = new SvelteMap();
 			for (const [pk, ev] of batch) {
 				const p = ev ? parseProfile(ev) : null;
 				map.set(pk, { name: p?.displayName ?? p?.name ?? null, picture: p?.picture ?? null });
@@ -275,7 +277,6 @@ import { Reply } from '$lib/components/icons';
 <svelte:window onkeydown={handleKeydown} />
 
 {#if isOpen}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 	<div
 		class="forum-search-overlay bg-overlay"
 		onclick={handleOverlayClick}
@@ -296,9 +297,9 @@ import { Reply } from '$lib/components/icons';
 						bind:this={searchInputEl}
 						aria-label="Search forum posts"
 					/>
-					{#if relaySearchLoading && !searchLoading}
-						<span class="forum-search-relay-dot" aria-hidden="true" title="Searching relay…"></span>
-					{/if}
+				{#if relaySearchLoading && !searchLoading}
+					<Spinner color="var(--white33)" size={14} strokeWidth={2.5} />
+				{/if}
 				</div>
 			</div>
 
@@ -630,24 +631,4 @@ import { Reply } from '$lib/components/icons';
 		color: var(--white);
 	}
 
-	/* Subtle pulsing dot shown in the search bar while the relay NIP-50 query is in-flight */
-	.forum-search-relay-dot {
-		flex-shrink: 0;
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: var(--white33);
-		animation: forum-search-relay-pulse 1.2s ease-in-out infinite;
-	}
-	@keyframes forum-search-relay-pulse {
-		0%,
-		100% {
-			opacity: 0.3;
-			transform: scale(0.85);
-		}
-		50% {
-			opacity: 1;
-			transform: scale(1);
-		}
-	}
 </style>
