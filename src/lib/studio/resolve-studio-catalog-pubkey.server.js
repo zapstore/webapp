@@ -18,7 +18,7 @@ const STUDIO_INDEXER_VIEW_SIGNER_NPUBS = [
 const STUDIO_SIGNER_CATALOG_OVERRIDES = /** @type {[string, string][]} */ ([
 	[
 		'npub149p5act9a5qm9p47elp8w8h3wpwn2d7s2xecw2ygnrxqp4wgsklq9g722q',
-		'npub1utx00neqgqln72j22kej3ux7803c2k986henvvha4thuwfkper4s7r50e8'
+		'npub142gywvjkq0dv6nupggyn2euhx4nduwc7yz5f24ah9rpmunr2s39se3xrj0'
 	]
 ]);
 
