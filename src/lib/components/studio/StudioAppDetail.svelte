@@ -108,13 +108,16 @@
 		return [...Array(n - arr.length).fill(0), ...arr];
 	};
 
-	/** One chart: downloads, zaps, impressions (aligned to detail timeframe). */
+	/**
+	 * One chart: impressions → zaps → downloads (aligned to detail timeframe).
+	 * Order is paint order in SVG (first = back); user wants downloads on top, zaps mid, impressions bottom.
+	 */
 	const combinedAppData = $derived(
 		dlCounts.length > 0 || zapCounts.length > 0 || impCounts.length > 0
 			? [
-					{ id: 'dl', name: 'Downloads', icon: '', counts: pad(dlCounts) },
+					{ id: 'imp', name: 'Impressions', icon: '', counts: pad(impCounts) },
 					{ id: 'zap', name: 'Zaps', icon: '', counts: pad(zapCounts) },
-					{ id: 'imp', name: 'Impressions', icon: '', counts: pad(impCounts) }
+					{ id: 'dl', name: 'Downloads', icon: '', counts: pad(dlCounts) }
 				]
 			: null
 	);
@@ -294,20 +297,20 @@
 				glowColor="#5445FF"
 				glowOpacity={0.3}
 				dotColor="#5C5FFF"
-				appColors={['#636AFF', '#FFB237', 'var(--white66)']}
-				appGlowColors={['#5445FF', '#FFB237']}
-				appGlowOpacities={[0.3, 0.12, 0.16]}
+				appColors={['var(--white66)', '#FFB237', '#636AFF']}
+				appGlowColors={['var(--white33)', '#FFB237', '#5445FF']}
+				appGlowOpacities={[0.16, 0.12, 0.3]}
 				appLineGradients={[
-					null,
-					null,
 					{
 						color0: 'var(--white33)',
 						color1: 'var(--white66)',
 						glowColor: 'var(--white33)'
-					}
+					},
+					null,
+					null
 				]}
-				appDotBackdropFills={[null, null, 'var(--black)']}
-				appBadgeBgs={['rgba(60,58,80,0.92)', 'rgba(90,55,0,0.92)', 'rgba(52,52,58,0.94)']}
+				appDotBackdropFills={['var(--black)', null, null]}
+				appBadgeBgs={['rgba(52,52,58,0.94)', 'rgba(90,55,0,0.92)', 'rgba(60,58,80,0.92)']}
 				hideTotalLine={true}
 				perSeriesYScale={true}
 				padTop={20}
@@ -396,7 +399,7 @@
 	}
 
 	.studio-detail-action-btn {
-		color: var(--white33);
+		color: var(--white66);
 		text-decoration: none;
 	}
 

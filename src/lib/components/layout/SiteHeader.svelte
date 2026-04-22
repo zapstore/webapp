@@ -1096,7 +1096,7 @@
 		gap: 6px;
 		padding: 5px 12px 5px 10px;
 		border-radius: 9999px;
-		border: 0.33px solid color-mix(in srgb, var(--rougeColor) 40%, transparent);
+		border: none;
 		background: var(--gradient-rouge16);
 		flex-shrink: 0;
 	}
