@@ -15,8 +15,9 @@
 	import { Search } from 'lucide-svelte';
 	import { nip19 } from 'nostr-tools';
 	import { goto } from '$app/navigation';
-	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
-	import { Reply } from '$lib/components/icons';
+import ProfilePic from '$lib/components/common/ProfilePic.svelte';
+import ShortTextPreview from '$lib/components/common/ShortTextPreview.svelte';
+import { Reply } from '$lib/components/icons';
 	import {
 		queryEvents,
 		fetchProfilesBatch,
@@ -303,8 +304,7 @@
 
 			<div class="forum-search-body-wrap">
 				<div
-					class="forum-search-body-inner"
-					class:forum-search-body-inner-scroll={displayResults.length > 0}
+		class="forum-search-body-inner"
 				>
 					{#if hasQuery}
 						{#if searchLoading}
@@ -366,7 +366,7 @@
 														{post?.title ?? 'Untitled'}
 													</span>
 												{:else}
-													{@const snippet = result.event.content.replace(/\n/g, ' ')}
+													{@const emojiTags = result.event.tags?.filter(t => t[0] === 'emoji' && t[1] && t[2]).map(t => ({ shortcode: t[1], url: t[2] })) ?? []}
 													<span class="forum-search-comment">
 														<span class="forum-search-comment-icon" aria-hidden="true">
 															<Reply
@@ -376,9 +376,9 @@
 																color="var(--white66)"
 															/>
 														</span>
-														<span class="forum-search-comment-text"
-															>{snippet.length > 80 ? snippet.slice(0, 79) + '…' : snippet}</span
-														>
+														<span class="forum-search-comment-preview">
+															<ShortTextPreview content={result.event.content} {emojiTags} maxLines={1} />
+														</span>
 													</span>
 												{/if}
 											</div>
@@ -430,7 +430,7 @@
 		-webkit-backdrop-filter: blur(24px);
 		display: flex;
 		flex-direction: column;
-		max-height: 70vh;
+		height: 45vh;
 	}
 
 	@media (min-width: 768px) {
@@ -440,6 +440,7 @@
 			border-radius: 24px;
 			border-bottom: 0.33px solid var(--white8);
 			padding: 12px;
+			height: 60vh;
 		}
 	}
 
@@ -492,30 +493,26 @@
 	}
 
 	.forum-search-body-inner {
+		flex: 1;
+		min-height: 0;
 		background: var(--black33);
 		border-radius: var(--radius-12);
-		min-height: 240px;
-		overflow: hidden;
+		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
-	}
-	.forum-search-body-inner-scroll {
-		max-height: 420px;
-		overflow-y: auto;
 		scrollbar-width: thin;
 		scrollbar-color: var(--white33) transparent;
 	}
-	.forum-search-body-inner-scroll::-webkit-scrollbar {
+	.forum-search-body-inner::-webkit-scrollbar {
 		width: 4px;
 	}
-	.forum-search-body-inner-scroll::-webkit-scrollbar-thumb {
+	.forum-search-body-inner::-webkit-scrollbar-thumb {
 		background: var(--white33);
 		border-radius: 2px;
 	}
 
 	.forum-search-empty-state {
-		width: 100%;
-		min-height: 160px;
+		flex: 1;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -623,13 +620,14 @@
 		flex-shrink: 0;
 		margin-top: 1px;
 	}
-	.forum-search-comment-text {
-		font-size: 14px;
-		font-weight: 400;
-		color: var(--white);
-		white-space: nowrap;
+	.forum-search-comment-preview {
+		flex: 1;
+		min-width: 0;
 		overflow: hidden;
-		text-overflow: ellipsis;
+		font-size: 14px;
+	}
+	.forum-search-comment-preview :global(.short-text-preview) {
+		color: var(--white);
 	}
 
 	/* Subtle pulsing dot shown in the search bar while the relay NIP-50 query is in-flight */
