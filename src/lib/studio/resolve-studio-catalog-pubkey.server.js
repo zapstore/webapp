@@ -7,7 +7,8 @@ import { ZAPSTORE_NPUB } from '$lib/config.js';
 /** Studio identities that load the indexer catalog (all Zapstore apps) instead of personal apps. */
 const STUDIO_INDEXER_VIEW_SIGNER_NPUBS = [
 	'npub1wf4pufsucer5va8g9p0rj5dnhvfeh6d8w0g6eayaep5dhps6rsgs43dgh9', // Franzaps
-	'npub176p7sup477k5738qhxx0hk2n0cty2k5je5uvalzvkvwmw4tltmeqw7vgup' // Pip
+	'npub176p7sup477k5738qhxx0hk2n0cty2k5je5uvalzvkvwmw4tltmeqw7vgup', // Pip
+	'npub149p5act9a5qm9p47elp8w8h3wpwn2d7s2xecw2ygnrxqp4wgsklq9g722q' // Niel
 ];
 
 /**
@@ -16,10 +17,7 @@ const STUDIO_INDEXER_VIEW_SIGNER_NPUBS = [
  * Format: [signerNpub, catalogNpub]
  */
 const STUDIO_SIGNER_CATALOG_OVERRIDES = /** @type {[string, string][]} */ ([
-	[
-		'npub149p5act9a5qm9p47elp8w8h3wpwn2d7s2xecw2ygnrxqp4wgsklq9g722q',
-		'npub1utx00neqgqln72j22kej3ux7803c2k986henvvha4thuwfkper4s7r50e8'
-	]
+	// ['npub149p5act9a5qm9p47elp8w8h3wpwn2d7s2xecw2ygnrxqp4wgsklq9g722q', 'npub1utx00neqgqln72j22kej3ux7803c2k986henvvha4thuwfkper4s7r50e8']
 ]);
 
 /** @param {string} npub */
