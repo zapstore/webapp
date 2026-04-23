@@ -1038,6 +1038,14 @@ h5, h6 {
   background-color: var(--white8);
 }
 
+/* White16 secondary button variant */
+.btn-secondary-large.btn-secondary-white16,
+.btn-secondary.btn-secondary-white16,
+.btn-secondary-small.btn-secondary-white16,
+.btn-secondary-xs.btn-secondary-white16 {
+  background-color: var(--white16);
+}
+
 /* Dark secondary button variant (black33 background) */
 .btn-secondary-dark,
 .btn-secondary-large.btn-secondary-dark,

@@ -9,6 +9,7 @@
 	import { Monitor, Smartphone, ArrowRight, Copy } from 'lucide-svelte';
 	import { Download, ChevronRight } from '$lib/components/icons';
 	import { assets } from '$app/paths';
+	import { SITE_URL } from '$lib/config';
 	import { browser } from '$app/environment';
 	import PlatformSelector from './PlatformSelector.svelte';
 	import AppPic from './AppPic.svelte';
@@ -54,6 +55,7 @@
 	// App info helpers
 	const minAndroidVersion = 'Android 10+';
 	$: sourceUrl = app?.repository || app?.url || null;
+	$: appDeepLink = app ? `${SITE_URL}/apps/${app.naddr ?? app.dTag ?? ''}` : '';
 
 	async function downloadApk() {
 		downloading = true;
@@ -371,123 +373,95 @@
 			{/if}
 		</div>
 	{:else}
-		<!-- Other apps: Standard download modal -->
+		<!-- Other apps: Two-step download flow -->
 		<div class="p-4 md:p-6">
-			<!-- App icon centered -->
+			<!-- App icon + title -->
 			<div class="flex justify-center mb-4">
 				<AppPic iconUrl={app?.icon} name={app?.name} identifier={app?.dTag} size="2xl" />
 			</div>
-
-			<!-- Header same size as Zapstore modal -->
 			<h2 class="modal-title modal-heading mb-6">
-				{app?.name || 'App'}
+				Download {app?.name || 'App'}
 			</h2>
 
-			<!-- Platform Selector -->
-			<div class="mb-6">
+			<!-- Platform selector -->
+			<div class="mb-3">
 				<div class="app-platform-selector">
-					<button type="button" class="platform-btn selected"> Android </button>
-					<button type="button" class="platform-btn disabled" disabled> No other platforms </button>
+					<button type="button" class="platform-btn selected">Android</button>
+					<button type="button" class="platform-btn disabled" disabled>No other platforms</button>
 				</div>
 			</div>
 
-			<!-- QR Code Container - same structure as Zapstore -->
-			<div
-				class="flex items-stretch rounded-xl bg-white/5 border border-border/30 overflow-hidden mb-5"
-			>
-				<!-- QR Code Left - Hidden on mobile -->
-				<div class="hidden md:flex flex-col items-center gap-5 pt-5 pb-4 px-5">
-					<img
-						src={`${assets}/images/qr.png`}
-						alt="QR code to open in Zapstore"
-						class="w-32 h-32 rounded-lg border border-border/40 bg-white p-1"
-						loading="lazy"
-					/>
-					<button
-						type="button"
-						class="flex items-center gap-2 regular14 text-muted-foreground hover:text-foreground transition-colors"
-							on:click={copyDownloadLink}
-					>
-						<span>Download Link</span>
-						{#if linkCopied}
-							<svg
-								class="w-4 h-4 text-green-500"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M5 13l4 4L19 7"
-								></path>
-							</svg>
-						{:else}
-							<Copy class="w-4 h-4" />
-						{/if}
-					</button>
+			<!-- Step 1: Get Zapstore -->
+			<div class="flex flex-col rounded-xl bg-white/5 border border-border/30 overflow-hidden mb-5">
+				<!-- Step header -->
+				<div class="step-card-header">
+					<span class="step-num">1</span>
+					<span class="step-card-title semibold16">Download Zapstore</span>
+					<a
+						href={ZAPSTORE_APK_URL}
+						class="btn-primary-small step-action-btn ml-auto flex-shrink-0 whitespace-nowrap"
+					>Download</a>
 				</div>
-
-				<!-- Vertical Divider - Hidden on mobile -->
-				<div
-					class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"
-					style="background-color: var(--white16);"
-				></div>
-
-				<!-- Single column on mobile, right column on desktop -->
-				<div class="flex-1 flex flex-col">
-					<!-- Android Version Info -->
-					<div
-						class="flex-1 flex flex-col justify-center gap-1 text-muted-foreground pl-6 pr-4 py-4 md:py-2"
-					>
-						<span class="flex items-center gap-2">
-							<svg
-								class="w-5 h-5 flex-shrink-0"
-								viewBox="0 0 24 24"
-								fill="currentColor"
-								xmlns="http://www.w3.org/2000/svg"
-							>
-								<path
-									d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 00-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 003 18h18a10.78 10.78 0 00-3.4-8.52zM8.5 14c-.83 0-1.5-.67-1.5-1.5S7.67 11 8.5 11s1.5.67 1.5 1.5S9.33 14 8.5 14zm7 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
-								/>
-							</svg>
-							<span class="regular14">{minAndroidVersion}</span>
-						</span>
+				<!-- QR + description -->
+				<div class="flex items-stretch">
+					<div class="hidden md:flex flex-col items-center justify-center pt-5 pb-5 px-5">
+						<img
+							src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&bgcolor=ffffff&color=000000&data={encodeURIComponent(ZAPSTORE_APK_URL)}"
+							alt="QR code to download Zapstore"
+							class="w-[7.5rem] h-[7.5rem] rounded-lg border border-border/40 bg-white p-1"
+							loading="lazy"
+						/>
 					</div>
-
-					<!-- Horizontal Divider - Only show if there's source code -->
-					{#if sourceUrl}
-						<div
-							class="w-full h-[1.4px] flex-shrink-0"
-							style="background-color: var(--white16);"
-						></div>
-
-						<!-- Source Code -->
-						<a
-							href={sourceUrl}
-							class="flex items-center gap-2 regular14 text-muted-foreground hover:text-foreground transition-colors pl-6 pr-4 py-4"
-							target="_blank"
-							rel="noopener noreferrer"
-						>
-							<span>View Source Code</span>
-							<ChevronRight
-								variant="outline"
-								strokeWidth={1.4}
-								color="var(--white33)"
-								size={16}
-								className="ml-auto"
-							/>
-						</a>
-					{/if}
+					<div
+						class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"
+						style="background-color: var(--white16);"
+					></div>
+					<div class="flex-1 flex flex-col justify-start pl-5 pr-4 py-4">
+						<ul class="step-bullet-list">
+							<li class="step-desktop-only"><span>Scan and tap <strong>Download anyway</strong>, if prompted</span></li>
+							<li class="step-mobile-only"><span>Tap <strong>Download anyway</strong>, if prompted</span></li>
+							<li><span>Allow <strong>installation from unknown sources</strong>, if prompted</span></li>
+							<li><span>Open <strong>Zapstore</strong> once installed</span></li>
+						</ul>
+					</div>
 				</div>
 			</div>
 
-			<!-- Action buttons -->
-			<div class="download-actions">
-				<a href="/download" class="btn-secondary-large btn-secondary-modal w-full">
-					Get Zapstore to Install
-				</a>
+			<!-- Step 2: Open in Zapstore -->
+			<div class="flex flex-col rounded-xl bg-white/5 border border-border/30 overflow-hidden">
+				<!-- Step header -->
+				<div class="step-card-header">
+					<span class="step-num">2</span>
+					<span class="step-card-title semibold16">Open {app?.name || 'the app'} page in Zapstore</span>
+					<a
+						href={appDeepLink}
+						class="btn-primary-small step-action-btn ml-auto flex-shrink-0 whitespace-nowrap"
+						target="_blank"
+						rel="noopener noreferrer"
+					>Open</a>
+				</div>
+				<!-- QR + description -->
+				<div class="flex items-stretch">
+					<div class="hidden md:flex flex-col items-center justify-center pt-5 pb-5 px-5">
+						<img
+							src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&bgcolor=ffffff&color=000000&data={encodeURIComponent(appDeepLink)}"
+							alt="QR code to open {app?.name} in Zapstore"
+							class="w-[7.5rem] h-[7.5rem] rounded-lg border border-border/40 bg-white p-1"
+							loading="lazy"
+						/>
+					</div>
+					<div
+						class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"
+						style="background-color: var(--white16);"
+					></div>
+					<div class="flex-1 flex flex-col justify-start pl-5 pr-4 py-4">
+						<ul class="step-bullet-list">
+							<li class="step-desktop-only"><span>Scan to open <strong>{app?.name}</strong> directly in Zapstore, or use search.</span></li>
+							<li class="step-mobile-only"><span>You can also just search for <strong>{app?.name}</strong> in the search bar</span></li>
+							<li><span><strong>Install {app?.name}.</strong> Enable installing unknown apps via Zapstore, if prompted</span></li>
+						</ul>
+					</div>
+				</div>
 			</div>
 		</div>
 	{/if}
@@ -618,7 +592,7 @@
 		}
 	}
 
-	/* Custom platform selector for non-Zapstore apps */
+	/* ── Custom platform selector for non-Zapstore apps ── */
 	.app-platform-selector {
 		display: flex;
 		gap: 0.5rem;
@@ -651,6 +625,89 @@
 		background-color: transparent;
 		color: var(--white33);
 		cursor: not-allowed;
+	}
+
+	/* ── Step header row (number circle + title) ── */
+	.step-card-header {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 12px 16px;
+		border-bottom: 1.4px solid var(--white16);
+	}
+
+	.step-num {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		background: var(--white16);
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 14px;
+		font-weight: 600;
+		color: var(--white);
+		flex-shrink: 0;
+	}
+
+	/* step-card-title font handled by semibold16 utility class */
+	.step-card-title {
+		color: var(--white);
+	}
+
+	/* Mobile-only action buttons — hidden on desktop */
+	.step-action-btn {
+		display: inline-flex;
+	}
+
+	@media (min-width: 768px) {
+		.step-action-btn {
+			display: none !important;
+		}
+	}
+
+	/* Responsive bullet variants */
+	.step-desktop-only {
+		display: none !important;
+	}
+
+	@media (min-width: 768px) {
+		.step-desktop-only {
+			display: flex !important;
+		}
+
+		.step-mobile-only {
+			display: none !important;
+		}
+	}
+
+	/* ── Bullet list in step description column ── */
+	.step-bullet-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 7px;
+	}
+
+	.step-bullet-list li {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+		font-size: 14px;
+		color: var(--white66);
+		line-height: 1.45;
+	}
+
+	.step-bullet-list li::before {
+		content: '';
+		width: 5px;
+		height: 5px;
+		border-radius: 50%;
+		background: var(--white33);
+		flex-shrink: 0;
+		margin-top: 8px;
 	}
 
 	.download-actions {

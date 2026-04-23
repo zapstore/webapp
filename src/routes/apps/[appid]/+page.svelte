@@ -99,7 +99,10 @@
 	const SCREENSHOTS_SCROLL_STEP = 260;
 	function scrollScreenshots(dir) {
 		if (!screenshotsScrollContainer) return;
-		screenshotsScrollContainer.scrollBy({ left: dir * SCREENSHOTS_SCROLL_STEP, behavior: 'smooth' });
+		screenshotsScrollContainer.scrollBy({
+			left: dir * SCREENSHOTS_SCROLL_STEP,
+			behavior: 'smooth'
+		});
 	}
 	function updateScreenshotsScrollState() {
 		if (!screenshotsScrollContainer) return;
@@ -339,11 +342,11 @@
 		if (!hadCached) commentsLoading = true;
 		commentsError = '';
 		try {
-		const [relayEvents, storeEvents] = await Promise.all([
-			fetchComments(app.pubkey, app.dTag),
-			queryCommentsFromStore(app.pubkey, app.dTag)
-		]);
-		const byId = new SvelteMap();
+			const [relayEvents, storeEvents] = await Promise.all([
+				fetchComments(app.pubkey, app.dTag),
+				queryCommentsFromStore(app.pubkey, app.dTag)
+			]);
+			const byId = new SvelteMap();
 			for (const e of storeEvents) {
 				if (e?.id) byId.set(e.id.toLowerCase(), e);
 			}
@@ -415,15 +418,15 @@
 		try {
 			// Step 1: zaps on the main event (app) — merge relay one-shot + Dexie (live sub + prior visits)
 			const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-		const [initialEvents, zLo, zUp] = await Promise.all([
-			fetchZaps(app.pubkey, app.dTag),
-			queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aTagValue], limit: 200 }),
-			queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aTagValue], limit: 200 })
-		]);
-		const byId = new SvelteMap();
-		for (const e of [...zLo, ...zUp]) {
-			if (e?.id) byId.set(e.id, e);
-		}
+			const [initialEvents, zLo, zUp] = await Promise.all([
+				fetchZaps(app.pubkey, app.dTag),
+				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aTagValue], limit: 200 }),
+				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aTagValue], limit: 200 })
+			]);
+			const byId = new SvelteMap();
+			for (const e of [...zLo, ...zUp]) {
+				if (e?.id) byId.set(e.id, e);
+			}
 			for (const e of initialEvents) {
 				if (e?.id) byId.set(e.id, e);
 			}
@@ -450,12 +453,12 @@
 		const aVal = `${EVENT_KINDS.APP}:${pk}:${d}`;
 		labelsLoading = true;
 		try {
-		const [lo, up] = await Promise.all([
-			queryEvents({ kinds: [EVENT_KINDS.LABEL], '#a': [aVal], limit: 300 }),
-			queryEvents({ kinds: [EVENT_KINDS.LABEL], '#A': [aVal], limit: 300 })
-		]);
-		const byId = new SvelteMap();
-		for (const e of [...lo, ...up]) {
+			const [lo, up] = await Promise.all([
+				queryEvents({ kinds: [EVENT_KINDS.LABEL], '#a': [aVal], limit: 300 }),
+				queryEvents({ kinds: [EVENT_KINDS.LABEL], '#A': [aVal], limit: 300 })
+			]);
+			const byId = new SvelteMap();
+			for (const e of [...lo, ...up]) {
 				if (e?.id && !byId.has(e.id)) byId.set(e.id, e);
 			}
 			labelEntries = groupLabelEventsToEntries(Array.from(byId.values()));
@@ -760,7 +763,7 @@
 	}
 	onMount(async () => {
 		if (!browser) return;
-		
+
 		// Resolve pubkey + identifier: appid may be a plain d-tag or a legacy naddr
 		const pointer = decodeNaddr(appid);
 		let _pubkey = data.app?.pubkey ?? pointer?.pubkey;
@@ -965,7 +968,31 @@
 	</div>
 {:else if app}
 	<div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">
-		<!-- App Header: icon + title row (name + platform pills on right) + author/timestamp row -->
+		<!-- Mobile only: author + timestamp above the app icon -->
+		<div class="detail-publisher-row publisher-mobile-only">
+			{#if !isZapstorePublisher || isZapstoreOfficialAppId}
+				<a href={publisherUrl} class="detail-publisher-link">
+					<ProfilePic
+						pictureUrl={publisherPictureUrl}
+						name={publisherNameForPic}
+						pubkey={app.pubkey}
+						size="sm"
+					/>
+					<span class="detail-publisher-name">By {publisherName}</span>
+				</a>
+			{/if}
+			{#if !publishedByDeveloper}
+				<div class="detail-indexed-by">
+					<Index size={24} className="detail-indexed-icon flex-shrink-0" />
+					<span class="detail-publisher-name">Indexed</span>
+				</div>
+			{/if}
+			{#if app.createdAt}
+				<Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
+			{/if}
+		</div>
+
+		<!-- App Header: icon + title/actions -->
 		<div class="app-header flex items-start gap-4 sm:gap-6 mb-6">
 			<AppPic
 				iconUrl={app.icon}
@@ -976,20 +1003,58 @@
 			/>
 
 			<div class="app-info flex-1 min-w-0">
-				<!-- Title row: app name + platform pills (desktop: next to each other; mobile: pills to the right) -->
-				<div class="app-name-row flex items-start gap-3 mb-2 sm:mb-3">
-					<h1
-						class="app-name text-[1.5rem] sm:text-4xl font-black min-w-0"
-						style="color: var(--white);"
-					>
-						{app.name}
-					</h1>
+				<!-- Name row:
+				     Mobile  → just the name
+				     Desktop → [name] [pill] ··· [Install] -->
+				<div class="app-name-row flex items-center mb-2 sm:mb-3">
+					<!-- Left group: name always; pill desktop-only -->
+					<div class="app-name-and-pill">
+						<h1
+							class="app-name text-[1.5rem] sm:text-4xl font-black min-w-0"
+							style="color: var(--white);"
+						>
+							{app.name}
+						</h1>
+						<!-- Desktop only: pill right next to the name -->
+						<div
+							class="platforms-row platforms-scroll desktop-pill-wrap flex items-center gap-2 flex-shrink-0 overflow-x-auto scrollbar-hide"
+							use:wheelScroll
+						>
+							{#each platforms as platform (platform)}
+								<div class="platform-pill flex items-center gap-2 flex-shrink-0">
+									<svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor">
+										<path
+											d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 00-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 003 18h18a10.78 10.78 0 00-3.4-8.52zM8.5 14c-.83 0-1.5-.67-1.5-1.5S7.67 11 8.5 11s1.5.67 1.5 1.5S9.33 14 8.5 14zm7 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
+										/>
+									</svg>
+									<span
+										class="platform-text regular14 whitespace-nowrap"
+										style="color: var(--white66);"
+									>
+										{platform.charAt(0).toUpperCase() + platform.slice(1)}
+									</span>
+								</div>
+							{/each}
+						</div>
+					</div>
+				<!-- Desktop only: Download button pushed to the far right -->
+				<button
+					type="button"
+					class="btn-primary-small install-btn-desktop"
+					onclick={() => (downloadModalOpen = true)}
+				>
+					Download
+				</button>
+				</div>
+
+				<!-- Mobile only: pill (left) + install (right) below the name -->
+				<div class="app-mobile-actions">
 					<div
-						class="platforms-row platforms-scroll flex items-start gap-2 flex-shrink-0 overflow-x-auto scrollbar-hide min-w-0"
+						class="platforms-row platforms-scroll flex items-center gap-2 flex-shrink-0 overflow-x-auto scrollbar-hide"
 						use:wheelScroll
 					>
 						{#each platforms as platform (platform)}
-							<div class="platform-pill flex items-center gap-2 flex-shrink-0 self-start">
+							<div class="platform-pill flex items-center gap-2 flex-shrink-0">
 								<svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor">
 									<path
 										d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 00-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 003 18h18a10.78 10.78 0 00-3.4-8.52zM8.5 14c-.83 0-1.5-.67-1.5-1.5S7.67 11 8.5 11s1.5.67 1.5 1.5S9.33 14 8.5 14zm7 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
@@ -1004,9 +1069,16 @@
 							</div>
 						{/each}
 					</div>
+				<button
+					type="button"
+					class="btn-primary-small install-btn"
+					onclick={() => (downloadModalOpen = true)}
+				>
+					Download
+				</button>
 				</div>
 
-				<!-- Author + timestamp row -->
+				<!-- Desktop only: author + timestamp below the name row -->
 				<div class="detail-publisher-row detail-publisher-row-in-app">
 					{#if !isZapstorePublisher || isZapstoreOfficialAppId}
 						<a href={publisherUrl} class="detail-publisher-link">
@@ -1029,7 +1101,6 @@
 						<Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
 					{/if}
 				</div>
-
 			</div>
 		</div>
 
@@ -1043,51 +1114,59 @@
 				>
 					<div class="screenshots-content">
 						{#each app.images as image, index (index)}
-						<button
-							type="button"
-							onclick={() => openCarousel(index)}
-							class="screenshot-thumb relative flex-shrink-0 overflow-hidden cursor-pointer focus:outline-none"
-							class:landscape={landscapeImages.has(index)}
-						>
-							{#if !thumbsLoaded.has(index)}
-								<div class="screenshot-skeleton">
-									<SkeletonLoader />
-								</div>
-							{/if}
-							<img
-								src={image}
-								alt="Screenshot {index + 1}"
-								class="screenshot-img"
-								class:loaded={thumbsLoaded.has(index)}
-								loading="lazy"
-								onload={(e) => {
-									thumbsLoaded.add(index);
-									const img = /** @type {HTMLImageElement} */ (e.target);
-									if (img.naturalWidth > img.naturalHeight) landscapeImages.add(index);
-								}}
-							/>
-						</button>
+							<button
+								type="button"
+								onclick={() => openCarousel(index)}
+								class="screenshot-thumb relative flex-shrink-0 overflow-hidden cursor-pointer focus:outline-none"
+								class:landscape={landscapeImages.has(index)}
+							>
+								{#if !thumbsLoaded.has(index)}
+									<div class="screenshot-skeleton">
+										<SkeletonLoader />
+									</div>
+								{/if}
+								<img
+									src={image}
+									alt="Screenshot {index + 1}"
+									class="screenshot-img"
+									class:loaded={thumbsLoaded.has(index)}
+									loading="lazy"
+									onload={(e) => {
+										thumbsLoaded.add(index);
+										const img = /** @type {HTMLImageElement} */ (e.target);
+										if (img.naturalWidth > img.naturalHeight) landscapeImages.add(index);
+									}}
+								/>
+							</button>
 						{/each}
 					</div>
 				</div>
 
-			{#if screenshotsScrolledRight}
-				<div class="screenshots-fade screenshots-fade-left" aria-hidden="true"></div>
-			{/if}
-			{#if screenshotsCanScrollRight}
-				<div class="screenshots-fade screenshots-fade-right" aria-hidden="true"></div>
-			{/if}
+				{#if screenshotsScrolledRight}
+					<div class="screenshots-fade screenshots-fade-left" aria-hidden="true"></div>
+				{/if}
+				{#if screenshotsCanScrollRight}
+					<div class="screenshots-fade screenshots-fade-right" aria-hidden="true"></div>
+				{/if}
 
-			{#if screenshotsScrolledRight}
-				<button class="screenshots-btn screenshots-btn-left" onclick={() => scrollScreenshots(-1)} aria-label="Scroll left">
-					<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
-				</button>
-			{/if}
-			{#if screenshotsCanScrollRight}
-				<button class="screenshots-btn screenshots-btn-right" onclick={() => scrollScreenshots(1)} aria-label="Scroll right">
-					<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
-				</button>
-			{/if}
+				{#if screenshotsScrolledRight}
+					<button
+						class="screenshots-btn screenshots-btn-left"
+						onclick={() => scrollScreenshots(-1)}
+						aria-label="Scroll left"
+					>
+						<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
+					</button>
+				{/if}
+				{#if screenshotsCanScrollRight}
+					<button
+						class="screenshots-btn screenshots-btn-right"
+						onclick={() => scrollScreenshots(1)}
+						aria-label="Scroll right"
+					>
+						<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
+					</button>
+				{/if}
 			</div>
 		{/if}
 
@@ -1115,9 +1194,7 @@
 					onclick={() => (securityModalOpen = true)}
 				>
 					<div class="panel-header">
-						<span class="semibold16" style="color: var(--white);"
-							>Security</span
-						>
+						<span class="semibold16" style="color: var(--white);">Security</span>
 					</div>
 					<div class="panel-list flex flex-col">
 						<!-- 1. Published by Developer (check) or Published by Indexer (line) -->
@@ -1209,15 +1286,13 @@
 					onclick={() => (releasesModalOpen = true)}
 				>
 					<div class="panel-header">
-						<span class="semibold16" style="color: var(--white);"
-							>Releases</span
-						>
+						<span class="semibold16" style="color: var(--white);">Releases</span>
 					</div>
 					<div class="panel-list flex flex-col">
 						{#if releasesLoading}
-						<p class="regular14" style="color: var(--white33);">Loading releases...</p>
-					{:else if releases.length === 0}
-						<p class="regular14" style="color: var(--white33);">No releases found.</p>
+							<p class="regular14" style="color: var(--white33);">Loading releases...</p>
+						{:else if releases.length === 0}
+							<p class="regular14" style="color: var(--white33);">No releases found.</p>
 						{:else}
 							{#each releases.slice(0, 3) as release, i (release.id ?? `release-${i}`)}
 								{@const preview = releaseNotesPreview(release.notes)}
@@ -1227,10 +1302,7 @@
 									style="opacity: {1 - i * 0.22}; transform: scale({1 -
 										i * 0.04}); transform-origin: left;"
 								>
-									<span
-										class="medium14 flex-shrink-0"
-										style="color: var(--white33);"
-									>
+									<span class="medium14 flex-shrink-0" style="color: var(--white33);">
 										{trimVersion(release.version)}
 									</span>
 									<span
@@ -1293,15 +1365,15 @@
 
 		<!-- Screenshot Carousel Modal -->
 		{#if carouselOpen && app.images && app.images.length > 0}
-		<div
-			class="carousel-modal bg-overlay"
-			onclick={closeCarousel}
-			onkeydown={(e) => e.key === 'Escape' && closeCarousel()}
-			role="dialog"
-			aria-modal="true"
-			aria-label="Screenshot carousel"
-			tabindex="-1"
-		>
+			<div
+				class="carousel-modal bg-overlay"
+				onclick={closeCarousel}
+				onkeydown={(e) => e.key === 'Escape' && closeCarousel()}
+				role="dialog"
+				aria-modal="true"
+				aria-label="Screenshot carousel"
+				tabindex="-1"
+			>
 				<button
 					type="button"
 					onclick={closeCarousel}
@@ -1359,7 +1431,12 @@
 					</button>
 				{/if}
 
-				<div class="carousel-content" role="presentation" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+				<div
+					class="carousel-content"
+					role="presentation"
+					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => e.stopPropagation()}
+				>
 					<div class="carousel-image-wrapper">
 						{#if !carouselImageLoaded}
 							<div class="carousel-skeleton">
@@ -1757,7 +1834,7 @@
 {/if}
 
 <style>
-	/* ── Publisher info row (replaces DetailHeader) ── */
+	/* ── Publisher row: mobile = above icon, desktop = inside app-info below name ── */
 	.detail-publisher-row {
 		display: flex;
 		align-items: center;
@@ -1766,13 +1843,24 @@
 		padding-bottom: 1.25rem;
 	}
 
-	.detail-publisher-row-in-app {
-		padding-bottom: 0;
+	/* Mobile-only publisher row (above app icon) */
+	.publisher-mobile-only {
+		padding-bottom: 0.875rem;
+	}
+	@media (min-width: 768px) {
+		.publisher-mobile-only {
+			display: none;
+		}
 	}
 
-	/* Desktop: author + timestamp next to each other with gap (author link must not grow) */
+	/* Desktop: author + timestamp next to each other (exact original behaviour) */
+	.detail-publisher-row-in-app {
+		display: none;
+		padding-bottom: 0;
+	}
 	@media (min-width: 768px) {
 		.detail-publisher-row-in-app {
+			display: flex;
 			justify-content: flex-start;
 			gap: 1rem;
 		}
@@ -1781,32 +1869,65 @@
 		}
 	}
 
-	/* Title row: mobile = pills to the right; desktop = pills next to name with gap */
+	/* ── Name row ── */
 	.app-name-row {
-		justify-content: space-between;
+		padding-top: 2px;
 	}
 	@media (min-width: 768px) {
 		.app-name-row {
-			justify-content: flex-start;
-			gap: 1.375rem;
-			/* Nudge title + pills down vs app icon on desktop */
+			justify-content: space-between;
+			align-items: center;
 			padding-top: 6px;
 		}
 	}
 
-	/* Slight offset above the pill strip (outside the pill), not inside .platform-pill */
-	.platforms-row {
-		padding-top: 0px;
+	/* Left group: name + pill (pill desktop-only) */
+	.app-name-and-pill {
+		display: flex;
+		align-items: center;
+		gap: 0.875rem;
+		min-width: 0;
+		flex: 1;
 	}
-	@media (min-width: 640px) {
-		.platforms-row {
-			padding-top: 2px;
-		}
+
+	/* Desktop-only: pill sits right next to name */
+	.desktop-pill-wrap {
+		display: none;
 	}
 	@media (min-width: 768px) {
-		.platforms-row {
-			padding-top: 4px;
+		.desktop-pill-wrap {
+			display: flex;
 		}
+	}
+
+	/* Desktop-only: Install button pushed to the far right */
+	.install-btn-desktop {
+		display: none;
+	}
+	@media (min-width: 768px) {
+		.install-btn-desktop {
+			display: inline-flex;
+			flex-shrink: 0;
+			white-space: nowrap;
+		}
+	}
+
+	/* Mobile only: pill (left) + install (right) below name */
+	.app-mobile-actions {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-top: 0.5rem;
+	}
+	@media (min-width: 768px) {
+		.app-mobile-actions {
+			display: none;
+		}
+	}
+
+	.install-btn {
+		flex-shrink: 0;
+		white-space: nowrap;
 	}
 
 	.detail-publisher-link {
@@ -2178,13 +2299,25 @@
 	}
 
 	@media (min-width: 640px) {
-		.screenshots-fade-left { left: -1.5rem; width: 1.5rem; }
-		.screenshots-fade-right { right: -1.5rem; width: 1.5rem; }
+		.screenshots-fade-left {
+			left: -1.5rem;
+			width: 1.5rem;
+		}
+		.screenshots-fade-right {
+			right: -1.5rem;
+			width: 1.5rem;
+		}
 	}
 
 	@media (min-width: 1024px) {
-		.screenshots-fade-left { left: -2rem; width: 2rem; }
-		.screenshots-fade-right { right: -2rem; width: 2rem; }
+		.screenshots-fade-left {
+			left: -2rem;
+			width: 2rem;
+		}
+		.screenshots-fade-right {
+			right: -2rem;
+			width: 2rem;
+		}
 	}
 
 	/* Chevron scroll buttons — desktop + mouse only */

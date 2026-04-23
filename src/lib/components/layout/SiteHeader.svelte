@@ -7,8 +7,8 @@
 <script lang="js">
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
-	import { Search, User, Loader2, LogOut } from 'lucide-svelte';
-	import { Menu, Cross, Inbox, Alert } from '$lib/components/icons';
+	import { Search, Loader2 } from 'lucide-svelte';
+	import { Menu, Cross, Inbox, Alert, Profile } from '$lib/components/icons';
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import { handleBack } from '$lib/utils/back.js';
 	import { cn } from '$lib/utils';
@@ -833,17 +833,21 @@
 													class="flex items-center gap-2 px-4 py-2.5 regular14 text-foreground hover:bg-white/5 transition-colors"
 													onclick={() => (dropdownOpen = false)}
 												>
-													<User class="h-4 w-4" />
-													View my profile
-												</a>
-												<div class="border-t border-border my-1"></div>
-												<button
-													type="button"
-													onclick={handleSignOut}
-													class="flex items-center gap-2 px-4 py-2.5 regular14 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
-												>
-													<LogOut class="h-4 w-4" />
-													Disconnect
+											<div class="dropdown-icon-circle">
+													<Profile variant="fill" size={11} color="var(--white66)" />
+												</div>
+												View my profile
+											</a>
+											<div class="border-t border-border my-1"></div>
+											<button
+												type="button"
+												onclick={handleSignOut}
+												class="flex items-center gap-2 px-4 py-2.5 regular14 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
+											>
+												<div class="dropdown-icon-circle">
+													<Cross variant="outline" size={9} strokeWidth={1.6} color="var(--white33)" />
+												</div>
+												Disconnect
 												</button>
 											</div>
 										{/if}
@@ -873,13 +877,14 @@
 							</div>
 						{:else}
 							<div class="hidden md:flex items-center gap-3 md:gap-2 lg:gap-3">
-								<button
-									type="button"
-									onclick={openSignInModal}
-									class="btn-primary-small h-10 px-4 whitespace-nowrap"
-								>
-									Sign In
-								</button>
+							<button
+								type="button"
+								onclick={openSignInModal}
+								class="btn-secondary-small whitespace-nowrap"
+								style="color: var(--white66);"
+							>
+								Sign In
+							</button>
 								<a
 									href={SITE_GITHUB}
 									class="header-github-btn header-github-btn-landing"
@@ -986,17 +991,21 @@
 											class="flex items-center gap-2 px-4 py-2.5 regular14 text-foreground hover:bg-white/5 transition-colors"
 											onclick={() => (dropdownOpen = false)}
 										>
-											<User class="h-4 w-4" />
-											View my profile
-										</a>
-										<div class="border-t border-border my-1"></div>
-										<button
-											type="button"
-											onclick={handleSignOut}
-											class="flex items-center gap-2 px-4 py-2.5 regular14 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
-										>
-											<LogOut class="h-4 w-4" />
-											Disconnect
+											<div class="dropdown-icon-circle">
+													<Profile variant="fill" size={11} color="var(--white66)" />
+												</div>
+												View my profile
+											</a>
+											<div class="border-t border-border my-1"></div>
+											<button
+												type="button"
+												onclick={handleSignOut}
+												class="flex items-center gap-2 px-4 py-2.5 regular14 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
+											>
+												<div class="dropdown-icon-circle">
+													<Cross variant="outline" size={9} strokeWidth={1.6} color="var(--white33)" />
+												</div>
+												Disconnect
 										</button>
 									</div>
 									{/if}
@@ -1526,6 +1535,19 @@
 		border: none;
 		cursor: pointer;
 		padding: 0;
+	}
+
+	.dropdown-icon-circle {
+		width: 20px;
+		height: 20px;
+		min-width: 20px;
+		border-radius: 50%;
+		background: var(--gray66);
+		border: 0.33px solid var(--white16);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
 	}
 
 	.overlay-surface {
