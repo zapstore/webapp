@@ -7,6 +7,11 @@ import NpubDisplay from "$lib/components/common/NpubDisplay.svelte";
 import CodeBlock from "$lib/components/common/CodeBlock.svelte";
 import Modal from "$lib/components/common/Modal.svelte";
 import { highlightJson } from "$lib/utils/highlight.js";
+import { queryEvents, putEvents } from "$lib/nostr/dexie.js";
+import { fetchFromRelays } from "$lib/nostr/service.js";
+import { ZAPSTORE_RELAY, EVENT_KINDS } from "$lib/config.js";
+import { nip19 } from "nostr-tools";
+import { parseFileMetadata } from "$lib/nostr/models.js";
 let {
 	shareableId = "",
 	publicationLabel = "Publication",
@@ -27,6 +32,14 @@ let repositoryCopied = $state(false);
 let releasesModalOpen = $state(false);
 /** Tracks which modal row copy was last triggered: { idx, type: 'id' | 'json' } */
 let modalCopied = $state(null);
+/** Index of the release row currently showing metadata (-1 = none) */
+let metaExpandedIdx = $state(-1);
+/**
+ * @type {Record<number, { loading: boolean, artifacts: Array<{ eventId: string|null, nevent: string|null, hash: string|null, url: string|null, relayHint: string|null }> }>}
+ */
+let releaseMeta = $state({});
+/** @type {{ idx: number, field: string } | null} */
+let metaCopied = $state(null);
 function formatShareableId(id) {
     if (!id || id.length < 30)
         return id || "";
@@ -92,6 +105,160 @@ async function copyRepository() {
 }
 function releaseNaddr(release) {
     return release?.naddr || release?.id || '';
+}
+/** Extract a 64-char lowercase hex hash from a URL path. */
+function extractHashFromUrl(url) {
+    if (!url) return null;
+    const m = url.match(/[a-f0-9]{64}/i);
+    return m ? m[0].toLowerCase() : null;
+}
+function truncateHex(hex) {
+    if (!hex || hex.length < 24) return hex || '';
+    return `${hex.slice(0, 16)}...${hex.slice(-8)}`;
+}
+function truncateStr(s, head = 16, tail = 8) {
+    if (!s || s.length < head + tail + 3) return s || '';
+    return `${s.slice(0, head)}...${s.slice(-tail)}`;
+}
+/** Encode nevent — kind omitted until we fetch the event and know for sure */
+function encodeNevent(eventId, relayHint) {
+    try {
+        return nip19.neventEncode({
+            id: eventId,
+            relays: relayHint ? [relayHint] : [ZAPSTORE_RELAY]
+        });
+    } catch { return null; }
+}
+/** Extract inline hashes baked into release event tags/URL (no 1063 fetch needed). */
+function inlineHashesFromRaw(raw) {
+    const HEX64 = /^[a-f0-9]{64}$/i;
+    /** @type {Set<string>} */
+    const out = new Set();
+    for (const t of raw.tags ?? []) {
+        if ((t[0] === 'x' || t[0] === 'X') && t[1] && HEX64.test(t[1])) out.add(t[1].toLowerCase());
+        const urlFromTag = t[0] === 'url' ? t[1] : null;
+        if (urlFromTag) { const h = extractHashFromUrl(urlFromTag); if (h) out.add(h); }
+    }
+    return [...out];
+}
+/** Core fetch — always runs, caller manages cache invalidation. */
+async function fetchMeta(idx) {
+    const raw = releases[idx]?.rawEvent;
+    if (!raw) {
+        releaseMeta = { ...releaseMeta, [idx]: { loading: false, artifacts: [] } };
+        return;
+    }
+    releaseMeta = { ...releaseMeta, [idx]: { loading: true, artifacts: [] } };
+    // Collect #e tag artifact IDs + relay hints
+    const eTagData = (raw.tags || [])
+        .filter(t => (t[0] === 'e' || t[0] === 'E') && t[1])
+        .map(t => ({ id: /** @type {string} */ (t[1]), relay: t[2] ?? null }));
+    // No #e tags → fall back to inline hashes baked into the release event
+    if (eTagData.length === 0) {
+        const urlTag = (raw.tags || []).find(t => t[0] === 'url')?.[1] ?? null;
+        const inlineHashes = inlineHashesFromRaw(raw);
+        console.log('[DetailsTab] No #e tags on release. Inline hashes found:', inlineHashes, 'url:', urlTag);
+        releaseMeta = {
+            ...releaseMeta,
+            [idx]: {
+                loading: false,
+                artifacts: inlineHashes.length > 0
+                    ? inlineHashes.map(h => ({ eventId: null, nevent: null, hash: h, url: urlTag, relayHint: null }))
+                    : []
+            }
+        };
+        return;
+    }
+    const artifactIds = eTagData.map(t => t.id);
+    // Use only the Zapstore relay + any relay hints from the #e tags (NOT the profile relay)
+    const extraRelays = [...new Set(eTagData.map(t => t.relay).filter(/** @type {(r: string|null) => r is string} */ r => !!r))];
+    const relaysToSearch = [...new Set([ZAPSTORE_RELAY, ...extraRelays])];
+    console.log(`[DetailsTab] Fetching ${artifactIds.length} asset event(s) (kind 3063/1063):`, artifactIds);
+    /**
+     * @type {Array<{ eventId: string, nevent: string|null, hash: string|null, url: string|null, relayHint: string|null }>}
+     */
+    let artifacts = eTagData.map(({ id, relay }) => ({
+        eventId: id,
+        nevent: encodeNevent(id, relay),
+        hash: null,
+        url: null,
+        relayHint: relay
+    }));
+    // Both modern (3063) and legacy (1063) asset kinds
+    const assetKinds = [EVENT_KINDS.ASSET, EVENT_KINDS.FILE_METADATA];
+    try {
+        // 1. Check Dexie first
+        let fileEvents = await queryEvents({ kinds: assetKinds, ids: artifactIds });
+        console.log(`[DetailsTab] Dexie hit: ${fileEvents.length} / ${artifactIds.length}`);
+        const have = new Set(fileEvents.map(e => e.id));
+        const missing = artifactIds.filter(id => !have.has(id));
+        // 2. Fetch missing from Zapstore relay only — asset events don't live on the profile relay
+        if (missing.length > 0) {
+            console.log(`[DetailsTab] Fetching ${missing.length} from relay:`, relaysToSearch);
+            const fetched = await fetchFromRelays(
+                relaysToSearch,
+                { kinds: assetKinds, ids: missing, limit: missing.length },
+                { timeout: 10000, feature: 'details-tab-files' }
+            );
+            console.log(`[DetailsTab] Relay returned ${fetched.length} event(s)`);
+            if (fetched.length > 0) {
+                await putEvents(fetched);
+                fileEvents = [...fileEvents, ...fetched];
+            }
+        }
+        // 3. Extract hash — same logic as collect-blob-hashes
+        const HEX64 = /^[a-f0-9]{64}$/i;
+        for (const fe of fileEvents) {
+            const parsed = parseFileMetadata(fe);
+            let hash = (parsed.hash && HEX64.test(parsed.hash)) ? parsed.hash.toLowerCase() : null;
+            if (!hash) {
+                const xTag = fe.tags?.find(t => t[0]?.toLowerCase() === 'x')?.[1];
+                if (xTag && HEX64.test(xTag)) hash = xTag.toLowerCase();
+            }
+            if (!hash && parsed.url) hash = extractHashFromUrl(parsed.url);
+            const url = fe.tags?.find(t => t[0] === 'url')?.[1] ?? null;
+            const i = artifacts.findIndex(a => a.eventId === fe.id);
+            if (i >= 0) artifacts[i] = { ...artifacts[i], hash, url };
+            console.log(`[DetailsTab] kind ${fe.kind} ${fe.id.slice(0, 12)}: hash=${hash}`);
+        }
+    } catch (e) {
+        console.error('[DetailsTab] Failed to fetch asset metadata:', e);
+    }
+    // 4. Last resort: inline hashes baked directly into the release event tags
+    const foundAny = artifacts.some(a => a.hash);
+    if (!foundAny) {
+        const inlineHashes = inlineHashesFromRaw(raw);
+        console.log('[DetailsTab] No hash from asset events. Inline fallback:', inlineHashes);
+        for (const h of inlineHashes) {
+            if (!artifacts.some(a => a.hash === h)) {
+                artifacts.push({ eventId: null, nevent: null, hash: h, url: null, relayHint: null });
+            }
+        }
+    }
+    releaseMeta = { ...releaseMeta, [idx]: { loading: false, artifacts } };
+}
+async function toggleMeta(idx) {
+    if (metaExpandedIdx === idx) {
+        metaExpandedIdx = -1;
+        return;
+    }
+    metaExpandedIdx = idx;
+    if (releaseMeta[idx]?.artifacts?.length > 0) return;
+    await fetchMeta(idx);
+}
+async function retryMeta(idx) {
+    const next = { ...releaseMeta };
+    delete next[idx];
+    releaseMeta = next;
+    await fetchMeta(idx);
+}
+async function copyMetaValue(idx, field, value) {
+    if (!value) return;
+    try {
+        await navigator.clipboard.writeText(value);
+        metaCopied = { idx, field };
+        setTimeout(() => (metaCopied = null), 1500);
+    } catch (e) { console.error('Failed to copy:', e); }
 }
 async function copyModalReleaseId(idx) {
     const val = releaseNaddr(releases[idx]);
@@ -235,8 +402,8 @@ async function copyModalReleaseJson(idx) {
 {#if releases.length > 0}
   <Modal
     bind:open={releasesModalOpen}
-    title="Releases"
-    ariaLabel="Releases"
+    title="Release Details"
+    ariaLabel="Release Details"
     maxHeight={72}
     closeButtonMobile={true}
   >
@@ -247,37 +414,150 @@ async function copyModalReleaseJson(idx) {
             {#if release.version}
               <span class="releases-modal-version">{release.version}</span>
             {/if}
-            <span class="releases-modal-id">{formatShareableId(releaseNaddr(release))}</span>
+            <span class="releases-modal-naddr" title={releaseNaddr(release)}>
+              {formatShareableId(releaseNaddr(release))}
+            </span>
           </div>
           <div class="releases-modal-actions">
             <button
               type="button"
-              class="btn-secondary-xs release-action-btn"
+              class="release-icon-btn"
               onclick={() => copyModalReleaseId(idx)}
-              aria-label="Copy ID"
+              aria-label="Copy naddr"
             >
               {#if modalCopied?.idx === idx && modalCopied?.type === 'id'}
-                <Check variant="outline" size={12} strokeWidth={2.8} color="var(--blurpleLightColor)" />
+                <Check variant="outline" size={13} strokeWidth={2.8} color="var(--blurpleLightColor)" />
               {:else}
-                ID
+                <Copy variant="outline" size={14} color="var(--white66)" />
               {/if}
             </button>
             {#if release.rawEvent}
               <button
                 type="button"
-                class="btn-secondary-xs release-action-btn"
+                class="release-icon-btn"
                 onclick={() => copyModalReleaseJson(idx)}
                 aria-label="Copy JSON"
               >
                 {#if modalCopied?.idx === idx && modalCopied?.type === 'json'}
-                  <Check variant="outline" size={12} strokeWidth={2.8} color="var(--blurpleLightColor)" />
+                  <Check variant="outline" size={13} strokeWidth={2.8} color="var(--blurpleLightColor)" />
                 {:else}
-                  JSON
+                  <Copy variant="outline" size={12} color="var(--white33)" />
+                  <span class="release-btn-label">JSON</span>
                 {/if}
+              </button>
+              <button
+                type="button"
+                class="release-icon-btn {metaExpandedIdx === idx ? 'release-meta-active' : ''}"
+                onclick={() => toggleMeta(idx)}
+                aria-label="Show metadata"
+              >
+                <ChevronDown
+                  variant="outline"
+                  strokeWidth={2.2}
+                  size={13}
+                  color={metaExpandedIdx === idx ? 'var(--white)' : 'var(--white33)'}
+                />
+                <span class="release-btn-label">Meta</span>
               </button>
             {/if}
           </div>
         </div>
+        {#if metaExpandedIdx === idx}
+          <div class="releases-meta-panel">
+            {#if releaseMeta[idx]?.loading}
+              <span class="meta-loading">Fetching from relay…</span>
+            {:else if !releaseMeta[idx] || releaseMeta[idx].artifacts.length === 0}
+              <button type="button" class="meta-retry-btn" onclick={() => retryMeta(idx)}>
+                No artifact metadata found — click to retry
+              </button>
+            {:else}
+              {#each releaseMeta[idx].artifacts as artifact, ai}
+                {#if ai > 0}
+                  <div class="meta-artifact-divider"></div>
+                {/if}
+                <div class="meta-artifact">
+                  <div class="meta-row">
+                    <span class="meta-label">Hash</span>
+                    {#if artifact.hash}
+                      <button
+                        type="button"
+                        class="meta-value-btn"
+                        onclick={() => copyMetaValue(idx, `hash-${ai}`, artifact.hash)}
+                        title={artifact.hash}
+                        aria-label="Copy hash"
+                      >
+                        <span class="meta-mono">{truncateHex(artifact.hash)}</span>
+                        {#if metaCopied?.idx === idx && metaCopied?.field === `hash-${ai}`}
+                          <Check variant="outline" size={11} strokeWidth={2.8} color="var(--blurpleLightColor)" />
+                        {:else}
+                          <Copy variant="outline" size={12} color="var(--white33)" />
+                        {/if}
+                      </button>
+                    {:else}
+                      <button type="button" class="meta-retry-btn" onclick={() => retryMeta(idx)}>not found — retry</button>
+                    {/if}
+                  </div>
+                  {#if artifact.nevent}
+                    <div class="meta-row">
+                      <span class="meta-label">nevent</span>
+                      <button
+                        type="button"
+                        class="meta-value-btn"
+                        onclick={() => copyMetaValue(idx, `nevent-${ai}`, artifact.nevent)}
+                        title={artifact.nevent}
+                        aria-label="Copy nevent"
+                      >
+                        <span class="meta-mono">{truncateStr(artifact.nevent, 14, 6)}</span>
+                        {#if metaCopied?.idx === idx && metaCopied?.field === `nevent-${ai}`}
+                          <Check variant="outline" size={11} strokeWidth={2.8} color="var(--blurpleLightColor)" />
+                        {:else}
+                          <Copy variant="outline" size={12} color="var(--white33)" />
+                        {/if}
+                      </button>
+                    </div>
+                  {:else if artifact.eventId}
+                    <div class="meta-row">
+                      <span class="meta-label">event</span>
+                      <button
+                        type="button"
+                        class="meta-value-btn"
+                        onclick={() => copyMetaValue(idx, `eid-${ai}`, artifact.eventId)}
+                        title={artifact.eventId}
+                        aria-label="Copy event ID"
+                      >
+                        <span class="meta-mono">{truncateHex(artifact.eventId)}</span>
+                        {#if metaCopied?.idx === idx && metaCopied?.field === `eid-${ai}`}
+                          <Check variant="outline" size={11} strokeWidth={2.8} color="var(--blurpleLightColor)" />
+                        {:else}
+                          <Copy variant="outline" size={12} color="var(--white33)" />
+                        {/if}
+                      </button>
+                    </div>
+                  {/if}
+                  {#if artifact.url}
+                    <div class="meta-row">
+                      <span class="meta-label">URL</span>
+                      <button
+                        type="button"
+                        class="meta-value-btn meta-url-btn"
+                        onclick={() => copyMetaValue(idx, `url-${ai}`, artifact.url)}
+                        title={artifact.url}
+                        aria-label="Copy URL"
+                      >
+                        <span class="meta-url-text">{artifact.url.replace(/^https?:\/\//, '')}</span>
+                        {#if metaCopied?.idx === idx && metaCopied?.field === `url-${ai}`}
+                          <Check variant="outline" size={11} strokeWidth={2.8} color="var(--blurpleLightColor)" />
+                        {:else}
+                          <Copy variant="outline" size={12} color="var(--white33)" />
+                        {/if}
+                      </button>
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            {/if}
+          </div>
+        {/if}
         {#if idx < releases.length - 1}
           <div class="releases-modal-divider"></div>
         {/if}
@@ -468,14 +748,165 @@ async function copyModalReleaseJson(idx) {
     color: var(--white);
     white-space: nowrap;
     flex-shrink: 0;
+    min-width: 5.5rem;
   }
 
-  .releases-modal-id {
+  .releases-modal-naddr {
     font-size: 0.8125rem;
     color: var(--white33);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Rounded-square icon buttons (copy / JSON / Meta) */
+  .release-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0 8px;
+    background: var(--white8);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
+
+  .release-icon-btn:hover {
+    transform: scale(1.01);
+  }
+
+  .release-icon-btn:active {
+    transform: scale(0.97);
+  }
+
+  .release-btn-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--white66);
+  }
+
+  .release-meta-active {
+    background: var(--white16) !important;
+  }
+
+  .release-meta-active .release-btn-label {
+    color: var(--white) !important;
+  }
+
+  /* Metadata panel */
+  .releases-meta-panel {
+    background: var(--white4);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin: 2px 0 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .meta-loading,
+  .meta-empty {
+    font-size: 0.8125rem;
+    color: var(--white33);
+    font-style: italic;
+  }
+
+  .meta-artifact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .meta-artifact-divider {
+    height: 1.4px;
+    background: var(--white11);
+    margin: 4px 0;
+  }
+
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .meta-label {
+    font-size: 0.75rem;
+    color: var(--white33);
+    min-width: 2.5rem;
+    flex-shrink: 0;
+    font-weight: 500;
+  }
+
+  .meta-value-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--white66);
+    transition: background 0.12s ease, color 0.12s ease;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .meta-value-btn:hover {
+    background: var(--white8);
+    color: var(--white);
+  }
+
+  .meta-mono {
+    font-size: 0.8125rem;
+    font-family: var(--font-mono);
+    color: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .meta-value-dim {
+    font-size: 0.8125rem;
+    color: var(--white33);
+    font-style: italic;
+  }
+
+  .meta-retry-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.8125rem;
+    color: var(--white33);
+    font-style: italic;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 0.15s ease;
+  }
+
+  .meta-retry-btn:hover {
+    color: var(--white66);
+  }
+
+  .meta-url-btn {
+    overflow: hidden;
+  }
+
+  .meta-url-text {
+    font-size: 0.75rem;
+    color: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
   }
 
   .releases-modal-actions {

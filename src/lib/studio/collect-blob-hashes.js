@@ -1,9 +1,9 @@
 /**
- * Resolve Blossom / content hashes for analytics downloads API (kind 30063 + 1063, URLs, tags).
+ * Resolve Blossom / content hashes for analytics downloads API (kind 30063 + 3063, URLs, tags).
  * Mirrors app detail release discovery: #a, #i, and author — not author-only.
  */
 import { nip19 } from 'nostr-tools';
-import { DEFAULT_CATALOG_RELAYS, EVENT_KINDS } from '$lib/config.js';
+import { DEFAULT_CATALOG_RELAYS, ZAPSTORE_RELAY, EVENT_KINDS } from '$lib/config.js';
 import { queryEvents, putEvents } from '$lib/nostr/dexie.js';
 import { parseFileMetadata, parseRelease } from '$lib/nostr/models.js';
 import { fetchFromRelays } from '$lib/nostr/service.js';
@@ -219,14 +219,17 @@ export async function collectBlobHashesForDeveloper(pubkeyHex, apps, catalogRela
 	const releases = [...releaseById.values()];
 
 	const artifactIds = [...new Set(releases.flatMap((r) => artifactIdsFromRelease(r)))];
-	let fileEvents = artifactIds.length ? await queryEvents({ kinds: [1063], ids: artifactIds }) : [];
+	// Query both modern (3063) and legacy (1063) asset kinds
+	const assetKinds = [EVENT_KINDS.ASSET, EVENT_KINDS.FILE_METADATA];
+	let fileEvents = artifactIds.length ? await queryEvents({ kinds: assetKinds, ids: artifactIds }) : [];
 	const have = new Set(fileEvents.map((e) => e.id));
 	const missing = artifactIds.filter((id) => !have.has(id));
 	if (missing.length > 0) {
+		// File/asset events live only on the Zapstore relay — not the profile relay
 		const fetched = await fetchFromRelays(
-			catalogRelays,
-			{ kinds: [1063], ids: missing, limit: missing.length },
-			{ timeout: 8000, feature: 'studio-files' }
+			[ZAPSTORE_RELAY],
+			{ kinds: assetKinds, ids: missing, limit: missing.length },
+			{ timeout: 10000, feature: 'studio-files' }
 		);
 		if (fetched.length > 0) await putEvents(fetched);
 		fileEvents = [...fileEvents, ...fetched];
@@ -255,7 +258,7 @@ export async function collectBlobHashesForDeveloper(pubkeyHex, apps, catalogRela
 
 	if (hashToApp.size === 0 && releases.length > 0) {
 		console.warn(
-			`[Studio] Found ${releases.length} release(s) but no blob hashes (no 1063 x-tag, no 64-hex in tags/URL/content). Downloads chart will stay at zero.`
+			`[Studio] Found ${releases.length} release(s) but no blob hashes (no kind 3063/1063 x-tag, no 64-hex in tags/URL/content). Downloads chart will stay at zero.`
 		);
 	}
 
