@@ -339,6 +339,7 @@
 	);
 	const isZapstoreOfficialAppId = $derived(!!app?.dTag && app.dTag.startsWith('dev.zapstore.'));
 	const publishedByDeveloper = $derived(!isZapstorePublisher || isZapstoreOfficialAppId);
+	const isZapstoreApp = $derived(app?.dTag === 'dev.zapstore.app');
 	// Check if description is truncated
 	function checkTruncation(node) {
 		setTimeout(() => {
@@ -1122,59 +1123,71 @@
 							{/each}
 						</div>
 					</div>
-			<!-- Desktop only: Download split button pushed to the far right -->
+			<!-- Desktop only: Download button pushed to the far right -->
 			<div class="install-btn-desktop download-split-wrap" bind:this={downloadDropdownWrapDesktop}>
-				<div class="download-split-btn" role="group">
-					<button
-						type="button"
-						class="download-main"
-						onclick={() => { downloadModalOpen = true; downloadDropdownOpen = false; }}
-					>
-						Download
-					</button>
-					<div class="download-divider" aria-hidden="true"></div>
-					<button
-						type="button"
-						class="download-chevron"
-						aria-label="More download options"
-						aria-expanded={downloadDropdownOpen}
-						onclick={(e) => { e.stopPropagation(); downloadDropdownOpen = !downloadDropdownOpen; }}
-					>
-						<span class="download-chevron-icon">
-							<ChevronDown variant="outline" size={13} strokeWidth={1.6} color="var(--white66)" />
-						</span>
-					</button>
-				</div>
-				{#if downloadDropdownOpen}
-					<DropdownMenu class="download-dropdown download-dropdown-desktop" itemChevron={true}>
+				{#if isZapstoreApp}
+					<div class="download-split-btn" role="group">
 						<button
 							type="button"
-							class="dropdown-item dropdown-item--stacked"
-							role="menuitem"
+							class="download-main download-main--solo"
+							onclick={() => { downloadModalOpen = true; }}
+						>
+							Download
+						</button>
+					</div>
+				{:else}
+					<div class="download-split-btn" role="group">
+						<button
+							type="button"
+							class="download-main"
 							onclick={() => { downloadModalOpen = true; downloadDropdownOpen = false; }}
 						>
-							<span class="dropdown-item-body">
-								<span class="dropdown-item-title">Via Zapstore</span>
-								<span class="dropdown-item-desc">For reliable and secure updates</span>
-							</span>
-							<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+							Download
 						</button>
-						{#if directDownloadUrl}
-							<a
-								href={directDownloadUrl}
+						<div class="download-divider" aria-hidden="true"></div>
+						<button
+							type="button"
+							class="download-chevron"
+							aria-label="More download options"
+							aria-expanded={downloadDropdownOpen}
+							onclick={(e) => { e.stopPropagation(); downloadDropdownOpen = !downloadDropdownOpen; }}
+						>
+							<span class="download-chevron-icon">
+								<ChevronDown variant="outline" size={13} strokeWidth={1.6} color="var(--white66)" />
+							</span>
+						</button>
+					</div>
+					{#if downloadDropdownOpen}
+						<DropdownMenu class="download-dropdown download-dropdown-desktop" itemChevron={true}>
+							<button
+								type="button"
 								class="dropdown-item dropdown-item--stacked"
 								role="menuitem"
-								download
-								onclick={() => { downloadDropdownOpen = false; }}
+								onclick={() => { downloadModalOpen = true; downloadDropdownOpen = false; }}
 							>
 								<span class="dropdown-item-body">
-									<span class="dropdown-item-title">Direct Download</span>
-									<span class="dropdown-item-desc">Get the {app?.name} APK directly</span>
+									<span class="dropdown-item-title">Via Zapstore</span>
+									<span class="dropdown-item-desc">For reliable and secure updates</span>
 								</span>
 								<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-							</a>
-						{/if}
-					</DropdownMenu>
+							</button>
+							{#if directDownloadUrl}
+								<a
+									href={directDownloadUrl}
+									class="dropdown-item dropdown-item--stacked"
+									role="menuitem"
+									download
+									onclick={() => { downloadDropdownOpen = false; }}
+								>
+									<span class="dropdown-item-body">
+										<span class="dropdown-item-title">Direct Download</span>
+										<span class="dropdown-item-desc">Get the {app?.name} APK directly</span>
+									</span>
+									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+								</a>
+							{/if}
+						</DropdownMenu>
+					{/if}
 				{/if}
 			</div>
 			</div>
@@ -1202,57 +1215,69 @@
 						{/each}
 					</div>
 			<div class="install-btn download-split-wrap" bind:this={downloadDropdownWrapMobile}>
-				<div class="download-split-btn" role="group">
-					<button
-						type="button"
-						class="download-main"
-						onclick={() => { downloadModalOpen = true; downloadDropdownOpen = false; }}
-					>
-						Download
-					</button>
-					<div class="download-divider" aria-hidden="true"></div>
-					<button
-						type="button"
-						class="download-chevron"
-						aria-label="More download options"
-						aria-expanded={downloadDropdownOpen}
-						onclick={(e) => { e.stopPropagation(); downloadDropdownOpen = !downloadDropdownOpen; }}
-					>
-						<span class="download-chevron-icon">
-							<ChevronDown variant="outline" size={13} strokeWidth={1.6} color="var(--white66)" />
-						</span>
-					</button>
-				</div>
-				{#if downloadDropdownOpen}
-					<DropdownMenu class="download-dropdown download-dropdown-mobile" itemChevron={true}>
+				{#if isZapstoreApp}
+					<div class="download-split-btn" role="group">
 						<button
 							type="button"
-							class="dropdown-item dropdown-item--stacked"
-							role="menuitem"
+							class="download-main download-main--solo"
+							onclick={() => { downloadModalOpen = true; }}
+						>
+							Download
+						</button>
+					</div>
+				{:else}
+					<div class="download-split-btn" role="group">
+						<button
+							type="button"
+							class="download-main"
 							onclick={() => { downloadModalOpen = true; downloadDropdownOpen = false; }}
 						>
-							<span class="dropdown-item-body">
-								<span class="dropdown-item-title">Via Zapstore</span>
-								<span class="dropdown-item-desc">For reliable and secure updates</span>
-							</span>
-							<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+							Download
 						</button>
-						{#if directDownloadUrl}
-							<a
-								href={directDownloadUrl}
+						<div class="download-divider" aria-hidden="true"></div>
+						<button
+							type="button"
+							class="download-chevron"
+							aria-label="More download options"
+							aria-expanded={downloadDropdownOpen}
+							onclick={(e) => { e.stopPropagation(); downloadDropdownOpen = !downloadDropdownOpen; }}
+						>
+							<span class="download-chevron-icon">
+								<ChevronDown variant="outline" size={13} strokeWidth={1.6} color="var(--white66)" />
+							</span>
+						</button>
+					</div>
+					{#if downloadDropdownOpen}
+						<DropdownMenu class="download-dropdown download-dropdown-mobile" itemChevron={true}>
+							<button
+								type="button"
 								class="dropdown-item dropdown-item--stacked"
 								role="menuitem"
-								download
-								onclick={() => { downloadDropdownOpen = false; }}
+								onclick={() => { downloadModalOpen = true; downloadDropdownOpen = false; }}
 							>
 								<span class="dropdown-item-body">
-									<span class="dropdown-item-title">Direct Download</span>
-									<span class="dropdown-item-desc">Get the {app?.name} APK directly</span>
+									<span class="dropdown-item-title">Via Zapstore</span>
+									<span class="dropdown-item-desc">For reliable and secure updates</span>
 								</span>
 								<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-							</a>
-						{/if}
-					</DropdownMenu>
+							</button>
+							{#if directDownloadUrl}
+								<a
+									href={directDownloadUrl}
+									class="dropdown-item dropdown-item--stacked"
+									role="menuitem"
+									download
+									onclick={() => { downloadDropdownOpen = false; }}
+								>
+									<span class="dropdown-item-body">
+										<span class="dropdown-item-title">Direct Download</span>
+										<span class="dropdown-item-desc">Get the {app?.name} APK directly</span>
+									</span>
+									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+								</a>
+							{/if}
+						</DropdownMenu>
+					{/if}
 				{/if}
 			</div>
 			</div>
@@ -1954,9 +1979,8 @@
 		{#if app}
 			<DownloadModal
 				bind:open={downloadModalOpen}
-				{app}
-				isZapstore={app.pubkey ===
-					'78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55f2fe2202182'}
+				app={isZapstoreApp ? null : app}
+				isZapstore={isZapstoreApp}
 			/>
 		{/if}
 	</div>
@@ -2123,6 +2147,10 @@
 		cursor: pointer;
 		white-space: nowrap;
 		line-height: 1;
+	}
+
+	.download-main--solo {
+		padding: 0 14px;
 	}
 
 	.download-divider {
