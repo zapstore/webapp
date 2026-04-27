@@ -120,7 +120,7 @@
 	.platform-name {
 		display: flex;
 		align-items: baseline;
-		gap: 6px;
+		gap: 9px;
 		min-width: 0;
 		font-size: 13px;
 		font-weight: 500;

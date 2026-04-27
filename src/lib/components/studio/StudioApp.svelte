@@ -1644,6 +1644,7 @@
 	/* Label-column width token — slightly wider on desktop, capped at mobile value on small screens */
 	.country-section {
 		--label-col: clamp(56px, 26%, 140px);
+		padding-bottom: 24px;
 	}
 
 	@media (max-width: 600px) {

@@ -590,7 +590,7 @@
 
 	/* ── Country/platform breakdown ─────────────────────────────────────────── */
 	.detail-country-section {
-		padding: 20px 20px 40px;
+		padding: 20px 20px 24px;
 		display: flex;
 		flex-direction: column;
 		/* 26px = same visual gap as Insights (padding-top:48px − button height:22px) without the dropdown */
@@ -689,7 +689,7 @@
 		}
 
 		.detail-country-section {
-			padding: 16px 16px 32px;
+			padding: 16px 16px 24px;
 		}
 	}
 </style>
