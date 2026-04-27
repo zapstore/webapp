@@ -1044,8 +1044,31 @@
 			<!-- Platform breakdown — shares the country timeframe dropdown -->
 			<section class="content-section country-section">
 				<div class="section-head country-section-head">
-					<div class="country-head-start">
-						<span class="eyebrow-label country-section-title">By platform</span>
+					<span class="eyebrow-label country-section-title">By platform</span>
+					<div class="country-head-legend">
+						<span class="country-legend-item">
+							<span class="country-legend-icon-wrap">
+								<ImpressionIcon size={14} />
+							</span>
+							<span class="country-legend-text">Impressions</span>
+						</span>
+						<span class="country-legend-item">
+							<span class="country-legend-icon-wrap">
+								<DownloadIcon size={14} color="var(--blurpleColor66)" strokeWidth={1.4} />
+							</span>
+							<span class="country-legend-text">Downloads</span>
+						</span>
+					</div>
+				</div>
+				<div class="chart-area country-chart-wrap">
+					<StudioPlatformChart rows={platformRows} loading={!DUMMY_MODE && platformChartLoading} />
+				</div>
+			</section>
+
+			<section class="content-section country-section">
+				<div class="section-head country-section-head">
+					<span class="eyebrow-label country-section-title">By country</span>
+					<div class="country-section-head-right">
 						<div class="country-head-legend">
 							<span class="country-legend-item">
 								<span class="country-legend-icon-wrap">
@@ -1059,32 +1082,6 @@
 								</span>
 								<span class="country-legend-text">Downloads</span>
 							</span>
-						</div>
-					</div>
-				</div>
-				<div class="chart-area country-chart-wrap">
-					<StudioPlatformChart rows={platformRows} loading={!DUMMY_MODE && platformChartLoading} />
-				</div>
-			</section>
-
-			<section class="content-section country-section">
-				<div class="section-head country-section-head">
-					<div class="country-head-start">
-						<span class="eyebrow-label country-section-title">By country</span>
-							<div class="country-head-legend">
-								<span class="country-legend-item">
-									<span class="country-legend-icon-wrap">
-										<ImpressionIcon size={14} />
-									</span>
-									<span class="country-legend-text">Impressions</span>
-								</span>
-								<span class="country-legend-item">
-									<span class="country-legend-icon-wrap">
-										<DownloadIcon size={14} color="var(--blurpleColor66)" strokeWidth={1.4} />
-									</span>
-									<span class="country-legend-text">Downloads</span>
-								</span>
-							</div>
 						</div>
 						<div class="timerange-wrap" data-studio-dropdown="country">
 							<button
@@ -1119,6 +1116,7 @@
 							{/if}
 						</div>
 					</div>
+				</div>
 					<div class="chart-area country-chart-wrap">
 						<StudioCountryChart rows={countryRows} loading={!DUMMY_MODE && countryChartLoading} />
 					</div>
@@ -1607,18 +1605,32 @@
 		isolation: isolate;
 	}
 
-	.country-head-start {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 12px 16px;
-		flex: 1;
-		min-width: 0;
+	/* Label-column width token — slightly wider on desktop, capped at mobile value on small screens */
+	.country-section {
+		--label-col: clamp(56px, 26%, 140px);
 	}
 
-	/* Match legend + title; default .timerange-wrap uses align-self: flex-start for tall count rows */
-	.country-section-head .timerange-wrap {
-		align-self: center;
+	@media (max-width: 600px) {
+		.country-section {
+			--label-col: clamp(56px, 26%, 118px);
+		}
+	}
+
+	/* Override section-head flex → 2-col grid so title aligns with chart label col */
+	.country-section-head {
+		display: grid;
+		grid-template-columns: var(--label-col, clamp(56px, 26%, 118px)) minmax(0, 1fr);
+		gap: 0 10px;
+		align-items: center;
+	}
+
+	/* Right cell of the country head grid: legend on left, timerange on right */
+	.country-section-head-right {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		min-width: 0;
 	}
 
 	.country-head-legend {
@@ -1657,7 +1669,7 @@
 
 	.country-chart-wrap {
 		min-height: 120px;
-		padding-top: 52px;
+		padding-top: 48px;
 	}
 
 	/* ── Activity section ─────────────────────────────────────────────────── */

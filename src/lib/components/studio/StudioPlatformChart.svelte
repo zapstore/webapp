@@ -111,7 +111,8 @@
 
 	.platform-row {
 		display: grid;
-		grid-template-columns: clamp(52px, 22%, 96px) minmax(0, 1fr);
+		/* Width token set by parent .country-section; fallback = mobile cap */
+		grid-template-columns: var(--label-col, clamp(56px, 26%, 118px)) minmax(0, 1fr);
 		gap: 8px 10px;
 		align-items: center;
 	}
@@ -216,7 +217,7 @@
 
 	.platform-skel-row {
 		display: grid;
-		grid-template-columns: clamp(52px, 22%, 96px) minmax(0, 1fr);
+		grid-template-columns: var(--label-col, clamp(56px, 26%, 118px)) minmax(0, 1fr);
 		gap: 8px 10px;
 		align-items: center;
 	}

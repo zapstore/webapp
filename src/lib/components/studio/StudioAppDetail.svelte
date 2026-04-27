@@ -588,20 +588,29 @@
 		width: 100%;
 	}
 
-	/* ── Country breakdown ───────────────────────────────────────────────────── */
+	/* ── Country/platform breakdown ─────────────────────────────────────────── */
 	.detail-country-section {
 		padding: 20px 20px 40px;
 		display: flex;
 		flex-direction: column;
-		gap: 14px;
+		gap: 10px;
 		border-top: 1px solid var(--white16);
+		/* Label-column width: slightly wider on desktop */
+		--label-col: clamp(56px, 26%, 140px);
 	}
 
+	@media (max-width: 600px) {
+		.detail-country-section {
+			--label-col: clamp(56px, 26%, 118px);
+		}
+	}
+
+	/* Grid: col-1 = section title (same width as chart label col), col-2 = legend */
 	.detail-country-head {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: var(--label-col, clamp(56px, 26%, 118px)) minmax(0, 1fr);
+		gap: 0 10px;
 		align-items: center;
-		gap: 12px 16px;
 	}
 
 	.detail-country-title {

@@ -116,8 +116,8 @@
 
 	.country-row {
 		display: grid;
-		/* Cap label width on narrow screens so flag + truncated name stay one row with bars */
-		grid-template-columns: clamp(56px, 26%, 118px) minmax(0, 1fr);
+		/* Width token set by parent .country-section; fallback = mobile cap */
+		grid-template-columns: var(--label-col, clamp(56px, 26%, 118px)) minmax(0, 1fr);
 		gap: 8px 10px;
 		align-items: center;
 	}
@@ -212,7 +212,7 @@
 
 	.country-skel-row {
 		display: grid;
-		grid-template-columns: clamp(56px, 26%, 118px) minmax(0, 1fr);
+		grid-template-columns: var(--label-col, clamp(56px, 26%, 118px)) minmax(0, 1fr);
 		gap: 8px 10px;
 		align-items: center;
 	}
