@@ -28,7 +28,7 @@
 	} from '$lib/nostr';
 	import { fetchFromRelays } from '$lib/nostr/service';
 	import { db } from '$lib/nostr/dexie';
-	import { ZAPSTORE_RELAY } from '$lib/config';
+	import { ZAPSTORE_RELAY, ZAPSTORE_BLOSSOM_URL } from '$lib/config';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import { nip19 } from 'nostr-tools';
 	import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
@@ -54,7 +54,8 @@
 	import { SITE_URL, SITE_ICON } from '$lib/config';
 	import Timestamp from '$lib/components/common/Timestamp.svelte';
 	import { stripUrlForDisplay } from '$lib/utils/url.js';
-	import { Copy, Check, Index, ChevronLeft, ChevronRight } from '$lib/components/icons';
+	import { Copy, Check, Index, ChevronLeft, ChevronRight, ChevronDown } from '$lib/components/icons';
+	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 	let { data } = $props();
 	const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
 	const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
@@ -139,6 +140,13 @@
 	/** Single expanded release id (null = none). Toggling this one value is reliable in Svelte 5. */
 	let expandedReleaseId = $state(null);
 	let downloadModalOpen = $state(false);
+	let downloadDropdownOpen = $state(false);
+	/** @type {HTMLDivElement | null} */
+	let downloadDropdownWrapDesktop = $state(null);
+	/** @type {HTMLDivElement | null} */
+	let downloadDropdownWrapMobile = $state(null);
+	/** Resolved lazily after latestRelease loads — never blocks page or modal render. */
+	let directDownloadUrl = $state(/** @type {string | null} */ (null));
 	let getStartedModalOpen = $state(false);
 	let spinKeyModalOpen = $state(false);
 	let onboardingBuildingModalOpen = $state(false);
@@ -155,6 +163,83 @@
 	function handleGetStartedConnected() {
 		getStartedModalOpen = false;
 	}
+
+	$effect(() => {
+		if (!downloadDropdownOpen) return;
+		function handleClick(/** @type {MouseEvent} */ e) {
+			const t = /** @type {Node} */ (e.target);
+			const inDesktop = downloadDropdownWrapDesktop?.contains(t);
+			const inMobile = downloadDropdownWrapMobile?.contains(t);
+			if (!inDesktop && !inMobile) downloadDropdownOpen = false;
+		}
+		document.addEventListener('click', handleClick, true);
+		return () => document.removeEventListener('click', handleClick, true);
+	});
+
+	/**
+	 * Resolve the direct CDN download URL from the latest release's referenced
+	 * asset events (kind 3063 / 1063). Runs entirely in the background — the
+	 * result populates `directDownloadUrl` whenever it becomes available without
+	 * blocking any page, modal, or LCP render path.
+	 *
+	 * Priority: cdn.zapstore.dev URL from url tag > constructed from x tag hash.
+	 */
+	async function resolveDirectDownloadUrl(release) {
+		if (!release) return;
+
+		// Legacy releases occasionally carry the url tag directly on the release event.
+		if (release.url) {
+			const cdnDirect = release.url.startsWith(ZAPSTORE_BLOSSOM_URL)
+				? release.url
+				: null;
+			if (cdnDirect) { directDownloadUrl = cdnDirect; return; }
+		}
+
+		const artifactIds = release.artifacts ?? [];
+		if (!artifactIds.length) {
+			// No artifacts — fall back to the release url even if not CDN
+			if (release.url) directDownloadUrl = release.url;
+			return;
+		}
+
+		// 1. Check local Dexie cache first (zero network cost)
+		let assetEvents = await queryEvents({
+			kinds: [EVENT_KINDS.ASSET, EVENT_KINDS.FILE_METADATA],
+			ids: artifactIds
+		});
+
+		// 2. If not cached, fetch from relay in the background
+		if (!assetEvents.length) {
+			await fetchFromRelays(
+				[ZAPSTORE_RELAY],
+				{ ids: artifactIds },
+				{ feature: 'app-detail-download' }
+			);
+			assetEvents = await queryEvents({
+				kinds: [EVENT_KINDS.ASSET, EVENT_KINDS.FILE_METADATA],
+				ids: artifactIds
+			});
+		}
+
+		// 3. Pick the cdn.zapstore.dev URL — fall back to x-tag construction, then any url
+		for (const ev of assetEvents) {
+			const urls = ev.tags.filter((t) => t[0] === 'url').map((t) => t[1]);
+			const cdnUrl = urls.find((u) => u.startsWith(ZAPSTORE_BLOSSOM_URL));
+			if (cdnUrl) { directDownloadUrl = cdnUrl; return; }
+			const xHash = ev.tags.find((t) => t[0] === 'x')?.[1];
+			if (xHash) { directDownloadUrl = `${ZAPSTORE_BLOSSOM_URL}/${xHash}`; return; }
+			const anyUrl = urls[0];
+			if (anyUrl) { directDownloadUrl = anyUrl; return; }
+		}
+	}
+
+	// Kick off URL resolution whenever the latest release changes.
+	// Not awaited — result feeds in reactively without delaying any render.
+	$effect(() => {
+		const release = latestRelease;
+		directDownloadUrl = null;
+		if (release) void resolveDirectDownloadUrl(release);
+	});
 	function handleSpinComplete() {
 		spinKeyModalOpen = false;
 		setTimeout(() => {
@@ -1037,15 +1122,62 @@
 							{/each}
 						</div>
 					</div>
-				<!-- Desktop only: Download button pushed to the far right -->
-				<button
-					type="button"
-					class="btn-primary-small install-btn-desktop"
-					onclick={() => (downloadModalOpen = true)}
-				>
-					Download
-				</button>
+			<!-- Desktop only: Download split button pushed to the far right -->
+			<div class="install-btn-desktop download-split-wrap" bind:this={downloadDropdownWrapDesktop}>
+				<div class="download-split-btn" role="group">
+					<button
+						type="button"
+						class="download-main"
+						onclick={() => { downloadModalOpen = true; downloadDropdownOpen = false; }}
+					>
+						Download
+					</button>
+					<div class="download-divider" aria-hidden="true"></div>
+					<button
+						type="button"
+						class="download-chevron"
+						aria-label="More download options"
+						aria-expanded={downloadDropdownOpen}
+						onclick={(e) => { e.stopPropagation(); downloadDropdownOpen = !downloadDropdownOpen; }}
+					>
+						<span class="download-chevron-icon">
+							<ChevronDown variant="outline" size={13} strokeWidth={1.6} color="var(--white66)" />
+						</span>
+					</button>
 				</div>
+				{#if downloadDropdownOpen}
+					<DropdownMenu class="download-dropdown download-dropdown-desktop" itemChevron={true}>
+						<button
+							type="button"
+							class="dropdown-item dropdown-item--stacked"
+							role="menuitem"
+							onclick={() => { downloadModalOpen = true; downloadDropdownOpen = false; }}
+						>
+							<span class="dropdown-item-body">
+								<span class="dropdown-item-title">Via Zapstore</span>
+								<span class="dropdown-item-desc">For reliable and secure updates</span>
+							</span>
+							<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+						</button>
+						{#if directDownloadUrl}
+							<a
+								href={directDownloadUrl}
+								class="dropdown-item dropdown-item--stacked"
+								role="menuitem"
+								download
+								onclick={() => { downloadDropdownOpen = false; }}
+							>
+								<span class="dropdown-item-body">
+									<span class="dropdown-item-title">Direct Download</span>
+									<span class="dropdown-item-desc">Get the {app?.name} APK directly</span>
+								</span>
+								<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+							</a>
+						{/if}
+					</DropdownMenu>
+				{/if}
+			</div>
+			</div>
 
 				<!-- Mobile only: pill (left) + install (right) below the name -->
 				<div class="app-mobile-actions">
@@ -1069,14 +1201,61 @@
 							</div>
 						{/each}
 					</div>
-				<button
-					type="button"
-					class="btn-primary-small install-btn"
-					onclick={() => (downloadModalOpen = true)}
-				>
-					Download
-				</button>
+			<div class="install-btn download-split-wrap" bind:this={downloadDropdownWrapMobile}>
+				<div class="download-split-btn" role="group">
+					<button
+						type="button"
+						class="download-main"
+						onclick={() => { downloadModalOpen = true; downloadDropdownOpen = false; }}
+					>
+						Download
+					</button>
+					<div class="download-divider" aria-hidden="true"></div>
+					<button
+						type="button"
+						class="download-chevron"
+						aria-label="More download options"
+						aria-expanded={downloadDropdownOpen}
+						onclick={(e) => { e.stopPropagation(); downloadDropdownOpen = !downloadDropdownOpen; }}
+					>
+						<span class="download-chevron-icon">
+							<ChevronDown variant="outline" size={13} strokeWidth={1.6} color="var(--white66)" />
+						</span>
+					</button>
 				</div>
+				{#if downloadDropdownOpen}
+					<DropdownMenu class="download-dropdown download-dropdown-mobile" itemChevron={true}>
+						<button
+							type="button"
+							class="dropdown-item dropdown-item--stacked"
+							role="menuitem"
+							onclick={() => { downloadModalOpen = true; downloadDropdownOpen = false; }}
+						>
+							<span class="dropdown-item-body">
+								<span class="dropdown-item-title">Via Zapstore</span>
+								<span class="dropdown-item-desc">For reliable and secure updates</span>
+							</span>
+							<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+						</button>
+						{#if directDownloadUrl}
+							<a
+								href={directDownloadUrl}
+								class="dropdown-item dropdown-item--stacked"
+								role="menuitem"
+								download
+								onclick={() => { downloadDropdownOpen = false; }}
+							>
+								<span class="dropdown-item-body">
+									<span class="dropdown-item-title">Direct Download</span>
+									<span class="dropdown-item-desc">Get the {app?.name} APK directly</span>
+								</span>
+								<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+							</a>
+						{/if}
+					</DropdownMenu>
+				{/if}
+			</div>
+			</div>
 
 				<!-- Desktop only: author + timestamp below the name row -->
 				<div class="detail-publisher-row detail-publisher-row-in-app">
@@ -1905,6 +2084,88 @@
 		}
 	}
 
+	/* ── Download split button ─────────────────────────────────── */
+	.download-split-wrap {
+		position: relative;
+		flex-shrink: 0;
+	}
+
+	.download-split-btn {
+		display: inline-flex;
+		align-items: stretch;
+		height: 32px;
+		background-image: var(--button-primary-bg);
+		border-radius: 9999px;
+		overflow: hidden;
+		transition: transform 0.15s ease;
+	}
+
+	.download-split-btn:hover {
+		transform: scale(1.025);
+		box-shadow:
+			0 0 20px color-mix(in srgb, var(--blurpleColor) 40%, transparent),
+			0 10px 40px -20px color-mix(in srgb, var(--blurpleColor) 60%, transparent);
+	}
+
+	.download-split-btn:has(:active) {
+		transform: scale(0.98);
+	}
+
+	.download-main {
+		display: inline-flex;
+		align-items: center;
+		padding: 0 11px 0 14px;
+		font-size: 14px;
+		font-weight: 500;
+		color: var(--whiteEnforced);
+		background: none;
+		border: none;
+		cursor: pointer;
+		white-space: nowrap;
+		line-height: 1;
+	}
+
+	.download-divider {
+		width: 1px;
+		background-color: color-mix(in srgb, var(--whiteEnforced) 25%, transparent);
+		align-self: stretch;
+		flex-shrink: 0;
+	}
+
+	.download-chevron {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 30px;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0 2px 0 0;
+	}
+
+	.download-chevron-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding-top: 2px;
+	}
+
+	:global(.download-dropdown) {
+		position: absolute;
+		z-index: 50;
+		min-width: 260px;
+	}
+
+	:global(.download-dropdown-desktop) {
+		top: calc(100% + 6px);
+		right: 0;
+	}
+
+	:global(.download-dropdown-mobile) {
+		top: calc(100% + 6px);
+		right: 0;
+	}
+
 	/* Desktop-only: Install button pushed to the far right */
 	.install-btn-desktop {
 		display: none;
@@ -1912,8 +2173,6 @@
 	@media (min-width: 768px) {
 		.install-btn-desktop {
 			display: inline-flex;
-			flex-shrink: 0;
-			white-space: nowrap;
 		}
 	}
 

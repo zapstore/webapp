@@ -176,9 +176,7 @@
 			decoding="async"
 		/>
 		<div class="zapstore-content p-4 md:p-6 relative">
-			<h2 class="modal-title modal-heading mb-6">
-				Download Zapstore
-			</h2>
+			<h2 class="modal-title modal-heading mb-6">Download Zapstore</h2>
 
 			<!-- Platform Selector -->
 			<div class="mb-6">
@@ -206,7 +204,7 @@
 							<button
 								type="button"
 								class="flex items-center gap-2 regular14 text-muted-foreground hover:text-foreground transition-colors"
-							on:click={copyDownloadLink}
+								on:click={copyDownloadLink}
 							>
 								<span>Download Link</span>
 								{#if linkCopied}
@@ -247,14 +245,14 @@
 											d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 00-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 003 18h18a10.78 10.78 0 00-3.4-8.52zM8.5 14c-.83 0-1.5-.67-1.5-1.5S7.67 11 8.5 11s1.5.67 1.5 1.5S9.33 14 8.5 14zm7 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
 										/>
 									</svg>
-								<span class="regular14">Android 10+</span>
-							</span>
-							<span class="regular14" style="color: var(--white33);"
-								><strong>arm64-v8a</strong> only</span
-							>
+									<span class="regular14">Android 10+</span>
+								</span>
+								<span class="regular14" style="color: var(--white33);"
+									><strong>arm64-v8a</strong> only</span
+								>
+							</div>
 						</div>
-					</div>
-					<!-- Vertical Divider - Only on mobile -->
+						<!-- Vertical Divider - Only on mobile -->
 						<div
 							class="md:hidden w-[1.4px] flex-shrink-0 self-stretch"
 							style="background-color: var(--white16);"
@@ -275,14 +273,14 @@
 											d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.463 11.463 0 00-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 003 18h18a10.78 10.78 0 00-3.4-8.52zM8.5 14c-.83 0-1.5-.67-1.5-1.5S7.67 11 8.5 11s1.5.67 1.5 1.5S9.33 14 8.5 14zm7 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
 										/>
 									</svg>
-								<span class="regular14">Android 10+</span>
-							</span>
-							<span class="regular14" style="color: var(--white33);"
-								><strong>arm64-v8a</strong> only</span
-							>
-						</div>
+									<span class="regular14">Android 10+</span>
+								</span>
+								<span class="regular14" style="color: var(--white33);"
+									><strong>arm64-v8a</strong> only</span
+								>
+							</div>
 
-						<!-- Horizontal Divider - Hidden on mobile -->
+							<!-- Horizontal Divider - Hidden on mobile -->
 							<div
 								class="hidden md:block w-full h-[1.4px] flex-shrink-0"
 								style="background-color: var(--white16);"
@@ -350,8 +348,8 @@
 				</div>
 			{:else if selectedPlatform === 'iOS'}
 				<div class="space-y-5">
-				<p class="regular14 text-muted-foreground">
-					We're designing Zapstore iOS to bypass the App Store and deliver an even better UX. <strong
+					<p class="regular14 text-muted-foreground">
+						We're designing Zapstore iOS to bypass the App Store and deliver an even better UX. <strong
 							>It will require an Apple Developer Account ($100/yr) and a monthly fee</strong
 						>. Drop an email or npub and we'll share more as it gets ready.
 					</p>
@@ -379,9 +377,9 @@
 							<ArrowRight class="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
 						</button>
 						{#if iosWaitlistStatus === 'error'}
-						<p class="regular14 text-rose-400">{iosWaitlistMessage}</p>
-					{:else if iosWaitlistStatus === 'success'}
-						<p class="regular14 text-emerald-400">{iosWaitlistMessage}</p>
+							<p class="regular14 text-rose-400">{iosWaitlistMessage}</p>
+						{:else if iosWaitlistStatus === 'success'}
+							<p class="regular14 text-emerald-400">{iosWaitlistMessage}</p>
 						{/if}
 					</form>
 				</div>
@@ -400,9 +398,10 @@
 			<div class="flex justify-center mb-4">
 				<AppPic iconUrl={app?.icon} name={app?.name} identifier={app?.dTag} size="2xl" />
 			</div>
-			<h2 class="modal-title modal-heading mb-6">
+			<h2 class="modal-title modal-heading mb-4">
 				Download {app?.name || 'App'}
 			</h2>
+			<!-- <p class="app-modal-description">With Zapstore for reliable, secure updates</p> -->
 
 			<!-- Platform selector -->
 			<div class="mb-3">
@@ -423,13 +422,16 @@
 						disabled={step1Downloading}
 						class="btn-primary-small step-action-btn ml-auto flex-shrink-0 whitespace-nowrap disabled:opacity-70"
 						on:click={downloadZapstoreStep1}
-					>{step1Downloading ? 'Downloading…' : 'Download'}</button>
+						>{step1Downloading ? 'Downloading…' : 'Download'}</button
+					>
 				</div>
 				<!-- QR + description -->
 				<div class="flex items-stretch">
 					<div class="hidden md:flex flex-col items-center justify-center pt-5 pb-5 px-5">
 						<img
-							src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&bgcolor=ffffff&color=000000&data={encodeURIComponent(ZAPSTORE_APK_URL)}"
+							src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&bgcolor=ffffff&color=000000&data={encodeURIComponent(
+								ZAPSTORE_APK_URL
+							)}"
 							alt="QR code to download Zapstore"
 							class="w-[7.5rem] h-[7.5rem] rounded-lg border border-border/40 bg-white p-1"
 							loading="lazy"
@@ -441,9 +443,15 @@
 					></div>
 					<div class="flex-1 flex flex-col justify-start pl-5 pr-4 py-4">
 						<ul class="step-bullet-list">
-							<li class="step-desktop-only"><span>Scan and tap <strong>Download anyway</strong>, if prompted</span></li>
-							<li class="step-mobile-only"><span>Tap <strong>Download anyway</strong>, if prompted</span></li>
-							<li><span>Allow <strong>installation from unknown sources</strong>, if prompted</span></li>
+							<li class="step-desktop-only">
+								<span>Scan and tap <strong>Download anyway</strong>, if prompted</span>
+							</li>
+							<li class="step-mobile-only">
+								<span>Tap <strong>Download anyway</strong>, if prompted</span>
+							</li>
+							<li>
+								<span>Allow <strong>installation from unknown sources</strong>, if prompted</span>
+							</li>
 							<li><span>Open <strong>Zapstore</strong> once installed</span></li>
 						</ul>
 					</div>
@@ -455,19 +463,23 @@
 				<!-- Step header -->
 				<div class="step-card-header">
 					<span class="step-num">2</span>
-					<span class="step-card-title semibold16">Open {app?.name || 'the app'} page in Zapstore</span>
+					<span class="step-card-title semibold16"
+						>Open {app?.name || 'the app'} page in Zapstore</span
+					>
 					<a
 						href={appDeepLink}
 						class="btn-primary-small step-action-btn ml-auto flex-shrink-0 whitespace-nowrap"
 						target="_blank"
-						rel="noopener noreferrer"
-					>Open</a>
+						rel="noopener noreferrer">Open</a
+					>
 				</div>
 				<!-- QR + description -->
 				<div class="flex items-stretch">
 					<div class="hidden md:flex flex-col items-center justify-center pt-5 pb-5 px-5">
 						<img
-							src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&bgcolor=ffffff&color=000000&data={encodeURIComponent(appDeepLink)}"
+							src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&bgcolor=ffffff&color=000000&data={encodeURIComponent(
+								appDeepLink
+							)}"
 							alt="QR code to open {app?.name} in Zapstore"
 							class="w-[7.5rem] h-[7.5rem] rounded-lg border border-border/40 bg-white p-1"
 							loading="lazy"
@@ -479,9 +491,17 @@
 					></div>
 					<div class="flex-1 flex flex-col justify-start pl-5 pr-4 py-4">
 						<ul class="step-bullet-list">
-							<li class="step-desktop-only"><span>Scan to open <strong>{app?.name}</strong> directly in Zapstore, or use search.</span></li>
-							<li class="step-mobile-only"><span>You can also just search for <strong>{app?.name}</strong> in the search bar</span></li>
-							<li><span><strong>Install {app?.name}.</strong> Enable installing unknown apps via Zapstore, if prompted</span></li>
+							<li class="step-desktop-only">
+								<span
+									>Scan to open <strong>{app?.name}</strong> directly in Zapstore, or use search.</span
+								>
+							</li>
+							<li>
+								<span
+									><strong>Install {app?.name}.</strong> Enable installing unknown apps via Zapstore,
+									if prompted</span
+								>
+							</li>
 						</ul>
 					</div>
 				</div>
@@ -515,10 +535,10 @@
 				<div class="flex border-b border-border/30">
 					<button
 						type="button"
-					class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 medium12 transition-colors {verifyTab ===
-					'desktop'
-						? 'text-foreground bg-white/5'
-						: 'text-muted-foreground hover:text-foreground'}"
+						class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 medium12 transition-colors {verifyTab ===
+						'desktop'
+							? 'text-foreground bg-white/5'
+							: 'text-muted-foreground hover:text-foreground'}"
 						on:click={() => (verifyTab = 'desktop')}
 					>
 						<Monitor class="w-3.5 h-3.5" />
@@ -526,10 +546,10 @@
 					</button>
 					<button
 						type="button"
-					class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 medium12 transition-colors {verifyTab ===
-					'mobile'
-						? 'text-foreground bg-white/5'
-						: 'text-muted-foreground hover:text-foreground'}"
+						class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 medium12 transition-colors {verifyTab ===
+						'mobile'
+							? 'text-foreground bg-white/5'
+							: 'text-muted-foreground hover:text-foreground'}"
 						on:click={() => (verifyTab = 'mobile')}
 					>
 						<Smartphone class="w-3.5 h-3.5" />
@@ -540,13 +560,13 @@
 				<!-- Tab content -->
 				<div class="p-4">
 					{#if verifyTab === 'desktop'}
-					<p class="regular12 text-muted-foreground mb-2">Run in terminal:</p>
-					<div
-						class="font-mono regular12 text-muted-foreground bg-muted/30 p-2.5 rounded-lg border border-border/30 mb-3"
-					>
-						shasum -a 256 {ZAPSTORE_APK_FILENAME}
-					</div>
-					<p class="regular12 text-muted-foreground mb-1.5">Should equal:</p>
+						<p class="regular12 text-muted-foreground mb-2">Run in terminal:</p>
+						<div
+							class="font-mono regular12 text-muted-foreground bg-muted/30 p-2.5 rounded-lg border border-border/30 mb-3"
+						>
+							shasum -a 256 {ZAPSTORE_APK_FILENAME}
+						</div>
+						<p class="regular12 text-muted-foreground mb-1.5">Should equal:</p>
 						<div
 							class="font-mono text-[11px] text-muted-foreground break-all bg-muted/30 p-2.5 rounded-lg border border-border/30 mb-3"
 						>
@@ -562,8 +582,8 @@
 							>
 						</p>
 					{:else}
-					<p class="regular12 text-muted-foreground mb-2">
-						Use
+						<p class="regular12 text-muted-foreground mb-2">
+							Use
 							<a
 								href="https://github.com/soupslurpr/AppVerifier"
 								target="_blank"
@@ -597,6 +617,13 @@
 <style>
 	.modal-title {
 		font-size: 1.875rem;
+	}
+
+	.app-modal-description {
+		margin: 0 0 1.25rem;
+		font-size: 0.9375rem;
+		text-align: center;
+		color: var(--white66);
 	}
 
 	/* Gradient background for Zapstore download modal */

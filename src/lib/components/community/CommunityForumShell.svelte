@@ -41,6 +41,7 @@
 	import Label from '$lib/components/common/Label.svelte';
 	import { ChevronDown } from '$lib/components/icons';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
+	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 
 	const COMMUNITY_PUBKEY = (() => {
 		try {
@@ -527,11 +528,11 @@
 				</span>
 			</button>
 			{#if latestDropdownOpen}
-				<div class="forum-latest-dropdown" role="menu">
+				<DropdownMenu class="forum-sort-dropdown">
 					<button
 						type="button"
-						class="forum-latest-dropdown-item"
-						class:is-active={sortOrder === 'latest'}
+						class="dropdown-item"
+						class:dropdown-item--active={sortOrder === 'latest'}
 						role="menuitem"
 						onclick={() => { sortOrder = 'latest'; latestDropdownOpen = false; }}
 					>
@@ -539,14 +540,14 @@
 					</button>
 					<button
 						type="button"
-						class="forum-latest-dropdown-item"
-						class:is-active={sortOrder === 'most_zapped'}
+						class="dropdown-item"
+						class:dropdown-item--active={sortOrder === 'most_zapped'}
 						role="menuitem"
 						onclick={() => { sortOrder = 'most_zapped'; latestDropdownOpen = false; }}
 					>
 						Most Zapped
 					</button>
-				</div>
+				</DropdownMenu>
 			{/if}
 		</div>
 	</div>
@@ -772,39 +773,12 @@
 		padding-bottom: 100px;
 	}
 
-	.forum-latest-dropdown {
+	:global(.forum-sort-dropdown) {
 		position: absolute;
-		top: calc(100% + 4px);
+		top: calc(100% + 6px);
 		right: 0;
-		min-width: 200px;
-		background: var(--gray);
-		border: 0.33px solid var(--white8);
-		border-radius: 12px;
-		box-shadow: 0 8px 24px var(--black);
-		padding: 6px 0;
+		min-width: 160px;
 		z-index: 50;
-	}
-
-	.forum-latest-dropdown-item {
-		display: block;
-		width: 100%;
-		padding: 8px 16px;
-		border: none;
-		background: none;
-		color: var(--white);
-		font-size: 14px;
-		font-weight: 500;
-		text-align: left;
-		cursor: pointer;
-	}
-
-	.forum-latest-dropdown-item:hover {
-		background: var(--white8);
-	}
-
-	.forum-latest-dropdown-item.is-active {
-		color: var(--white);
-		font-weight: 600;
 	}
 
 	.forum-publish-error {

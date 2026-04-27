@@ -8,7 +8,7 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import { Search, Loader2 } from 'lucide-svelte';
-	import { Menu, Cross, Inbox, Alert, Profile } from '$lib/components/icons';
+	import { Menu, Cross, Inbox, Alert, Profile, ChevronRight, ArrowDown } from '$lib/components/icons';
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import { handleBack } from '$lib/utils/back.js';
 	import { cn } from '$lib/utils';
@@ -27,6 +27,7 @@
 	import { SITE_GITHUB, EVENT_KINDS } from '$lib/config.js';
 	import { liveQuery, queryEvent, queryEvents, parseZapReceipt, fetchProfile } from '$lib/nostr';
 	import UserInboxPopover from '$lib/components/layout/UserInboxPopover.svelte';
+	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 	import {
 		inboxSeenSignal,
 		readInboxSeenIds,
@@ -814,44 +815,49 @@
 											inboxHeaderVariant={variant === 'landing' ? 'landing' : 'browse'}
 										/>
 									</div>
-									<div class="relative profile-dropdown">
-										<button type="button" onclick={toggleDropdown} class="profile-btn">
+								<div class="relative profile-dropdown">
+									<button type="button" onclick={toggleDropdown} class="profile-btn">
+										{#if dropdownOpen}
+											<Cross variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" />
+										{:else}
 											<ProfilePic
 												{pubkey}
 												pictureUrl={currentUserProfile?.picture || undefined}
 												name={currentUserProfile?.name || undefined}
 												size="bubble"
 											/>
-										</button>
-										{#if dropdownOpen}
-											<div
-												class="absolute right-0 mt-2 w-48 rounded-lg overlay-surface shadow-lg py-1 z-50"
-												style="top: 100%;"
+										{/if}
+									</button>
+									{#if dropdownOpen}
+										<DropdownMenu class="profile-popup" itemChevron={true}>
+											<a
+												href={profileHref}
+												class="dropdown-item"
+												onclick={() => (dropdownOpen = false)}
 											>
-												<a
-													href={profileHref}
-													class="flex items-center gap-2 px-4 py-2.5 regular14 text-foreground hover:bg-white/5 transition-colors"
-													onclick={() => (dropdownOpen = false)}
-												>
-											<div class="dropdown-icon-circle">
-													<Profile variant="fill" size={11} color="var(--white66)" />
-												</div>
+												<ProfilePic
+													{pubkey}
+													pictureUrl={currentUserProfile?.picture || undefined}
+													name={currentUserProfile?.name || undefined}
+													size="sm"
+												/>
 												View my profile
+												<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
 											</a>
-											<div class="border-t border-border my-1"></div>
 											<button
 												type="button"
+												class="dropdown-item dropdown-item--danger profile-popup-disconnect"
 												onclick={handleSignOut}
-												class="flex items-center gap-2 px-4 py-2.5 regular14 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
 											>
-												<div class="dropdown-icon-circle">
-													<Cross variant="outline" size={9} strokeWidth={1.6} color="var(--white33)" />
+												<div class="dropdown-rouge-circle">
+													<span style="display:flex;transform:rotate(-90deg)"><ArrowDown variant="outline" size={11} strokeWidth={1.6} color="var(--rougeColor)" /></span>
 												</div>
 												Disconnect
-												</button>
-											</div>
-										{/if}
-									</div>
+												<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+											</button>
+										</DropdownMenu>
+									{/if}
+								</div>
 									{#if offline}
 										<div
 											class="header-offline-pill header-offline-pill--mobile shrink-0"
@@ -970,46 +976,51 @@
 											inboxHeaderVariant={variant === 'landing' ? 'landing' : 'browse'}
 										/>
 								</div>
-								<!-- Profile Avatar with Dropdown -->
-								<div class="relative profile-dropdown flex items-center">
-									<button type="button" onclick={toggleDropdown} class="profile-btn">
+							<!-- Profile Avatar with Dropdown -->
+							<div class="relative profile-dropdown flex items-center">
+								<button type="button" onclick={toggleDropdown} class="profile-btn">
+									{#if dropdownOpen}
+										<Cross variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" />
+									{:else}
 										<ProfilePic
 											{pubkey}
 											pictureUrl={currentUserProfile?.picture || undefined}
 											name={currentUserProfile?.name || undefined}
 											size="bubble"
 										/>
-									</button>
-
-									{#if dropdownOpen}
-									<div
-										class="absolute right-0 mt-2 w-48 rounded-lg overlay-surface shadow-lg py-1 z-50"
-										style="top: 100%;"
-									>
-										<a
-											href={profileHref}
-											class="flex items-center gap-2 px-4 py-2.5 regular14 text-foreground hover:bg-white/5 transition-colors"
-											onclick={() => (dropdownOpen = false)}
-										>
-											<div class="dropdown-icon-circle">
-													<Profile variant="fill" size={11} color="var(--white66)" />
-												</div>
-												View my profile
-											</a>
-											<div class="border-t border-border my-1"></div>
-											<button
-												type="button"
-												onclick={handleSignOut}
-												class="flex items-center gap-2 px-4 py-2.5 regular14 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors w-full text-left"
-											>
-												<div class="dropdown-icon-circle">
-													<Cross variant="outline" size={9} strokeWidth={1.6} color="var(--white33)" />
-												</div>
-												Disconnect
-										</button>
-									</div>
 									{/if}
-								</div>
+								</button>
+
+							{#if dropdownOpen}
+								<DropdownMenu class="profile-popup" itemChevron={true}>
+								<a
+									href={profileHref}
+									class="dropdown-item"
+									onclick={() => (dropdownOpen = false)}
+								>
+								<ProfilePic
+									{pubkey}
+									pictureUrl={currentUserProfile?.picture || undefined}
+									name={currentUserProfile?.name || undefined}
+									size="sm"
+								/>
+								View my profile
+									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+								</a>
+								<button
+									type="button"
+									class="dropdown-item dropdown-item--danger profile-popup-disconnect"
+									onclick={handleSignOut}
+								>
+									<div class="dropdown-rouge-circle">
+										<span style="display:flex;transform:rotate(-90deg)"><ArrowDown variant="outline" size={11} strokeWidth={1.6} color="var(--rougeColor)" /></span>
+									</div>
+									Disconnect
+									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+								</button>
+								</DropdownMenu>
+							{/if}
+							</div>
 								{#if offline}
 									<div
 										class="header-offline-pill header-offline-pill--mobile shrink-0"
@@ -1531,10 +1542,45 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: none;
+		width: 32px;
+		height: 32px;
+		background-color: var(--gray66);
 		border: none;
 		cursor: pointer;
 		padding: 0;
+		border-radius: 50%;
+		flex-shrink: 0;
+		overflow: hidden;
+		transition: transform 0.2s ease;
+	}
+
+	.profile-btn:hover {
+		transform: scale(1.025);
+	}
+
+	.profile-btn:active {
+		transform: scale(0.98);
+	}
+
+	:global(.profile-popup) {
+		position: absolute;
+		top: calc(100% + 8px);
+		right: 0;
+		min-width: 220px;
+		z-index: 50;
+	}
+
+	.dropdown-rouge-circle {
+		width: 28px;
+		height: 28px;
+		min-width: 28px;
+		border-radius: 50%;
+		background: color-mix(in srgb, var(--rougeColor) 14%, transparent);
+		border: 0.33px solid color-mix(in srgb, var(--rougeColor) 40%, transparent);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
 	}
 
 	.dropdown-icon-circle {
@@ -1550,12 +1596,6 @@
 		flex-shrink: 0;
 	}
 
-	.overlay-surface {
-		background-color: hsla(240, 6%, 18%, 0.9);
-		backdrop-filter: blur(24px);
-		-webkit-backdrop-filter: blur(24px);
-		border: 0.33px solid var(--white16);
-	}
 
 	.landing-nav-btn:hover,
 	.landing-nav-btn-open,

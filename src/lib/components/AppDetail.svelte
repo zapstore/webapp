@@ -5,10 +5,27 @@ import { ReleaseCard } from '$lib/components';
 import { queryEvent, parseRelease } from '$lib/nostr';
 import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
 import { renderMarkdown } from '$lib/utils/markdown';
-let { app, initialRelease = null } = $props();
+import { ChevronDown, ChevronRight } from '$lib/components/icons';
+import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
+
+let {
+	app,
+	initialRelease = null,
+	/** Called when user picks "Via Zapstore" — parent opens DownloadModal */
+	onDownloadViaZapstore = null,
+	/** Direct APK download URL for "Direct Download" option */
+	directDownloadUrl = null
+} = $props();
+
 // Local state (set from initialRelease in onMount to avoid capturing stale reference)
 let latestRelease = $state(null);
 let refreshing = $state(false);
+let downloadDropdownOpen = $state(false);
+/** @type {HTMLDivElement | null} */
+let downloadDropdownWrap = $state(null);
+
+const showDownloadButton = $derived(!!onDownloadViaZapstore || !!directDownloadUrl);
+
 onMount(async () => {
     if (!browser || !app)
         return;
@@ -18,6 +35,17 @@ onMount(async () => {
     if (cachedRelease) {
         latestRelease = parseRelease(cachedRelease);
     }
+});
+
+$effect(() => {
+	if (!downloadDropdownOpen || !downloadDropdownWrap) return;
+	function handleClick(/** @type {MouseEvent} */ e) {
+		if (downloadDropdownWrap && !downloadDropdownWrap.contains(/** @type {Node} */ (e.target))) {
+			downloadDropdownOpen = false;
+		}
+	}
+	document.addEventListener('click', handleClick, true);
+	return () => document.removeEventListener('click', handleClick, true);
 });
 </script>
 
@@ -46,6 +74,75 @@ onMount(async () => {
 					</span>
 				{/if}
 			</div>
+
+			{#if showDownloadButton}
+				<div class="download-wrap" bind:this={downloadDropdownWrap}>
+					<div class="download-split-btn" role="group">
+						<button
+							type="button"
+							class="download-main"
+							onclick={() => {
+								onDownloadViaZapstore?.();
+								downloadDropdownOpen = false;
+							}}
+						>
+							Download
+						</button>
+						<div class="download-divider" aria-hidden="true"></div>
+						<button
+							type="button"
+							class="download-chevron"
+							aria-label="More download options"
+							aria-expanded={downloadDropdownOpen}
+							onclick={(e) => {
+								e.stopPropagation();
+								downloadDropdownOpen = !downloadDropdownOpen;
+							}}
+						>
+							<span class="download-chevron-icon">
+								<ChevronDown variant="outline" size={13} strokeWidth={1.6} color="var(--whiteEnforced)" />
+							</span>
+						</button>
+					</div>
+
+					{#if downloadDropdownOpen}
+						<DropdownMenu class="download-dropdown" itemChevron={true}>
+							{#if onDownloadViaZapstore}
+								<button
+									type="button"
+									class="dropdown-item dropdown-item--stacked"
+									role="menuitem"
+									onclick={() => {
+										onDownloadViaZapstore?.();
+										downloadDropdownOpen = false;
+									}}
+								>
+									<span class="dropdown-item-body">
+										<span class="dropdown-item-title">Via Zapstore</span>
+										<span class="dropdown-item-desc">For reliable and secure updates</span>
+									</span>
+									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+								</button>
+							{/if}
+							{#if directDownloadUrl}
+								<a
+									href={directDownloadUrl}
+									class="dropdown-item dropdown-item--stacked"
+									role="menuitem"
+									download
+									onclick={() => { downloadDropdownOpen = false; }}
+								>
+									<span class="dropdown-item-body">
+										<span class="dropdown-item-title">Direct Download</span>
+										<span class="dropdown-item-desc">Get the {app.name} APK directly</span>
+									</span>
+									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+								</a>
+							{/if}
+						</DropdownMenu>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</header>
 
@@ -118,12 +215,88 @@ onMount(async () => {
 
 	.app-info {
 		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
 	}
 
 	.name-row {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+	}
+
+	/* ── Download split button ─────────────────────────────────── */
+	.download-wrap {
+		position: relative;
+		display: inline-flex;
+	}
+
+	.download-split-btn {
+		display: inline-flex;
+		align-items: stretch;
+		height: 32px;
+		background-image: var(--button-primary-bg);
+		border-radius: 9999px;
+		overflow: hidden;
+		transition: transform 0.15s ease;
+	}
+
+	.download-split-btn:hover {
+		transform: scale(1.025);
+		box-shadow:
+			0 0 20px color-mix(in srgb, var(--blurpleColor) 40%, transparent),
+			0 10px 40px -20px color-mix(in srgb, var(--blurpleColor) 60%, transparent);
+	}
+
+	.download-split-btn:has(:active) {
+		transform: scale(0.98);
+	}
+
+	.download-main {
+		display: inline-flex;
+		align-items: center;
+		padding: 0 14px;
+		font-size: 14px;
+		font-weight: 500;
+		color: var(--whiteEnforced);
+		background: none;
+		border: none;
+		cursor: pointer;
+		line-height: 1;
+	}
+
+	.download-divider {
+		width: 1px;
+		background-color: color-mix(in srgb, var(--whiteEnforced) 25%, transparent);
+		align-self: stretch;
+		flex-shrink: 0;
+	}
+
+	.download-chevron {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0 8px;
+	}
+
+	.download-chevron-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding-top: 2px;
+	}
+
+	/* ── Dropdown panel ─────────────────────────────────────────── */
+	:global(.download-dropdown) {
+		position: absolute;
+		top: calc(100% + 6px);
+		left: 0;
+		z-index: 50;
+		min-width: 240px;
 	}
 
 	.app-name {

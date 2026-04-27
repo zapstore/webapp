@@ -297,12 +297,12 @@
 		order: 4;
 		margin-top: 1.5rem !important;
 		margin-bottom: 0 !important;
+	}
+	}
+
+	.hero-description {
 		font-size: 20px;
 		line-height: 2.25rem;
-	}
-	@media (min-width: 640px) {
-		.hero-description { font-size: 24px; }
-	}
 	}
 
 	/* Desktop: hide divider, natural order */
