@@ -180,9 +180,12 @@ onMount(async () => {
 	}
 
 	.screenshot {
+		width: 140px;
 		height: 20rem;
 		border-radius: 0.75rem;
 		flex-shrink: 0;
+		object-fit: cover;
+		object-position: center top;
 	}
 
 	.app-releases {

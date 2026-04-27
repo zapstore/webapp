@@ -450,7 +450,7 @@
 	.mob-verify-wrap {
 		align-items: center;
 		justify-content: center;
-		background-color: color-mix(in srgb, var(--gray33) 50%, transparent);
+		background-color: transparent;
 		padding: 1.25rem 0.5rem;
 	}
 

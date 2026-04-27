@@ -33,6 +33,7 @@
 	let isAndroid = browser && /android/i.test(navigator.userAgent);
 	let verifyTab = isAndroid ? 'mobile' : 'desktop';
 	let downloading = false;
+	let step1Downloading = false;
 	let linkCopied = false;
 
 	// iOS waitlist state (only for Zapstore)
@@ -74,6 +75,26 @@
 			window.location.href = ZAPSTORE_APK_URL;
 		} finally {
 			downloading = false;
+		}
+	}
+
+	async function downloadZapstoreStep1() {
+		step1Downloading = true;
+		try {
+			const response = await fetch(ZAPSTORE_APK_URL);
+			const blob = await response.blob();
+			const url = window.URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = ZAPSTORE_APK_FILENAME;
+			document.body.appendChild(a);
+			a.click();
+			window.URL.revokeObjectURL(url);
+			document.body.removeChild(a);
+		} catch {
+			window.location.href = ZAPSTORE_APK_URL;
+		} finally {
+			step1Downloading = false;
 		}
 	}
 
@@ -397,10 +418,12 @@
 				<div class="step-card-header">
 					<span class="step-num">1</span>
 					<span class="step-card-title semibold16">Download Zapstore</span>
-					<a
-						href={ZAPSTORE_APK_URL}
-						class="btn-primary-small step-action-btn ml-auto flex-shrink-0 whitespace-nowrap"
-					>Download</a>
+					<button
+						type="button"
+						disabled={step1Downloading}
+						class="btn-primary-small step-action-btn ml-auto flex-shrink-0 whitespace-nowrap disabled:opacity-70"
+						on:click={downloadZapstoreStep1}
+					>{step1Downloading ? 'Downloading…' : 'Download'}</button>
 				</div>
 				<!-- QR + description -->
 				<div class="flex items-stretch">

@@ -59,8 +59,6 @@ let profiles = $state({});
 let profilesLoading = $state(false);
 let zapperProfiles = $state(new Map());
 let rawPostEvent = $derived(postProp?._raw ?? null);
-let descriptionExpanded = $state(false);
-let isTruncated = $state(false);
 /** @type {Array<{ label: string, pubkeys: string[] }>} */
 let labelEntries = $state([]);
 let labelsLoading = $state(false);
@@ -486,22 +484,7 @@ function handleForumBottomBarZap(event) {
 	setTimeout(refetchZaps, 2500);
 }
 
-/** @param {HTMLElement} node */
-function checkTruncation(node) {
-	const check = () => {
-		isTruncated = node.scrollHeight > node.clientHeight;
-	};
-	setTimeout(check, 0);
-	const ro = new ResizeObserver(() => {
-		if (!descriptionExpanded) check();
-	});
-	ro.observe(node);
-	return {
-		destroy() {
-			ro.disconnect();
-		}
-	};
-}
+
 </script>
 
 <div class="forum-post-detail">
@@ -533,33 +516,20 @@ function checkTruncation(node) {
 		<div class="content-scroll">
 			<div class="content-inner">
 				<h1 class="post-title">{post.title}</h1>
-				<div class="description-container" class:expanded={descriptionExpanded}>
-					<div class="post-description" use:checkTruncation>
-						<ShortTextContent
-							content={post.content ?? ''}
-							emojiTags={postEmojiTags}
-							mediaUrls={post.mediaUrls ?? []}
-							onMediaClick={({ url: u, urls: list }) => {
-								const urls = list?.length ? list : (post.mediaUrls ?? []);
-								lightboxUrls = urls;
-								lightboxIndex = Math.max(0, urls.indexOf(u));
-								lightboxOpen = true;
-							}}
-							class="post-detail-body"
-						/>
-					</div>
-					{#if isTruncated && !descriptionExpanded}
-						<div class="description-fade" aria-hidden="true"></div>
-						<button type="button" class="read-more-btn" onclick={() => (descriptionExpanded = true)}>
-							Read more
-						</button>
-					{/if}
-					{#if descriptionExpanded}
-						<button type="button" class="show-less-btn" onclick={() => (descriptionExpanded = false)}>
-							Show less
-						</button>
-					{/if}
-				</div>
+			<div class="description-container">
+				<ShortTextContent
+					content={post.content ?? ''}
+					emojiTags={postEmojiTags}
+					mediaUrls={post.mediaUrls ?? []}
+					onMediaClick={({ url: u, urls: list }) => {
+						const urls = list?.length ? list : (post.mediaUrls ?? []);
+						lightboxUrls = urls;
+						lightboxIndex = Math.max(0, urls.indexOf(u));
+						lightboxOpen = true;
+					}}
+					class="post-detail-body"
+				/>
+			</div>
 
 				<div class="social-tabs-wrap">
 					<SocialTabs
@@ -668,82 +638,19 @@ function checkTruncation(node) {
 		color: var(--white);
 	}
 	.description-container {
-		position: relative;
 		margin-bottom: 0.5rem;
-	}
-	.description-container:not(.expanded) .post-description {
-		max-height: 420px;
-		overflow: hidden;
-	}
-	.description-container.expanded .post-description {
-		max-height: none;
-	}
-	.post-description {
+		font-size: 0.9375rem;
 		line-height: 1.6;
 		color: var(--white);
-		font-size: 0.9375rem;
 	}
-	.post-description :global(a) {
+
+	.description-container :global(a) {
 		color: var(--blurpleColor);
 		text-decoration: underline;
 	}
-	.post-description :global(a:hover) {
+
+	.description-container :global(a:hover) {
 		text-decoration-thickness: 2px;
-	}
-	.description-fade {
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		height: 100px;
-		background: linear-gradient(to bottom, transparent, var(--black));
-		pointer-events: none;
-	}
-	.read-more-btn {
-		position: absolute;
-		bottom: 8px;
-		left: 0;
-		height: 32px;
-		padding: 0 14px;
-		background-color: var(--white8);
-		backdrop-filter: blur(12px);
-		-webkit-backdrop-filter: blur(12px);
-		border: none;
-		border-radius: 9999px;
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--white66);
-		cursor: pointer;
-		transition: transform 0.15s ease;
-	}
-	.read-more-btn:hover {
-		transform: scale(1.025);
-	}
-	.read-more-btn:active {
-		transform: scale(0.98);
-	}
-	.show-less-btn {
-		display: inline-flex;
-		margin-top: 8px;
-		height: 32px;
-		padding: 0 14px;
-		background-color: var(--white8);
-		backdrop-filter: blur(12px);
-		-webkit-backdrop-filter: blur(12px);
-		border: none;
-		border-radius: 9999px;
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--white66);
-		cursor: pointer;
-		transition: transform 0.15s ease;
-	}
-	.show-less-btn:hover {
-		color: var(--white);
-		transform: scale(1.025);
-	}
-	.show-less-btn:active {
-		transform: scale(0.98);
 	}
 	.social-tabs-wrap {
 		margin-top: 16px;

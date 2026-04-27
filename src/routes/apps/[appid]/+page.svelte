@@ -1182,6 +1182,11 @@
 					Read More
 				</button>
 			{/if}
+			{#if descriptionExpanded}
+				<button type="button" class="read-more-btn read-less-btn" onclick={() => (descriptionExpanded = false)}>
+					Read less
+				</button>
+			{/if}
 		</div>
 
 		<!-- Info Panels -->
@@ -1586,7 +1591,7 @@
 													toggleReleaseNotesExpanded(releaseId);
 												}}
 											>
-												{notesExpanded ? 'Show less' : 'Read more'}
+												{notesExpanded ? 'Read less' : 'Read more'}
 											</button>
 										</div>
 									{:else}
@@ -2266,9 +2271,11 @@
 	}
 
 	.screenshot-img {
+		width: 100%;
 		height: 100%;
-		width: auto;
 		display: block;
+		object-fit: cover;
+		object-position: top center;
 		opacity: 0;
 		transition: opacity 0.2s ease;
 	}
@@ -2455,6 +2462,12 @@
 
 	.description-container .read-more-btn:active {
 		transform: scale(0.98);
+	}
+
+	/* Read less: shown below expanded content, not absolute-positioned */
+	.description-container .read-less-btn {
+		position: static;
+		margin-top: 10px;
 	}
 
 	/* Releases modal: single scroll (no nested scroll); content flows in modal-content */

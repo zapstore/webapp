@@ -280,21 +280,31 @@
 
 	.read-more-btn,
 	.read-more-hint {
-		display: block;
-		background: none;
+		display: inline-flex;
+		align-items: center;
+		margin-top: 8px;
+		height: 28px;
+		padding: 0 12px;
+		border-radius: 9999px;
+		background-color: var(--white8);
 		border: none;
-		padding: 0;
-		font-size: inherit;
-		color: var(--white33);
-		line-height: 1.5;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--white66);
+		line-height: 1;
 	}
 
 	.read-more-btn {
 		cursor: pointer;
+		transition: transform 0.15s ease;
 	}
 
 	.read-more-btn:hover {
-		color: color-mix(in srgb, var(--white) 55%, transparent);
+		transform: scale(1.02);
+	}
+
+	.read-more-btn:active {
+		transform: scale(0.98);
 	}
 
 	.read-more-hint {
