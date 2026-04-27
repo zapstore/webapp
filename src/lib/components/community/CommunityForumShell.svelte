@@ -8,17 +8,18 @@
 	import { page } from '$app/stores';
 	import { nip19 } from 'nostr-tools';
 	import {
-		fetchFromRelays,
-		fetchKind1111ReferencingEventIds,
-		fetchZapsByEventIds,
-		fetchProfilesBatch,
-		putEvents,
-		publishToRelays,
-		queryEvents,
-		liveQuery,
-		parseForumPost,
-		parseZapReceipt
-	} from '$lib/nostr';
+	fetchFromRelays,
+	fetchKind1111ReferencingEventIds,
+	fetchZapsByEventIds,
+	fetchProfilesBatch,
+	putEvents,
+	publishToRelays,
+	buildEventPublishRelayUrls,
+	queryEvents,
+	liveQuery,
+	parseForumPost,
+	parseZapReceipt
+} from '$lib/nostr';
 	import { parseProfile } from '$lib/nostr/models';
 	import {
 		EVENT_KINDS,
@@ -477,16 +478,25 @@
 		if (parsed) {
 			posts = [{ ...parsed, _raw: ev }, ...posts];
 		}
-		// Publish to forum relay so other browsers/devices see the post
-		publishError = '';
-		try {
-			await publishToRelays(RELAYS, ev);
-			setTimeout(() => syncForumFromRelay(), 1200);
-		} catch (err) {
-			console.error('[Community] Publish failed:', err);
-			const relayLabel = RELAYS[0] ?? 'relay';
-			publishError = `Post is saved here but could not reach the relay (${relayLabel}). Other browsers won't see it. Check the console for details or try again.`;
+	// Primary relay (awaited) — spinner clears here; mirrors comment publish behaviour.
+	publishError = '';
+	try {
+		await publishToRelays(RELAYS, ev);
+		setTimeout(() => syncForumFromRelay(), 1200);
+	} catch (err) {
+		console.error('[Community] Publish failed:', err);
+		const relayLabel = RELAYS[0] ?? 'relay';
+		publishError = `Post is saved here but could not reach the relay (${relayLabel}). Other browsers won't see it. Check the console for details or try again.`;
+	}
+	// Secondary relays (fire-and-forget) — social relays + signer's NIP-65 write relays (outbox).
+	// Same best-effort pattern used for comments; failures are silent.
+	void buildEventPublishRelayUrls(ev.pubkey, null).then((allUrls) => {
+		const primarySet = new Set(RELAYS);
+		const secondary = allUrls.filter((u) => !primarySet.has(u));
+		if (secondary.length > 0) {
+			void publishToRelays(secondary, ev).catch(() => {});
 		}
+	}).catch(() => {});
 	}
 
 	onMount(() => {

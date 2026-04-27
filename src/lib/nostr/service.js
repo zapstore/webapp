@@ -941,6 +941,17 @@ export async function fetchRecipientInboxRelayUrls(pubkey) {
  * @param {string[] | null | undefined} relayExtras - merged in after core relays (e.g. explicit `COMMENT_PUBLISH_RELAYS` from callers)
  * @returns {Promise<string[]>}
  */
+/**
+ * Zapstore + default social + optional caller extras + signer's NIP-65 write relays.
+ * Shared by `publishComment` and forum-post publish so both get the same relay spread.
+ * @param {string} signerPubkey
+ * @param {string[] | null | undefined} relayExtras
+ * @returns {Promise<string[]>}
+ */
+export async function buildEventPublishRelayUrls(signerPubkey, relayExtras) {
+	return buildCommentPublishRelayUrls(signerPubkey, relayExtras);
+}
+
 async function buildCommentPublishRelayUrls(signerPubkey, relayExtras) {
 	const ordered = [];
 	const seen = new Set();

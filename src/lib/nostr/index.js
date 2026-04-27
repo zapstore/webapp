@@ -36,6 +36,7 @@ export {
 	parseZapReceipt,
 	parseComment,
 	publishComment,
+	buildEventPublishRelayUrls,
 	publishAddressableLabel,
 	publishForumPostLabel,
 	publishTopicLabelOnEvent,
