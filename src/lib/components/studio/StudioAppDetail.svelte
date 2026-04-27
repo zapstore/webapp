@@ -593,7 +593,8 @@
 		padding: 20px 20px 40px;
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		/* 26px = same visual gap as Insights (padding-top:48px − button height:22px) without the dropdown */
+		gap: 26px;
 		border-top: 1px solid var(--white16);
 		/* Label-column width: slightly wider on desktop */
 		--label-col: clamp(56px, 26%, 140px);

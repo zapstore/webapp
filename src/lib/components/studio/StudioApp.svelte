@@ -56,6 +56,7 @@
 	let selectedImpTimeframe = $state('30 Days');
 	let countryDropdownOpen = $state(false);
 	let selectedCountryTimeframe = $state('30 Days');
+	let platformDropdownOpen = $state(false);
 	let zapDropdownOpen = $state(false);
 	let selectedZapTimeframe = $state('30 Days');
 	let mobileMenuOpen = $state(false);
@@ -63,7 +64,7 @@
 	/** Close insights timeframe menus on outside click (capture so chart hover does not eat it). */
 	$effect(() => {
 		if (!browser) return;
-		if (!dlDropdownOpen && !zapDropdownOpen && !impDropdownOpen && !countryDropdownOpen) return;
+		if (!dlDropdownOpen && !zapDropdownOpen && !impDropdownOpen && !countryDropdownOpen && !platformDropdownOpen) return;
 
 		const onPointerDown = (/** @type {PointerEvent} */ e) => {
 			const t = e.target;
@@ -75,6 +76,7 @@
 			if (zapDropdownOpen && id !== 'zap') zapDropdownOpen = false;
 			if (impDropdownOpen && id !== 'imp') impDropdownOpen = false;
 			if (countryDropdownOpen && id !== 'country') countryDropdownOpen = false;
+			if (platformDropdownOpen && id !== 'platform') platformDropdownOpen = false;
 		};
 
 		document.addEventListener('pointerdown', onPointerDown, true);
@@ -1045,19 +1047,53 @@
 			<section class="content-section country-section">
 				<div class="section-head country-section-head">
 					<span class="eyebrow-label country-section-title">By platform</span>
-					<div class="country-head-legend">
-						<span class="country-legend-item">
-							<span class="country-legend-icon-wrap">
-								<ImpressionIcon size={14} />
+					<div class="country-section-head-right">
+						<div class="country-head-legend">
+							<span class="country-legend-item">
+								<span class="country-legend-icon-wrap">
+									<ImpressionIcon size={14} />
+								</span>
+								<span class="country-legend-text">Impressions</span>
 							</span>
-							<span class="country-legend-text">Impressions</span>
-						</span>
-						<span class="country-legend-item">
-							<span class="country-legend-icon-wrap">
-								<DownloadIcon size={14} color="var(--blurpleColor66)" strokeWidth={1.4} />
+							<span class="country-legend-item">
+								<span class="country-legend-icon-wrap">
+									<DownloadIcon size={14} color="var(--blurpleColor66)" strokeWidth={1.4} />
+								</span>
+								<span class="country-legend-text">Downloads</span>
 							</span>
-							<span class="country-legend-text">Downloads</span>
-						</span>
+						</div>
+						<div class="timerange-wrap" data-studio-dropdown="platform">
+							<button
+								class="timerange-btn"
+								onclick={() => (platformDropdownOpen = !platformDropdownOpen)}
+							>
+								<span class="eyebrow-label tr-label">{selectedCountryTimeframe}</span>
+								<span class="chevron-wrap">
+									<ChevronDownIcon
+										variant="outline"
+										color="var(--white16)"
+										size={12}
+										strokeWidth={1.4}
+									/>
+								</span>
+							</button>
+							{#if platformDropdownOpen}
+								<div class="tr-dropdown">
+									{#each timeframes as tf (tf)}
+										<button
+											class="tr-option"
+											class:tr-selected={tf === selectedCountryTimeframe}
+											onclick={() => {
+												selectedCountryTimeframe = tf;
+												platformDropdownOpen = false;
+											}}
+										>
+											{tf}
+										</button>
+									{/each}
+								</div>
+							{/if}
+						</div>
 					</div>
 				</div>
 				<div class="chart-area country-chart-wrap">
