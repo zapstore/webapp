@@ -161,6 +161,14 @@
 	});
 
 	$effect(() => {
+		if (!browser) return;
+		const link = document.querySelector("link[rel='icon']");
+		if (link) {
+			link.href = headerInboxShowDot ? '/favicon-inbox.ico' : '/favicon.ico';
+		}
+	});
+
+	$effect(() => {
 		const pk = getCurrentPubkey();
 		if (!pk) {
 			currentUserProfile = null;
