@@ -11,12 +11,14 @@
 	import StudioAppEdit from './StudioAppEdit.svelte';
 	import StudioAppActivity from './StudioAppActivity.svelte';
 	import StudioCountryChart from './StudioCountryChart.svelte';
+	import StudioPlatformChart from './StudioPlatformChart.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import {
 		DUMMY_MODE,
 		TEST_PUBKEY,
 		DUMMY_APPS,
 		DUMMY_COUNTRY_ROWS,
+		DUMMY_PLATFORM_ROWS,
 		DL_SEEDS,
 		ZAP_SEEDS,
 		IMP_SEEDS,
@@ -37,6 +39,8 @@
 		fetchImpressions,
 		loadCountryBreakdown,
 		loadCountryBreakdownForApp,
+		loadPlatformBreakdown,
+		loadPlatformBreakdownForApp,
 		loadDownloadAppData,
 		mapImpressionRowsToAppData,
 		npubToHex,
@@ -83,17 +87,22 @@
 	/** App detail: country breakdown async generation (separate from overview). */
 	let detailCountryGen = 0;
 
+	/** App detail: platform breakdown async generation (separate from overview). */
+	let detailPlatformGen = 0;
+
 	/** Last completed analytics window per series — avoid refetch + skeleton when another chart’s timeframe changes. */
 	let prevStudioImpDays = $state(-1);
 	let prevStudioDlDays = $state(-1);
 	let prevStudioZapDays = $state(-1);
 	let prevStudioCountryDays = $state(-1);
+	let prevStudioPlatformDays = $state(-1);
 
-	/** Per-chart loading so slow impressions/downloads/zaps/country API do not block each other’s UI. */
+	/** Per-chart loading so slow impressions/downloads/zaps/country/platform API do not block each other’s UI. */
 	let impChartLoading = $state(!DUMMY_MODE);
 	let dlChartLoading = $state(!DUMMY_MODE);
 	let zapChartLoading = $state(!DUMMY_MODE);
 	let countryChartLoading = $state(!DUMMY_MODE);
+	let platformChartLoading = $state(!DUMMY_MODE);
 
 	const timeframes = ['7 Days', '30 Days', '90 Days', '1 Year'];
 
@@ -126,8 +135,11 @@
 	let zapAppData = $state(DUMMY_MODE ? buildDummyAppData(ZAP_SEEDS) : null);
 	let impAppData = $state(DUMMY_MODE ? buildDummyAppData(IMP_SEEDS) : null);
 	let countryRows = $state([...(DUMMY_MODE ? DUMMY_COUNTRY_ROWS : [])]);
+	let platformRows = $state([...(DUMMY_MODE ? DUMMY_PLATFORM_ROWS : [])]);
 	let detailCountryRows = $state([]);
 	let detailCountryLoading = $state(false);
+	let detailPlatformRows = $state([]);
+	let detailPlatformLoading = $state(false);
 
 	const dlInsightDays = $derived(timeframeToDays(selectedDlTimeframe));
 	const impInsightDays = $derived(timeframeToDays(selectedImpTimeframe));
@@ -227,6 +239,49 @@
 		})();
 	});
 
+	// ── App detail: platform breakdown for selected app (same date range as country detail) ──
+	$effect(() => {
+		if (DUMMY_MODE) {
+			detailPlatformRows = selectedApp ? [...DUMMY_PLATFORM_ROWS] : [];
+			detailPlatformLoading = false;
+			return;
+		}
+		selectedApp;
+		selectedImpTimeframe;
+		studioPubkey;
+		userApps;
+
+		detailPlatformGen += 1;
+		const gen = detailPlatformGen;
+		const app = selectedApp;
+		const pk = studioPubkey;
+
+		if (!app || !pk || userApps.length === 0) {
+			detailPlatformRows = [];
+			detailPlatformLoading = false;
+			return;
+		}
+
+		detailPlatformLoading = true;
+		const days = timeframeToDays(selectedImpTimeframe);
+		const range = buildIsoDateRange(days);
+
+		void (async () => {
+			try {
+				const hashMap = await collectBlobHashesForDeveloper(pk, userApps);
+				if (gen !== detailPlatformGen) return;
+				const rows = await loadPlatformBreakdownForApp(pk, range, app, hashMap);
+				if (gen !== detailPlatformGen) return;
+				detailPlatformRows = rows;
+			} catch (e) {
+				console.warn('[Studio] app detail platform breakdown failed:', e);
+				if (gen === detailPlatformGen) detailPlatformRows = [];
+			} finally {
+				if (gen === detailPlatformGen) detailPlatformLoading = false;
+			}
+		})();
+	});
+
 	/** TEST_PUBKEY or NIP-07 hex pubkey (lowercase). No extension required when TEST_PUBKEY is set. */
 	async function resolveStudioPubkeyHex() {
 		const raw = TEST_PUBKEY == null || TEST_PUBKEY === '' ? '' : String(TEST_PUBKEY).trim();
@@ -275,14 +330,17 @@
 			dlAppData = null;
 			zapAppData = null;
 			countryRows = [];
+			platformRows = [];
 			impChartLoading = false;
 			dlChartLoading = false;
 			zapChartLoading = false;
 			countryChartLoading = false;
+			platformChartLoading = false;
 			prevStudioImpDays = -1;
 			prevStudioDlDays = -1;
 			prevStudioZapDays = -1;
 			prevStudioCountryDays = -1;
+			prevStudioPlatformDays = -1;
 			return;
 		}
 
@@ -348,14 +406,17 @@
 			dlAppData = null;
 			zapAppData = null;
 			countryRows = [];
+			platformRows = [];
 			impChartLoading = false;
 			dlChartLoading = false;
 			zapChartLoading = false;
 			countryChartLoading = false;
+			platformChartLoading = false;
 			prevStudioImpDays = -1;
 			prevStudioDlDays = -1;
 			prevStudioZapDays = -1;
 			prevStudioCountryDays = -1;
+			prevStudioPlatformDays = -1;
 			return;
 		}
 
@@ -363,11 +424,14 @@
 		const needDl = dlDays !== prevStudioDlDays;
 		const needZap = zapDays !== prevStudioZapDays;
 		const needCountry = countryDays !== prevStudioCountryDays;
+		const needPlatform = countryDays !== prevStudioPlatformDays;
 
 		if (needImp) impChartLoading = true;
 		else impChartLoading = false;
 		if (needCountry) countryChartLoading = true;
 		else countryChartLoading = false;
+		if (needPlatform) platformChartLoading = true;
+		else platformChartLoading = false;
 		if (needDl) dlChartLoading = true;
 		else dlChartLoading = false;
 		if (needZap) zapChartLoading = true;
@@ -379,6 +443,7 @@
 		if (needDl) void dlFlow(gen, dlDays, hashPromise);
 		if (needZap) void zapFlow(gen, catalogPubkey, zapDays);
 		if (needCountry) void countryFlow(gen, catalogPubkey, countryDays, countryRange, hashPromise);
+		if (needPlatform) void platformFlow(gen, catalogPubkey, countryDays, countryRange, hashPromise);
 	}
 
 	/**
@@ -487,6 +552,30 @@
 			if (!studioLoadStale(gen)) {
 				countryChartLoading = false;
 				prevStudioCountryDays = countryDays;
+			}
+		}
+	}
+
+	/**
+	 * @param {number} gen
+	 * @param {string} pubkey
+	 * @param {number} platformDays
+	 * @param {{ from: string, to: string }} platformRange
+	 * @param {Promise<Map<string, string>>} hashPromise
+	 */
+	async function platformFlow(gen, pubkey, platformDays, platformRange, hashPromise) {
+		try {
+			const hashMap = await hashPromise;
+			if (studioLoadStale(gen)) return;
+			const rows = await loadPlatformBreakdown(pubkey, platformRange, hashMap);
+			if (!studioLoadStale(gen)) platformRows = rows;
+		} catch (err) {
+			console.warn('[Studio] platform breakdown failed:', err);
+			if (!studioLoadStale(gen)) platformRows = [];
+		} finally {
+			if (!studioLoadStale(gen)) {
+				platformChartLoading = false;
+				prevStudioPlatformDays = platformDays;
 			}
 		}
 	}
@@ -753,9 +842,11 @@
 						dlMetricsLoading={!DUMMY_MODE && dlChartLoading}
 						zapMetricsLoading={!DUMMY_MODE && zapChartLoading}
 						impMetricsLoading={!DUMMY_MODE && impChartLoading}
-						countryRows={detailCountryRows}
-						countryLoading={!DUMMY_MODE && detailCountryLoading}
-						onBack={() => (selectedApp = null)}
+					countryRows={detailCountryRows}
+					countryLoading={!DUMMY_MODE && detailCountryLoading}
+					platformRows={detailPlatformRows}
+					platformLoading={!DUMMY_MODE && detailPlatformLoading}
+					onBack={() => (selectedApp = null)}
 						onEdit={() => (editingApp = true)}
 					/>
 				</div>
@@ -950,10 +1041,36 @@
 					</div>
 				</section>
 
-				<section class="content-section country-section">
-					<div class="section-head country-section-head">
-						<div class="country-head-start">
-							<span class="eyebrow-label country-section-title">By country</span>
+			<!-- Platform breakdown — shares the country timeframe dropdown -->
+			<section class="content-section country-section">
+				<div class="section-head country-section-head">
+					<div class="country-head-start">
+						<span class="eyebrow-label country-section-title">By platform</span>
+						<div class="country-head-legend">
+							<span class="country-legend-item">
+								<span class="country-legend-icon-wrap">
+									<ImpressionIcon size={14} />
+								</span>
+								<span class="country-legend-text">Impressions</span>
+							</span>
+							<span class="country-legend-item">
+								<span class="country-legend-icon-wrap">
+									<DownloadIcon size={14} color="var(--blurpleColor66)" strokeWidth={1.4} />
+								</span>
+								<span class="country-legend-text">Downloads</span>
+							</span>
+						</div>
+					</div>
+				</div>
+				<div class="chart-area country-chart-wrap">
+					<StudioPlatformChart rows={platformRows} loading={!DUMMY_MODE && platformChartLoading} />
+				</div>
+			</section>
+
+			<section class="content-section country-section">
+				<div class="section-head country-section-head">
+					<div class="country-head-start">
+						<span class="eyebrow-label country-section-title">By country</span>
 							<div class="country-head-legend">
 								<span class="country-legend-item">
 									<span class="country-legend-icon-wrap">

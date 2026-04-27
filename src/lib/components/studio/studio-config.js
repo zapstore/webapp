@@ -95,6 +95,12 @@ export const IMP_SEEDS = [
 	{ seed: 7.3, base: 110, amp: 80 }
 ];
 
+/** Demo rows for the platform breakdown chart (DUMMY_MODE only). */
+export const DUMMY_PLATFORM_ROWS = [
+	{ source: 'app', label: 'App', impressions: 18_200, downloads: 1_420 },
+	{ source: 'web', label: 'Web', impressions: 3_400, downloads: 160 }
+];
+
 /** Demo rows for the country breakdown chart (DUMMY_MODE only). */
 export const DUMMY_COUNTRY_ROWS = [
 	{ countryKey: 'US', label: 'United States', impressions: 12_400, downloads: 920 },

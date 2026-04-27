@@ -47,6 +47,31 @@ $effect(() => {
 	document.addEventListener('click', handleClick, true);
 	return () => document.removeEventListener('click', handleClick, true);
 });
+
+/**
+ * Fetch an APK from the Blossom CDN with the X-Zapstore-Client header so the
+ * relay backend can record this download as originating from the web client.
+ * Falls back to a plain navigation if fetch fails (e.g. large file / CORS edge).
+ * @param {string} url
+ */
+async function handleDirectDownload(url) {
+	downloadDropdownOpen = false;
+	const filename = url.split('/').pop() || 'app.apk';
+	try {
+		const response = await fetch(url, { headers: { 'X-Zapstore-Client': 'web' } });
+		const blob = await response.blob();
+		const objectUrl = window.URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = objectUrl;
+		a.download = filename;
+		document.body.appendChild(a);
+		a.click();
+		window.URL.revokeObjectURL(objectUrl);
+		document.body.removeChild(a);
+	} catch {
+		window.location.href = url;
+	}
+}
 </script>
 
 <article class="app-detail">
@@ -124,21 +149,19 @@ $effect(() => {
 									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
 								</button>
 							{/if}
-							{#if directDownloadUrl}
-								<a
-									href={directDownloadUrl}
-									class="dropdown-item dropdown-item--stacked"
-									role="menuitem"
-									download
-									onclick={() => { downloadDropdownOpen = false; }}
-								>
-									<span class="dropdown-item-body">
-										<span class="dropdown-item-title">Direct Download</span>
-										<span class="dropdown-item-desc">Get the {app.name} APK directly</span>
-									</span>
-									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-								</a>
-							{/if}
+						{#if directDownloadUrl}
+							<button
+								class="dropdown-item dropdown-item--stacked"
+								role="menuitem"
+								onclick={() => handleDirectDownload(directDownloadUrl)}
+							>
+								<span class="dropdown-item-body">
+									<span class="dropdown-item-title">Direct Download</span>
+									<span class="dropdown-item-desc">Get the {app.name} APK directly</span>
+								</span>
+								<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+							</button>
+						{/if}
 						</DropdownMenu>
 					{/if}
 				</div>

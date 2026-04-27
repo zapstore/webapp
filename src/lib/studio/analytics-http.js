@@ -17,6 +17,7 @@ import { nip19 } from 'nostr-tools';
 /** @typedef {{ app_id?: string, pubkey?: string, day?: string, source?: string, type?: string, country?: string, count: number }} ImpressionRow */
 /** @typedef {{ hash?: string, day?: string, source?: string, country?: string, count: number }} DownloadRow */
 /** @typedef {{ countryKey: string, label: string, impressions: number, downloads: number }} CountryBreakdownRow */
+/** @typedef {{ source: string, label: string, impressions: number, downloads: number }} PlatformBreakdownRow */
 /** @typedef {{ day: string, reqs?: number, filters?: number, events?: number }} RelayMetricRow */
 /** @typedef {{ day: string, checks?: number, downloads?: number, uploads?: number }} BlossomMetricRow */
 
@@ -142,7 +143,10 @@ function normalizeDownloadRow(row) {
 	const countryRaw = r.country ?? r.country_code ?? r.countryCode;
 	const country =
 		countryRaw != null && String(countryRaw).trim() !== '' ? String(countryRaw).trim() : undefined;
-	return { hash, day: typeof day === 'string' ? day : undefined, country, count };
+	const sourceRaw = r.source;
+	const source =
+		sourceRaw != null && String(sourceRaw).trim() !== '' ? String(sourceRaw).trim() : undefined;
+	return { hash, day: typeof day === 'string' ? day : undefined, source, country, count };
 }
 
 async function parseDownloadsResponse(res) {
@@ -173,10 +177,14 @@ function normalizeImpressionRow(row) {
 	const countryRaw = r.country ?? r.country_code ?? r.countryCode;
 	const country =
 		countryRaw != null && String(countryRaw).trim() !== '' ? String(countryRaw).trim() : undefined;
+	const sourceRaw = r.source ?? r.type;
+	const source =
+		sourceRaw != null && String(sourceRaw).trim() !== '' ? String(sourceRaw).trim() : undefined;
 	return {
 		app_id: app_id != null ? String(app_id) : undefined,
 		pubkey: r.pubkey != null ? String(r.pubkey) : undefined,
 		day: typeof day === 'string' ? day : undefined,
+		source,
 		country,
 		count
 	};
@@ -445,6 +453,178 @@ export async function loadDownloadAppData(apps, hashToAppDTag, range, days) {
 	});
 }
 
+// ============================================================================
+// Platform breakdown helpers
+// ============================================================================
+
+const KNOWN_SOURCES = ['web', 'app'];
+
+/** @param {string} source */
+function platformLabel(source) {
+	switch (String(source ?? '').toLowerCase()) {
+		case 'web': return 'Web';
+		case 'app': return 'App';
+		default: return 'Unknown';
+	}
+}
+
+/** Lower = earlier in sorted list. */
+function platformOrder(source) {
+	switch (String(source ?? '').toLowerCase()) {
+		case 'app': return 0;
+		case 'web': return 1;
+		default: return 2;
+	}
+}
+
+/** Normalise any raw source value to a canonical bucket key. */
+function sourceBucketKey(raw) {
+	const s = String(raw ?? '').trim().toLowerCase();
+	return KNOWN_SOURCES.includes(s) ? s : 'unknown';
+}
+
+/**
+ * Platform breakdown (web / app / unknown) across all apps for the publisher.
+ * Impressions: `group_by=source`. Downloads: `group_by=source` per blob hash.
+ *
+ * @param {string} pubkeyHex
+ * @param {{ from: string, to: string }} range
+ * @param {Map<string, string>} hashToAppDTag
+ * @returns {Promise<PlatformBreakdownRow[]>}
+ */
+export async function loadPlatformBreakdown(pubkeyHex, range, hashToAppDTag) {
+	/** @type {Map<string, number>} */
+	const impressionsBy = new Map();
+	/** @type {Map<string, number>} */
+	const downloadsBy = new Map();
+
+	try {
+		const impRows = await fetchImpressions(pubkeyHex, { ...range, groupBy: 'source' });
+		for (const row of impRows) {
+			const norm = normalizeImpressionRow(row);
+			if (!norm) continue;
+			const k = sourceBucketKey(norm.source);
+			impressionsBy.set(k, (impressionsBy.get(k) ?? 0) + (Number(norm.count) || 0));
+		}
+	} catch (e) {
+		const msg = e instanceof Error ? e.message : String(e);
+		if (msg !== 'ANALYTICS_HTTP_DISABLED') console.warn('[Studio] impressions by source failed:', e);
+	}
+
+	const hashes = [...hashToAppDTag.keys()];
+	await Promise.all(
+		hashes.map(async (hash) => {
+			if (!hashToAppDTag.get(hash)) return;
+			try {
+				const rows = await fetchDownloadsForHash(hash, { ...range, groupBy: 'source' });
+				for (const row of rows) {
+					const norm = normalizeDownloadRow(row);
+					if (!norm) continue;
+					const k = sourceBucketKey(norm.source);
+					downloadsBy.set(k, (downloadsBy.get(k) ?? 0) + (Number(norm.count) || 0));
+				}
+			} catch (e) {
+				const msg = e instanceof Error ? e.message : String(e);
+				if (msg !== 'ANALYTICS_HTTP_DISABLED')
+					console.warn(`[Studio] downloads by source failed (${hash}):`, e);
+			}
+		})
+	);
+
+	const keys = new Set([...impressionsBy.keys(), ...downloadsBy.keys()]);
+	/** @type {PlatformBreakdownRow[]} */
+	const combined = [...keys]
+		.map((source) => ({
+			source,
+			label: platformLabel(source),
+			impressions: impressionsBy.get(source) ?? 0,
+			downloads: downloadsBy.get(source) ?? 0
+		}))
+		.filter((r) => r.impressions > 0 || r.downloads > 0);
+	combined.sort(
+		(a, b) =>
+			b.downloads - a.downloads ||
+			b.impressions - a.impressions ||
+			platformOrder(a.source) - platformOrder(b.source)
+	);
+	return combined;
+}
+
+/**
+ * Platform breakdown for a single app (d-tag).
+ * Impressions: `group_by=app_id,source`. Downloads: only hashes mapped to that app.
+ *
+ * @param {string} pubkeyHex
+ * @param {{ from: string, to: string }} range
+ * @param {{ id: string }} app
+ * @param {Map<string, string>} hashToAppDTag
+ * @returns {Promise<PlatformBreakdownRow[]>}
+ */
+export async function loadPlatformBreakdownForApp(pubkeyHex, range, app, hashToAppDTag) {
+	const apps = [{ id: app.id }];
+	const dtagLower = app.id.toLowerCase();
+
+	/** @type {Map<string, number>} */
+	const impressionsBy = new Map();
+	try {
+		const impRows = await fetchImpressions(pubkeyHex, { ...range, groupBy: 'app_id,source' });
+		for (const row of impRows) {
+			const norm = normalizeImpressionRow(row);
+			if (!norm) continue;
+			const rowDtag = norm.app_id ? resolveRowAppIdToDTag(norm.app_id, apps) : null;
+			if (!rowDtag || rowDtag !== dtagLower) continue;
+			const k = sourceBucketKey(norm.source);
+			impressionsBy.set(k, (impressionsBy.get(k) ?? 0) + (Number(norm.count) || 0));
+		}
+	} catch (e) {
+		const msg = e instanceof Error ? e.message : String(e);
+		if (msg !== 'ANALYTICS_HTTP_DISABLED')
+			console.warn('[Studio] impressions by app+source failed:', e);
+	}
+
+	/** @type {Map<string, number>} */
+	const downloadsBy = new Map();
+	const hashes = [...hashToAppDTag.entries()]
+		.filter(([, dtag]) => String(dtag).toLowerCase() === dtagLower)
+		.map(([h]) => h);
+
+	await Promise.all(
+		hashes.map(async (hash) => {
+			try {
+				const rows = await fetchDownloadsForHash(hash, { ...range, groupBy: 'source' });
+				for (const row of rows) {
+					const norm = normalizeDownloadRow(row);
+					if (!norm) continue;
+					const k = sourceBucketKey(norm.source);
+					downloadsBy.set(k, (downloadsBy.get(k) ?? 0) + (Number(norm.count) || 0));
+				}
+			} catch (e) {
+				const msg = e instanceof Error ? e.message : String(e);
+				if (msg !== 'ANALYTICS_HTTP_DISABLED')
+					console.warn(`[Studio] downloads by source failed (${hash}):`, e);
+			}
+		})
+	);
+
+	const keys = new Set([...impressionsBy.keys(), ...downloadsBy.keys()]);
+	/** @type {PlatformBreakdownRow[]} */
+	const combined = [...keys]
+		.map((source) => ({
+			source,
+			label: platformLabel(source),
+			impressions: impressionsBy.get(source) ?? 0,
+			downloads: downloadsBy.get(source) ?? 0
+		}))
+		.filter((r) => r.impressions > 0 || r.downloads > 0);
+	combined.sort(
+		(a, b) =>
+			b.downloads - a.downloads ||
+			b.impressions - a.impressions ||
+			platformOrder(a.source) - platformOrder(b.source)
+	);
+	return combined;
+}
+
 const UNKNOWN_COUNTRY = '__unknown__';
 
 /** @param {string | undefined} raw */
@@ -531,9 +711,7 @@ export async function loadCountryBreakdown(pubkeyHex, range, hashToAppDTag, topN
 			downloads: downloadsBy.get(countryKey) ?? 0
 		}))
 		.filter((r) => r.impressions > 0 || r.downloads > 0);
-	combined.sort(
-		(a, b) => b.impressions + b.downloads - (a.impressions + a.downloads)
-	);
+	combined.sort((a, b) => b.downloads - a.downloads || b.impressions - a.impressions);
 	return combined.slice(0, topN);
 }
 
@@ -608,8 +786,6 @@ export async function loadCountryBreakdownForApp(pubkeyHex, range, app, hashToAp
 			downloads: downloadsBy.get(countryKey) ?? 0
 		}))
 		.filter((r) => r.impressions > 0 || r.downloads > 0);
-	combined.sort(
-		(a, b) => b.impressions + b.downloads - (a.impressions + a.downloads)
-	);
+	combined.sort((a, b) => b.downloads - a.downloads || b.impressions - a.impressions);
 	return combined.slice(0, topN);
 }

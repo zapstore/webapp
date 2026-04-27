@@ -257,6 +257,31 @@
 		directDownloadUrl = null;
 		if (release) void resolveDirectDownloadUrl(release);
 	});
+	/**
+	 * Fetch an APK from the Blossom CDN with the X-Zapstore-Client header so the
+	 * relay backend records this download as originating from the web client.
+	 * Falls back to a plain navigation if fetch fails.
+	 * @param {string} url
+	 */
+	async function handleDirectDownload(url) {
+		downloadDropdownOpen = false;
+		const filename = url.split('/').pop() || 'app.apk';
+		try {
+			const response = await fetch(url, { headers: { 'X-Zapstore-Client': 'web' } });
+			const blob = await response.blob();
+			const objectUrl = window.URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = objectUrl;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			window.URL.revokeObjectURL(objectUrl);
+			document.body.removeChild(a);
+		} catch {
+			window.location.href = url;
+		}
+	}
+
 	function handleSpinComplete() {
 		spinKeyModalOpen = false;
 		setTimeout(() => {
@@ -1218,14 +1243,10 @@
 										>
 									</button>
 									{#if directDownloadUrl}
-										<a
-											href={directDownloadUrl}
+										<button
 											class="dropdown-item dropdown-item--stacked"
 											role="menuitem"
-											download
-											onclick={() => {
-												downloadDropdownOpen = false;
-											}}
+											onclick={() => handleDirectDownload(directDownloadUrl)}
 										>
 											<span class="dropdown-item-body">
 												<span class="dropdown-item-title">Direct Download</span>
@@ -1239,7 +1260,7 @@
 													color="var(--white33)"
 												/></span
 											>
-										</a>
+										</button>
 									{/if}
 								</DropdownMenu>
 							{/if}
@@ -1340,14 +1361,10 @@
 										>
 									</button>
 									{#if directDownloadUrl}
-										<a
-											href={directDownloadUrl}
+										<button
 											class="dropdown-item dropdown-item--stacked"
 											role="menuitem"
-											download
-											onclick={() => {
-												downloadDropdownOpen = false;
-											}}
+											onclick={() => handleDirectDownload(directDownloadUrl)}
 										>
 											<span class="dropdown-item-body">
 												<span class="dropdown-item-title">Direct Download</span>
@@ -1361,7 +1378,7 @@
 													color="var(--white33)"
 												/></span
 											>
-										</a>
+										</button>
 									{/if}
 								</DropdownMenu>
 							{/if}

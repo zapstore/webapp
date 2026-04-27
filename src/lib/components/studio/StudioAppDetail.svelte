@@ -10,6 +10,7 @@
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import StudioCountryChart from './StudioCountryChart.svelte';
+	import StudioPlatformChart from './StudioPlatformChart.svelte';
 	import { timeframeToDays } from '$lib/studio/analytics-http.js';
 
 	let {
@@ -27,11 +28,15 @@
 		zapMetricsLoading = false,
 		/** While parent refetches impressions */
 		impMetricsLoading = false,
-		/** Per-app country breakdown rows (from parent) */
-		countryRows = [],
-		/** While parent loads country breakdown for this app */
-		countryLoading = false,
-		onBack: _onBack,
+	/** Per-app country breakdown rows (from parent) */
+	countryRows = [],
+	/** While parent loads country breakdown for this app */
+	countryLoading = false,
+	/** Per-app platform breakdown rows (from parent) */
+	platformRows = [],
+	/** While parent loads platform breakdown for this app */
+	platformLoading = false,
+	onBack: _onBack,
 		onEdit = () => {}
 	} = $props();
 
@@ -312,6 +317,30 @@
 				appData={combinedAppData}
 				loading={detailChartLoading}
 			/>
+		</div>
+	</section>
+
+	<!-- Platform breakdown (same date range as header / charts) -->
+	<section class="detail-country-section">
+		<div class="detail-country-head">
+			<span class="eyebrow-label detail-country-title">By platform</span>
+			<div class="detail-country-legend">
+				<span class="detail-legend-item">
+					<span class="detail-legend-icon-wrap">
+						<ImpressionIcon size={14} />
+					</span>
+					<span class="detail-legend-text">Impressions</span>
+				</span>
+				<span class="detail-legend-item">
+					<span class="detail-legend-icon-wrap">
+						<DownloadIcon size={14} color="var(--blurpleColor66)" strokeWidth={1.4} />
+					</span>
+					<span class="detail-legend-text">Downloads</span>
+				</span>
+			</div>
+		</div>
+		<div class="detail-country-chart-wrap">
+			<StudioPlatformChart rows={platformRows} loading={platformLoading} />
 		</div>
 	</section>
 

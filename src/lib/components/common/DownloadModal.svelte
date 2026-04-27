@@ -61,7 +61,7 @@
 	async function downloadApk() {
 		downloading = true;
 		try {
-			const response = await fetch(ZAPSTORE_APK_URL);
+			const response = await fetch(ZAPSTORE_APK_URL, { headers: { 'X-Zapstore-Client': 'web' } });
 			const blob = await response.blob();
 			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement('a');
@@ -81,7 +81,7 @@
 	async function downloadZapstoreStep1() {
 		step1Downloading = true;
 		try {
-			const response = await fetch(ZAPSTORE_APK_URL);
+			const response = await fetch(ZAPSTORE_APK_URL, { headers: { 'X-Zapstore-Client': 'web' } });
 			const blob = await response.blob();
 			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement('a');
