@@ -14,6 +14,7 @@
 	import PlatformSelector from './PlatformSelector.svelte';
 	import AppPic from './AppPic.svelte';
 	import Modal from './Modal.svelte';
+	import SkeletonLoader from './SkeletonLoader.svelte';
 	/** @typedef {import("$lib/nostr/models").App} AppModel */
 
 	/** @type {boolean} */
@@ -35,6 +36,10 @@
 	let downloading = false;
 	let step1Downloading = false;
 	let linkCopied = false;
+
+	let zapstoreQrLoaded = false;
+	let step1QrLoaded = false;
+	let step2QrLoaded = false;
 
 	// iOS waitlist state (only for Zapstore)
 	let iosWaitlistStatus = 'idle';
@@ -194,13 +199,21 @@
 						class="flex items-stretch rounded-xl bg-white/5 border border-border/30 overflow-hidden"
 					>
 						<!-- QR Code - Hidden on mobile -->
-						<div class="hidden md:flex flex-col items-center gap-5 pt-5 pb-4 px-5">
-							<img
-								src={`${assets}/images/qr.png`}
-								alt="QR code to download Zapstore"
-								class="w-32 h-32 rounded-lg border border-border/40 bg-white p-1"
-								loading="lazy"
-							/>
+						<div class="hidden md:flex flex-col items-center gap-3 p-4">
+							<div class="relative w-36 h-36 flex-shrink-0">
+								{#if !zapstoreQrLoaded}
+									<div class="absolute inset-0 rounded-md overflow-hidden bg-neutral-200">
+										<SkeletonLoader />
+									</div>
+								{/if}
+								<img
+									src={`${assets}/images/qr.png`}
+									alt="QR code to download Zapstore"
+									class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"
+									loading="lazy"
+									on:load={() => (zapstoreQrLoaded = true)}
+								/>
+							</div>
 							<button
 								type="button"
 								class="flex items-center gap-2 regular14 text-muted-foreground hover:text-foreground transition-colors"
@@ -427,15 +440,23 @@
 				</div>
 				<!-- QR + description -->
 				<div class="flex items-stretch">
-					<div class="hidden md:flex flex-col items-center justify-center pt-5 pb-5 px-5">
-						<img
-							src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&bgcolor=ffffff&color=000000&data={encodeURIComponent(
-								ZAPSTORE_APK_URL
-							)}"
-							alt="QR code to download Zapstore"
-							class="w-[7.5rem] h-[7.5rem] rounded-lg border border-border/40 bg-white p-1"
-							loading="lazy"
-						/>
+					<div class="hidden md:flex flex-col items-center justify-center p-4">
+						<div class="relative w-36 h-36 flex-shrink-0">
+							{#if !step1QrLoaded}
+								<div class="absolute inset-0 rounded-md overflow-hidden bg-neutral-200">
+									<SkeletonLoader />
+								</div>
+							{/if}
+							<img
+								src="https://api.qrserver.com/v1/create-qr-code/?size=144x144&bgcolor=ffffff&color=000000&data={encodeURIComponent(
+									ZAPSTORE_APK_URL
+								)}"
+								alt="QR code to download Zapstore"
+								class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"
+								loading="lazy"
+								on:load={() => (step1QrLoaded = true)}
+							/>
+						</div>
 					</div>
 					<div
 						class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"
@@ -475,15 +496,23 @@
 				</div>
 				<!-- QR + description -->
 				<div class="flex items-stretch">
-					<div class="hidden md:flex flex-col items-center justify-center pt-5 pb-5 px-5">
-						<img
-							src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&bgcolor=ffffff&color=000000&data={encodeURIComponent(
-								appDeepLink
-							)}"
-							alt="QR code to open {app?.name} in Zapstore"
-							class="w-[7.5rem] h-[7.5rem] rounded-lg border border-border/40 bg-white p-1"
-							loading="lazy"
-						/>
+					<div class="hidden md:flex flex-col items-center justify-center p-4">
+						<div class="relative w-36 h-36 flex-shrink-0">
+							{#if !step2QrLoaded}
+								<div class="absolute inset-0 rounded-md overflow-hidden bg-neutral-200">
+									<SkeletonLoader />
+								</div>
+							{/if}
+							<img
+								src="https://api.qrserver.com/v1/create-qr-code/?size=144x144&bgcolor=ffffff&color=000000&data={encodeURIComponent(
+									appDeepLink
+								)}"
+								alt="QR code to open {app?.name} in Zapstore"
+								class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"
+								loading="lazy"
+								on:load={() => (step2QrLoaded = true)}
+							/>
+						</div>
 					</div>
 					<div
 						class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"

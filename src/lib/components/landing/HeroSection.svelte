@@ -235,7 +235,7 @@
 			class="hero-description mx-auto mt-2 sm:mt-8 mb-10"
 			style="color: var(--white66);"
 		>
-			Published by their developers.<br class="sm:hidden" /> Curated by communities.
+			<span class="sm:hidden">Published by their developers.<br /> Curated by communities.</span><span class="hidden sm:inline">Published by developers. Curated by communities.</span>
 		</p>
 
 		<!-- Browse CTA: stacked app pics + glass pill -->
@@ -309,6 +309,11 @@
 	@media (min-width: 640px) {
 		.hero-divider {
 			display: none;
+		}
+		.hero-description {
+			font-size: 24px;
+			line-height: 2.5rem;
+			margin-bottom: 36px;
 		}
 	}
 

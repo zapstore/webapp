@@ -747,7 +747,7 @@ function handleRootContextNav(e) {
               <img src={rootContext.iconUrl} alt="" class="thread-root-context-icon" />
             {/if}
             <span class="thread-root-context-label">{rootContext.label}</span>
-            <svg class="thread-root-context-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg class="thread-root-context-chevron" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </a>
