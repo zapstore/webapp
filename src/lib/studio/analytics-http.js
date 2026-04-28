@@ -236,8 +236,9 @@ function buildProxyUrl(subpath, query) {
  * @returns {Promise<ImpressionRow[]>}
  */
 export async function fetchImpressions(pubkeyHex, range) {
-	const url = buildProxyUrl('v1/impressions', {
-		pubkey: pubkeyHex,
+  const url = buildProxyUrl('v1/impressions', {
+    type: "detail", // IT MUST BE OF TYPE "detail"
+		app_pubkey: pubkeyHex,
 		from: range.from,
 		to: range.to,
 		group_by: range.groupBy
@@ -664,7 +665,7 @@ export async function loadCountryBreakdown(pubkeyHex, range, hashToAppDTag, topN
 	const downloadsBy = new Map();
 
 	try {
-		const impRows = await fetchImpressions(pubkeyHex, { ...range, groupBy: 'country' });
+		const impRows = await fetchImpressions(pubkeyHex, { ...range, groupBy: 'country_code' });
 		for (const row of impRows) {
 			const norm = normalizeImpressionRow(row);
 			if (!norm) continue;
@@ -683,7 +684,7 @@ export async function loadCountryBreakdown(pubkeyHex, range, hashToAppDTag, topN
 		hashes.map(async (hash) => {
 			if (!hashToAppDTag.get(hash)) return;
 			try {
-				const rows = await fetchDownloadsForHash(hash, { ...range, groupBy: 'country' });
+				const rows = await fetchDownloadsForHash(hash, { ...range, groupBy: 'country_code' });
 				for (const row of rows) {
 					const norm = normalizeDownloadRow(row);
 					if (!norm) continue;
@@ -716,7 +717,7 @@ export async function loadCountryBreakdown(pubkeyHex, range, hashToAppDTag, topN
 }
 
 /**
- * Country breakdown for a single app (d-tag): impressions via `group_by=app_id,country`,
+ * Country breakdown for a single app (d-tag): impressions via `group_by=app_id,country_code`,
  * downloads only for blob hashes mapped to that app.
  *
  * @param {string} pubkeyHex
@@ -732,8 +733,8 @@ export async function loadCountryBreakdownForApp(pubkeyHex, range, app, hashToAp
 
 	/** @type {Map<string, number>} */
 	const impressionsBy = new Map();
-	try {
-		const impRows = await fetchImpressions(pubkeyHex, { ...range, groupBy: 'app_id,country' });
+  try {
+		const impRows = await fetchImpressions(pubkeyHex, { ...range, groupBy: 'app_id,country_code' });
 		for (const row of impRows) {
 			const norm = normalizeImpressionRow(row);
 			if (!norm) continue;
@@ -745,7 +746,7 @@ export async function loadCountryBreakdownForApp(pubkeyHex, range, app, hashToAp
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e);
 		if (msg !== 'ANALYTICS_HTTP_DISABLED') {
-			console.warn('[Studio] v1 impressions by app+country failed:', e);
+			console.warn('[Studio] v1 impressions by app+country_code failed:', e);
 		}
 	}
 
@@ -758,7 +759,7 @@ export async function loadCountryBreakdownForApp(pubkeyHex, range, app, hashToAp
 	await Promise.all(
 		hashes.map(async (hash) => {
 			try {
-				const rows = await fetchDownloadsForHash(hash, { ...range, groupBy: 'country' });
+				const rows = await fetchDownloadsForHash(hash, { ...range, groupBy: 'country_code' });
 				for (const row of rows) {
 					const norm = normalizeDownloadRow(row);
 					if (!norm) continue;
