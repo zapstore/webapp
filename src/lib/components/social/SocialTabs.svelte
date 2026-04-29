@@ -19,7 +19,7 @@ import Spinner from "$lib/components/common/Spinner.svelte";
 import Label from "$lib/components/common/Label.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import { Zap } from "$lib/components/icons";
-import { queryEvent, queryEvents, parseRelease } from "$lib/nostr";
+import { queryEvent, queryEvents, liveQuery, parseRelease, fetchZapsByEventIds, parseZapReceipt } from "$lib/nostr";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
 import { nip19 } from "nostr-tools";
 let {
@@ -46,6 +46,16 @@ let {
     labelsLoading = false,
     /** When set (e.g. from Activity ?comment=id), open the thread modal that contains this comment */
     openCommentId = null,
+    /**
+     * NIP-22 root context used when publishing kind-1111 "zap wrappers" for
+     * deep zaps (zaps on comments / zaps inside a thread). Replaceable roots
+     * (apps/stacks) supply `identifier`; non-replaceable roots (forum posts)
+     * supply `eventId`. Leaving `null` disables wrapper publication — only
+     * the root zap (kind 9735) flows through.
+     *
+     * @type {null | { kind: number, pubkey: string, identifier?: string | null, eventId?: string | null }}
+     */
+    wrapperRoot = null,
 } = $props();
 
 /** Root comment id whose thread contains openCommentId; used to open that thread modal on load */
@@ -325,20 +335,100 @@ const enrichedZaps = $derived(zaps
     };
 })
     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
+
 const combinedFeed = $derived.by(() => {
-    const commentsWithType = rootCommentsWithReplies.map((c) => ({
-        ...c,
-        type: "comment",
-        timestamp: c.createdAt,
-    }));
-    /** Comments tab includes text/emoji zaps and all pending zaps for immediate optimistic feedback. */
-    const zapsForComments = enrichedZaps.filter((z) =>
-        z.pending === true ||
-        !!(z.comment && z.comment.trim()) ||
-        ((z.emojiTags?.length ?? 0) > 0)
+    const commentsWithType = rootCommentsWithReplies.map((c) => {
+        // z-wrapper comments (kind 1111 with a z tag) render as ZapBubble, so
+        // map them to type "zap" with the shape the RootComment template expects.
+        if (c.isWrapper) {
+            return {
+                ...c,
+                type: "zap",
+                senderPubkey: c.pubkey,
+                amountSats: c.zapAmountSats ?? 0,
+                comment: c.content ?? "",
+                timestamp: c.createdAt,
+            };
+        }
+        return { ...c, type: "comment", timestamp: c.createdAt };
+    });
+    // Comments tab: root-level zaps that carry a comment or emoji. No pending —
+    // don't optimistically display at root level before the receipt arrives.
+    // No commentId filter needed — RootComment no longer adds aTag to comment zap
+    // targets, so receipts for comment zaps never land in enrichedZaps.
+    const zapsForComments = enrichedZaps.filter(
+        (z) => !!(z.comment && z.comment.trim()) || ((z.emojiTags?.length ?? 0) > 0)
     );
     const combined = [...commentsWithType, ...zapsForComments];
     return combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+});
+
+/**
+ * kind 9735 receipts fetched for every bubble visible in the comments feed
+ * (root comments + zap-bubbles). These are the source-of-truth for pill rows:
+ * z-wrappers are intentionally excluded — they already appear as ZapBubbles
+ * in the feed, so showing them again as pills would be redundant.
+ *
+ * Re-fetches whenever the set of visible IDs changes OR when new zaps land
+ * (zaps.length changes) so freshly-received receipts surface quickly.
+ */
+let _pillReceipts = $state(/** @type {import('nostr-tools').Event[]} */ ([]));
+$effect(() => {
+    const feedIds = combinedFeed.map((item) => item.id).filter(Boolean);
+    // Also collect IDs of all thread replies (visible inside opened comment modals)
+    // so pills show on deeper comments too, not just root-level feed items.
+    const threadIds = [];
+    for (const arr of threadByRootId.values()) {
+        for (const c of arr) if (c.id) threadIds.push(c.id);
+    }
+    for (const arr of threadByZapId.values()) {
+        for (const c of arr) if (c.id) threadIds.push(c.id);
+    }
+    const ids = [...new Set([...feedIds, ...threadIds])];
+    if (!ids.length) { _pillReceipts = []; return; }
+    // Kick off a relay fetch to hydrate Dexie with any receipts not yet stored locally.
+    fetchZapsByEventIds(ids, { timeout: 5000 }).catch(() => {});
+    // liveQuery fires immediately from local Dexie and re-fires whenever new receipts land.
+    const obs = liveQuery(() => queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#e': ids }));
+    const sub = obs.subscribe({
+        next: (receipts) => { _pillReceipts = receipts; },
+        error: (e) => { console.error('[SocialTabs] pill receipts error', e); }
+    });
+    return () => sub.unsubscribe();
+});
+
+/**
+ * Map of `eventIdLowercase → enriched-zap[]` keyed by `zappedEventId`.
+ * Built exclusively from kind 9735 receipts fetched above — never from
+ * z-wrappers. Each pill shows the real zapper + amount from the receipt.
+ */
+const zapsByTargetId = $derived.by(() => {
+    /** @type {SvelteMap<string, Array<{ id: string, senderPubkey: string|null, amountSats: number, displayName: string, avatarUrl: string|null, profileUrl: string, timestamp: number, createdAt: number }>>} */
+    const map = new SvelteMap();
+    for (const receipt of _pillReceipts) {
+        const parsed = parseZapReceipt(receipt);
+        const t = String(parsed.zappedEventId ?? "").toLowerCase();
+        if (!t) continue;
+        const profile = parsed.senderPubkey ? (zapperProfiles.get(parsed.senderPubkey) ?? profiles[parsed.senderPubkey]) : undefined;
+        const senderNpub = safeNpubFromPubkey(parsed.senderPubkey ?? "");
+        const displayName =
+            profile?.displayName?.trim() ||
+            profile?.name?.trim() ||
+            (senderNpub ? formatNpubDisplay(senderNpub) : "Anonymous");
+        const enriched = {
+            id: receipt.id,
+            senderPubkey: parsed.senderPubkey,
+            amountSats: parsed.amountSats,
+            displayName,
+            avatarUrl: profile?.picture?.trim() ?? null,
+            profileUrl: senderNpub ? `/profile/${senderNpub}` : "",
+            timestamp: receipt.created_at,
+            createdAt: receipt.created_at,
+        };
+        if (!map.has(t)) map.set(t, []);
+        map.get(t).push(enriched);
+    }
+    return map;
 });
 </script>
 
@@ -414,6 +504,7 @@ const combinedFeed = $derived.by(() => {
                 content={item.comment || ""}
                 emojiTags={item.emojiTags}
                 isZapRoot={true}
+                isZapWrapper={item.isWrapper === true}
                 zapAmount={item.amountSats ?? 0}
                 pending={item.pending === true}
                 threadComments={threadByZapId.get(item.id) ?? []}
@@ -424,6 +515,9 @@ const combinedFeed = $derived.by(() => {
                 appIconUrl={app?.icon}
                 appName={app?.name}
                 appIdentifier={app?.dTag}
+                {wrapperRoot}
+                zapsOnThis={zapsByTargetId.get(String(item.id ?? '').toLowerCase()) ?? []}
+                {zapsByTargetId}
                 {version}
                 {searchProfiles}
                 {searchEmojis}
@@ -468,6 +562,9 @@ const combinedFeed = $derived.by(() => {
                 appIconUrl={app?.icon}
                 appName={app?.name}
                 appIdentifier={app?.dTag}
+                {wrapperRoot}
+                zapsOnThis={zapsByTargetId.get(String(item.id ?? '').toLowerCase()) ?? []}
+                {zapsByTargetId}
                 version={item.version ?? ''}
                 {searchProfiles}
                 {searchEmojis}
@@ -502,6 +599,7 @@ const combinedFeed = $derived.by(() => {
               message={zap.comment || ""}
               emojiTags={zap.emojiTags}
               resolveMentionLabel={(pk) => profiles[pk]?.displayName ?? profiles[pk]?.name}
+              zapsOnThis={zapsByTargetId.get(String(zap.id ?? '').toLowerCase()) ?? []}
             />
           {/each}
         </div>

@@ -203,6 +203,11 @@
     rgba(255, 199, 54, 0.16) 0%,
     rgba(255, 160, 55, 0.16) 100%
   );
+  --gradient-gold11: radial-gradient(
+    circle at top left,
+    rgba(255, 199, 54, 0.11) 0%,
+    rgba(255, 160, 55, 0.11) 100%
+  );
 
   /* Rouge gradient (destructive) — #FF4778 to #FF005E; opacity via 8-digit hex stops */
   --gradient-rouge: radial-gradient(
@@ -496,6 +501,7 @@ h5, h6 {
    Only combinations actually used in the codebase are defined.
    ────────────────────────────────────────────────────────────────────────── */
 .regular12  { font-size: 12px; font-weight: 400; }
+.medium12   { font-size: 12px; font-weight: 500; }
 .semibold12 { font-size: 12px; font-weight: 600; }
 
 .regular14  { font-size: 14px; font-weight: 400; }

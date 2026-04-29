@@ -97,6 +97,17 @@ let labelsLoading = $state(false);
 let zaps = $state([]);
 let zapsLoading = $state(false);
 let zapperProfiles = new SvelteMap();
+const otherZaps = $derived(
+    zaps.map((z) => {
+        const prof = z.senderPubkey ? zapperProfiles.get(z.senderPubkey) : undefined;
+        return {
+            amount: z.amountSats,
+            profile: z.senderPubkey
+                ? { pictureUrl: prof?.picture, name: prof?.displayName ?? prof?.name, pubkey: z.senderPubkey }
+                : undefined,
+        };
+    })
+);
 // Check if current user owns this stack
 const isOwner = $derived(
     getIsSignedIn() && 
@@ -258,7 +269,7 @@ async function loadStack() {
         // Async: comments from Dexie (local-first)
         const cachedCommentEvents = await queryCommentsFromStore(foundStack.pubkey, foundStack.dTag, EVENT_KINDS.APP_STACK);
         if (cachedCommentEvents.length > 0) {
-            comments = cachedCommentEvents.map(parseComment);
+            comments = cachedCommentEvents.map((ev) => parseComment(ev));
             // Hydrate comment-author profiles from Dexie so names/pics show immediately
             const nextProfiles = { ...profiles };
             const pubkeys = [...new Set(comments.map((c) => c.pubkey))];
@@ -346,7 +357,7 @@ async function loadCommentsForStack(pubkey, dTag) {
                 byId.set(e.id.toLowerCase(), e);
         }
         const merged = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
-        comments = merged.map(parseComment);
+        comments = merged.map((ev) => parseComment(ev));
         const uniquePubkeys = [...new Set(comments.map((c) => c.pubkey))];
         profilesLoading = true;
         const nextProfiles = { ...profiles };
@@ -818,16 +829,10 @@ const displayDescription = $derived(
                 picture: stack.creator.picture,
               }
             : null}
-          zaps={zaps.map((z) => ({
-            id: z.id,
-            senderPubkey: z.senderPubkey || undefined,
-            amountSats: z.amountSats,
-            createdAt: z.createdAt,
-            comment: z.comment,
-            emojiTags: z.emojiTags ?? [],
-            zappedEventId: z.zappedEventId ?? undefined,
-            pending: z.pending === true,
-          }))}
+          wrapperRoot={stack?.pubkey && stack?.dTag
+            ? { kind: EVENT_KINDS.APP_STACK, pubkey: stack.pubkey, identifier: stack.dTag }
+            : null}
+          {zaps}
           {zapperProfiles}
           {zapsLoading}
           {comments}
@@ -864,7 +869,7 @@ const displayDescription = $derived(
     publisherName={stack?.creator?.name || ""}
     contentType="stack"
     {zapTarget}
-    otherZaps={[]}
+    {otherZaps}
     isSignedIn={getIsSignedIn()}
     onGetStarted={() => (getStartedModalOpen = true)}
     getCurrentPubkey={getCurrentPubkey}

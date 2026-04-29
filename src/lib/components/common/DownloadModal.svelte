@@ -59,8 +59,6 @@
 	const APK_CERT_HASH = '99e33b0c2d07e75fcd9df7e40e886646ff667e3aa6648e1a1160b036cf2b9320';
 
 	// App info helpers
-	const minAndroidVersion = 'Android 10+';
-	$: sourceUrl = app?.repository || app?.url || null;
 	$: appDeepLink = app ? `${SITE_URL}/apps/${app.naddr ?? app.dTag ?? ''}` : '';
 
 	async function downloadApk() {
@@ -648,12 +646,6 @@
 		font-size: 1.875rem;
 	}
 
-	.app-modal-description {
-		margin: 0 0 1.25rem;
-		font-size: 0.9375rem;
-		text-align: center;
-		color: var(--white66);
-	}
 
 	/* Gradient background for Zapstore download modal */
 	:global(.download-modal-bg) {

@@ -482,8 +482,7 @@
 				if (e?.id) byId.set(e.id.toLowerCase(), e);
 			}
 			const merged = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
-			comments = merged.map(parseComment);
-			// Load profiles for comment authors aggressively in one batched request.
+			comments = merged.map((ev) => parseComment(ev));
 			const uniquePubkeys = [...new Set(comments.map((c) => c.pubkey).filter(Boolean))];
 			profilesLoading = true;
 			const fetchedProfiles = await fetchProfilesBatch(uniquePubkeys);
@@ -528,12 +527,14 @@
 			const events = await fetchCommentRepliesByE(frontier);
 			const existingIds = new Set(comments.map((c) => c.id.toLowerCase()));
 			const newEvents = events.filter((ev) => !existingIds.has(ev.id.toLowerCase()));
-			const newParsed = newEvents.map((ev) => {
+			const newComments = newEvents.map((ev) => {
 				const p = parseComment(ev);
 				p.npub = nip19.npubEncode(ev.pubkey);
 				return p;
 			});
-			comments = [...comments, ...newParsed];
+			if (newComments.length > 0) {
+				comments = [...comments, ...newComments];
+			}
 		} catch (err) {
 			console.error('Failed to load comment replies by #e:', err);
 		}
@@ -1646,16 +1647,10 @@
 				{signEvent}
 				getAppSlug={(p, d) => app?.naddr ?? encodeAppNaddr(p, d)}
 				pubkeyToNpub={(pk) => nip19.npubEncode(pk)}
-				zaps={zaps.map((z) => ({
-					id: z.id,
-					senderPubkey: z.senderPubkey || undefined,
-					amountSats: z.amountSats,
-					createdAt: z.createdAt,
-					comment: z.comment,
-					emojiTags: z.emojiTags ?? [],
-					zappedEventId: z.zappedEventId ?? undefined,
-					pending: z.pending === true
-				}))}
+				wrapperRoot={app?.pubkey && app?.dTag
+					? { kind: EVENT_KINDS.APP, pubkey: app.pubkey, identifier: app.dTag }
+					: null}
+				{zaps}
 				{zapperProfiles}
 				{comments}
 				{commentsLoading}

@@ -36,7 +36,13 @@
 		collectZapReceiptsUnderZap,
 		findEnclosingZapReceiptForComment
 	} from '$lib/nostr/zap-thread.js';
-	import { parseProfile, parseApp, parseAppStack, parseForumPost, getEventOneliner } from '$lib/nostr/models';
+	import {
+		parseProfile,
+		parseApp,
+		parseAppStack,
+		parseForumPost,
+		getEventOneliner
+	} from '$lib/nostr/models';
 	import {
 		EVENT_KINDS,
 		SAVED_APPS_STACK_D_TAG,
@@ -482,11 +488,7 @@
 			if (!val) continue;
 			const low = String(val).toLowerCase();
 			if ((name === 'e' || name === 'E') && refIds.has(low)) return true;
-			if (
-				(name === 'a' || name === 'A') &&
-				isAddressableActivityATag(val) &&
-				aTags.has(low)
-			) {
+			if ((name === 'a' || name === 'A') && isAddressableActivityATag(val) && aTags.has(low)) {
 				return true;
 			}
 		}
@@ -550,7 +552,9 @@
 	 * Forum post ids in Dexie so zaps that target the post (before any comment is stored) still match.
 	 */
 	async function seedForumPostIdsForActivityZaps(/** @type {Set<string>} */ refIds) {
-		const posts = await queryEvents({ kinds: [EVENT_KINDS.FORUM_POST], limit: 400 }).catch(() => []);
+		const posts = await queryEvents({ kinds: [EVENT_KINDS.FORUM_POST], limit: 400 }).catch(
+			() => []
+		);
 		for (const fp of posts) {
 			if (fp?.id) refIds.add(fp.id.toLowerCase());
 		}
@@ -593,7 +597,9 @@
 	/** @type {Map<string, { displayName?: string, name?: string, picture?: string }>} */
 	let activityProfiles = $state(new Map());
 	/** Roots still missing after `ACTIVITY_ROOT_MISSING_AFTER_MS` — key `e:…` / `a:…`, value kind for copy. */
-	let activityRootDeletedByKey = $state(/** @type {Map<string, 'forum' | 'app' | 'stack'>} */ (new Map()));
+	let activityRootDeletedByKey = $state(
+		/** @type {Map<string, 'forum' | 'app' | 'stack'>} */ (new Map())
+	);
 
 	const activityCommentMap = $derived.by(() => {
 		const m = new Map();
@@ -655,7 +661,14 @@
 			const readyForDeletedTimer = inboxEmbed
 				? !activityLoading && activityFeedQuerySettled
 				: activityInitialSeedDone && !activityAddrRelayInFlight;
-			const next = recomputeActivityRootDeleted(roots, addrRoots, comments, zapsForFeed, commentMap, readyForDeletedTimer);
+			const next = recomputeActivityRootDeleted(
+				roots,
+				addrRoots,
+				comments,
+				zapsForFeed,
+				commentMap,
+				readyForDeletedTimer
+			);
 			const sig = [...next.entries()]
 				.sort((a, b) => a[0].localeCompare(b[0]))
 				.map(([k, v]) => `${k}:${v}`)
@@ -679,10 +692,7 @@
 
 	function loadMoreActivity() {
 		if (inboxUserPubkey) return;
-		activityFeedVisibleLimit = Math.min(
-			ACTIVITY_FEED_VISIBLE_MAX,
-			activityFeedVisibleLimit + 160
-		);
+		activityFeedVisibleLimit = Math.min(ACTIVITY_FEED_VISIBLE_MAX, activityFeedVisibleLimit + 160);
 		void seedActivityFromRelay();
 	}
 
@@ -825,12 +835,18 @@
 			]);
 			const scopedComments = commentRows.filter(eventMatchesActivityNip22KComment);
 			scopedComments.sort((a, b) => b.created_at - a.created_at);
-			// Accept all parseable zap receipts — relay.zapstore.dev is Zapstore-specific so every
-			// zap receipt there is relevant. The old graph-match filter excluded zaps whose referenced
-			// comments weren't in Dexie yet, causing them to appear only when the backfill landed.
+			// Only surface kind-9735 zaps that have NO comment text. Zaps with a comment
+			// are represented in the kind-1111 stream as z-wrapper events, so including
+			// them here would produce duplicates. Empty zaps still show as feed items
+			// but without any interaction rail (no reply / zap-back buttons).
 			const scopedZaps = [];
 			for (const ev of zapRows) {
-				try { parseZapReceipt(ev); scopedZaps.push(ev); } catch { /* skip malformed */ }
+				try {
+					const parsed = parseZapReceipt(ev);
+					if (!parsed.comment?.trim()) scopedZaps.push(ev);
+				} catch {
+					/* skip malformed */
+				}
 			}
 			scopedZaps.sort((a, b) => b.created_at - a.created_at);
 
@@ -855,6 +871,8 @@
 					try {
 						const parsed = parseZapReceipt(ev);
 						if (parsed.senderPubkey === pk) continue;
+						// Only include empty zaps — zaps with a comment surface as kind 1111 z-wrappers.
+						if (parsed.comment?.trim()) continue;
 						inboxZapParsed.push({ event: ev, parsed });
 					} catch {
 						/* skip malformed */
@@ -1142,7 +1160,9 @@
 				}
 			}
 		}
-		const posts = await queryEvents({ kinds: [EVENT_KINDS.FORUM_POST], limit: 400 }).catch(() => []);
+		const posts = await queryEvents({ kinds: [EVENT_KINDS.FORUM_POST], limit: 400 }).catch(
+			() => []
+		);
 		for (const fp of posts) {
 			if (fp?.id) eventIds.add(fp.id.toLowerCase());
 		}
@@ -1154,24 +1174,32 @@
 		// Critical: start zap backfill immediately. Previously zaps waited behind long
 		// sequential comment backfill loops, causing the 20-30s "late zap burst".
 		const zapBackfillByEventIds = idList.length
-			? fetchKind9735MatchingRefs(relays, { eventIds: idList }, {
-				since: sinceSec,
-				limit: 500,
-				timeout: 14_000,
-				feature: 'activity-zap-backfill-e'
-			}).catch(() => [])
+			? fetchKind9735MatchingRefs(
+					relays,
+					{ eventIds: idList },
+					{
+						since: sinceSec,
+						limit: 500,
+						timeout: 14_000,
+						feature: 'activity-zap-backfill-e'
+					}
+				).catch(() => [])
 			: Promise.resolve([]);
 
 		const zapBackfillByATags = (async () => {
 			for (let i = 0; i < aList.length; i += aChunk) {
 				await Promise.all(
 					aList.slice(i, i + aChunk).map((aTag) =>
-						fetchKind9735MatchingRefs(relays, { aTag }, {
-						since: sinceSec,
-						limit: 350,
-						timeout: 10_000,
-						feature: 'activity-zap-backfill-a'
-					}).catch(() => [])
+						fetchKind9735MatchingRefs(
+							relays,
+							{ aTag },
+							{
+								since: sinceSec,
+								limit: 350,
+								timeout: 10_000,
+								feature: 'activity-zap-backfill-a'
+							}
+						).catch(() => [])
 					)
 				);
 			}
@@ -1183,11 +1211,11 @@
 				await Promise.all(
 					idChunks.slice(i, i + ACTIVITY_BACKFILL_FORUM_WAVE).map((chunk) =>
 						fetchKind1111ReferencingEventIds(relays, chunk, {
-						since: sinceSec,
-						limit: 500,
-						timeout: 12_000,
-						feature: 'activity-comment-backfill-e'
-					}).catch(() => [])
+							since: sinceSec,
+							limit: 500,
+							timeout: 12_000,
+							feature: 'activity-comment-backfill-e'
+						}).catch(() => [])
 					)
 				);
 			}
@@ -1198,11 +1226,11 @@
 				await Promise.all(
 					aList.slice(i, i + aChunk).map((aTag) =>
 						fetchKind1111ByTagRef(relays, 'a', aTag, {
-						since: sinceSec,
-						limit: 450,
-						timeout: 10_000,
-						feature: 'activity-comment-backfill-a'
-					}).catch(() => [])
+							since: sinceSec,
+							limit: 450,
+							timeout: 10_000,
+							feature: 'activity-comment-backfill-a'
+						}).catch(() => [])
 					)
 				);
 			}
@@ -1333,7 +1361,9 @@
 	let standaloneActionsOpenKey = $state(0);
 	let standaloneZapOpenKey = $state(0);
 	let threadInitialActionsTarget = $state(/** @type {'root' | any | null} */ (null));
-	let pendingActionsCommentEv = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
+	let pendingActionsCommentEv = $state(
+		/** @type {import('nostr-tools').NostrEvent | null} */ (null)
+	);
 	let pendingZapCommentEv = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
 	let selectedThreadComments = $state(/** @type {any[]} */ ([]));
 	let selectedThreadZaps = $state(/** @type {any[]} */ ([]));
@@ -1438,31 +1468,33 @@
 					const postIdZap = forumPostIdForZapParsed(zp);
 					if (!postIdZap) return;
 
-				threadModalKind = 'zap';
-				threadModalRootId = null;
-				threadModalRootEvent = null;
-				threadModalAddrATag = null;
-				threadModalZapId = encZap.id;
-				threadModalZapEvent = encZap;
-				threadModalExpandCommentId =
-					!openActionsSheet && !openZapOnly && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
-						? commentEv.id : null;
-				initialReplyTargetForModal =
-					withReply && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
-						? enrichReplyTargetForModal(commentEv)
-						: null;
+					threadModalKind = 'zap';
+					threadModalRootId = null;
+					threadModalRootEvent = null;
+					threadModalAddrATag = null;
+					threadModalZapId = encZap.id;
+					threadModalZapEvent = encZap;
+					threadModalExpandCommentId =
+						!openActionsSheet &&
+						!openZapOnly &&
+						commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
+							? commentEv.id
+							: null;
+					initialReplyTargetForModal =
+						withReply && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
+							? enrichReplyTargetForModal(commentEv)
+							: null;
 
-				if (threadOpenActionsOnMount && pendingActionsCommentEv) {
-					const isRoot =
-						pendingActionsCommentEv.id.toLowerCase() === encZap.id.toLowerCase();
-					threadInitialActionsTarget = isRoot
-						? 'root'
-						: enrichReplyTargetForModal(pendingActionsCommentEv);
-				} else {
-					threadInitialActionsTarget = null;
-				}
+					if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+						const isRoot = pendingActionsCommentEv.id.toLowerCase() === encZap.id.toLowerCase();
+						threadInitialActionsTarget = isRoot
+							? 'root'
+							: enrichReplyTargetForModal(pendingActionsCommentEv);
+					} else {
+						threadInitialActionsTarget = null;
+					}
 
-				loadZapForumThread(postIdZap, encZap.id, gen);
+					loadZapForumThread(postIdZap, encZap.id, gen);
 					return;
 				}
 
@@ -1478,30 +1510,30 @@
 				}
 				if (!rootEv || gen !== threadLoadGen) return;
 
-			threadModalKind = 'comment';
-			threadModalRootId = rootId;
-			threadModalRootEvent = rootEv;
-			threadModalAddrATag = null;
-			threadModalExpandCommentId =
-				!openActionsSheet && !openZapOnly && commentEv.id.toLowerCase() !== rootId.toLowerCase()
-					? commentEv.id : null;
-			scheduleActivityProfileFetch(rootEv.pubkey);
-			initialReplyTargetForModal =
-				withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
-					? enrichReplyTargetForModal(commentEv)
-					: null;
+				threadModalKind = 'comment';
+				threadModalRootId = rootId;
+				threadModalRootEvent = rootEv;
+				threadModalAddrATag = null;
+				threadModalExpandCommentId =
+					!openActionsSheet && !openZapOnly && commentEv.id.toLowerCase() !== rootId.toLowerCase()
+						? commentEv.id
+						: null;
+				scheduleActivityProfileFetch(rootEv.pubkey);
+				initialReplyTargetForModal =
+					withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
+						? enrichReplyTargetForModal(commentEv)
+						: null;
 
-			if (threadOpenActionsOnMount && pendingActionsCommentEv) {
-				const isRoot =
-					pendingActionsCommentEv.id.toLowerCase() === rootId.toLowerCase();
-				threadInitialActionsTarget = isRoot
-					? 'root'
-					: enrichReplyTargetForModal(pendingActionsCommentEv);
-			} else {
-				threadInitialActionsTarget = null;
-			}
+				if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+					const isRoot = pendingActionsCommentEv.id.toLowerCase() === rootId.toLowerCase();
+					threadInitialActionsTarget = isRoot
+						? 'root'
+						: enrichReplyTargetForModal(pendingActionsCommentEv);
+				} else {
+					threadInitialActionsTarget = null;
+				}
 
-			await loadActivityThread(postId, rootId, gen, rootEv);
+				await loadActivityThread(postId, rootId, gen, rootEv);
 			})();
 			return;
 		}
@@ -1528,31 +1560,33 @@
 			if (encZap) {
 				const aRootZ = appATagFromZapEvent(encZap) ?? aRoot;
 				if (!isAddressableActivityATag(aRootZ)) return;
-			threadModalKind = 'zap';
-			threadModalRootId = null;
-			threadModalRootEvent = null;
-			threadModalAddrATag = aRootZ;
-			threadModalZapId = encZap.id;
-			threadModalZapEvent = encZap;
-			threadModalExpandCommentId =
-				!openActionsSheet && !openZapOnly && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
-					? commentEv.id : null;
-			initialReplyTargetForModal =
-				withReply && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
-					? enrichReplyTargetForModal(commentEv)
-					: null;
+				threadModalKind = 'zap';
+				threadModalRootId = null;
+				threadModalRootEvent = null;
+				threadModalAddrATag = aRootZ;
+				threadModalZapId = encZap.id;
+				threadModalZapEvent = encZap;
+				threadModalExpandCommentId =
+					!openActionsSheet &&
+					!openZapOnly &&
+					commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
+						? commentEv.id
+						: null;
+				initialReplyTargetForModal =
+					withReply && commentEv.id.toLowerCase() !== encZap.id.toLowerCase()
+						? enrichReplyTargetForModal(commentEv)
+						: null;
 
-			if (threadOpenActionsOnMount && pendingActionsCommentEv) {
-				const isRoot =
-					pendingActionsCommentEv.id.toLowerCase() === encZap.id.toLowerCase();
-				threadInitialActionsTarget = isRoot
-					? 'root'
-					: enrichReplyTargetForModal(pendingActionsCommentEv);
-			} else {
-				threadInitialActionsTarget = null;
-			}
+				if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+					const isRoot = pendingActionsCommentEv.id.toLowerCase() === encZap.id.toLowerCase();
+					threadInitialActionsTarget = isRoot
+						? 'root'
+						: enrichReplyTargetForModal(pendingActionsCommentEv);
+				} else {
+					threadInitialActionsTarget = null;
+				}
 
-			loadZapAddrThread(encZap.id, aRootZ, gen);
+				loadZapAddrThread(encZap.id, aRootZ, gen);
 				return;
 			}
 
@@ -1571,29 +1605,30 @@
 			}
 			if (!rootEv || gen !== threadLoadGen) return;
 
-		threadModalKind = 'comment';
-		threadModalRootId = rootId;
-		threadModalRootEvent = rootEv;
-		threadModalAddrATag = aRoot;
-		threadModalExpandCommentId =
-			!openActionsSheet && !openZapOnly && commentEv.id.toLowerCase() !== rootId.toLowerCase()
-				? commentEv.id : null;
-		scheduleActivityProfileFetch(rootEv.pubkey);
-		initialReplyTargetForModal =
-			withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
-				? enrichReplyTargetForModal(commentEv)
-				: null;
+			threadModalKind = 'comment';
+			threadModalRootId = rootId;
+			threadModalRootEvent = rootEv;
+			threadModalAddrATag = aRoot;
+			threadModalExpandCommentId =
+				!openActionsSheet && !openZapOnly && commentEv.id.toLowerCase() !== rootId.toLowerCase()
+					? commentEv.id
+					: null;
+			scheduleActivityProfileFetch(rootEv.pubkey);
+			initialReplyTargetForModal =
+				withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
+					? enrichReplyTargetForModal(commentEv)
+					: null;
 
-		if (threadOpenActionsOnMount && pendingActionsCommentEv) {
-			const isRoot = pendingActionsCommentEv.id.toLowerCase() === rootId.toLowerCase();
-			threadInitialActionsTarget = isRoot
-				? 'root'
-				: enrichReplyTargetForModal(pendingActionsCommentEv);
-		} else {
-			threadInitialActionsTarget = null;
-		}
+			if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+				const isRoot = pendingActionsCommentEv.id.toLowerCase() === rootId.toLowerCase();
+				threadInitialActionsTarget = isRoot
+					? 'root'
+					: enrichReplyTargetForModal(pendingActionsCommentEv);
+			} else {
+				threadInitialActionsTarget = null;
+			}
 
-		await loadAddrActivityThread(rootId, aRoot, gen, rootEv);
+			await loadAddrActivityThread(rootId, aRoot, gen, rootEv);
 		})();
 	}
 
@@ -2119,291 +2154,287 @@
 		activityInitialSeedDone = false;
 		void seedActivityFromRelay();
 	});
-
 </script>
 
 <div class="community-shell-root">
 	<div class="community-shell-scroll" class:activity-inbox-scroll={inboxEmbed}>
-<div
-	class="panel-content activity-panel"
-	class:activity-panel--inbox={inboxEmbed}
-	class:scroll-locked={threadModalKind === 'comment'
-		? !!threadModalRootId
-		: threadModalKind === 'zap'
-			? !!threadModalZapId
-			: false}
->
-	{#if !activityReady || !activityFeedQuerySettled || (!inboxEmbed && activityFeedItems.length === 0 && !activityHadCachedData && (!activityInitialSeedDone || activityLoading))}
-		<div class="loading-wrap">
-			<ActivityFeedSkeleton rows={6} />
-		</div>
-	{:else if activityError && activityFeedItems.length === 0}
-		<div class="empty-state-wrap">
-			<EmptyState message={activityError} minHeight={280} />
-		</div>
-	{:else if activityFeedItems.length === 0}
-		<div class="empty-state-wrap">
-			<EmptyState
-				message={inboxUserPubkey ? 'Your inbox is empty' : 'No Activity yet'}
-				minHeight={280}
-			/>
-		</div>
-	{:else}
-		<div class="activity-list">
-			{#each activityFeedItems as item (item.kind === 'zap' ? `zap-${item.row.event.id}` : item.ev.id)}
-				{#if item.kind === 'comment'}
-					{@const commentEv = item.ev}
-					{@const authorProfileRaw = activityProfiles.get(commentEv.pubkey)}
-					{@const authorProfile = authorProfileRaw
-						? {
-								name: authorProfileRaw.displayName ?? authorProfileRaw.name,
-								picture: authorProfileRaw.picture,
-								pubkey: commentEv.pubkey
-							}
-						: { name: '', picture: '', pubkey: commentEv.pubkey }}
-					{@const addrRootVal = addrTagFromComment(commentEv)}
-					{@const eRootTag = commentEv.tags?.find((t) => t[0] === 'E' && t[1])}
-					{@const rootKey = eRootTag?.[1] ?? null}
-					{@const rootEvent =
-						isAddressableActivityATag(addrRootVal) && addrRootVal
-							? (activityAddrRootEvents.get(addrRootVal) ?? null)
-							: rootKey
-								? (activityRootEvents.get(rootKey) ??
-									activityRootEvents.get(rootKey.toLowerCase()) ??
+		<div
+			class="panel-content activity-panel"
+			class:activity-panel--inbox={inboxEmbed}
+			class:scroll-locked={threadModalKind === 'comment'
+				? !!threadModalRootId
+				: threadModalKind === 'zap'
+					? !!threadModalZapId
+					: false}
+		>
+			{#if !activityReady || !activityFeedQuerySettled || (!inboxEmbed && activityFeedItems.length === 0 && !activityHadCachedData && (!activityInitialSeedDone || activityLoading))}
+				<div class="loading-wrap">
+					<ActivityFeedSkeleton rows={6} />
+				</div>
+			{:else if activityError && activityFeedItems.length === 0}
+				<div class="empty-state-wrap">
+					<EmptyState message={activityError} minHeight={280} />
+				</div>
+			{:else if activityFeedItems.length === 0}
+				<div class="empty-state-wrap">
+					<EmptyState
+						message={inboxUserPubkey ? 'Your inbox is empty' : 'No Activity yet'}
+						minHeight={280}
+					/>
+				</div>
+			{:else}
+				<div class="activity-list">
+					{#each activityFeedItems as item (item.kind === 'zap' ? `zap-${item.row.event.id}` : item.ev.id)}
+						{#if item.kind === 'comment'}
+							{@const commentEv = item.ev}
+							{@const authorProfileRaw = activityProfiles.get(commentEv.pubkey)}
+							{@const authorProfile = authorProfileRaw
+								? {
+										name: authorProfileRaw.displayName ?? authorProfileRaw.name,
+										picture: authorProfileRaw.picture,
+										pubkey: commentEv.pubkey
+									}
+								: { name: '', picture: '', pubkey: commentEv.pubkey }}
+							{@const addrRootVal = addrTagFromComment(commentEv)}
+							{@const eRootTag = commentEv.tags?.find((t) => t[0] === 'E' && t[1])}
+							{@const rootKey = eRootTag?.[1] ?? null}
+							{@const rootEvent =
+								isAddressableActivityATag(addrRootVal) && addrRootVal
+									? (activityAddrRootEvents.get(addrRootVal) ?? null)
+									: rootKey
+										? (activityRootEvents.get(rootKey) ??
+											activityRootEvents.get(rootKey.toLowerCase()) ??
+											null)
+										: null}
+							{@const feedAddrBadge = appBadgeFromAddrRoot(rootEvent)}
+							{@const eParentTag = commentEv.tags?.find((t) => t[0] === 'e' && t[1])}
+							{@const parentId =
+								eParentTag?.[1] && eParentTag[1] !== rootKey ? eParentTag[1] : null}
+							{@const parentComment = parentId
+								? (activityCommentMap.get(parentId) ??
+									activityCommentMap.get(parentId.toLowerCase()) ??
 									null)
 								: null}
-					{@const feedAddrBadge = appBadgeFromAddrRoot(rootEvent)}
-					{@const eParentTag = commentEv.tags?.find((t) => t[0] === 'e' && t[1])}
-					{@const parentId = eParentTag?.[1] && eParentTag[1] !== rootKey ? eParentTag[1] : null}
-					{@const parentComment = parentId
-						? (activityCommentMap.get(parentId) ??
-							activityCommentMap.get(parentId.toLowerCase()) ??
-							null)
-						: null}
-					{@const parentAuthorRaw = parentComment
-						? activityProfiles.get(parentComment.pubkey)
-						: null}
-					{@const parentCommentAuthor =
-						parentComment && parentAuthorRaw
-							? {
-									name: parentAuthorRaw.displayName ?? parentAuthorRaw.name,
-									picture: parentAuthorRaw.picture,
-									pubkey: parentComment.pubkey
+							{@const parentAuthorRaw = parentComment
+								? activityProfiles.get(parentComment.pubkey)
+								: null}
+							{@const parentCommentAuthor =
+								parentComment && parentAuthorRaw
+									? {
+											name: parentAuthorRaw.displayName ?? parentAuthorRaw.name,
+											picture: parentAuthorRaw.picture,
+											pubkey: parentComment.pubkey
+										}
+									: null}
+							{@const parentZapEv =
+								!parentComment && parentId
+									? (activityZapMap.get(parentId) ??
+										activityZapMap.get(parentId.toLowerCase()) ??
+										null)
+									: null}
+							{@const parentZapParsed = (() => {
+								if (!parentZapEv) return null;
+								try {
+									return parseZapReceipt(parentZapEv);
+								} catch {
+									return null;
 								}
-							: null}
-					{@const parentZapEv =
-						!parentComment && parentId
-							? (activityZapMap.get(parentId) ?? activityZapMap.get(parentId.toLowerCase()) ?? null)
-							: null}
-					{@const parentZapParsed = (() => {
-						if (!parentZapEv) return null;
-						try {
-							return parseZapReceipt(parentZapEv);
-						} catch {
-							return null;
-						}
-					})()}
-					{@const parentZapperRaw = parentZapParsed?.senderPubkey
-						? activityProfiles.get(parentZapParsed.senderPubkey)
-						: null}
-					{@const parentZapperAuthor = parentZapParsed?.senderPubkey
-						? {
-								name: parentZapperRaw?.displayName ?? parentZapperRaw?.name ?? '',
-								picture: parentZapperRaw?.picture ?? null,
-								pubkey: parentZapParsed.senderPubkey
-							}
-						: null}
-					{@const authorNpub = (() => {
-						try {
-							return nip19.npubEncode(commentEv.pubkey);
-						} catch {
-							return '';
-						}
-					})()}
-					{@const _isDeeperReply = !!parentId}
-					{@const expectsActivityRoot =
-						(!!addrRootVal && isAddressableActivityATag(addrRootVal)) || !!rootKey}
-					{@const rootMeta = activityRootKeyMetaFromComment(commentEv)}
-					{@const deletedRootKind = rootMeta
-						? (activityRootDeletedByKey.get(rootMeta.key) ?? null)
-						: null}
-					{@const rootBadgeSkeleton = !rootEvent && expectsActivityRoot && !deletedRootKind}
-					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-					<div
-						class="activity-item"
-						role="button"
-						tabindex="0"
-						onclick={() => {
-							markInboxCardSeen(commentEv.id);
-							openThread(commentEv);
-						}}
-						onkeydown={(e) => {
-							if (e.key !== 'Enter') return;
-							markInboxCardSeen(commentEv.id);
-							openThread(commentEv);
-						}}
-					>
-						<CommentCard
-							event={commentEv}
-							{authorProfile}
-							{rootEvent}
-							appBadge={feedAddrBadge}
-							{rootBadgeSkeleton}
-							{deletedRootKind}
-							{parentComment}
-							{parentCommentAuthor}
-							{parentZapParsed}
-							{parentZapperAuthor}
-							profileUrl={authorNpub ? `/profile/${authorNpub}` : ''}
-							resolveMentionLabel={(pk) =>
-								activityProfiles.get(pk)?.displayName ??
-								activityProfiles.get(pk)?.name ??
-								pk?.slice(0, 8) ??
-								''}
-							onRootClick={rootEvent
-								? () => {
-										markInboxCardSeen(commentEv.id);
-										openRootPost(rootEvent);
+							})()}
+							{@const parentZapperRaw = parentZapParsed?.senderPubkey
+								? activityProfiles.get(parentZapParsed.senderPubkey)
+								: null}
+							{@const parentZapperAuthor = parentZapParsed?.senderPubkey
+								? {
+										name: parentZapperRaw?.displayName ?? parentZapperRaw?.name ?? '',
+										picture: parentZapperRaw?.picture ?? null,
+										pubkey: parentZapParsed.senderPubkey
 									}
 								: null}
-							showUnreadDot={inboxRowUnread(commentEv.id)}
-							feedActions={{
-								onReply: () => {
-									markInboxCardSeen(commentEv.id);
-									openThread(commentEv, true);
-								},
-								onZap: () => {
-									markInboxCardSeen(commentEv.id);
-									openThread(commentEv, false, { openZapOnly: true });
-								},
-								onOptions: () => {
-									markInboxCardSeen(commentEv.id);
-									openThread(commentEv, false, { openActionsSheet: true });
+							{@const authorNpub = (() => {
+								try {
+									return nip19.npubEncode(commentEv.pubkey);
+								} catch {
+									return '';
 								}
-							}}
-						/>
-					</div>
-				{:else}
-					{@const zapEv = item.row.event}
-					{@const zParsed = item.row.parsed}
-					{@const aZapRoot = addrATagForAppStackZap(zapEv, zParsed)}
-					{@const postIdZ = forumPostIdForZapParsed(zParsed)}
-					{@const rootEventZ = aZapRoot
-						? (activityAddrRootEvents.get(aZapRoot) ?? null)
-						: postIdZ
-							? (activityRootEvents.get(postIdZ) ??
-								activityRootEvents.get(postIdZ.toLowerCase()) ??
-								null)
-							: null}
-					{@const zapAddrBadge = appBadgeFromAddrRoot(rootEventZ)}
-					{@const zappedId = zParsed.zappedEventId}
-					{@const parentCommentZ = zappedId ? (activityCommentMap.get(zappedId) ?? null) : null}
-					{@const parentAuthorRZ = parentCommentZ
-						? activityProfiles.get(parentCommentZ.pubkey)
-						: null}
-					{@const parentCommentAuthorZ =
-						parentCommentZ && parentAuthorRZ
-							? {
-									name: parentAuthorRZ.displayName ?? parentAuthorRZ.name,
-									picture: parentAuthorRZ.picture,
-									pubkey: parentCommentZ.pubkey
-								}
-							: null}
-					{@const zapperPk = zParsed.senderPubkey}
-					{@const zapperProf = zapperPk ? activityProfiles.get(zapperPk) : null}
-					{@const zapperAuthor = zapperProf
-						? {
-								name: zapperProf.displayName ?? zapperProf.name,
-								picture: zapperProf.picture,
-								pubkey: zapperPk
-							}
-						: { name: '', picture: '', pubkey: zapperPk ?? '' }}
-					{@const zapperNpub = (() => {
-						try {
-							return zapperPk ? nip19.npubEncode(zapperPk) : '';
-						} catch {
-							return '';
-						}
-					})()}
-					{@const zapExpectsRoot = !!aZapRoot || !!postIdZ}
-					{@const rootMetaZap = activityRootKeyMetaFromZap(
-						zapEv,
-						zParsed,
-						activityRootEvents,
-						activityCommentMap
-					)}
-					{@const deletedRootKindZap = rootMetaZap
-						? (activityRootDeletedByKey.get(rootMetaZap.key) ?? null)
-						: null}
-					{@const rootBadgeSkeletonZap = !rootEventZ && zapExpectsRoot && !deletedRootKindZap}
-					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-					<div
-						class="activity-item"
-						role="button"
-						tabindex="0"
-						onclick={() => {
-							markInboxCardSeen(zapEv.id);
-							openZapThreadForum(zapEv);
-						}}
-						onkeydown={(e) => {
-							if (e.key !== 'Enter') return;
-							markInboxCardSeen(zapEv.id);
-							openZapThreadForum(zapEv);
-						}}
-					>
-						<ZapActivityCard
-							zapEvent={zapEv}
-							parsed={zParsed}
-							zapperPubkey={zapperPk}
-							authorProfile={zapperAuthor}
-							rootEvent={rootEventZ}
-							parentComment={parentCommentZ}
-							parentCommentAuthor={parentCommentAuthorZ}
-							appBadge={zapAddrBadge}
-							rootBadgeSkeleton={rootBadgeSkeletonZap}
-							deletedRootKind={deletedRootKindZap}
-							profileUrl={zapperNpub ? `/profile/${zapperNpub}` : ''}
-							resolveMentionLabel={(pk) =>
-								activityProfiles.get(pk)?.displayName ??
-								activityProfiles.get(pk)?.name ??
-								pk?.slice(0, 8) ??
-								''}
-							onRootClick={rootEventZ
-								? () => {
-										markInboxCardSeen(zapEv.id);
-										openRootPost(rootEventZ);
-									}
+							})()}
+							{@const _isDeeperReply = !!parentId}
+							{@const expectsActivityRoot =
+								(!!addrRootVal && isAddressableActivityATag(addrRootVal)) || !!rootKey}
+							{@const rootMeta = activityRootKeyMetaFromComment(commentEv)}
+							{@const deletedRootKind = rootMeta
+								? (activityRootDeletedByKey.get(rootMeta.key) ?? null)
 								: null}
-							showUnreadDot={inboxRowUnread(zapEv.id)}
-							feedActions={{
-								onReply: () => {
-									markInboxCardSeen(zapEv.id);
-									openZapThreadForum(zapEv, true);
-								},
-								onZap: () => {
-									markInboxCardSeen(zapEv.id);
+							{@const rootBadgeSkeleton = !rootEvent && expectsActivityRoot && !deletedRootKind}
+							<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+							<div
+								class="activity-item"
+								role="button"
+								tabindex="0"
+								onclick={() => {
+									markInboxCardSeen(commentEv.id);
+									openThread(commentEv);
+								}}
+								onkeydown={(e) => {
+									if (e.key !== 'Enter') return;
+									markInboxCardSeen(commentEv.id);
+									openThread(commentEv);
+								}}
+							>
+								<CommentCard
+									event={commentEv}
+									{authorProfile}
+									{rootEvent}
+									appBadge={feedAddrBadge}
+									{rootBadgeSkeleton}
+									{deletedRootKind}
+									{parentComment}
+									{parentCommentAuthor}
+									{parentZapParsed}
+									{parentZapperAuthor}
+									profileUrl={authorNpub ? `/profile/${authorNpub}` : ''}
+									resolveMentionLabel={(pk) =>
+										activityProfiles.get(pk)?.displayName ??
+										activityProfiles.get(pk)?.name ??
+										pk?.slice(0, 8) ??
+										''}
+									onRootClick={rootEvent
+										? () => {
+												markInboxCardSeen(commentEv.id);
+												openRootPost(rootEvent);
+											}
+										: null}
+									showUnreadDot={inboxRowUnread(commentEv.id)}
+									feedActions={{
+										onReply: () => {
+											markInboxCardSeen(commentEv.id);
+											openThread(commentEv, true);
+										},
+										onZap: () => {
+											markInboxCardSeen(commentEv.id);
+											openThread(commentEv, false, { openZapOnly: true });
+										},
+										onOptions: () => {
+											markInboxCardSeen(commentEv.id);
+											openThread(commentEv, false, { openActionsSheet: true });
+										}
+									}}
+								/>
+							</div>
+						{:else}
+							{@const zapEv = item.row.event}
+							{@const zParsed = item.row.parsed}
+							{@const aZapRoot = addrATagForAppStackZap(zapEv, zParsed)}
+							{@const postIdZ = forumPostIdForZapParsed(zParsed)}
+							{@const rootEventZ = aZapRoot
+								? (activityAddrRootEvents.get(aZapRoot) ?? null)
+								: postIdZ
+									? (activityRootEvents.get(postIdZ) ??
+										activityRootEvents.get(postIdZ.toLowerCase()) ??
+										null)
+									: null}
+							{@const zapAddrBadge = appBadgeFromAddrRoot(rootEventZ)}
+							{@const zappedId = zParsed.zappedEventId}
+							{@const parentCommentZ = zappedId ? (activityCommentMap.get(zappedId) ?? null) : null}
+							{@const parentAuthorRZ = parentCommentZ
+								? activityProfiles.get(parentCommentZ.pubkey)
+								: null}
+							{@const parentCommentAuthorZ =
+								parentCommentZ && parentAuthorRZ
+									? {
+											name: parentAuthorRZ.displayName ?? parentAuthorRZ.name,
+											picture: parentAuthorRZ.picture,
+											pubkey: parentCommentZ.pubkey
+										}
+									: null}
+							{@const zapperPk = zParsed.senderPubkey}
+							{@const zapperProf = zapperPk ? activityProfiles.get(zapperPk) : null}
+							{@const zapperAuthor = zapperProf
+								? {
+										name: zapperProf.displayName ?? zapperProf.name,
+										picture: zapperProf.picture,
+										pubkey: zapperPk
+									}
+								: { name: '', picture: '', pubkey: zapperPk ?? '' }}
+							{@const zapperNpub = (() => {
+								try {
+									return zapperPk ? nip19.npubEncode(zapperPk) : '';
+								} catch {
+									return '';
+								}
+							})()}
+							{@const zapExpectsRoot = !!aZapRoot || !!postIdZ}
+							{@const rootMetaZap = activityRootKeyMetaFromZap(
+								zapEv,
+								zParsed,
+								activityRootEvents,
+								activityCommentMap
+							)}
+							{@const deletedRootKindZap = rootMetaZap
+								? (activityRootDeletedByKey.get(rootMetaZap.key) ?? null)
+								: null}
+							{@const rootBadgeSkeletonZap = !rootEventZ && zapExpectsRoot && !deletedRootKindZap}
+							<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+							<div
+								class="activity-item"
+								role="button"
+								tabindex="0"
+						onclick={() => {
+								markInboxCardSeen(zapEv.id);
+								if (!zParsed?.comment?.trim()) {
+									if (rootEventZ) openRootPost(rootEventZ);
+								} else {
 									openZapThreadForum(zapEv);
-								},
-								onOptions: () => {
-									markInboxCardSeen(zapEv.id);
-									openZapThreadForum(zapEv, false, { openActionsSheet: true });
 								}
 							}}
-						/>
-					</div>
-				{/if}
-			{/each}
-			{#if activityLikelyHasMore}
-				<!-- Invisible anchor: intersection observer extends the merged timeline (no separate “load more” UX). -->
-				<div
-					class="activity-feed-sentinel"
-					bind:this={activityLoadSentinel}
-					aria-hidden="true"
-				></div>
+							onkeydown={(e) => {
+								if (e.key !== 'Enter') return;
+								markInboxCardSeen(zapEv.id);
+								if (!zParsed?.comment?.trim()) {
+									if (rootEventZ) openRootPost(rootEventZ);
+								} else {
+									openZapThreadForum(zapEv);
+								}
+							}}
+							>
+								<ZapActivityCard
+									zapEvent={zapEv}
+									parsed={zParsed}
+									zapperPubkey={zapperPk}
+									authorProfile={zapperAuthor}
+									rootEvent={rootEventZ}
+									parentComment={parentCommentZ}
+									parentCommentAuthor={parentCommentAuthorZ}
+									appBadge={zapAddrBadge}
+									rootBadgeSkeleton={rootBadgeSkeletonZap}
+									deletedRootKind={deletedRootKindZap}
+									profileUrl={zapperNpub ? `/profile/${zapperNpub}` : ''}
+									resolveMentionLabel={(pk) =>
+										activityProfiles.get(pk)?.displayName ??
+										activityProfiles.get(pk)?.name ??
+										pk?.slice(0, 8) ??
+										''}
+									onRootClick={rootEventZ
+										? () => {
+												markInboxCardSeen(zapEv.id);
+												openRootPost(rootEventZ);
+											}
+										: null}
+									showUnreadDot={inboxRowUnread(zapEv.id)}
+								/>
+							</div>
+						{/if}
+					{/each}
+					{#if activityLikelyHasMore}
+						<!-- Invisible anchor: intersection observer extends the merged timeline (no separate “load more” UX). -->
+						<div
+							class="activity-feed-sentinel"
+							bind:this={activityLoadSentinel}
+							aria-hidden="true"
+						></div>
+					{/if}
+				</div>
 			{/if}
 		</div>
-	{/if}
-</div>
 	</div>
 </div>
 
@@ -2448,17 +2479,19 @@
 			expandCommentId={threadModalExpandCommentId}
 			openActionsOnMount={threadOpenActionsOnMount}
 			initialActionsTarget={threadInitialActionsTarget}
-			standaloneActionsOpenKey={standaloneActionsOpenKey}
+			{standaloneActionsOpenKey}
 			openZapOnMount={threadOpenFeedZapOnly}
-			standaloneZapOpenKey={standaloneZapOpenKey}
-			feedInitialZapTarget={pendingZapCommentEv ? enrichReplyTargetForModal(pendingZapCommentEv) : null}
+			{standaloneZapOpenKey}
+			feedInitialZapTarget={pendingZapCommentEv
+				? enrichReplyTargetForModal(pendingZapCommentEv)
+				: null}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
-		modalLockBodyScroll={!inboxEmbed}
-		modalZIndex={inboxEmbed ? 130 : 110}
-		modalScopedInPanel={inboxEmbed}
-		disableMediaLightbox={inboxEmbed}
-		id={_rootEv.id}
+			modalLockBodyScroll={!inboxEmbed}
+			modalZIndex={inboxEmbed ? 130 : 110}
+			modalScopedInPanel={inboxEmbed}
+			disableMediaLightbox={inboxEmbed}
+			id={_rootEv.id}
 			content={_rootEv.content ?? ''}
 			version={_evVersion}
 			emojiTags={(_rootEv.tags ?? [])
@@ -2468,7 +2501,9 @@
 			pictureUrl={_authorRaw?.picture ?? null}
 			name={_authorRaw?.displayName ??
 				_authorRaw?.name ??
-				(_authorNpub ? `npub1${_authorNpub.slice(5, 8)}…${_authorNpub.slice(-6)}` : _rootEv.pubkey.slice(0, 8))}
+				(_authorNpub
+					? `npub1${_authorNpub.slice(5, 8)}…${_authorNpub.slice(-6)}`
+					: _rootEv.pubkey.slice(0, 8))}
 			pubkey={_rootEv.pubkey}
 			timestamp={_rootEv.created_at}
 			profileUrl={_authorNpub ? `/profile/${_authorNpub}` : ''}
@@ -2487,34 +2522,34 @@
 				: _bannerDeletedKind
 					? { label: activityDeletedRootLabel(_bannerDeletedKind), deleted: true }
 					: null}
-		onModalClose={() => {
-			threadLoadGen++;
-			threadModalKind = null;
-			threadModalRootId = null;
-			threadModalRootEvent = null;
-			threadModalAddrATag = null;
-			threadModalExpandCommentId = null;
-			initialReplyTargetForModal = null;
-			threadOpenActionsOnMount = false;
-			threadOpenFeedActionsOnly = false;
-			threadOpenFeedZapOnly = false;
-			threadInitialActionsTarget = null;
-			pendingActionsCommentEv = null;
-			pendingZapCommentEv = null;
-			selectedThreadComments = [];
-			selectedThreadZaps = [];
-		}}
-		{signEvent}
-		{searchProfiles}
-		{searchEmojis}
-		onReplySubmit={threadModalAddrATag
-			? (e) => handleActivityThreadReply(null, null, e)
-			: _rootPost
-				? (e) => handleActivityThreadReply(_rootPost.id, _rootPost.pubkey, e)
-				: undefined}
-		onZapReceived={() => {}}
-		onGetStarted={() => {}}
-	/>
+			onModalClose={() => {
+				threadLoadGen++;
+				threadModalKind = null;
+				threadModalRootId = null;
+				threadModalRootEvent = null;
+				threadModalAddrATag = null;
+				threadModalExpandCommentId = null;
+				initialReplyTargetForModal = null;
+				threadOpenActionsOnMount = false;
+				threadOpenFeedActionsOnly = false;
+				threadOpenFeedZapOnly = false;
+				threadInitialActionsTarget = null;
+				pendingActionsCommentEv = null;
+				pendingZapCommentEv = null;
+				selectedThreadComments = [];
+				selectedThreadZaps = [];
+			}}
+			{signEvent}
+			{searchProfiles}
+			{searchEmojis}
+			onReplySubmit={threadModalAddrATag
+				? (e) => handleActivityThreadReply(null, null, e)
+				: _rootPost
+					? (e) => handleActivityThreadReply(_rootPost.id, _rootPost.pubkey, e)
+					: undefined}
+			onZapReceived={() => {}}
+			onGetStarted={() => {}}
+		/>
 	{/key}
 {/if}
 
@@ -2558,17 +2593,19 @@
 			expandCommentId={threadModalExpandCommentId}
 			openActionsOnMount={threadOpenActionsOnMount}
 			initialActionsTarget={threadInitialActionsTarget}
-			standaloneActionsOpenKey={standaloneActionsOpenKey}
+			{standaloneActionsOpenKey}
 			openZapOnMount={threadOpenFeedZapOnly}
-			standaloneZapOpenKey={standaloneZapOpenKey}
-			feedInitialZapTarget={pendingZapCommentEv ? enrichReplyTargetForModal(pendingZapCommentEv) : null}
+			{standaloneZapOpenKey}
+			feedInitialZapTarget={pendingZapCommentEv
+				? enrichReplyTargetForModal(pendingZapCommentEv)
+				: null}
 			{openReplyOnMount}
 			initialReplyTarget={initialReplyTargetForModal}
-		modalLockBodyScroll={!inboxEmbed}
-		modalZIndex={inboxEmbed ? 130 : 110}
-		modalScopedInPanel={inboxEmbed}
-		disableMediaLightbox={inboxEmbed}
-		isZapRoot={true}
+			modalLockBodyScroll={!inboxEmbed}
+			modalZIndex={inboxEmbed ? 130 : 110}
+			modalScopedInPanel={inboxEmbed}
+			disableMediaLightbox={inboxEmbed}
+			isZapRoot={true}
 			id={_zEv.id}
 			content={_zParsed.comment ?? ''}
 			zapAmount={_zParsed.amountSats ?? 0}
@@ -2601,23 +2638,23 @@
 				: _zapBannerDeletedKind
 					? { label: activityDeletedRootLabel(_zapBannerDeletedKind), deleted: true }
 					: null}
-		onModalClose={() => {
-			threadLoadGen++;
-			threadModalKind = null;
-			threadModalZapId = null;
-			threadModalZapEvent = null;
-			threadModalAddrATag = null;
-			threadModalExpandCommentId = null;
-			initialReplyTargetForModal = null;
-			threadOpenActionsOnMount = false;
-			threadOpenFeedActionsOnly = false;
-			threadOpenFeedZapOnly = false;
-			threadInitialActionsTarget = null;
-			pendingActionsCommentEv = null;
-			pendingZapCommentEv = null;
-			selectedThreadComments = [];
-			selectedThreadZaps = [];
-		}}
+			onModalClose={() => {
+				threadLoadGen++;
+				threadModalKind = null;
+				threadModalZapId = null;
+				threadModalZapEvent = null;
+				threadModalAddrATag = null;
+				threadModalExpandCommentId = null;
+				initialReplyTargetForModal = null;
+				threadOpenActionsOnMount = false;
+				threadOpenFeedActionsOnly = false;
+				threadOpenFeedZapOnly = false;
+				threadInitialActionsTarget = null;
+				pendingActionsCommentEv = null;
+				pendingZapCommentEv = null;
+				selectedThreadComments = [];
+				selectedThreadZaps = [];
+			}}
 			{signEvent}
 			{searchProfiles}
 			{searchEmojis}

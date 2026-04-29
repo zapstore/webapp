@@ -12,9 +12,17 @@ import { onMount } from "svelte";
 import { nip19 } from "nostr-tools";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
+import ZapPillRow from "./ZapPillRow.svelte";
 import { Loader2 } from "lucide-svelte";
 import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString, } from "$lib/utils/color.js";
-let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, light = false, outgoing = false, children, headerActions, actionRail, } = $props();
+let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, light = false, outgoing = false, children, headerActions, actionRail,
+    /**
+     * Zaps received on this comment, displayed as a horizontally-scrolling
+     * pill row beneath the content. Each entry is the parent's parsed zap
+     * (kind 9735 receipt or NIP-22 z-wrapper).
+     * @type {Array<{ id: string, senderPubkey?: string | null, amountSats?: number, displayName?: string, avatarUrl?: string | null, profileUrl?: string, createdAt?: number, timestamp?: number }>}
+     */
+    zapsOnThis = [], } = $props();
 function formatNpubDisplay(npubStr) {
     if (!npubStr || typeof npubStr !== "string") return "";
     const s = npubStr.trim();
@@ -91,6 +99,9 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     <div class="bubble-content">
       {@render children?.()}
     </div>
+    {#if (zapsOnThis?.length ?? 0) > 0}
+      <ZapPillRow zaps={zapsOnThis} />
+    {/if}
   </div>
   {#if actionRail}
     <div class="bubble-action-rail-host">

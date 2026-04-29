@@ -2015,6 +2015,37 @@ export function parseComment(event) {
 		.replace(/>/g, '&gt;')
 		.replace(/\n/g, '<br>');
 
+	// Detect z-tag: ['z', <zapReceiptId>, <relayHint?>, <amount>, <unit>]
+	// When present this comment is a "zap wrapper" — it attests an out-of-band
+	// kind-9735 zap on a deeper comment/zap. We annotate the parsed object with
+	// the zap fields so the rendering layer can display it as a ZapBubble while
+	// still treating it as a regular comment for all other purposes (profile
+	// loading, thread counting, reply indicators, etc.).
+	const zTag = (event.tags ?? []).find((t) => t[0] === 'z' && typeof t[1] === 'string' && t[1]);
+	let isWrapper = false;
+	let zapAmountSats = 0;
+	let zapReceiptId = null;
+	if (zTag) {
+		const rid = String(zTag[1]).trim().toLowerCase();
+		if (/^[a-f0-9]{64}$/.test(rid)) {
+			zapReceiptId = rid;
+			isWrapper = true;
+			let amountStr = '';
+			let unit = 'sats';
+			if (zTag.length >= 5) {
+				amountStr = String(zTag[3] ?? '');
+				unit = String(zTag[4] ?? 'sats').toLowerCase();
+			} else if (zTag.length === 4) {
+				amountStr = String(zTag[2] ?? '');
+				unit = String(zTag[3] ?? 'sats').toLowerCase();
+			}
+			const n = Number.parseFloat(amountStr);
+			if (Number.isFinite(n) && n > 0) {
+				zapAmountSats = unit === 'msats' || unit === 'msat' ? Math.round(n / 1000) : Math.round(n);
+			}
+		}
+	}
+
 	return {
 		id: event.id,
 		pubkey: event.pubkey,
@@ -2026,8 +2057,178 @@ export function parseComment(event) {
 		parentId,
 		isReply: parentId !== null,
 		/** Version tag from the event (set when the comment was posted on a specific app release). */
-		version: event.tags.find((t) => t[0] === 'v' && t[1])?.[1] ?? null
+		version: event.tags.find((t) => t[0] === 'v' && t[1])?.[1] ?? null,
+		// Z-tag wrapper fields — only populated when the comment attests a deep zap.
+		isWrapper,
+		zapAmountSats,
+		zapReceiptId,
 	};
+}
+
+/**
+ * Detect whether a kind 1111 NIP-22 comment is acting as a "zap wrapper" —
+ * i.e. the user's own attestation of an out-of-band zap they performed on a
+ * deeper comment/zap (where the kind 9735 receipt is not directly fetched by
+ * the comment thread query).
+ *
+ * Tag shape (5-element form): `['z', <zapReceiptId>, <relayHint>, <amountStr>, <unit>]`
+ * where `<unit>` is `'sats'` or `'msats'`. Older / sparser variants are tolerated.
+ *
+ * Returns a zap-shaped object compatible with {@link parseZapReceipt} consumers,
+ * or `null` if the event has no `z` tag (i.e. it's a regular comment).
+ *
+ * @param {{ id: string, pubkey: string, content?: string, tags?: string[][], created_at: number }} event
+ * @returns {null | {
+ *   id: string,
+ *   senderPubkey: string,
+ *   recipientPubkey: string | null,
+ *   amountSats: number,
+ *   comment: string,
+ *   emojiTags: { shortcode: string, url: string }[],
+ *   mediaUrls: string[],
+ *   createdAt: number,
+ *   zappedEventId: string | null,
+ *   zapReceiptId: string,
+ *   isWrapper: true,
+ *   parentKind: number | null,
+ *   parentId: string | null,
+ * }}
+ */
+export function parseZapFromCommentWrapper(event) {
+	if (!event || event.kind !== EVENT_KINDS.COMMENT) return null;
+	const zTag = (event.tags ?? []).find((t) => t[0] === 'z' && typeof t[1] === 'string' && t[1]);
+	if (!zTag) return null;
+
+	const zapReceiptId = String(zTag[1]).trim().toLowerCase();
+	if (!/^[a-f0-9]{64}$/.test(zapReceiptId)) return null;
+
+	// Tolerate both the 5-element form `[z, id, relayHint, amount, unit]` and the
+	// degraded 4-element form `[z, id, amount, unit]` for forward compat.
+	let amountStr = '';
+	let unit = 'sats';
+	if (zTag.length >= 5) {
+		amountStr = String(zTag[3] ?? '');
+		unit = String(zTag[4] ?? 'sats').toLowerCase();
+	} else if (zTag.length === 4) {
+		amountStr = String(zTag[2] ?? '');
+		unit = String(zTag[3] ?? 'sats').toLowerCase();
+	}
+	const amountNum = Number.parseFloat(amountStr);
+	let amountSats = Number.isFinite(amountNum) && amountNum > 0 ? amountNum : 0;
+	if (unit === 'msats' || unit === 'msat') amountSats = Math.round(amountSats / 1000);
+	else amountSats = Math.round(amountSats);
+
+	const c = parseComment(event);
+
+	const parentKindTag = (event.tags ?? []).find((t) => t[0] === 'k' && t[1]);
+	const parentKind = parentKindTag ? Number.parseInt(String(parentKindTag[1]), 10) : null;
+
+	const recipientTag = (event.tags ?? []).find((t) => t[0] === 'p' && t[1]);
+
+	return {
+		id: event.id,
+		senderPubkey: event.pubkey,
+		recipientPubkey: recipientTag?.[1] ?? null,
+		amountSats,
+		comment: event.content ?? '',
+		emojiTags: c.emojiTags ?? [],
+		mediaUrls: c.mediaUrls ?? [],
+		createdAt: event.created_at,
+		zappedEventId: c.parentId ?? null,
+		zapReceiptId,
+		isWrapper: true,
+		parentKind: Number.isFinite(parentKind) ? parentKind : null,
+		parentId: c.parentId ?? null
+	};
+}
+
+/**
+ * Publish a NIP-22 kind 1111 "zap wrapper" comment after a successful zap on
+ * a deeper comment/zap. The wrapper carries a `z` tag referencing the zap
+ * receipt id (kind 9735), the amount, and the unit. This lets the thread
+ * query surface the zap naturally — no extra kind 9735 fetch needed for deep
+ * zaps.
+ *
+ * Tag layout:
+ *   • Root tags: `E`/`A` + `K` + `P` (so the wrapper is routed under the same root)
+ *   • Parent tags: `e` + `k` + `p` (the comment/zap being zapped)
+ *   • `['z', <zapReceiptId>, ZAPSTORE_RELAY, <amountSats>, 'sats']`
+ *   • `emoji` tags propagated from the original zap-request
+ *
+ * @param {{
+ *   zapReceiptId: string,
+ *   amountSats: number,
+ *   parent: { id: string, kind: number, pubkey: string },
+ *   root: { kind: number, pubkey: string, identifier?: string | null, eventId?: string | null },
+ *   content?: string,
+ *   emojiTags?: { shortcode: string, url: string }[],
+ *   relays?: string[],
+ * }} params
+ * @param {(template: object) => Promise<{ id: string, pubkey: string, sig: string, [k: string]: unknown }>} signEvent
+ */
+export async function publishZapCommentWrapper(params, signEvent) {
+	if (typeof signEvent !== 'function') throw new Error('signEvent is required');
+	const { zapReceiptId, amountSats, parent, root, content = '', emojiTags = [], relays } = params ?? {};
+
+	const receiptId = String(zapReceiptId ?? '').trim().toLowerCase();
+	if (!/^[a-f0-9]{64}$/.test(receiptId)) throw new Error('Invalid zap receipt id');
+	if (!parent?.id || !parent?.pubkey || !parent?.kind) throw new Error('Wrapper parent (id, kind, pubkey) required');
+	if (!root?.kind || !root?.pubkey || (!root.identifier && !root.eventId)) {
+		throw new Error('Wrapper root (kind, pubkey, identifier|eventId) required');
+	}
+	const sats = Math.max(0, Math.round(Number(amountSats) || 0));
+
+	const relayHint = ZAPSTORE_RELAY;
+
+	/** @type {string[][]} */
+	const tags = [];
+
+	// Root markers — replaceable (A) vs non-replaceable (E)
+	if (root.identifier) {
+		const aTagValue = `${root.kind}:${root.pubkey.toLowerCase()}:${root.identifier}`;
+		tags.push(['A', aTagValue, relayHint]);
+	} else if (root.eventId) {
+		tags.push(['E', String(root.eventId).toLowerCase(), relayHint]);
+	}
+	tags.push(['K', String(root.kind)]);
+	tags.push(['P', root.pubkey.toLowerCase()]);
+
+	// Parent markers (the comment/zap being zapped)
+	tags.push(['e', parent.id.toLowerCase(), relayHint]);
+	tags.push(['k', String(parent.kind)]);
+	tags.push(['p', parent.pubkey.toLowerCase()]);
+
+	// The z tag — what makes this comment a zap wrapper.
+	tags.push(['z', receiptId, relayHint, String(sats), 'sats']);
+
+	// Emoji propagation so the wrapper renders the same set as the zap request.
+	const seenEmoji = new Set();
+	for (const { shortcode, url } of emojiTags ?? []) {
+		if (shortcode && url && !seenEmoji.has(shortcode)) {
+			seenEmoji.add(shortcode);
+			tags.push(['emoji', shortcode, url]);
+		}
+	}
+
+	const template = {
+		kind: EVENT_KINDS.COMMENT,
+		content: typeof content === 'string' ? content : '',
+		tags,
+		created_at: Math.floor(Date.now() / 1000)
+	};
+
+	const signed = await signEvent(template);
+	if (!signed?.id) throw new Error('Failed to sign zap wrapper comment');
+
+	const targetRelays = Array.isArray(relays) && relays.length > 0
+		? relays
+		: [...new Set([...COMMENT_PUBLISH_RELAYS, ...DEFAULT_SOCIAL_RELAYS])];
+
+	const p = getPool();
+	// Best-effort across all targets; never block the UI on slow social relays.
+	void Promise.allSettled(p.publish(targetRelays, signed)).catch(() => {});
+	await putEvents([signed]);
+	return signed;
 }
 
 // ============================================================================

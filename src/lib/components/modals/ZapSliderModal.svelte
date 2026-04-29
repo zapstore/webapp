@@ -6,7 +6,7 @@
 import { onDestroy } from "svelte";
 import { Loader2, AlertCircle, CheckCircle, Copy, Check } from "lucide-svelte";
 import { generateSecretKey, finalizeEvent } from "nostr-tools/pure";
-import { createZap, subscribeToZapReceipt } from "$lib/nostr";
+import { createZap, subscribeToZapReceipt, publishZapCommentWrapper } from "$lib/nostr";
 import { getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
 import Modal from "$lib/components/common/Modal.svelte";
 import ZapSlider from "./ZapSlider.svelte";
@@ -16,7 +16,20 @@ async function signWithAnonymousKey(template) {
     return finalizeEvent(template, sk);
 }
 let { target = null, publisherName = "", contentType = "app", otherZaps = [], isOpen = $bindable(false), nestedModal = false, lockBodyScroll = true, scopedInPanel = false, zIndex = 50, searchProfiles = async () => [], searchEmojis = async () => [], onclose, onzapReceived, onZapPending, onZapPendingClear, /** When set, opening the modal pre-fills this amount on the slider (e.g. quick chips). */
-presetZapSats = null, } = $props();
+presetZapSats = null,
+/**
+ * When zapping a comment/zap inside a thread (anything deeper than the
+ * root app/stack/forum-post), pass the NIP-22 thread context here so the
+ * modal can publish a kind 1111 "zap wrapper" once the kind 9735 receipt
+ * arrives. Leaving this `null` (default) preserves the existing root-zap
+ * behavior — no wrapper is published.
+ *
+ * @type {null | {
+ *   parent: { id: string, kind: number, pubkey: string },
+ *   root: { kind: number, pubkey: string, identifier?: string | null, eventId?: string | null }
+ * }}
+ */
+wrapperParent = null, } = $props();
 let sliderComponent = $state(null);
 let zapValue = $state(100);
 let message = $state("");
@@ -153,6 +166,29 @@ function startListeningForReceipt() {
         const temp = pendingTempId;
         pendingTempId = null;
         onzapReceived?.({ zapReceipt, pendingTempId: temp });
+        // Fire-and-forget: when zapping a deeper comment/zap WITH a comment text,
+        // publish a NIP-22 kind 1111 wrapper so the thread query naturally surfaces
+        // it as a ZapBubble. Plain zaps (no text) skip the wrapper entirely — they
+        // will appear as pills only, via the kind 9735 fetch in SocialTabs.
+        // Only signed-in users — guest zaps use anonymous keys we wouldn't want
+        // to author a discoverable wrapper from.
+        const wrapperContent = (sliderComponent?.getSerializedContent?.()?.text ?? message ?? "").trim();
+        if (wrapperParent && isConnected && zapReceipt?.id && wrapperContent.length > 0) {
+            const sats = Math.round(zapValue);
+            void publishZapCommentWrapper(
+                {
+                    zapReceiptId: zapReceipt.id,
+                    amountSats: sats,
+                    parent: wrapperParent.parent,
+                    root: wrapperParent.root,
+                    content: wrapperContent,
+                    emojiTags: lastEmojiTags ?? [],
+                },
+                signEvent,
+            ).catch((err) => {
+                console.error("Failed to publish zap wrapper comment:", err);
+            });
+        }
         setTimeout(() => closeAfterSuccess(), 2000);
     }, { invoice: invoice ?? undefined, appAddress: targetAddress, appEventId: target.id });
     receiptTimeout = setTimeout(() => {

@@ -38,7 +38,7 @@ const plainPreview = $derived.by(() => {
 		<div class="quoted-zap-top">
 			<span class="quoted-zap-name">{authorName}</span>
 			<span class="quoted-zap-amount-row" aria-label="{amountSats} sats">
-				<Zap variant="fill" size={12} color="url(#quoted-zap-icon-gold66)" />
+				<Zap variant="fill" size={12} color="var(--goldColor)" />
 				<span class="quoted-zap-sats">{formatAmount(amountSats)}</span>
 			</span>
 		</div>
@@ -58,16 +58,6 @@ const plainPreview = $derived.by(() => {
 		{/if}
 	</div>
 </div>
-
-<svg width="0" height="0" style="position: absolute;" aria-hidden="true">
-	<defs>
-		<!-- Matches --gradient-gold66 stops (#FFC736 / #FFA037 at 66% opacity); linear for SVG fill -->
-		<linearGradient id="quoted-zap-icon-gold66" x1="0%" y1="0%" x2="100%" y2="100%">
-			<stop offset="0%" stop-color="#FFC736" stop-opacity="0.66" />
-			<stop offset="100%" stop-color="#FFA037" stop-opacity="0.66" />
-		</linearGradient>
-	</defs>
-</svg>
 
 <style>
 	.quoted-zap {
@@ -97,7 +87,7 @@ const plainPreview = $derived.by(() => {
 	.quoted-zap-bar {
 		width: 3px;
 		flex-shrink: 0;
-		background: var(--gradient-gold66);
+		background: var(--gradient-gold);
 	}
 
 	.quoted-zap-top {
@@ -116,7 +106,7 @@ const plainPreview = $derived.by(() => {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		min-width: 0;
-		background: var(--gradient-gold66);
+		background: var(--gradient-gold);
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
 		background-clip: text;
@@ -127,14 +117,13 @@ const plainPreview = $derived.by(() => {
 		align-items: center;
 		gap: 4px;
 		flex-shrink: 0;
+	}
+
+	.quoted-zap-sats {
 		font-size: 0.8125rem;
 		font-weight: 500;
 		line-height: 1.2;
 		color: var(--white);
-	}
-
-	.quoted-zap-sats {
-		font-variant-numeric: tabular-nums;
 	}
 
 	.quoted-zap-content {

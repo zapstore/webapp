@@ -43,14 +43,20 @@
 	const showQuote = $derived(!!parentComment && !!parsed?.zappedEventId);
 	const rootOneliner = $derived(getEventOneliner(rootEvent));
 
-	/** Kind inferred from the zap receipt's A/a tags — used for the loading label only. */
+	/** Kind inferred from the zap receipt's A/a/e tags — used for the loading label only. */
 	const pendingRootKind = $derived.by(() => {
-		for (const t of zapEvent?.tags ?? []) {
+		const tags = zapEvent?.tags ?? [];
+		let hasAddrTag = false;
+		for (const t of tags) {
 			if ((t[0] === 'A' || t[0] === 'a') && t[1]) {
+				hasAddrTag = true;
 				if (t[1].startsWith(`${EVENT_KINDS.APP}:`)) return 'app';
 				if (t[1].startsWith(`${EVENT_KINDS.APP_STACK}:`)) return 'stack';
 			}
 		}
+		// Forum posts (kind 11) are non-addressable — their zap receipts have only
+		// an `e` tag and NO `a` tag at all. Only infer 'forum' when that's the case.
+		if (!hasAddrTag && tags.find((t) => t[0] === 'e' && t[1])) return 'forum';
 		return null;
 	});
 	const rootLabel = $derived.by(() => {
@@ -58,6 +64,7 @@
 		if (rootBadgeSkeleton) {
 			if (pendingRootKind === 'app') return 'Loading App…';
 			if (pendingRootKind === 'stack') return 'Loading Stack…';
+			if (pendingRootKind === 'forum') return 'Loading Post…';
 			return 'Loading…';
 		}
 		return 'Zap';
@@ -200,7 +207,11 @@
 						{/if}
 					</button>
 				{:else}
-					<span class="root-label" class:root-label--split={isStackRoot}>
+					<span
+						class="root-label"
+						class:root-label--muted={!rootEvent && !showDeletedRoot}
+						class:root-label--split={isStackRoot}
+					>
 						{#if isStackRoot}<span class="root-label-kind">Stack</span>{/if}
 						{#if isStackRoot}
 							<span class="root-label-ellipsis">{rootLabel}</span>
@@ -502,6 +513,10 @@
 	}
 
 	.root-label--deleted {
+		color: var(--white33);
+	}
+
+	.root-label--muted {
 		color: var(--white33);
 	}
 

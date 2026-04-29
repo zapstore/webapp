@@ -98,6 +98,35 @@ let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl 
     modalLockBodyScroll = true,
     /** Base z-index for the thread Modal; child sheets stack above. */
     modalZIndex = 50,
+    /**
+     * NIP-22 root context for publishing kind-1111 "zap wrappers" when the user
+     * zaps a comment or zap inside the thread. Required to publish wrappers;
+     * leave `null` for root zaps (the modal won't publish a wrapper).
+     *
+     * For replaceable roots (apps, stacks): pass `{ kind, pubkey, identifier }`.
+     * For non-replaceable roots (forum posts): pass `{ kind, pubkey, eventId }`.
+     *
+     * @type {null | { kind: number, pubkey: string, identifier?: string | null, eventId?: string | null }}
+     */
+    wrapperRoot = null,
+    /**
+     * True when this root item is a kind-1111 z-wrapper comment rendered as a
+     * ZapBubble. Distinct from `isZapRoot` (which is also true for real kind-9735
+     * receipts) so kind/parentKind logic can use the correct value (1111 vs 9735).
+     */
+    isZapWrapper = false,
+    /**
+     * Zaps received on the root bubble itself (root comment or root zap) —
+     * rendered as a horizontally-scrolling pill row beneath the bubble's content.
+     * @type {Array<{ id: string, senderPubkey?: string | null, amountSats?: number, displayName?: string, avatarUrl?: string | null, profileUrl?: string, createdAt?: number, timestamp?: number }>}
+     */
+    zapsOnThis = [],
+    /**
+     * Map of `commentId | zapId | wrapperId → zaps[]` — used to render pill rows
+     * on each thread reply / nested zap inside the modal.
+     * @type {Map<string, Array<{ id: string, senderPubkey?: string | null, amountSats?: number, displayName?: string, avatarUrl?: string | null, profileUrl?: string, createdAt?: number, timestamp?: number }>>}
+     */
+    zapsByTargetId = null,
     /** Thread/sheets sized to header inbox panel (`container-type: size` + cqh). */
     modalScopedInPanel = false,
     /** When true, disable media lightbox (e.g. inside inbox panel where full-screen is meaningless). */
@@ -190,13 +219,6 @@ const uniqueRepliers = $derived.by(() => {
         seen.add(r.pubkey);
         list.push({ pubkey: r.pubkey, displayName: r.displayName, avatarUrl: r.avatarUrl });
     }
-    for (const z of threadZaps ?? []) {
-        const pk = z.senderPubkey ?? z.pubkey ?? "";
-        if (!pk || seen.has(pk))
-            continue;
-        seen.add(pk);
-        list.push({ pubkey: pk, displayName: z.displayName, avatarUrl: z.avatarUrl ?? null });
-    }
     if (authorPubkey) {
         list.sort((a, b) => {
             if (a.pubkey === authorPubkey)
@@ -236,18 +258,27 @@ const sortedReplies = $derived([...replies].sort((a, b) => {
     return timeA - timeB;
 }));
 const feedItems = $derived.by(() => {
-    const commentItems = (threadComments.length > 0
+    const source = threadComments.length > 0
         ? threadComments.filter((c) => c.id !== id)
-        : sortedReplies).map((c) => ({ type: 'comment', data: c }));
-    const zapItems = (threadZaps ?? []).map((z) => ({
-        type: 'zap',
-        data: {
-            ...z,
-            pubkey: z.senderPubkey ?? z.pubkey,
-            createdAt: z.timestamp ?? z.createdAt,
-        },
-    }));
-    return [...commentItems, ...zapItems].sort((a, b) => (a.data.createdAt ?? 0) - (b.data.createdAt ?? 0));
+        : sortedReplies;
+    const commentItems = source.map((c) => {
+        // z-wrapper thread items render as ZapBubble just like kind-9735 thread zaps.
+        if (c.isWrapper) {
+            return {
+                type: 'zap',
+                data: {
+                    ...c,
+                    senderPubkey: c.pubkey,
+                    amountSats: c.zapAmountSats ?? 0,
+                    comment: c.content ?? '',
+                    pubkey: c.pubkey,
+                    createdAt: c.createdAt,
+                },
+            };
+        }
+        return { type: 'comment', data: c };
+    });
+    return commentItems.sort((a, b) => (a.data.createdAt ?? 0) - (b.data.createdAt ?? 0));
 });
 const threadById = $derived.by(() => {
     const map = new SvelteMap();
@@ -275,20 +306,55 @@ function getContentPreview(comment) {
     }
     return "";
 }
-/** App a-tag so every zap from this page has it on the request → receipt has it → we find by #a only (no #p). */
-const appATag = $derived(authorPubkey && appIdentifier ? `32267:${authorPubkey}:${appIdentifier}` : undefined);
-/** Zap target: e-tag = event we're zapping, p-tag = that event's author; aTag = app so receipt is discoverable by #a. */
+/** Zap target: e-tag = event id, p-tag = event author. No aTag — comment zaps must NOT carry
+ *  the root app/stack address or the receipt lands in the app's root zap feed instead of
+ *  appearing as a pill on the comment. The z-wrapper (kind 1111) handles feed representation. */
 const rootZapTarget = $derived(pubkey
     ? {
         name: name || undefined,
         pubkey,
         id: id ?? undefined,
         pictureUrl: pictureUrl ?? undefined,
-        aTag: appATag,
     }
     : null);
 /** Active zap target (override when Zap chosen from a reply's menu) */
 const zapTarget = $derived(zapTargetOverride ?? rootZapTarget);
+/**
+ * NIP-22 wrapper context for the active zap. Set whenever `wrapperRoot` is
+ * provided (i.e. this RootComment is inside a SocialTabs under an app/stack/
+ * forum-post). The parent is either the overridden target (a child reply or
+ * nested zap) or the root comment/zap displayed by this component — both are
+ * "deeper" than the actual root, so both need a z-wrapper.
+ */
+const zapWrapperParent = $derived.by(() => {
+    if (!wrapperRoot) return null;
+
+    if (zapTargetOverride) {
+        const parentId = String(zapTargetOverride.id ?? "").trim().toLowerCase();
+        if (!/^[a-f0-9]{64}$/.test(parentId)) return null;
+        const parentPubkey = String(zapTargetOverride.pubkey ?? "").trim().toLowerCase();
+        if (!/^[a-f0-9]{64}$/.test(parentPubkey)) return null;
+        const parentKind = Number.isFinite(zapTargetOverride.parentKind)
+            ? zapTargetOverride.parentKind
+            : EVENT_KINDS.COMMENT;
+        return {
+            parent: { id: parentId, kind: parentKind, pubkey: parentPubkey },
+            root: wrapperRoot,
+        };
+    }
+
+    // No override → zapping the root comment/zap rendered by this component.
+    const parentId = String(id ?? "").trim().toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(parentId)) return null;
+    const parentPubkey = String(pubkey ?? "").trim().toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(parentPubkey)) return null;
+    // Real kind-9735 receipts → ZAP_RECEIPT; z-wrappers and plain comments → COMMENT.
+    const parentKind = isZapRoot && !isZapWrapper ? EVENT_KINDS.ZAP_RECEIPT : EVENT_KINDS.COMMENT;
+    return {
+        parent: { id: parentId, kind: parentKind, pubkey: parentPubkey },
+        root: wrapperRoot,
+    };
+});
 /** Show Zap + Comment (or "Get started to comment" for guests) in thread modal when we have handlers and a root id. */
 const showThreadActions = $derived((onReplySubmit != null || onZapReceived != null || onGetStarted != null) && (id != null || pubkey != null));
 function openActionsModal(target) {
@@ -300,6 +366,8 @@ function onBubbleClick(e, target) {
         return;
     const t = e.target;
     if (t instanceof Element && t.closest("a, button, input, [contenteditable='true']"))
+        return;
+    if ((window.getSelection()?.toString().length ?? 0) > 0)
         return;
     e.preventDefault();
     e.stopPropagation();
@@ -357,10 +425,15 @@ function openReplyToZap(zap) {
         quotedAsZap: true,
         amountSats: zap.amountSats ?? 0,
         emojiTags: zap.emojiTags ?? [],
+        // Carry isWrapper so handleReplySubmit uses the right parentKind (COMMENT, not ZAP_RECEIPT).
+        isWrapper: zap.isWrapper === true,
     };
     commentExpanded = true;
 }
 function openThread() {
+    // Don't open the modal if the user is in the middle of selecting text —
+    // that would swallow the selection and feel broken.
+    if (typeof window !== 'undefined' && (window.getSelection()?.toString().length ?? 0) > 0) return;
     modalOpen = true;
 }
 function handleZap() {
@@ -387,12 +460,18 @@ function handleZapComment(commentOrZap) {
         : (commentOrZap.pubkey ?? "");
     if (!recipientPubkey)
         return;
+    // Parent kind for NIP-22 wrapper:
+    //   • Real kind 9735 zap (root-level zap, not isWrapper) → 9735
+    //   • Comment (kind 1111) or z-wrapper kind 1111 → 1111
+    const isRealReceipt = isZap && commentOrZap.isWrapper !== true;
+    const parentKind = isRealReceipt ? EVENT_KINDS.ZAP_RECEIPT : EVENT_KINDS.COMMENT;
     zapTargetOverride = {
         name: commentOrZap.displayName || undefined,
         pubkey: recipientPubkey,
         id: commentOrZap.id,
         pictureUrl: commentOrZap.avatarUrl ?? undefined,
         aTag: undefined,
+        parentKind,
     };
     zapModalOpen = true;
 }
@@ -423,11 +502,13 @@ async function handleReplySubmit(event) {
     /** @type {number} */
     let parentKind = EVENT_KINDS.COMMENT;
     if (!replyingToComment) {
-        if (isZapRoot)
+        // Real kind-9735 receipt → ZAP_RECEIPT; z-wrapper comment → COMMENT.
+        if (isZapRoot && !isZapWrapper)
             parentKind = EVENT_KINDS.ZAP_RECEIPT;
     }
     else if (replyingToComment.quotedAsZap === true) {
-        parentKind = EVENT_KINDS.ZAP_RECEIPT;
+        // Replying to a thread zap: use ZAP_RECEIPT unless it's itself a z-wrapper.
+        parentKind = replyingToComment.isWrapper ? EVENT_KINDS.COMMENT : EVENT_KINDS.ZAP_RECEIPT;
     }
     submitting = true;
     try {
@@ -542,7 +623,7 @@ const actionsTargetEventId = $derived.by(() => {
 
 const actionsTargetEventKind = $derived.by(() => {
 	if (actionsModalTarget === "root")
-		return isZapRoot ? EVENT_KINDS.ZAP_RECEIPT : EVENT_KINDS.COMMENT;
+		return isZapRoot && !isZapWrapper ? EVENT_KINDS.ZAP_RECEIPT : EVENT_KINDS.COMMENT;
 	if (!actionsModalTarget || typeof actionsModalTarget !== "object")
 		return EVENT_KINDS.COMMENT;
 	const o = /** @type {Record<string, unknown>} */ (actionsModalTarget);
@@ -650,6 +731,7 @@ function handleRootContextNav(e) {
       amount={zapAmount}
       {emojiTags}
       {resolveMentionLabel}
+      {zapsOnThis}
       actionRail={showThreadActions ? feedDesktopRail : undefined}
     />
   {:else}
@@ -662,6 +744,7 @@ function handleRootContextNav(e) {
       {loading}
       {pending}
       {outgoing}
+      {zapsOnThis}
       actionRail={showThreadActions ? feedDesktopRail : undefined}
     >
       {#if (content != null && content !== undefined) || (mediaUrls?.length ?? 0) > 0}
@@ -845,8 +928,19 @@ function handleRootContextNav(e) {
                     profileUrl={reply.profileUrl}
                     loading={reply.profileLoading}
                     light={true}
+                    zapsOnThis={zapsByTargetId?.get(String(reply.id ?? '').toLowerCase()) ?? []}
                   >
-                    {#if quotedParent}
+                    {#if quotedParent && quotedParent.isWrapper}
+                      <QuotedZapMessage
+                        authorName={displayNameOrNpubShort(quotedParent.displayName, quotedParent.pubkey)}
+                        authorPubkey={quotedParent.pubkey}
+                        amountSats={quotedParent.zapAmountSats ?? 0}
+                        content={quotedParent.content ?? ""}
+                        emojiTags={quotedParent.emojiTags ?? []}
+                        mediaUrls={quotedParent.mediaUrls ?? []}
+                        resolveMentionLabel={resolveMentionLabel}
+                      />
+                    {:else if quotedParent}
                       <QuotedMessage
                         authorName={displayNameOrNpubShort(quotedParent.displayName, quotedParent.pubkey)}
                         authorPubkey={quotedParent.pubkey}
@@ -920,6 +1014,7 @@ function handleRootContextNav(e) {
                     message={zap.comment ?? ""}
                     emojiTags={zap.emojiTags ?? []}
                     {resolveMentionLabel}
+                    zapsOnThis={zapsByTargetId?.get(String(zap.id ?? '').toLowerCase()) ?? []}
                   />
                 </div>
                 {#if showThreadActions}
@@ -1081,6 +1176,7 @@ function handleRootContextNav(e) {
   scopedInPanel={modalScopedInPanel}
   zIndex={modalZIndex + 10}
   presetZapSats={zapPresetSats}
+  wrapperParent={zapWrapperParent}
   {searchProfiles}
   {searchEmojis}
   onclose={handleZapClose}
@@ -1320,7 +1416,7 @@ function handleRootContextNav(e) {
   .thread-replies {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     padding: 12px 16px 16px;
   }
 

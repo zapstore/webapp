@@ -54,10 +54,26 @@ let comments = $state([]);
 let commentsLoading = $state(false);
 let commentsError = $state('');
 let zaps = $state([]);
+/**
+ * NIP-22 z-tag wrappers parsed from the comment-thread query — surfaced as
+ * zaps so deep zaps render without an extra kind-9735 fetch.
+ * @type {Array<ReturnType<typeof parseZapFromCommentWrapper>>}
+ */
 let zapsLoading = $state(false);
 let profiles = $state({});
 let profilesLoading = $state(false);
 let zapperProfiles = $state(new Map());
+const otherZaps = $derived(
+	zaps.map((z) => {
+		const prof = z.senderPubkey ? zapperProfiles.get(z.senderPubkey) : undefined;
+		return {
+			amount: z.amountSats,
+			profile: z.senderPubkey
+				? { pictureUrl: prof?.picture, name: prof?.displayName ?? prof?.name, pubkey: z.senderPubkey }
+				: undefined,
+		};
+	})
+);
 let rawPostEvent = $derived(postProp?._raw ?? null);
 /** @type {Array<{ label: string, pubkeys: string[] }>} */
 let labelEntries = $state([]);
@@ -229,16 +245,12 @@ $effect(() => {
 		for (const e of [...dexieEvs, ...relayEvs]) {
 			if (e?.id) byId.set(e.id, e);
 		}
-		let evs = Array.from(byId.values()).sort((a, b) => a.created_at - b.created_at);
-		comments = evs.map((e) => {
-			const c = parseComment(e);
-			c.npub = nip19.npubEncode(e.pubkey);
-			return c;
-		});
-		commentsLoading = false;
-		commentsError = '';
+	const evs = Array.from(byId.values()).sort((a, b) => a.created_at - b.created_at);
+	comments = evs.map((e) => { const c = parseComment(e); c.npub = nip19.npubEncode(e.pubkey); return c; });
+	commentsLoading = false;
+	commentsError = '';
 
-		const pks = [...new Set(evs.map((e) => e.pubkey))];
+	const pks = [...new Set(evs.map((e) => e.pubkey))];
 		if (pks.length) {
 			const batch = await fetchProfilesBatch(pks, { timeout: 3000 });
 			if (cancelled) return;
@@ -543,19 +555,13 @@ function handleForumBottomBarZap(event) {
 						detailsNpub={npub}
 						detailsPubkey={post.pubkey ?? ''}
 						detailsRawData={rawPostEvent ? (() => { const c = { ...rawPostEvent }; delete c._tags; return c; })() : null}
+						wrapperRoot={post?.id && post?.pubkey
+							? { kind: post?.kind ?? EVENT_KINDS.FORUM_POST, pubkey: post.pubkey, eventId: post.id }
+							: null}
 						{comments}
 						{commentsLoading}
 						{commentsError}
-						zaps={zaps.map((z) => ({
-							id: z.id,
-							senderPubkey: z.senderPubkey || undefined,
-							amountSats: z.amountSats,
-							createdAt: z.createdAt,
-							comment: z.comment,
-							emojiTags: z.emojiTags ?? [],
-							zappedEventId: z.zappedEventId ?? undefined,
-							pending: z.pending === true
-						}))}
+					{zaps}
 						{zapsLoading}
 						{zapperProfiles}
 						{profiles}
@@ -580,7 +586,7 @@ function handleForumBottomBarZap(event) {
 			publisherName={publisherName}
 			contentType="forum"
 			{zapTarget}
-			otherZaps={[]}
+			{otherZaps}
 			isSignedIn={getIsSignedIn()}
 			isMember={true}
 			onJoinRequired={() => {}}

@@ -8,8 +8,15 @@ import { Loader2 } from "lucide-svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
+import ZapPillRow from "./ZapPillRow.svelte";
 import { Zap } from "$lib/components/icons";
-let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, message = "", emojiTags = [], resolveMentionLabel, actionRail, } = $props();
+let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, message = "", emojiTags = [], resolveMentionLabel, actionRail,
+    /**
+     * Zaps received on this zap (zap-on-zap), displayed as a horizontally-scrolling
+     * pill row beneath the content.
+     * @type {Array<{ id: string, senderPubkey?: string | null, amountSats?: number, displayName?: string, avatarUrl?: string | null, profileUrl?: string, createdAt?: number, timestamp?: number }>}
+     */
+    zapsOnThis = [], } = $props();
 function formatNpubDisplay(npubStr) {
     if (!npubStr || typeof npubStr !== "string") return "";
     const s = npubStr.trim();
@@ -76,6 +83,9 @@ function formatAmount(val) {
           resolveMentionLabel={resolveMentionLabel}
         />
       </div>
+    {/if}
+    {#if (zapsOnThis?.length ?? 0) > 0}
+      <ZapPillRow zaps={zapsOnThis} />
     {/if}
   </div>
   {#if actionRail}
