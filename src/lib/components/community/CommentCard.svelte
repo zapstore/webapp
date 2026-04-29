@@ -80,7 +80,7 @@ const isStackRoot = $derived(
 );
 const deletedRootLabel = $derived(
 	deletedRootKind === 'forum'
-		? 'Forum post not found'
+		? 'Publication not found'
 		: deletedRootKind === 'app'
 			? 'App not found'
 			: deletedRootKind === 'stack'
@@ -106,6 +106,7 @@ const rootDisplayLabel = $derived.by(() => {
 	if (rootBadgeSkeleton) {
 		if (pendingRootKind === 'app') return 'Loading App…';
 		if (pendingRootKind === 'stack') return 'Loading Stack…';
+		if (pendingRootKind === 'forum') return 'Loading Publication…';
 		return 'Loading…';
 	}
 	return rootOneliner.label;

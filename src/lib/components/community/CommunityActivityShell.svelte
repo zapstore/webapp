@@ -1294,7 +1294,7 @@
 	/** @param {import('nostr-tools').NostrEvent | null} ev */
 	/** @param {'forum' | 'app' | 'stack'} kind */
 	function activityDeletedRootLabel(kind) {
-		if (kind === 'forum') return 'Forum post not found';
+		if (kind === 'forum') return 'Publication not found';
 		if (kind === 'app') return 'App not found';
 		return 'Stack not found';
 	}

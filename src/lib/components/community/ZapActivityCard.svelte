@@ -65,7 +65,7 @@
 		if (rootBadgeSkeleton) {
 			if (pendingRootKind === 'app') return 'Loading App…';
 			if (pendingRootKind === 'stack') return 'Loading Stack…';
-			if (pendingRootKind === 'forum') return 'Loading Post…';
+			if (pendingRootKind === 'forum') return 'Loading Publication…';
 			return 'Loading…';
 		}
 		return 'Zap';
@@ -75,7 +75,7 @@
 	);
 	const deletedRootLabel = $derived(
 		deletedRootKind === 'forum'
-			? 'Forum post not found'
+			? 'Publication not found'
 			: deletedRootKind === 'app'
 				? 'App not found'
 				: deletedRootKind === 'stack'

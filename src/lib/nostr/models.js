@@ -204,7 +204,7 @@ export function getEventOneliner(event) {
 	switch (event.kind) {
 		case EVENT_KINDS.FORUM_POST: // 11
 			return {
-				label: truncate(get('title') || event.content?.split('\n')[0]) || 'Forum post',
+				label: truncate(get('title') || event.content?.split('\n')[0]) || 'Publication',
 				emoji: '/images/emoji/forum.png'
 			};
 		case EVENT_KINDS.COMMENT: // 1111
