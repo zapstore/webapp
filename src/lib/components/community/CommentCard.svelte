@@ -152,6 +152,26 @@ const parentMediaUrls = $derived(
 	(parentComment?.tags ?? []).filter((t) => t[0] === 'media' && t[1]).map((t) => t[1])
 );
 
+const parentZTag = $derived(
+	(parentComment?.tags ?? []).find((t) => t[0] === 'z' && t[1]) ?? null
+);
+const parentIsZWrapper = $derived(!!parentZTag);
+const parentZapAmountSats = $derived.by(() => {
+	if (!parentZTag) return 0;
+	let amountStr = '';
+	let unit = 'sats';
+	if (parentZTag.length >= 5) {
+		amountStr = String(parentZTag[3] ?? '');
+		unit = String(parentZTag[4] ?? 'sats').toLowerCase();
+	} else if (parentZTag.length === 4) {
+		amountStr = String(parentZTag[2] ?? '');
+		unit = String(parentZTag[3] ?? 'sats').toLowerCase();
+	}
+	const n = Number.parseFloat(amountStr);
+	if (!Number.isFinite(n) || n <= 0) return 0;
+	return unit === 'msats' || unit === 'msat' ? Math.round(n / 1000) : Math.round(n);
+});
+
 const zapQuoteAuthorName = $derived(
 	parentZapperAuthor?.name?.trim() ||
 		parentZapperAuthor?.displayName?.trim() ||
@@ -288,7 +308,17 @@ const contentText = $derived(event?.content ?? '');
 
 						{#if showQuote}
 							<div class="quote-wrap">
-								{#if parentComment}
+								{#if parentComment && parentIsZWrapper}
+									<QuotedZapMessage
+										authorName={parentDisplayName || 'Anonymous'}
+										authorPubkey={parentComment?.pubkey ?? null}
+										amountSats={parentZapAmountSats}
+										content={parentComment.content ?? ''}
+										emojiTags={parentEmojiTags}
+										mediaUrls={parentMediaUrls}
+										{resolveMentionLabel}
+									/>
+								{:else if parentComment}
 									<QuotedMessage
 										authorName={parentDisplayName || 'Anonymous'}
 										authorPubkey={parentComment?.pubkey ?? null}
@@ -344,7 +374,17 @@ const contentText = $derived(event?.content ?? '');
 
 				{#if showQuote}
 					<div class="quote-wrap">
-						{#if parentComment}
+						{#if parentComment && parentIsZWrapper}
+							<QuotedZapMessage
+								authorName={parentDisplayName || 'Anonymous'}
+								authorPubkey={parentComment?.pubkey ?? null}
+								amountSats={parentZapAmountSats}
+								content={parentComment.content ?? ''}
+								emojiTags={parentEmojiTags}
+								mediaUrls={parentMediaUrls}
+								{resolveMentionLabel}
+							/>
+						{:else if parentComment}
 							<QuotedMessage
 								authorName={parentDisplayName || 'Anonymous'}
 								authorPubkey={parentComment?.pubkey ?? null}

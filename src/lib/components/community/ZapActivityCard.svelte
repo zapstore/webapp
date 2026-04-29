@@ -8,6 +8,7 @@
 	import Timestamp from '$lib/components/common/Timestamp.svelte';
 	import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
 	import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
+	import QuotedZapMessage from '$lib/components/social/QuotedZapMessage.svelte';
 	import CommentBubbleActionRail from '$lib/components/social/CommentBubbleActionRail.svelte';
 	import ActivityStackMiniBadge from '$lib/components/community/ActivityStackMiniBadge.svelte';
 	import DeletedRootBadge from '$lib/components/community/DeletedRootBadge.svelte';
@@ -118,6 +119,26 @@
 	const parentMediaUrls = $derived(
 		(parentComment?.tags ?? []).filter((t) => t[0] === 'media' && t[1]).map((t) => t[1])
 	);
+
+	const parentZTag = $derived(
+		(parentComment?.tags ?? []).find((t) => t[0] === 'z' && t[1]) ?? null
+	);
+	const parentIsZWrapper = $derived(!!parentZTag);
+	const parentZapAmountSats = $derived.by(() => {
+		if (!parentZTag) return 0;
+		let amountStr = '';
+		let unit = 'sats';
+		if (parentZTag.length >= 5) {
+			amountStr = String(parentZTag[3] ?? '');
+			unit = String(parentZTag[4] ?? 'sats').toLowerCase();
+		} else if (parentZTag.length === 4) {
+			amountStr = String(parentZTag[2] ?? '');
+			unit = String(parentZTag[3] ?? 'sats').toLowerCase();
+		}
+		const n = Number.parseFloat(amountStr);
+		if (!Number.isFinite(n) || n <= 0) return 0;
+		return unit === 'msats' || unit === 'msat' ? Math.round(n / 1000) : Math.round(n);
+	});
 
 	function formatAmount(val) {
 		const n = Number(val) || 0;
@@ -249,8 +270,19 @@
 								</div>
 							</div>
 
-							{#if showQuote}
-								<div class="quote-wrap">
+						{#if showQuote}
+							<div class="quote-wrap">
+								{#if parentIsZWrapper}
+									<QuotedZapMessage
+										authorName={parentDisplayName || 'Anonymous'}
+										authorPubkey={parentComment?.pubkey ?? null}
+										amountSats={parentZapAmountSats}
+										content={parentComment?.content ?? ''}
+										emojiTags={parentEmojiTags}
+										mediaUrls={parentMediaUrls}
+										{resolveMentionLabel}
+									/>
+								{:else}
 									<QuotedMessage
 										authorName={parentDisplayName || 'Anonymous'}
 										authorPubkey={parentComment?.pubkey ?? null}
@@ -259,18 +291,19 @@
 										mediaUrls={parentMediaUrls}
 										{resolveMentionLabel}
 									/>
-								</div>
-							{/if}
+								{/if}
+							</div>
+						{/if}
 
-							{#if contentText}
-								<div class="bubble-content">
-									<ShortTextRenderer content={contentText} {emojiTags} {resolveMentionLabel} />
-								</div>
-							{/if}
-						</div>
+						{#if contentText}
+							<div class="bubble-content">
+								<ShortTextRenderer content={contentText} {emojiTags} {resolveMentionLabel} />
+							</div>
+						{/if}
 					</div>
 				</div>
-				<div class="bubble-action-rail-host">
+			</div>
+			<div class="bubble-action-rail-host">
 					<CommentBubbleActionRail
 						onReply={() => feedActions?.onReply?.()}
 						onZap={() => feedActions?.onZap?.()}
@@ -301,14 +334,26 @@
 					</div>
 					{#if showQuote}
 						<div class="quote-wrap">
-							<QuotedMessage
-								authorName={parentDisplayName || 'Anonymous'}
-								authorPubkey={parentComment?.pubkey ?? null}
-								content={parentComment.content ?? ''}
-								emojiTags={parentEmojiTags}
-								mediaUrls={parentMediaUrls}
-								{resolveMentionLabel}
-							/>
+							{#if parentIsZWrapper}
+								<QuotedZapMessage
+									authorName={parentDisplayName || 'Anonymous'}
+									authorPubkey={parentComment?.pubkey ?? null}
+									amountSats={parentZapAmountSats}
+									content={parentComment?.content ?? ''}
+									emojiTags={parentEmojiTags}
+									mediaUrls={parentMediaUrls}
+									{resolveMentionLabel}
+								/>
+							{:else}
+								<QuotedMessage
+									authorName={parentDisplayName || 'Anonymous'}
+									authorPubkey={parentComment?.pubkey ?? null}
+									content={parentComment.content ?? ''}
+									emojiTags={parentEmojiTags}
+									mediaUrls={parentMediaUrls}
+									{resolveMentionLabel}
+								/>
+							{/if}
 						</div>
 					{/if}
 					{#if contentText}
