@@ -9,7 +9,7 @@ import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
 import { Zap } from "$lib/components/icons";
-let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", version: _version = "", className = "", loading = false, pending = false, content = "", emojiTags = [], resolveMentionLabel, } = $props();
+let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", version: _version = "", className = "", loading = false, pending = false, content = "", emojiTags = [], resolveMentionLabel } = $props();
 function formatNpubDisplay(npubStr) {
     const s = String(npubStr || "").trim();
     if (!s)

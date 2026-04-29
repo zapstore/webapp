@@ -321,7 +321,7 @@
 	</section>
 
 	<!-- Platform breakdown (same date range as header / charts) -->
-	<section class="detail-country-section">
+	<!-- <section class="detail-country-section">
 		<div class="detail-country-head">
 			<span class="eyebrow-label detail-country-title">By platform</span>
 			<div class="detail-country-legend">
@@ -342,7 +342,7 @@
 		<div class="detail-country-chart-wrap">
 			<StudioPlatformChart rows={platformRows} loading={platformLoading} />
 		</div>
-	</section>
+	</section> -->
 
 	<!-- Country breakdown (same date range as header / charts) -->
 	<section class="detail-country-section">

@@ -507,8 +507,12 @@ const zapsByTargetId = $derived.by(() => {
                 isZapWrapper={item.isWrapper === true}
                 zapAmount={item.amountSats ?? 0}
                 pending={item.pending === true}
-                threadComments={threadByZapId.get(item.id) ?? []}
-                threadZaps={threadZapsByZapId.get(item.id) ?? []}
+                threadComments={item.isWrapper
+                  ? (threadByRootId.get(item.id) ?? [])
+                  : (threadByZapId.get(item.id) ?? [])}
+                threadZaps={item.isWrapper
+                  ? (threadZapsByRootId.get(item.id) ?? [])
+                  : (threadZapsByZapId.get(item.id) ?? [])}
                 authorPubkey={app?.pubkey}
                 openThreadOnMount={false}
                 resolveMentionLabel={(pk) => profiles[pk]?.displayName ?? profiles[pk]?.name}

@@ -1044,7 +1044,7 @@
 				</section>
 
 			<!-- Platform breakdown — shares the country timeframe dropdown -->
-			<section class="content-section country-section">
+			<!-- <section class="content-section country-section">
 				<div class="section-head country-section-head">
 					<span class="eyebrow-label country-section-title">By platform</span>
 					<div class="country-section-head-right">
@@ -1099,7 +1099,7 @@
 				<div class="chart-area country-chart-wrap">
 					<StudioPlatformChart rows={platformRows} loading={!DUMMY_MODE && platformChartLoading} />
 				</div>
-			</section>
+			</section> -->
 
 			<section class="content-section country-section">
 				<div class="section-head country-section-head">

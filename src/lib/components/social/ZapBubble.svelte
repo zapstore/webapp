@@ -85,7 +85,9 @@ function formatAmount(val) {
       </div>
     {/if}
     {#if (zapsOnThis?.length ?? 0) > 0}
-      <ZapPillRow zaps={zapsOnThis} />
+      <div style="padding-bottom: 3px;">
+        <ZapPillRow zaps={zapsOnThis} />
+      </div>
     {/if}
   </div>
   {#if actionRail}

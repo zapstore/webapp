@@ -100,7 +100,9 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
       {@render children?.()}
     </div>
     {#if (zapsOnThis?.length ?? 0) > 0}
-      <ZapPillRow zaps={zapsOnThis} />
+      <div style="padding-bottom: 3px;">
+        <ZapPillRow zaps={zapsOnThis} />
+      </div>
     {/if}
   </div>
   {#if actionRail}
