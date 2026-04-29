@@ -1,27 +1,35 @@
 <script lang="js">
 	/**
-	 * Skeleton placeholder rows for the Forum feed — mirrors ForumPostCard layout exactly:
-	 * smMd avatar (35px) + vertical connector + right column (name·timestamp / title / preview),
-	 * with an optional L-shape reply row (connector corner + commenter avatar stack).
+	 * Skeleton placeholder rows for the Forum feed — mirrors ForumPostCard layout exactly.
+	 *
+	 * Heights are derived from the real card:
+	 *   name-row   18px  (15px text × 1.2 line-height)
+	 *   title-row  25px  (19px text × 1.3 line-height)
+	 *   content    22px  (15px text × 1.45 line-height)
+	 *   gap         5px  (matching .right-column gap: 5px)
+	 *   → total right-col with content = 75px → card = 16+75+16 = 107px ✓
+	 *
+	 * Label chips match the real Label size="small" (24px, body + right-pointing arrow).
+	 * They are solid/non-shimmering — just the characteristic label shape in a muted fill.
 	 */
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 
 	let { rows = 6 } = $props();
 
 	/**
-	 * Per-row variation data — drives widths and whether the reply row shows.
-	 * nameWidth / titleWidth / contentWidth are percentages of the right column.
-	 * titleLines: 1 = single-line title, 2 = add a second shorter title bar.
-	 * showReply: render the L-shape commenter row at the bottom.
-	 * commenterCount: how many small avatar circles to show in the reply row (1–3).
+	 * titleWidth  — % of right col (varies the visible shimmer bar length).
+	 * contentWidth — % of right col.
+	 * labels — array of total pixel widths for each solid label chip (body + 12px point).
+	 * showReply — render L-shape connector + commenter row.
+	 * commenterCount — number of stacked avatar circles (1–3).
 	 */
 	const ROWS = [
-		{ nameWidth: 28, titleWidth: 82, titleLines: 1, showContent: true,  contentWidth: 65, showReply: true,  commenterCount: 2 },
-		{ nameWidth: 22, titleWidth: 68, titleLines: 2, showContent: false, contentWidth: 0,  showReply: false, commenterCount: 0 },
-		{ nameWidth: 34, titleWidth: 74, titleLines: 1, showContent: true,  contentWidth: 80, showReply: true,  commenterCount: 3 },
-		{ nameWidth: 26, titleWidth: 58, titleLines: 1, showContent: true,  contentWidth: 70, showReply: false, commenterCount: 0 },
-		{ nameWidth: 30, titleWidth: 88, titleLines: 2, showContent: false, contentWidth: 0,  showReply: true,  commenterCount: 1 },
-		{ nameWidth: 24, titleWidth: 76, titleLines: 1, showContent: true,  contentWidth: 56, showReply: true,  commenterCount: 2 },
+		{ nameWidth: 26, titleWidth: 80, showContent: true,  contentWidth: 64, labels: [],           showReply: true,  commenterCount: 2 },
+		{ nameWidth: 20, titleWidth: 66, showContent: false, contentWidth: 0,  labels: [48, 62],     showReply: false, commenterCount: 0 },
+		{ nameWidth: 32, titleWidth: 84, showContent: true,  contentWidth: 72, labels: [],           showReply: true,  commenterCount: 3 },
+		{ nameWidth: 23, titleWidth: 58, showContent: false, contentWidth: 0,  labels: [54, 40, 48], showReply: true,  commenterCount: 1 },
+		{ nameWidth: 28, titleWidth: 72, showContent: true,  contentWidth: 56, labels: [],           showReply: false, commenterCount: 0 },
+		{ nameWidth: 22, titleWidth: 90, showContent: false, contentWidth: 0,  labels: [46, 64],     showReply: false, commenterCount: 0 },
 	];
 </script>
 
@@ -30,8 +38,8 @@
 	{#each Array(Math.min(10, Math.max(1, rows))) as _, i (i)}
 		{@const r = ROWS[i % ROWS.length]}
 		<div class="sk-card">
-			<!-- Top row: left column (avatar + connector) + right column (meta / title / content) -->
 			<div class="sk-top-row">
+				<!-- Left column: avatar + optional vertical connector -->
 				<div class="sk-left-col">
 					<div class="sk-avatar">
 						<SkeletonLoader />
@@ -40,34 +48,47 @@
 						<div class="sk-v-line"></div>
 					{/if}
 				</div>
+
+				<!-- Right column: name · title · content · labels -->
 				<div class="sk-right-col">
-					<!-- Meta row: name pill + timestamp pill -->
-					<div class="sk-meta-row">
-						<div class="sk-name" style="width: {r.nameWidth}%">
-							<SkeletonLoader />
-						</div>
-						<div class="sk-timestamp">
+					<!-- Name row — 18px container, 11px shimmer bar (matches 15px text × 1.2 LH) -->
+					<div class="sk-name-row">
+						<div class="sk-name-bar" style="width: {r.nameWidth}%">
 							<SkeletonLoader />
 						</div>
 					</div>
-					<!-- Title: one or two lines -->
-					<div class="sk-title" style="width: {r.titleWidth}%">
-						<SkeletonLoader />
-					</div>
-					{#if r.titleLines === 2}
-						<div class="sk-title sk-title-line2" style="width: {Math.round(r.titleWidth * 0.62)}%">
+
+					<!-- Title — 25px container, 17px shimmer bar (matches 19px text × 1.3 LH) -->
+					<div class="sk-title-row">
+						<div class="sk-title-bar" style="width: {r.titleWidth}%">
 							<SkeletonLoader />
+						</div>
+					</div>
+
+					<!-- Content preview (optional) — 22px container, 11px bar (15px × 1.45 LH) -->
+					{#if r.showContent}
+						<div class="sk-content-row">
+							<div class="sk-content-bar" style="width: {r.contentWidth}%">
+								<SkeletonLoader />
+							</div>
 						</div>
 					{/if}
-					<!-- Content preview (optional) -->
-					{#if r.showContent}
-						<div class="sk-content" style="width: {r.contentWidth}%">
-							<SkeletonLoader />
+
+					<!-- Label chips — solid, no shimmer; match Label size="small" shape (24px, body+point) -->
+					{#if r.labels.length > 0}
+						<div class="sk-labels-row">
+							{#each r.labels as chipWidth (chipWidth)}
+								<div class="sk-label-chip">
+									<div class="sk-label-body" style="width: {chipWidth - 12}px"></div>
+									<div class="sk-label-point"></div>
+								</div>
+							{/each}
 						</div>
 					{/if}
 				</div>
 			</div>
-			<!-- Reply row: L-shape connector + commenter avatar circles -->
+
+			<!-- Reply row: L-shape connector + stacked commenter avatars -->
 			{#if r.showReply}
 				<div class="sk-reply-row">
 					<div class="sk-connector-col">
@@ -85,13 +106,10 @@
 					</div>
 					<div class="sk-repliers">
 						{#each Array(Math.min(3, r.commenterCount)) as _, j (j)}
-							<div class="sk-commenter-avatar" style="margin-left: {j === 0 ? 0 : -6}px; z-index: {3 - j}">
+							<div class="sk-commenter" style="margin-left: {j === 0 ? 0 : -8}px; z-index: {3 - j};">
 								<SkeletonLoader />
 							</div>
 						{/each}
-						<div class="sk-reply-text">
-							<SkeletonLoader />
-						</div>
 					</div>
 				</div>
 			{/if}
@@ -107,7 +125,7 @@
 		box-sizing: border-box;
 	}
 
-	/* Each card mirrors .forum-post-card exactly — same padding + divider */
+	/* Mirrors .forum-post-card exactly */
 	.sk-card {
 		display: flex;
 		flex-direction: column;
@@ -120,14 +138,12 @@
 		border-bottom: none;
 	}
 
-	/* Top row: flex with stretch so left col grows to match right col */
 	.sk-top-row {
 		display: flex;
 		align-items: stretch;
-		gap: 0;
 	}
 
-	/* Mirrors .left-column — 35px wide, centred children, slight top offset */
+	/* Mirrors .left-column — 35px wide, items centred, 2px top offset */
 	.sk-left-col {
 		width: 35px;
 		flex-shrink: 0;
@@ -137,7 +153,7 @@
 		padding-top: 2px;
 	}
 
-	/* Matches smMd ProfilePic (35×35) */
+	/* smMd ProfilePic = 35×35px */
 	.sk-avatar {
 		width: 35px;
 		height: 35px;
@@ -146,79 +162,111 @@
 		flex-shrink: 0;
 	}
 
-	/* Connector line under avatar — same 1.5px style as .connector-vertical-only */
+	/* Mirrors .connector-vertical-only */
 	.sk-v-line {
 		width: 1.5px;
 		flex: 1;
 		min-height: 8px;
 		background: var(--white16);
-		margin-top: 0;
 	}
 
-	/* Right column mirrors .right-column — flex column, gap 5px */
+	/* Mirrors .right-column: flex-col, 5px gap, no padding (each child has its own left indent) */
 	.sk-right-col {
 		flex: 1;
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
-		padding: 0 0 0 12px;
+		gap: 5px;
+		padding-left: 12px;
 	}
 
-	/* Meta row: name + timestamp side by side */
-	.sk-meta-row {
+	/* ── Name row ──────────────────────────────────────────────────────────────
+	   18px tall = 15px text × 1.2 line-height. Bar is intentionally slim (11px)
+	   to look like a text shimmer, not a block. */
+	.sk-name-row {
+		height: 18px;
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-		height: 18px;
 	}
 
-	.sk-name {
-		height: 12px;
-		border-radius: 10px;
+	.sk-name-bar {
+		height: 11px;
+		border-radius: 9999px;
 		overflow: hidden;
-		flex-shrink: 0;
 	}
 
-	.sk-timestamp {
-		width: 32px;
-		height: 10px;
+	/* ── Title row ─────────────────────────────────────────────────────────────
+	   25px = 19px text × 1.3 line-height. Bar at 17px reads as a bold heading. */
+	.sk-title-row {
+		height: 25px;
+		display: flex;
+		align-items: center;
+	}
+
+	.sk-title-bar {
+		height: 17px;
 		border-radius: 8px;
 		overflow: hidden;
-		flex-shrink: 0;
 	}
 
-	/* Title bar — matches semibold ~19px line height */
-	.sk-title {
-		height: 18px;
-		border-radius: 10px;
+	/* ── Content row ───────────────────────────────────────────────────────────
+	   22px = 15px text × 1.45 line-height. */
+	.sk-content-row {
+		height: 22px;
+		display: flex;
+		align-items: center;
+	}
+
+	.sk-content-bar {
+		height: 11px;
+		border-radius: 9999px;
 		overflow: hidden;
-	}
-
-	/* Second title line is shorter and slightly reduced opacity */
-	.sk-title-line2 {
 		opacity: 0.65;
 	}
 
-	/* Content preview bar — single line */
-	.sk-content {
-		height: 14px;
-		border-radius: 8px;
-		overflow: hidden;
-		opacity: 0.55;
+	/* ── Label chips ───────────────────────────────────────────────────────────
+	   Match Label size="small": 24px tall, left-rounded body + right-pointing arrow.
+	   No shimmer — solid muted fill. margin-top: 4px mirrors .labels-row. */
+	.sk-labels-row {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin-top: 4px;
 	}
 
-	/* Reply row: mirrors .reply-row — left margin aligns with avatar centre */
+	.sk-label-chip {
+		display: inline-flex;
+		align-items: stretch;
+		height: 24px;
+		flex-shrink: 0;
+	}
+
+	.sk-label-body {
+		height: 24px;
+		border-radius: 8px 0 0 8px;
+		background: var(--white11);
+	}
+
+	/* CSS border-trick arrow — same color as body, pointing right */
+	.sk-label-point {
+		width: 0;
+		height: 0;
+		border-top: 12px solid transparent;
+		border-bottom: 12px solid transparent;
+		border-left: 12px solid var(--white11);
+		flex-shrink: 0;
+	}
+
+	/* ── Reply row ─────────────────────────────────────────────────────────────
+	   Mirrors .reply-row exactly. */
 	.sk-reply-row {
 		display: flex;
 		align-items: flex-end;
 		margin-left: 17px;
 		width: calc(100% - 17px);
-		margin-top: 0;
 	}
 
-	/* Mirrors .connector-column — 27px wide, vertical + corner */
+	/* Mirrors .connector-column */
 	.sk-connector-col {
 		display: flex;
 		flex-direction: column;
@@ -246,35 +294,22 @@
 		display: block;
 	}
 
-	/* Repliers row: stacked avatar circles + name text bar */
+	/* Commenter avatar circles — sm ProfilePic = 28px, overlapping with -8px margin */
 	.sk-repliers {
 		display: flex;
 		align-items: center;
 		padding-top: 4px;
-		gap: 0;
-		flex: 1;
-		min-width: 0;
 	}
 
-	/* sm ProfilePic = 28px; matches ProfilePicStack `size="sm"` */
-	.sk-commenter-avatar {
-		width: 24px;
-		height: 24px;
+	.sk-commenter {
+		width: 28px;
+		height: 28px;
 		border-radius: 9999px;
 		overflow: hidden;
 		flex-shrink: 0;
-		border: 1.5px solid var(--black);
+		border: 1.5px solid hsl(var(--background));
 		box-sizing: border-box;
 		position: relative;
-	}
-
-	.sk-reply-text {
-		height: 11px;
-		width: 80px;
-		border-radius: 8px;
-		overflow: hidden;
-		margin-left: 8px;
-		opacity: 0.6;
 	}
 
 	.sr-only {

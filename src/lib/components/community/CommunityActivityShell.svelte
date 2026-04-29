@@ -2185,9 +2185,11 @@
 			{:else}
 				<div class="activity-list">
 					{#each activityFeedItems as item (item.kind === 'zap' ? `zap-${item.row.event.id}` : item.ev.id)}
-						{#if item.kind === 'comment'}
-							{@const commentEv = item.ev}
-							{@const authorProfileRaw = activityProfiles.get(commentEv.pubkey)}
+					{#if item.kind === 'comment'}
+						{@const commentEv = item.ev}
+						{@const _parsedComment = parseComment(commentEv)}
+						{@const isZWrapper = _parsedComment.isWrapper}
+						{@const authorProfileRaw = activityProfiles.get(commentEv.pubkey)}
 							{@const authorProfile = authorProfileRaw
 								? {
 										name: authorProfileRaw.displayName ?? authorProfileRaw.name,
@@ -2280,6 +2282,53 @@
 									openThread(commentEv);
 								}}
 							>
+							{#if isZWrapper}
+								<ZapActivityCard
+									zapEvent={commentEv}
+									parsed={{
+										amountSats: _parsedComment.zapAmountSats,
+										senderPubkey: commentEv.pubkey,
+										comment: commentEv.content ?? '',
+										zappedEventId: _parsedComment.parentId,
+										emojiTags: _parsedComment.emojiTags ?? []
+									}}
+									zapperPubkey={commentEv.pubkey}
+									{authorProfile}
+									{rootEvent}
+									appBadge={feedAddrBadge}
+									{rootBadgeSkeleton}
+									{deletedRootKind}
+									{parentComment}
+									{parentCommentAuthor}
+									profileUrl={authorNpub ? `/profile/${authorNpub}` : ''}
+									resolveMentionLabel={(pk) =>
+										activityProfiles.get(pk)?.displayName ??
+										activityProfiles.get(pk)?.name ??
+										pk?.slice(0, 8) ??
+										''}
+									onRootClick={rootEvent
+										? () => {
+												markInboxCardSeen(commentEv.id);
+												openRootPost(rootEvent);
+											}
+										: null}
+									showUnreadDot={inboxRowUnread(commentEv.id)}
+									feedActions={{
+										onReply: () => {
+											markInboxCardSeen(commentEv.id);
+											openThread(commentEv, true);
+										},
+										onZap: () => {
+											markInboxCardSeen(commentEv.id);
+											openThread(commentEv, false, { openZapOnly: true });
+										},
+										onOptions: () => {
+											markInboxCardSeen(commentEv.id);
+											openThread(commentEv, false, { openActionsSheet: true });
+										}
+									}}
+								/>
+							{:else}
 								<CommentCard
 									event={commentEv}
 									{authorProfile}
@@ -2319,6 +2368,7 @@
 										}
 									}}
 								/>
+							{/if}
 							</div>
 						{:else}
 							{@const zapEv = item.row.event}
