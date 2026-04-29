@@ -38,7 +38,7 @@
 	import ForumPostModal from '$lib/components/modals/ForumPostModal.svelte';
 	import ForumSearchModal from '$lib/components/modals/ForumSearchModal.svelte';
 	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
-	import Spinner from '$lib/components/common/Spinner.svelte';
+	import ForumFeedSkeleton from '$lib/components/community/ForumFeedSkeleton.svelte';
 	import Label from '$lib/components/common/Label.svelte';
 	import { ChevronDown } from '$lib/components/icons';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
@@ -571,10 +571,7 @@
 	<div class="forum-list-viewport">
 	<div class="forum-list">
 		{#if (!forumReady || postsLoading) && posts.length === 0}
-			<div class="loading-wrap">
-				<Spinner size={24} />
-				<span>Loading posts…</span>
-			</div>
+			<ForumFeedSkeleton rows={6} />
 		{:else if postsError}
 			<div class="empty-state-wrap">
 				<EmptyState message={postsError} minHeight={400} />
@@ -851,16 +848,6 @@
 	.forum-load-more-btn:hover {
 		background: var(--white11);
 		border-color: var(--white33);
-	}
-
-	.loading-wrap {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 12px;
-		padding: 60px 24px;
-		color: var(--white33);
-		font-size: 0.9375rem;
 	}
 
 	.empty-state-wrap {

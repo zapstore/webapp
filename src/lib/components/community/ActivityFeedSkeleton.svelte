@@ -7,23 +7,32 @@
 
 	let { rows = 5 } = $props();
 
-	/** Varying bubble widths/heights — aligned with BubbleSkeleton.svelte ROWS for a similar feel */
-	const BUBBLE_ROWS = [
-		{ bubbleWidth: 48, bubbleHeight: 52 },
-		{ bubbleWidth: 38, bubbleHeight: 40 },
-		{ bubbleWidth: 55, bubbleHeight: 58 },
-		{ bubbleWidth: 42, bubbleHeight: 44 },
-		{ bubbleWidth: 52, bubbleHeight: 48 },
-		{ bubbleWidth: 45, bubbleHeight: 42 },
-		{ bubbleWidth: 58, bubbleHeight: 54 },
-		{ bubbleWidth: 40, bubbleHeight: 46 }
+	/**
+	 * Per-row variation data.
+	 * titleWidth  — % width of the root-label shimmer bar (35–70 range mirrors short to long labels).
+	 * bubbleWidth — % min-width of the bubble block (40–72 range).
+	 * bubbleHeight — px height of the bubble block. Real bubbles:
+	 *   1-line  ≈ 58px  (header ~29px + 1 text line ~22px + 6px bottom padding)
+	 *   2-line  ≈ 80px  (+22px per additional line)
+	 *   3-line  ≈ 100px
+	 * Spread intentionally across this range so the skeleton list looks like a real mixed feed.
+	 */
+	const ROWS = [
+		{ titleWidth: 55, bubbleWidth: 62, bubbleHeight: 58  },
+		{ titleWidth: 38, bubbleWidth: 44, bubbleHeight: 80  },
+		{ titleWidth: 68, bubbleWidth: 70, bubbleHeight: 100 },
+		{ titleWidth: 42, bubbleWidth: 52, bubbleHeight: 58  },
+		{ titleWidth: 60, bubbleWidth: 66, bubbleHeight: 80  },
+		{ titleWidth: 35, bubbleWidth: 46, bubbleHeight: 58  },
+		{ titleWidth: 72, bubbleWidth: 72, bubbleHeight: 100 },
+		{ titleWidth: 48, bubbleWidth: 58, bubbleHeight: 80  }
 	];
 </script>
 
 <div class="activity-feed-skeleton" role="status" aria-busy="true" aria-label="Loading activity">
 	<span class="sr-only">Loading activity…</span>
 	{#each Array(Math.min(8, Math.max(1, rows))) as _, i (i)}
-		{@const br = BUBBLE_ROWS[i % BUBBLE_ROWS.length]}
+		{@const r = ROWS[i % ROWS.length]}
 		<div class="sk-row">
 			<div class="sk-left">
 				<div class="sk-badge">
@@ -35,13 +44,15 @@
 				</div>
 			</div>
 			<div class="sk-right">
-				<div class="sk-title-line">
-					<SkeletonLoader />
+				<div class="sk-title-line" style="width: {r.titleWidth}%">
+					<div class="sk-title-bar">
+						<SkeletonLoader />
+					</div>
 				</div>
 				<div class="sk-bubble-wrap">
 					<div
 						class="sk-bubble"
-						style="min-width: {br.bubbleWidth}%; height: {br.bubbleHeight}px;"
+						style="min-width: {r.bubbleWidth}%; height: {r.bubbleHeight}px;"
 					>
 						<SkeletonLoader />
 					</div>
@@ -125,10 +136,18 @@
 		min-width: 0;
 	}
 
-	/* Title row ~28px tall; bar uses rounded-xl (12px) per SkeletonLoader guidelines */
+	/* Matches CommentCard .root-label-row — 28px tall container, text centred inside.
+	   Width is set inline per-row so each label shimmer has a different length. */
 	.sk-title-line {
+		height: 28px;
+		display: flex;
+		align-items: center;
+	}
+
+	/* Actual shimmer bar — 14px tall with pill radius, same as before */
+	.sk-title-bar {
 		height: 14px;
-		max-width: 68%;
+		width: 100%;
 		border-radius: 12px;
 		overflow: hidden;
 	}
