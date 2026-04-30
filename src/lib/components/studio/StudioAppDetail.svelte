@@ -10,7 +10,6 @@
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import StudioCountryChart from './StudioCountryChart.svelte';
-	import StudioPlatformChart from './StudioPlatformChart.svelte';
 	import { timeframeToDays } from '$lib/studio/analytics-http.js';
 
 	let {
@@ -33,14 +32,16 @@
 	/** While parent loads country breakdown for this app */
 	countryLoading = false,
 	/** Per-app platform breakdown rows (from parent) */
-	platformRows = [],
+	_platformRows = [],
 	/** While parent loads platform breakdown for this app */
-	platformLoading = false,
+	_platformLoading = false,
 	onBack: _onBack,
 		onEdit = () => {}
 	} = $props();
 
 	const detailChartLoading = $derived(dlMetricsLoading || zapMetricsLoading || impMetricsLoading);
+
+	let sharedHoverIndex = $state(null);
 
 	const timeframes = ['7 Days', '30 Days', '90 Days', '1 Year'];
 	let detailRangeOpen = $state(false);
@@ -113,18 +114,14 @@
 		return [...Array(n - arr.length).fill(0), ...arr];
 	};
 
-	/**
-	 * One chart: impressions → zaps → downloads (aligned to detail timeframe).
-	 * Order is paint order in SVG (first = back); user wants downloads on top, zaps mid, impressions bottom.
-	 */
-	const combinedAppData = $derived(
-		dlCounts.length > 0 || zapCounts.length > 0 || impCounts.length > 0
-			? [
-					{ id: 'imp', name: 'Impressions', icon: '', counts: pad(impCounts) },
-					{ id: 'zap', name: 'Zaps', icon: '', counts: pad(zapCounts) },
-					{ id: 'dl', name: 'Downloads', icon: '', counts: pad(dlCounts) }
-				]
-			: null
+	const dlAppData = $derived(
+		dlCounts.length > 0 ? [{ id: 'dl', name: 'Downloads', icon: '', counts: pad(dlCounts) }] : null
+	);
+	const zapAppData = $derived(
+		zapCounts.length > 0 ? [{ id: 'zap', name: 'Zaps', icon: '', counts: pad(zapCounts) }] : null
+	);
+	const impAppData = $derived(
+		impCounts.length > 0 ? [{ id: 'imp', name: 'Impressions', icon: '', counts: pad(impCounts) }] : null
 	);
 </script>
 
@@ -286,37 +283,53 @@
 		</div>
 	</div>
 
-	<!-- Chart section -->
+	<!-- Chart section: three stacked rows sharing one hover crosshair and one date axis -->
 	<section class="chart-section">
-		<div class="chart-area">
-			<DownloadChart
-				chartId="detail"
-				dayCount={chartDayCount}
-				color0="#5445FF"
-				color1="#636AFF"
-				glowColor="#5445FF"
-				glowOpacity={0.3}
-				dotColor="#5C5FFF"
-				appColors={['var(--white66)', '#FFB237', '#636AFF']}
-				appGlowColors={['var(--white33)', '#FFB237', '#5445FF']}
-				appGlowOpacities={[0.16, 0.12, 0.3]}
-				appLineGradients={[
-					{
-						color0: 'var(--white33)',
-						color1: 'var(--white66)',
-						glowColor: 'var(--white33)'
-					},
-					null,
-					null
-				]}
-				appDotBackdropFills={['var(--black)', null, null]}
-				appBadgeBgs={['rgba(52,52,58,0.94)', 'rgba(90,55,0,0.92)', 'rgba(60,58,80,0.92)']}
-				hideTotalLine={true}
-				perSeriesYScale={true}
-				padTop={20}
-				appData={combinedAppData}
-				loading={detailChartLoading}
-			/>
+		<div class="chart-stack">
+			<div class="chart-stack-row">
+				<DownloadChart
+					chartId="detail-dl"
+					dayCount={chartDayCount}
+					color0="#5445FF" color1="#636AFF" glowColor="#5445FF" dotColor="#5C5FFF"
+					appData={dlAppData}
+					loading={detailChartLoading}
+					bind:hoverIndex={sharedHoverIndex}
+					showDateRow={false}
+					plotFloorY={110}
+					padTop={18}
+					padBottom={8}
+				/>
+			</div>
+			<div class="chart-stack-row">
+				<DownloadChart
+					chartId="detail-zap"
+					dayCount={chartDayCount}
+					color0="#CC7A00" color1="#FFB237" glowColor="#FFB237" glowOpacity={0.12} dotColor="#FFB237"
+					badgeBg="rgba(90,55,0,0.92)"
+					appData={zapAppData}
+					loading={detailChartLoading}
+					bind:hoverIndex={sharedHoverIndex}
+					showDateRow={false}
+					plotFloorY={110}
+					padTop={18}
+					padBottom={8}
+				/>
+			</div>
+			<div class="chart-stack-row">
+				<DownloadChart
+					chartId="detail-imp"
+					dayCount={chartDayCount}
+					color0="var(--white33)" color1="var(--white66)" glowColor="var(--white33)"
+					glowOpacity={0.16} dotColor="var(--white66)" totalDotBackdropFill="var(--black)"
+					badgeBg="rgba(52,52,58,0.94)"
+					appData={impAppData}
+					loading={detailChartLoading}
+					bind:hoverIndex={sharedHoverIndex}
+					plotFloorY={110}
+					padTop={18}
+					padBottom={8}
+				/>
+			</div>
 		</div>
 	</section>
 
@@ -508,10 +521,15 @@
 
 	/* ── Chart section ─────────────────────────────────────────────────────── */
 	.chart-section {
-		position: relative;
-		padding: 28px 20px 20px;
 		border-bottom: 1px solid var(--white16);
 	}
+
+	.chart-stack {
+		padding: 13px 20px 20px;
+		display: flex;
+		flex-direction: column;
+	}
+
 
 	.timerange-wrap {
 		position: relative;
@@ -584,10 +602,6 @@
 		background: var(--white8);
 	}
 
-	.chart-area {
-		width: 100%;
-	}
-
 	/* ── Country/platform breakdown ─────────────────────────────────────────── */
 	.detail-country-section {
 		padding: 20px 20px 24px;
@@ -595,7 +609,6 @@
 		flex-direction: column;
 		/* 26px = same visual gap as Insights (padding-top:48px − button height:22px) without the dropdown */
 		gap: 26px;
-		border-top: 1px solid var(--white16);
 		/* Label-column width: slightly wider on desktop */
 		--label-col: clamp(56px, 26%, 140px);
 	}
@@ -684,8 +697,8 @@
 			font-size: 24px;
 		}
 
-		.chart-section {
-			padding: 24px 16px 16px;
+		.chart-stack {
+			padding: 11px 16px 16px;
 		}
 
 		.detail-country-section {

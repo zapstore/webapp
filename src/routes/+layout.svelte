@@ -32,6 +32,7 @@ const showingStudioDashboard = $derived(isStudio && getCurrentPubkey() !== null 
 let showFooter = $derived(
 	(path === '/' ||
 		path === '/apps' ||
+		path === '/developers' ||
 		path === '/studio' ||
 		path.startsWith('/studio/') ||
 		path === '/blog' ||

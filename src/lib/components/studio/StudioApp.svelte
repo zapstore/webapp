@@ -10,8 +10,8 @@
 	import StudioAppDetail from './StudioAppDetail.svelte';
 	import StudioAppEdit from './StudioAppEdit.svelte';
 	import StudioAppActivity from './StudioAppActivity.svelte';
+	import StudioAssets from './StudioAssets.svelte';
 	import StudioCountryChart from './StudioCountryChart.svelte';
-	import StudioPlatformChart from './StudioPlatformChart.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import {
 		DUMMY_MODE,
@@ -39,7 +39,6 @@
 		fetchImpressions,
 		loadCountryBreakdown,
 		loadCountryBreakdownForApp,
-		loadPlatformBreakdown,
 		loadPlatformBreakdownForApp,
 		loadDownloadAppData,
 		mapImpressionRowsToAppData,
@@ -97,15 +96,11 @@
 	let prevStudioDlDays = $state(-1);
 	let prevStudioZapDays = $state(-1);
 	let prevStudioCountryDays = $state(-1);
-	let prevStudioPlatformDays = $state(-1);
-
 	/** Per-chart loading so slow impressions/downloads/zaps/country/platform API do not block each other’s UI. */
 	let impChartLoading = $state(!DUMMY_MODE);
 	let dlChartLoading = $state(!DUMMY_MODE);
 	let zapChartLoading = $state(!DUMMY_MODE);
 	let countryChartLoading = $state(!DUMMY_MODE);
-	let platformChartLoading = $state(!DUMMY_MODE);
-
 	const timeframes = ['7 Days', '30 Days', '90 Days', '1 Year'];
 
 	const navItems = [
@@ -137,7 +132,6 @@
 	let zapAppData = $state(DUMMY_MODE ? buildDummyAppData(ZAP_SEEDS) : null);
 	let impAppData = $state(DUMMY_MODE ? buildDummyAppData(IMP_SEEDS) : null);
 	let countryRows = $state([...(DUMMY_MODE ? DUMMY_COUNTRY_ROWS : [])]);
-	let platformRows = $state([...(DUMMY_MODE ? DUMMY_PLATFORM_ROWS : [])]);
 	let detailCountryRows = $state([]);
 	let detailCountryLoading = $state(false);
 	let detailPlatformRows = $state([]);
@@ -332,17 +326,14 @@
 			dlAppData = null;
 			zapAppData = null;
 			countryRows = [];
-			platformRows = [];
 			impChartLoading = false;
 			dlChartLoading = false;
 			zapChartLoading = false;
 			countryChartLoading = false;
-			platformChartLoading = false;
 			prevStudioImpDays = -1;
 			prevStudioDlDays = -1;
 			prevStudioZapDays = -1;
 			prevStudioCountryDays = -1;
-			prevStudioPlatformDays = -1;
 			return;
 		}
 
@@ -408,17 +399,14 @@
 			dlAppData = null;
 			zapAppData = null;
 			countryRows = [];
-			platformRows = [];
 			impChartLoading = false;
 			dlChartLoading = false;
 			zapChartLoading = false;
 			countryChartLoading = false;
-			platformChartLoading = false;
 			prevStudioImpDays = -1;
 			prevStudioDlDays = -1;
 			prevStudioZapDays = -1;
 			prevStudioCountryDays = -1;
-			prevStudioPlatformDays = -1;
 			return;
 		}
 
@@ -426,14 +414,11 @@
 		const needDl = dlDays !== prevStudioDlDays;
 		const needZap = zapDays !== prevStudioZapDays;
 		const needCountry = countryDays !== prevStudioCountryDays;
-		const needPlatform = countryDays !== prevStudioPlatformDays;
 
 		if (needImp) impChartLoading = true;
 		else impChartLoading = false;
 		if (needCountry) countryChartLoading = true;
 		else countryChartLoading = false;
-		if (needPlatform) platformChartLoading = true;
-		else platformChartLoading = false;
 		if (needDl) dlChartLoading = true;
 		else dlChartLoading = false;
 		if (needZap) zapChartLoading = true;
@@ -445,7 +430,6 @@
 		if (needDl) void dlFlow(gen, dlDays, hashPromise);
 		if (needZap) void zapFlow(gen, catalogPubkey, zapDays);
 		if (needCountry) void countryFlow(gen, catalogPubkey, countryDays, countryRange, hashPromise);
-		if (needPlatform) void platformFlow(gen, catalogPubkey, countryDays, countryRange, hashPromise);
 	}
 
 	/**
@@ -554,30 +538,6 @@
 			if (!studioLoadStale(gen)) {
 				countryChartLoading = false;
 				prevStudioCountryDays = countryDays;
-			}
-		}
-	}
-
-	/**
-	 * @param {number} gen
-	 * @param {string} pubkey
-	 * @param {number} platformDays
-	 * @param {{ from: string, to: string }} platformRange
-	 * @param {Promise<Map<string, string>>} hashPromise
-	 */
-	async function platformFlow(gen, pubkey, platformDays, platformRange, hashPromise) {
-		try {
-			const hashMap = await hashPromise;
-			if (studioLoadStale(gen)) return;
-			const rows = await loadPlatformBreakdown(pubkey, platformRange, hashMap);
-			if (!studioLoadStale(gen)) platformRows = rows;
-		} catch (err) {
-			console.warn('[Studio] platform breakdown failed:', err);
-			if (!studioLoadStale(gen)) platformRows = [];
-		} finally {
-			if (!studioLoadStale(gen)) {
-				platformChartLoading = false;
-				prevStudioPlatformDays = platformDays;
 			}
 		}
 	}
@@ -705,6 +665,13 @@
 						</div>
 						<div class="sidebar-section">
 							<span class="eyebrow-label section-eyebrow">Docs &amp; Tools</span>
+							<button
+								class="nav-item"
+								class:active={activeNav === 'assets' && selectedApp === null}
+								onclick={() => selectNav('assets')}
+							>
+								<span class="nav-label">Assets</span>
+							</button>
 							<a href="/docs" class="nav-item" onclick={() => (mobileMenuOpen = false)}>
 								<span class="nav-label">Documentation</span>
 							</a>
@@ -775,6 +742,13 @@
 			<!-- Docs & Tools section — pinned to bottom of sidebar -->
 			<div class="sidebar-section">
 				<span class="eyebrow-label section-eyebrow">Docs &amp; Tools</span>
+				<button
+					class="nav-item"
+					class:active={activeNav === 'assets' && selectedApp === null}
+					onclick={() => selectNav('assets')}
+				>
+					<span class="nav-label">Assets</span>
+				</button>
 				<a href="/docs" class="nav-item">
 					<span class="nav-label">Documentation</span>
 				</a>
@@ -852,12 +826,14 @@
 						onEdit={() => (editingApp = true)}
 					/>
 				</div>
-			{:else if activeNav === 'inbox'}
-				<!-- Inbox: comments on your apps. Scrolls inside .content so modals stay in viewport. -->
-				<section class="activity-section inbox-section inbox-scroll" class:scroll-locked={inboxThreadOpen}>
-					<StudioAppActivity devPubkey={studioPubkey} apps={userApps} bind:threadModalOpen={inboxThreadOpen} />
-				</section>
-			{:else}
+		{:else if activeNav === 'inbox'}
+			<!-- Inbox: comments on your apps. Scrolls inside .content so modals stay in viewport. -->
+			<section class="activity-section inbox-section inbox-scroll" class:scroll-locked={inboxThreadOpen}>
+				<StudioAppActivity devPubkey={studioPubkey} apps={userApps} bind:threadModalOpen={inboxThreadOpen} />
+			</section>
+		{:else if activeNav === 'assets'}
+			<StudioAssets appId={selectedApp?.id ?? null} />
+		{:else}
 				<!-- Insights: wrap in scrollable div so .content itself stays overflow:hidden -->
 				<div class="insights-scroll">
 				<section class="content-section insights-chart-section">

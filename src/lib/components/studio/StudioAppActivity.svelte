@@ -36,7 +36,6 @@
 	import RootComment from '$lib/components/social/RootComment.svelte';
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
 	import ActivityFeedSkeleton from '$lib/components/community/ActivityFeedSkeleton.svelte';
-	import { DUMMY_MODE } from './studio-config.js';
 	import { signEvent, getCurrentPubkey, getIsSignedIn } from '$lib/stores/auth.svelte.js';
 	import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 	import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
@@ -100,7 +99,7 @@
 	let lastActivitySeedKey = '';
 
 	const activityQuery = $derived(
-		browser && !DUMMY_MODE && devPubkey && appAddrs.length > 0 && activityReady
+		browser && devPubkey && appAddrs.length > 0 && activityReady
 			? liveQuery(async () => {
 					const [commentsA, commentsUpper] = await Promise.all([
 						queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#a': appAddrs, limit: 500 }),
@@ -114,7 +113,7 @@
 	);
 
 	const activityZapQuery = $derived(
-		browser && !DUMMY_MODE && devPubkey && appAddrs.length > 0 && activityReady
+		browser && devPubkey && appAddrs.length > 0 && activityReady
 			? liveQuery(async () => {
 					const [zLo, zUp] = await Promise.all([
 						queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': appAddrs, limit: 400 }),
@@ -289,7 +288,7 @@
 	}
 
 	$effect(() => {
-		if (!browser || !activityReady || DUMMY_MODE || !seedKey) return;
+		if (!browser || !activityReady || !seedKey) return;
 		if (seedKey === lastActivitySeedKey) return;
 		lastActivitySeedKey = seedKey;
 		let cancelled = false;
@@ -855,11 +854,7 @@
 	});
 </script>
 
-{#if DUMMY_MODE}
-	<div class="empty-state-wrap">
-		<EmptyState message="Nothing here yet." minHeight={280} />
-	</div>
-{:else if !devPubkey || apps.length === 0}
+{#if !devPubkey || apps.length === 0}
 	<div class="empty-state-wrap">
 		<EmptyState
 			message="Comments on your apps will show here once you publish an app."

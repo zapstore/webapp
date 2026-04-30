@@ -23,7 +23,7 @@
 	import OnboardingBuildingModal from '$lib/components/modals/OnboardingBuildingModal.svelte';
 	import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
-	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
+	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED, SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
 	import { SITE_GITHUB, EVENT_KINDS } from '$lib/config.js';
 	import { liveQuery, queryEvent, queryEvents, parseZapReceipt, fetchProfile } from '$lib/nostr';
 	import UserInboxPopover from '$lib/components/layout/UserInboxPopover.svelte';
@@ -87,7 +87,8 @@
 	const profileHref = $derived(pubkey ? '/profile/' + nip19.npubEncode(pubkey) : '#');
 	const isConnecting = $derived(getIsConnecting());
 	const isConnected = $derived(pubkey !== null);
-	const isStudioPage = $derived($page.url.pathname === '/studio');
+	const isDevelopersActive = $derived($page.url.pathname === '/developers');
+	const isStudioActive = $derived($page.url.pathname.startsWith('/studio'));
 	const isDiscoverActive = $derived(
 		$page.url.pathname === '/apps' ||
 			$page.url.pathname === '/stacks'
@@ -96,9 +97,10 @@
 	const offline = $derived(browser && !isOnline());
 	// Current user profile (local-first: EventStore then background fetch) for header avatar
 	let currentUserProfile = $state(null);
-	// Close Studio dropdown when navigating to studio page (reopen only after hover away and rehover)
+	// Close Studio/Developers dropdown when landing on the respective page
 	$effect(() => {
-		if ($page.url.pathname === '/studio') {
+		const p = $page.url.pathname;
+		if (p.startsWith('/studio') || p === '/developers') {
 			landingNavOpen = null;
 		}
 	});
@@ -437,7 +439,11 @@
 									</div>
 
 								<div class="menu-section">
-									<a href="/studio" class="menu-section-link" onclick={closeMenu}>Developers</a>
+									{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
+									<a href="/studio/insights" class="menu-section-link" onclick={closeMenu}>Studio</a>
+								{:else}
+									<a href="/developers" class="menu-section-link" onclick={closeMenu}>Developers</a>
+								{/if}
 									<nav class="menu-subnav">
 										<a
 											href="/docs/publish"
@@ -644,7 +650,11 @@
 								</div>
 
 								<div class="menu-section">
-									<a href="/studio" class="menu-section-link" onclick={closeMenu}>Developers</a>
+									{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
+									<a href="/studio/insights" class="menu-section-link" onclick={closeMenu}>Studio</a>
+								{:else}
+									<a href="/developers" class="menu-section-link" onclick={closeMenu}>Developers</a>
+								{/if}
 									<nav class="menu-subnav">
 										<a
 											href="/docs/publish"
@@ -744,14 +754,25 @@
 							>
 								Apps
 							</a>
+						{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
 							<a
-								href="/studio"
+								href="/studio/insights"
 								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-								class:landing-nav-studio-selected={isStudioPage}
+								class:landing-nav-studio-selected={isStudioActive}
+								style="color: var(--white66);"
+							>
+								Studio
+							</a>
+						{:else}
+							<a
+								href="/developers"
+								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+								class:landing-nav-studio-selected={isDevelopersActive}
 								style="color: var(--white66);"
 							>
 								Developers
 							</a>
+						{/if}
 							<a
 								href="/community"
 								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"

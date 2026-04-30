@@ -60,8 +60,6 @@ async function handleCopy() {
 	.code-inner {
 		flex: 1;
 		min-width: 0;
-		/* leave room for the absolutely-positioned copy button */
-		padding-right: 40px;
 	}
 
 	.code-block-gray33 {
@@ -82,6 +80,8 @@ async function handleCopy() {
 		width: 32px;
 		height: 32px;
 		background-color: var(--white8);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
 		border: none;
 		border-radius: 8px;
 		cursor: pointer;

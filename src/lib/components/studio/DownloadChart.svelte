@@ -24,6 +24,12 @@
 		glowOpacity = 0.3,
 		dotColor = '#5C5FFF',
 		badgeBg = 'rgba(60,58,80,0.92)',
+		/** Lift the hover index out so multiple charts can share the same crosshair position. */
+		hoverIndex = $bindable(null),
+		/** Set false to suppress the date row (e.g. all but the bottom chart in a stack). */
+		showDateRow = true,
+		/** Height of the y=0 baseline within the SVG; decrease for a more compact chart. */
+		plotFloorY = 168,
 		// Real data: array of { id, name, icon, counts: number[] } aligned to DAY_LABELS.
 		// null = no data yet — chart renders a flat baseline.
 		appData = null,
@@ -136,8 +142,6 @@
 		return lineApps.map((a) => seriesYExtent(a.data));
 	});
 
-	const dateLabel = $derived(dayLabels[DAYS - 1]);
-
 	function appHasIcon(/** @type {{ icon?: string | null }} */ a) {
 		return Boolean(a && String(a.icon ?? '').trim());
 	}
@@ -148,7 +152,7 @@
 	);
 
 	/** Y coordinate of v=0 (plot floor). Chart curves stay above this; padBottom sits below. */
-	const PLOT_FLOOR_Y = 168;
+	const PLOT_FLOOR_Y = $derived(plotFloorY);
 	const SVG_H = $derived(PLOT_FLOOR_Y + padBottom);
 	const PAD_T = $derived(padTop);
 	const RIGHT_ZONE = 14;
@@ -157,7 +161,6 @@
 
 	let containerEl = $state(null);
 	let W = $state(600);
-	let hoverIndex = $state(null);
 
 	$effect(() => {
 		if (loading) hoverIndex = null;
@@ -323,8 +326,16 @@
 		return { x, totalVal, totalY, totalBadgeY, appVals, appYs, appBadgeYs, dateStr, badgeLeft, lineTopY };
 	});
 
-	// Clamped x for the date pill — avoids overflowing container edges
-	const datePillX = $derived(hover !== null ? Math.max(36, Math.min(W - 36, hover.x)) : null);
+	// Active position: follows hover when interacting, defaults to last data point
+	const activeLineX = $derived.by(() => {
+		const idx = hoverIndex ?? DAYS - 1;
+		const cW = W - RIGHT_ZONE;
+		return (idx / xDenom) * cW;
+	});
+	const activeDateStr = $derived(
+		hoverIndex !== null && hover !== null ? hover.dateStr : dayLabels[DAYS - 1]
+	);
+	const activeDatePillX = $derived(Math.max(36, Math.min(W - 36, activeLineX)));
 
 	function updateHoverFromPointerEvent(/** @type {PointerEvent} */ event) {
 		if (loading) return;
@@ -501,15 +512,18 @@
 			{/each}
 		{/if}
 
-		<!-- Static vertical end line — always visible -->
-		<line
-			x1={chart.lineX}
-			y1={PAD_T}
-			x2={chart.lineX}
-			y2={SVG_H}
-			stroke="rgba(255,255,255,0.1)"
-			stroke-width="1"
-		/>
+		<!-- Vertical rule — tracks active position; defaults to last data point, moves on hover -->
+		{#if !loading}
+			<line
+				x1={activeLineX}
+				y1={PAD_T}
+				x2={activeLineX}
+				y2={SVG_H}
+				stroke={hoverIndex !== null ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.1)'}
+				stroke-width="1"
+				pointer-events="none"
+			/>
+		{/if}
 
 		<!-- Static end markers — hidden while hover is active or loading -->
 		{#if !loading && hover === null}
@@ -577,19 +591,8 @@
 			{/if}
 		{/if}
 
-		<!-- ── Hover crosshair ──────────────────────────────────────────────── -->
+		<!-- ── Hover badges & dots ──────────────────────────────────────────── -->
 		{#if !loading && hover !== null}
-			<!-- Hover vertical line — starts at topmost visible line -->
-			<line
-				x1={hover.x}
-				y1={hover.lineTopY}
-				x2={hover.x}
-				y2={SVG_H}
-				stroke="rgba(255,255,255,0.22)"
-				stroke-width="1"
-				pointer-events="none"
-			/>
-
 			{#if allApps.length === 1}
 				<!-- Single app: dot or icon + one badge -->
 				{#if appColors}
@@ -736,16 +739,18 @@
 		{/if}
 		</svg>
 
-		<!-- Date row: fixed height, pill slides within it — no layout shift ever -->
-		<div class="date-row">
-			<div
-				class="date-pill"
-				class:date-pill-hover={hover !== null}
-				style={datePillX !== null ? `left: ${datePillX}px;` : ''}
-			>
-				{hover !== null ? hover.dateStr : dateLabel}
+		<!-- Date row: only rendered on the chart where showDateRow is true -->
+		{#if showDateRow}
+			<div class="date-row">
+				<div
+					class="date-pill"
+					class:date-pill-hover={hoverIndex !== null}
+					style="left: {activeDatePillX}px;"
+				>
+					{activeDateStr}
+				</div>
 			</div>
-		</div>
+		{/if}
 		</div>
 	{/if}
 </div>
@@ -809,7 +814,6 @@
 
 	.date-pill {
 		position: absolute;
-		right: 0;
 		height: 26px;
 		background: rgba(255, 255, 255, 0.08);
 		border-radius: 8px;
@@ -821,13 +825,11 @@
 		color: rgba(255, 255, 255, 0.33);
 		white-space: nowrap;
 		line-height: 1;
+		transform: translateX(-50%);
+		pointer-events: none;
 	}
 
-	/* Hover state: un-pin from right, center on hover line, white text */
 	.date-pill.date-pill-hover {
-		right: auto;
-		transform: translateX(-50%);
 		color: white;
-		pointer-events: none;
 	}
 </style>
