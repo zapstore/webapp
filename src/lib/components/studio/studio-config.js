@@ -50,7 +50,7 @@ export const TEST_PUBKEY = null;
 
 // ── Dev toggle: force the "no apps published" empty state ────────────────────
 // Set to true to see the Insights empty state regardless of actual app data.
-export const FORCE_EMPTY_INSIGHTS = true;
+export const FORCE_EMPTY_INSIGHTS = false;
 
 // ── Chart window ─────────────────────────────────────────────────────────────
 export const STUDIO_DAYS = 30;
