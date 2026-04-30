@@ -401,7 +401,7 @@
 	.app-info-left {
 		display: flex;
 		align-items: center;
-		gap: 14px;
+		gap: 18px;
 		min-width: 0;
 	}
 
