@@ -32,6 +32,10 @@ const QUERY_TIMEOUT_MS = 4000;
 
 const pool = new SimplePool();
 let subCounter = 0;
+
+export function destroyServerPool() {
+	try { pool.destroy(); } catch { /* noop */ }
+}
 const subId = () => `ssr-${++subCounter}-${Math.floor(Math.random() * 1e6)}`;
 
 let COMMUNITY_PUBKEY_HEX = '';
