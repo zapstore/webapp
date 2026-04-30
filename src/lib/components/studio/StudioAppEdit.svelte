@@ -12,15 +12,18 @@
 import { SvelteSet } from 'svelte/reactivity';
 import BackButton from '$lib/components/common/BackButton.svelte';
 import AppPic from '$lib/components/common/AppPic.svelte';
+import Modal from '$lib/components/common/Modal.svelte';
 import { Camera, Cross, ChevronLeft, ChevronRight, Link } from '$lib/components/icons';
-import { updateAppMetadata, parseApp } from '$lib/nostr';
+import { updateAppMetadata, parseApp, publishDeletionRequest } from '$lib/nostr';
 import { signEvent } from '$lib/stores/auth.svelte.js';
 import { uploadFileToZapstoreCdn } from '$lib/services/upload-nostr-build.js';
+import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS } from '$lib/config.js';
 
 let {
 	app = null,
 	onBack = () => {},
-	onSaved = (_updated) => {}
+	onSaved = (_updated) => {},
+	onDeleted = (/** @type {string} */ _deletedEventId) => {}
 } = $props();
 
 // ── Local edit state ───────────────────────────────────────────────────────
@@ -45,6 +48,11 @@ let saveError = $state('');
 
 let iconPreviewError = $state(false);
 let iconUploading = $state(false);
+
+// ── Delete state ───────────────────────────────────────────────────────────
+let confirmingDelete = $state(false);
+let deleting = $state(false);
+let deleteError = $state('');
 
 // ── Screenshots scroll ─────────────────────────────────────────────────────
 let screenshotsEl = $state(null);
@@ -72,6 +80,9 @@ $effect(() => {
 	saveError = '';
 	iconPreviewError = false;
 	scrolledRight = false;
+	confirmingDelete = false;
+	deleting = false;
+	deleteError = '';
 });
 
 // ── Image handling ─────────────────────────────────────────────────────────
@@ -162,6 +173,46 @@ async function handleSave() {
 		saveError = err?.message ?? 'Failed to save. Please try again.';
 	} finally {
 		saving = false;
+	}
+}
+
+// ── Delete (NIP-09 kind 5) ─────────────────────────────────────────────────
+function openDeleteConfirm() {
+	if (deleting || saving) return;
+	deleteError = '';
+	confirmingDelete = true;
+}
+
+function cancelDeleteConfirm() {
+	if (deleting) return;
+	confirmingDelete = false;
+}
+
+async function handleConfirmDelete() {
+	if (deleting) return;
+	const ev = app?.event;
+	if (!ev?.id) {
+		deleteError = 'Cannot delete — app data is incomplete. Reload Studio and try again.';
+		return;
+	}
+	deleting = true;
+	deleteError = '';
+	try {
+		const dTag = ev.tags.find((t) => t[0] === 'd')?.[1];
+		const aTag = dTag ? `${EVENT_KINDS.APP}:${ev.pubkey}:${dTag}` : undefined;
+		await publishDeletionRequest(signEvent, {
+			eventId: ev.id,
+			eventKind: EVENT_KINDS.APP,
+			aTagValue: aTag,
+			relays: DEFAULT_CATALOG_RELAYS
+		});
+		confirmingDelete = false;
+		onDeleted(ev.id);
+	} catch (err) {
+		console.error('[StudioAppEdit] delete failed:', err);
+		deleteError = err?.message ?? 'Failed to delete. Please try again.';
+	} finally {
+		deleting = false;
 	}
 }
 </script>
@@ -344,8 +395,62 @@ async function handleSave() {
 		<!-- ── Divider under IMAGES ──────────────────────────────────────── -->
 		<div class="full-divider" aria-hidden="true"></div>
 
+		<!-- ── DANGER ZONE ─────────────────────────────────────────────── -->
+		<section class="edit-section danger-section">
+			<span class="eyebrow-label section-eyebrow">Danger zone</span>
+
+			<button
+				type="button"
+				class="btn-danger"
+				onclick={openDeleteConfirm}
+				disabled={deleting || saving}
+			>
+				{deleting ? 'Deleting…' : 'Delete this app'}
+			</button>
+
+			{#if deleteError && !confirmingDelete}
+				<p class="save-error">{deleteError}</p>
+			{/if}
+		</section>
+
+		<div class="full-divider" aria-hidden="true"></div>
+
 	</div>
 </div>
+
+<Modal
+	bind:open={confirmingDelete}
+	align="center"
+	ariaLabel="Confirm app deletion"
+	title="Delete app"
+	description="This signs and broadcasts a NIP-09 deletion request (kind 5) to the catalog relays. Clients that honor it will remove this app. This cannot be undone."
+	closeOnBackdropClick={!deleting}
+	closeOnEscape={!deleting}
+>
+	<div class="confirm-body">
+		{#if deleteError}
+			<p class="confirm-error">{deleteError}</p>
+		{/if}
+		<div class="confirm-actions">
+			<button
+				type="button"
+				class="btn-secondary-large btn-secondary-modal confirm-cancel"
+				onclick={cancelDeleteConfirm}
+				disabled={deleting}
+			>
+				Cancel
+			</button>
+			<button
+				type="button"
+				class="btn-danger btn-danger-large"
+				onclick={handleConfirmDelete}
+				disabled={deleting}
+			>
+				{deleting ? 'Deleting…' : 'Delete'}
+			</button>
+		</div>
+	</div>
+</Modal>
 {/if}
 
 <style>
@@ -822,5 +927,103 @@ async function handleSave() {
 		color: var(--rougeColor);
 		margin: 0;
 		padding-left: 14px;
+	}
+
+	/* ── Danger zone ── */
+	.danger-section {
+		gap: 12px;
+	}
+
+	.btn-danger {
+		align-self: flex-start;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 10px 18px;
+		margin-top: 12px;
+		font-family: 'Inter', sans-serif;
+		font-size: 14px;
+		font-weight: 500;
+		line-height: 1;
+		color: var(--rougeColor);
+		background: transparent;
+		border: 0.33px solid color-mix(in srgb, var(--rougeColor) 40%, transparent);
+		border-radius: 999px;
+		cursor: pointer;
+		transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease, color 0.15s ease;
+	}
+
+	.btn-danger:hover:not(:disabled) {
+		background: var(--gradient-rouge16);
+		border-color: color-mix(in srgb, var(--rougeColor) 66%, transparent);
+		transform: scale(1.02);
+	}
+
+	.btn-danger:active:not(:disabled) {
+		transform: scale(0.98);
+	}
+
+	.btn-danger:disabled {
+		opacity: 0.55;
+		cursor: not-allowed;
+	}
+
+	@media (max-width: 639px) {
+		.btn-danger {
+			align-self: stretch;
+			width: 100%;
+		}
+	}
+
+	/* Modal-sized variant: matches .btn-secondary-large height/radius for the action row */
+	.btn-danger-large {
+		padding: 12px 20px;
+		font-size: 15px;
+		border-radius: 16px;
+	}
+
+	/* ── Confirm modal ── */
+	.confirm-body {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+		padding: 20px 16px 20px;
+	}
+
+	@media (min-width: 768px) {
+		.confirm-body {
+			padding: 20px 20px 24px;
+		}
+	}
+
+	.confirm-error {
+		margin: 0;
+		padding: 10px 14px;
+		font-size: 13px;
+		color: var(--rougeColor);
+		background: color-mix(in srgb, var(--rougeColor) 10%, transparent);
+		border: 0.33px solid color-mix(in srgb, var(--rougeColor) 40%, transparent);
+		border-radius: 12px;
+	}
+
+	.confirm-actions {
+		display: flex;
+		gap: 10px;
+		justify-content: flex-end;
+	}
+
+	@media (max-width: 639px) {
+		.confirm-actions {
+			flex-direction: column-reverse;
+		}
+
+		.confirm-actions :global(.btn-secondary-large),
+		.confirm-actions .btn-danger-large {
+			width: 100%;
+		}
+	}
+
+	.confirm-cancel {
+		min-width: 110px;
 	}
 </style>

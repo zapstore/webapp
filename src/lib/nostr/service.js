@@ -1640,7 +1640,9 @@ export async function publishDeletionRequest(signEvent, opts) {
 	};
 	const signed = await signEvent(template);
 	await publishToRelays(relayUrls, signed);
-	await putEvents([signed]);
+	// Don't store the kind 5 in Dexie — only the relay needs it. Removing the target id
+	// from local cache is what reactively updates the UI; keeping the deletion request
+	// would just bloat IndexedDB.
 	try {
 		await db.events.delete(id);
 	} catch (dexieErr) {

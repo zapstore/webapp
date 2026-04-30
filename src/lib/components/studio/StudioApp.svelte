@@ -770,6 +770,14 @@
 					<StudioAppEdit
 						app={selectedApp}
 						onBack={() => (editingApp = false)}
+						onDeleted={(deletedEventId) => {
+							const dId = String(deletedEventId).toLowerCase();
+							userApps = userApps.filter(
+								(a) => String(a.eventId).toLowerCase() !== dId
+							);
+							selectedApp = null;
+							editingApp = false;
+						}}
 						onSaved={(updatedApp) => {
 							if (updatedApp) {
 								// Keep sidebar shape (`id` = d-tag); `parseApp` uses `id` for event id.
