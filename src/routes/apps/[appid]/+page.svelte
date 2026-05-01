@@ -68,8 +68,9 @@
 	const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
 	// Error is mutable: server may set it, but client can clear it when Dexie has data
 	let error = $state(null);
-	// Local state - start with prerendered data
-	let app = $state(null);
+	// Seed from server data so SSR renders the SeoHead branch with og:image (app icon)
+	// for link-preview crawlers. onMount may later replace this with fresher Dexie data.
+	let app = $state(data.app ?? null);
 	const appJsonLd = $derived(
 		app
 			? {
