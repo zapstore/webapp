@@ -18,6 +18,7 @@
 	} from '$lib/components/studio/studio-config.js';
 	import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import { npubToHex } from '$lib/studio/analytics-http.js';
+	import { loadIfNeeded as loadStudioAnalytics, resetStudioAnalytics } from '$lib/stores/studio-analytics.svelte.js';
 	import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
 
 	let { children } = $props();
@@ -143,7 +144,17 @@
 		signedIn; // re-run when auth changes
 		if (signedIn && SHOW_STUDIO_SIGNED_IN_DASHBOARD) {
 			loadUserApps().catch((err) => console.error('[StudioLayout] loadUserApps:', err));
+		} else {
+			resetStudioAnalytics();
 		}
+	});
+
+	// Kick off the per-publisher analytics fetch as soon as we know who the user is
+	// and which apps to chart. Idempotent — slicing the cache for shorter timeframes
+	// happens entirely inside the consuming components.
+	$effect(() => {
+		if (!studioPubkey || userApps.length === 0) return;
+		loadStudioAnalytics(studioPubkey, userApps);
 	});
 
 	// ── Mobile nav ───────────────────────────────────────────────────────────

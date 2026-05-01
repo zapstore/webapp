@@ -7,7 +7,7 @@
  * In `vite dev` / `bun run dev`, when the var is unset we default to http://127.0.0.1:3336
  * so local relay analytics works without editing .env. Production builds must set the env var.
  *
- * Forwards paths like v1/impressions → {base}/v1/impressions?...
+ * Forwards paths like v1/app/impressions → {base}/v1/app/impressions?...
  */
 
 import { dev } from '$app/environment';
