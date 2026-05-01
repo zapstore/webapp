@@ -6,11 +6,16 @@
  * requests. Series are fetched once per publisher for the **maximum** timeframe
  * (`MAX_TIMEFRAME_DAYS` = 365 days); shorter timeframes simply slice the tail.
  *
- * Responsibilities:
- * - Track current `pubkey` + `apps` for the dashboard.
- * - Hold the wide impressions/downloads/zaps series and per-series loading flags.
- * - Memoise country/platform breakdowns by `(rangeKey, appDTag)` so timeframe
- *   changes and per-app drilldowns each cost at most one round-trip.
+ * Two cache scopes:
+ *
+ *  - **Signer's own catalog** — `loadIfNeeded(signerPk, ownApps)` fetches the wide
+ *    publisher-level series once. Insights and per-app pages (for the signer's apps)
+ *    read from this with zero extra requests.
+ *
+ *  - **Indexer-access apps** — when an allowlisted signer opens an arbitrary app
+ *    via URL, that app is published by a different pubkey (the indexer catalog).
+ *    `loadAppSeriesIfNeeded(pubkey, dTag)` fetches just that app's series and caches
+ *    by `(pubkey, dTag)`. No effect on the signer's own series cache.
  *
  * Not responsible for: fetching apps (the layout still resolves `userApps`),
  * mutating Dexie (analytics live entirely in the relay), or zaps relay reads —
@@ -19,6 +24,8 @@
 import {
 	MAX_TIMEFRAME_DAYS,
 	buildIsoDateRange,
+	fetchDownloads,
+	fetchImpressions,
 	loadCountryBreakdown,
 	loadDownloadAppData,
 	loadImpressionAppData,
@@ -28,6 +35,7 @@ import { loadZapAppData } from '$lib/studio/zap-series.js';
 
 /** @typedef {{ id: string, name: string, icon: string }} StudioApp */
 /** @typedef {{ id: string, name: string, icon: string, counts: number[] }} AppSeries */
+/** @typedef {{ impressions: number[] | null, downloads: number[] | null, loading: boolean }} SingleAppSeries */
 
 let pubkey = $state(/** @type {string | null} */ (null));
 /** @type {StudioApp[]} */
@@ -44,6 +52,9 @@ let impressionsLoading = $state(false);
 let downloadsLoading = $state(false);
 let zapsLoading = $state(false);
 
+/** Per-app series for indexer-access lookups, keyed by `${pubkey}|${dTag}`. */
+let appSeries = $state(/** @type {Record<string, SingleAppSeries>} */ ({}));
+
 /** Bumped on every `loadIfNeeded` call; stale async loads must not overwrite UI. */
 let loadGen = 0;
 
@@ -54,14 +65,23 @@ let loadGen = 0;
 const countryByKey = new Map();
 /* eslint-disable-next-line svelte/prefer-svelte-reactivity */
 const platformByKey = new Map();
+/** Keys of in-flight per-app series fetches — prevents duplicate work on rapid revisits. */
+/* eslint-disable-next-line svelte/prefer-svelte-reactivity */
+const appSeriesInFlight = new Set();
 
 /**
- * Build the key used by `countryByKey` / `platformByKey`.
+ * Build the key used by `countryByKey` / `platformByKey` / `appSeries`.
+ * @param {string} pubkeyHex
  * @param {{ from: string, to: string }} range
  * @param {string} [appDTag]
  */
-function breakdownKey(range, appDTag) {
-	return `${range.from}|${range.to}|${appDTag ?? ''}`;
+function breakdownKey(pubkeyHex, range, appDTag) {
+	return `${pubkeyHex}|${range.from}|${range.to}|${appDTag ?? ''}`;
+}
+
+/** @param {string} pubkeyHex @param {string} dTag */
+function appKey(pubkeyHex, dTag) {
+	return `${pubkeyHex.toLowerCase()}|${dTag.toLowerCase()}`;
 }
 
 export const studioAnalytics = {
@@ -88,8 +108,10 @@ export function resetStudioAnalytics() {
 	impressionsLoading = false;
 	downloadsLoading = false;
 	zapsLoading = false;
+	appSeries = {};
 	countryByKey.clear();
 	platformByKey.clear();
+	appSeriesInFlight.clear();
 }
 
 /**
@@ -113,8 +135,10 @@ export function loadIfNeeded(nextPubkey, nextApps) {
 		impressionsSeries = null;
 		downloadsSeries = null;
 		zapsSeries = null;
+		appSeries = {};
 		countryByKey.clear();
 		platformByKey.clear();
+		appSeriesInFlight.clear();
 	}
 
 	pubkey = nextPubkey;
@@ -189,8 +213,20 @@ export function totalForWindow(series, days) {
 }
 
 /**
- * Slice the trailing `2*days` for a single app — used by the per-app detail page,
- * which needs two windows back-to-back to compute the prior-period % ticker.
+ * Slice the trailing `2*days` of a counts array — the per-app detail page needs
+ * two windows back-to-back to compute the prior-period % ticker.
+ * @param {number[] | null | undefined} counts
+ * @param {number} days
+ */
+export function slice2x(counts, days) {
+	if (!counts || counts.length === 0) return [];
+	const span = Math.max(1, 2 * days);
+	return counts.length >= span ? counts.slice(-span) : counts;
+}
+
+/**
+ * Slice the trailing `2*days` from a per-app entry inside a publisher series
+ * (the signer's own catalog cache).
  * @param {AppSeries[] | null} series
  * @param {string} appDTag
  * @param {number} days
@@ -199,26 +235,23 @@ export function counts2xForApp(series, appDTag, days) {
 	if (!series) return [];
 	const target = appDTag.toLowerCase();
 	const row = series.find((a) => a.id.toLowerCase() === target);
-	if (!row) return [];
-	const span = Math.max(1, 2 * days);
-	const c = row.counts ?? [];
-	return c.length >= span ? c.slice(-span) : c;
+	return row ? slice2x(row.counts ?? [], days) : [];
 }
 
 /**
- * Memoised country breakdown. First call for `(range, appDTag)` issues the two
+ * Memoised country breakdown. First call for `(pubkey, range, appDTag)` issues the two
  * underlying HTTP requests (impressions + downloads); later calls return the cached rows.
  *
+ * @param {string} pubkeyHex
  * @param {{ from: string, to: string }} range
  * @param {string} [appDTag]
  */
-export async function getCountryBreakdown(range, appDTag) {
-	const pk = pubkey;
-	if (!pk) return [];
-	const key = breakdownKey(range, appDTag);
+export async function getCountryBreakdown(pubkeyHex, range, appDTag) {
+	if (!pubkeyHex) return [];
+	const key = breakdownKey(pubkeyHex, range, appDTag);
 	const cached = countryByKey.get(key);
 	if (cached) return cached;
-	const promise = loadCountryBreakdown(pk, range, 10, appDTag).catch((err) => {
+	const promise = loadCountryBreakdown(pubkeyHex, range, 10, appDTag).catch((err) => {
 		const msg = err instanceof Error ? err.message : String(err);
 		if (msg !== 'ANALYTICS_HTTP_DISABLED') console.warn('[Studio] country breakdown failed:', err);
 		// Drop the failed promise so a later call can retry.
@@ -232,16 +265,16 @@ export async function getCountryBreakdown(range, appDTag) {
 /**
  * Memoised platform breakdown. Same caching rules as `getCountryBreakdown`.
  *
+ * @param {string} pubkeyHex
  * @param {{ from: string, to: string }} range
  * @param {string} [appDTag]
  */
-export async function getPlatformBreakdown(range, appDTag) {
-	const pk = pubkey;
-	if (!pk) return [];
-	const key = breakdownKey(range, appDTag);
+export async function getPlatformBreakdown(pubkeyHex, range, appDTag) {
+	if (!pubkeyHex) return [];
+	const key = breakdownKey(pubkeyHex, range, appDTag);
 	const cached = platformByKey.get(key);
 	if (cached) return cached;
-	const promise = loadPlatformBreakdown(pk, range, appDTag).catch((err) => {
+	const promise = loadPlatformBreakdown(pubkeyHex, range, appDTag).catch((err) => {
 		const msg = err instanceof Error ? err.message : String(err);
 		if (msg !== 'ANALYTICS_HTTP_DISABLED') console.warn('[Studio] platform breakdown failed:', err);
 		platformByKey.delete(key);
@@ -249,4 +282,95 @@ export async function getPlatformBreakdown(range, appDTag) {
 	});
 	platformByKey.set(key, promise);
 	return promise;
+}
+
+/**
+ * Reactive accessor for a per-app series entry — used by indexer-access detail pages
+ * to read impressions/downloads for an app outside the signer's own catalog.
+ *
+ * @param {string} pubkeyHex
+ * @param {string} dTag
+ * @returns {SingleAppSeries | undefined}
+ */
+export function appSeriesFor(pubkeyHex, dTag) {
+	return appSeries[appKey(pubkeyHex, dTag)];
+}
+
+/**
+ * Fetch the impressions + downloads series for a single app outside the signer's catalog.
+ * Idempotent — repeat calls with the same `(pubkey, dTag)` are no-ops once data is cached
+ * or a fetch is in flight.
+ *
+ * @param {string} pubkeyHex
+ * @param {string} dTag
+ */
+export function loadAppSeriesIfNeeded(pubkeyHex, dTag) {
+	if (!pubkeyHex || !dTag) return;
+	const key = appKey(pubkeyHex, dTag);
+	if (appSeries[key] || appSeriesInFlight.has(key)) return;
+
+	appSeriesInFlight.add(key);
+	appSeries = { ...appSeries, [key]: { impressions: null, downloads: null, loading: true } };
+	const range = buildIsoDateRange(MAX_TIMEFRAME_DAYS);
+
+	void (async () => {
+		try {
+			const [impRows, dlRows] = await Promise.all([
+				fetchImpressions(pubkeyHex, { ...range, groupBy: 'day', appId: dTag }).catch((err) => {
+					const msg = err instanceof Error ? err.message : String(err);
+					if (msg !== 'ANALYTICS_HTTP_DISABLED') console.warn('[Studio] app impressions failed:', err);
+					return [];
+				}),
+				fetchDownloads(pubkeyHex, { ...range, groupBy: 'day', appId: dTag }).catch((err) => {
+					const msg = err instanceof Error ? err.message : String(err);
+					if (msg !== 'ANALYTICS_HTTP_DISABLED') console.warn('[Studio] app downloads failed:', err);
+					return [];
+				})
+			]);
+
+			const impressions = pivotDailyCounts(impRows, MAX_TIMEFRAME_DAYS);
+			const downloads = pivotDailyCounts(dlRows, MAX_TIMEFRAME_DAYS);
+
+			appSeries = {
+				...appSeries,
+				[key]: { impressions, downloads, loading: false }
+			};
+		} finally {
+			appSeriesInFlight.delete(key);
+			// If the entry was wiped by reset() mid-flight, leave it gone.
+			if (appSeries[key]?.loading) {
+				appSeries = {
+					...appSeries,
+					[key]: { ...appSeries[key], loading: false }
+				};
+			}
+		}
+	})();
+}
+
+/**
+ * Pivot rows of `{ day, count }` into a dense `days`-length counts array
+ * aligned with the chart X axis (oldest → newest).
+ * @param {Array<{ day?: string, count: number }>} rows
+ * @param {number} days
+ */
+function pivotDailyCounts(rows, days) {
+	const n = Math.max(1, days);
+	const today = new Date();
+	const isoDates = Array.from({ length: n }, (_, i) => {
+		/* eslint-disable-next-line svelte/prefer-svelte-reactivity */
+		const d = new Date(today);
+		d.setUTCDate(d.getUTCDate() - (n - 1 - i));
+		return d.toISOString().slice(0, 10);
+	});
+	/** @type {Map<string, number>} */
+	/* eslint-disable-next-line svelte/prefer-svelte-reactivity */
+	const byDay = new Map();
+	for (const row of rows) {
+		const day = row.day;
+		if (!day) continue;
+		const key = day.length > 10 ? day.slice(0, 10) : day;
+		byDay.set(key, (byDay.get(key) ?? 0) + (Number(row.count) || 0));
+	}
+	return isoDates.map((iso) => byDay.get(iso) ?? 0);
 }

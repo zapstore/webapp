@@ -8,14 +8,10 @@
 	import { getIsSignedIn } from '$lib/stores/auth.svelte.js';
 	import { queryEvents, putEvents } from '$lib/nostr/dexie.js';
 	import { parseApp } from '$lib/nostr/models.js';
-	import { fetchAllAppsByAuthorFromRelays, fetchAppsByAuthorFromRelays } from '$lib/nostr/service.js';
+	import { fetchAppsByAuthorFromRelays } from '$lib/nostr/service.js';
 	import { DEFAULT_CATALOG_RELAYS } from '$lib/config.js';
 	import { resolveStudioCatalogPubkey } from '$lib/studio/resolve-studio-catalog-pubkey.js';
-	import {
-		TEST_PUBKEY,
-		isStudioIndexerCatalogPubkey,
-		sortStudioIndexerAppsZapstoreFirst
-	} from '$lib/components/studio/studio-config.js';
+	import { TEST_PUBKEY } from '$lib/components/studio/studio-config.js';
 	import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import { npubToHex } from '$lib/studio/analytics-http.js';
 	import { loadIfNeeded as loadStudioAnalytics, resetStudioAnalytics } from '$lib/stores/studio-analytics.svelte.js';
@@ -28,16 +24,15 @@
 	/** Reactive studio state shared across all child routes via context. */
 	let userApps = $state([]);
 	let studioPubkey = $state(/** @type {string | null} */ (null));
+	/** True when the signed-in pubkey may URL-access apps from the indexer catalog. */
+	let indexerAccess = $state(false);
 	let appsLoading = $state(true);
-
-	const showIndexerAppCount = $derived(
-		studioPubkey != null && isStudioIndexerCatalogPubkey(studioPubkey)
-	);
 
 	/** Provide shared state to all child pages. */
 	setContext('studio', {
 		get userApps() { return userApps; },
 		get studioPubkey() { return studioPubkey; },
+		get indexerAccess() { return indexerAccess; },
 		get appsLoading() { return appsLoading; },
 		/** Update an app in the list after edit (called from app detail route). */
 		updateApp(/** @type {object} */ updated) {
@@ -85,52 +80,41 @@
 			if (gen !== appsLoadGen) return;
 			if (!signerPubkey) {
 				studioPubkey = null;
+				indexerAccess = false;
 				userApps = [];
 				return;
 			}
 
-			const catalogPubkey = await resolveStudioCatalogPubkey(signerPubkey);
+			const policy = await resolveStudioCatalogPubkey(signerPubkey);
 			if (gen !== appsLoadGen) return;
-			studioPubkey = catalogPubkey;
+			studioPubkey = policy.catalogPubkey;
+			indexerAccess = policy.indexerAccess;
 
-			let events = await queryEvents({ kinds: [32267], authors: [catalogPubkey] });
+			// Sidebar always lists apps published BY the signer (or override catalog).
+			// Indexer-access power users still only see their own apps here; arbitrary
+			// apps are reachable only by URL (`/studio/apps/<id>`).
+			let events = await queryEvents({ kinds: [32267], authors: [policy.catalogPubkey] });
 			if (gen !== appsLoadGen) return;
 
-			const indexerCatalog = isStudioIndexerCatalogPubkey(catalogPubkey);
-			if (indexerCatalog) {
-				const thinLocalIndex = events.length === 0 || events.length < 500;
-				const sessionKey = `zs.studio.indexerRelayBackfill:${catalogPubkey}`;
-				let sessionBackfillDone = false;
-				try { sessionBackfillDone = sessionStorage.getItem(sessionKey) === '1'; } catch { /* private */ }
-				if (thinLocalIndex || !sessionBackfillDone) {
-					await fetchAllAppsByAuthorFromRelays(DEFAULT_CATALOG_RELAYS, catalogPubkey, {
-						pageLimit: 500, maxPages: 40, timeout: 15000, skipPlatformFilter: true
-					});
-					if (gen !== appsLoadGen) return;
-					try { sessionStorage.setItem(sessionKey, '1'); } catch { /* ignore */ }
-					events = await queryEvents({ kinds: [32267], authors: [catalogPubkey] });
-				}
-			} else if (events.length === 0) {
-				events = await fetchAppsByAuthorFromRelays(DEFAULT_CATALOG_RELAYS, catalogPubkey);
+			if (events.length === 0) {
+				events = await fetchAppsByAuthorFromRelays(DEFAULT_CATALOG_RELAYS, policy.catalogPubkey);
 				if (events.length > 0) await putEvents(events);
 			}
 			if (gen !== appsLoadGen) return;
 
 			const parsedApps = events.map(parseApp);
-			let next = parsedApps.map((a) => ({
+			const next = parsedApps.map((a) => ({
 				id: a.dTag,
-				naddr: a.naddr,
 				name: a.name,
 				icon: a.icon ?? '',
 				description: a.description ?? '',
 				url: a.url ?? '',
 				images: a.images ?? [],
 				eventId: a.id,
-				event: a.event
+				event: a.event,
+				/** Owner pubkey — used by the per-app page to fetch analytics with `app_pubkey`. */
+				pubkey: policy.catalogPubkey
 			}));
-			if (isStudioIndexerCatalogPubkey(catalogPubkey)) {
-				next = sortStudioIndexerAppsZapstoreFirst(next);
-			}
 			if (gen !== appsLoadGen) return;
 			userApps = next;
 		} catch (err) {
@@ -170,16 +154,22 @@
 		return 'insights'; // /studio and /studio/insights both map here
 	});
 
-	/** Active app from URL for sidebar highlight. */
-	const activeAppNaddr = $derived(
-		activeSection === 'app' ? $page.url.pathname.replace('/studio/apps/', '') : null
-	);
+	/** Active app id (d-tag) from URL for sidebar highlight. URL-decoded. */
+	const activeAppId = $derived.by(() => {
+		if (activeSection !== 'app') return null;
+		const raw = $page.url.pathname.replace('/studio/apps/', '');
+		try {
+			return decodeURIComponent(raw);
+		} catch {
+			return raw;
+		}
+	});
 
 	const activeNavLabel = $derived.by(() => {
 		if (activeSection === 'inbox') return 'Inbox';
 		if (activeSection === 'assets') return 'Assets';
 		if (activeSection === 'app') {
-			const app = userApps.find((a) => a.naddr === activeAppNaddr);
+			const app = userApps.find((a) => a.id === activeAppId);
 			return app?.name ?? 'App';
 		}
 		return 'Insights';
@@ -243,11 +233,6 @@
 							<div class="apps-section">
 								<div class="apps-section-head">
 									<span class="eyebrow-label apps-eyebrow">Your Apps</span>
-									{#if showIndexerAppCount}
-										<span class="apps-eyebrow-count" aria-label="{userApps.length} apps loaded"
-											>{userApps.length.toLocaleString('en-US')}</span
-										>
-									{/if}
 								</div>
 								{#if !appsLoading && userApps.length === 0}
 									<button
@@ -261,8 +246,8 @@
 								{#each userApps as app (app.id)}
 									<button
 										class="nav-item"
-										class:active={activeAppNaddr === app.naddr}
-										onclick={() => navTo(`/studio/apps/${app.naddr}`)}
+										class:active={activeAppId === app.id}
+										onclick={() => navTo(`/studio/apps/${encodeURIComponent(app.id)}`)}
 									>
 										<span class="icon-wrap">
 											<img src={app.icon} alt={app.name} class="app-img" loading="lazy" />
@@ -340,11 +325,6 @@
 				<div class="apps-section">
 					<div class="apps-section-head">
 						<span class="eyebrow-label apps-eyebrow">Your Apps</span>
-						{#if showIndexerAppCount}
-							<span class="apps-eyebrow-count" aria-label="{userApps.length} apps loaded"
-								>{userApps.length.toLocaleString('en-US')}</span
-							>
-						{/if}
 					</div>
 					{#if !appsLoading && userApps.length === 0}
 						<button
@@ -358,8 +338,8 @@
 					{#each userApps as app (app.id)}
 						<button
 							class="nav-item"
-							class:active={activeAppNaddr === app.naddr}
-							onclick={() => goto(`/studio/apps/${app.naddr}`)}
+							class:active={activeAppId === app.id}
+							onclick={() => goto(`/studio/apps/${encodeURIComponent(app.id)}`)}
 						>
 							<span class="icon-wrap">
 								<img src={app.icon} alt={app.name} class="app-img" loading="lazy" />
@@ -515,15 +495,6 @@
 		color: var(--white33);
 		display: block;
 		min-width: 0;
-	}
-
-	.apps-eyebrow-count {
-		flex-shrink: 0;
-		font-size: 12px;
-		font-weight: 500;
-		letter-spacing: 0.06em;
-		font-variant-numeric: tabular-nums;
-		color: var(--blurpleColor66);
 	}
 
 	.app-img {

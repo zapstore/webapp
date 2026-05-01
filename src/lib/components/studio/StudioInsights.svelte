@@ -97,7 +97,7 @@
 		const range = buildIsoDateRange(days);
 		void (async () => {
 			try {
-				const rows = await getCountryBreakdown(range);
+				const rows = await getCountryBreakdown(pk, range);
 				if (gen !== countryGen) return;
 				countryRows = rows;
 			} finally {

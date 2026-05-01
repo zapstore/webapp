@@ -7,7 +7,7 @@
 
 	$effect(() => {
 		if (!studio.appsLoading && studio.userApps.length > 0) {
-			goto(`/studio/apps/${studio.userApps[0].naddr}`, { replaceState: true });
+			goto(`/studio/apps/${encodeURIComponent(studio.userApps[0].id)}`, { replaceState: true });
 		}
 	});
 </script>
