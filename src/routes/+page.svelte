@@ -96,7 +96,7 @@ $effect(() => {
 <SeoHead url={SITE_URL} jsonld={homeJsonLd} />
 
 <svelte:head>
-	<link rel="preload" as="image" href={downloadModalHeroSrc} />
+	<link rel="preload" as="image" href={downloadModalHeroSrc} fetchpriority="high" />
 </svelte:head>
 
 <DownloadModal bind:open={showDownloadModal} isZapstore={true} />
