@@ -138,6 +138,13 @@
 								>Blog</a
 							>
 						</li>
+						<li>
+							<a
+								href="/enterprise"
+								class="regular14 text-muted-foreground hover:text-foreground transition-colors"
+								>For Business</a
+							>
+						</li>
 					</ul>
 				</div>
 			</div>

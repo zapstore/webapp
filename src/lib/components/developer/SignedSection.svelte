@@ -115,8 +115,7 @@
 
 		<!-- Description under the two columns, centered; matches landing section-description -->
 		<p class="signed-desc section-description">
-			The Nostr signature is public: anyone can verify it. Your app events travel with their proof.
-			So you own them, everywhere.
+			The Nostr signature is public. Anyone can verify it, no one can forge it. Your release event is yours forever — even if a catalog drops you tomorrow.
 		</p>
 	</div>
 </section>

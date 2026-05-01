@@ -33,6 +33,7 @@ let showFooter = $derived(
 	(path === '/' ||
 		path === '/apps' ||
 		path === '/developers' ||
+		path === '/enterprise' ||
 		path === '/studio' ||
 		path.startsWith('/studio/') ||
 		path === '/blog' ||
