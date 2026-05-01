@@ -4,7 +4,7 @@
 	import { Extension, Nostr } from '$lib/components/icons';
 	import { connect, connectWithNostrConnectUri, ExtensionMissingError } from '$lib/stores/auth.svelte.js';
 
-	let { open = $bindable(false), onOpenGetStarted } = $props();
+	let { open = $bindable(false), onOpenGetStarted, onsignedin } = $props();
 
 	const PANEL_ICON_SIZE = 32;
 
@@ -36,6 +36,7 @@
 			const success = await connect();
 			if (success) {
 				open = false;
+				onsignedin?.();
 			} else {
 				extensionError = 'Failed to connect to signer';
 			}
@@ -84,6 +85,7 @@
 		try {
 			await connectWithNostrConnectUri(nostrConnectUri.trim());
 			open = false;
+			onsignedin?.();
 		} catch (err) {
 			nostrConnectError = err instanceof Error ? err.message : 'Could not connect. Check the string and try again.';
 		} finally {
