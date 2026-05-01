@@ -7,10 +7,14 @@ import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_ICON, SITE_TWITTER } from '
  * @property {string} [title]
  * @property {string} [description]
  * @property {string | null} [image]
+ * @property {string} [imageAlt]    - alt text for og:image
+ * @property {number} [imageWidth]  - og:image:width (omit if unknown)
+ * @property {number} [imageHeight] - og:image:height (omit if unknown)
  * @property {string} [url]         - canonical URL; defaults to current page URL
  * @property {string} [type]        - og:type
  * @property {object | null} [jsonld]
- * @property {string} [author]      - for blog/article pages
+ * @property {string} [author]      - author name for blog/article pages or app developer
+ * @property {string} [authorUrl]   - link to author's profile page
  * @property {string} [publishedTime] - ISO date for article:published_time
  */
 
@@ -19,10 +23,14 @@ let {
 	title = SITE_NAME,
 	description = SITE_DESCRIPTION,
 	image = SITE_ICON,
+	imageAlt = undefined,
+	imageWidth = undefined,
+	imageHeight = undefined,
 	url = undefined,
 	type = 'website',
 	jsonld = null,
 	author = undefined,
+	authorUrl = undefined,
 	publishedTime = undefined
 } = $props();
 
@@ -42,6 +50,15 @@ const twitterCard = $derived(image ? 'summary_large_image' : 'summary');
 	<meta property="og:description" content={description} />
 	{#if image}
 		<meta property="og:image" content={image} />
+		{#if imageAlt}
+			<meta property="og:image:alt" content={imageAlt} />
+		{/if}
+		{#if imageWidth}
+			<meta property="og:image:width" content={String(imageWidth)} />
+		{/if}
+		{#if imageHeight}
+			<meta property="og:image:height" content={String(imageHeight)} />
+		{/if}
 	{/if}
 
 	<meta name="twitter:card" content={twitterCard} />
@@ -50,10 +67,16 @@ const twitterCard = $derived(image ? 'summary_large_image' : 'summary');
 	<meta name="twitter:description" content={description} />
 	{#if image}
 		<meta name="twitter:image" content={image} />
+		{#if imageAlt}
+			<meta name="twitter:image:alt" content={imageAlt} />
+		{/if}
 	{/if}
 
 	{#if author}
 		<meta name="author" content={author} />
+		{#if authorUrl}
+			<link rel="author" href={authorUrl} />
+		{/if}
 	{/if}
 	{#if publishedTime}
 		<meta name="article:published_time" content={publishedTime} />

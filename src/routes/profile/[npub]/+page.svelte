@@ -7,7 +7,7 @@ import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 import { browser } from '$app/environment';
 import SeoHead from '$lib/components/layout/SeoHead.svelte';
 import { fetchProfile, queryEvents, encodeStackNaddr, parseApp, parseAppStack, fetchAppsByAuthorFromRelays, fetchAppFromRelays } from '$lib/nostr';
-import { ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG } from '$lib/config';
+import { ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG, SITE_URL } from '$lib/config';
 import { nip19 } from 'nostr-tools';
 import { wheelScroll } from '$lib/actions/wheelScroll.js';
 import { parseShortText } from '$lib/utils/short-text-parser.js';
@@ -38,6 +38,15 @@ let colorCopied = $state(false);
 let mentionProfiles = $state({});
 /** Stacks with resolved app details (icons, names) for display */
 let resolvedStacks = $state([]);
+
+function formatNpubDisplay(npubStr) {
+	if (!npubStr) return '';
+	if (npubStr.length < 14) return npubStr;
+	const afterPrefix = npubStr.startsWith('npub1') ? npubStr.slice(5, 8) : npubStr.slice(0, 3);
+	return `npub1${afterPrefix}......${npubStr.slice(-6)}`;
+}
+const displayNpub = $derived(formatNpubDisplay(npub));
+
 const profileName = $derived(profile?.displayName || profile?.name || displayNpub || 'Anonymous');
 /** Real name only (for ProfilePic: show icon until we have a name) */
 const profileNameForPic = $derived(profile?.displayName || profile?.name || null);
@@ -47,13 +56,7 @@ const profileColor = $derived(pubkey ? hexToColor(pubkey) : { r: 128, g: 128, b:
 const profileColorHex = $derived(
 	`#${profileColor.r.toString(16).padStart(2, '0')}${profileColor.g.toString(16).padStart(2, '0')}${profileColor.b.toString(16).padStart(2, '0')}`.toUpperCase()
 );
-function formatNpubDisplay(npubStr) {
-	if (!npubStr) return '';
-	if (npubStr.length < 14) return npubStr;
-	const afterPrefix = npubStr.startsWith('npub1') ? npubStr.slice(5, 8) : npubStr.slice(0, 3);
-	return `npub1${afterPrefix}......${npubStr.slice(-6)}`;
-}
-const displayNpub = $derived(formatNpubDisplay(npub));
+
 async function loadProfile(pk) {
     profileLoading = true;
     try {
@@ -258,7 +261,14 @@ function stackToCard(s, resolvedApps) {
 }
 </script>
 
-<SeoHead title="{profileName} — Profile — Zapstore" />
+<SeoHead 
+	title="{profileName} — Profile — Zapstore"
+	description={profile?.about || `${profileName}'s profile on Zapstore`}
+	image={profilePictureUrl || null}
+	imageAlt="{profileName} profile picture"
+	url="{SITE_URL}/profile/{npub}"
+	type="profile"
+/>
 
 {#if !pubkey}
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
