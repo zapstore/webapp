@@ -4,18 +4,13 @@
 	import { goto } from '$app/navigation';
 	import StudioAppDetail from '$lib/components/studio/StudioAppDetail.svelte';
 	import StudioAppEdit from '$lib/components/studio/StudioAppEdit.svelte';
+	import { buildIsoDateRange, timeframeToDays } from '$lib/studio/analytics-http.js';
 	import {
-		buildIsoDateRange,
-		fetchImpressions,
-		loadCountryBreakdownForApp,
-		loadDownloadAppData,
-		mapImpressionRowsToAppData,
-		loadPlatformBreakdownForApp,
-		timeframeToDays
-	} from '$lib/studio/analytics-http.js';
-	import { collectBlobHashesForDeveloper } from '$lib/studio/collect-blob-hashes.js';
-	import { loadZapAppData } from '$lib/studio/zap-series.js';
-	import { getIsSignedIn, signEvent } from '$lib/stores/auth.svelte.js';
+		counts2xForApp,
+		getCountryBreakdown,
+		getPlatformBreakdown,
+		studioAnalytics
+	} from '$lib/stores/studio-analytics.svelte.js';
 
 	const studio = getContext('studio');
 
@@ -24,27 +19,9 @@
 
 	let editingApp = $state(false);
 
-	// ── Per-app chart data ───────────────────────────────────────────────────
-	let dlAppData = $state(null);
-	let zapAppData = $state(null);
-	let impAppData = $state(null);
-
-	let dlMetricsLoading = $state(true);
-	let zapMetricsLoading = $state(true);
-	let impMetricsLoading = $state(true);
-
 	let selectedImpTimeframe = $state('30 Days');
 	let selectedDlTimeframe = $state('30 Days');
 	let selectedZapTimeframe = $state('30 Days');
-
-	// ── Per-app country / platform breakdown ─────────────────────────────────
-	let detailCountryRows = $state([]);
-	let detailCountryLoading = $state(false);
-	let detailPlatformRows = $state([]);
-	let detailPlatformLoading = $state(false);
-
-	let detailCountryGen = 0;
-	let detailPlatformGen = 0;
 
 	const detailChartDays = $derived(
 		Math.max(
@@ -55,186 +32,75 @@
 		)
 	);
 
-	// ── Derived counts for the current app ───────────────────────────────────
-	const dlCounts = $derived(dlAppData?.find((a) => a.id === app?.id)?.counts ?? []);
-	const zapCounts = $derived(zapAppData?.find((a) => a.id === app?.id)?.counts ?? []);
-	const impCounts = $derived(impAppData?.find((a) => a.id === app?.id)?.counts ?? []);
+	// ── Chart counts: slice the cached publisher series for the current app ───
+	// Two windows back-to-back so StudioAppDetail can compute the prior-period % ticker.
+	const dlCounts = $derived(
+		app ? counts2xForApp(studioAnalytics.downloadsSeries, app.id, timeframeToDays(selectedDlTimeframe)) : []
+	);
+	const zapCounts = $derived(
+		app ? counts2xForApp(studioAnalytics.zapsSeries, app.id, timeframeToDays(selectedZapTimeframe)) : []
+	);
+	const impCounts = $derived(
+		app ? counts2xForApp(studioAnalytics.impressionsSeries, app.id, timeframeToDays(selectedImpTimeframe)) : []
+	);
 
-	// ── Generation counter (prevents stale async writes) ─────────────────────
-	let loadGen = 0;
-	let prevDlDays = -1;
-	let prevImpDays = -1;
-	let prevZapDays = -1;
+	const dlMetricsLoading = $derived(studioAnalytics.downloadsLoading);
+	const zapMetricsLoading = $derived(studioAnalytics.zapsLoading);
+	const impMetricsLoading = $derived(studioAnalytics.impressionsLoading);
 
-	function isStale(gen) { return gen !== loadGen; }
+	// ── Per-app country / platform breakdowns ─────────────────────────────────
+	let detailCountryRows = $state(/** @type {Array<{ countryKey: string, label: string, impressions: number, downloads: number }>} */ ([]));
+	let detailCountryLoading = $state(false);
+	let detailPlatformRows = $state(/** @type {Array<{ source: string, label: string, impressions: number, downloads: number }>} */ ([]));
+	let detailPlatformLoading = $state(false);
 
-	// ── Analytics flows ──────────────────────────────────────────────────────
-	async function impFlow(gen, pubkey, impDays) {
-		try {
-			let v1Ok = false;
-			try {
-				const spanDays = 2 * impDays;
-				const wideRange = buildIsoDateRange(spanDays);
-				const impRows = await fetchImpressions(pubkey, {
-					from: wideRange.from,
-					to: wideRange.to,
-					groupBy: 'app_id,day'
-				});
-				v1Ok = true;
-				if (!isStale(gen)) impAppData = mapImpressionRowsToAppData(studio.userApps, impRows, spanDays);
-			} catch (err) {
-				if (!isStale(gen)) impAppData = null;
-				const msg = err instanceof Error ? err.message : String(err);
-				if (msg !== 'ANALYTICS_HTTP_DISABLED') console.warn('[AppDetail] v1 impressions failed:', err);
-			}
-			if (!v1Ok && !isStale(gen)) await loadLegacyNip98Impressions(pubkey, impDays, gen);
-		} finally {
-			if (!isStale(gen)) { impMetricsLoading = false; prevImpDays = impDays; }
-		}
-	}
+	let countryGen = 0;
+	let platformGen = 0;
 
-	async function dlFlow(gen, dlDays, hashPromise) {
-		try {
-			const hashMap = await hashPromise;
-			if (isStale(gen)) return;
-			const spanDays = 2 * dlDays;
-			const wideRange = buildIsoDateRange(spanDays);
-			const data = await loadDownloadAppData(studio.userApps, hashMap, wideRange, spanDays);
-			if (!isStale(gen)) dlAppData = data;
-		} catch (err) {
-			console.warn('[AppDetail] downloads failed:', err);
-			if (!isStale(gen)) dlAppData = null;
-		} finally {
-			if (!isStale(gen)) { dlMetricsLoading = false; prevDlDays = dlDays; }
-		}
-	}
-
-	async function zapFlow(gen, pubkey, zapDays) {
-		try {
-			const data = await loadZapAppData(pubkey, studio.userApps, 2 * zapDays);
-			if (!isStale(gen)) zapAppData = data;
-		} catch (err) {
-			console.warn('[AppDetail] zaps failed:', err);
-			if (!isStale(gen)) zapAppData = null;
-		} finally {
-			if (!isStale(gen)) { zapMetricsLoading = false; prevZapDays = zapDays; }
-		}
-	}
-
-	async function loadLegacyNip98Impressions(pubkeyHex, days, gen) {
-		const apiUrl = `${location.origin}/api/studio/analytics?pubkey=${pubkeyHex}`;
-		if (!getIsSignedIn()) { if (!isStale(gen)) impAppData = null; return; }
-		let authEvent;
-		try {
-			authEvent = await signEvent({
-				kind: 27235,
-				created_at: Math.floor(Date.now() / 1000),
-				tags: [['u', apiUrl], ['method', 'GET']],
-				content: ''
-			});
-		} catch { if (!isStale(gen)) impAppData = null; return; }
-		if (isStale(gen)) return;
-		const res = await fetch(apiUrl, { headers: { Authorization: `Nostr ${btoa(JSON.stringify(authEvent))}` } });
-		if (!res.ok) { if (!isStale(gen)) impAppData = null; return; }
-		if (isStale(gen)) return;
-		const data = await res.json();
-		if (!isStale(gen)) impAppData = mapImpressionRowsToAppData(studio.userApps, data.impressions ?? [], days);
-	}
-
-	// ── Trigger load when app / timeframes change ─────────────────────────────
 	$effect(() => {
-		const dlD = timeframeToDays(selectedDlTimeframe);
-		const impD = timeframeToDays(selectedImpTimeframe);
-		const zapD = timeframeToDays(selectedZapTimeframe);
-		const pk = studio.studioPubkey;
-		const apps = studio.userApps;
-		const appsLoading = studio.appsLoading;
-
-		if (!pk || apps.length === 0) {
-			if (!appsLoading) {
-				dlMetricsLoading = false;
-				zapMetricsLoading = false;
-				impMetricsLoading = false;
-			}
-			return;
-		}
-
-		loadGen += 1;
-		const gen = loadGen;
-
-		const needDl = dlD !== prevDlDays;
-		const needImp = impD !== prevImpDays;
-		const needZap = zapD !== prevZapDays;
-
-		if (needDl) dlMetricsLoading = true; else dlMetricsLoading = false;
-		if (needImp) impMetricsLoading = true; else impMetricsLoading = false;
-		if (needZap) zapMetricsLoading = true; else zapMetricsLoading = false;
-
-		const hashPromise = collectBlobHashesForDeveloper(pk, apps);
-
-		if (needDl) void dlFlow(gen, dlD, hashPromise);
-		if (needImp) void impFlow(gen, pk, impD);
-		if (needZap) void zapFlow(gen, pk, zapD);
-	});
-
-	// ── Country breakdown ─────────────────────────────────────────────────────
-	$effect(() => {
-		app; selectedImpTimeframe;
-		const pk = studio.studioPubkey;
-		const apps = studio.userApps;
+		const pk = studioAnalytics.pubkey;
 		const currentApp = app;
-		if (!currentApp || !pk || apps.length === 0) {
+		const days = timeframeToDays(selectedImpTimeframe);
+		if (!currentApp || !pk) {
 			detailCountryRows = [];
 			detailCountryLoading = false;
 			return;
 		}
-		detailCountryGen += 1;
-		const gen = detailCountryGen;
+		countryGen += 1;
+		const gen = countryGen;
 		detailCountryLoading = true;
-		const days = timeframeToDays(selectedImpTimeframe);
 		const range = buildIsoDateRange(days);
 		void (async () => {
 			try {
-				const hashMap = await collectBlobHashesForDeveloper(pk, apps);
-				if (gen !== detailCountryGen) return;
-				const rows = await loadCountryBreakdownForApp(pk, range, currentApp, hashMap, 10);
-				if (gen !== detailCountryGen) return;
+				const rows = await getCountryBreakdown(range, currentApp.id);
+				if (gen !== countryGen) return;
 				detailCountryRows = rows;
-			} catch {
-				if (gen === detailCountryGen) detailCountryRows = [];
 			} finally {
-				if (gen === detailCountryGen) detailCountryLoading = false;
+				if (gen === countryGen) detailCountryLoading = false;
 			}
 		})();
 	});
 
-	// ── Platform breakdown ────────────────────────────────────────────────────
 	$effect(() => {
-		app; selectedImpTimeframe;
-		const pk = studio.studioPubkey;
-		const apps = studio.userApps;
+		const pk = studioAnalytics.pubkey;
 		const currentApp = app;
-		if (!currentApp || !pk || apps.length === 0) {
+		const days = timeframeToDays(selectedImpTimeframe);
+		if (!currentApp || !pk) {
 			detailPlatformRows = [];
 			detailPlatformLoading = false;
 			return;
 		}
-		detailPlatformGen += 1;
-		const gen = detailPlatformGen;
+		platformGen += 1;
+		const gen = platformGen;
 		detailPlatformLoading = true;
-		const days = timeframeToDays(selectedImpTimeframe);
 		const range = buildIsoDateRange(days);
 		void (async () => {
 			try {
-				const hashMap = await collectBlobHashesForDeveloper(pk, apps);
-				if (gen !== detailPlatformGen) return;
-				const rows = await loadPlatformBreakdownForApp(pk, range, currentApp, hashMap);
-				if (gen !== detailPlatformGen) return;
+				const rows = await getPlatformBreakdown(range, currentApp.id);
+				if (gen !== platformGen) return;
 				detailPlatformRows = rows;
-			} catch {
-				if (gen === detailPlatformGen) detailPlatformRows = [];
 			} finally {
-				if (gen === detailPlatformGen) detailPlatformLoading = false;
+				if (gen === platformGen) detailPlatformLoading = false;
 			}
 		})();
 	});

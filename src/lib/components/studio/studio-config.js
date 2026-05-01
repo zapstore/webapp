@@ -51,20 +51,3 @@ export const TEST_PUBKEY = null;
 // ── Dev toggle: force the "no apps published" empty state ────────────────────
 // Set to true to see the Insights empty state regardless of actual app data.
 export const FORCE_EMPTY_INSIGHTS = false;
-
-// ── Chart window ─────────────────────────────────────────────────────────────
-export const STUDIO_DAYS = 30;
-
-/**
- * Sum counts in the last `n` days per app (charts / headers use the visible window only).
- * @param {{ counts: number[] }[]} appData
- * @param {number} n
- */
-export function totalCountInLastNDays(appData, n) {
-	const window = Math.max(1, n);
-	return appData.reduce((total, app) => {
-		const c = app.counts ?? [];
-		const slice = c.length >= window ? c.slice(-window) : c;
-		return total + slice.reduce((s, v) => s + v, 0);
-	}, 0);
-}

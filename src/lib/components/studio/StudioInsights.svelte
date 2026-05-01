@@ -8,36 +8,17 @@
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import StudioCountryChart from './StudioCountryChart.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
-	import {
-		FORCE_EMPTY_INSIGHTS,
-		totalCountInLastNDays
-	} from './studio-config.js';
+	import { FORCE_EMPTY_INSIGHTS } from './studio-config.js';
 	import StudioEmptyState from './StudioEmptyState.svelte';
+	import { buildIsoDateRange, timeframeToDays } from '$lib/studio/analytics-http.js';
 	import {
-		buildIsoDateRange,
-		fetchImpressions,
-		loadCountryBreakdown,
-		loadDownloadAppData,
-		mapImpressionRowsToAppData,
-		timeframeToDays
-	} from '$lib/studio/analytics-http.js';
-	import { collectBlobHashesForDeveloper } from '$lib/studio/collect-blob-hashes.js';
-	import { loadZapAppData } from '$lib/studio/zap-series.js';
-	import { getIsSignedIn, signEvent } from '$lib/stores/auth.svelte.js';
+		getCountryBreakdown,
+		studioAnalytics,
+		totalForWindow
+	} from '$lib/stores/studio-analytics.svelte.js';
 
 	/** Shared state from layout (userApps, studioPubkey). */
 	const studio = getContext('studio');
-
-	// ── Analytics state ──────────────────────────────────────────────────────
-	let dlAppData = $state(null);
-	let zapAppData = $state(null);
-	let impAppData = $state(null);
-	let countryRows = $state([]);
-
-	let impChartLoading = $state(true);
-	let dlChartLoading = $state(true);
-	let zapChartLoading = $state(true);
-	let countryChartLoading = $state(true);
 
 	let dlDropdownOpen = $state(false);
 	let zapDropdownOpen = $state(false);
@@ -54,16 +35,30 @@
 	const dlInsightDays = $derived(timeframeToDays(selectedDlTimeframe));
 	const impInsightDays = $derived(timeframeToDays(selectedImpTimeframe));
 	const zapInsightDays = $derived(timeframeToDays(selectedZapTimeframe));
+	const countryInsightDays = $derived(timeframeToDays(selectedCountryTimeframe));
 
+	// ── Header totals — sum the trailing N days of the cached series ───────────
 	const formattedDownloads = $derived(
-		dlAppData ? totalCountInLastNDays(dlAppData, dlInsightDays).toLocaleString('en-US') : '—'
+		studioAnalytics.downloadsSeries
+			? totalForWindow(studioAnalytics.downloadsSeries, dlInsightDays).toLocaleString('en-US')
+			: '—'
 	);
 	const formattedZaps = $derived(
-		zapAppData ? totalCountInLastNDays(zapAppData, zapInsightDays).toLocaleString('en-US') : '—'
+		studioAnalytics.zapsSeries
+			? totalForWindow(studioAnalytics.zapsSeries, zapInsightDays).toLocaleString('en-US')
+			: '—'
 	);
 	const formattedImpressions = $derived(
-		impAppData ? totalCountInLastNDays(impAppData, impInsightDays).toLocaleString('en-US') : '—'
+		studioAnalytics.impressionsSeries
+			? totalForWindow(studioAnalytics.impressionsSeries, impInsightDays).toLocaleString('en-US')
+			: '—'
 	);
+
+	// Loading flags only matter while we have apps to chart — once the store
+	// returns null with no apps, the empty state below takes over.
+	const dlChartLoading = $derived(studioAnalytics.downloadsLoading);
+	const zapChartLoading = $derived(studioAnalytics.zapsLoading);
+	const impChartLoading = $derived(studioAnalytics.impressionsLoading);
 
 	// Close dropdowns on outside click.
 	$effect(() => {
@@ -83,146 +78,38 @@
 		return () => document.removeEventListener('pointerdown', onPointerDown, true);
 	});
 
-	// ── Generation counter to prevent stale async updates ───────────────────
-	let loadGen = 0;
-	let prevDlDays = $state(-1);
-	let prevImpDays = $state(-1);
-	let prevZapDays = $state(-1);
-	let prevCountryDays = $state(-1);
+	// ── Country breakdown — memoised in the store; one fetch per (timeframe) ──
+	let countryRows = $state(/** @type {Array<{ countryKey: string, label: string, impressions: number, downloads: number }>} */ ([]));
+	let countryChartLoading = $state(true);
+	let countryGen = 0;
 
-	function isStale(gen) { return gen !== loadGen; }
-
-	// ── Analytics flows (same logic as StudioApp.svelte) ────────────────────
-	async function impFlow(gen, pubkey, impDays) {
-		try {
-			let v1Ok = false;
+	$effect(() => {
+		const pk = studioAnalytics.pubkey;
+		const days = countryInsightDays;
+		if (!pk || studio.userApps.length === 0) {
+			countryRows = [];
+			countryChartLoading = !studio.appsLoading && pk ? false : countryChartLoading;
+			return;
+		}
+		countryGen += 1;
+		const gen = countryGen;
+		countryChartLoading = true;
+		const range = buildIsoDateRange(days);
+		void (async () => {
 			try {
-				const spanDays = 2 * impDays;
-				const wideRange = buildIsoDateRange(spanDays);
-				const impRows = await fetchImpressions(pubkey, { from: wideRange.from, to: wideRange.to, groupBy: 'app_id,day' });
-				v1Ok = true;
-				if (!isStale(gen)) impAppData = mapImpressionRowsToAppData(studio.userApps, impRows, spanDays);
-			} catch (err) {
-				if (!isStale(gen)) impAppData = null;
-				const msg = err instanceof Error ? err.message : String(err);
-				if (msg !== 'ANALYTICS_HTTP_DISABLED') console.warn('[Insights] v1 impressions failed:', err);
+				const rows = await getCountryBreakdown(range);
+				if (gen !== countryGen) return;
+				countryRows = rows;
+			} finally {
+				if (gen === countryGen) countryChartLoading = false;
 			}
-			if (!v1Ok && !isStale(gen)) await loadLegacyNip98Impressions(pubkey, impDays, gen);
-		} finally {
-			if (!isStale(gen)) { impChartLoading = false; prevImpDays = impDays; }
-		}
-	}
-
-	async function dlFlow(gen, dlDays, hashPromise) {
-		try {
-			const hashMap = await hashPromise;
-			if (isStale(gen)) return;
-			const spanDays = 2 * dlDays;
-			const wideRange = buildIsoDateRange(spanDays);
-			const data = await loadDownloadAppData(studio.userApps, hashMap, wideRange, spanDays);
-			if (!isStale(gen)) dlAppData = data;
-		} catch (err) {
-			console.warn('[Insights] v1 downloads failed:', err);
-			if (!isStale(gen)) dlAppData = null;
-		} finally {
-			if (!isStale(gen)) { dlChartLoading = false; prevDlDays = dlDays; }
-		}
-	}
-
-	async function zapFlow(gen, pubkey, zapDays) {
-		try {
-			const data = await loadZapAppData(pubkey, studio.userApps, 2 * zapDays);
-			if (!isStale(gen)) zapAppData = data;
-		} catch (err) {
-			console.warn('[Insights] zaps load failed:', err);
-			if (!isStale(gen)) zapAppData = null;
-		} finally {
-			if (!isStale(gen)) { zapChartLoading = false; prevZapDays = zapDays; }
-		}
-	}
-
-	async function countryFlow(gen, pubkey, countryDays, countryRange, hashPromise) {
-		try {
-			const hashMap = await hashPromise;
-			if (isStale(gen)) return;
-			const rows = await loadCountryBreakdown(pubkey, countryRange, hashMap, 10);
-			if (!isStale(gen)) countryRows = rows;
-		} catch (err) {
-			console.warn('[Insights] country breakdown failed:', err);
-			if (!isStale(gen)) countryRows = [];
-		} finally {
-			if (!isStale(gen)) { countryChartLoading = false; prevCountryDays = countryDays; }
-		}
-	}
-
-	async function loadLegacyNip98Impressions(pubkeyHex, days, gen) {
-		const apiUrl = `${location.origin}/api/studio/analytics?pubkey=${pubkeyHex}`;
-		if (!getIsSignedIn()) { if (!isStale(gen)) impAppData = null; return; }
-		let authEvent;
-		try {
-			authEvent = await signEvent({
-				kind: 27235,
-				created_at: Math.floor(Date.now() / 1000),
-				tags: [['u', apiUrl], ['method', 'GET']],
-				content: ''
-			});
-		} catch { if (!isStale(gen)) impAppData = null; return; }
-		if (isStale(gen)) return;
-		const res = await fetch(apiUrl, { headers: { Authorization: `Nostr ${btoa(JSON.stringify(authEvent))}` } });
-		if (!res.ok) { if (!isStale(gen)) impAppData = null; return; }
-		if (isStale(gen)) return;
-		const data = await res.json();
-		if (!isStale(gen)) impAppData = mapImpressionRowsToAppData(studio.userApps, data.impressions ?? [], days);
-	}
+		})();
+	});
 
 	// ── Show empty state once apps have finished loading with zero results ───
 	const showEmpty = $derived(
 		FORCE_EMPTY_INSIGHTS || (!studio.appsLoading && studio.userApps.length === 0)
 	);
-
-	// ── Trigger analytics load when userApps/studioPubkey/timeframes change ─
-	$effect(() => {
-		// Reactive reads on timeframes + context values
-		const impD = timeframeToDays(selectedImpTimeframe);
-		const dlD = timeframeToDays(selectedDlTimeframe);
-		const zapD = timeframeToDays(selectedZapTimeframe);
-		const countryD = timeframeToDays(selectedCountryTimeframe);
-		const pk = studio.studioPubkey;
-		const apps = studio.userApps;
-		const appsLoading = studio.appsLoading; // tracked so effect re-runs when loading finishes
-
-		if (!pk || apps.length === 0) {
-			// Loading finished with no apps — clear chart loading states so they don't spin forever
-			if (!appsLoading) {
-				dlChartLoading = false;
-				zapChartLoading = false;
-				impChartLoading = false;
-				countryChartLoading = false;
-			}
-			return;
-		}
-
-		loadGen += 1;
-		const gen = loadGen;
-
-		const needImp = impD !== prevImpDays;
-		const needDl = dlD !== prevDlDays;
-		const needZap = zapD !== prevZapDays;
-		const needCountry = countryD !== prevCountryDays;
-
-		if (needImp) impChartLoading = true; else impChartLoading = false;
-		if (needCountry) countryChartLoading = true; else countryChartLoading = false;
-		if (needDl) dlChartLoading = true; else dlChartLoading = false;
-		if (needZap) zapChartLoading = true; else zapChartLoading = false;
-
-		const countryRange = buildIsoDateRange(countryD);
-		const hashPromise = collectBlobHashesForDeveloper(pk, apps);
-
-		if (needImp) void impFlow(gen, pk, impD);
-		if (needDl) void dlFlow(gen, dlD, hashPromise);
-		if (needZap) void zapFlow(gen, pk, zapD);
-		if (needCountry) void countryFlow(gen, pk, countryD, countryRange, hashPromise);
-	});
 </script>
 
 <div class="insights-scroll">
@@ -264,7 +151,7 @@
 		<div class="chart-area">
 		<DownloadChart chartId="dl" dayCount={dlInsightDays}
 			color0="#5445FF" color1="#636AFF" glowColor="#5445FF" dotColor="#5C5FFF"
-			appData={dlAppData} maxPerAppLines={2} loading={dlChartLoading} />
+			appData={studioAnalytics.downloadsSeries} maxPerAppLines={2} loading={dlChartLoading} />
 		</div>
 	</section>
 
@@ -301,7 +188,7 @@
 		<div class="chart-area">
 		<DownloadChart chartId="zap" dayCount={zapInsightDays}
 			color0="#CC7A00" color1="#FFB237" glowColor="#FFB237" glowOpacity={0.12} dotColor="#FFB237"
-			badgeBg="rgba(90,55,0,0.92)" appData={zapAppData} maxPerAppLines={2}
+			badgeBg="rgba(90,55,0,0.92)" appData={studioAnalytics.zapsSeries} maxPerAppLines={2}
 			loading={zapChartLoading} />
 		</div>
 	</section>
@@ -340,7 +227,7 @@
 		<DownloadChart chartId="imp" dayCount={impInsightDays}
 			color0="var(--white33)" color1="var(--white66)" glowColor="var(--white33)"
 			glowOpacity={0.16} dotColor="var(--white66)" totalDotBackdropFill="var(--black)"
-			badgeBg="rgba(52, 52, 58, 0.94)" appData={impAppData} maxPerAppLines={2}
+			badgeBg="rgba(52, 52, 58, 0.94)" appData={studioAnalytics.impressionsSeries} maxPerAppLines={2}
 			loading={impChartLoading} />
 		</div>
 	</section>
