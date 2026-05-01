@@ -176,7 +176,9 @@
 			width={DOWNLOAD_HERO_WIDTH}
 			height={DOWNLOAD_HERO_HEIGHT}
 			class="w-full h-auto object-cover"
-			decoding="async"
+			loading="eager"
+			fetchpriority="high"
+			decoding="sync"
 		/>
 		<div class="zapstore-content p-4 md:p-6 relative">
 			<h2 class="modal-title modal-heading mb-6">Download Zapstore</h2>
