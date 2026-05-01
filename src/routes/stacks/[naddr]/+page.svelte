@@ -17,7 +17,7 @@ import { beforeNavigate, goto } from "$app/navigation";
 import { fetchProfilesBatch, queryEvent, queryEvents, putEvents, queryCommentsFromStore, fetchComments, fetchLabelsForAddressable, groupLabelEventsToEntries, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, fetchZaps, parseZapReceipt, } from "$lib/nostr";
 import { stackDisplayDescription, stackDisplayTitle } from "$lib/nostr/models.js";
 import { fetchFromRelays } from "$lib/nostr/service";
-import { ZAPSTORE_RELAY, EVENT_KINDS, PLATFORM_FILTER, SITE_ICON } from "$lib/config";
+import { ZAPSTORE_RELAY, EVENT_KINDS, PLATFORM_FILTER, SITE_ICON, SITE_URL } from "$lib/config";
 import { isOnline } from "$lib/stores/online.svelte.js";
 import { nip19 } from "nostr-tools";
 
@@ -665,6 +665,10 @@ const displayDescription = $derived(
 <SeoHead
   title="{stack?.title || 'Stack'} — Zapstore"
   description={stack?.description || "A curated collection of apps on Zapstore"}
+  image={stack?.image || null}
+  imageAlt="{stack?.title || 'Stack'} cover image"
+  url="{SITE_URL}/stacks/{stackNaddr}"
+  type="product"
 />
 
 <section class="stack-page">

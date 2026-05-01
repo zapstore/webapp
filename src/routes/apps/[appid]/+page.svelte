@@ -71,8 +71,12 @@ let error = $state(null);
 // Seed from server data so SSR renders the SeoHead branch with og:image (app icon)
 // for link-preview crawlers. onMount may later replace this with fresher Dexie data.
 let app = $state(data.app ?? null);
+// Publisher profile
+let publisherProfile = $state(null);
+
 const appJsonLd = $derived.by(() => {
 	const currentApp = app;
+	const publisher = publisherProfile;
 	return currentApp
 		? {
 				'@context': 'https://schema.org',
@@ -80,17 +84,22 @@ const appJsonLd = $derived.by(() => {
 				name: currentApp.name,
 				description: markdownToPlainTextLine(currentApp.description).slice(0, 160),
 				image: currentApp.icon,
-				url: `${SITE_URL}/apps/${currentApp.naddr || currentApp.dTag}`,
+				url: `${SITE_URL}/apps/${currentApp.dTag}`,
 				operatingSystem: 'Android',
 				applicationCategory: 'MobileApplication',
+				author: publisher?.displayName || publisher?.name
+					? {
+							'@type': 'Person',
+							name: publisher.displayName || publisher.name,
+							url: currentApp.npub ? `${SITE_URL}/profile/${currentApp.npub}` : undefined
+						}
+					: undefined,
 				publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` }
 			}
 		: null;
 });
-	let latestRelease = $state(null);
-	let _refreshing = $state(false);
-	// Publisher profile
-	let publisherProfile = $state(null);
+let latestRelease = $state(null);
+let _refreshing = $state(false);
 	// Description expand state
 	let descriptionExpanded = $state(false);
 	let isTruncated = $state(false);
@@ -1072,7 +1081,11 @@ const appJsonLd = $derived.by(() => {
 		title="{app.name} — Zapstore"
 		description={markdownToPlainTextLine(app.description).slice(0, 160)}
 		image={app.icon || null}
-		url="{SITE_URL}/apps/{app.naddr || app.dTag}"
+		imageAlt="{app.name} icon"
+		url="{SITE_URL}/apps/{app.dTag}"
+		type="product"
+		author={publisherProfile?.displayName || publisherProfile?.name}
+		authorUrl={app.npub ? `${SITE_URL}/profile/${app.npub}` : undefined}
 		jsonld={appJsonLd}
 	/>
 {:else}
