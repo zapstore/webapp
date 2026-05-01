@@ -1,14 +1,21 @@
 /**
- * Fetches catalog author pubkey from the server (indexer-view signer list lives server-side only).
+ * Resolves the Studio policy for the signed-in pubkey via `/api/studio/resolve-catalog-pubkey`.
+ * Returns the catalog author pubkey (whose kind 32267 events power the sidebar) and whether
+ * the signer is permitted to URL-access apps from the Zapstore indexer catalog.
+ *
  * Caches per signer in sessionStorage so a return visit can work offline after one online resolve.
  */
 
-const CACHE_PREFIX = 'zs.studio.catalogPubkey:v1:';
+const CACHE_PREFIX = 'zs.studio.catalogPolicy:v1:';
 
-/** @param {string} signerPubkeyHex */
+/**
+ * @param {string} signerPubkeyHex
+ * @returns {Promise<{ catalogPubkey: string, indexerAccess: boolean }>}
+ */
 export async function resolveStudioCatalogPubkey(signerPubkeyHex) {
 	const s = String(signerPubkeyHex ?? '').toLowerCase();
-	if (!/^[0-9a-f]{64}$/.test(s)) return s;
+	const fallback = { catalogPubkey: s, indexerAccess: false };
+	if (!/^[0-9a-f]{64}$/.test(s)) return fallback;
 
 	const cacheKey = CACHE_PREFIX + s;
 	try {
@@ -19,13 +26,16 @@ export async function resolveStudioCatalogPubkey(signerPubkeyHex) {
 			const data = await res.json();
 			const cat = data?.catalogPubkey;
 			if (typeof cat === 'string' && /^[0-9a-f]{64}$/i.test(cat)) {
-				const out = cat.toLowerCase();
+				const policy = {
+					catalogPubkey: cat.toLowerCase(),
+					indexerAccess: data?.indexerAccess === true
+				};
 				try {
-					sessionStorage.setItem(cacheKey, out);
+					sessionStorage.setItem(cacheKey, JSON.stringify(policy));
 				} catch {
 					/* private mode / quota */
 				}
-				return out;
+				return policy;
 			}
 		}
 	} catch {
@@ -34,10 +44,22 @@ export async function resolveStudioCatalogPubkey(signerPubkeyHex) {
 
 	try {
 		const cached = sessionStorage.getItem(cacheKey);
-		if (cached && /^[0-9a-f]{64}$/i.test(cached)) return cached.toLowerCase();
+		if (cached) {
+			const parsed = JSON.parse(cached);
+			if (
+				parsed &&
+				typeof parsed.catalogPubkey === 'string' &&
+				/^[0-9a-f]{64}$/i.test(parsed.catalogPubkey)
+			) {
+				return {
+					catalogPubkey: parsed.catalogPubkey.toLowerCase(),
+					indexerAccess: parsed.indexerAccess === true
+				};
+			}
+		}
 	} catch {
 		/* ignore */
 	}
 
-	return s;
+	return fallback;
 }

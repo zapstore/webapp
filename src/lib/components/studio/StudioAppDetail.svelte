@@ -36,7 +36,9 @@
 	/** While parent loads platform breakdown for this app */
 	_platformLoading = false,
 	onBack: _onBack,
-		onEdit = () => {}
+		onEdit = () => {},
+		/** Hide the Edit action — used for indexer-access apps the signer doesn't own. */
+		canEdit = true
 	} = $props();
 
 	const detailChartLoading = $derived(dlMetricsLoading || zapMetricsLoading || impMetricsLoading);
@@ -148,13 +150,15 @@
 					>
 						View
 					</a>
-					<button
-						type="button"
-						class="btn-secondary-xs btn-secondary-light studio-detail-action-btn"
-						onclick={onEdit}
-					>
-						Edit
-					</button>
+					{#if canEdit}
+						<button
+							type="button"
+							class="btn-secondary-xs btn-secondary-light studio-detail-action-btn"
+							onclick={onEdit}
+						>
+							Edit
+						</button>
+					{/if}
 				</div>
 			</div>
 		</div>
