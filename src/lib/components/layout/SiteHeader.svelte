@@ -9,7 +9,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { Search, Loader2 } from 'lucide-svelte';
-	import { Menu, Cross, Inbox, Alert, Profile, ChevronRight, ArrowDown, Studio, Discover } from '$lib/components/icons';
+	import { Menu, Cross, Inbox, Alert, Profile, ChevronRight, ArrowDown, Studio } from '$lib/components/icons';
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import { handleBack } from '$lib/utils/back.js';
 	import { cn } from '$lib/utils';
@@ -910,24 +910,6 @@
 													Studio
 													<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
 												</a>
-												<a
-													href="/studio/inbox"
-													class="dropdown-item"
-													onclick={() => (dropdownOpen = false)}
-												>
-													<span class="dropdown-icon-wrap"><Inbox variant="outline" size={16} strokeWidth={1.4} color="var(--white)" /></span>
-													Inbox
-													<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-												</a>
-												<a
-													href="/studio/apps"
-													class="dropdown-item"
-													onclick={() => (dropdownOpen = false)}
-												>
-													<span class="dropdown-icon-wrap"><Discover variant="outline" size={16} strokeWidth={1.4} color="var(--white)" /></span>
-													Your apps
-													<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-												</a>
 											{/if}
 											<a
 												href={profileHref}
@@ -1100,24 +1082,6 @@
 										>
 											<span class="dropdown-icon-wrap"><Studio variant="fill" size={16} color="var(--white)" /></span>
 											Studio
-											<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-										</a>
-										<a
-											href="/studio/inbox"
-											class="dropdown-item"
-											onclick={() => (dropdownOpen = false)}
-										>
-											<span class="dropdown-icon-wrap"><Inbox variant="outline" size={16} strokeWidth={1.4} color="var(--white)" /></span>
-											Inbox
-											<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-										</a>
-										<a
-											href="/studio/apps"
-											class="dropdown-item"
-											onclick={() => (dropdownOpen = false)}
-										>
-											<span class="dropdown-icon-wrap"><Discover variant="outline" size={16} strokeWidth={1.4} color="var(--white)" /></span>
-											Your apps
 											<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
 										</a>
 									{/if}

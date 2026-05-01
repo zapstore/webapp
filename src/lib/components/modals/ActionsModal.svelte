@@ -80,6 +80,12 @@
 		contentType === 'forum' ? FORUM_CATEGORIES : DEFAULT_LABEL_CHIPS
 	);
 
+	/** @type {Map<string, string>} */
+	let userLabelEventIdsByText = $state(new Map());
+	let optimisticAddedLabels = new SvelteSet();
+	let deleteOwnContentInFlight = $state(false);
+	let contentActionError = $state('');
+
 	/**
 	 * Label chips row ordered by: optimistic (just tapped, unconfirmed) → confirmed user labels
 	 * most-recently-applied first (Map insertion order from buildUserLabelEventMap) → unapplied defaults.
@@ -94,12 +100,6 @@
 		);
 		return [...optimisticNew, ...applied, ...unappliedDefaults];
 	});
-
-	/** @type {Map<string, string>} */
-	let userLabelEventIdsByText = $state(new Map());
-	let optimisticAddedLabels = new SvelteSet();
-	let deleteOwnContentInFlight = $state(false);
-	let contentActionError = $state('');
 
 	function normPk(pk) {
 		return String(pk ?? '')
