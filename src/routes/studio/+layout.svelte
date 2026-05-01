@@ -1,11 +1,12 @@
 <script>
+	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { setContext } from 'svelte';
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import InsightsIcon from '$lib/components/icons/Insights.svelte';
 	import InboxIcon from '$lib/components/icons/Inbox.svelte';
-	import { getIsSignedIn } from '$lib/stores/auth.svelte.js';
+	import { getIsSignedIn, getIsConnecting, isAuthInitialized } from '$lib/stores/auth.svelte.js';
 	import { queryEvents, putEvents } from '$lib/nostr/dexie.js';
 	import { parseApp } from '$lib/nostr/models.js';
 	import { fetchAppsByAuthorFromRelays } from '$lib/nostr/service.js';
@@ -20,6 +21,29 @@
 	let { children } = $props();
 
 	const signedIn = $derived(getIsSignedIn());
+	const authReady = $derived(isAuthInitialized());
+	const authConnecting = $derived(getIsConnecting());
+	/**
+	 * Single source of truth for "should the dashboard render?" — used by both
+	 * the route guard and the template so they cannot disagree.
+	 */
+	const showDashboard = $derived(signedIn && SHOW_STUDIO_SIGNED_IN_DASHBOARD);
+
+	/**
+	 * Route guard: /studio/* is auth-only. Redirect signed-out users to
+	 * /developers (the public marketing page).
+	 *
+	 * Wait for `initAuth()` (parent layout `onMount`) and any in-flight Nostr
+	 * Connect session restore so we don't bounce a signed-in user during the
+	 * brief gap between mount and auth hydration.
+	 */
+	$effect(() => {
+		if (!browser) return;
+		if (!authReady || authConnecting) return;
+		if (!showDashboard) {
+			goto('/developers', { replaceState: true });
+		}
+	});
 
 	/** Reactive studio state shared across all child routes via context. */
 	let userApps = $state([]);
@@ -125,8 +149,7 @@
 	}
 
 	$effect(() => {
-		signedIn; // re-run when auth changes
-		if (signedIn && SHOW_STUDIO_SIGNED_IN_DASHBOARD) {
+		if (showDashboard) {
 			loadUserApps().catch((err) => console.error('[StudioLayout] loadUserApps:', err));
 		} else {
 			resetStudioAnalytics();
@@ -179,7 +202,7 @@
 	function navTo(href) { goto(href); closeMobile(); }
 </script>
 
-{#if signedIn && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
+{#if showDashboard}
 	<div class="dashboard-outer container mx-auto px-0 sm:px-6 lg:px-8">
 		<div class="dashboard">
 
@@ -378,10 +401,13 @@
 			</div>
 		</div>
 	</div>
-{:else}
-	<!-- Not signed in or flag off: just pass child page through (it renders marketing) -->
-	{@render children()}
 {/if}
+<!--
+	When showDashboard is false, render nothing. The route guard above redirects
+	to /developers; rendering child pages without their dashboard chrome would
+	break them (StudioInsights, StudioInbox, etc. assume the layout context).
+-->
+
 
 <style>
 	.dashboard {

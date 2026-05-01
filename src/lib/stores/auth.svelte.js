@@ -177,6 +177,15 @@ export function getIsSignedIn() {
 }
 
 /**
+ * True once `initAuth()` has read localStorage. Use this in route guards to
+ * avoid redirecting signed-in users during the brief window between component
+ * mount and the parent layout's `onMount` firing `initAuth()`.
+ */
+export function isAuthInitialized() {
+	return initialized;
+}
+
+/**
  * @returns {'extension' | 'nostr-connect' | null}
  */
 export function getAuthMode() {

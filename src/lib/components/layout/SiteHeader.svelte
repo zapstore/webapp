@@ -7,8 +7,9 @@
 <script lang="js">
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	import { Search, Loader2 } from 'lucide-svelte';
-	import { Menu, Cross, Inbox, Alert, Profile, ChevronRight, ArrowDown } from '$lib/components/icons';
+	import { Menu, Cross, Inbox, Alert, Profile, ChevronRight, ArrowDown, Studio, Discover } from '$lib/components/icons';
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import { handleBack } from '$lib/utils/back.js';
 	import { cn } from '$lib/utils';
@@ -88,7 +89,6 @@
 	const isConnecting = $derived(getIsConnecting());
 	const isConnected = $derived(pubkey !== null);
 	const isDevelopersActive = $derived($page.url.pathname === '/developers');
-	const isStudioActive = $derived($page.url.pathname.startsWith('/studio'));
 	const isDiscoverActive = $derived(
 		$page.url.pathname === '/apps' ||
 			$page.url.pathname === '/stacks'
@@ -293,6 +293,7 @@
 	}
 	function handleGetStartedConnected() {
 		getStartedModalOpen = false;
+		handleHeaderSignedIn();
 	}
 	function handleSpinComplete(_event) {
 		spinKeyModalOpen = false;
@@ -309,6 +310,19 @@
 		signOut();
 		dropdownOpen = false;
 		inboxOpen = false;
+	}
+	/**
+	 * Post-sign-in redirect for header-initiated sign-ins (Sign In button, Get Started CTA).
+	 * Sends the user to Studio Insights unless they're already inside `/studio/*`
+	 * (avoids interrupting an in-progress dashboard task) or the dashboard flag is off.
+	 * Inline sign-ins triggered by content actions (zap, comment, app install) don't
+	 * call this — they keep the user on the page they were reading.
+	 */
+	async function handleHeaderSignedIn() {
+		if (!SHOW_STUDIO_SIGNED_IN_DASHBOARD) return;
+		const p = $page.url.pathname;
+		if (p.startsWith('/studio')) return;
+		await goto('/studio/insights');
 	}
 	function toggleDropdown(e) {
 		e.stopPropagation();
@@ -439,11 +453,7 @@
 									</div>
 
 								<div class="menu-section">
-									{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
-									<a href="/studio/insights" class="menu-section-link" onclick={closeMenu}>Studio</a>
-								{:else}
 									<a href="/developers" class="menu-section-link" onclick={closeMenu}>Developers</a>
-								{/if}
 									<nav class="menu-subnav">
 										<a
 											href="/docs/publish"
@@ -473,6 +483,29 @@
 										>
 									</nav>
 								</div>
+
+								{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
+									<div class="menu-section">
+										<a href="/studio/insights" class="menu-section-link" onclick={closeMenu}>Studio</a>
+										<nav class="menu-subnav">
+											<a
+												href="/studio/insights"
+												class="menu-sublink medium14 text-white/66"
+												onclick={closeMenu}>Insights</a
+											>
+											<a
+												href="/studio/inbox"
+												class="menu-sublink medium14 text-white/66"
+												onclick={closeMenu}>Inbox</a
+											>
+											<a
+												href="/studio/apps"
+												class="menu-sublink medium14 text-white/66"
+												onclick={closeMenu}>Your apps</a
+											>
+										</nav>
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</div>
@@ -650,11 +683,7 @@
 								</div>
 
 								<div class="menu-section">
-									{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
-									<a href="/studio/insights" class="menu-section-link" onclick={closeMenu}>Studio</a>
-								{:else}
 									<a href="/developers" class="menu-section-link" onclick={closeMenu}>Developers</a>
-								{/if}
 									<nav class="menu-subnav">
 										<a
 											href="/docs/publish"
@@ -684,6 +713,29 @@
 										>
 									</nav>
 								</div>
+
+								{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
+									<div class="menu-section">
+										<a href="/studio/insights" class="menu-section-link" onclick={closeMenu}>Studio</a>
+										<nav class="menu-subnav">
+											<a
+												href="/studio/insights"
+												class="menu-sublink medium14 text-white/66"
+												onclick={closeMenu}>Insights</a
+											>
+											<a
+												href="/studio/inbox"
+												class="menu-sublink medium14 text-white/66"
+												onclick={closeMenu}>Inbox</a
+											>
+											<a
+												href="/studio/apps"
+												class="menu-sublink medium14 text-white/66"
+												onclick={closeMenu}>Your apps</a
+											>
+										</nav>
+									</div>
+								{/if}
 
 								{#if !isConnected && !isConnecting}
 									<div class="menu-cta-wrapper">
@@ -754,16 +806,6 @@
 							>
 								Apps
 							</a>
-						{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
-							<a
-								href="/studio/insights"
-								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-								class:landing-nav-studio-selected={isStudioActive}
-								style="color: var(--white66);"
-							>
-								Studio
-							</a>
-						{:else}
 							<a
 								href="/developers"
 								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
@@ -772,7 +814,6 @@
 							>
 								Developers
 							</a>
-						{/if}
 							<a
 								href="/community"
 								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
@@ -859,6 +900,35 @@
 									</button>
 									{#if dropdownOpen}
 										<DropdownMenu class="profile-popup" itemChevron={true}>
+											{#if SHOW_STUDIO_SIGNED_IN_DASHBOARD}
+												<a
+													href="/studio/insights"
+													class="dropdown-item"
+													onclick={() => (dropdownOpen = false)}
+												>
+													<span class="dropdown-icon-wrap"><Studio variant="fill" size={16} color="var(--white)" /></span>
+													Studio
+													<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+												</a>
+												<a
+													href="/studio/inbox"
+													class="dropdown-item"
+													onclick={() => (dropdownOpen = false)}
+												>
+													<span class="dropdown-icon-wrap"><Inbox variant="outline" size={16} strokeWidth={1.4} color="var(--white)" /></span>
+													Inbox
+													<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+												</a>
+												<a
+													href="/studio/apps"
+													class="dropdown-item"
+													onclick={() => (dropdownOpen = false)}
+												>
+													<span class="dropdown-icon-wrap"><Discover variant="outline" size={16} strokeWidth={1.4} color="var(--white)" /></span>
+													Your apps
+													<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+												</a>
+											{/if}
 											<a
 												href={profileHref}
 												class="dropdown-item"
@@ -1022,31 +1092,60 @@
 
 							{#if dropdownOpen}
 								<DropdownMenu class="profile-popup" itemChevron={true}>
-								<a
-									href={profileHref}
-									class="dropdown-item"
-									onclick={() => (dropdownOpen = false)}
-								>
-								<ProfilePic
-									{pubkey}
-									pictureUrl={currentUserProfile?.picture || undefined}
-									name={currentUserProfile?.name || undefined}
-									size="sm"
-								/>
-								View my profile
-									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-								</a>
-								<button
-									type="button"
-									class="dropdown-item dropdown-item--danger profile-popup-disconnect"
-									onclick={handleSignOut}
-								>
-									<div class="dropdown-rouge-circle">
-										<span style="display:flex;transform:rotate(-90deg)"><ArrowDown variant="outline" size={11} strokeWidth={1.6} color="var(--rougeColor)" /></span>
-									</div>
-									Disconnect
-									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-								</button>
+									{#if SHOW_STUDIO_SIGNED_IN_DASHBOARD}
+										<a
+											href="/studio/insights"
+											class="dropdown-item"
+											onclick={() => (dropdownOpen = false)}
+										>
+											<span class="dropdown-icon-wrap"><Studio variant="fill" size={16} color="var(--white)" /></span>
+											Studio
+											<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+										</a>
+										<a
+											href="/studio/inbox"
+											class="dropdown-item"
+											onclick={() => (dropdownOpen = false)}
+										>
+											<span class="dropdown-icon-wrap"><Inbox variant="outline" size={16} strokeWidth={1.4} color="var(--white)" /></span>
+											Inbox
+											<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+										</a>
+										<a
+											href="/studio/apps"
+											class="dropdown-item"
+											onclick={() => (dropdownOpen = false)}
+										>
+											<span class="dropdown-icon-wrap"><Discover variant="outline" size={16} strokeWidth={1.4} color="var(--white)" /></span>
+											Your apps
+											<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+										</a>
+									{/if}
+									<a
+										href={profileHref}
+										class="dropdown-item"
+										onclick={() => (dropdownOpen = false)}
+									>
+										<ProfilePic
+											{pubkey}
+											pictureUrl={currentUserProfile?.picture || undefined}
+											name={currentUserProfile?.name || undefined}
+											size="sm"
+										/>
+										View my profile
+										<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+									</a>
+									<button
+										type="button"
+										class="dropdown-item dropdown-item--danger profile-popup-disconnect"
+										onclick={handleSignOut}
+									>
+										<div class="dropdown-rouge-circle">
+											<span style="display:flex;transform:rotate(-90deg)"><ArrowDown variant="outline" size={11} strokeWidth={1.6} color="var(--rougeColor)" /></span>
+										</div>
+										Disconnect
+										<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+									</button>
 								</DropdownMenu>
 							{/if}
 							</div>
@@ -1124,7 +1223,11 @@
 
 <DownloadModal bind:open={downloadModalOpen} isZapstore={true} />
 
-<SignInModal bind:open={signInModalOpen} onOpenGetStarted={openGetStartedFromSignIn} />
+<SignInModal
+	bind:open={signInModalOpen}
+	onOpenGetStarted={openGetStartedFromSignIn}
+	onsignedin={handleHeaderSignedIn}
+/>
 
 <!-- Onboarding Modals -->
 <GetStartedModal bind:open={getStartedModalOpen} onconnected={handleGetStartedConnected} />
@@ -1606,6 +1709,16 @@
 		border-radius: 50%;
 		background: color-mix(in srgb, var(--rougeColor) 14%, transparent);
 		border: 0.33px solid color-mix(in srgb, var(--rougeColor) 40%, transparent);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+	}
+
+	.dropdown-icon-wrap {
+		width: 28px;
+		height: 28px;
+		min-width: 28px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
