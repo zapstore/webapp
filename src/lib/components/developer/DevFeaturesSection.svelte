@@ -8,18 +8,19 @@
 			id: 'ship',
 			title: 'Ship in seconds',
 			description:
-				'Sign and publish directly to users. No approval queue, no reviewer. Your release, your timeline.'
+				'Publish straight to communities in one line of code. No single gatekeeper can hold your release.'
 		},
 		{
 			id: 'earn',
 			title: 'Own your earnings',
 			description:
-				'Keep everything you earn. Accept zaps directly from users, no platform cuts or middlemen.'
+				'Money from your users to your wallet in seconds. No payout schedule or brutal commissions.'
 		},
 		{
 			id: 'users',
 			title: 'Insights & interaction',
-			description: 'Track downloads, earnings and interaction around your releases.'
+			description:
+				'See who installs, who zaps, who comments. You have direct contact with your audience.'
 		}
 	];
 
@@ -73,10 +74,10 @@
 	<!-- ── MOBILE ─────────────────────────────────────────────────────── -->
 	<div class="mobile-scroll lg:hidden">
 		<div class="mobile-scroll-inner">
-		{#each cards as card (card.id)}
-			<div class="mob-card">
-				<div class="mob-img-wrap">
-					{#if card.id === 'ship'}
+			{#each cards as card (card.id)}
+				<div class="mob-card">
+					<div class="mob-img-wrap">
+						{#if card.id === 'ship'}
 							<div class="confirm-wrap">
 								<div class="confirm-scaler">
 									<div class="fake-success-screen">
@@ -175,7 +176,7 @@
 											<div class="fzb-hdr">
 												<span class="fzb-name">The Axiom</span>
 												<div class="fzb-amount">
-					<Zap size={13} color="url(#fzb-gold)" /><span class="fzb-sats">100</span>
+													<Zap size={13} color="url(#fzb-gold)" /><span class="fzb-sats">100</span>
 												</div>
 											</div>
 										</div>
@@ -191,7 +192,7 @@
 											<div class="fzb-hdr">
 												<span class="fzb-name">Zach</span>
 												<div class="fzb-amount">
-					<Zap size={13} color="url(#fzb-gold)" /><span class="fzb-sats">21</span>
+													<Zap size={13} color="url(#fzb-gold)" /><span class="fzb-sats">21</span>
 												</div>
 											</div>
 											<p class="fzb-msg">Great UX on this one!</p>
@@ -208,7 +209,7 @@
 											<div class="fzb-hdr">
 												<span class="fzb-name">Jane Clement</span>
 												<div class="fzb-amount">
-					<Zap size={13} color="url(#fzb-gold)" /><span class="fzb-sats">5K</span>
+													<Zap size={13} color="url(#fzb-gold)" /><span class="fzb-sats">5K</span>
 												</div>
 											</div>
 											<p class="fzb-msg">
@@ -227,7 +228,7 @@
 											<div class="fzb-hdr">
 												<span class="fzb-name">Niel Liesmons</span>
 												<div class="fzb-amount">
-					<Zap size={13} color="url(#fzb-gold)" /><span class="fzb-sats">2.1K</span>
+													<Zap size={13} color="url(#fzb-gold)" /><span class="fzb-sats">2.1K</span>
 												</div>
 											</div>
 											<p class="fzb-msg">Notifications work flawlessly now. Great job!</p>
@@ -244,7 +245,7 @@
 											<div class="fzb-hdr">
 												<span class="fzb-name">Verbiricha</span>
 												<div class="fzb-amount">
-					<Zap size={13} color="url(#fzb-gold)" /><span class="fzb-sats">1K</span>
+													<Zap size={13} color="url(#fzb-gold)" /><span class="fzb-sats">1K</span>
 												</div>
 											</div>
 											<p class="fzb-msg">Keep it coming!</p>
@@ -256,7 +257,7 @@
 											<div class="fzb-hdr">
 												<span class="fzb-name">Pip</span>
 												<div class="fzb-amount">
-					<Zap size={13} color="url(#fzb-gold)" /><span class="fzb-sats">500</span>
+													<Zap size={13} color="url(#fzb-gold)" /><span class="fzb-sats">500</span>
 												</div>
 											</div>
 											<p class="fzb-msg">noice</p>
@@ -354,12 +355,12 @@
 											<div class="fsc-checks">
 												<div class="fsc-check-item">
 													<div class="fsc-cat-pic">
-													<img
-														src="/images/logo.svg"
-														class="fsc-cat-logo"
-														alt=""
-														aria-hidden="true"
-													/>
+														<img
+															src="/images/logo.svg"
+															class="fsc-cat-logo"
+															alt=""
+															aria-hidden="true"
+														/>
 													</div>
 													<span>Accepted in Zapstore catalog</span>
 												</div>
@@ -394,32 +395,61 @@
 									>
 									<div class="zap-feed">
 										<div class="fake-zap">
-											<img src="/images/profiles/the-axiom.png" class="fzb-pic" alt="" aria-hidden="true"/>
+											<img
+												src="/images/profiles/the-axiom.png"
+												class="fzb-pic"
+												alt=""
+												aria-hidden="true"
+											/>
 											<div class="fzb-bubble">
 												<div class="fzb-hdr">
 													<span class="fzb-name">The Axiom</span>
-													<div class="fzb-amount"><Zap size={13} color="url(#fzb-gold-d)" /><span class="fzb-sats">100</span></div>
+													<div class="fzb-amount">
+														<Zap size={13} color="url(#fzb-gold-d)" /><span class="fzb-sats"
+															>100</span
+														>
+													</div>
 												</div>
 											</div>
 										</div>
 										<div class="fake-zap">
-											<img src="/images/profiles/zach.png" class="fzb-pic" alt="" aria-hidden="true"/>
+											<img
+												src="/images/profiles/zach.png"
+												class="fzb-pic"
+												alt=""
+												aria-hidden="true"
+											/>
 											<div class="fzb-bubble">
 												<div class="fzb-hdr">
 													<span class="fzb-name">Zach</span>
-													<div class="fzb-amount"><Zap size={13} color="url(#fzb-gold-d)" /><span class="fzb-sats">21</span></div>
+													<div class="fzb-amount">
+														<Zap size={13} color="url(#fzb-gold-d)" /><span class="fzb-sats"
+															>21</span
+														>
+													</div>
 												</div>
 												<p class="fzb-msg">Great UX on this one!</p>
 											</div>
 										</div>
 										<div class="fake-zap">
-											<img src="/images/profiles/jane-clementt.png" class="fzb-pic" alt="" aria-hidden="true"/>
+											<img
+												src="/images/profiles/jane-clementt.png"
+												class="fzb-pic"
+												alt=""
+												aria-hidden="true"
+											/>
 											<div class="fzb-bubble">
 												<div class="fzb-hdr">
 													<span class="fzb-name">Jane Clement</span>
-													<div class="fzb-amount"><Zap size={13} color="url(#fzb-gold-d)" /><span class="fzb-sats">5K</span></div>
+													<div class="fzb-amount">
+														<Zap size={13} color="url(#fzb-gold-d)" /><span class="fzb-sats"
+															>5K</span
+														>
+													</div>
 												</div>
-												<p class="fzb-msg">What a snappy app! Are you guys planning Community support any time?</p>
+												<p class="fzb-msg">
+													What a snappy app! Are you guys planning Community support any time?
+												</p>
 											</div>
 										</div>
 										<div class="fake-zap">
@@ -433,7 +463,9 @@
 												<div class="fzb-hdr">
 													<span class="fzb-name">Niel Liesmons</span>
 													<div class="fzb-amount">
-					<Zap size={13} color="url(#fzb-gold-d)" /><span class="fzb-sats">2.1K</span>
+														<Zap size={13} color="url(#fzb-gold-d)" /><span class="fzb-sats"
+															>2.1K</span
+														>
 													</div>
 												</div>
 												<p class="fzb-msg">Notifications work flawlessly now. Great job!</p>
@@ -450,7 +482,9 @@
 												<div class="fzb-hdr">
 													<span class="fzb-name">Verbiricha</span>
 													<div class="fzb-amount">
-					<Zap size={13} color="url(#fzb-gold-d)" /><span class="fzb-sats">1K</span>
+														<Zap size={13} color="url(#fzb-gold-d)" /><span class="fzb-sats"
+															>1K</span
+														>
 													</div>
 												</div>
 												<p class="fzb-msg">Keep it coming!</p>
@@ -467,7 +501,9 @@
 												<div class="fzb-hdr">
 													<span class="fzb-name">Pip</span>
 													<div class="fzb-amount">
-					<Zap size={13} color="url(#fzb-gold-d)" /><span class="fzb-sats">500</span>
+														<Zap size={13} color="url(#fzb-gold-d)" /><span class="fzb-sats"
+															>500</span
+														>
 													</div>
 												</div>
 												<p class="fzb-msg">noice</p>

@@ -125,10 +125,10 @@ onMount(() => {
 			>
 		</h2>
 		<p class="section-description max-w-2xl mx-auto mt-7 publish-desc-desktop">
-			No review process. No delay. No middlemen.
+			No central review. No delay. No middlemen.
 		</p>
 		<p class="section-description max-w-2xl mx-auto mt-7 publish-desc-mobile">
-			No review process. No delay.<br />
+			No central review. No delay.<br />
 			No middlemen.
 		</p>
 		<a
