@@ -63,29 +63,30 @@
 		ChevronDown
 	} from '$lib/components/icons';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
-	let { data } = $props();
-	const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
-	const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
-	// Error is mutable: server may set it, but client can clear it when Dexie has data
-	let error = $state(null);
-	// Seed from server data so SSR renders the SeoHead branch with og:image (app icon)
-	// for link-preview crawlers. onMount may later replace this with fresher Dexie data.
-	let app = $state(data.app ?? null);
-	const appJsonLd = $derived(
-		app
-			? {
-					'@context': 'https://schema.org',
-					'@type': 'SoftwareApplication',
-					name: app.name,
-					description: markdownToPlainTextLine(app.description).slice(0, 160),
-					image: app.icon,
-					url: `${SITE_URL}/apps/${app.naddr || app.dTag}`,
-					operatingSystem: 'Android',
-					applicationCategory: 'MobileApplication',
-					publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` }
-				}
-			: null
-	);
+let { data } = $props();
+const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
+const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
+// Error is mutable: server may set it, but client can clear it when Dexie has data
+let error = $state(null);
+// Seed from server data so SSR renders the SeoHead branch with og:image (app icon)
+// for link-preview crawlers. onMount may later replace this with fresher Dexie data.
+let app = $state(data.app ?? null);
+const appJsonLd = $derived.by(() => {
+	const currentApp = app;
+	return currentApp
+		? {
+				'@context': 'https://schema.org',
+				'@type': 'SoftwareApplication',
+				name: currentApp.name,
+				description: markdownToPlainTextLine(currentApp.description).slice(0, 160),
+				image: currentApp.icon,
+				url: `${SITE_URL}/apps/${currentApp.naddr || currentApp.dTag}`,
+				operatingSystem: 'Android',
+				applicationCategory: 'MobileApplication',
+				publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` }
+			}
+		: null;
+});
 	let latestRelease = $state(null);
 	let _refreshing = $state(false);
 	// Publisher profile

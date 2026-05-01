@@ -220,6 +220,26 @@ const rootCommentsWithReplies = $derived(rootComments.map((comment) => ({
     ...comment,
     replies: repliesByParent.get(comment.id) || [],
 })));
+
+// enrichedZaps must be defined before threadByZapId, threadZapsByZapId, and threadZapsByRootId
+const enrichedZaps = $derived(zaps
+    .map((zap) => {
+    const profile = zap.senderPubkey ? zapperProfiles.get(zap.senderPubkey) : undefined;
+    const senderNpub = safeNpubFromPubkey(zap.senderPubkey);
+    const displayName = profile?.displayName?.trim() ||
+        profile?.name?.trim() ||
+        (senderNpub ? formatNpubDisplay(senderNpub) : "Anonymous");
+    return {
+        ...zap,
+        type: "zap",
+        displayName,
+        avatarUrl: profile?.picture?.trim() || null,
+        profileUrl: senderNpub ? `/profile/${senderNpub}` : "",
+        timestamp: zap.createdAt,
+    };
+})
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
+
 /** Full thread (root + all descendants) per root id, chronological, for the thread modal */
 const threadByRootId = $derived.by(() => {
     const map = new SvelteMap();
@@ -318,23 +338,6 @@ const threadZapsByRootId = $derived.by(() => {
     }
     return map;
 });
-const enrichedZaps = $derived(zaps
-    .map((zap) => {
-    const profile = zap.senderPubkey ? zapperProfiles.get(zap.senderPubkey) : undefined;
-    const senderNpub = safeNpubFromPubkey(zap.senderPubkey);
-    const displayName = profile?.displayName?.trim() ||
-        profile?.name?.trim() ||
-        (senderNpub ? formatNpubDisplay(senderNpub) : "Anonymous");
-    return {
-        ...zap,
-        type: "zap",
-        displayName,
-        avatarUrl: profile?.picture?.trim() || null,
-        profileUrl: senderNpub ? `/profile/${senderNpub}` : "",
-        timestamp: zap.createdAt,
-    };
-})
-    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
 
 const combinedFeed = $derived.by(() => {
     const commentsWithType = rootCommentsWithReplies.map((c) => {

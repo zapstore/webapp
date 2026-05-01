@@ -16,7 +16,7 @@
 
 <div class="empty-wrap">
 	<div class="empty-panel">
-		<h2 class="empty-title">No apps published yet</h2>
+		<h2 class="empty-title">Ready to publish your first app?</h2>
 		<p class="empty-desc">{desc}</p>
 
 		<div class="qs-cards">
@@ -75,6 +75,10 @@
 				</div>
 			</div>
 		</div>
+
+		<p class="empty-overview-link">
+			Not sure where to start? <a href="/developers">Read the developer overview →</a>
+		</p>
 	</div>
 </div>
 
@@ -234,5 +238,23 @@
 	@keyframes coming-pulse {
 		0%, 100% { opacity: 1; }
 		50% { opacity: 0.5; }
+	}
+
+	.empty-overview-link {
+		max-width: 480px;
+		margin: 28px auto 0;
+		text-align: center;
+		font-size: 14px;
+		color: var(--white33);
+	}
+
+	.empty-overview-link a {
+		color: var(--white66);
+		text-decoration: none;
+		transition: color 0.12s;
+	}
+
+	.empty-overview-link a:hover {
+		color: var(--white);
 	}
 </style>
