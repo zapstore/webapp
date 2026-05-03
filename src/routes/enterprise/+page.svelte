@@ -4,7 +4,19 @@
 	import CapabilitiesSection from '$lib/components/business/CapabilitiesSection.svelte';
 	import ContactFormSection from '$lib/components/business/ContactFormSection.svelte';
 	import SeoHead from '$lib/components/layout/SeoHead.svelte';
+	import { ChevronRight } from '$lib/components/icons';
 	import { SITE_URL, SITE_NAME } from '$lib/config';
+
+	/** @type {HTMLAnchorElement | null} */
+	let crosslinkBtn = null;
+
+	/** @param {MouseEvent} event */
+	function handleCrosslinkMouseMove(event) {
+		if (!crosslinkBtn) return;
+		const rect = crosslinkBtn.getBoundingClientRect();
+		crosslinkBtn.style.setProperty('--mouse-x', `${event.clientX - rect.left}px`);
+		crosslinkBtn.style.setProperty('--mouse-y', `${event.clientY - rect.top}px`);
+	}
 
 	const title = `${SITE_NAME} for Organizations — Private app catalogs, deployed for your users`;
 	const description =
@@ -33,32 +45,29 @@
 <CapabilitiesSection />
 <ContactFormSection />
 
-<section class="border-t border-border/50 py-8 sm:py-10">
+<section class="border-t border-border/50 py-10 sm:py-12">
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-		<p class="cross-link-text">
-			Building an app yourself? See <a href="/developers" class="cross-link"
-				>Zapstore for developers</a
-			>.
-		</p>
+		<p class="cross-link-text">Building an app yourself?</p>
+		<a
+			href="/developers"
+			bind:this={crosslinkBtn}
+			onmousemove={handleCrosslinkMouseMove}
+			class="btn-glass-large btn-glass-with-chevron group inline-flex items-center gap-3 cross-link-btn"
+		>
+			Zapstore for developers
+			<ChevronRight variant="outline" color="var(--white33)" size={18} className="transition-transform group-hover:translate-x-0.5" />
+		</a>
 	</div>
 </section>
 
 <style>
 	.cross-link-text {
-		margin: 0;
-		font-size: 0.9375rem;
-		color: var(--white33);
-	}
-
-	.cross-link {
+		margin: 0 0 1rem;
+		font-size: 1.125rem;
 		color: var(--white66);
-		text-decoration: none;
-		border-bottom: 1px solid var(--white16);
-		transition: color 0.15s ease, border-color 0.15s ease;
 	}
 
-	.cross-link:hover {
-		color: var(--white);
-		border-bottom-color: var(--white33);
+	.cross-link-btn {
+		display: inline-flex;
 	}
 </style>

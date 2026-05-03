@@ -37,13 +37,18 @@
 				</span>
 			</h1>
 			<p
-				class="display-lead text-muted-foreground max-w-lg mb-6 sm:mb-8 lg:mb-10 mx-auto sm:mx-0"
+				class="display-lead text-muted-foreground max-w-lg mb-6 sm:mb-0 mx-auto sm:mx-0"
 			>
 				Reliable tools for shipping apps and interacting<br class="hidden sm:block" /> with communities
 				of users.
 			</p>
 		</div>
 
+		<div class="hidden sm:flex sm:justify-end sm:flex-shrink-0 get-started-wrap">
+			<a href="/docs/publish" class="btn-primary">
+				Get Started
+			</a>
+		</div>
 	</div>
 
 	<!-- Screenshots: fixed to bottom of section; only section clips (no overflow here) -->
@@ -481,6 +486,12 @@
 		top: 192px;
 		transform: rotateY(5deg) rotateX(2deg) rotateZ(-8deg) translateZ(80px);
 	}
+}
+
+/* Get Started button: offset from top-right on desktop */
+.get-started-wrap {
+	padding-top: 1rem;   /* 16px */
+	padding-right: 2rem; /* 32px */
 }
 
 /* Override display-hero's clamp — studio h1 peaks at 60px, not 72px */

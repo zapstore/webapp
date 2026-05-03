@@ -60,7 +60,7 @@
 				if (e[0].isIntersecting) startTimer();
 				else stopTimer();
 			},
-			{ threshold: 0.2 }
+			{ threshold: 0.6 }
 		);
 		if (sectionEl) observer.observe(sectionEl);
 	});
