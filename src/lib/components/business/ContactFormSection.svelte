@@ -1,6 +1,6 @@
 <script>
 	import '$lib/styles/landing-display.css';
-	import { Send } from '$lib/components/icons';
+	import Selector from '$lib/components/common/Selector.svelte';
 
 	const FORMSPREE_FORM_ID = 'mqearype';
 	const FORMSPREE_URL = `https://formspree.io/f/${FORMSPREE_FORM_ID}`;
@@ -96,7 +96,7 @@
 			</div>
 
 			{#if status === 'success'}
-				<div class="panel panel-p-24 success-panel">
+				<div class="panel panel-p-24 success-panel" style="background-color: var(--gray33); border-radius: 28px;">
 					<h3 class="success-title">Thanks — we'll be in touch</h3>
 					<p class="success-desc">
 						We aim to respond within two business days. If you'd rather start a conversation
@@ -112,7 +112,7 @@
 					</div>
 				</div>
 			{:else}
-				<form class="panel panel-p-24 contact-form" onsubmit={handleSubmit}>
+				<form class="panel panel-p-24 contact-form" style="background-color: var(--gray33); border-radius: 28px;" onsubmit={handleSubmit}>
 					<!-- Formspree honeypot: bots fill visible-looking inputs; real users never see this. -->
 					<div class="honeypot" aria-hidden="true">
 						<label for="business-gotcha">Leave this field blank</label>
@@ -226,19 +226,14 @@
 						</div>
 					</div>
 
-					<fieldset class="form-fieldset">
-						<legend class="form-label">Preferred contact channel</legend>
-						<div class="radio-group">
-							<label class="radio-option">
-								<input type="radio" name="channel" value="email" bind:group={channel} />
-								<span>Email</span>
-							</label>
-							<label class="radio-option">
-								<input type="radio" name="channel" value="signal" bind:group={channel} />
-								<span>Signal</span>
-							</label>
-						</div>
-					</fieldset>
+					<div class="form-field">
+						<span class="form-label">Preferred contact channel</span>
+						<Selector
+							options={['Email', 'Signal']}
+							selectedOption={channel === 'email' ? 'Email' : 'Signal'}
+							onSelect={(opt) => { channel = opt.toLowerCase(); }}
+						/>
+					</div>
 
 					{#if channel === 'signal'}
 						<div class="form-field">
@@ -260,20 +255,19 @@
 						<p class="form-error" role="alert">{errorMessage}</p>
 					{/if}
 
-					<div class="form-submit-row">
-						<button type="submit" class="btn-primary-large" disabled={status === 'submitting'}>
-							{#if status === 'submitting'}
-								Sending…
-							{:else}
-								<span class="submit-label">Send</span>
-								<Send variant="outline" color="var(--whiteEnforced)" size={16} />
-							{/if}
-						</button>
-					</div>
-
 					<p class="form-fineprint">
 						No drip emails, no follow-up sequences. We'll respond once with a real human.
 					</p>
+
+					<div class="form-submit-row">
+						<button type="submit" class="btn-primary-large form-submit-full" disabled={status === 'submitting'}>
+						{#if status === 'submitting'}
+							Sending…
+						{:else}
+							Send
+						{/if}
+						</button>
+					</div>
 				</form>
 			{/if}
 		</div>
@@ -333,8 +327,8 @@
 		height: 42px;
 		padding: 0 14px;
 		background-color: var(--black33);
-		border: 0.33px solid var(--white16);
-		border-radius: 14px;
+		border: 0.33px solid var(--white33);
+		border-radius: 16px;
 		color: var(--white);
 		font-family: 'Inter', sans-serif;
 		font-size: 1rem;
@@ -351,7 +345,7 @@
 	}
 
 	.form-input:focus {
-		border-color: var(--white33);
+		border-color: var(--white66);
 	}
 
 	.form-input::placeholder {
@@ -382,50 +376,6 @@
 		color: var(--white);
 	}
 
-	.form-fieldset {
-		border: none;
-		padding: 0;
-		margin: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.radio-group {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
-
-	.radio-option {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 8px 14px;
-		background-color: var(--gray66);
-		border-radius: 9999px;
-		cursor: pointer;
-		font-size: 0.9375rem;
-		color: var(--white66);
-		transition:
-			background-color 0.15s ease,
-			color 0.15s ease;
-	}
-
-	.radio-option:has(input:checked) {
-		background-image: var(--gradient-blurple66);
-		background-color: transparent;
-		color: var(--whiteEnforced);
-	}
-
-	.radio-option input {
-		appearance: none;
-		-webkit-appearance: none;
-		position: absolute;
-		opacity: 0;
-		pointer-events: none;
-	}
-
 	.form-error {
 		margin: 0;
 		padding: 10px 14px;
@@ -436,14 +386,14 @@
 	}
 
 	.form-submit-row {
-		display: flex;
-		justify-content: center;
 		margin-top: 0.25rem;
 	}
 
-	.submit-label {
-		margin-right: 8px;
+	.form-submit-full {
+		width: 100%;
+		justify-content: center;
 	}
+
 
 	.form-fineprint {
 		margin: 0;

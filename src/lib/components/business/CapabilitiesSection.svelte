@@ -47,11 +47,11 @@
 
 <section class="border-t border-border/50 py-12 sm:py-16 lg:py-20">
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8">
-		<div class="max-w-3xl mb-8 sm:mb-12">
+		<div class="mb-8 sm:mb-12 text-center">
 			<h2 class="display-section mb-4">
 				<span
 					style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
-					>What a partnership<br class="hidden sm:block" /> looks like</span
+					>What a partnership<br class="sm:hidden" /> looks like</span
 				>
 			</h2>
 			<p class="display-lead" style="color: var(--white66);">
@@ -75,6 +75,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+		background-color: var(--gray33) !important;
+		border-radius: 28px !important;
 	}
 
 	.capability-title {

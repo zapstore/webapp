@@ -1,17 +1,31 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
 	import '$lib/styles/landing-display.css';
+	import { ChevronRight } from '$lib/components/icons';
 
 	/**
 	 * Rotating phrases that complete "What if your app ___".
-	 * Mixed pain/aspirational across censorship, speed, money, autonomy.
+	 * Split into line1/line2 so the <br> between them can be hidden at xl
+	 * (1280px+) where the full phrase fits on one line.
+	 * Note: "30% to" stays on line1 so the break reads "didn't lose 30% to / a middleman?"
 	 */
 	const phrases = [
-		"couldn't be deleted by Google?",
-		'shipped the moment you signed it?',
-		"didn't lose 30% to a middleman?",
-		'answered only to you?'
+		{ line1: "couldn't be deleted", line2: 'by Google?' },
+		{ line1: 'shipped the moment', line2: 'you signed it?' },
+		{ line1: "didn't lose 30% to", line2: 'a middleman?' },
+		{ line1: 'answered only', line2: 'to you?' }
 	];
+
+	/** @type {HTMLAnchorElement | null} */
+	let publishBtn = null;
+
+	/** @param {MouseEvent} event */
+	function handlePublishMouseMove(event) {
+		if (!publishBtn) return;
+		const rect = publishBtn.getBoundingClientRect();
+		publishBtn.style.setProperty('--mouse-x', `${event.clientX - rect.left}px`);
+		publishBtn.style.setProperty('--mouse-y', `${event.clientY - rect.top}px`);
+	}
 
 	const ROTATE_MS = 3200;
 
@@ -71,27 +85,46 @@
 
 <section
 	bind:this={sectionEl}
-	class="what-if-hero relative overflow-hidden border-b border-border/50"
+	class="what-if-hero relative overflow-hidden"
 >
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
 		<h1 class="display-hero what-if-h1">
 			What if your app<br />
 			<span class="what-if-stage" aria-live="polite">
-				{#each phrases as phrase, i (phrase)}
-					<span class="what-if-phrase" class:active={i === activeIndex}>{phrase}</span>
+				{#each phrases as phrase, i (phrase.line1)}
+					<span class="what-if-phrase" class:active={i === activeIndex}
+						>{phrase.line1} <br class="what-if-br" />{phrase.line2}</span
+					>
 				{/each}
 			</span>
 		</h1>
 
-		<p class="display-lead what-if-tagline">
-			On Zapstore, that doesn't have to be a question.
+		<p class="what-if-tagline">
+			On Zapstore, that doesn't have<br class="sm:hidden" /> to be a question.
 		</p>
+
+		<div class="what-if-cta">
+			<a
+				href="/docs/publish"
+				bind:this={publishBtn}
+				onmousemove={handlePublishMouseMove}
+				class="btn-glass-large btn-glass-with-chevron group inline-flex items-center justify-center gap-3"
+			>
+				Start Publishing
+				<ChevronRight
+					variant="outline"
+					color="var(--white33)"
+					size={18}
+					className="transition-transform group-hover:translate-x-0.5"
+				/>
+			</a>
+		</div>
 	</div>
 </section>
 
 <style>
 	.what-if-hero {
-		padding: 3rem 0 3.5rem;
+		padding: 3.5rem 0 4rem;
 	}
 
 	@media (min-width: 768px) {
@@ -102,7 +135,14 @@
 
 	@media (min-width: 1024px) {
 		.what-if-hero {
-			padding: 5.5rem 0 6rem;
+			padding: 5.5rem 0 5.5rem;
+		}
+	}
+
+	/* At the widest content max-width (xl / 1280px+) the phrases fit on one line — hide the forced break */
+	@media (min-width: 1280px) {
+		.what-if-br {
+			display: none;
 		}
 	}
 
@@ -110,7 +150,7 @@
 		margin: 0 auto;
 		max-width: 24ch;
 		line-height: 1.2;
-		font-size: clamp(32px, 6vw, 52px);
+		font-size: clamp(36px, 6vw, 52px);
 	}
 
 	@media (min-width: 1280px) {
@@ -153,6 +193,9 @@
 		margin: 2rem auto 0;
 		max-width: 40ch;
 		color: var(--white66);
+		font-weight: 400;
+		font-size: 20px;
+		line-height: 2.25rem;
 		white-space: nowrap;
 	}
 
@@ -162,9 +205,21 @@
 		}
 	}
 
-	@media (min-width: 768px) {
+	@media (min-width: 640px) {
 		.what-if-tagline {
-			margin-top: 2.5rem;
+			font-size: 24px;
+			line-height: 2.5rem;
+			margin-top: 1.25rem; /* 16px + 4px = 20px */
+		}
+	}
+
+	.what-if-cta {
+		margin-top: 1.5rem; /* 8px less than before on mobile */
+	}
+
+	@media (min-width: 640px) {
+		.what-if-cta {
+			margin-top: 2.25rem; /* 40px - 4px = 36px */
 		}
 	}
 

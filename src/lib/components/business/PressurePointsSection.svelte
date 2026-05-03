@@ -13,7 +13,7 @@
 				"Your users may be on managed devices, in regions with no Play Store, on de-Googled hardware, or in environments where Apple and Google's policies don't fit your compliance posture."
 		},
 		{
-			title: "Generic MDM doesn't curate — it just blocks",
+			title: "Generic MDM doesn't curate, it just blocks",
 			description:
 				"You don't want a deny-list. You want a positive catalog: a hand-picked, signed, branded set of apps your users can trust by default."
 		}
@@ -22,11 +22,11 @@
 
 <section class="border-t border-border/50 py-12 sm:py-16 lg:py-20">
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8">
-		<div class="max-w-3xl mb-8 sm:mb-12">
+		<div class="mb-8 sm:mb-12 text-center">
 			<h2 class="display-section mb-4">
 				<span
 					style="background: var(--gradient-gray); -webkit-background-clip: text; background-clip: text; color: transparent;"
-					>The app store wasn't built<br class="hidden sm:block" /> for your situation</span
+					>The app store wasn't built<br class="sm:hidden" /> for your situation</span
 				>
 			</h2>
 		</div>
@@ -47,6 +47,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.625rem;
+		background-color: var(--gray33) !important;
+		border-radius: 28px !important;
 	}
 
 	.pressure-title {
