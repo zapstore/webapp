@@ -21,9 +21,10 @@
 		'npub1t5u3wp5kj78jwnuphpf5mhx00nwwtfwq56d6j8atnu89gd454wcs6aj4c2', // And Other Stuff
 		'npub1frdmtech5c3p6e8azwapy72tc289qeavr4mr9m55xl2nxae82r0sach4dd', // Freedom Tech Co.
 		'npub149p5act9a5qm9p47elp8w8h3wpwn2d7s2xecw2ygnrxqp4wgsklq9g722q', // Niel
-		'npub17xvf49kht23cddxgw92rvfktkd3vqvjgkgsdexh9847wl0927tqsrhc9as' // HRF
+		'npub17xvf49kht23cddxgw92rvfktkd3vqvjgkgsdexh9847wl0927tqsrhc9as', // HRF
+		'npub1kzkrmkvgq4ppwj0j5pdr0vj5mgpmtcapc6sjuw3wajvg40ryrwrsu2p65n' // Francis Mars
 	];
-	const ZAPPER_SLOT_COUNT = 17;
+	const ZAPPER_SLOT_COUNT = 16;
 	const THREE_MONTHS_SEC = 90 * 24 * 60 * 60;
 	const ZAP_RECEIPTS_LIMIT = 3000;
 	const ZAPSTORE_APP_NADDR = '/apps/dev.zapstore.app';
@@ -32,12 +33,13 @@
 	const MAX_ZAPPER_NAME_LEN = 16;
 	const DONATE_ICON_SIZE = 44;
 
-	// Center profiles (Pip, Fran, Elsat, Opensats) – excluded from top zappers, link to profile
+	// Center profiles (Pip, Fran, Elsat, Opensats, Francis Mars) – excluded from top zappers, link to profile
 	const CENTER_NPUBS = [
 		{ name: 'Pip', npub: 'npub176p7sup477k5738qhxx0hk2n0cty2k5je5uvalzvkvwmw4tltmeqw7vgup' },
 		{ name: 'Fran', npub: 'npub1wf4pufsucer5va8g9p0rj5dnhvfeh6d8w0g6eayaep5dhps6rsgs43dgh9' },
 		{ name: 'Elsat', npub: 'npub1zafcms4xya5ap9zr7xxr0jlrtrattwlesytn2s42030lzu0dwlzqpd26k5' },
-		{ name: 'Opensats', npub: 'npub10pensatlcfwktnvjjw2dtem38n6rvw8g6fv73h84cuacxn4c28eqyfn34f' }
+		{ name: 'Opensats', npub: 'npub10pensatlcfwktnvjjw2dtem38n6rvw8g6fv73h84cuacxn4c28eqyfn34f' },
+		{ name: 'Francis Mars', npub: 'npub1kzkrmkvgq4ppwj0j5pdr0vj5mgpmtcapc6sjuw3wajvg40ryrwrsu2p65n' }
 	];
 	const excludedPubkeys = new Set(
 		[...CENTER_NPUBS.map(({ npub }) => npub), ...FIXED_NPUBS].map((npub) => {
@@ -160,11 +162,24 @@
 			profileHref: '/profile/npub149p5act9a5qm9p47elp8w8h3wpwn2d7s2xecw2ygnrxqp4wgsklq9g722q'
 		},
 		{
+			name: 'Francis Mars',
+			role: 'Growth',
+			image: '/images/team-sprofiles/francismars.jpg',
+			size: 92,
+			x: -300,
+			y: -175,
+			blur: 0.3,
+			opacity: 0.92,
+			isZapperSlot: false,
+			nameLoading: false,
+			profileHref: '/profile/npub1kzkrmkvgq4ppwj0j5pdr0vj5mgpmtcapc6sjuw3wajvg40ryrwrsu2p65n'
+		},
+		{
 			name: 'Elsat',
 			role: 'Support',
 			image: '/images/team-sprofiles/elsat.png',
 			size: 92,
-			x: -300,
+			x: 300,
 			y: -175,
 			blur: 0.3,
 			opacity: 0.92,
@@ -204,7 +219,6 @@
 
 	// Top zapper slot positions (will be filled dynamically)
 	const zapperSlots = [
-		{ size: 92, x: 300, y: -175, blur: 0.3, opacity: 0.92 },
 		{ size: 92, x: -400, y: 0, blur: 0.3, opacity: 0.92 },
 		{ size: 92, x: 400, y: 0, blur: 0.3, opacity: 0.92 },
 		{ size: 80, x: -600, y: 0, blur: 0.7, opacity: 0.8 },
@@ -223,7 +237,7 @@
 		{ size: 66, x: 650, y: 175, blur: 1.3, opacity: 0.62 }
 	];
 
-	const ZAPPER_PLACEHOLDER_COUNT = 17;
+	const ZAPPER_PLACEHOLDER_COUNT = 16;
 	const teamMembers = $derived(
 		isLoading
 			? [
