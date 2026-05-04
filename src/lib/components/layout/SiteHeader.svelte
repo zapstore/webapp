@@ -9,7 +9,8 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { Search, Loader2 } from 'lucide-svelte';
-	import { Menu, Cross, Inbox, Alert, Profile, ChevronRight, ArrowDown, Studio } from '$lib/components/icons';
+	import { Menu, Cross, Inbox, Alert, Profile, ChevronRight, ArrowDown } from '$lib/components/icons';
+	import Nostr from '$lib/components/icons/Nostr.svelte';
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import { handleBack } from '$lib/utils/back.js';
 	import { cn } from '$lib/utils';
@@ -89,6 +90,7 @@
 	const isConnecting = $derived(getIsConnecting());
 	const isConnected = $derived(pubkey !== null);
 	const isDevelopersActive = $derived($page.url.pathname === '/developers');
+	const isStudioActive = $derived($page.url.pathname.startsWith('/studio'));
 	const isDiscoverActive = $derived(
 		$page.url.pathname === '/apps' ||
 			$page.url.pathname === '/stacks'
@@ -418,17 +420,21 @@
 											</svg>
 											<span class="menu-logo-text">Zapstore</span>
 										</a>
-										{#if isConnected}
-											<a href={profileHref} class="menu-user-pic-btn" onclick={closeMenu}>
-												<ProfilePic
-													{pubkey}
-													pictureUrl={currentUserProfile?.picture || undefined}
-													name={currentUserProfile?.name || undefined}
-													size="sm"
-												/>
-											</a>
-										{/if}
-									</div>
+									{#if isConnected}
+										<a href={profileHref} class="menu-user-pic-btn" onclick={closeMenu}>
+											<ProfilePic
+												{pubkey}
+												pictureUrl={currentUserProfile?.picture || undefined}
+												name={currentUserProfile?.name || undefined}
+												size="sm"
+											/>
+										</a>
+									{:else if !isConnecting}
+										<button type="button" onclick={() => { openSignInModal(); closeMenu(); }} class="btn-primary-small">
+											Sign In
+										</button>
+									{/if}
+								</div>
 
 									<button type="button" class="menu-search-btn" onclick={openMenuSearch}>
 										<Search class="h-5 w-5 flex-shrink-0" style="color: var(--white33);" />
@@ -452,65 +458,62 @@
 										<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 									</div>
 
+							{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
+								<div class="menu-section">
+									<a href="/studio/insights" class="menu-section-link" onclick={closeMenu}>Studio</a>
+									<nav class="menu-subnav">
+										<a href="/studio/insights" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Insights</a>
+										<a href="/studio/inbox" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Inbox</a>
+									</nav>
+								</div>
+							{:else}
 								<div class="menu-section">
 									<a href="/developers" class="menu-section-link" onclick={closeMenu}>Developers</a>
 									<nav class="menu-subnav">
-										<a
-											href="/docs/publish"
-											class="menu-sublink medium14 text-white/66"
-											onclick={closeMenu}>Docs</a
-										>
-										<a
-											href="/terms"
-											class="menu-sublink medium14 text-white/66"
-											onclick={closeMenu}>Terms</a
-										>
+										<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
+										<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
 									</nav>
 								</div>
+							{/if}
 
-								<div class="menu-section">
-									<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
-									<nav class="menu-subnav">
-										<a
-											href={communityFirstHref}
-											class="menu-sublink medium14 text-white/66"
-											onclick={closeMenu}>{communityFirstLabel}</a
-										>
-										<a
-											href="/blog"
-											class="menu-sublink medium14 text-white/66"
-											onclick={closeMenu}>Blog</a
-										>
-									</nav>
-								</div>
-
-								{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
-									<div class="menu-section">
-										<a href="/studio/insights" class="menu-section-link" onclick={closeMenu}>Studio</a>
-										<nav class="menu-subnav">
-											<a
-												href="/studio/insights"
-												class="menu-sublink medium14 text-white/66"
-												onclick={closeMenu}>Insights</a
-											>
-											<a
-												href="/studio/inbox"
-												class="menu-sublink medium14 text-white/66"
-												onclick={closeMenu}>Inbox</a
-											>
-											<a
-												href="/studio/apps"
-												class="menu-sublink medium14 text-white/66"
-												onclick={closeMenu}>Your apps</a
-											>
-										</nav>
-									</div>
-								{/if}
+							<div class="menu-section">
+								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
+								<nav class="menu-subnav">
+									<a href={communityFirstHref} class="menu-sublink medium14 text-white/66" onclick={closeMenu}>{communityFirstLabel}</a>
+									<a href="/community/activity" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Activity</a>
+								</nav>
 							</div>
-						{/if}
-					</div>
 
-						{#if pageTitle && pageTitle !== 'Profile'}
+							<div class="menu-section">
+								<span class="menu-section-label">Resources</span>
+								<nav class="menu-subnav">
+									<a href="/blog" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Blog</a>
+									<a href="/enterprise" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Enterprise</a>
+								</nav>
+							</div>
+
+						<div class="menu-section">
+							<span class="menu-section-label">Find Us</span>
+							<nav class="menu-subnav">
+								<a href="https://npub.world/npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8" class="menu-sublink menu-sublink-social medium14 text-white/66" target="_blank" rel="noopener noreferrer" onclick={closeMenu}>
+									<Nostr variant="fill" size={14} color="var(--white66)" class="flex-shrink-0" />
+									Nostr
+								</a>
+								<a href="https://github.com/zapstore/zapstore" class="menu-sublink menu-sublink-social medium14 text-white/66" target="_blank" rel="noopener noreferrer" onclick={closeMenu}>
+									<svg class="h-[14px] w-[14px] flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--white66);"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.63-1.41-3.63-1.41-.546-1.39-1.335-1.755-1.335-1.755-1.086-.745.085-.73.085-.73 1.2.085 1.83 1.235 1.83 1.235 1.07 1.83 2.805 1.305 3.495.99.105-.77.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+									GitHub
+								</a>
+								<a href="https://x.com/zapstore_" class="menu-sublink menu-sublink-social medium14 text-white/66" target="_blank" rel="noopener noreferrer" onclick={closeMenu}>
+									<svg class="h-[14px] w-[14px] flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--white66);"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+									Twitter
+								</a>
+							</nav>
+						</div>
+					</div>
+				{/if}
+			</div>
+
+				{#if pageTitle && pageTitle !== 'Profile'}
 							<button
 								type="button"
 								class="page-title-tap flex items-center gap-3 page-title-spacing"
@@ -638,6 +641,12 @@
 										style="color: var(--white);">Zapstore</span
 										>
 									</a>
+								<div style="display:flex;align-items:center;gap:16px;flex-shrink:0;">
+									{#if !isConnected && !isConnecting}
+										<button type="button" onclick={() => { openSignInModal(); closeMenu(); }} class="btn-primary-small">
+											Sign In
+										</button>
+									{/if}
 									<button
 										type="button"
 										class="menu-close-btn-mobile"
@@ -655,6 +664,7 @@
 										/>
 									</button>
 								</div>
+							</div>
 
 								<button
 									type="button"
@@ -682,72 +692,57 @@
 									<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 								</div>
 
+							{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
+								<div class="menu-section">
+									<a href="/studio/insights" class="menu-section-link" onclick={closeMenu}>Studio</a>
+									<nav class="menu-subnav">
+										<a href="/studio/insights" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Insights</a>
+										<a href="/studio/inbox" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Inbox</a>
+									</nav>
+								</div>
+							{:else}
 								<div class="menu-section">
 									<a href="/developers" class="menu-section-link" onclick={closeMenu}>Developers</a>
 									<nav class="menu-subnav">
-										<a
-											href="/docs/publish"
-											class="menu-sublink medium14 text-white/66"
-											onclick={closeMenu}>Docs</a
-										>
-										<a
-											href="/terms"
-											class="menu-sublink medium14 text-white/66"
-											onclick={closeMenu}>Terms</a
-										>
+										<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
+										<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
 									</nav>
 								</div>
+							{/if}
 
-								<div class="menu-section">
-									<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
-									<nav class="menu-subnav">
-										<a
-											href={communityFirstHref}
-											class="menu-sublink medium14 text-white/66"
-											onclick={closeMenu}>{communityFirstLabel}</a
-										>
-										<a
-											href="/blog"
-											class="menu-sublink medium14 text-white/66"
-											onclick={closeMenu}>Blog</a
-										>
-									</nav>
-								</div>
+							<div class="menu-section">
+								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
+								<nav class="menu-subnav">
+									<a href={communityFirstHref} class="menu-sublink medium14 text-white/66" onclick={closeMenu}>{communityFirstLabel}</a>
+									<a href="/community/activity" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Activity</a>
+								</nav>
+							</div>
 
-								{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
-									<div class="menu-section">
-										<a href="/studio/insights" class="menu-section-link" onclick={closeMenu}>Studio</a>
-										<nav class="menu-subnav">
-											<a
-												href="/studio/insights"
-												class="menu-sublink medium14 text-white/66"
-												onclick={closeMenu}>Insights</a
-											>
-											<a
-												href="/studio/inbox"
-												class="menu-sublink medium14 text-white/66"
-												onclick={closeMenu}>Inbox</a
-											>
-											<a
-												href="/studio/apps"
-												class="menu-sublink medium14 text-white/66"
-												onclick={closeMenu}>Your apps</a
-											>
-										</nav>
-									</div>
-								{/if}
+							<div class="menu-section">
+								<span class="menu-section-label">Resources</span>
+								<nav class="menu-subnav">
+									<a href="/blog" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Blog</a>
+									<a href="/enterprise" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Enterprise</a>
+								</nav>
+							</div>
 
-								{#if !isConnected && !isConnecting}
-									<div class="menu-cta-wrapper">
-										<button
-											type="button"
-											onclick={openSignInModal}
-											class="btn-primary-large w-full justify-center"
-										>
-											Sign In
-										</button>
-									</div>
-								{/if}
+						<div class="menu-section">
+							<span class="menu-section-label">Find Us</span>
+							<nav class="menu-subnav">
+								<a href="https://npub.world/npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8" class="menu-sublink menu-sublink-social medium14 text-white/66" target="_blank" rel="noopener noreferrer" onclick={closeMenu}>
+									<Nostr variant="fill" size={14} color="var(--white66)" class="flex-shrink-0" />
+									Nostr
+								</a>
+								<a href="https://github.com/zapstore/zapstore" class="menu-sublink menu-sublink-social medium14 text-white/66" target="_blank" rel="noopener noreferrer" onclick={closeMenu}>
+									<svg class="h-[14px] w-[14px] flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--white66);"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.63-1.41-3.63-1.41-.546-1.39-1.335-1.755-1.335-1.755-1.086-.745.085-.73.085-.73 1.2.085 1.83 1.235 1.83 1.235 1.07 1.83 2.805 1.305 3.495.99.105-.77.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+									GitHub
+								</a>
+								<a href="https://x.com/zapstore_" class="menu-sublink menu-sublink-social medium14 text-white/66" target="_blank" rel="noopener noreferrer" onclick={closeMenu}>
+									<svg class="h-[14px] w-[14px] flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--white66);"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+									Twitter
+								</a>
+							</nav>
+						</div>
 							</div>
 						{/if}
 					</div>
@@ -806,6 +801,16 @@
 							>
 								Apps
 							</a>
+						{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
+							<a
+								href="/studio/insights"
+								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+								class:landing-nav-studio-selected={isStudioActive}
+								style="color: var(--white66);"
+							>
+								Studio
+							</a>
+						{:else}
 							<a
 								href="/developers"
 								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
@@ -814,6 +819,7 @@
 							>
 								Developers
 							</a>
+						{/if}
 							<a
 								href="/community"
 								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
@@ -898,60 +904,49 @@
 											/>
 										{/if}
 									</button>
-									{#if dropdownOpen}
-										<DropdownMenu class="profile-popup" itemChevron={true}>
-											{#if SHOW_STUDIO_SIGNED_IN_DASHBOARD}
-												<a
-													href="/studio/insights"
-													class="dropdown-item"
-													onclick={() => (dropdownOpen = false)}
-												>
-													<span class="dropdown-icon-wrap"><Studio variant="fill" size={16} color="var(--white)" /></span>
-													Studio
-													<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-												</a>
-											{/if}
-											<a
-												href={profileHref}
-												class="dropdown-item"
-												onclick={() => (dropdownOpen = false)}
-											>
-												<ProfilePic
-													{pubkey}
-													pictureUrl={currentUserProfile?.picture || undefined}
-													name={currentUserProfile?.name || undefined}
-													size="sm"
-												/>
-												View my profile
-												<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-											</a>
-											<button
-												type="button"
-												class="dropdown-item dropdown-item--danger profile-popup-disconnect"
-												onclick={handleSignOut}
-											>
-												<div class="dropdown-rouge-circle">
-													<span style="display:flex;transform:rotate(-90deg)"><ArrowDown variant="outline" size={11} strokeWidth={1.6} color="var(--rougeColor)" /></span>
-												</div>
-												Disconnect
-												<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-											</button>
-										</DropdownMenu>
-									{/if}
-								</div>
-									{#if offline}
-										<div
-											class="header-offline-pill header-offline-pill--mobile shrink-0"
-											role="status"
-											aria-live="polite"
+								{#if dropdownOpen}
+									<DropdownMenu class="profile-popup" itemChevron={true}>
+										<a
+											href={profileHref}
+											class="dropdown-item"
+											onclick={() => (dropdownOpen = false)}
 										>
-											<Alert variant="outline" strokeWidth={1.4} color="var(--rougeColor)" size={16} />
-											<span class="medium14 header-offline-pill-label">Offline</span>
-										</div>
-									{/if}
-									<button
-										type="button"
-										class="landing-menu-btn flex md:hidden items-center justify-center w-7 h-7 rounded-lg border-none bg-transparent cursor-pointer hover:opacity-80 transition-opacity"
+											<ProfilePic
+												{pubkey}
+												pictureUrl={currentUserProfile?.picture || undefined}
+												name={currentUserProfile?.name || undefined}
+												size="sm"
+											/>
+											View my profile
+											<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+										</a>
+										<button
+											type="button"
+											class="dropdown-item dropdown-item--danger profile-popup-disconnect"
+											onclick={handleSignOut}
+										>
+											<div class="dropdown-rouge-circle">
+												<span style="display:flex;transform:rotate(-90deg)"><ArrowDown variant="outline" size={11} strokeWidth={1.6} color="var(--rougeColor)" /></span>
+											</div>
+											Disconnect
+											<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+										</button>
+									</DropdownMenu>
+								{/if}
+							</div>
+								{#if offline}
+									<div
+										class="header-offline-pill header-offline-pill--mobile shrink-0"
+										role="status"
+										aria-live="polite"
+									>
+										<Alert variant="outline" strokeWidth={1.4} color="var(--rougeColor)" size={16} />
+										<span class="medium14 header-offline-pill-label">Offline</span>
+									</div>
+								{/if}
+								<button
+									type="button"
+									class="landing-menu-btn flex md:hidden items-center justify-center w-7 h-7 rounded-lg border-none bg-transparent cursor-pointer hover:opacity-80 transition-opacity"
 										onclick={(e) => {
 											e.stopPropagation();
 											toggleMenu();
@@ -1072,47 +1067,36 @@
 									{/if}
 								</button>
 
-							{#if dropdownOpen}
-								<DropdownMenu class="profile-popup" itemChevron={true}>
-									{#if SHOW_STUDIO_SIGNED_IN_DASHBOARD}
-										<a
-											href="/studio/insights"
-											class="dropdown-item"
-											onclick={() => (dropdownOpen = false)}
-										>
-											<span class="dropdown-icon-wrap"><Studio variant="fill" size={16} color="var(--white)" /></span>
-											Studio
-											<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-										</a>
-									{/if}
-									<a
-										href={profileHref}
-										class="dropdown-item"
-										onclick={() => (dropdownOpen = false)}
-									>
-										<ProfilePic
-											{pubkey}
-											pictureUrl={currentUserProfile?.picture || undefined}
-											name={currentUserProfile?.name || undefined}
-											size="sm"
-										/>
-										View my profile
-										<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-									</a>
-									<button
-										type="button"
-										class="dropdown-item dropdown-item--danger profile-popup-disconnect"
-										onclick={handleSignOut}
-									>
-										<div class="dropdown-rouge-circle">
-											<span style="display:flex;transform:rotate(-90deg)"><ArrowDown variant="outline" size={11} strokeWidth={1.6} color="var(--rougeColor)" /></span>
-										</div>
-										Disconnect
-										<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-									</button>
-								</DropdownMenu>
-							{/if}
-							</div>
+						{#if dropdownOpen}
+							<DropdownMenu class="profile-popup" itemChevron={true}>
+								<a
+									href={profileHref}
+									class="dropdown-item"
+									onclick={() => (dropdownOpen = false)}
+								>
+									<ProfilePic
+										{pubkey}
+										pictureUrl={currentUserProfile?.picture || undefined}
+										name={currentUserProfile?.name || undefined}
+										size="sm"
+									/>
+									View my profile
+									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+								</a>
+								<button
+									type="button"
+									class="dropdown-item dropdown-item--danger profile-popup-disconnect"
+									onclick={handleSignOut}
+								>
+									<div class="dropdown-rouge-circle">
+										<span style="display:flex;transform:rotate(-90deg)"><ArrowDown variant="outline" size={11} strokeWidth={1.6} color="var(--rougeColor)" /></span>
+									</div>
+									Disconnect
+									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+								</button>
+							</DropdownMenu>
+						{/if}
+						</div>
 								{#if offline}
 									<div
 										class="header-offline-pill header-offline-pill--mobile shrink-0"
@@ -1466,11 +1450,6 @@
 		flex: 1;
 		text-decoration: none;
 		border-radius: 16px;
-		transition: background-color 0.15s ease;
-	}
-
-	.menu-logo:hover {
-		background-color: var(--white8);
 	}
 
 	.menu-logo-icon {
@@ -1511,11 +1490,6 @@
 		border: 0.33px solid var(--white16);
 		border-radius: 12px;
 		cursor: pointer;
-		transition: background-color 0.15s ease;
-	}
-
-	.menu-search-btn:hover {
-		background-color: var(--white16);
 	}
 
 	.menu-search-text {
@@ -1549,12 +1523,7 @@
 		height: 38px;
 		border-radius: 16px;
 		flex-shrink: 0;
-		transition: background-color 0.15s ease;
 		text-decoration: none;
-	}
-
-	.menu-user-pic-btn:hover {
-		background-color: var(--white8);
 	}
 
 	.menu-section {
@@ -1569,11 +1538,6 @@
 		color: var(--white);
 		text-decoration: none;
 		border-radius: 10px;
-		transition: background-color 0.15s ease;
-	}
-
-	.menu-section-link:hover {
-		background-color: var(--white8);
 	}
 
 	button.menu-section-link {
@@ -1609,11 +1573,6 @@
 		padding: 6px 12px;
 		text-decoration: none;
 		border-radius: 12px;
-		transition: background-color 0.15s ease;
-	}
-
-	.menu-sublink:hover {
-		background-color: var(--white8);
 	}
 
 	.menu-divider {
@@ -1622,16 +1581,10 @@
 		margin: 6px 0;
 	}
 
-	.menu-cta-wrapper {
-		margin-top: auto;
-		padding: 8px 4px calc(env(safe-area-inset-bottom, 0px) + 20px);
-	}
-
-	@media (min-width: 768px) {
-		.menu-cta-wrapper {
-			margin-top: 0;
-			padding: 0 4px 4px;
-		}
+	.menu-sublink-social {
+		display: flex;
+		align-items: center;
+		gap: 8px;
 	}
 
 	.profile-btn {
