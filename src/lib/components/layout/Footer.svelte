@@ -24,174 +24,58 @@
 
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
 		<div class="footer-inner">
-			<!-- Column 1: Brand (mobile: includes social/copyright/clear; desktop: logo + tagline only) -->
-			<div class="footer-brand">
-				<a href="/" class="footer-brand-link no-underline text-inherit">
-					<img src={`${assets}/images/logo-dark.svg`} alt="Zapstore" class="footer-logo w-auto" />
-					<span class="footer-brand-name semibold16 tracking-tight">Zapstore</span>
-				</a>
-				<p class="regular14 text-muted-foreground leading-relaxed footer-brand-desc">
-					The open app store powered by your social network.
-				</p>
-				<!-- Desktop only: copyright in first column -->
-				<div class="footer-desktop-copyright">
-					<p class="regular14 text-muted-foreground pt-4">
-						© {new Date().getFullYear()} Zapstore
-					</p>
-				</div>
-				<!-- Mobile only: social + copyright + clear (hidden on desktop, shown in column 4 there) -->
-				<div class="footer-mobile-extras">
-					<div
-						class="flex items-center justify-center md:justify-start gap-4 mt-4"
-						aria-label="Contact links"
-					>
-						<a
-							href="https://npub.world/npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8"
-							class="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center justify-center h-5 w-5"
-							target="_blank"
-							rel="noopener noreferrer"
-							aria-label="Nostr"
-						>
-							<Nostr variant="fill" size={18} color="var(--white66)" class="block" />
-						</a>
-						<a
-							href="https://github.com/zapstore/zapstore"
-							class="text-muted-foreground hover:text-foreground transition-colors"
-							target="_blank"
-							rel="noopener noreferrer"
-							aria-label="GitHub"
-						>
-							<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-								<path
-									d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.63-1.41-3.63-1.41-.546-1.39-1.335-1.755-1.335-1.755-1.086-.745.085-.73.085-.73 1.2.085 1.83 1.235 1.83 1.235 1.07 1.83 2.805 1.305 3.495.99.105-.77.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
-								/>
-							</svg>
-						</a>
-						<a
-							href="https://x.com/zapstore_"
-							class="text-muted-foreground hover:text-foreground transition-colors"
-							target="_blank"
-							rel="noopener noreferrer"
-							aria-label="Twitter"
-						>
-							<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-								<path
-									d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
-								/>
-							</svg>
-						</a>
-					</div>
-					<p class="regular14 text-muted-foreground pt-4 text-center md:text-left">
-						© {new Date().getFullYear()} Zapstore
-					</p>
-					<button
-						onclick={handleClearLocalData}
-						class="mt-3 regular12 cursor-pointer transition-colors hover:text-destructive"
-						style="color: var(--white33);"
-					>
-						Clear local data
-					</button>
-				</div>
-			</div>
-
-			<!-- Full-width horizontal divider: mobile only -->
-			<div class="footer-divider-h"></div>
-
-			<!-- Columns 2–3: Developers + Community -->
-			<div class="footer-links-row">
-				<!-- Developers -->
-				<div class="footer-link-col footer-link-col-mid">
-					<h3 class="semibold16 text-foreground mb-4">Developers</h3>
-					<ul class="space-y-3">
-						<li>
-							<a
-								href="/docs/publish"
-								class="regular14 text-muted-foreground hover:text-foreground transition-colors"
-								>Docs</a
-							>
-						</li>
-						<li>
-							<a
-								href="/terms"
-								class="regular14 text-muted-foreground hover:text-foreground transition-colors"
-								><span class="md:hidden">Terms</span><span class="hidden md:inline">Terms of Service</span></a
-							>
-						</li>
-					</ul>
-				</div>
-
-				<!-- Community -->
-				<div class="footer-link-col">
-					<h3 class="semibold16 text-foreground mb-4">Community</h3>
-					<ul class="space-y-3">
-						<li>
-							<a
-								href={communityFirstHref}
-								class="regular14 text-muted-foreground hover:text-foreground transition-colors"
-								>{communityFirstLabel}</a
-							>
-						</li>
-						<li>
-							<a
-								href="/blog"
-								class="regular14 text-muted-foreground hover:text-foreground transition-colors"
-								>Blog</a
-							>
-						</li>
-						<li>
-							<a
-								href="/enterprise"
-								class="regular14 text-muted-foreground hover:text-foreground transition-colors"
-								>For Business</a
-							>
-						</li>
-					</ul>
-				</div>
-			</div>
-
-			<!-- Column 4 (desktop only): Find Us + social icons + copyright + clear local data -->
-			<div class="footer-fourth">
-				<h3 class="footer-fourth-title semibold16 text-foreground">Find Us</h3>
-				<div
-					class="flex items-center gap-4"
-					aria-label="Contact links"
+		<!-- Column 1: Brand -->
+		<div class="footer-brand">
+			<a href="/" class="footer-brand-link no-underline text-inherit">
+				<img src={`${assets}/images/logo-dark.svg`} alt="Zapstore" class="footer-logo w-auto" />
+				<span class="footer-brand-name semibold16 tracking-tight">Zapstore</span>
+			</a>
+			<!-- Social icons: always visible in brand column -->
+		<div
+			class="flex items-center justify-center md:justify-start gap-4 mt-4 md:mt-5 md:pb-0.5"
+			aria-label="Contact links"
+		>
+				<a
+					href="https://npub.world/npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8"
+					class="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center justify-center h-5 w-5"
+					target="_blank"
+					rel="noopener noreferrer"
+					aria-label="Nostr"
 				>
-					<a
-						href="https://npub.world/npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8"
-						class="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center justify-center h-5 w-5"
-						target="_blank"
-						rel="noopener noreferrer"
-						aria-label="Nostr"
-					>
-						<Nostr variant="fill" size={18} color="var(--white66)" class="block" />
-					</a>
-					<a
-						href="https://github.com/zapstore/zapstore"
-						class="text-muted-foreground hover:text-foreground transition-colors"
-						target="_blank"
-						rel="noopener noreferrer"
-						aria-label="GitHub"
-					>
-						<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-							<path
-								d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.63-1.41-3.63-1.41-.546-1.39-1.335-1.755-1.335-1.755-1.086-.745.085-.73.085-.73 1.2.085 1.83 1.235 1.83 1.235 1.07 1.83 2.805 1.305 3.495.99.105-.77.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
-							/>
-						</svg>
-					</a>
-					<a
-						href="https://x.com/zapstore_"
-						class="text-muted-foreground hover:text-foreground transition-colors"
-						target="_blank"
-						rel="noopener noreferrer"
-						aria-label="Twitter"
-					>
-						<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-							<path
-								d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
-							/>
-						</svg>
-					</a>
-				</div>
+					<Nostr variant="fill" size={18} color="var(--white66)" class="block" />
+				</a>
+				<a
+					href="https://github.com/zapstore/zapstore"
+					class="text-muted-foreground hover:text-foreground transition-colors"
+					target="_blank"
+					rel="noopener noreferrer"
+					aria-label="GitHub"
+				>
+					<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+						<path
+							d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.63-1.41-3.63-1.41-.546-1.39-1.335-1.755-1.335-1.755-1.086-.745.085-.73.085-.73 1.2.085 1.83 1.235 1.83 1.235 1.07 1.83 2.805 1.305 3.495.99.105-.77.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+						/>
+					</svg>
+				</a>
+				<a
+					href="https://x.com/zapstore_"
+					class="text-muted-foreground hover:text-foreground transition-colors"
+					target="_blank"
+					rel="noopener noreferrer"
+					aria-label="Twitter"
+				>
+					<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+						<path
+							d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+						/>
+					</svg>
+				</a>
+			</div>
+			<!-- Copyright + clear local data (desktop: in brand col; mobile: in mobile-extras) -->
+			<div class="footer-desktop-copyright">
+				<p class="regular14 text-muted-foreground pt-4">
+					© {new Date().getFullYear()} Zapstore
+				</p>
 				<button
 					onclick={handleClearLocalData}
 					class="mt-3 regular12 cursor-pointer transition-colors hover:text-destructive"
@@ -200,6 +84,88 @@
 					Clear local data
 				</button>
 			</div>
+			<!-- Mobile only: copyright + clear -->
+			<div class="footer-mobile-extras">
+				<p class="regular14 text-muted-foreground pt-4 text-center md:text-left">
+					© {new Date().getFullYear()} Zapstore
+				</p>
+				<button
+					onclick={handleClearLocalData}
+					class="mt-3 regular12 cursor-pointer transition-colors hover:text-destructive"
+					style="color: var(--white33);"
+				>
+					Clear local data
+				</button>
+			</div>
+		</div>
+
+			<!-- Full-width horizontal divider: mobile only -->
+			<div class="footer-divider-h"></div>
+
+		<!-- Columns 2–4: Developers + Community + Resources -->
+		<div class="footer-links-row">
+			<!-- Developers -->
+			<div class="footer-link-col footer-link-col-mid">
+				<h3 class="semibold16 text-foreground mb-4">Developers</h3>
+				<ul class="space-y-3">
+					<li>
+						<a
+							href="/docs/publish"
+							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
+							>Docs</a
+						>
+					</li>
+					<li>
+						<a
+							href="/terms"
+							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
+							><span class="md:hidden">Terms</span><span class="hidden md:inline">Terms of Service</span></a
+						>
+					</li>
+				</ul>
+			</div>
+
+			<!-- Community -->
+			<div class="footer-link-col footer-link-col-mid">
+				<h3 class="semibold16 text-foreground mb-4">Community</h3>
+				<ul class="space-y-3">
+					<li>
+						<a
+							href={communityFirstHref}
+							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
+							>{communityFirstLabel}</a
+						>
+					</li>
+					<li>
+						<a
+							href="/community/activity"
+							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
+							>Activity</a
+						>
+					</li>
+				</ul>
+			</div>
+
+			<!-- Resources -->
+			<div class="footer-link-col">
+				<h3 class="semibold16 text-foreground mb-4">Resources</h3>
+				<ul class="space-y-3">
+					<li>
+						<a
+							href="/blog"
+							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
+							>Blog</a
+						>
+					</li>
+					<li>
+						<a
+					href="/enterprise"
+						class="regular14 text-muted-foreground hover:text-foreground transition-colors"
+						>Enterprise</a>
+					</li>
+				</ul>
+			</div>
+		</div>
 		</div>
 	</div>
 </footer>
@@ -218,15 +184,11 @@
 			align-items: start;
 		}
 		.footer-brand,
-		.footer-link-col,
-		.footer-fourth {
+		.footer-link-col {
 			text-align: left;
 		}
 		.footer-mobile-extras {
 			display: none;
-		}
-		.footer-fourth {
-			display: block;
 		}
 	}
 	@media (min-width: 1024px) {
@@ -235,26 +197,7 @@
 		}
 	}
 
-	/* Mobile: fourth column hidden (social/copyright/clear live in brand via .footer-mobile-extras) */
-	@media (max-width: 767px) {
-		.footer-fourth {
-			display: none;
-		}
-	}
-
-	/* Desktop only: "Find Us" title + extra padding under it; hidden on mobile */
-	.footer-fourth-title {
-		display: none;
-		margin: 0 0 1rem;
-	}
-	@media (min-width: 768px) {
-		.footer-fourth-title {
-			display: block;
-			margin-bottom: 1.5rem;
-		}
-	}
-
-	/* Desktop only: copyright in first column */
+	/* Desktop only: copyright + clear local data in first column */
 	.footer-desktop-copyright {
 		display: none;
 	}
@@ -330,13 +273,13 @@
 			text-align: left;
 		}
 	}
-	/* Vertical dividers on the middle column */
+	/* Vertical dividers between columns on mobile */
 	.footer-link-col-mid {
 		border-right: 1px solid color-mix(in srgb, var(--white16) 50%, transparent);
 		padding: 0 0.75rem 0 0;
 	}
 	@media (max-width: 767px) {
-		.footer-link-col:not(.footer-link-col-mid) {
+		.footer-link-col:not(:first-child) {
 			padding-left: 0.75rem;
 		}
 	}
