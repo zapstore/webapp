@@ -135,7 +135,7 @@
 
 	@media (min-width: 1024px) {
 		.what-if-hero {
-			padding: 5.5rem 0 5.5rem;
+			padding: 4.5rem 0 4.5rem;
 		}
 	}
 

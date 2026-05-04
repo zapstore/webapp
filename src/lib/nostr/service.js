@@ -1887,12 +1887,16 @@ export async function updateAppMetadata(appEvent, updates, signEvent) {
 	const icon = updates.icon?.trim() ?? appEvent.tags.find((t) => t[0] === 'icon')?.[1] ?? '';
 	const url = updates.url?.trim() ?? appEvent.tags.find((t) => t[0] === 'url')?.[1] ?? '';
 	const images = updates.images ?? appEvent.tags.filter((t) => t[0] === 'image').map((t) => t[1]);
+	const labels = updates.labels ?? appEvent.tags.filter((t) => t[0] === 't' && t[1]).map((t) => t[1]);
 
 	if (name) tags.push(['name', name]);
 	if (icon) tags.push(['icon', icon]);
 	if (url) tags.push(['url', url]);
 	for (const img of images) {
 		if (img?.trim()) tags.push(['image', img.trim()]);
+	}
+	for (const label of labels) {
+		if (label?.trim()) tags.push(['t', label.trim()]);
 	}
 
 	// Long-form text: plain `content` (or legacy JSON { description }). Do not re-emit enriched JSON blobs — tags hold the rest.

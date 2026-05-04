@@ -19,7 +19,8 @@
 		onAdd = () => {},
 		onOptions = () => {},
 		focusOnMount = false,
-		addDisabled = false
+		addDisabled = false,
+		bgColor = 'var(--black33)'
 	} = $props();
 
 	let inputEl = $state(null);
@@ -89,7 +90,7 @@
 			   L0.5 16
 			   A15.5 15.5 0 0 1 16 0.5
 			   Z"
-				fill="var(--black33)"
+				fill={bgColor}
 				stroke="var(--white33)"
 				stroke-width="0.5"
 				vector-effect="non-scaling-stroke"
