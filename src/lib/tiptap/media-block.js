@@ -1,7 +1,7 @@
 /**
  * TipTap block-level media node (image/video).
  * Renders on its own line; pending = spinner + 33% opacity.
- * In editor: round gray33 cross button to remove; cursor moves to next line after insert.
+ * In editor: round gray66 cross button to remove; cursor moves to next line after insert.
  */
 import { Node, mergeAttributes } from '@tiptap/core';
 
@@ -54,7 +54,7 @@ function renderMediaBlock(dom, node, editor, getPos) {
         btn.type = 'button';
         btn.className = 'media-block-editor-remove';
         btn.setAttribute('aria-label', 'Remove media');
-        btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+        btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;stroke:currentColor;stroke-width:2px;stroke-linecap:round;stroke-linejoin:round"><path d="M12.7001 0.699299L6.70025 6.69916M6.70025 6.69916L0.700195 12.6992M6.70025 6.69916L12.7002 12.6991M6.70025 6.69916L0.700308 0.699219" stroke-miterlimit="10"/></svg>';
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();

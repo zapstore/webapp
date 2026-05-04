@@ -103,29 +103,23 @@
 </Modal>
 
 <style>
-	/* ── Scroll wrapper ────────────────────────────────────────────────────── */
+	/* ── Outer wrapper (no scroll — only body scrolls) ─────────────────────── */
 	.assets-scroll {
 		flex: 1;
 		min-height: 0;
-		overflow-y: auto;
+		overflow: hidden;
 		display: flex;
 		flex-direction: column;
 	}
 
-	/* ── Top bar ───────────────────────────────────────────────────────────── */
+	/* ── Top bar (non-scrolling, no bg needed — nothing scrolls behind it) ── */
 	.assets-topbar {
-		position: sticky;
-		top: 0;
-		z-index: 20;
+		flex-shrink: 0;
 		display: flex;
 		align-items: center;
 		gap: 10px;
 		padding: 10px 12px;
-		background: color-mix(in srgb, var(--black) 70%, transparent);
-		backdrop-filter: blur(12px);
-		-webkit-backdrop-filter: blur(12px);
 		border-bottom: 1px solid var(--white16);
-		flex-shrink: 0;
 	}
 
 	@media (min-width: 768px) {
@@ -142,13 +136,15 @@
 		text-overflow: ellipsis;
 	}
 
-	/* ── Body ─────────────────────────────────────────────────────────────── */
+	/* ── Body (independent scroll container) ──────────────────────────────── */
 	.assets-body {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
 		padding: 20px 20px 48px;
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		flex: 1;
 	}
 
 	@media (min-width: 768px) {

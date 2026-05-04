@@ -13,6 +13,8 @@ import { SvelteSet } from 'svelte/reactivity';
 import BackButton from '$lib/components/common/BackButton.svelte';
 import AppPic from '$lib/components/common/AppPic.svelte';
 import Modal from '$lib/components/common/Modal.svelte';
+import InputLabel from '$lib/components/common/InputLabel.svelte';
+import Label from '$lib/components/common/Label.svelte';
 import { Camera, Cross, ChevronLeft, ChevronRight, Link } from '$lib/components/icons';
 import { updateAppMetadata, parseApp, publishDeletionRequest } from '$lib/nostr';
 import { signEvent } from '$lib/stores/auth.svelte.js';
@@ -54,6 +56,44 @@ let confirmingDelete = $state(false);
 let deleting = $state(false);
 let deleteError = $state('');
 
+// ── Label state (t tags from the app event — saved with the main Save button) ──
+const DEFAULT_LABEL_CHIPS = ['Security', 'Privacy', 'Open Source', 'Productivity', 'Social', 'Developer'];
+let editLabels = $state(/** @type {string[]} */ ([]));
+let labelValue = $state('');
+/** @type {'alternative' | 'reads' | 'writes' | null} */
+let labelStructuredKind = $state(null);
+
+const labelChipsRow = $derived.by(() => {
+	const appliedSet = new Set(editLabels);
+	const unapplied = DEFAULT_LABEL_CHIPS.filter((k) => !appliedSet.has(k));
+	return [...editLabels, ...unapplied];
+});
+
+/** @param {string} label */
+function chipLabelIsSelected(label) {
+	return editLabels.includes(label);
+}
+
+function toggleChipLabel(/** @type {string} */ label) {
+	if (editLabels.includes(label)) {
+		editLabels = editLabels.filter((l) => l !== label);
+	} else {
+		editLabels = [...editLabels, label];
+	}
+}
+
+function handleAddLabel() {
+	const body = labelValue.trim();
+	if (!body) return;
+	const payload = labelStructuredKind ? `${labelStructuredKind}:${body}` : body;
+	if (!editLabels.includes(payload)) {
+		editLabels = [...editLabels, payload];
+	}
+	labelValue = '';
+	labelStructuredKind = null;
+}
+
+
 // ── Screenshots scroll ─────────────────────────────────────────────────────
 let screenshotsEl = $state(null);
 let scrolledRight = $state(false);
@@ -76,6 +116,7 @@ $effect(() => {
 	editIconUrl = app.icon ?? '';
 	editWebsiteUrl = app.url ?? '';
 	editImages = (app.images ?? []).map((url) => ({ id: _nextId++, url, pending: false }));
+	editLabels = (app.event?.tags ?? []).filter((t) => t[0] === 't' && t[1]).map((t) => t[1]);
 	landscapeIds.clear();
 	saveError = '';
 	iconPreviewError = false;
@@ -163,7 +204,8 @@ async function handleSave() {
 				description: editDescription,
 				icon: editIconUrl,
 				url: editWebsiteUrl,
-				images: editImages.filter((img) => !img.pending).map((img) => img.url)
+				images: editImages.filter((img) => !img.pending).map((img) => img.url),
+				labels: editLabels
 			},
 			signEvent
 		);
@@ -395,6 +437,36 @@ async function handleConfirmDelete() {
 		<!-- ── Divider under IMAGES ──────────────────────────────────────── -->
 		<div class="full-divider" aria-hidden="true"></div>
 
+		<!-- ── LABELS ──────────────────────────────────────────────────── -->
+		<section class="edit-section">
+			<span class="eyebrow-label section-eyebrow">Labels</span>
+			<div class="labels-input-wrap">
+				<InputLabel
+					bind:value={labelValue}
+					bind:structuredKind={labelStructuredKind}
+					enableStructuredModes={true}
+					placeholder="Your label"
+					onAdd={handleAddLabel}
+					bgColor="var(--gray33)"
+				/>
+			</div>
+			<div class="labels-wrap-row">
+				{#each labelChipsRow as label (label)}
+					<button
+						type="button"
+						class="label-tap"
+						onclick={() => toggleChipLabel(label)}
+						aria-label={chipLabelIsSelected(label) ? `Remove label ${label}` : `Add label ${label}`}
+					>
+						<Label text={label} isSelected={chipLabelIsSelected(label)} isEmphasized={false} />
+					</button>
+				{/each}
+			</div>
+		</section>
+
+		<!-- ── Divider under LABELS ──────────────────────────────────────── -->
+		<div class="full-divider" aria-hidden="true"></div>
+
 		<!-- ── DANGER ZONE ─────────────────────────────────────────────── -->
 		<section class="edit-section danger-section">
 			<span class="eyebrow-label section-eyebrow">Danger zone</span>
@@ -405,7 +477,7 @@ async function handleConfirmDelete() {
 				onclick={openDeleteConfirm}
 				disabled={deleting || saving}
 			>
-				{deleting ? 'Deleting…' : 'Delete this app'}
+				{deleting ? 'Deleting…' : `Delete ${app.name ?? 'this app'}`}
 			</button>
 
 			{#if deleteError && !confirmingDelete}
@@ -458,21 +530,18 @@ async function handleConfirmDelete() {
 	.edit-wrap {
 		display: flex;
 		flex-direction: column;
-		min-height: 100%;
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
 	}
 
-	/* ── Sticky top bar ── */
+	/* ── Top bar (non-scrolling, no bg needed — nothing scrolls behind it) ── */
 	.edit-topbar {
-		position: sticky;
-		top: 0;
-		z-index: 20;
+		flex-shrink: 0;
 		display: flex;
 		align-items: center;
 		gap: 10px;
 		padding: 10px 12px;
-		background: color-mix(in srgb, var(--black) 70%, transparent);
-		backdrop-filter: blur(12px);
-		-webkit-backdrop-filter: blur(12px);
 		border-bottom: 1.4px solid var(--white11);
 	}
 
@@ -496,8 +565,11 @@ async function handleConfirmDelete() {
 		flex-shrink: 0;
 	}
 
-	/* ── Body: padded content under the topbar ── */
+	/* ── Body: independent scroll container under the topbar ── */
 	.edit-body {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
 	}
@@ -826,14 +898,14 @@ async function handleConfirmDelete() {
 		align-items: center;
 		justify-content: center;
 		border-radius: 50%;
-		background: var(--gray33);
+		background: var(--gray66);
 		border: none;
 		cursor: pointer;
-		transition: background 0.15s ease;
+		transition: transform 0.12s ease;
 	}
 
 	.screenshot-remove:hover {
-		background: var(--gray44);
+		transform: scale(1.08);
 	}
 
 	.screenshot-remove:active {
@@ -929,34 +1001,49 @@ async function handleConfirmDelete() {
 		padding-left: 14px;
 	}
 
+	/* ── Labels section ── */
+	.labels-input-wrap {
+		margin-top: 12px;
+		max-width: 480px;
+	}
+
+	.labels-wrap-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 14px;
+	}
+
+	.label-tap {
+		flex-shrink: 0;
+		cursor: pointer;
+		background: transparent;
+		border: none;
+		padding: 0;
+	}
+
 	/* ── Danger zone ── */
 	.danger-section {
-		gap: 12px;
+		gap: 8px;
 	}
 
 	.btn-danger {
-		align-self: flex-start;
-		display: inline-flex;
+		width: 100%;
+		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 10px 18px;
-		margin-top: 12px;
+		height: 42px;
+		padding: 0 20px;
 		font-family: 'Inter', sans-serif;
-		font-size: 14px;
+		font-size: 15px;
 		font-weight: 500;
 		line-height: 1;
 		color: var(--rougeColor);
-		background: transparent;
-		border: 0.33px solid color-mix(in srgb, var(--rougeColor) 40%, transparent);
-		border-radius: 999px;
+		background: var(--gray33);
+		border: none;
+		border-radius: var(--radius-16);
 		cursor: pointer;
-		transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease, color 0.15s ease;
-	}
-
-	.btn-danger:hover:not(:disabled) {
-		background: var(--gradient-rouge16);
-		border-color: color-mix(in srgb, var(--rougeColor) 66%, transparent);
-		transform: scale(1.02);
+		transition: transform 0.12s ease;
 	}
 
 	.btn-danger:active:not(:disabled) {
@@ -966,13 +1053,6 @@ async function handleConfirmDelete() {
 	.btn-danger:disabled {
 		opacity: 0.55;
 		cursor: not-allowed;
-	}
-
-	@media (max-width: 639px) {
-		.btn-danger {
-			align-self: stretch;
-			width: 100%;
-		}
 	}
 
 	/* Modal-sized variant: matches .btn-secondary-large height/radius for the action row */

@@ -943,21 +943,20 @@ export { getContent, getSerializedContent, isEmpty };
     height: 30px;
     border-radius: 50%;
     border: none;
-    background: var(--gray33);
+    background: var(--gray66);
     color: var(--white66);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
+    transition: transform 0.12s ease;
   }
   :global(.media-block-editor-remove:hover) {
-    background: var(--gray44);
-    color: var(--white);
+    transform: scale(1.08);
   }
-  :global(.media-block-editor-remove svg) {
-    width: 12px;
-    height: 12px;
+  :global(.media-block-editor-remove:active) {
+    transform: scale(0.88);
   }
   :global(.media-block-editor-pending) {
     opacity: 0.33;
@@ -1057,8 +1056,10 @@ export { getContent, getSerializedContent, isEmpty };
     padding: 0;
   }
   :global(.nostr-ref-block-editor-remove:hover) {
-    background: var(--gray44);
-    color: var(--white);
+    transform: scale(1.08);
+  }
+  :global(.nostr-ref-block-editor-remove:active) {
+    transform: scale(0.88);
   }
   :global(.nostr-ref-block-editor-remove svg) {
     width: 10px;
@@ -1080,10 +1081,13 @@ export { getContent, getSerializedContent, isEmpty };
     border-radius: 50%;
     color: var(--white33);
     cursor: pointer;
+    transition: transform 0.12s ease;
   }
   .inline-close-btn:hover {
-    background: var(--white16);
-    color: var(--white);
+    transform: scale(1.08);
+  }
+  .inline-close-btn:active {
+    transform: scale(0.88);
   }
   .inline-close-btn :global(svg) {
     stroke: var(--white33) !important;
