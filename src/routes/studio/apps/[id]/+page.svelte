@@ -13,7 +13,7 @@
 		slice2x,
 		studioAnalytics
 	} from '$lib/stores/studio-analytics.svelte.js';
-	import { ZAPSTORE_INDEXER_PUBKEY, ZAPSTORE_RELAY } from '$lib/config.js';
+	import { DEFAULT_CATALOG_RELAYS } from '$lib/config.js';
 	import { queryEvents } from '$lib/nostr/dexie.js';
 	import { parseApp } from '$lib/nostr/models.js';
 	import { fetchFromRelays } from '$lib/nostr/service.js';
@@ -46,19 +46,14 @@
 	async function loadIndexerApp(/** @type {string} */ id) {
 		indexerLookupFailed = false;
 		try {
-			let events = await queryEvents({
-				kinds: [32267],
-				authors: [ZAPSTORE_INDEXER_PUBKEY],
-				'#d': [id]
-			});
+			let events = await queryEvents({ kinds: [32267], '#d': [id] });
 			if (events.length === 0) {
 				// Direct relay lookup — `fetchFromRelays` persists hits to Dexie automatically.
-			const fetched = await fetchFromRelays(
-				[ZAPSTORE_RELAY],
-					{ kinds: [32267], authors: [ZAPSTORE_INDEXER_PUBKEY], '#d': [id], limit: 1 },
+				events = await fetchFromRelays(
+					DEFAULT_CATALOG_RELAYS,
+					{ kinds: [32267], '#d': [id], limit: 1 },
 					{ timeout: 5000, feature: 'studio-app' }
 				);
-				events = fetched;
 			}
 			const match = events.find(
 				(e) => (e.tags.find((t) => t[0] === 'd')?.[1] ?? '').toLowerCase() === id.toLowerCase()
@@ -77,7 +72,7 @@
 				images: parsed.images ?? [],
 				eventId: parsed.id,
 				event: parsed.event,
-				pubkey: ZAPSTORE_INDEXER_PUBKEY,
+				pubkey: parsed.pubkey,
 				/** Marks this app as outside the signer's own catalog — disables edit, swaps analytics source. */
 				external: true
 			};
