@@ -1869,4 +1869,6 @@
 		font-size: 1rem;
 		font-weight: 600;
 		color: var(--white);
-		margin: 10px 0 0 
+		margin: 10px 0 0 0;
+	}
+</style>
