@@ -48,15 +48,15 @@
 	/** Reactive studio state shared across all child routes via context. */
 	let userApps = $state([]);
 	let studioPubkey = $state(/** @type {string | null} */ (null));
-	/** True when the signed-in pubkey may URL-access apps from the indexer catalog. */
-	let indexerAccess = $state(false);
+	/** True when the signed-in pubkey may URL-access any app on the relay. */
+	let adminAccess = $state(false);
 	let appsLoading = $state(true);
 
 	/** Provide shared state to all child pages. */
 	setContext('studio', {
 		get userApps() { return userApps; },
 		get studioPubkey() { return studioPubkey; },
-		get indexerAccess() { return indexerAccess; },
+		get adminAccess() { return adminAccess; },
 		get appsLoading() { return appsLoading; },
 		/** Update an app in the list after edit (called from app detail route). */
 		updateApp(/** @type {object} */ updated) {
@@ -104,7 +104,7 @@
 			if (gen !== appsLoadGen) return;
 			if (!signerPubkey) {
 				studioPubkey = null;
-				indexerAccess = false;
+				adminAccess = false;
 				userApps = [];
 				return;
 			}
@@ -112,11 +112,11 @@
 			const policy = await resolveStudioCatalogPubkey(signerPubkey);
 			if (gen !== appsLoadGen) return;
 			studioPubkey = policy.catalogPubkey;
-			indexerAccess = policy.indexerAccess;
+			adminAccess = policy.adminAccess;
 
 			// Sidebar always lists apps published BY the signer (or override catalog).
-			// Indexer-access power users still only see their own apps here; arbitrary
-			// apps are reachable only by URL (`/studio/apps/<id>`).
+		// Admin users still only see their own apps in the sidebar; arbitrary
+		// apps on the relay are reachable only by URL (`/studio/apps/<id>`).
 			let events = await queryEvents({ kinds: [32267], authors: [policy.catalogPubkey] });
 			if (gen !== appsLoadGen) return;
 
