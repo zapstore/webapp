@@ -9,7 +9,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { Search, Loader2 } from 'lucide-svelte';
-	import { Menu, Cross, Inbox, Alert, Profile, ChevronRight, ArrowDown } from '$lib/components/icons';
+	import { Menu, Cross, Inbox, Alert, Profile, ChevronRight, ArrowDown, Studio } from '$lib/components/icons';
 	import Nostr from '$lib/components/icons/Nostr.svelte';
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import { handleBack } from '$lib/utils/back.js';
@@ -90,7 +90,6 @@
 	const isConnecting = $derived(getIsConnecting());
 	const isConnected = $derived(pubkey !== null);
 	const isDevelopersActive = $derived($page.url.pathname === '/developers');
-	const isStudioActive = $derived($page.url.pathname.startsWith('/studio'));
 	const isDiscoverActive = $derived(
 		$page.url.pathname === '/apps' ||
 			$page.url.pathname === '/stacks'
@@ -458,23 +457,13 @@
 										<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 									</div>
 
-							{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
-								<div class="menu-section">
-									<a href="/studio/insights" class="menu-section-link" onclick={closeMenu}>Studio</a>
-									<nav class="menu-subnav">
-										<a href="/studio/insights" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Insights</a>
-										<a href="/studio/inbox" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Inbox</a>
-									</nav>
-								</div>
-							{:else}
-								<div class="menu-section">
-									<a href="/developers" class="menu-section-link" onclick={closeMenu}>Developers</a>
-									<nav class="menu-subnav">
-										<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
-										<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
-									</nav>
-								</div>
-							{/if}
+							<div class="menu-section">
+								<a href="/developers" class="menu-section-link" onclick={closeMenu}>Developers</a>
+								<nav class="menu-subnav">
+									<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
+									<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
+								</nav>
+							</div>
 
 							<div class="menu-section">
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
@@ -692,23 +681,13 @@
 									<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 								</div>
 
-							{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
-								<div class="menu-section">
-									<a href="/studio/insights" class="menu-section-link" onclick={closeMenu}>Studio</a>
-									<nav class="menu-subnav">
-										<a href="/studio/insights" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Insights</a>
-										<a href="/studio/inbox" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Inbox</a>
-									</nav>
-								</div>
-							{:else}
-								<div class="menu-section">
-									<a href="/developers" class="menu-section-link" onclick={closeMenu}>Developers</a>
-									<nav class="menu-subnav">
-										<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
-										<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
-									</nav>
-								</div>
-							{/if}
+							<div class="menu-section">
+								<a href="/developers" class="menu-section-link" onclick={closeMenu}>Developers</a>
+								<nav class="menu-subnav">
+									<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
+									<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
+								</nav>
+							</div>
 
 							<div class="menu-section">
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
@@ -801,25 +780,14 @@
 							>
 								Apps
 							</a>
-						{#if isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD}
-							<a
-								href="/studio/insights"
-								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-								class:landing-nav-studio-selected={isStudioActive}
-								style="color: var(--white66);"
-							>
-								Studio
-							</a>
-						{:else}
-							<a
-								href="/developers"
-								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-								class:landing-nav-studio-selected={isDevelopersActive}
-								style="color: var(--white66);"
-							>
-								Developers
-							</a>
-						{/if}
+					<a
+							href="/developers"
+							class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+							class:landing-nav-studio-selected={isDevelopersActive}
+							style="color: var(--white66);"
+						>
+							Developers
+						</a>
 							<a
 								href="/community"
 								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
@@ -891,49 +859,60 @@
 											inboxHeaderVariant={variant === 'landing' ? 'landing' : 'browse'}
 										/>
 									</div>
-								<div class="relative profile-dropdown">
-									<button type="button" onclick={toggleDropdown} class="profile-btn">
-										{#if dropdownOpen}
-											<Cross variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" />
-										{:else}
-											<ProfilePic
-												{pubkey}
-												pictureUrl={currentUserProfile?.picture || undefined}
-												name={currentUserProfile?.name || undefined}
-												size="bubble"
-											/>
-										{/if}
-									</button>
-								{#if dropdownOpen}
-									<DropdownMenu class="profile-popup" itemChevron={true}>
+							<div class="relative profile-dropdown">
+								<button type="button" onclick={toggleDropdown} class="profile-btn">
+									{#if dropdownOpen}
+										<Cross variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" />
+									{:else}
+										<ProfilePic
+											{pubkey}
+											pictureUrl={currentUserProfile?.picture || undefined}
+											name={currentUserProfile?.name || undefined}
+											size="bubble"
+										/>
+									{/if}
+								</button>
+							{#if dropdownOpen}
+								<DropdownMenu class="profile-popup" itemChevron={true}>
+									{#if SHOW_STUDIO_SIGNED_IN_DASHBOARD}
 										<a
-											href={profileHref}
+											href="/studio/insights"
 											class="dropdown-item"
 											onclick={() => (dropdownOpen = false)}
 										>
-											<ProfilePic
-												{pubkey}
-												pictureUrl={currentUserProfile?.picture || undefined}
-												name={currentUserProfile?.name || undefined}
-												size="sm"
-											/>
-											View my profile
+											<span class="dropdown-icon-wrap"><Studio variant="fill" size={16} color="var(--white)" /></span>
+											Studio
 											<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
 										</a>
-										<button
-											type="button"
-											class="dropdown-item dropdown-item--danger profile-popup-disconnect"
-											onclick={handleSignOut}
-										>
-											<div class="dropdown-rouge-circle">
-												<span style="display:flex;transform:rotate(-90deg)"><ArrowDown variant="outline" size={11} strokeWidth={1.6} color="var(--rougeColor)" /></span>
-											</div>
-											Disconnect
-											<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-										</button>
-									</DropdownMenu>
-								{/if}
-							</div>
+									{/if}
+									<a
+										href={profileHref}
+										class="dropdown-item"
+										onclick={() => (dropdownOpen = false)}
+									>
+										<ProfilePic
+											{pubkey}
+											pictureUrl={currentUserProfile?.picture || undefined}
+											name={currentUserProfile?.name || undefined}
+											size="sm"
+										/>
+										View my profile
+										<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+									</a>
+									<button
+										type="button"
+										class="dropdown-item dropdown-item--danger profile-popup-disconnect"
+										onclick={handleSignOut}
+									>
+										<div class="dropdown-rouge-circle">
+											<span style="display:flex;transform:rotate(-90deg)"><ArrowDown variant="outline" size={11} strokeWidth={1.6} color="var(--rougeColor)" /></span>
+										</div>
+										Disconnect
+										<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+									</button>
+								</DropdownMenu>
+							{/if}
+						</div>
 								{#if offline}
 									<div
 										class="header-offline-pill header-offline-pill--mobile shrink-0"
@@ -1053,50 +1032,61 @@
 										/>
 								</div>
 							<!-- Profile Avatar with Dropdown -->
-							<div class="relative profile-dropdown flex items-center">
-								<button type="button" onclick={toggleDropdown} class="profile-btn">
-									{#if dropdownOpen}
-										<Cross variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" />
-									{:else}
-										<ProfilePic
-											{pubkey}
-											pictureUrl={currentUserProfile?.picture || undefined}
-											name={currentUserProfile?.name || undefined}
-											size="bubble"
-										/>
-									{/if}
-								</button>
-
-						{#if dropdownOpen}
-							<DropdownMenu class="profile-popup" itemChevron={true}>
-								<a
-									href={profileHref}
-									class="dropdown-item"
-									onclick={() => (dropdownOpen = false)}
-								>
+						<div class="relative profile-dropdown flex items-center">
+							<button type="button" onclick={toggleDropdown} class="profile-btn">
+								{#if dropdownOpen}
+									<Cross variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" />
+								{:else}
 									<ProfilePic
 										{pubkey}
 										pictureUrl={currentUserProfile?.picture || undefined}
 										name={currentUserProfile?.name || undefined}
-										size="sm"
+										size="bubble"
 									/>
-									View my profile
+								{/if}
+							</button>
+
+					{#if dropdownOpen}
+						<DropdownMenu class="profile-popup" itemChevron={true}>
+							{#if SHOW_STUDIO_SIGNED_IN_DASHBOARD}
+								<a
+									href="/studio/insights"
+									class="dropdown-item"
+									onclick={() => (dropdownOpen = false)}
+								>
+									<span class="dropdown-icon-wrap"><Studio variant="fill" size={16} color="var(--white)" /></span>
+									Studio
 									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
 								</a>
-								<button
-									type="button"
-									class="dropdown-item dropdown-item--danger profile-popup-disconnect"
-									onclick={handleSignOut}
-								>
-									<div class="dropdown-rouge-circle">
-										<span style="display:flex;transform:rotate(-90deg)"><ArrowDown variant="outline" size={11} strokeWidth={1.6} color="var(--rougeColor)" /></span>
-									</div>
-									Disconnect
-									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-								</button>
-							</DropdownMenu>
-						{/if}
-						</div>
+							{/if}
+							<a
+								href={profileHref}
+								class="dropdown-item"
+								onclick={() => (dropdownOpen = false)}
+							>
+								<ProfilePic
+									{pubkey}
+									pictureUrl={currentUserProfile?.picture || undefined}
+									name={currentUserProfile?.name || undefined}
+									size="sm"
+								/>
+								View my profile
+								<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+							</a>
+							<button
+								type="button"
+								class="dropdown-item dropdown-item--danger profile-popup-disconnect"
+								onclick={handleSignOut}
+							>
+								<div class="dropdown-rouge-circle">
+									<span style="display:flex;transform:rotate(-90deg)"><ArrowDown variant="outline" size={11} strokeWidth={1.6} color="var(--rougeColor)" /></span>
+								</div>
+								Disconnect
+								<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
+							</button>
+						</DropdownMenu>
+					{/if}
+					</div>
 								{#if offline}
 									<div
 										class="header-offline-pill header-offline-pill--mobile shrink-0"
@@ -1879,162 +1869,4 @@
 		font-size: 1rem;
 		font-weight: 600;
 		color: var(--white);
-		margin: 10px 0 0 0;
-	}
-
-	.landing-nav-studio-desc {
-		font-size: 0.8125rem;
-		color: var(--white66);
-		margin: 4px 0 0 0;
-		line-height: 1.55;
-	}
-
-	.landing-nav-studio-dropdown-divider {
-		background-color: var(--white11);
-		width: 1px;
-		align-self: stretch;
-	}
-
-	.landing-nav-studio-dropdown-right {
-		display: flex;
-		flex-direction: column;
-		padding: 0;
-	}
-
-	.landing-nav-studio-row {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--white66);
-		text-decoration: none;
-		padding: 0 20px;
-		min-height: 44px;
-		border-bottom: 1.4px solid var(--white11);
-		transition:
-			color 0.15s ease,
-			background-color 0.15s ease;
-	}
-
-	.landing-nav-studio-row:last-child {
-		border-bottom: none;
-	}
-
-	.landing-nav-studio-row:hover {
-		color: var(--white);
-		background-color: var(--white4);
-	}
-
-	.landing-nav-contact-list {
-		display: flex;
-		flex-direction: column;
-		min-width: 220px;
-	}
-
-	.landing-nav-contact-row {
-		display: flex;
-		align-items: center;
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--white66);
-		text-decoration: none;
-		padding: 0 20px;
-		min-height: 44px;
-		border-bottom: 1.4px solid var(--white11);
-		transition:
-			color 0.15s ease,
-			background-color 0.15s ease;
-	}
-
-	.landing-nav-contact-row:last-child {
-		border-bottom: none;
-	}
-
-	.landing-nav-contact-row:hover {
-		color: var(--white);
-		background-color: var(--white4);
-	}
-
-	.landing-nav-grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 0;
-		width: 100%;
-	}
-
-	.landing-nav-grid-item {
-		display: flex;
-		flex-direction: column;
-		gap: 0;
-		padding: 22px 22px 20px 22px;
-		text-decoration: none;
-		color: var(--white66);
-		border-right: 1.4px solid var(--white11);
-		border-bottom: 1.4px solid var(--white11);
-		transition: background-color 0.15s ease;
-	}
-
-	.landing-nav-grid-item:hover {
-		background-color: var(--white4);
-	}
-
-	.landing-nav-grid-item:nth-child(2n) {
-		border-right: none;
-	}
-
-	.landing-nav-grid-item:nth-child(n + 3) {
-		border-bottom: none;
-	}
-
-	.landing-nav-grid-emoji {
-		width: 32px;
-		height: 32px;
-		object-fit: contain;
-		flex-shrink: 0;
-	}
-
-	.landing-nav-grid-title {
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--white);
-		margin: 10px 0 0 0;
-	}
-
-	.landing-nav-grid-desc {
-		font-size: 0.8125rem;
-		color: var(--white66);
-		opacity: 0.9;
-		margin: 4px 0 0 0;
-	}
-
-	.landing-nav-link:hover {
-		color: var(--white) !important;
-	}
-
-	.landing-nav-studio-selected {
-		color: var(--white) !important;
-		font-weight: 600;
-		background-color: var(--white8);
-		border-radius: 12px;
-	}
-
-	/* DEV ONLY — remove before ship */
-	.theme-dev-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 32px;
-		height: 32px;
-		border-radius: 50%;
-		border: 0.33px solid var(--white16);
-		background: var(--white8);
-		font-size: 1rem;
-		cursor: pointer;
-		transition: background-color 0.15s ease;
-		flex-shrink: 0;
-	}
-	.theme-dev-btn:hover {
-		background: var(--white16);
-	}
-</style>
+		margin: 10px 0 0 
