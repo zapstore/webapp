@@ -39,7 +39,7 @@
 	const app = $derived(ownApp ?? indexerApp);
 
 	$effect(() => {
-		if (ownApp || !appId || !studio.indexerAccess) return;
+		if (ownApp || !appId || !studio.adminAccess) return;
 		void loadIndexerApp(appId);
 	});
 
