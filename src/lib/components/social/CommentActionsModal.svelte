@@ -29,7 +29,7 @@
 	import { getIsSignedIn } from '$lib/stores/auth.svelte.js';
 
 	/** Preset sats chips (horizontal row); chevron opens full slider. */
-	const ZAP_PRESET_AMOUNTS = [21, 69, 100, 420, 500, 1000, 2500, 5000, 10000];
+	const ZAP_PRESET_AMOUNTS = [1000, 2000, 5000, 10000, 25000, 50000, 100000];
 
 	const DEFAULT_COMMENT_LABELS = [
 		'Security',

@@ -749,18 +749,19 @@
 				actionRail={showThreadActions ? feedDesktopRail : undefined}
 			/>
 		{:else}
-			<MessageBubble
-				{pictureUrl}
-				{name}
-				{pubkey}
-				{timestamp}
-				{profileUrl}
-				{loading}
-				{pending}
-				{outgoing}
-				{zapsOnThis}
-				actionRail={showThreadActions ? feedDesktopRail : undefined}
-			>
+		<MessageBubble
+			{pictureUrl}
+			{name}
+			{pubkey}
+			{timestamp}
+			{profileUrl}
+			{loading}
+			{pending}
+			{outgoing}
+			{version}
+			{zapsOnThis}
+			actionRail={showThreadActions ? feedDesktopRail : undefined}
+		>
 				{#if (content != null && content !== undefined) || (mediaUrls?.length ?? 0) > 0}
 					<ShortTextContent
 						content={content ?? ''}

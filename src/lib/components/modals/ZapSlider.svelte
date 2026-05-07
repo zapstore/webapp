@@ -11,15 +11,27 @@ let shortTextInput = $state(null);
 let amountInputElement = $state(null);
 const START_ANGLE = (Math.PI * 3) / 4;
 const TOTAL_ANGLE = (Math.PI * 3) / 2;
-const MIN_VALUE = 0;
-const MAX_VALUE = 1000001;
+const MIN_VALUE = 10;
+const MAX_VALUE = 10000000;
 const SIZE = 320;
 const RADIUS = 100;
 const BACKGROUND_THICKNESS = 48;
 const VALUE_THICKNESS = 32;
 const HANDLE_SIZE = 24;
 const MARKER_LENGTH = 8;
-const markerValues = [0, 10, 100, 1000, 10000, 100000, 1000000];
+const markerValues = [10, 100, 1000, 10000, 100000, 1000000, 10000000];
+/** Sats → normalized arc position [0, 1] (log scale from MIN_VALUE to MAX_VALUE). */
+function valueToNorm(v) {
+    if (v <= MIN_VALUE) return 0;
+    if (v >= MAX_VALUE) return 1;
+    return (Math.log(v) - Math.log(MIN_VALUE)) / (Math.log(MAX_VALUE) - Math.log(MIN_VALUE));
+}
+/** Normalized arc position [0, 1] → sats. */
+function normToValue(norm) {
+    if (norm <= 0) return MIN_VALUE;
+    if (norm >= 1) return MAX_VALUE;
+    return Math.round(Math.exp(Math.log(MIN_VALUE) + norm * (Math.log(MAX_VALUE) - Math.log(MIN_VALUE))));
+}
 let value = $state(0);
 let canvasElement = $state(null);
 let isDragging = $state(false);
@@ -52,8 +64,7 @@ function angleToValue(angle) {
         adjustedAngle += 2 * Math.PI;
     adjustedAngle = Math.max(0, Math.min(TOTAL_ANGLE, adjustedAngle));
     const percentage = adjustedAngle / TOTAL_ANGLE;
-    const logValue = percentage * Math.log(MAX_VALUE + 1);
-    return Math.exp(logValue) - 1;
+    return normToValue(percentage);
 }
 function getPositionOnArc(angle, radius) {
     return {
@@ -128,7 +139,7 @@ function drawSlider() {
     const centerY = SIZE / 2;
     ctx.clearRect(0, 0, SIZE, SIZE);
     otherZaps.forEach((zapData) => {
-        const percentage = zapData.amount <= 0 ? 0 : Math.log(zapData.amount + 1) / Math.log(MAX_VALUE + 1);
+        const percentage = valueToNorm(zapData.amount);
         const angle = START_ANGLE + percentage * TOTAL_ANGLE;
         const innerRadius = RADIUS - BACKGROUND_THICKNESS / 2;
         const outerRadius = RADIUS + BACKGROUND_THICKNESS / 2 + MARKER_LENGTH + 6 + 9 - 10;
@@ -150,7 +161,7 @@ function drawSlider() {
     ctx.arc(centerX, centerY, RADIUS, START_ANGLE, START_ANGLE + TOTAL_ANGLE);
     ctx.stroke();
     markerValues.forEach((markerValue) => {
-        const percentage = markerValue <= 0 ? 0 : Math.log(markerValue + 1) / Math.log(MAX_VALUE + 1);
+        const percentage = valueToNorm(markerValue);
         const angle = START_ANGLE + percentage * TOTAL_ANGLE;
         const innerRadius = RADIUS - BACKGROUND_THICKNESS / 2;
         const outerRadius = RADIUS + BACKGROUND_THICKNESS / 2 + MARKER_LENGTH;
@@ -169,7 +180,7 @@ function drawSlider() {
         ctx.textBaseline = "middle";
         ctx.fillText(formatMarkerLabel(markerValue), labelX, labelY);
     });
-    const percentage = value <= 0 ? 0 : Math.log(value + 1) / Math.log(MAX_VALUE + 1);
+    const percentage = valueToNorm(value);
     const sweepAngle = percentage * TOTAL_ANGLE;
     if (sweepAngle > 0) {
         const gradient = ctx.createConicGradient(START_ANGLE - Math.PI / 2, centerX, centerY);
@@ -234,8 +245,8 @@ function handleAmountInput(e) {
 }
 function handleAmountBlur() {
     isEditingAmount = false;
-    if (amountInputValue === "" || value === 0) {
-        value = 0;
+    if (amountInputValue === "" || value < MIN_VALUE) {
+        value = MIN_VALUE;
     }
     amountInputValue = formatWithCommas(Math.round(value));
 }
@@ -285,10 +296,7 @@ export function getSerializedContent() {
       ></canvas>
 
       {#each otherZaps as zapData, i (i)}
-        {@const percentage =
-          zapData.amount <= 0
-            ? 0
-            : Math.log(zapData.amount + 1) / Math.log(MAX_VALUE + 1)}
+        {@const percentage = valueToNorm(zapData.amount)}
         {@const angle = START_ANGLE + percentage * TOTAL_ANGLE}
         {@const outerRadius = RADIUS + BACKGROUND_THICKNESS / 2 + MARKER_LENGTH + 6}
         {@const pos = getPositionOnArc(angle, outerRadius + 9)}
