@@ -15,7 +15,7 @@ import Timestamp from "$lib/components/common/Timestamp.svelte";
 import ZapPillRow from "./ZapPillRow.svelte";
 import { Loader2 } from "lucide-svelte";
 import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString, } from "$lib/utils/color.js";
-let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, light = false, outgoing = false, children, headerActions, actionRail,
+let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, light = false, outgoing = false, version = "", children, headerActions, actionRail,
     /**
      * Zaps received on this comment, displayed as a horizontally-scrolling
      * pill row beneath the content. Each entry is the parent's parsed zap
@@ -81,18 +81,24 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
             {displayName}
           </span>
         {/if}
-        {#if !pending}
-          <Timestamp {timestamp} size="xs" />
-        {:else}
-          <span class="publish-spinner" aria-label="Publishing">
-            <Loader2 class="h-3.5 w-3.5 animate-spin" style="color: var(--blurpleLightColor);" />
-          </span>
-        {/if}
-        {#if headerActions}
-          <div class="bubble-header-actions">
-            {@render headerActions()}
-          </div>
-        {/if}
+        <div class="bubble-header-right">
+          {#if !pending}
+            <Timestamp {timestamp} size="xs" />
+          {:else}
+            <span class="publish-spinner" aria-label="Publishing">
+              <Loader2 class="h-3.5 w-3.5 animate-spin" style="color: var(--blurpleLightColor);" />
+            </span>
+          {/if}
+          {#if version}
+            <span class="version-dot" aria-hidden="true"></span>
+            <span class="version-tag" title="v{version}">v{version}</span>
+          {/if}
+          {#if headerActions}
+            <div class="bubble-header-actions">
+              {@render headerActions()}
+            </div>
+          {/if}
+        </div>
       </div>
     {/if}
 
@@ -159,6 +165,13 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     margin-bottom: 4px;
   }
 
+  .bubble-header-right {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
+  }
+
   .bubble-header-actions {
     flex-shrink: 0;
   }
@@ -197,6 +210,27 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     text-decoration: none;
     transition: opacity 0.15s ease;
     white-space: nowrap;
+  }
+
+  .version-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--white16);
+    flex-shrink: 0;
+    padding-top: 3px;
+  }
+
+  .version-tag {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--white33);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+    line-height: 1.4;
+    flex-shrink: 1;
   }
 
   a.author-name:hover {

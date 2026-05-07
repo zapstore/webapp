@@ -67,10 +67,11 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
           {/if}
         </div>
         <div class="author-right">
+          <Timestamp {timestamp} size="xs" className="author-timestamp" />
           {#if version}
+            <span class="version-dot" aria-hidden="true"></span>
             <span class="version-tag">v{version}</span>
           {/if}
-          <Timestamp {timestamp} size="xs" className="author-timestamp" />
         </div>
       </div>
       {#if headerActions}
@@ -151,12 +152,21 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
   .author-right {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
     flex-shrink: 0;
   }
 
   .author-timestamp {
     flex-shrink: 0;
+  }
+
+  .version-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--white16);
+    flex-shrink: 0;
+    padding-top: 3px;
   }
 
   .version-tag {

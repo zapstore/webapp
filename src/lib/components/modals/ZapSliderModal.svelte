@@ -31,7 +31,7 @@ presetZapSats = null,
  */
 wrapperParent = null, } = $props();
 let sliderComponent = $state(null);
-let zapValue = $state(100);
+let zapValue = $state(1000);
 let message = $state("");
 let loading = $state(false);
 let error = $state("");
@@ -75,7 +75,7 @@ function cleanup() {
     }
 }
 function resetZapFormState() {
-    zapValue = 100;
+    zapValue = 1000;
     message = "";
     loading = false;
     invoiceLoading = false;
