@@ -2110,7 +2110,6 @@ let _refreshing = $state(false);
 					name: app.name,
 					pubkey: app.pubkey,
 					dTag: app.dTag,
-					id: latestRelease?.id ?? app.id,
 					ownContentEventId: app.id,
 					pictureUrl: publisherPictureUrl
 				}
