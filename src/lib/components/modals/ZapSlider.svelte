@@ -6,6 +6,7 @@ import { onMount } from "svelte";
 import Zap from "$lib/components/icons/Zap.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
+import { hexToColor, getProfileTextColor, rgbToCssString } from "$lib/utils/color.js";
 let { profile = null, initialValue = 100, otherZaps = [], message = $bindable(""), searchProfiles = async () => [], searchEmojis = async () => [], placeholder = "Write your comment...", onvalueChanged, onsendZap, } = $props();
 let shortTextInput = $state(null);
 let amountInputElement = $state(null);
@@ -50,6 +51,13 @@ $effect(() => {
 });
 function formatWithCommas(val) {
     return Math.round(val).toLocaleString("en-US");
+}
+/** Returns a CSS color string for a zap profile pubkey, adjusted for dark-mode text readability. */
+function zapProfileColor(pubkey) {
+    if (!pubkey) return "var(--white)";
+    const base = hexToColor(pubkey);
+    const adjusted = getProfileTextColor(base, true);
+    return rgbToCssString(adjusted);
 }
 function formatMarkerLabel(val) {
     if (val >= 1000000)
@@ -314,6 +322,16 @@ export function getSerializedContent() {
             pubkey={zapData.profile?.pubkey}
             size="xs"
           />
+          <div class="zap-tooltip" role="tooltip">
+            <span
+              class="zap-tooltip-name"
+              style="color: {zapProfileColor(zapData.profile?.pubkey)};"
+            >{zapData.profile?.name ?? "Anonymous"}</span>
+            <div class="zap-tooltip-amount">
+              <Zap variant="fill" size={12} color="url(#gold-gradient)" />
+              <span>{formatWithCommas(zapData.amount)}</span>
+            </div>
+          </div>
         </div>
       {/each}
 
@@ -424,6 +442,56 @@ export function getSerializedContent() {
   .zap-profile-marker {
     position: absolute;
     pointer-events: none;
+  }
+  @media (min-width: 768px) {
+    .zap-profile-marker {
+      pointer-events: auto;
+    }
+    .zap-profile-marker:hover .zap-tooltip {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+      pointer-events: none;
+    }
+  }
+  .zap-tooltip {
+    display: none;
+  }
+  @media (min-width: 768px) {
+    .zap-tooltip {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      opacity: 0;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      background: var(--gray66);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 0.33px solid var(--white16);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px var(--black33);
+      padding: 8px 12px;
+      white-space: nowrap;
+      z-index: 10;
+      pointer-events: none;
+    }
+  }
+  .zap-tooltip-name {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .zap-tooltip-amount {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--white66);
+    line-height: 1.3;
   }
   .input-container {
     background: var(--black33);

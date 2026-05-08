@@ -68,4 +68,4 @@ export {
 } from './models';
 
 // Zap utilities
-export { createZap, subscribeToZapReceipt } from './zap';
+export { createZap, subscribeToZapReceipt, fetchZapReceiptFallback } from './zap';

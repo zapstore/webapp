@@ -6,7 +6,7 @@
 import { onDestroy } from "svelte";
 import { Loader2, AlertCircle, CheckCircle, Copy, Check } from "lucide-svelte";
 import { generateSecretKey, finalizeEvent } from "nostr-tools/pure";
-import { createZap, subscribeToZapReceipt, publishZapCommentWrapper } from "$lib/nostr";
+import { createZap, subscribeToZapReceipt, fetchZapReceiptFallback, publishZapCommentWrapper, putEvents } from "$lib/nostr";
 import { getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
 import Modal from "$lib/components/common/Modal.svelte";
 import ZapSlider from "./ZapSlider.svelte";
@@ -33,6 +33,10 @@ wrapperParent = null, } = $props();
 let sliderComponent = $state(null);
 let zapValue = $state(1000);
 let message = $state("");
+/** Relays from the actual zap request — the LN backend publishes the receipt here. */
+let zapRelays = $state([]);
+/** Unix timestamp when the zap was initiated — anchors the receipt subscription's `since`. */
+let zapStartedAt = $state(0);
 let loading = $state(false);
 let error = $state("");
 let invoice = $state(null);
@@ -82,6 +86,8 @@ function resetZapFormState() {
     error = "";
     invoice = null;
     zapRequest = null;
+    zapRelays = [];
+    zapStartedAt = 0;
     step = "slider";
     _waitingForReceipt = false;
     showManualClose = false;
@@ -106,6 +112,8 @@ function handleSendZap(e) {
 async function handleZap() {
     if (loading || zapValue < 1)
         return;
+    // Record before createZap so subscribeToZapReceipt gets the full time window.
+    zapStartedAt = Math.floor(Date.now() / 1000);
     // Show invoice step immediately with skeleton; createZap runs in background
     step = "invoice";
     invoice = null;
@@ -123,6 +131,7 @@ async function handleZap() {
         const result = await createZap(target, Math.round(zapValue), commentText, signer, emojiTagsToSend.length ? emojiTagsToSend : undefined);
         invoice = result.invoice;
         zapRequest = result.zapRequest;
+        zapRelays = result.relays ?? [];
         const tempId = `pending-zap-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
         pendingTempId = tempId;
         const zid = target?.id?.trim?.() ?? "";
@@ -135,7 +144,7 @@ async function handleZap() {
             zappedEventId,
             recipientPubkey: target?.pubkey,
         });
-        startListeningForReceipt();
+        startListeningForReceipt(zapStartedAt);
         // Trigger browser wallet (Alby etc.) immediately when invoice is ready
         if (result.invoice) {
             queueMicrotask(() => openInWallet(result.invoice));
@@ -152,7 +161,7 @@ async function handleZap() {
         invoiceLoading = false;
     }
 }
-function startListeningForReceipt() {
+function startListeningForReceipt(zapStartedAt) {
     if (!zapRequest || !target?.pubkey)
         return;
     const targetAddress = target.dTag ? `32267:${target.pubkey}:${target.dTag}` : null;
@@ -190,12 +199,17 @@ function startListeningForReceipt() {
             });
         }
         setTimeout(() => closeAfterSuccess(), 2000);
-    }, { invoice: invoice ?? undefined, appAddress: targetAddress, appEventId: target.id });
+    }, { invoice: invoice ?? undefined, appAddress: targetAddress, appEventId: target.id, zapStartedAt, relays: zapRelays });
     receiptTimeout = setTimeout(() => {
         showManualClose = true;
     }, 30000);
 }
 function handleManualDone() {
+    // Capture before reset clears them.
+    const savedZapRequestId = zapRequest?.id;
+    const savedRelays = [...zapRelays];
+    const savedZapStartedAt = zapStartedAt;
+    const savedRecipientPubkey = target?.pubkey;
     const temp = pendingTempId;
     pendingTempId = null;
     if (temp)
@@ -203,8 +217,21 @@ function handleManualDone() {
     cleanup();
     resetZapFormState();
     isOpen = false;
-    onzapReceived?.({ zapReceipt: {}, pendingTempId: null });
-    onclose?.({ success: true });
+    // Close without a success signal — the receipt was never confirmed.
+    onclose?.({ success: false });
+    // Fire-and-forget: search all zap-request relays for the receipt.
+    // If the LN backend published it to a relay we weren't subscribed to,
+    // this finds it and writes it to Dexie — liveQuery will surface it in the UI.
+    if (savedZapRequestId && savedRecipientPubkey) {
+        void fetchZapReceiptFallback(savedRecipientPubkey, savedZapRequestId, savedRelays, savedZapStartedAt)
+            .then((receipt) => {
+                if (receipt) {
+                    void putEvents([receipt]);
+                    onzapReceived?.({ zapReceipt: receipt, pendingTempId: null });
+                }
+            })
+            .catch(() => { /* silent — best-effort only */ });
+    }
 }
 async function copyInvoice() {
     if (!invoice)
