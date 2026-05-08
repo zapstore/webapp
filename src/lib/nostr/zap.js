@@ -132,44 +132,72 @@ export async function createZap(target, amountSats, comment, signEvent, emojiTag
 
 	return {
 		invoice: invoiceResponse.pr,
-		zapRequest: { id: signed.id }
+		zapRequest: { id: signed.id },
+		/** Exact relay list embedded in the zap request — the LN backend will publish the receipt to these. */
+		relays,
+		/** LN node pubkey from the LNURL endpoint — use this to validate the receipt's `pubkey` (NIP-57 Appendix F). */
+		nostrPubkey: lnurlData.nostrPubkey
 	};
 }
 
 /**
  * Subscribe for a zap receipt (kind 9735).
  * When received, writes to Dexie and calls onReceipt.
+ *
+ * `options.zapStartedAt` (unix seconds) anchors `since` to the moment the user
+ * initiated the zap — before createZap's LNURL network latency eats into the window.
+ * Falls back to now if not provided. A generous 5-minute lookback is added on top to
+ * survive slow WebSocket handshakes, slow LN backends, and clock skew.
+ * Auto-reconnects when the relay closes the subscription (SimplePool does not reconnect on its own).
  */
-export function subscribeToZapReceipt(recipientPubkey, zapRequestId, onReceipt, _options) {
+export function subscribeToZapReceipt(recipientPubkey, zapRequestId, onReceipt, options) {
 	const pool = new SimplePool();
 	let sub = null;
-	const readRelays = zapReceiptPublishRelays();
+	let closed = false;
+	let reconnectTimer = null;
+	// Merge caller-supplied relays (from the actual zap request) with the base set.
+	// The LN backend publishes to all relays in the zap request's `relays` tag — we must
+	// subscribe to all of them, not just the hardcoded base set.
+	const readRelays = [...new Set([
+		...(options?.relays ?? []),
+		...zapReceiptPublishRelays()
+	])];
+	// Use the caller-supplied start time so the window isn't shortened by createZap latency.
+	const zapStartedAt = options?.zapStartedAt ?? Math.floor(Date.now() / 1000);
+	const since = zapStartedAt - 300;
 
 	const run = () => {
+		if (closed) return;
+		try { sub?.close(); } catch { /* noop */ }
 		sub = pool.subscribeMany(
 			readRelays,
 			{
 				kinds: [9735],
 				'#p': [recipientPubkey],
-				// Small lookback avoids missing receipts due to clock skew or race with subscription open.
-				since: Math.floor(Date.now() / 1000) - 120,
+				since,
 				limit: 100
 			},
 			{
 				id: subId('zap'),
 				onevent(event) {
 					const descTag = event.tags?.find((t) => t[0] === 'description')?.[1];
-					if (descTag) {
-						try {
-							const zapReq = JSON.parse(descTag);
-							if (zapReq.id === zapRequestId) {
-								void putEvents([event])
-									.then(() => onReceipt(event))
-									.catch(() => onReceipt(event));
-							}
-						} catch {
-							/* ignore parse */
+					if (!descTag) return;
+					try {
+						const zapReq = JSON.parse(descTag);
+						if (zapReq.id === zapRequestId) {
+							void putEvents([event])
+								.then(() => onReceipt(event))
+								.catch(() => onReceipt(event));
 						}
+					} catch {
+						/* ignore parse errors from non-compliant backends */
+					}
+				},
+				onclose() {
+					// Relay closed the sub (timeout, disconnect, etc.) — reconnect unless
+					// we've been intentionally cleaned up via the returned unsubscribe fn.
+					if (!closed) {
+						reconnectTimer = setTimeout(run, 2000);
 					}
 				}
 			}
@@ -179,7 +207,77 @@ export function subscribeToZapReceipt(recipientPubkey, zapRequestId, onReceipt, 
 	run();
 
 	return () => {
+		closed = true;
+		if (reconnectTimer) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
 		try { sub?.close(); } catch { /* noop */ }
 		pool.close(readRelays);
 	};
+}
+
+/**
+ * One-shot fallback: search all known relays for a specific zap receipt.
+ * Used when the live subscription timed out (user clicked "I've paid, close this").
+ * Resolves with the receipt event if found, or null if not found within the timeout.
+ *
+ * @param {string} recipientPubkey - hex pubkey of the zap recipient
+ * @param {string} zapRequestId - id of the kind 9734 zap request event
+ * @param {string[]} zapRelays - relays from the original zap request (merged with base set)
+ * @param {number} since - unix timestamp to search from (zapStartedAt)
+ * @returns {Promise<import('nostr-tools').NostrEvent | null>}
+ */
+export async function fetchZapReceiptFallback(recipientPubkey, zapRequestId, zapRelays, since) {
+	const pool = new SimplePool();
+	const readRelays = [...new Set([...(zapRelays ?? []), ...zapReceiptPublishRelays()])];
+	const searchSince = (since ?? Math.floor(Date.now() / 1000)) - 300;
+
+	return new Promise((resolve) => {
+		let found = false;
+		let settled = false;
+		let sub = null;
+
+		const finish = (result = null) => {
+			if (settled) return;
+			settled = true;
+			try { sub?.close(); } catch { /* noop */ }
+			pool.close(readRelays);
+			resolve(result);
+		};
+
+		sub = pool.subscribeMany(
+			readRelays,
+			{
+				kinds: [9735],
+				'#p': [recipientPubkey],
+				since: searchSince,
+				limit: 200
+			},
+			{
+				id: subId('zap-fallback'),
+				onevent(event) {
+					if (found) return;
+					const descTag = event.tags?.find((t) => t[0] === 'description')?.[1];
+					if (!descTag) return;
+					try {
+						const zapReq = JSON.parse(descTag);
+						if (zapReq.id === zapRequestId) {
+							found = true;
+							finish(event);
+						}
+					} catch { /* ignore */ }
+				},
+				oneose() {
+					if (!found) finish(null);
+				},
+				onclose() {
+					if (!settled) finish(null);
+				}
+			}
+		);
+
+		// Hard timeout: 10s
+		setTimeout(() => finish(null), 10000);
+	});
 }
