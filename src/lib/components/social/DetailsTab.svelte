@@ -2,7 +2,7 @@
 	/**
 	 * DetailsTab - Shows identifiers and raw JSON data
 	 */
-	import { Copy, Check, ChevronDown } from '$lib/components/icons';
+	import { Copy, Check, ChevronDown, ChevronRight } from '$lib/components/icons';
 	import NpubDisplay from '$lib/components/common/NpubDisplay.svelte';
 	import CodeBlock from '$lib/components/common/CodeBlock.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
@@ -30,16 +30,15 @@
 	let shareLinkCopied = $state(false);
 	let repositoryCopied = $state(false);
 	let releasesModalOpen = $state(false);
-	/** Tracks which modal row copy was last triggered: { idx, type: 'id' | 'json' } */
-	let modalCopied = $state(null);
-	/** Index of the release row currently showing metadata (-1 = none) */
-	let metaExpandedIdx = $state(-1);
+	let releaseIdCopied = $state(false);
+	/** JSON sub-modal state */
+	let jsonModalOpen = $state(false);
+	let jsonModalIdx = $state(-1);
+	let jsonModalHighlighted = $state('');
 	/**
 	 * @type {Record<number, { loading: boolean, artifacts: Array<{ eventId: string|null, nevent: string|null, hash: string|null, url: string|null, relayHint: string|null }> }>}
 	 */
 	let releaseMeta = $state({});
-	/** @type {{ idx: number, field: string } | null} */
-	let metaCopied = $state(null);
 	function formatShareableId(id) {
 		if (!id || id.length < 30) return id || '';
 		return `${id.slice(0, 16)}...${id.slice(-8)}`;
@@ -48,6 +47,15 @@
 	function urlDisplayWithoutProtocol(url) {
 		if (!url || typeof url !== 'string') return '';
 		return url.replace(/^https?:\/\//, '');
+	}
+	/** Format a Unix timestamp (seconds) as a readable date string. */
+	function formatDate(ts) {
+		if (!ts) return '';
+		return new Date(ts * 1000).toLocaleDateString('en-US', {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric'
+		});
 	}
 	// Strip internal Dexie fields (_tags) to show the actual Nostr event
 	const cleanedRawData = $derived.by(() => {
@@ -69,6 +77,47 @@
 			highlightedJson = '';
 		}
 	});
+
+	/** Formatted JSON for the release JSON sub-modal. */
+	const jsonModalFormatted = $derived.by(() => {
+		if (jsonModalIdx < 0 || !releases[jsonModalIdx]?.rawEvent) return '';
+		const { _tags: _, ...nostrEvent } = releases[jsonModalIdx].rawEvent;
+		return JSON.stringify(nostrEvent, null, 2);
+	});
+	$effect(() => {
+		if (jsonModalFormatted) {
+			highlightJson(jsonModalFormatted).then((html) => {
+				jsonModalHighlighted = html;
+			});
+		} else {
+			jsonModalHighlighted = '';
+		}
+	});
+
+	/** Auto-fetch artifact metadata for all releases when the modal opens. */
+	$effect(() => {
+		if (releasesModalOpen) {
+			for (let i = 0; i < releases.length; i++) {
+				if (!releaseMeta[i]) fetchMeta(i);
+			}
+		}
+	});
+
+	function openJsonModal(idx) {
+		jsonModalIdx = idx;
+		jsonModalOpen = true;
+	}
+	async function copyReleaseId() {
+		const val = releaseNaddr(releases[0]);
+		if (!val) return;
+		try {
+			await navigator.clipboard.writeText(val);
+			releaseIdCopied = true;
+			setTimeout(() => (releaseIdCopied = false), 1500);
+		} catch (e) {
+			console.error('Failed to copy:', e);
+		}
+	}
 
 	async function copyPublicationId() {
 		if (!shareableId) return;
@@ -112,6 +161,9 @@
 	}
 	function releaseNaddr(release) {
 		return release?.naddr || release?.id || '';
+	}
+	function releaseTitle(release) {
+		return release?.version ? `v${release.version}` : formatShareableId(releaseNaddr(release));
 	}
 	/** Extract a 64-char lowercase hex hash from a URL path. */
 	function extractHashFromUrl(url) {
@@ -273,54 +325,13 @@
 		}
 		releaseMeta = { ...releaseMeta, [idx]: { loading: false, artifacts } };
 	}
-	async function toggleMeta(idx) {
-		if (metaExpandedIdx === idx) {
-			metaExpandedIdx = -1;
-			return;
-		}
-		metaExpandedIdx = idx;
-		if (releaseMeta[idx]?.artifacts?.length > 0) return;
-		await fetchMeta(idx);
-	}
 	async function retryMeta(idx) {
 		const next = { ...releaseMeta };
 		delete next[idx];
 		releaseMeta = next;
 		await fetchMeta(idx);
 	}
-	async function copyMetaValue(idx, field, value) {
-		if (!value) return;
-		try {
-			await navigator.clipboard.writeText(value);
-			metaCopied = { idx, field };
-			setTimeout(() => (metaCopied = null), 1500);
-		} catch (e) {
-			console.error('Failed to copy:', e);
-		}
-	}
-	async function copyModalReleaseId(idx) {
-		const val = releaseNaddr(releases[idx]);
-		if (!val) return;
-		try {
-			await navigator.clipboard.writeText(val);
-			modalCopied = { idx, type: 'id' };
-			setTimeout(() => (modalCopied = null), 1500);
-		} catch (e) {
-			console.error('Failed to copy:', e);
-		}
-	}
-	async function copyModalReleaseJson(idx) {
-		const raw = releases[idx]?.rawEvent;
-		if (!raw) return;
-		try {
-			const { _tags: _, ...nostrEvent } = raw;
-			await navigator.clipboard.writeText(JSON.stringify(nostrEvent, null, 2));
-			modalCopied = { idx, type: 'json' };
-			setTimeout(() => (modalCopied = null), 1500);
-		} catch (e) {
-			console.error('Failed to copy:', e);
-		}
-	}
+
 </script>
 
 <div class="details-tab {className}">
@@ -350,37 +361,37 @@
 					aria-label="View all releases"
 				>
 					<span class="identifier-label">Release</span>
-					{#if releases[0]?.version}
-						<span class="release-version-tag">
-							{releases[0].version}
-							<ChevronDown variant="outline" strokeWidth={2} size={11} color="var(--white33)" />
-						</span>
-					{:else}
-						<span class="release-version-tag release-version-tag-empty">
-							<ChevronDown variant="outline" strokeWidth={2} size={11} color="var(--white33)" />
-						</span>
+				{#if releases[0]?.version}
+					<span class="release-version-tag">
+						{releases[0].version}
+						<ChevronDown variant="outline" strokeWidth={2} size={13} color="var(--white33)" />
+					</span>
+				{:else}
+					<span class="release-version-tag release-version-tag-empty">
+						<ChevronDown variant="outline" strokeWidth={2} size={13} color="var(--white33)" />
+					</span>
 					{/if}
 				</button>
-				<span class="identifier-value">{formatShareableId(releaseNaddr(releases[0]))}</span>
-				<button
-					type="button"
-					class="copy-btn"
-					onclick={() => copyModalReleaseId(0)}
-					aria-label="Copy release ID"
-				>
-					{#if modalCopied?.idx === 0 && modalCopied?.type === 'id'}
-						<span class="check-icon">
-							<Check
-								variant="outline"
-								size={14}
-								strokeWidth={2.8}
-								color="var(--blurpleLightColor)"
-							/>
-						</span>
-					{:else}
-						<Copy variant="outline" size={16} color="var(--white66)" />
-					{/if}
-				</button>
+			<span class="identifier-value">{formatShareableId(releaseNaddr(releases[0]))}</span>
+			<button
+				type="button"
+				class="copy-btn"
+				onclick={copyReleaseId}
+				aria-label="Copy release ID"
+			>
+				{#if releaseIdCopied}
+					<span class="check-icon">
+						<Check
+							variant="outline"
+							size={14}
+							strokeWidth={2.8}
+							color="var(--blurpleLightColor)"
+						/>
+					</span>
+				{:else}
+					<Copy variant="outline" size={16} color="var(--white66)" />
+				{/if}
+			</button>
 			</div>
 		{/if}
 
@@ -477,199 +488,137 @@
 		bind:open={releasesModalOpen}
 		title="Release Details"
 		ariaLabel="Release Details"
-		maxHeight={72}
+		maxHeight={88}
+		align="bottom"
 		closeButtonMobile={true}
+		class="releases-modal {jsonModalOpen ? 'releases-modal-shrunk' : ''}"
 	>
-		<div class="releases-modal-list">
+		<div class="child-overlay" class:child-overlay-visible={jsonModalOpen} aria-hidden="true"></div>
+		<div class="releases-list">
 			{#each releases as release, idx (release.id ?? idx)}
-			<div class="releases-modal-row">
-				{#if release.version}
-					<span class="releases-modal-version">{release.version}</span>
-				{/if}
-				<button
-					type="button"
-					class="release-row-btn release-naddr-btn"
-					onclick={() => copyModalReleaseId(idx)}
-					aria-label="Copy naddr"
-					title={releaseNaddr(release)}
-				>
-					<span class="releases-modal-naddr">{formatShareableId(releaseNaddr(release))}</span>
-					<span class="release-row-icon">
-						{#if modalCopied?.idx === idx && modalCopied?.type === 'id'}
-							<Check
-								variant="outline"
-								size={14}
-								strokeWidth={2.8}
-								color="var(--blurpleLightColor)"
-							/>
-						{:else}
-							<Copy variant="outline" size={16} color="var(--white33)" />
-						{/if}
-					</span>
-				</button>
-				{#if release.rawEvent}
-					<button
-						type="button"
-						class="release-row-btn"
-						onclick={() => copyModalReleaseJson(idx)}
-						aria-label="Copy JSON"
-					>
-						{#if modalCopied?.idx === idx && modalCopied?.type === 'json'}
-							<Check
-								variant="outline"
-								size={14}
-								strokeWidth={2.8}
-								color="var(--blurpleLightColor)"
-							/>
-						{:else}
-							<span class="release-btn-label">JSON</span>
-							<span class="release-row-icon">
-								<Copy variant="outline" size={16} color="var(--white33)" />
-							</span>
-						{/if}
-					</button>
-					<button
-						type="button"
-						class="release-row-btn {metaExpandedIdx === idx ? 'release-meta-active' : ''}"
-						onclick={() => toggleMeta(idx)}
-						aria-label="Show metadata"
-					>
-						<span class="release-btn-label">Metadata</span>
-						<span
-							class="release-row-icon {metaExpandedIdx === idx ? 'release-chevron-open' : ''}"
+				<div class="release-card">
+					<!-- Header: version + JSON button -->
+					<div class="release-card-header">
+						<span class="release-card-version">{releaseTitle(release)}</span>
+					{#if release.rawEvent}
+						<button
+							type="button"
+							class="btn-secondary-small json-btn"
+							onclick={() => openJsonModal(idx)}
 						>
-						<ChevronDown
-							variant="outline"
-							size={13}
-							color={metaExpandedIdx === idx ? 'var(--white)' : 'var(--white33)'}
-						/>
-						</span>
-					</button>
-				{/if}
-			</div>
-				{#if metaExpandedIdx === idx}
-					<div class="releases-meta-panel">
-						{#if releaseMeta[idx]?.loading}
-							<span class="meta-loading">Fetching from relay…</span>
-						{:else if !releaseMeta[idx] || releaseMeta[idx].artifacts.length === 0}
-							<button type="button" class="meta-retry-btn" onclick={() => retryMeta(idx)}>
-								No artifact metadata found — click to retry
-							</button>
-						{:else}
-							{#each releaseMeta[idx].artifacts as artifact, ai (artifact.eventId ?? artifact.hash ?? ai)}
-								{#if ai > 0}
-									<div class="meta-artifact-divider"></div>
-								{/if}
-								<div class="meta-artifact">
-									<div class="meta-row">
-										<span class="meta-label">Hash</span>
-										{#if artifact.hash}
-											<button
-												type="button"
-												class="meta-value-btn"
-												onclick={() => copyMetaValue(idx, `hash-${ai}`, artifact.hash)}
-												title={artifact.hash}
-												aria-label="Copy hash"
-											>
-												<span class="meta-mono">{truncateHex(artifact.hash)}</span>
-												{#if metaCopied?.idx === idx && metaCopied?.field === `hash-${ai}`}
-													<Check
-														variant="outline"
-														size={11}
-														strokeWidth={2.8}
-														color="var(--blurpleLightColor)"
-													/>
-												{:else}
-													<Copy variant="outline" size={12} color="var(--white33)" />
-												{/if}
-											</button>
-										{:else}
-											<button type="button" class="meta-retry-btn" onclick={() => retryMeta(idx)}
-												>not found — retry</button
-											>
-										{/if}
-									</div>
-									{#if artifact.nevent}
-										<div class="meta-row">
-											<span class="meta-label">nevent</span>
-											<button
-												type="button"
-												class="meta-value-btn"
-												onclick={() => copyMetaValue(idx, `nevent-${ai}`, artifact.nevent)}
-												title={artifact.nevent}
-												aria-label="Copy nevent"
-											>
-												<span class="meta-mono">{truncateStr(artifact.nevent, 14, 6)}</span>
-												{#if metaCopied?.idx === idx && metaCopied?.field === `nevent-${ai}`}
-													<Check
-														variant="outline"
-														size={11}
-														strokeWidth={2.8}
-														color="var(--blurpleLightColor)"
-													/>
-												{:else}
-													<Copy variant="outline" size={12} color="var(--white33)" />
-												{/if}
-											</button>
-										</div>
-									{:else if artifact.eventId}
-										<div class="meta-row">
-											<span class="meta-label">event</span>
-											<button
-												type="button"
-												class="meta-value-btn"
-												onclick={() => copyMetaValue(idx, `eid-${ai}`, artifact.eventId)}
-												title={artifact.eventId}
-												aria-label="Copy event ID"
-											>
-												<span class="meta-mono">{truncateHex(artifact.eventId)}</span>
-												{#if metaCopied?.idx === idx && metaCopied?.field === `eid-${ai}`}
-													<Check
-														variant="outline"
-														size={11}
-														strokeWidth={2.8}
-														color="var(--blurpleLightColor)"
-													/>
-												{:else}
-													<Copy variant="outline" size={12} color="var(--white33)" />
-												{/if}
-											</button>
-										</div>
-									{/if}
-									{#if artifact.url}
-										<div class="meta-row">
-											<span class="meta-label">URL</span>
-											<button
-												type="button"
-												class="meta-value-btn meta-url-btn"
-												onclick={() => copyMetaValue(idx, `url-${ai}`, artifact.url)}
-												title={artifact.url}
-												aria-label="Copy URL"
-											>
-												<span class="meta-url-text">{artifact.url.replace(/^https?:\/\//, '')}</span
-												>
-												{#if metaCopied?.idx === idx && metaCopied?.field === `url-${ai}`}
-													<Check
-														variant="outline"
-														size={11}
-														strokeWidth={2.8}
-														color="var(--blurpleLightColor)"
-													/>
-												{:else}
-													<Copy variant="outline" size={12} color="var(--white33)" />
-												{/if}
-											</button>
-										</div>
-									{/if}
-								</div>
-							{/each}
+							<span class="json-btn-label">JSON</span>
+							<ChevronRight variant="outline" size={12} color="var(--white33)" />
+						</button>
+					{/if}
+					</div>
+
+					<!-- Event section -->
+					<p class="eyebrow-label release-section-eyebrow">Event</p>
+					<div class="ri-rows">
+						<div class="ri-row">
+							<span class="ri-label">naddr</span>
+							<span class="ri-value ri-mono">{formatShareableId(releaseNaddr(release))}</span>
+						</div>
+						{#if release.rawEvent}
+							<div class="ri-divider"></div>
+							<div class="ri-row">
+								<span class="ri-label">id</span>
+								<span class="ri-value ri-mono">{truncateHex(release.rawEvent.id)}</span>
+							</div>
+							<div class="ri-divider"></div>
+							<div class="ri-row">
+								<span class="ri-label">kind</span>
+								<span class="ri-value">{release.rawEvent.kind}</span>
+							</div>
+							<div class="ri-divider"></div>
+							<div class="ri-row">
+								<span class="ri-label">pubkey</span>
+								<span class="ri-value ri-mono">{truncateHex(release.rawEvent.pubkey)}</span>
+							</div>
+							<div class="ri-divider"></div>
+							<div class="ri-row">
+								<span class="ri-label">created</span>
+								<span class="ri-value">{formatDate(release.rawEvent.created_at)}</span>
+							</div>
 						{/if}
 					</div>
-				{/if}
+
+					<!-- Artifact section -->
+					{#if release.rawEvent}
+						<p class="eyebrow-label release-section-eyebrow">Artifact</p>
+						{#if releaseMeta[idx]?.loading}
+							<span class="ri-loading">Fetching from relay…</span>
+						{:else if !releaseMeta[idx] || releaseMeta[idx].artifacts.length === 0}
+							<button type="button" class="ri-retry-btn" onclick={() => retryMeta(idx)}>
+								No artifact metadata found — tap to retry
+							</button>
+						{:else}
+						{#each releaseMeta[idx].artifacts as artifact, ai (artifact.eventId ?? artifact.hash ?? ai)}
+							{#if ai > 0}
+								<div class="ri-artifact-divider"></div>
+							{/if}
+							<div class="ri-rows">
+								{#if artifact.hash}
+									<div class="ri-row">
+										<span class="ri-label">hash</span>
+										<span class="ri-value ri-mono" title={artifact.hash}>{truncateHex(artifact.hash)}</span>
+									</div>
+								{/if}
+								{#if artifact.nevent}
+									{#if artifact.hash}<div class="ri-divider"></div>{/if}
+									<div class="ri-row">
+										<span class="ri-label">nevent</span>
+										<span class="ri-value ri-mono" title={artifact.nevent}>{truncateStr(artifact.nevent, 14, 6)}</span>
+									</div>
+								{:else if artifact.eventId}
+									{#if artifact.hash}<div class="ri-divider"></div>{/if}
+									<div class="ri-row">
+										<span class="ri-label">event</span>
+										<span class="ri-value ri-mono" title={artifact.eventId}>{truncateHex(artifact.eventId)}</span>
+									</div>
+								{/if}
+								{#if artifact.url}
+									{#if artifact.hash || artifact.nevent || artifact.eventId}<div class="ri-divider"></div>{/if}
+									<div class="ri-row">
+										<span class="ri-label">url</span>
+										<span class="ri-value ri-url" title={artifact.url}>{artifact.url.replace(/^https?:\/\//, '')}</span>
+									</div>
+								{/if}
+							</div>
+						{/each}
+						{/if}
+					{/if}
+				</div>
+
 				{#if idx < releases.length - 1}
 					<div class="releases-modal-divider"></div>
 				{/if}
 			{/each}
+		</div>
+	</Modal>
+{/if}
+
+<!-- JSON sub-modal -->
+
+{#if jsonModalIdx >= 0}
+	<Modal
+		bind:open={jsonModalOpen}
+		title="Event JSON"
+		ariaLabel="Event JSON"
+		maxHeight={70}
+		align="bottom"
+		noBackdrop={true}
+		lockBodyScroll={false}
+		closeButtonMobile={true}
+		zIndex={110}
+	>
+		<div class="json-modal-inner">
+			<CodeBlock
+				html={jsonModalHighlighted}
+				code={jsonModalFormatted}
+				language="JSON"
+				background="black33"
+			/>
 		</div>
 	</Modal>
 {/if}
@@ -815,200 +764,129 @@
 	.release-version-tag {
 		display: inline-flex;
 		align-items: center;
-		gap: 8px;
+		gap: 10px;
 		font-size: 0.75rem;
 		font-weight: 500;
 		color: var(--white66);
 		background: var(--white8);
 		border-radius: 20px;
-		padding: 4px 12px;
+		padding: 4px 12px 4px 14px;
 		white-space: nowrap;
+	}
+
+	.release-version-tag :global(svg) {
+		padding-top: 2px;
 	}
 
 	.release-version-tag-empty {
 		padding: 3px 6px;
 	}
 
-	/* Releases modal */
-	.releases-modal-list {
-		padding: 8px 16px 8px;
+	/* Releases modal list */
+	.releases-list {
 		display: flex;
 		flex-direction: column;
+		padding: 12px 16px 16px;
+		gap: 0;
 	}
 
 	@media (min-width: 768px) {
-		.releases-modal-list {
-			padding: 8px 20px 8px;
+		.releases-list {
+			padding: 12px 20px 20px;
 		}
 	}
 
-	.releases-modal-row {
+	/* Per-release card */
+	.release-card {
+		background: var(--black33);
+		border-radius: 14px;
+		padding: 14px 14px 12px;
 		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 8px 0;
+		flex-direction: column;
+		gap: 0;
 	}
 
-	.releases-modal-version {
-		font-size: 0.875rem;
+	.release-card-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 12px;
+	}
+
+	.release-card-version {
+		font-size: 0.9375rem;
 		font-weight: 600;
 		color: var(--white);
-		white-space: nowrap;
-		flex-shrink: 0;
-		min-width: 5.5rem;
 	}
 
-	.releases-modal-naddr {
-		font-size: 0.8125rem;
+	.release-section-eyebrow {
 		color: var(--white66);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		flex: 1;
-		min-width: 0;
-		text-align: left;
+		margin: 10px 0 6px;
 	}
 
-	/* Rounded-square row buttons — naddr, JSON, Metadata */
-  .release-row-btn {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    height: 32px;
-    padding: 0 10px 0 14px;
-		background: var(--white8);
-		border: none;
-		border-radius: 8px;
-		cursor: pointer;
-		flex-shrink: 0;
-		transition: transform 0.15s ease;
-	}
-
-	.release-row-btn:hover {
-		transform: scale(1.01);
-	}
-
-	.release-row-btn:active {
-		transform: scale(0.97);
-	}
-
-	/* naddr button fills remaining space */
-	.release-naddr-btn {
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-	}
-
-	.release-row-icon {
+	/* Info rows */
+	.ri-rows {
 		display: flex;
-		align-items: center;
-		flex-shrink: 0;
-		transition: transform 0.2s ease;
+		flex-direction: column;
 	}
 
-	.release-chevron-open {
-		transform: rotate(180deg);
+	.ri-row {
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
+		padding: 6px 0;
 	}
 
-	.release-btn-label {
+	.ri-label {
 		font-size: 0.75rem;
 		font-weight: 500;
-		color: var(--white66);
-	}
-
-	.release-meta-active {
-		background: var(--white16) !important;
-	}
-
-	.release-meta-active .release-btn-label {
-		color: var(--white) !important;
-	}
-
-	/* Metadata panel */
-	.releases-meta-panel {
-		background: var(--white4);
-		border-radius: 10px;
-		padding: 10px 12px;
-		margin: 2px 0 6px;
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
-	.meta-loading,
-	.meta-empty {
-		font-size: 0.8125rem;
 		color: var(--white33);
-		font-style: italic;
+		min-width: 3.5rem;
+		flex-shrink: 0;
 	}
 
-	.meta-artifact {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
+	.ri-value {
+		font-size: 0.8125rem;
+		color: var(--white66);
+		flex: 1;
+		text-align: right;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		min-width: 0;
 	}
 
-	.meta-artifact-divider {
+	.ri-mono {
+		font-family: var(--font-mono);
+	}
+
+	.ri-url {
+		font-size: 0.75rem;
+	}
+
+	.ri-divider {
 		height: 1.4px;
 		background: var(--white11);
-		margin: 4px 0;
+		margin: 0;
 	}
 
-	.meta-row {
-		display: flex;
-		align-items: center;
-		gap: 8px;
+	.ri-artifact-divider {
+		height: 1.4px;
+		background: var(--white16);
+		margin: 8px 0;
 	}
 
-	.meta-label {
-		font-size: 0.75rem;
-		color: var(--white33);
-		min-width: 2.5rem;
-		flex-shrink: 0;
-		font-weight: 500;
-	}
-
-	.meta-value-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 5px;
-		background: none;
-		border: none;
-		padding: 2px 4px;
-		border-radius: 4px;
-		cursor: pointer;
-		color: var(--white66);
-		transition:
-			background 0.12s ease,
-			color 0.12s ease;
-		min-width: 0;
-		flex: 1;
-	}
-
-	.meta-value-btn:hover {
-		background: var(--white8);
-		color: var(--white);
-	}
-
-	.meta-mono {
-		font-size: 0.8125rem;
-		font-family: var(--font-mono);
-		color: inherit;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.meta-value-dim {
+	.ri-loading {
 		font-size: 0.8125rem;
 		color: var(--white33);
 		font-style: italic;
+		padding: 4px 0;
 	}
 
-	.meta-retry-btn {
+	.ri-retry-btn {
 		background: none;
 		border: none;
-		padding: 0;
+		padding: 4px 0;
 		font-size: 0.8125rem;
 		color: var(--white33);
 		font-style: italic;
@@ -1016,42 +894,65 @@
 		text-decoration: underline;
 		text-underline-offset: 3px;
 		transition: color 0.15s ease;
+		text-align: left;
 	}
 
-	.meta-retry-btn:hover {
+	.ri-retry-btn:hover {
 		color: var(--white66);
 	}
 
-	.meta-url-btn {
-		overflow: hidden;
-	}
-
-	.meta-url-text {
-		font-size: 0.75rem;
-		color: inherit;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		flex: 1;
-	}
-
-	.releases-modal-actions {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		flex-shrink: 0;
-	}
-
-	.release-action-btn {
-		min-width: 44px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
+	/* Gap between release cards (no visible divider) */
 	.releases-modal-divider {
-		height: 1.4px;
-		background-color: var(--white11);
-		margin: 0;
+		height: 12px;
+	}
+
+	/* JSON button */
+	.json-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+	}
+
+	.json-btn-label {
+		color: var(--white66);
+		font-size: 0.75rem;
+		font-weight: 500;
+	}
+
+	/* Child-modal scale-down effect on releases modal */
+	:global(.releases-modal) {
+		transition: transform 0.25s cubic-bezier(0.33, 1, 0.68, 1);
+		transform-origin: top center;
+	}
+
+	:global(.releases-modal-shrunk) {
+		transform: scale(0.96) translateY(8px);
+	}
+
+	/* Dim overlay inside releases modal when JSON modal is open */
+	.child-overlay {
+		position: absolute;
+		inset: 0;
+		background: var(--black33);
+		z-index: 5;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.2s ease-out;
+		border-radius: inherit;
+	}
+
+	.child-overlay-visible {
+		opacity: 1;
+	}
+
+	/* JSON sub-modal */
+	.json-modal-inner {
+		padding: 8px 16px 16px;
+	}
+
+	@media (min-width: 768px) {
+		.json-modal-inner {
+			padding: 8px 20px 20px;
+		}
 	}
 </style>
