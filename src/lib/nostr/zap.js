@@ -1,12 +1,14 @@
 /**
- * Zap utilities (Lightning/NIP-57)
+ * Zap utilities (NIP-57)
  *
- * Create zap request (kind 9734), fetch invoice via LNURL.
- * Receipt (kind 9735) is published by the recipient's node;
- * we subscribe via relays and write to Dexie.
+ * Flow:
+ *   1. createZap       — build kind 9734, fetch LNURL invoice
+ *   2. subscribeToZapReceipt — listen for kind 9735 on all zap-request relays
+ *   3. ensureReceiptOnZapstoreRelay — republish receipt to zapstore.dev on receipt
+ *   4. fetchZapReceiptFallback — one-shot search when live sub timed out (manual close)
  *
- * The zap request `relays` tag includes {@link ZAPSTORE_RELAY} first so backends
- * publish receipts where Zapstore reads (see `zapReceiptPublishRelays`).
+ * relay.zapstore.dev is the canonical store. The LN backend publishes there directly
+ * (it's first in the relays tag). We also republish from the client as a safety net.
  */
 import { SimplePool } from 'nostr-tools';
 import { resolveLightningAddress, fetchInvoiceFromCallback, validateZapSupport } from '$lib/lnurl';
@@ -16,19 +18,42 @@ import { DEFAULT_SOCIAL_RELAYS, SUB_PREFIX, ZAPSTORE_RELAY } from '$lib/config';
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 
-/** Relays LN backends should publish zap receipts to (NIP-57 `relays` tag). Zapstore first, then social fallbacks. */
+/**
+ * Relays included in the zap request's `relays` tag.
+ * zapstore.dev is first — highest priority signal to the LN backend.
+ * Social relays follow for broad fan-out. Recipient inbox relays are appended per-zap.
+ */
 function zapReceiptPublishRelays() {
-	return [...new Set([ZAPSTORE_RELAY, ...DEFAULT_SOCIAL_RELAYS])];
+	return [ZAPSTORE_RELAY, ...DEFAULT_SOCIAL_RELAYS];
 }
 
 /**
- * Create a zap request (NIP-57), fetch Lightning invoice from LNURL callback,
- * and return invoice + zap request id.
+ * Republish a caught zap receipt to relay.zapstore.dev.
+ * Safety net for LN backends that skip zapstore.dev in their fan-out.
+ * Fire-and-forget — never blocks the receipt callback.
+ */
+function ensureReceiptOnZapstoreRelay(pool, event) {
+	if (!event?.id) return;
+	try {
+		const results = pool.publish([ZAPSTORE_RELAY], event);
+		const promises = Array.isArray(results) ? results : [results];
+		for (const p of promises) {
+			p?.catch?.((err) => {
+				console.warn('[zap] relay.zapstore.dev rejected receipt:', String(err?.message ?? err), { eventId: event.id });
+			});
+		}
+	} catch (err) {
+		console.warn('[zap] ensureReceiptOnZapstoreRelay error:', err);
+	}
+}
+
+/**
+ * Build a NIP-57 kind 9734 zap request, fetch the LNURL invoice, and return both.
+ *
+ * @param {{ pubkey: string, dTag?: string, aTag?: string, id?: string, name?: string }} target
  */
 export async function createZap(target, amountSats, comment, signEvent, emojiTags) {
-	if (!target?.pubkey?.trim()) {
-		throw new Error('Zap target must have a pubkey');
-	}
+	if (!target?.pubkey?.trim()) throw new Error('Zap target must have a pubkey');
 
 	const recipientHex = target.pubkey.trim().toLowerCase();
 	if (!/^[a-f0-9]{64}$/.test(recipientHex)) {
@@ -36,18 +61,13 @@ export async function createZap(target, amountSats, comment, signEvent, emojiTag
 	}
 
 	const amountMillisats = Math.round(amountSats) * 1000;
-	if (amountMillisats < 1000) {
-		throw new Error('Amount must be at least 1 sat');
-	}
+	if (amountMillisats < 1000) throw new Error('Amount must be at least 1 sat');
 
-	// 1. Get recipient profile for lud16 and inbox relays in parallel
 	const [profileEvent, recipientInboxUrls] = await Promise.all([
 		fetchProfile(recipientHex),
 		fetchRecipientInboxRelayUrls(recipientHex)
 	]);
-	if (!profileEvent?.content) {
-		throw new Error('Could not load recipient profile');
-	}
+	if (!profileEvent?.content) throw new Error('Could not load recipient profile');
 
 	let profile;
 	try {
@@ -57,14 +77,9 @@ export async function createZap(target, amountSats, comment, signEvent, emojiTag
 	}
 
 	const lud16 = profile.lud16 ?? profile.lud06;
-	if (!lud16) {
-		throw new Error('Recipient has no Lightning address (lud16) in their profile');
-	}
-	if (profile.lud06) {
-		throw new Error('LNURL (lud06) is not supported. Recipient should use a Lightning address (lud16).');
-	}
+	if (!lud16) throw new Error('Recipient has no Lightning address (lud16) in their profile');
+	if (profile.lud06) throw new Error('LNURL (lud06) is not supported. Recipient must use a Lightning address (lud16).');
 
-	// 2. Resolve LNURL and validate zap support
 	const lnurlData = await resolveLightningAddress(lud16);
 	validateZapSupport(lnurlData);
 
@@ -78,7 +93,7 @@ export async function createZap(target, amountSats, comment, signEvent, emojiTag
 		throw new Error(`Comment too long. Maximum ${lnurlData.commentAllowed} characters.`);
 	}
 
-	// 3. Build zap request (kind 9734)
+	// Build kind 9734 tags
 	const relays = [...new Set([...zapReceiptPublishRelays(), ...recipientInboxUrls])];
 	const tags = [
 		['p', recipientHex],
@@ -87,13 +102,14 @@ export async function createZap(target, amountSats, comment, signEvent, emojiTag
 		['lnurl', lud16]
 	];
 
+	// e tag: only for non-replaceable event targets (comments, specific events).
+	// App zaps use only the a tag — apps are addressable (kind 32267).
 	if (target.id?.trim()) {
 		const eId = target.id.trim().toLowerCase();
-		if (/^[a-f0-9]{64}$/.test(eId)) {
-			tags.push(['e', eId, ZAPSTORE_RELAY]);
-		}
+		if (/^[a-f0-9]{64}$/.test(eId)) tags.push(['e', eId, ZAPSTORE_RELAY]);
 	}
 
+	// a tag: addressable event reference (app, stack, etc.)
 	if (target.aTag) {
 		tags.push(['a', target.aTag, ZAPSTORE_RELAY]);
 	} else if (target.dTag && recipientHex) {
@@ -110,95 +126,68 @@ export async function createZap(target, amountSats, comment, signEvent, emojiTag
 		}
 	}
 
-	const template = {
-		kind: 9734,
-		content: comment ?? '',
-		tags,
-		created_at: Math.floor(Date.now() / 1000)
-	};
-
-	const signed = await signEvent(template);
+	const signed = await signEvent({ kind: 9734, content: comment ?? '', tags, created_at: Math.floor(Date.now() / 1000) });
 	if (!signed?.id) throw new Error('Failed to sign zap request');
 
-	const serialized = JSON.stringify(signed);
-
-	// 4. Fetch invoice from LNURL callback
 	const invoiceResponse = await fetchInvoiceFromCallback(
 		lnurlData.callback,
 		amountMillisats,
-		serialized,
+		JSON.stringify(signed),
 		comment || undefined
 	);
 
 	return {
 		invoice: invoiceResponse.pr,
 		zapRequest: { id: signed.id },
-		/** Exact relay list embedded in the zap request — the LN backend will publish the receipt to these. */
-		relays,
-		/** LN node pubkey from the LNURL endpoint — use this to validate the receipt's `pubkey` (NIP-57 Appendix F). */
-		nostrPubkey: lnurlData.nostrPubkey
+		/** Relays embedded in the zap request — the LN backend publishes the receipt here. */
+		relays
 	};
 }
 
 /**
- * Subscribe for a zap receipt (kind 9735).
- * When received, writes to Dexie and calls onReceipt.
- *
- * `options.zapStartedAt` (unix seconds) anchors `since` to the moment the user
- * initiated the zap — before createZap's LNURL network latency eats into the window.
- * Falls back to now if not provided. A generous 5-minute lookback is added on top to
- * survive slow WebSocket handshakes, slow LN backends, and clock skew.
- * Auto-reconnects when the relay closes the subscription (SimplePool does not reconnect on its own).
+ * Subscribe for the kind 9735 receipt for a specific zap request.
+ * Listens on all relays from the zap request plus the base set.
+ * Writes to Dexie and calls onReceipt when matched.
+ * Auto-reconnects if the relay closes the subscription unexpectedly.
+ * Returns an unsubscribe function.
  */
 export function subscribeToZapReceipt(recipientPubkey, zapRequestId, onReceipt, options) {
 	const pool = new SimplePool();
 	let sub = null;
 	let closed = false;
 	let reconnectTimer = null;
-	// Merge caller-supplied relays (from the actual zap request) with the base set.
-	// The LN backend publishes to all relays in the zap request's `relays` tag — we must
-	// subscribe to all of them, not just the hardcoded base set.
+
 	const readRelays = [...new Set([
 		...(options?.relays ?? []),
 		...zapReceiptPublishRelays()
 	])];
-	// Use the caller-supplied start time so the window isn't shortened by createZap latency.
+
+	// Anchor `since` to before createZap ran so relay latency doesn't shrink the window.
 	const zapStartedAt = options?.zapStartedAt ?? Math.floor(Date.now() / 1000);
-	const since = zapStartedAt - 300;
+	const since = zapStartedAt - 300; // 5-minute lookback
 
 	const run = () => {
 		if (closed) return;
-		try { sub?.close(); } catch { /* noop */ }
 		sub = pool.subscribeMany(
 			readRelays,
-			{
-				kinds: [9735],
-				'#p': [recipientPubkey],
-				since,
-				limit: 100
-			},
+			{ kinds: [9735], '#p': [recipientPubkey], since, limit: 100 },
 			{
 				id: subId('zap'),
 				onevent(event) {
 					const descTag = event.tags?.find((t) => t[0] === 'description')?.[1];
 					if (!descTag) return;
-					try {
-						const zapReq = JSON.parse(descTag);
-						if (zapReq.id === zapRequestId) {
-							void putEvents([event])
-								.then(() => onReceipt(event))
-								.catch(() => onReceipt(event));
-						}
-					} catch {
-						/* ignore parse errors from non-compliant backends */
-					}
+					let zapReq;
+					try { zapReq = JSON.parse(descTag); } catch { return; }
+					if (zapReq.id !== zapRequestId) return;
+					ensureReceiptOnZapstoreRelay(pool, event);
+					void putEvents([event])
+						.then(() => onReceipt(event))
+						.catch(() => onReceipt(event));
 				},
 				onclose() {
-					// Relay closed the sub (timeout, disconnect, etc.) — reconnect unless
-					// we've been intentionally cleaned up via the returned unsubscribe fn.
-					if (!closed) {
-						reconnectTimer = setTimeout(run, 2000);
-					}
+					// Do NOT call sub?.close() in run() — it would trigger this callback
+					// again and create an infinite reconnect loop.
+					if (!closed) reconnectTimer = setTimeout(run, 2000);
 				}
 			}
 		);
@@ -208,29 +197,20 @@ export function subscribeToZapReceipt(recipientPubkey, zapRequestId, onReceipt, 
 
 	return () => {
 		closed = true;
-		if (reconnectTimer) {
-			clearTimeout(reconnectTimer);
-			reconnectTimer = null;
-		}
+		if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
 		try { sub?.close(); } catch { /* noop */ }
 		pool.close(readRelays);
 	};
 }
 
 /**
- * One-shot fallback: search all known relays for a specific zap receipt.
- * Used when the live subscription timed out (user clicked "I've paid, close this").
- * Resolves with the receipt event if found, or null if not found within the timeout.
- *
- * @param {string} recipientPubkey - hex pubkey of the zap recipient
- * @param {string} zapRequestId - id of the kind 9734 zap request event
- * @param {string[]} zapRelays - relays from the original zap request (merged with base set)
- * @param {number} since - unix timestamp to search from (zapStartedAt)
- * @returns {Promise<import('nostr-tools').NostrEvent | null>}
+ * One-shot fallback search for a receipt across all zap-request relays.
+ * Used after the user manually confirms payment ("I've paid, close this").
+ * Resolves with the receipt event or null within 10 seconds.
  */
 export async function fetchZapReceiptFallback(recipientPubkey, zapRequestId, zapRelays, since) {
 	const pool = new SimplePool();
-	const readRelays = [...new Set([...(zapRelays ?? []), ...zapReceiptPublishRelays()])];
+	const readRelays = [...new Set([ZAPSTORE_RELAY, ...(zapRelays ?? [])])];
 	const searchSince = (since ?? Math.floor(Date.now() / 1000)) - 300;
 
 	return new Promise((resolve) => {
@@ -248,36 +228,25 @@ export async function fetchZapReceiptFallback(recipientPubkey, zapRequestId, zap
 
 		sub = pool.subscribeMany(
 			readRelays,
-			{
-				kinds: [9735],
-				'#p': [recipientPubkey],
-				since: searchSince,
-				limit: 200
-			},
+			{ kinds: [9735], '#p': [recipientPubkey], since: searchSince, limit: 200 },
 			{
 				id: subId('zap-fallback'),
 				onevent(event) {
 					if (found) return;
 					const descTag = event.tags?.find((t) => t[0] === 'description')?.[1];
 					if (!descTag) return;
-					try {
-						const zapReq = JSON.parse(descTag);
-						if (zapReq.id === zapRequestId) {
-							found = true;
-							finish(event);
-						}
-					} catch { /* ignore */ }
+					let zapReq;
+					try { zapReq = JSON.parse(descTag); } catch { return; }
+					if (zapReq.id !== zapRequestId) return;
+					found = true;
+					ensureReceiptOnZapstoreRelay(pool, event);
+					finish(event);
 				},
-				oneose() {
-					if (!found) finish(null);
-				},
-				onclose() {
-					if (!settled) finish(null);
-				}
+				oneose() { if (!found) finish(null); },
+				onclose() { if (!settled) finish(null); }
 			}
 		);
 
-		// Hard timeout: 10s
 		setTimeout(() => finish(null), 10000);
 	});
 }
