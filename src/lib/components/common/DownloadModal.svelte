@@ -545,7 +545,7 @@
 		bind:open={showVerifyOverlay}
 		ariaLabel="Verify APK Authenticity"
 		maxWidth="max-w-lg"
-		zIndex={60}
+		zIndex={200}
 	>
 		<div class="p-6">
 			<div class="flex items-center justify-between mb-6">
