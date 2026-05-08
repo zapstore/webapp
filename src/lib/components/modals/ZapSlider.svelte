@@ -220,12 +220,12 @@ onMount(() => {
         window.removeEventListener("touchend", handleTouchEnd);
     };
 });
-async function handleAmountRowClick() {
-    const { tick } = await import("svelte");
+function handleAmountRowClick() {
+    amountInputElement?.focus();
+}
+function handleAmountFocus() {
     isEditingAmount = true;
     amountInputValue = Math.round(value).toString();
-    await tick();
-    amountInputElement?.focus();
     amountInputElement?.select();
 }
 function handleAmountInput(e) {
@@ -233,20 +233,24 @@ function handleAmountInput(e) {
     const cleaned = target.value.replace(/[^0-9]/g, "");
     const numValue = parseInt(cleaned, 10);
     if (cleaned === "" || isNaN(numValue)) {
-        amountInputValue = "";
         value = 0;
+        // Let the bind keep whatever the user has typed (empty/partial)
     }
     else {
-        value = Math.max(MIN_VALUE, Math.min(MAX_VALUE, numValue));
-        amountInputValue = formatWithCommas(value);
+        // No MIN_VALUE clamp while typing — values < 10 show at slider min position
+        value = Math.min(MAX_VALUE, numValue);
+        // Only strip non-numeric characters; don't reformat while editing
+        if (target.value !== cleaned) {
+            amountInputValue = cleaned;
+        }
     }
     onvalueChanged?.({ value });
     drawSlider();
 }
 function handleAmountBlur() {
     isEditingAmount = false;
-    if (amountInputValue === "" || value < MIN_VALUE) {
-        value = MIN_VALUE;
+    if (!value || value < 1) {
+        value = 1;
     }
     amountInputValue = formatWithCommas(Math.round(value));
 }
@@ -335,6 +339,7 @@ export function getSerializedContent() {
           inputmode="numeric"
           class="amount-input"
           bind:value={amountInputValue}
+          onfocus={handleAmountFocus}
           oninput={handleAmountInput}
           onblur={handleAmountBlur}
           onkeydown={handleAmountKeydown}
