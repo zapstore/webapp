@@ -1,7 +1,4 @@
 <script lang="js">
-/**
- * Profile page - header (pic, name, npub, Add button) + Published Apps & Stacks
- */
 import { onMount } from 'svelte';
 import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 import { browser } from '$app/environment';
@@ -15,12 +12,14 @@ import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
-import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
-import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
+import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
 import Modal from '$lib/components/common/Modal.svelte';
+import ProfileActivityTab from '$lib/components/profile/ProfileActivityTab.svelte';
+import ProfileDetailsTab from '$lib/components/profile/ProfileDetailsTab.svelte';
 import { hexToColor } from '$lib/utils/color.js';
-import { Plus, Copy, Check } from '$lib/components/icons';
+import { Copy, Check } from '$lib/components/icons';
+
 let { data } = $props();
 const npub = $derived(data.npub ?? '');
 const pubkey = $derived(data.pubkey);
@@ -30,25 +29,13 @@ let apps = $state([]);
 let appsLoading = $state(true);
 let stacks = $state([]);
 let stacksLoading = $state(true);
-let addButtonLabel = $state('Add');
-let addButtonDisabled = $state(false);
 let descriptionModalOpen = $state(false);
 let colorCopied = $state(false);
-/** Resolved display names for npubs mentioned in profile about (nostr:npub1...) */
+let activeTab = $state('apps');
 let mentionProfiles = $state({});
-/** Stacks with resolved app details (icons, names) for display */
 let resolvedStacks = $state([]);
 
-function formatNpubDisplay(npubStr) {
-	if (!npubStr) return '';
-	if (npubStr.length < 14) return npubStr;
-	const afterPrefix = npubStr.startsWith('npub1') ? npubStr.slice(5, 8) : npubStr.slice(0, 3);
-	return `npub1${afterPrefix}......${npubStr.slice(-6)}`;
-}
-const displayNpub = $derived(formatNpubDisplay(npub));
-
-const profileName = $derived(profile?.displayName || profile?.name || displayNpub || 'Anonymous');
-/** Real name only (for ProfilePic: show icon until we have a name) */
+const profileName = $derived(profile?.displayName || profile?.name || (npub ? `${npub.slice(0, 12)}...` : 'Anonymous'));
 const profileNameForPic = $derived(profile?.displayName || profile?.name || null);
 const profilePictureUrl = $derived(profile?.picture ?? '');
 const _isConnected = $derived(getCurrentPubkey() !== null);
@@ -58,210 +45,156 @@ const profileColorHex = $derived(
 );
 
 async function loadProfile(pk) {
-    profileLoading = true;
-    try {
-        const event = await fetchProfile(pk);
-        if (event?.content) {
-            const c = JSON.parse(event.content);
-            profile = {
-                name: c.name,
-                displayName: c.display_name || c.name,
-                picture: c.picture,
-                about: c.about
-            };
-        }
-        else {
-            profile = {};
-        }
-    }
-    catch {
-        profile = {};
-    }
-    finally {
-        profileLoading = false;
-    }
+	profileLoading = true;
+	try {
+		const event = await fetchProfile(pk);
+		if (event?.content) {
+			const c = JSON.parse(event.content);
+			profile = { name: c.name, displayName: c.display_name || c.name, picture: c.picture, about: c.about };
+		} else {
+			profile = {};
+		}
+	} catch {
+		profile = {};
+	} finally {
+		profileLoading = false;
+	}
 }
-/** Load profiles for pubkeys mentioned in about (nostr:npub...) for resolveMentionLabel */
+
 async function loadMentionProfiles(about) {
-    const segments = parseShortText({ text: about, emojiTags: [] });
-    const pubkeys = [
-        ...new Set(segments
-            .filter((s) => s.type === 'mention')
-            .map((s) => s.pubkey))
-    ];
-    if (pubkeys.length === 0)
-        return;
-    // Fetch all mention profiles in parallel (not sequential)
-    const results = await Promise.all(pubkeys.map(async (pk) => {
-        try {
-            const event = await fetchProfile(pk);
-            if (event?.content) {
-                const c = JSON.parse(event.content);
-                const name = c.display_name || c.name;
-                if (name)
-                    return [pk, name];
-            }
-        }
-        catch {
-            // ignore
-        }
-        return null;
-    }));
-    const next = {};
-    for (const result of results) {
-        if (result)
-            next[result[0]] = result[1];
-    }
-    if (Object.keys(next).length > 0) {
-        mentionProfiles = { ...mentionProfiles, ...next };
-    }
+	const segments = parseShortText({ text: about, emojiTags: [] });
+	const pubkeys = [...new Set(segments.filter((s) => s.type === 'mention').map((s) => s.pubkey))];
+	if (pubkeys.length === 0) return;
+	const results = await Promise.all(pubkeys.map(async (pk) => {
+		try {
+			const event = await fetchProfile(pk);
+			if (event?.content) {
+				const c = JSON.parse(event.content);
+				const name = c.display_name || c.name;
+				if (name) return [pk, name];
+			}
+		} catch { /* ignore */ }
+		return null;
+	}));
+	const next = {};
+	for (const result of results) { if (result) next[result[0]] = result[1]; }
+	if (Object.keys(next).length > 0) mentionProfiles = { ...mentionProfiles, ...next };
 }
-function handleAddClick() {
-    // Placeholder: add/remove from kind 3 and kind 30000 (simplified for first draft)
-    addButtonDisabled = true;
-    addButtonLabel = 'Added';
-    setTimeout(() => {
-        addButtonDisabled = false;
-    }, 800);
-}
+
 let npubCopied = $state(false);
 let npubOverlayOpen = $state(false);
+
 async function copyNpub() {
-    if (!npub)
-        return;
-    try {
-        await navigator.clipboard.writeText(npub);
-        npubCopied = true;
-        setTimeout(() => (npubCopied = false), 1500);
-    }
-    catch {
-        // ignore
-    }
+	if (!npub) return;
+	try {
+		await navigator.clipboard.writeText(npub);
+		npubCopied = true;
+		setTimeout(() => (npubCopied = false), 1500);
+	} catch { /* ignore */ }
 }
+
 async function copyProfileColor() {
-    if (!pubkey) return;
-    try {
-        await navigator.clipboard.writeText(profileColorHex);
-        colorCopied = true;
-        setTimeout(() => (colorCopied = false), 1500);
-    } catch {
-        // ignore
-    }
+	if (!pubkey) return;
+	try {
+		await navigator.clipboard.writeText(profileColorHex);
+		colorCopied = true;
+		setTimeout(() => (colorCopied = false), 1500);
+	} catch { /* ignore */ }
 }
+
 onMount(async () => {
-    if (!pubkey || !browser)
-        return;
-    profile = data.profile ?? null;
-    apps = data.apps ?? [];
-    stacks = data.stacks ?? [];
-    resolvedStacks = data.resolvedStacks ?? [];
-    if (!profile)
-        await loadProfile(pubkey);
-    // Client-side navigation / offline: resolve from Dexie, then relays if empty
-    if (apps.length === 0) {
-        appsLoading = true;
-        try {
-            let events = await queryEvents({ kinds: [32267], authors: [pubkey] });
-            if (events.length === 0) {
-                await fetchAppsByAuthorFromRelays([ZAPSTORE_RELAY], pubkey, { limit: 50 });
-                events = await queryEvents({ kinds: [32267], authors: [pubkey] });
-            }
-            const parsed = events.map(parseApp);
-            // Same filter as SSR: e.g. Zapstore profile only shows authored apps (dev.zapstore.*), not indexed
-            const prefix = data.appFilterPrefix ?? null;
-            apps = prefix ? parsed.filter((a) => a.dTag?.startsWith(prefix)) : parsed;
-        }
-        finally {
-            appsLoading = false;
-        }
-    }
-    if (stacks.length === 0) {
-        stacksLoading = true;
-        try {
-            const stackEvents = await queryEvents({ kinds: [30267], authors: [pubkey] });
-            const parsedStacks = stackEvents
-                .map(parseAppStack)
-                .filter((s) => s.dTag !== SAVED_APPS_STACK_D_TAG);
-            stacks = parsedStacks;
-            // Resolve apps for each stack from Dexie (batch query)
-            const allIds = new SvelteSet();
-            for (const s of parsedStacks) {
-                for (const ref of s.appRefs || []) {
-                    if (ref.kind === 32267)
-                        allIds.add(ref.identifier);
-                }
-            }
-            if (allIds.size > 0) {
-                const appEvents = await queryEvents({ kinds: [32267], '#d': [...allIds] });
-                const byPubkeyAndD = new SvelteMap();
-                for (const e of appEvents) {
-                    const a = parseApp(e);
-                    if (a.pubkey && a.dTag) byPubkeyAndD.set(`${a.pubkey}:${a.dTag}`, a);
-                }
-                const missingRefs = [];
-                for (const st of parsedStacks) {
-                    for (const r of st.appRefs || []) {
-                        if (r.kind === 32267 && r.pubkey && r.identifier && !byPubkeyAndD.get(`${r.pubkey}:${r.identifier}`))
-                            missingRefs.push(r);
-                    }
-                }
-                const seen = new SvelteSet();
-                for (const ref of missingRefs) {
-                    const key = `${ref.pubkey}:${ref.identifier}`;
-                    if (seen.has(key)) continue;
-                    seen.add(key);
-                    const ev = await fetchAppFromRelays([ZAPSTORE_RELAY], ref.pubkey, ref.identifier);
-                    if (ev) {
-                        const a = parseApp(ev);
-                        if (a.pubkey && a.dTag) byPubkeyAndD.set(`${a.pubkey}:${a.dTag}`, a);
-                    }
-                }
-                resolvedStacks = parsedStacks.map((s) => ({
-                    stack: s,
-                    apps: (s.appRefs || [])
-                        .filter((r) => r.kind === 32267)
-                        .map((r) => byPubkeyAndD.get(`${r.pubkey}:${r.identifier}`))
-                        .filter(Boolean)
-                }));
-            }
-            else {
-                resolvedStacks = parsedStacks.map((s) => ({ stack: s, apps: [] }));
-            }
-        }
-        finally {
-            stacksLoading = false;
-        }
-    }
+	if (!pubkey || !browser) return;
+	profile = data.profile ?? null;
+	apps = data.apps ?? [];
+	stacks = data.stacks ?? [];
+	resolvedStacks = data.resolvedStacks ?? [];
+	if (!profile) await loadProfile(pubkey);
+	if (apps.length === 0) {
+		appsLoading = true;
+		try {
+			let events = await queryEvents({ kinds: [32267], authors: [pubkey] });
+			if (events.length === 0) {
+				await fetchAppsByAuthorFromRelays([ZAPSTORE_RELAY], pubkey, { limit: 50 });
+				events = await queryEvents({ kinds: [32267], authors: [pubkey] });
+			}
+			const parsed = events.map(parseApp);
+			const prefix = data.appFilterPrefix ?? null;
+			apps = prefix ? parsed.filter((a) => a.dTag?.startsWith(prefix)) : parsed;
+		} finally {
+			appsLoading = false;
+		}
+	}
+	if (stacks.length === 0) {
+		stacksLoading = true;
+		try {
+			const stackEvents = await queryEvents({ kinds: [30267], authors: [pubkey] });
+			const parsedStacks = stackEvents.map(parseAppStack).filter((s) => s.dTag !== SAVED_APPS_STACK_D_TAG);
+			stacks = parsedStacks;
+			const allIds = new SvelteSet();
+			for (const s of parsedStacks) {
+				for (const ref of s.appRefs || []) {
+					if (ref.kind === 32267) allIds.add(ref.identifier);
+				}
+			}
+			if (allIds.size > 0) {
+				const appEvents = await queryEvents({ kinds: [32267], '#d': [...allIds] });
+				const byPubkeyAndD = new SvelteMap();
+				for (const e of appEvents) {
+					const a = parseApp(e);
+					if (a.pubkey && a.dTag) byPubkeyAndD.set(`${a.pubkey}:${a.dTag}`, a);
+				}
+				const missingRefs = [];
+				for (const st of parsedStacks) {
+					for (const r of st.appRefs || []) {
+						if (r.kind === 32267 && r.pubkey && r.identifier && !byPubkeyAndD.get(`${r.pubkey}:${r.identifier}`))
+							missingRefs.push(r);
+					}
+				}
+				const seen = new SvelteSet();
+				for (const ref of missingRefs) {
+					const key = `${ref.pubkey}:${ref.identifier}`;
+					if (seen.has(key)) continue;
+					seen.add(key);
+					const ev = await fetchAppFromRelays([ZAPSTORE_RELAY], ref.pubkey, ref.identifier);
+					if (ev) {
+						const a = parseApp(ev);
+						if (a.pubkey && a.dTag) byPubkeyAndD.set(`${a.pubkey}:${a.dTag}`, a);
+					}
+				}
+				resolvedStacks = parsedStacks.map((s) => ({
+					stack: s,
+					apps: (s.appRefs || []).filter((r) => r.kind === 32267).map((r) => byPubkeyAndD.get(`${r.pubkey}:${r.identifier}`)).filter(Boolean)
+				}));
+			} else {
+				resolvedStacks = parsedStacks.map((s) => ({ stack: s, apps: [] }));
+			}
+		} finally {
+			stacksLoading = false;
+		}
+	}
 });
+
 $effect(() => {
-    const about = profile?.about?.trim();
-    if (about && browser)
-        loadMentionProfiles(about);
+	const about = profile?.about?.trim();
+	if (about && browser) loadMentionProfiles(about);
 });
-// Stack card shape for AppStackCard: name, description, apps[] (with icon), creator
+
 function stackToCard(s, resolvedApps) {
-    const creatorNpub = pubkey ? nip19.npubEncode(pubkey) : '';
-    const appRefs = s.appRefs || [];
-    const apps = resolvedApps && resolvedApps.length > 0
-        ? resolvedApps.map((a) => ({ name: a.name || a.dTag || '', icon: a.icon, dTag: a.dTag }))
-        : appRefs.map((ref) => ({ name: ref.identifier, dTag: ref.identifier }));
-    return {
-        name: s.title || s.dTag || 'Untitled',
-        description: s.description || '',
-        apps,
-        creator: pubkey
-            ? {
-                name: profileName,
-                picture: profilePictureUrl,
-                pubkey,
-                npub: creatorNpub
-            }
-            : undefined
-    };
+	const creatorNpub = pubkey ? nip19.npubEncode(pubkey) : '';
+	const appRefs = s.appRefs || [];
+	const appsList = resolvedApps && resolvedApps.length > 0
+		? resolvedApps.map((a) => ({ name: a.name || a.dTag || '', icon: a.icon, dTag: a.dTag }))
+		: appRefs.map((ref) => ({ name: ref.identifier, dTag: ref.identifier }));
+	return {
+		name: s.title || s.dTag || 'Untitled',
+		description: s.description || '',
+		apps: appsList,
+		creator: pubkey ? { name: profileName, picture: profilePictureUrl, pubkey, npub: creatorNpub } : undefined
+	};
 }
 </script>
 
-<SeoHead 
+<SeoHead
 	title="{profileName} — Profile — Zapstore"
 	description={profile?.about || `${profileName}'s profile on Zapstore`}
 	image={profilePictureUrl || null}
@@ -272,99 +205,58 @@ function stackToCard(s, resolvedApps) {
 
 {#if !pubkey}
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
-		<div
-			class="rounded-lg bg-destructive/10 border border-destructive/20 p-6 max-w-md mx-auto text-center"
-		>
+		<div class="rounded-lg bg-destructive/10 border border-destructive/20 p-6 max-w-md mx-auto text-center">
 			<h3 class="semibold18 text-destructive mb-2">Invalid profile</h3>
 			<p class="text-muted-foreground">The profile address (npub) is not valid.</p>
 		</div>
 	</div>
 {:else}
-	<!-- Profile hero: full-width, blurred pic bg at 16% on gray44, border bottom -->
-	<section class="profile-hero border-t border-b border-border/50">
-		<div class="profile-hero-bg" aria-hidden="true">
+	<div class="page-wrap container mx-auto px-4 sm:px-6 lg:px-8">
+
+		<!-- ── Profile panel ─────────────────────────────────────────── -->
+		<div class="bento-panel profile-panel">
 			{#if profilePictureUrl}
-				<div
-					class="profile-hero-bg-image"
-					style="background-image: url('{profilePictureUrl}');"
-				></div>
+				<div class="profile-bg" aria-hidden="true">
+					<div class="profile-bg-img" style="background-image: url('{profilePictureUrl}');"></div>
+				</div>
 			{/if}
-			<!-- Left and right shaders (fade blur into bg, like apps/stacks sections) -->
-			<div class="profile-hero-shader profile-hero-shader-left"></div>
-			<div class="profile-hero-shader profile-hero-shader-right"></div>
-		</div>
-		<div
-			class="profile-hero-content container mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6 md:pt-10 md:pb-8"
-		>
-			<div class="profile-header flex items-center gap-6 sm:gap-8">
-				<div class="profile-pic-column flex flex-col items-center flex-shrink-0">
-					<div class="profile-pic-wrap">
-						<ProfilePic
-							pictureUrl={profilePictureUrl || undefined}
-							{pubkey}
-							name={profileNameForPic}
-							size="3xl"
-							loading={profileLoading}
-						/>
-					</div>
-					{#if false}
-						<button
-							type="button"
-							class="add-btn install-btn-mobile btn-primary-small flex items-center justify-center gap-2 w-full"
-							onclick={handleAddClick}
-							disabled={addButtonDisabled}
-							aria-label={addButtonLabel}
-						>
-							<Plus variant="outline" color="white" size={16} strokeWidth={2.5} />
-							<span>{addButtonLabel}</span>
-						</button>
-					{/if}
+
+			<div class="profile-inner">
+				<div class="profile-pic-wrap">
+					<ProfilePic
+						pictureUrl={profilePictureUrl || undefined}
+						{pubkey}
+						name={profileNameForPic}
+						size="3xl"
+						loading={profileLoading}
+					/>
 				</div>
 
-				<div class="profile-info flex-1 min-w-0">
-					<div class="profile-name-row flex items-center justify-between gap-3 mb-3">
-						<h1
-							class="profile-name text-[1.625rem] sm:text-4xl font-black"
-							style="color: var(--white);"
-						>
-							{profileName}
-						</h1>
-					{#if false}
+				<div class="profile-info">
+					<h1 class="profile-name">{profileName}</h1>
+
+					{#if profile?.about?.trim()}
 						<button
 							type="button"
-							class="add-btn install-btn-desktop btn-primary flex items-center gap-2 flex-shrink-0"
-							onclick={handleAddClick}
-							disabled={addButtonDisabled}
-								aria-label={addButtonLabel}
-							>
-								<Plus variant="outline" color="white" size={18} strokeWidth={2.5} />
-								<span>{addButtonLabel}</span>
-							</button>
-						{/if}
-					</div>
-					<div class="profile-description-wrap">
-						{#if profile?.about?.trim()}
-							<button
-								type="button"
-								class="profile-description regular16 text-left"
-								style="color: var(--white66); cursor: pointer; background: none; border: none; padding: 0; width: 100%;"
-								onclick={() => (descriptionModalOpen = true)}
-								aria-label="View full description"
-							>
-								<div class="profile-description-truncated">
-									<ShortTextRenderer
-										content={profile.about}
-										resolveMentionLabel={(pk) => mentionProfiles[pk]}
-									/>
-								</div>
-							</button>
-						{:else}
-							<p class="profile-description-empty">No description</p>
-						{/if}
-					</div>
-					<div class="profile-npub-row profile-npub-row-fixed">
+							class="profile-about-btn"
+							onclick={() => (descriptionModalOpen = true)}
+							aria-label="View full description"
+						>
+							<div class="profile-about-clamp">
+								<ShortTextRenderer
+									content={profile.about}
+									resolveMentionLabel={(pk) => mentionProfiles[pk]}
+								/>
+							</div>
+						</button>
+					{:else if !profileLoading}
+						<p class="profile-about-empty">No description</p>
+					{/if}
+
+					<!-- npub row -->
+					<div class="npub-row">
 						<div
-							class="profile-npub-hover-wrap"
+							class="npub-hover-wrap"
 							role="group"
 							aria-label="Public identifier and profile color"
 							onmouseenter={() => (npubOverlayOpen = true)}
@@ -375,25 +267,21 @@ function stackToCard(s, resolvedApps) {
 								style="background-color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});"
 							></span>
 							<span class="npub-text">{npub ? `${npub.slice(0, 12)}...${npub.slice(-6)}` : ''}</span>
+
 							<div
-								class="profile-npub-overlay"
+								class="npub-overlay"
 								class:open={npubOverlayOpen}
 								role="group"
 								aria-label="Npub and color details"
 								onmouseenter={() => (npubOverlayOpen = true)}
 								onmouseleave={() => (npubOverlayOpen = false)}
 							>
-								<p class="profile-npub-overlay-desc">
-									This is a Public Identifier (npub) on the Nostr protocol. We derive a profile color from it for extra recognisability in the app interfaces.
+								<p class="overlay-desc">
+									A Public Identifier (npub) on the Nostr protocol. The profile color is derived from it for extra recognisability.
 								</p>
-								<div class="profile-npub-overlay-row">
-									<span class="profile-npub-overlay-value npub-monospace" title={npub}>{npub || ''}</span>
-									<button
-										type="button"
-										class="profile-npub-overlay-copy"
-										onclick={(e) => { e.stopPropagation(); copyNpub(); }}
-										aria-label="Copy npub"
-									>
+								<div class="overlay-row">
+									<span class="overlay-val npub-mono" title={npub}>{npub}</span>
+									<button type="button" class="overlay-copy" onclick={(e) => { e.stopPropagation(); copyNpub(); }} aria-label="Copy npub">
 										{#if npubCopied}
 											<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
 										{:else}
@@ -401,20 +289,9 @@ function stackToCard(s, resolvedApps) {
 										{/if}
 									</button>
 								</div>
-								<div class="profile-npub-overlay-row">
-									<span
-										class="profile-npub-overlay-value profile-color-hex-inline"
-										style="color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});"
-										title={profileColorHex}
-									>
-										{profileColorHex}
-									</span>
-									<button
-										type="button"
-										class="profile-npub-overlay-copy"
-										onclick={(e) => { e.stopPropagation(); copyProfileColor(); }}
-										aria-label="Copy color"
-									>
+								<div class="overlay-row">
+									<span class="overlay-val color-hex" style="color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});">{profileColorHex}</span>
+									<button type="button" class="overlay-copy" onclick={(e) => { e.stopPropagation(); copyProfileColor(); }} aria-label="Copy color">
 										{#if colorCopied}
 											<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
 										{:else}
@@ -424,21 +301,10 @@ function stackToCard(s, resolvedApps) {
 								</div>
 							</div>
 						</div>
-						<button
-							type="button"
-							class="profile-npub-copy"
-							onclick={copyNpub}
-							aria-label="Copy npub"
-						>
+
+						<button type="button" class="npub-copy-btn" onclick={copyNpub} aria-label="Copy npub">
 							{#if npubCopied}
-								<span class="profile-npub-copy-check">
-									<Check
-										variant="outline"
-										size={14}
-										strokeWidth={2.8}
-										color="var(--blurpleLightColor)"
-									/>
-								</span>
+								<span class="check-pop"><Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" /></span>
 							{:else}
 								<Copy variant="outline" size={16} color="var(--white66)" />
 							{/if}
@@ -447,116 +313,108 @@ function stackToCard(s, resolvedApps) {
 				</div>
 			</div>
 		</div>
-	</section>
 
-	<div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-8 md:pt-10 pb-8">
-		<!-- Published Apps (one row, horizontal scroll like discover) -->
-		{#if appsLoading || apps.length > 0}
-		<section class="profile-section">
-			<SectionHeader title="Apps" />
-			{#if appsLoading}
-				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
-					<div class="scroll-content">
-						{#each Array(5) as _, i (i)}
-							<div class="profile-app-item">
-								<div class="skeleton-card">
-									<div class="skeleton-icon">
-										<SkeletonLoader />
-									</div>
-									<div class="skeleton-info">
-										<div class="skeleton-name">
-											<SkeletonLoader />
-										</div>
-										<div class="skeleton-desc-lines">
-											<div class="skeleton-desc skeleton-desc-1"></div>
-											<div class="skeleton-desc skeleton-desc-2 desktop-only"></div>
-										</div>
-									</div>
+		<!-- ── Tab row ───────────────────────────────────────────────── -->
+		<div class="tab-bar" use:wheelScroll>
+			<button
+				type="button"
+				class={activeTab === 'apps' ? 'btn-primary-small' : 'btn-secondary-small'}
+				onclick={() => (activeTab = 'apps')}
+			>Apps</button>
+			<button
+				type="button"
+				class={activeTab === 'activity' ? 'btn-primary-small' : 'btn-secondary-small'}
+				onclick={() => (activeTab = 'activity')}
+			>Activity</button>
+			<button
+				type="button"
+				class={activeTab === 'details' ? 'btn-primary-small' : 'btn-secondary-small'}
+				onclick={() => (activeTab = 'details')}
+			>Details</button>
+		</div>
+
+		<!-- ── Tab: Apps ─────────────────────────────────────────────── -->
+		{#if activeTab === 'apps'}
+			<div class="apps-stack">
+
+				<!-- Published -->
+				<div class="bento-panel content-panel">
+					<h2 class="panel-title">Published</h2>
+					{#if appsLoading}
+						<div class="panel-item">
+							<div class="sk-row">
+								<div class="sk-icon"><SkeletonLoader /></div>
+								<div class="sk-info">
+									<div class="sk-name"><SkeletonLoader /></div>
+									<div class="sk-desc"><SkeletonLoader /></div>
 								</div>
 							</div>
-						{/each}
-					</div>
-				</div>
-			{:else}
-				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
-					<div class="scroll-content">
-					{#each apps as app (app.id)}
-						<div class="profile-app-item">
+						</div>
+					{:else if apps.length === 0}
+						<p class="panel-empty">No apps published</p>
+					{:else}
+						{#each apps as app, i (app.id)}
+							{#if i > 0}<div class="item-divider"></div>{/if}
+							<div class="panel-item">
 								<AppSmallCard
-									app={{
-										name: app.name,
-										icon: app.icon,
-										description: app.description,
-										dTag: app.dTag
-									}}
+									app={{ name: app.name, icon: app.icon, description: app.description, dTag: app.dTag }}
 									href="/apps/{app.dTag}"
 								/>
 							</div>
 						{/each}
-					</div>
+					{/if}
 				</div>
-			{/if}
-		</section>
-		{/if}
 
-		<!-- Published Stacks (one row, horizontal scroll like discover) -->
-		{#if stacksLoading || resolvedStacks.length > 0}
-		<section class="profile-section">
-			<SectionHeader title="Stacks" />
-			{#if stacksLoading}
-				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
-					<div class="scroll-content">
-						{#each Array(4) as _, i (i)}
-							<div class="profile-stack-item">
-								<div class="skeleton-stack">
-									<div class="skeleton-stack-grid">
-										<SkeletonLoader />
-									</div>
-									<div class="skeleton-stack-info">
-										<div class="skeleton-stack-text">
-											<div class="skeleton-stack-name"><SkeletonLoader /></div>
-											<div class="skeleton-stack-desc-lines">
-												<div class="skeleton-stack-desc skeleton-stack-desc-1"></div>
-												<div class="skeleton-stack-desc skeleton-stack-desc-2"></div>
-											</div>
-										</div>
-										<div class="skeleton-stack-creator">
-											<div class="skeleton-stack-avatar">
-												<SkeletonLoader />
-											</div>
-											<div class="skeleton-stack-creator-name"></div>
-										</div>
+				<!-- Stacks -->
+				<div class="bento-panel content-panel">
+					<h2 class="panel-title">Stacks</h2>
+					{#if stacksLoading}
+						{#each Array(3) as _, i (i)}
+							{#if i > 0}<div class="item-divider"></div>{/if}
+							<div class="panel-item">
+								<div class="sk-row">
+									<div class="sk-stack-grid"><SkeletonLoader /></div>
+									<div class="sk-info">
+										<div class="sk-name"><SkeletonLoader /></div>
+										<div class="sk-desc"><SkeletonLoader /></div>
 									</div>
 								</div>
 							</div>
 						{/each}
-					</div>
-				</div>
-			{:else}
-				<div class="horizontal-scroll profile-scroll" use:wheelScroll>
-					<div class="scroll-content">
-						{#each resolvedStacks as { stack, apps: resolvedApps } (stack.id)}
-							{@const href = '/stacks/' + encodeStackNaddr(stack.pubkey, stack.dTag)}
-							<div class="profile-stack-item">
-								<AppStackCard stack={stackToCard(stack, resolvedApps)} {href} />
+					{:else if resolvedStacks.length === 0}
+						<p class="panel-empty">No stacks created</p>
+					{:else}
+						{#each resolvedStacks as { stack, apps: resolvedApps }, i (`${stack.id}-${i}`)}
+							{#if i > 0}<div class="item-divider"></div>{/if}
+							<div class="panel-item">
+								<AppStackCard
+									stack={stackToCard(stack, resolvedApps)}
+									href="/stacks/{encodeStackNaddr(stack.pubkey, stack.dTag)}"
+								/>
 							</div>
 						{/each}
-					</div>
+					{/if}
 				</div>
-			{/if}
-		</section>
+
+			</div>
+
+		<!-- ── Tab: Activity ─────────────────────────────────────────── -->
+		{:else if activeTab === 'activity'}
+			<ProfileActivityTab {pubkey} profileName={profileName} profilePicture={profilePictureUrl} />
+
+		<!-- ── Tab: Details ──────────────────────────────────────────── -->
+		{:else if activeTab === 'details'}
+			<ProfileDetailsTab {npub} {pubkey} />
 		{/if}
+
 	</div>
 
 	{#if profile?.about?.trim()}
 		<Modal bind:open={descriptionModalOpen} ariaLabel="Profile Description" maxHeight={90}>
-			<div class="description-modal-content">
+			<div class="desc-modal">
 				<h2 class="modal-heading mb-4">About</h2>
-				<div class="description-modal-text" style="color: var(--white66);">
-					<ShortTextRenderer
-						content={profile.about}
-						resolveMentionLabel={(pk) => mentionProfiles[pk]}
-					/>
+				<div class="desc-modal-text">
+					<ShortTextRenderer content={profile.about} resolveMentionLabel={(pk) => mentionProfiles[pk]} />
 				</div>
 			</div>
 		</Modal>
@@ -564,154 +422,116 @@ function stackToCard(s, resolvedApps) {
 {/if}
 
 <style>
-	.profile-hero {
-		position: relative;
-		width: 100%;
-		background-color: var(--gray44);
+	/* ── Page wrapper ─────────────────────────────────────────────────────── */
+	.page-wrap {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		padding-top: 12px;
+		padding-bottom: 48px;
+	}
+
+	/* ── Bento panel base ─────────────────────────────────────────────────── */
+	.bento-panel {
+		background: var(--gray33);
+		border-radius: 20px;
 		overflow: hidden;
 	}
 
-	.profile-hero-bg {
+	/* ── Profile panel ─────────────────────────────────────────────────────── */
+	.profile-panel {
+		position: relative;
+	}
+
+	.profile-bg {
 		position: absolute;
 		inset: 0;
 		z-index: 0;
+		pointer-events: none;
 	}
 
-	.profile-hero-bg-image {
+	.profile-bg-img {
 		position: absolute;
 		inset: -20%;
 		background-size: cover;
 		background-position: center;
 		filter: blur(40px);
-		opacity: 0.16;
+		opacity: 0.18;
 	}
 
-	.profile-hero-shader {
-		display: none; /* only show on desktop */
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		width: 20%;
-		max-width: 160px;
-		pointer-events: none;
-	}
-
-	.profile-hero-shader-left {
-		left: 0;
-		background: linear-gradient(to right, var(--black) 0%, transparent 100%);
-	}
-
-	.profile-hero-shader-right {
-		right: 0;
-		background: linear-gradient(to left, var(--black) 0%, transparent 100%);
-	}
-
-	/* Desktop only: show shaders and extend to container gutter + padding */
-	@media (min-width: 1024px) {
-		.profile-hero-shader {
-			display: block;
-			width: max(2rem, calc((100vw - 1100px) / 2 + 2rem));
-			max-width: none;
-		}
-	}
-
-	.profile-hero-content {
+	.profile-inner {
 		position: relative;
 		z-index: 1;
-	}
-
-	.profile-header {
+		display: flex;
 		align-items: flex-start;
-	}
-
-	.profile-pic-column {
-		gap: 12px;
-	}
-
-	/* Mobile: scale down profile section and show Add under pic */
-	@media (max-width: 767px) {
-		.profile-hero-content {
-			font-size: 0.94em;
-		}
-		.profile-pic-wrap {
-			transform: scale(0.75);
-			transform-origin: top center;
-		}
-		.profile-name {
-			font-size: 1.5rem !important;
-		}
+		gap: 20px;
+		padding: 24px 20px;
 	}
 
 	@media (min-width: 768px) {
-		.profile-header {
+		.profile-inner {
 			align-items: center;
-		}
-		.profile-pic-column .install-btn-mobile {
-			display: none !important;
+			gap: 28px;
+			padding: 32px 28px;
 		}
 	}
 
+	.profile-pic-wrap { flex-shrink: 0; }
+
+	@media (max-width: 767px) {
+		.profile-pic-wrap { transform: scale(0.8); transform-origin: top left; }
+	}
+
+	.profile-info { flex: 1; min-width: 0; }
+
 	.profile-name {
+		font-size: 1.5rem;
+		font-weight: 900;
+		color: var(--white);
+		line-height: 1.15;
+		margin: 0 0 8px;
 		word-break: break-word;
 	}
 
-	.profile-npub-row {
-		margin-top: 4px;
-		display: flex;
-		align-items: center;
-		gap: 6px;
+	@media (min-width: 640px)  { .profile-name { font-size: 1.75rem; } }
+	@media (min-width: 768px)  { .profile-name { font-size: 2.25rem; } }
+
+	.profile-about-btn {
+		display: block;
+		width: 100%;
+		background: none;
+		border: none;
+		padding: 0;
+		text-align: left;
+		cursor: pointer;
+		color: var(--white66);
+		font-size: 1rem;
+		line-height: 1.4;
+		margin-bottom: 8px;
 	}
 
-	.profile-npub-row-fixed {
-		min-height: 28px;
-	}
-
-	.profile-description-wrap {
-		height: 2.75em;
-		display: flex;
-		align-items: flex-start;
-		margin-bottom: 0;
-	}
-
-	.profile-description-wrap .profile-description,
-	.profile-description-wrap .profile-description-empty {
-		flex: 1;
-		min-height: 0;
-	}
-
-	.profile-description-truncated {
+	.profile-about-clamp {
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
 		line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
-		text-overflow: ellipsis;
-		line-height: 1.375;
 	}
 
-	.profile-description-empty {
-		margin: 0;
+	.profile-about-empty {
+		margin: 0 0 8px;
 		font-size: 1rem;
-		line-height: 1.375;
 		color: var(--white33);
 	}
 
-	.description-modal-content {
-		padding: 16px;
+	/* npub row */
+	.npub-row {
+		display: flex;
+		align-items: center;
+		gap: 6px;
 	}
 
-	.description-modal-text {
-		font-size: 1rem;
-		line-height: 1.5;
-	}
-
-	@media (min-width: 768px) {
-		.description-modal-content {
-			padding: 24px;
-		}
-	}
-
-	.profile-npub-hover-wrap {
+	.npub-hover-wrap {
 		position: relative;
 		display: inline-flex;
 		align-items: center;
@@ -727,11 +547,12 @@ function stackToCard(s, resolvedApps) {
 		flex-shrink: 0;
 	}
 
-	.profile-npub-overlay {
+	.npub-text { font-size: 0.875rem; color: var(--white66); white-space: nowrap; }
+
+	.npub-overlay {
 		display: none;
 		position: absolute;
-		bottom: 100%;
-		margin-bottom: 2px;
+		bottom: calc(100% + 6px);
 		left: 0;
 		min-width: 280px;
 		max-width: min(360px, 90vw);
@@ -744,18 +565,11 @@ function stackToCard(s, resolvedApps) {
 		pointer-events: auto;
 	}
 
-	.profile-npub-overlay.open {
-		display: block;
-	}
+	.npub-overlay.open { display: block; }
 
-	.profile-npub-overlay-desc {
-		margin: 0 0 10px 0;
-		font-size: 0.8125rem;
-		line-height: 1.45;
-		color: var(--white66);
-	}
+	.overlay-desc { margin: 0 0 10px; font-size: 0.8125rem; line-height: 1.45; color: var(--white66); }
 
-	.profile-npub-overlay-row {
+	.overlay-row {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -765,11 +579,9 @@ function stackToCard(s, resolvedApps) {
 		border-bottom: 1px solid var(--white11);
 	}
 
-	.profile-npub-overlay-row:last-child {
-		border-bottom: none;
-	}
+	.overlay-row:last-child { border-bottom: none; }
 
-	.profile-npub-overlay-value {
+	.overlay-val {
 		font-size: 0.8125rem;
 		color: var(--white66);
 		overflow: hidden;
@@ -778,392 +590,134 @@ function stackToCard(s, resolvedApps) {
 		min-width: 0;
 	}
 
-	.npub-monospace {
-		font-family: ui-monospace, monospace;
-	}
+	.npub-mono { font-family: ui-monospace, monospace; }
+	.color-hex { font-weight: 600; }
 
-	.profile-color-hex-inline {
-		font-weight: 600;
-	}
-
-	.profile-npub-overlay-copy {
+	.overlay-copy {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		padding: 4px;
-		margin: 0;
 		border: none;
 		background: none;
 		cursor: pointer;
-		color: var(--white66);
-		transition: color 0.15s ease;
 		flex-shrink: 0;
 	}
 
-	.profile-npub-overlay-copy:hover {
-		color: var(--white);
-	}
-
-	.npub-text {
-		font-size: 0.875rem;
-		color: var(--white66);
-		white-space: nowrap;
-	}
-
-	.profile-npub-copy {
+	.npub-copy-btn {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		padding: 4px;
-		margin: 0;
 		border: none;
 		background: none;
 		cursor: pointer;
-		color: var(--white66);
-		transition: color 0.15s ease;
+		transition: opacity 0.15s;
 	}
 
-	.profile-npub-copy:hover {
-		color: var(--white);
-	}
+	.npub-copy-btn:hover { opacity: 0.7; }
 
-	.profile-npub-copy .profile-npub-copy-check {
-		display: flex;
-		animation: popIn 0.3s ease-out;
-	}
+	.check-pop { display: flex; animation: popIn 0.3s ease-out; }
 
 	@keyframes popIn {
-		0% {
-			transform: scale(0);
-		}
-		50% {
-			transform: scale(1.2);
-		}
-		100% {
-			transform: scale(1);
-		}
+		0%   { transform: scale(0); }
+		50%  { transform: scale(1.2); }
+		100% { transform: scale(1); }
 	}
 
-	.add-btn:disabled {
-		opacity: 0.7;
-		cursor: default;
-	}
-
-	.add-btn.install-btn-mobile {
-		display: inline-flex;
-	}
-
-	.add-btn.install-btn-desktop {
-		display: none;
-	}
-
-	@media (min-width: 768px) {
-		.add-btn.install-btn-desktop {
-			display: inline-flex;
-		}
-	}
-
-	.profile-section {
-		margin-bottom: 24px;
-	}
-
-	/* App skeleton (match discover) */
-	.skeleton-card {
+	/* ── Tab bar ──────────────────────────────────────────────────────────── */
+	.tab-bar {
 		display: flex;
-		align-items: flex-start;
-		gap: 16px;
-		padding: 4px 0;
+		gap: 8px;
+		overflow-x: auto;
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+		padding: 2px 0;
 	}
 
-	.skeleton-icon {
-		width: 56px;
-		height: 56px;
-		border-radius: 16px;
-		overflow: hidden;
-		flex-shrink: 0;
-	}
+	.tab-bar::-webkit-scrollbar { display: none; }
 
-	@media (min-width: 768px) {
-		.skeleton-card {
-			gap: 20px;
-		}
-		.skeleton-icon {
-			width: 72px;
-			height: 72px;
-			border-radius: 24px;
-		}
-		.skeleton-name {
-			width: 140px;
-			height: 20px;
-		}
-		.skeleton-desc {
-			height: 12px;
-		}
-		.skeleton-desc-1 {
-			width: 220px;
-		}
-		.skeleton-desc-2 {
-			width: 160px;
-		}
-	}
-
-	.skeleton-info {
-		flex: 1;
+	/* ── Apps stack (always single column) ───────────────────────────────── */
+	.apps-stack {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
-		padding-top: 6px;
+		gap: 12px;
 	}
 
-	.skeleton-name {
-		width: 100px;
-		height: 18px;
-		border-radius: 12px;
-		overflow: hidden;
+	/* ── Content panel (Published / Stacks) ───────────────────────────────── */
+	.content-panel {
+		/* panels grow with their content */
 	}
 
-	.skeleton-desc-lines {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
+	.panel-title {
+		margin: 0;
+		/* 14px top (2px less than before), 0 bottom so the gap to the first card
+		   comes entirely from panel-item's 16px top padding → exactly 16px total */
+		padding: 14px 16px 0;
+		font-size: 1.25rem;
+		font-weight: 600;
+		color: var(--white);
 	}
 
-	.skeleton-desc {
-		height: 10px;
-		border-radius: 12px;
-		background: var(--gray33);
+	.panel-item {
+		padding: 16px;
 	}
 
-	.skeleton-desc-1 {
-		width: 180px;
+	/* Zero out AppStackCard's own 8px top/bottom padding so the panel-item's
+	   16px is the only spacing — prevents the "more padding" on the last card. */
+	.panel-item :global(.app-stack-card) {
+		padding-top: 0;
+		padding-bottom: 0;
 	}
 
-	.skeleton-desc-2 {
-		width: 120px;
+	.item-divider {
+		height: 1px;
+		background: var(--white11);
+		margin: 0 16px;
 	}
 
-	.skeleton-desc-2.desktop-only {
-		display: none;
-	}
-
-	@media (min-width: 768px) {
-		.skeleton-desc-2.desktop-only {
-			display: block;
-		}
-	}
-
-	/* Stack skeleton (match discover) */
-	.skeleton-stack {
-		display: flex;
-		align-items: stretch;
-		gap: 16px;
-		padding: 8px 0;
+	/* Empty state: same typography as EmptyState.svelte but no extra background */
+	.panel-empty {
+		margin: 0;
+		padding: 40px 16px;
+		font-size: 1.5rem;
+		font-weight: 600;
+		color: var(--white16);
+		text-align: center;
 		width: 100%;
 	}
 
-	.skeleton-stack-grid {
-		width: 86px;
-		height: 86px;
-		border-radius: 16px;
+	/* ── Skeletons ────────────────────────────────────────────────────────── */
+	.sk-row { display: flex; align-items: flex-start; gap: 16px; }
+
+	.sk-icon {
+		width: 56px;
+		height: 56px;
+		border-radius: 14px;
 		overflow: hidden;
 		flex-shrink: 0;
 	}
 
-	.skeleton-stack-info {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		justify-content: space-between;
-		padding: 4px 0;
-	}
-
-	.skeleton-stack-text {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
-	.skeleton-stack-name {
-		width: 100px;
-		height: 18px;
-		border-radius: 12px;
-		overflow: hidden;
-	}
-
-	.skeleton-stack-desc-lines {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-
-	.skeleton-stack-desc {
-		height: 10px;
-		border-radius: 12px;
-		background-color: var(--gray33);
-	}
-
-	.skeleton-stack-desc-1 {
-		width: 160px;
-	}
-
-	.skeleton-stack-desc-2 {
-		width: 100px;
-	}
-
-	.skeleton-stack-creator {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-
-	.skeleton-stack-avatar {
-		width: 20px;
-		height: 20px;
-		border-radius: 50%;
+	.sk-stack-grid {
+		width: 70px;
+		height: 70px;
+		border-radius: 14px;
 		overflow: hidden;
 		flex-shrink: 0;
 	}
 
-	.skeleton-stack-creator-name {
-		width: 60px;
-		height: 12px;
-		border-radius: 12px;
-		background-color: var(--gray33);
-	}
-
 	@media (min-width: 768px) {
-		.skeleton-stack {
-			gap: 20px;
-		}
-		.skeleton-stack-grid {
-			width: 104px;
-			height: 104px;
-			border-radius: 20px;
-		}
-		.skeleton-stack-name {
-			width: 130px;
-			height: 20px;
-		}
-		.skeleton-stack-desc {
-			height: 12px;
-		}
-		.skeleton-stack-desc-1 {
-			width: 200px;
-		}
-		.skeleton-stack-desc-2 {
-			width: 140px;
-		}
-		.skeleton-stack-avatar {
-			width: 24px;
-			height: 24px;
-		}
-		.skeleton-stack-creator-name {
-			width: 80px;
-			height: 14px;
-		}
+		.sk-icon { width: 72px; height: 72px; border-radius: 18px; }
+		.sk-stack-grid { width: 86px; height: 86px; border-radius: 18px; }
+		.sk-row { gap: 20px; }
 	}
 
-	.horizontal-scroll.profile-scroll {
-		margin-left: -1rem;
-		margin-right: -1rem;
-		padding-left: 1rem;
-		padding-right: 1rem;
-		overflow-x: auto;
-		overflow-y: hidden;
-		scrollbar-width: none;
-		-ms-overflow-style: none;
-		mask-image: linear-gradient(
-			to right,
-			transparent 0%,
-			black 1rem,
-			black calc(100% - 1rem),
-			transparent 100%
-		);
-		-webkit-mask-image: linear-gradient(
-			to right,
-			transparent 0%,
-			black 1rem,
-			black calc(100% - 1rem),
-			transparent 100%
-		);
-	}
+	.sk-info { flex: 1; display: flex; flex-direction: column; gap: 8px; padding-top: 6px; }
+	.sk-name { width: 110px; height: 16px; border-radius: 8px; overflow: hidden; }
+	.sk-desc { width: 180px; height: 12px; border-radius: 8px; overflow: hidden; }
 
-	.horizontal-scroll.profile-scroll::-webkit-scrollbar {
-		display: none;
-	}
-
-	.profile-scroll .scroll-content {
-		display: flex;
-		gap: 16px;
-		padding-bottom: 8px;
-	}
-
-	.profile-app-item {
-		flex-shrink: 0;
-		width: 280px;
-	}
-
-	@media (min-width: 768px) {
-		.profile-app-item {
-			width: 320px;
-		}
-	}
-
-	.profile-stack-item {
-		flex-shrink: 0;
-		width: 280px;
-	}
-
-	@media (min-width: 768px) {
-		.profile-stack-item {
-			width: 320px;
-		}
-	}
-
-	@media (min-width: 640px) {
-		.horizontal-scroll.profile-scroll {
-			margin-left: -1.5rem;
-			margin-right: -1.5rem;
-			padding-left: 1.5rem;
-			padding-right: 1.5rem;
-			mask-image: linear-gradient(
-				to right,
-				transparent 0%,
-				black 1.5rem,
-				black calc(100% - 1.5rem),
-				transparent 100%
-			);
-			-webkit-mask-image: linear-gradient(
-				to right,
-				transparent 0%,
-				black 1.5rem,
-				black calc(100% - 1.5rem),
-				transparent 100%
-			);
-		}
-	}
-
-	@media (min-width: 1024px) {
-		.horizontal-scroll.profile-scroll {
-			margin-left: -2rem;
-			margin-right: -2rem;
-			padding-left: 2rem;
-			padding-right: 2rem;
-			mask-image: linear-gradient(
-				to right,
-				transparent 0%,
-				black 2rem,
-				black calc(100% - 2rem),
-				transparent 100%
-			);
-			-webkit-mask-image: linear-gradient(
-				to right,
-				transparent 0%,
-				black 2rem,
-				black calc(100% - 2rem),
-				transparent 100%
-			);
-		}
-	}
+	/* ── Description modal ───────────────────────────────────────────────── */
+	.desc-modal { padding: 16px; }
+	@media (min-width: 768px) { .desc-modal { padding: 24px; } }
+	.desc-modal-text { font-size: 1rem; line-height: 1.5; color: var(--white66); }
 </style>

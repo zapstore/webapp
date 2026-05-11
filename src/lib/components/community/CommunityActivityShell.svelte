@@ -11,7 +11,6 @@
 	import { page } from '$app/stores';
 	import { nip19 } from 'nostr-tools';
 	import {
-		db,
 		fetchFromRelays,
 		fetchKind1111ByTagRef,
 		fetchKind1111ReferencingEventIds,
@@ -86,8 +85,8 @@
 			$page.url.pathname.startsWith('/community/activity/')
 	);
 
-	/** Single cap for merged comment+zap timeline rows (scroll loads more; same window for relay backfill scan). */
-	let activityFeedVisibleLimit = $state(400);
+	/** Initial visible window — scroll sentinel extends it. Start small; first paint is the bottleneck. */
+	let activityFeedVisibleLimit = $state(30);
 	const ACTIVITY_FEED_VISIBLE_MAX = 2500;
 	/** `queryEvents({ ids })` batch size — avoid huge `anyOf` lists. */
 	const ACTIVITY_IDS_CHUNK = 80;
@@ -97,14 +96,14 @@
 	 * Same `since` as live subs + other comment/zap reads (`COMMENT_ZAP_RELAY_READ_LOOKBACK_SEC`).
 	 * Kind 1111/9735 never use `#f` — only catalog app/stack roots do (`PLATFORM_FILTER`).
 	 */
-	/** Safety cap for bulk 1111/9735 one-shots (`nak req` shows Zapstore usually answers quickly). */
-	const ACTIVITY_BULK_RELAY_TIMEOUT_MS = 45_000;
-	/** Keep first seed lighter; deeper history arrives via scoped backfill + scroll extension. */
-	const ACTIVITY_INITIAL_SEED_LIMIT = 220;
+	/** Safety cap for bulk 1111/9735 one-shots. */
+	const ACTIVITY_BULK_RELAY_TIMEOUT_MS = 12_000;
+	/** Keep first seed tight; scroll/backfill handles deeper history. */
+	const ACTIVITY_INITIAL_SEED_LIMIT = 60;
 	/**
 	 * After Dexie + relay root fetch (~4s) still no root event — treat as likely deleted; show label, don't block feed.
 	 */
-	const ACTIVITY_ROOT_MISSING_AFTER_MS = 6500;
+	const ACTIVITY_ROOT_MISSING_AFTER_MS = 14000;
 
 	/** NIP-22 `K` tag values for Activity scope (forum + catalog app + stack threads). */
 	const ACTIVITY_NIP22_K_TAGS = [
@@ -125,6 +124,48 @@
 			k === ACTIVITY_NIP22_K_TAGS[1] ||
 			k === ACTIVITY_NIP22_K_TAGS[2]
 		);
+	}
+
+	/**
+	 * Parse a kind-1111 z-wrapper event into the same shape as parseZapReceipt output.
+	 * Returns null when the event has no valid `z` tag (i.e. it is a plain comment, not a wrapper).
+	 * @param {import('nostr-tools').NostrEvent} ev
+	 * @returns {{ senderPubkey: string, recipientPubkey: string|null, amountSats: number, comment: string, emojiTags: {shortcode:string,url:string}[], createdAt: number, zappedEventId: string|null, zapReceiptId: string } | null}
+	 */
+	function parseZapWrapper(ev) {
+		const zTag = ev.tags?.find((t) => t[0] === 'z' && typeof t[1] === 'string' && t[1]);
+		if (!zTag) return null;
+		const receiptId = String(zTag[1]).trim().toLowerCase();
+		if (!/^[a-f0-9]{64}$/.test(receiptId)) return null;
+
+		// Amount: ['z', receiptId, hint, amount, unit]
+		let amountSats = 0;
+		const amtStr = String(zTag[3] ?? '').trim();
+		if (amtStr) {
+			const unit = String(zTag[4] ?? 'sats').trim().toLowerCase();
+			const n = parseFloat(amtStr);
+			if (Number.isFinite(n) && n > 0) {
+				amountSats = unit === 'msats' || unit === 'msat' ? Math.round(n / 1000) : Math.round(n);
+			}
+		}
+		// Recipient: uppercase P tag (root author per NIP-22)
+		const recipientPubkey = ev.tags?.find((t) => t[0] === 'P' && t[1])?.[1]?.toLowerCase() ?? null;
+		// Zapped event: lowercase e tag (the thing being zapped, for root tracing)
+		const zappedEventId = ev.tags?.find((t) => t[0] === 'e' && t[1])?.[1]?.toLowerCase() ?? null;
+		const emojiTags = [];
+		for (const t of ev.tags ?? []) {
+			if (t[0] === 'emoji' && t[1] && t[2]) emojiTags.push({ shortcode: t[1], url: t[2] });
+		}
+		return {
+			senderPubkey: ev.pubkey,
+			recipientPubkey,
+			amountSats,
+			comment: ev.content ?? '',
+			emojiTags,
+			createdAt: ev.created_at,
+			zappedEventId,
+			zapReceiptId: receiptId
+		};
 	}
 
 	/**
@@ -201,56 +242,41 @@
 	}
 
 	/**
-	 * Forum kind-11 roots: batch `ids` in Dexie, multi-wave (zap may point at post or comment → `E`).
+	 * Forum kind-11 roots: one batch Dexie lookup using the uppercase E tag.
+	 * NIP-22 mandates uppercase E → root event ID. We trust it and do a single
+	 * batch lookup. If the ID isn't a kind-11 post (or isn't in Dexie), the card
+	 * shows the "root not found" state after the timeout — no chain traversal.
 	 * @param {import('nostr-tools').NostrEvent[]} comments
 	 * @param {import('nostr-tools').NostrEvent[]} zaps
 	 */
 	async function batchResolveForumRootsByIdFromDexie(comments, zaps) {
 		/** @type {Map<string, import('nostr-tools').NostrEvent>} */
 		const forumRootById = new Map();
-		function putForum(ev) {
-			if (!ev?.id || ev.kind !== EVENT_KINDS.FORUM_POST) return;
-			forumRootById.set(ev.id, ev);
-			forumRootById.set(ev.id.toLowerCase(), ev);
-		}
-		/** @type {Set<string>} */
 		const pending = new Set();
 		for (const c of comments) {
 			const id = c.tags?.find((t) => t[0] === 'E' && t[1])?.[1];
 			if (id) pending.add(id.toLowerCase());
 		}
 		for (const z of zaps) {
-			try {
-				const p = parseZapReceipt(z);
-				if (p?.zappedEventId) pending.add(p.zappedEventId.toLowerCase());
-			} catch {
-				/* skip */
+			const zw = parseZapWrapper(z);
+			if (zw?.zappedEventId) {
+				pending.add(zw.zappedEventId.toLowerCase());
+			} else {
+				try {
+					const p = parseZapReceipt(z);
+					if (p.zappedEventId) pending.add(p.zappedEventId.toLowerCase());
+				} catch { /* skip */ }
 			}
 		}
-		const seen = new Set();
-		let depth = 0;
-		while (pending.size > 0 && depth < 10) {
-			depth++;
-			const batch = [...pending].filter((id) => !seen.has(id));
-			for (const id of batch) seen.add(id);
-			if (batch.length === 0) break;
-			const next = new Set();
-			for (const chunk of chunkArray(batch, ACTIVITY_IDS_CHUNK)) {
-				const evs = await queryEvents({ ids: chunk, limit: chunk.length });
-				for (const ev of evs) {
-					if (!ev?.id) continue;
-					if (ev.kind === EVENT_KINDS.FORUM_POST) putForum(ev);
-					else if (ev.kind === EVENT_KINDS.COMMENT) {
-						const er = ev.tags?.find((t) => t[0] === 'E' && t[1])?.[1];
-						if (er) {
-							const lr = er.toLowerCase();
-							if (!seen.has(lr)) next.add(lr);
-						}
-					}
+		if (pending.size === 0) return forumRootById;
+		for (const chunk of chunkArray([...pending], ACTIVITY_IDS_CHUNK)) {
+			const evs = await queryEvents({ ids: chunk, limit: chunk.length });
+			for (const ev of evs) {
+				if (ev?.id && ev.kind === EVENT_KINDS.FORUM_POST) {
+					forumRootById.set(ev.id, ev);
+					forumRootById.set(ev.id.toLowerCase(), ev);
 				}
 			}
-			pending.clear();
-			for (const id of next) pending.add(id);
 		}
 		return forumRootById;
 	}
@@ -561,10 +587,12 @@
 	}
 
 	/**
+	 * Full iterative zap filter for relay-fetched results (not for liveQuery).
+	 * Use the indexed liveQuery path (#K + #a) for Dexie reads; this runs only in backfill/seed.
 	 * @param {import('nostr-tools').NostrEvent[]} zapRows
 	 * @param {import('nostr-tools').NostrEvent[]} scopedComments
 	 */
-	async function filterZapsForActivityFeed(zapRows, scopedComments) {
+	async function _filterZapsForActivityFeed(zapRows, scopedComments) {
 		const { refIds, aTags } = buildActivityZapMatchSets(scopedComments);
 		await seedForumPostIdsForActivityZaps(refIds);
 		for (const z of zapRows) {
@@ -619,17 +647,19 @@
 		return m;
 	});
 
-	/** Parsed thread zaps (full scoped set) for deleted-root logic and sorting helpers. */
+	/** Parsed zap events (both z-wrappers and raw kind 9735) for deleted-root logic and sorting. */
 	const activityZapsForFeed = $derived.by(() => {
 		const rows = [];
 		for (const ev of activityThreadZaps) {
-			let p;
-			try {
-				p = parseZapReceipt(ev);
-			} catch {
-				continue;
+			const zp = parseZapWrapper(ev);
+			if (zp) {
+				rows.push({ event: ev, parsed: zp });
+			} else {
+				try {
+					const p = parseZapReceipt(ev);
+					rows.push({ event: ev, parsed: p });
+				} catch { continue; }
 			}
-			rows.push({ event: ev, parsed: p });
 		}
 		return rows.sort((a, b) => b.event.created_at - a.event.created_at);
 	});
@@ -819,6 +849,9 @@
 			})
 			.finally(() => {
 				activityAddrRelayInFlight = false;
+				// App/stack events are now in Dexie — re-hydrate so badges resolve
+				// immediately instead of waiting for the next liveQuery emission.
+				void hydrateActivityRootsForVisibleFeed(activityFeedItems);
 			});
 	});
 
@@ -829,80 +862,144 @@
 		const visibleLimitSnap = Math.min(ACTIVITY_FEED_VISIBLE_MAX, activityFeedVisibleLimit);
 
 		const obs = liveQuery(async () => {
-			const [commentRows, zapRows] = await Promise.all([
-				db.events.filter((e) => Number(e.kind) === EVENT_KINDS.COMMENT).toArray(),
-				db.events.filter((e) => Number(e.kind) === EVENT_KINDS.ZAP_RECEIPT).toArray()
-			]);
+			// Inbox: indexed #p lookup (fast) instead of full 2000-comment scan.
+			// We also batch-fetch the parent events referenced by those inbox items so
+			// quoted-message resolution works (activityCommentMap needs the parents).
+			// Activity: kind index over all scoped comments (unchanged).
+			let commentRows;
+			if (inboxUserPubkey) {
+				const mentions = await queryEvents({
+					kinds: [EVENT_KINDS.COMMENT],
+					'#p': [inboxUserPubkey],
+					limit: 400
+				});
+				// Collect every e-tag parent ID from inbox items for quote context.
+				const parentIds = [
+					...new Set(
+						mentions.flatMap(
+							(c) => c.tags?.filter((t) => t[0] === 'e' && t[1]).map((t) => t[1].toLowerCase()) ?? []
+						)
+					)
+				];
+				const parentEvs =
+					parentIds.length > 0
+						? await queryEvents({ ids: parentIds, limit: Math.min(parentIds.length + 10, 200) })
+						: [];
+				const byId = new Map();
+				for (const e of [...mentions, ...parentEvs]) byId.set(e.id, e);
+				commentRows = Array.from(byId.values());
+			} else {
+				commentRows = await queryEvents({ kinds: [EVENT_KINDS.COMMENT], limit: 2000 });
+			}
 			const scopedComments = commentRows.filter(eventMatchesActivityNip22KComment);
 			scopedComments.sort((a, b) => b.created_at - a.created_at);
-			// Only surface kind-9735 zaps that have NO comment text. Zaps with a comment
-			// are represented in the kind-1111 stream as z-wrapper events, so including
-			// them here would produce duplicates. Empty zaps still show as feed items
-			// but without any interaction rail (no reply / zap-back buttons).
-			const scopedZaps = [];
-			for (const ev of zapRows) {
-				try {
-					const parsed = parseZapReceipt(ev);
-					if (!parsed.comment?.trim()) scopedZaps.push(ev);
-				} catch {
-					/* skip malformed */
-				}
-			}
-			scopedZaps.sort((a, b) => b.created_at - a.created_at);
 
-			/** @type {Array<{ kind: 'comment', ts: number, ev: import('nostr-tools').NostrEvent } | { kind: 'zap', ts: number, row: { event: import('nostr-tools').NostrEvent, parsed: ReturnType<typeof parseZapReceipt> } }>} */
+			// Split kind 1111 into z-wrappers (have z tag + comment) and plain comments.
+			/** @type {Array<{ ev: import('nostr-tools').NostrEvent, parsed: ReturnType<typeof parseZapWrapper> }>} */
+			const zapWrapperParsedList = [];
+			/** @type {import('nostr-tools').NostrEvent[]} */
+			const regularCommentEvents = [];
+			for (const ev of scopedComments) {
+				const zp = parseZapWrapper(ev);
+				if (zp) zapWrapperParsedList.push({ ev, parsed: zp });
+				else regularCommentEvents.push(ev);
+			}
+
+			// Build set of receipt IDs covered by kind 1111 z-wrappers to avoid double display.
+			// Zaps WITH comments produce both a kind 9735 receipt AND a kind 1111 z-wrapper;
+			// only the z-wrapper (interactive) is shown — the raw receipt is skipped.
+			const coveredReceiptIds = new Set(
+				zapWrapperParsedList.map(({ parsed }) => parsed.zapReceiptId).filter(Boolean)
+			);
+
+			// Query raw kind 9735 receipts from Dexie using indexed lookups only.
+			// filterZapsForActivityFeed (full scan + iterative expansion) must NOT run inside
+			// a liveQuery — it fires on every relay event and would block the main thread.
+			let activityScopedRawZaps;
+			if (inboxUserPubkey) {
+				// Inbox: all receipts targeting the user, direct #p index query.
+				activityScopedRawZaps = await queryEvents({
+					kinds: [EVENT_KINDS.ZAP_RECEIPT],
+					'#p': [inboxUserPubkey],
+					limit: 400
+				});
+			} else {
+				// Activity: two fast indexed queries, then union.
+				// 1) K-tagged receipts (NIP-22 activity scope — modern clients set this).
+				const kTagged = await queryEvents({
+					kinds: [EVENT_KINDS.ZAP_RECEIPT],
+					'#K': ACTIVITY_NIP22_K_TAGS,
+					limit: 300
+				});
+				// 2) a/A-tagged receipts for apps/stacks already referenced in comments.
+				//    aTags come from already-computed scopedComments — no extra Dexie query.
+				const activityATags = new Set();
+				for (const c of scopedComments) {
+					const a = addrTagFromComment(c);
+					if (a && isAddressableActivityATag(a)) activityATags.add(a.toLowerCase());
+				}
+				for (const { ev } of zapWrapperParsedList) {
+					const a = addrTagFromComment(ev);
+					if (a && isAddressableActivityATag(a)) activityATags.add(a.toLowerCase());
+				}
+				const aTagged = activityATags.size > 0
+					? await queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [...activityATags], limit: 200 })
+					: [];
+				// Union, deduped by id.
+				const unionMap = new Map();
+				for (const ev of kTagged) unionMap.set(ev.id, ev);
+				for (const ev of aTagged) unionMap.set(ev.id, ev);
+				activityScopedRawZaps = [...unionMap.values()];
+			}
+
+			// Drop receipts already represented by a z-wrapper.
+			const uncoveredZapReceipts = activityScopedRawZaps.filter(
+				(ev) => !coveredReceiptIds.has(ev.id.toLowerCase())
+			);
+
 			let merged;
 			/** @type {import('nostr-tools').NostrEvent[]} */
 			let threadCommentsForMap;
 
 			if (inboxUserPubkey) {
 				const pk = inboxUserPubkey;
-				const inboxComments = commentRows.filter(
-					(c) =>
-						Number(c.kind) === EVENT_KINDS.COMMENT &&
-						c.pubkey !== pk &&
-						c.tags?.some((t) => t[0] === 'p' && t[1] === pk)
+				const inboxComments = regularCommentEvents.filter(
+					(c) => c.pubkey !== pk && c.tags?.some((t) => t[0] === 'p' && t[1] === pk)
 				);
 				inboxComments.sort((a, b) => b.created_at - a.created_at);
-				/** @type {{ event: import('nostr-tools').NostrEvent, parsed: ReturnType<typeof parseZapReceipt> }[]} */
-				const inboxZapParsed = [];
-				for (const ev of zapRows) {
-					if (!ev.tags?.some((t) => t[0] === 'p' && t[1] === pk)) continue;
-					try {
-						const parsed = parseZapReceipt(ev);
-						if (parsed.senderPubkey === pk) continue;
-						// Only include empty zaps — zaps with a comment surface as kind 1111 z-wrappers.
-						if (parsed.comment?.trim()) continue;
-						inboxZapParsed.push({ event: ev, parsed });
-					} catch {
-						/* skip malformed */
-					}
-				}
-				inboxZapParsed.sort((a, b) => b.event.created_at - a.event.created_at);
 				merged = [];
 				for (const ev of inboxComments) merged.push({ kind: 'comment', ts: ev.created_at, ev });
-				for (const row of inboxZapParsed)
-					merged.push({ kind: 'zap', ts: row.event.created_at, row });
+				// Z-wrapper zaps targeting the user.
+				for (const { ev, parsed } of zapWrapperParsedList) {
+					if (!ev.tags?.some((t) => t[0] === 'p' && t[1] === pk)) continue;
+					if (ev.pubkey === pk) continue; // own wrapper
+					merged.push({ kind: 'zap', ts: ev.created_at, row: { event: ev, parsed, isWrapper: true } });
+				}
+				// Raw kind 9735 receipts targeting the user (not covered by z-wrappers).
+				for (const ev of uncoveredZapReceipts) {
+					let p;
+					try { p = parseZapReceipt(ev); } catch { continue; }
+					merged.push({ kind: 'zap', ts: ev.created_at, row: { event: ev, parsed: p, isWrapper: false } });
+				}
 				merged.sort((a, b) => b.ts - a.ts);
 
-				const threadMergeById = new Map();
-				for (const c of scopedComments) threadMergeById.set(c.id, c);
-				for (const c of inboxComments) {
-					if (!threadMergeById.has(c.id)) threadMergeById.set(c.id, c);
-				}
-				threadCommentsForMap = Array.from(threadMergeById.values());
+			// Use ALL commentRows for parent resolution — not just scopedComments.
+			// Parents may lack a K tag when published by third-party clients (e.g. Grimoire),
+			// so the strict eventMatchesActivityNip22KComment filter must not gate the map.
+			const threadMergeById = new Map();
+			for (const c of commentRows) threadMergeById.set(c.id, c);
+			threadCommentsForMap = Array.from(threadMergeById.values());
 			} else {
 				merged = [];
-				for (const ev of scopedComments) {
+				for (const ev of regularCommentEvents) {
 					merged.push({ kind: 'comment', ts: ev.created_at, ev });
 				}
-				for (const ev of scopedZaps) {
-					try {
-						const parsed = parseZapReceipt(ev);
-						merged.push({ kind: 'zap', ts: ev.created_at, row: { event: ev, parsed } });
-					} catch {
-						/* skip malformed */
-					}
+				// Z-wrappers (kind 1111 with z tag) are interactive comment-style entries.
+				// Raw kind 9735 receipts are intentionally excluded from the activity feed
+				// (they are shown in inbox only). Uncovered receipts remain in threadZaps so
+				// backward-compatible parent-quote resolution still works for old replies.
+				for (const { ev, parsed } of zapWrapperParsedList) {
+					merged.push({ kind: 'zap', ts: ev.created_at, row: { event: ev, parsed, isWrapper: true } });
 				}
 				merged.sort((a, b) => b.ts - a.ts);
 				threadCommentsForMap = scopedComments;
@@ -912,16 +1009,11 @@
 			const hasMoreTimeline = inboxUserPubkey ? false : merged.length > feedLimit;
 			const feedItems = merged.slice(0, feedLimit);
 
-			const commentsInFeed = [];
-			const zapsInFeed = [];
-			for (const it of feedItems) {
-				if (it.kind === 'comment') commentsInFeed.push(it.ev);
-				else zapsInFeed.push(it.row.event);
-			}
 			return {
 				feedItems,
 				threadComments: threadCommentsForMap,
-				threadZaps: scopedZaps,
+				// threadZaps: z-wrappers (kind 1111) + raw kind 9735 for thread context / root resolution.
+				threadZaps: [...zapWrapperParsedList.map(({ ev }) => ev), ...uncoveredZapReceipts],
 				hasMoreTimeline
 			};
 		});
@@ -962,37 +1054,69 @@
 						if (parent?.pubkey) scheduleActivityProfileFetch(parent.pubkey);
 					}
 				}
-				for (const it of feedItems) {
-					if (it.kind !== 'zap') continue;
-					const zEv = it.row.event;
-					try {
-						const zp = parseZapReceipt(zEv);
-						if (zp.senderPubkey) scheduleActivityProfileFetch(zp.senderPubkey);
-						const zapped = zp.zappedEventId;
-						if (
-							zapped &&
-							!threadCommentById.get(zapped) &&
-							!threadCommentById.get(zapped.toLowerCase()) &&
-							!activityRootEvents.get(zapped)
-						) {
-							void queryEvent({ ids: [zapped] }).then((ev) => {
-								if (!ev) return;
-								if (ev.kind === EVENT_KINDS.FORUM_POST) {
-									activityRootEvents = new Map(activityRootEvents).set(zapped, ev);
-								} else if (ev.kind === EVENT_KINDS.APP || ev.kind === EVENT_KINDS.APP_STACK) {
-									const d = ev.tags?.find((t) => t[0] === 'd')?.[1];
-									if (d) {
-										const a = `${ev.kind}:${ev.pubkey}:${d}`;
-										activityAddrRootEvents = new Map(activityAddrRootEvents).set(a, ev);
-									}
-									activityRootEvents = new Map(activityRootEvents).set(zapped, ev);
-								}
-							});
-						}
-					} catch {
-						/* ignore */
-					}
+			// Collect all missing zapped-event IDs in one pass, then resolve in a
+			// single Dexie batch + one relay round-trip instead of N individual requests.
+			const missingZappedIds = [];
+			for (const it of feedItems) {
+				if (it.kind !== 'zap') continue;
+				const zp = it.row.parsed;
+				if (zp.senderPubkey) scheduleActivityProfileFetch(zp.senderPubkey);
+				const zapped = zp.zappedEventId;
+				if (
+					zapped &&
+					!threadCommentById.get(zapped) &&
+					!threadCommentById.get(zapped.toLowerCase()) &&
+					!activityRootEvents.get(zapped)
+				) {
+					missingZappedIds.push(zapped);
 				}
+			}
+			if (missingZappedIds.length > 0) {
+				void (async () => {
+					// 1. One Dexie batch lookup for all missing IDs.
+					const found = await queryEvents({ ids: missingZappedIds, limit: missingZappedIds.length }).catch(() => []);
+					const foundIds = new Set(found.map((ev) => ev.id.toLowerCase()));
+					const stillMissing = missingZappedIds.filter((id) => !foundIds.has(id.toLowerCase()));
+					const allEvs = [...found];
+					// 2. One relay request for all remaining missing IDs.
+					if (stillMissing.length > 0) {
+						try {
+							const arr = await fetchFromRelays(
+								[ZAPSTORE_RELAY],
+								{ ids: stillMissing, limit: stillMissing.length },
+								{ timeout: 4000, feature: 'activity-zwrap-root-batch' }
+							);
+							if (arr?.length) {
+								await putEvents(arr).catch(() => {});
+								allEvs.push(...arr);
+							}
+						} catch {
+							/* non-fatal */
+						}
+					}
+					// Process all found events, batch the state updates.
+					let newRootEvents = null;
+					let newAddrRootEvents = null;
+					for (const ev of allEvs) {
+						if (!ev) continue;
+						const id = ev.id;
+						if (ev.kind === EVENT_KINDS.FORUM_POST) {
+							if (!newRootEvents) newRootEvents = new Map(activityRootEvents);
+							newRootEvents.set(id, ev);
+						} else if (ev.kind === EVENT_KINDS.APP || ev.kind === EVENT_KINDS.APP_STACK) {
+							const d = ev.tags?.find((t) => t[0] === 'd')?.[1];
+							if (d) {
+								if (!newAddrRootEvents) newAddrRootEvents = new Map(activityAddrRootEvents);
+								newAddrRootEvents.set(`${ev.kind}:${ev.pubkey}:${d}`, ev);
+							}
+							if (!newRootEvents) newRootEvents = new Map(activityRootEvents);
+							newRootEvents.set(id, ev);
+						}
+					}
+					if (newRootEvents) activityRootEvents = newRootEvents;
+					if (newAddrRootEvents) activityAddrRootEvents = newAddrRootEvents;
+				})();
+			}
 			},
 			error: (e) => {
 				console.error('[Activity] liveQuery error', e);
@@ -1020,7 +1144,9 @@
 			else zapsInFeed.push(it.row.event);
 		}
 		const addrRootByATag = new Map();
-		await batchResolveAddrRootsFromDexie(commentsInFeed, addrRootByATag);
+		// Z-wrappers (kind: 'zap' with isWrapper) carry an A tag pointing to the app/stack root.
+		// Pass all feed events so batchResolveAddrRootsFromDexie picks up z-wrapper A tags too.
+		await batchResolveAddrRootsFromDexie([...commentsInFeed, ...zapsInFeed], addrRootByATag);
 		const forumRootById = await batchResolveForumRootsByIdFromDexie(commentsInFeed, zapsInFeed);
 		if (seq !== activityRootHydrateSeq) return;
 		if (addrRootByATag.size > 0) {
@@ -1059,14 +1185,14 @@
 			const pid = parentTag?.[1];
 			if (!pid) continue;
 			if (activityCommentMap.get(pid) ?? activityCommentMap.get(pid.toLowerCase())) continue;
-			const z = activityZapMap.get(pid) ?? activityZapMap.get(pid.toLowerCase());
-			if (!z) continue;
-			try {
-				const p = parseZapReceipt(z);
-				if (p.senderPubkey) scheduleActivityProfileFetch(p.senderPubkey);
-			} catch {
-				/* ignore */
-			}
+		const z = activityZapMap.get(pid) ?? activityZapMap.get(pid.toLowerCase());
+		if (!z) continue;
+		// z may be a kind 1111 z-wrapper or a raw kind 9735 receipt — try both parsers.
+		const zw = parseZapWrapper(z);
+		const senderPk = zw?.senderPubkey ?? (() => {
+			try { return parseZapReceipt(z).senderPubkey; } catch { return null; }
+		})();
+		if (senderPk) scheduleActivityProfileFetch(senderPk);
 		}
 	});
 
@@ -1123,13 +1249,14 @@
 		}, 200);
 	}
 
-	const ACTIVITY_BACKFILL_REF_COMMENT_CAP = 2000;
+	const ACTIVITY_BACKFILL_REF_COMMENT_CAP = 300;
 	const ACTIVITY_BACKFILL_FORUM_ID_BATCH = 40;
 	const ACTIVITY_BACKFILL_FORUM_WAVE = 4;
 
 	/**
-	 * Zaps were ref-scoped from the relay; comments were only the global K-bucket — older threads had zaps
-	 * but almost no 1111 in Dexie. Mirror zaps: pull 1111 by `#e`/`#E` (forum, batched) and `#a`/`#A` (app/stack).
+	 * Pull kind-1111 comments by thread refs (`#e`/`#E` for forum posts, `#a`/`#A` for app/stack)
+	 * so older threads surface in the Activity feed. Kind 9735 is no longer fetched — the feed
+	 * is exclusively kind 1111 (z-wrappers + plain comments).
 	 */
 	async function backfillActivityThreadsScoped() {
 		if (!browser || !isOnline()) return;
@@ -1171,41 +1298,8 @@
 		const aList = [...aTagByLower.values()].slice(0, 96);
 		const aChunk = 6;
 
-		// Critical: start zap backfill immediately. Previously zaps waited behind long
-		// sequential comment backfill loops, causing the 20-30s "late zap burst".
-		const zapBackfillByEventIds = idList.length
-			? fetchKind9735MatchingRefs(
-					relays,
-					{ eventIds: idList },
-					{
-						since: sinceSec,
-						limit: 500,
-						timeout: 14_000,
-						feature: 'activity-zap-backfill-e'
-					}
-				).catch(() => [])
-			: Promise.resolve([]);
-
-		const zapBackfillByATags = (async () => {
-			for (let i = 0; i < aList.length; i += aChunk) {
-				await Promise.all(
-					aList.slice(i, i + aChunk).map((aTag) =>
-						fetchKind9735MatchingRefs(
-							relays,
-							{ aTag },
-							{
-								since: sinceSec,
-								limit: 350,
-								timeout: 10_000,
-								feature: 'activity-zap-backfill-a'
-							}
-						).catch(() => [])
-					)
-				);
-			}
-		})();
-
-		const commentBackfillByEventIds = (async () => {
+	// Backfill kind 1111 comments by thread refs. Kind 9735 is seeded separately in seedActivityFromRelay.
+	const commentBackfillByEventIds = (async () => {
 			const idChunks = chunkArray(idList, ACTIVITY_BACKFILL_FORUM_ID_BATCH);
 			for (let i = 0; i < idChunks.length; i += ACTIVITY_BACKFILL_FORUM_WAVE) {
 				await Promise.all(
@@ -1236,12 +1330,7 @@
 			}
 		})();
 
-		await Promise.allSettled([
-			zapBackfillByEventIds,
-			zapBackfillByATags,
-			commentBackfillByEventIds,
-			commentBackfillByATags
-		]);
+		await Promise.allSettled([commentBackfillByEventIds, commentBackfillByATags]);
 	}
 
 	async function seedActivityFromRelay() {
@@ -1252,36 +1341,50 @@
 			activityAddrRelayAttempted.clear();
 			const sinceSec = activityRelaySince();
 			const lim = ACTIVITY_INITIAL_SEED_LIMIT;
-			// Fetch comments and zaps in parallel. Start backfill (targeted #e/#a zap queries)
-			// as soon as comments land in Dexie — don't block it behind the slower zap seed.
-			const commentPromise = fetchFromRelays(
-				[ZAPSTORE_RELAY],
-				{
-					kinds: [EVENT_KINDS.COMMENT],
-					'#K': ACTIVITY_NIP22_K_TAGS,
-					since: sinceSec,
-					limit: lim
-				},
-				{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-1111-K' }
-			);
-			const zapPromise = fetchFromRelays(
-				[ZAPSTORE_RELAY],
-				{
-					kinds: [EVENT_KINDS.ZAP_RECEIPT],
-					since: sinceSec,
-					limit: lim
-				},
-				{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-9735-bucket' }
-			);
-			// Start backfill right after comments land (don't wait for zap seed).
-			commentPromise
-				.catch(() => {})
-				.then(() =>
-					backfillActivityThreadsScoped().catch((err) =>
-						console.error('[Activity] thread backfill failed', err)
-					)
-				);
-			await Promise.all([commentPromise, zapPromise]);
+	// Fetch comments, forum posts, and zap receipts in parallel.
+	// Backfill starts right after comments land.
+	const commentPromise = fetchFromRelays(
+		[ZAPSTORE_RELAY],
+		{
+			kinds: [EVENT_KINDS.COMMENT],
+			'#K': ACTIVITY_NIP22_K_TAGS,
+			since: sinceSec,
+			limit: lim
+		},
+		{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-1111-K' }
+	);
+	// Kind-11 forum posts scoped to the community (#h tag). Fetching these upfront
+	// ensures root labels resolve immediately.
+	const postPromise = fetchFromRelays(
+		[ZAPSTORE_RELAY],
+		{
+			kinds: [EVENT_KINDS.FORUM_POST],
+			'#h': [ZAPSTORE_COMMUNITY_PUBKEY],
+			since: sinceSec,
+			limit: lim
+		},
+		{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-11-posts' }
+	);
+	// Kind 9735 zap receipts with the activity K-tag scope (fast first pass;
+	// filterZapsForActivityFeed in the liveQuery handles broader scoping from Dexie).
+	const zapPromise = fetchFromRelays(
+		[ZAPSTORE_RELAY],
+		{
+			kinds: [EVENT_KINDS.ZAP_RECEIPT],
+			'#K': ACTIVITY_NIP22_K_TAGS,
+			since: sinceSec,
+			limit: lim
+		},
+		{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-9735-K' }
+	).catch(() => []);
+	commentPromise
+		.catch(() => {})
+		.then(() =>
+			backfillActivityThreadsScoped().catch((err) =>
+				console.error('[Activity] thread backfill failed', err)
+			)
+		);
+	await Promise.all([commentPromise, postPromise, zapPromise]);
 		} catch (err) {
 			console.error('[Activity] relay seed failed', err);
 			activityError = 'Failed to sync activity.';
@@ -1858,22 +1961,28 @@
 
 	function openZapThreadForum(zapEvent, withReply = false, opts = {}) {
 		const openActionsSheet = opts?.openActionsSheet === true;
-		threadOpenFeedZapOnly = false;
+		const openZapOnly = opts?.openZapOnly === true;
+		threadOpenFeedZapOnly = openZapOnly;
 		pendingZapCommentEv = null;
-		threadOpenActionsOnMount = openActionsSheet;
-		if (openActionsSheet) {
-			threadOpenFeedActionsOnly = true;
-			standaloneActionsOpenKey++;
-		} else {
+		if (openZapOnly) {
+			standaloneZapOpenKey++;
+			threadOpenActionsOnMount = false;
 			threadOpenFeedActionsOnly = false;
+			threadInitialActionsTarget = null;
+		} else {
+			threadOpenActionsOnMount = openActionsSheet;
+			if (openActionsSheet) {
+				threadOpenFeedActionsOnly = true;
+				standaloneActionsOpenKey++;
+			} else {
+				threadOpenFeedActionsOnly = false;
+			}
+			threadInitialActionsTarget = openActionsSheet ? 'root' : null;
 		}
-		threadInitialActionsTarget = openActionsSheet ? 'root' : null;
 		pendingActionsCommentEv = null;
 
-		let p;
-		try {
-			p = parseZapReceipt(zapEvent);
-		} catch {
+		const p = parseZapWrapper(zapEvent);
+		if (!p) {
 			threadOpenActionsOnMount = false;
 			threadOpenFeedActionsOnly = false;
 			threadInitialActionsTarget = null;
@@ -2370,9 +2479,10 @@
 								/>
 							{/if}
 							</div>
-						{:else}
-							{@const zapEv = item.row.event}
-							{@const zParsed = item.row.parsed}
+					{:else}
+						{@const zapEv = item.row.event}
+						{@const zParsed = item.row.parsed}
+						{@const zapIsWrapper = item.row.isWrapper === true}
 							{@const aZapRoot = addrATagForAppStackZap(zapEv, zParsed)}
 							{@const postIdZ = forumPostIdForZapParsed(zParsed)}
 							{@const rootEventZ = aZapRoot
@@ -2428,52 +2538,68 @@
 								class="activity-item"
 								role="button"
 								tabindex="0"
-						onclick={() => {
-								markInboxCardSeen(zapEv.id);
-								if (!zParsed?.comment?.trim()) {
-									if (rootEventZ) openRootPost(rootEventZ);
-								} else {
-									openZapThreadForum(zapEv);
-								}
-							}}
-							onkeydown={(e) => {
-								if (e.key !== 'Enter') return;
-								markInboxCardSeen(zapEv.id);
-								if (!zParsed?.comment?.trim()) {
-									if (rootEventZ) openRootPost(rootEventZ);
-								} else {
-									openZapThreadForum(zapEv);
-								}
-							}}
-							>
-								<ZapActivityCard
-									zapEvent={zapEv}
-									parsed={zParsed}
-									zapperPubkey={zapperPk}
-									authorProfile={zapperAuthor}
-									rootEvent={rootEventZ}
-									parentComment={parentCommentZ}
-									parentCommentAuthor={parentCommentAuthorZ}
-									appBadge={zapAddrBadge}
-									rootBadgeSkeleton={rootBadgeSkeletonZap}
-									deletedRootKind={deletedRootKindZap}
-									profileUrl={zapperNpub ? `/profile/${zapperNpub}` : ''}
-									resolveMentionLabel={(pk) =>
-										activityProfiles.get(pk)?.displayName ??
-										activityProfiles.get(pk)?.name ??
-										pk?.slice(0, 8) ??
-										''}
-									onRootClick={rootEventZ
-										? () => {
-												markInboxCardSeen(zapEv.id);
-												openRootPost(rootEventZ);
-											}
-										: null}
-									showUnreadDot={inboxRowUnread(zapEv.id)}
-								/>
-							</div>
-						{/if}
-					{/each}
+					onclick={() => {
+							markInboxCardSeen(zapEv.id);
+							if (!zapIsWrapper) {
+								if (rootEventZ) openRootPost(rootEventZ);
+							} else {
+								openZapThreadForum(zapEv);
+							}
+						}}
+						onkeydown={(e) => {
+							if (e.key !== 'Enter') return;
+							markInboxCardSeen(zapEv.id);
+							if (!zapIsWrapper) {
+								if (rootEventZ) openRootPost(rootEventZ);
+							} else {
+								openZapThreadForum(zapEv);
+							}
+						}}
+						>
+							<ZapActivityCard
+								zapEvent={zapEv}
+								parsed={zParsed}
+								zapperPubkey={zapperPk}
+								authorProfile={zapperAuthor}
+								rootEvent={rootEventZ}
+								parentComment={parentCommentZ}
+								parentCommentAuthor={parentCommentAuthorZ}
+								appBadge={zapAddrBadge}
+								rootBadgeSkeleton={rootBadgeSkeletonZap}
+								deletedRootKind={deletedRootKindZap}
+								profileUrl={zapperNpub ? `/profile/${zapperNpub}` : ''}
+								resolveMentionLabel={(pk) =>
+									activityProfiles.get(pk)?.displayName ??
+									activityProfiles.get(pk)?.name ??
+									pk?.slice(0, 8) ??
+									''}
+								onRootClick={rootEventZ
+									? () => {
+											markInboxCardSeen(zapEv.id);
+											openRootPost(rootEventZ);
+										}
+									: null}
+							showUnreadDot={inboxRowUnread(zapEv.id)}
+							feedActions={zapIsWrapper
+								? {
+										onReply: () => {
+											markInboxCardSeen(zapEv.id);
+											openZapThreadForum(zapEv, true);
+										},
+										onZap: () => {
+											markInboxCardSeen(zapEv.id);
+											openZapThreadForum(zapEv, false, { openZapOnly: true });
+										},
+										onOptions: () => {
+											markInboxCardSeen(zapEv.id);
+											openZapThreadForum(zapEv, false, { openActionsSheet: true });
+										}
+									}
+								: null}
+					/>
+					</div>
+					{/if}
+				{/each}
 					{#if activityLikelyHasMore}
 						<!-- Invisible anchor: intersection observer extends the merged timeline (no separate “load more” UX). -->
 						<div
@@ -2592,20 +2718,22 @@
 			{signEvent}
 			{searchProfiles}
 			{searchEmojis}
-			onReplySubmit={threadModalAddrATag
-				? (e) => handleActivityThreadReply(null, null, e)
-				: _rootPost
-					? (e) => handleActivityThreadReply(_rootPost.id, _rootPost.pubkey, e)
-					: undefined}
-			onZapReceived={() => {}}
-			onGetStarted={() => {}}
-		/>
+		onReplySubmit={threadModalAddrATag
+			? (e) => handleActivityThreadReply(null, null, e)
+			: _rootPost
+				? (e) => handleActivityThreadReply(_rootPost.id, _rootPost.pubkey, e)
+				: undefined}
+		onZapReceived={() => {}}
+		onGetStarted={() => {}}
+		resolveMentionLabel={(pk) =>
+			activityProfiles.get(pk)?.displayName ?? activityProfiles.get(pk)?.name ?? null}
+	/>
 	{/key}
 {/if}
 
 {#if threadModalKind === 'zap' && threadModalZapId && threadModalZapEvent}
 	{@const _zEv = threadModalZapEvent}
-	{@const _zParsed = parseZapReceipt(_zEv)}
+	{@const _zParsed = parseZapWrapper(_zEv) ?? parseZapReceipt(_zEv)}
 	{@const _aZap = addrATagForAppStackZap(_zEv, _zParsed)}
 	{@const _postIdZ = forumPostIdForZapParsed(_zParsed)}
 	{@const _rootPostZ = _aZap
@@ -2708,14 +2836,16 @@
 			{signEvent}
 			{searchProfiles}
 			{searchEmojis}
-			onReplySubmit={threadModalAddrATag
-				? (e) => handleActivityThreadReply(null, null, e)
-				: _rootPostZ?.kind === EVENT_KINDS.FORUM_POST
-					? (e) => handleActivityThreadReply(_rootPostZ.id, _rootPostZ.pubkey, e)
-					: undefined}
-			onZapReceived={() => {}}
-			onGetStarted={() => {}}
-		/>
+		onReplySubmit={threadModalAddrATag
+			? (e) => handleActivityThreadReply(null, null, e)
+			: _rootPostZ?.kind === EVENT_KINDS.FORUM_POST
+				? (e) => handleActivityThreadReply(_rootPostZ.id, _rootPostZ.pubkey, e)
+				: undefined}
+		onZapReceived={() => {}}
+		onGetStarted={() => {}}
+		resolveMentionLabel={(pk) =>
+			activityProfiles.get(pk)?.displayName ?? activityProfiles.get(pk)?.name ?? null}
+	/>
 	{/key}
 {/if}
 

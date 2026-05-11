@@ -6,6 +6,7 @@
 import { onMount } from "svelte";
 import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString } from "$lib/utils/color.js";
 import ShortTextPreview from "$lib/components/common/ShortTextPreview.svelte";
+import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
 let {
 	authorName = "Anonymous",
 	authorPubkey = null,
@@ -17,6 +18,8 @@ let {
 	emojiTags = [],
 	mediaUrls = [],
 	resolveMentionLabel = null,
+	/** Show a loading skeleton instead of content (parent event not yet resolved). */
+	loading = false,
 } = $props();
 /** Match QuotedZapMessage: rich path when there is text, custom emoji tags, or media chips */
 const useRichPreview = $derived(
@@ -53,28 +56,32 @@ onMount(() => {
 });
 </script>
 
-<div class="quoted-message">
-  <div class="quoted-bar" style="background: {borderColorStyle};" aria-hidden="true"></div>
-  <div class="quoted-body">
-    <div class="quoted-name" style="color: {nameColorStyle};">
-      {authorName}
-    </div>
-    <div class="quoted-content">
-      {#if useRichPreview}
-        <ShortTextPreview
-          content={content ?? ""}
-          emojiTags={emojiTags ?? []}
-          mediaUrls={mediaUrls ?? []}
-          {resolveMentionLabel}
-          maxLines={1}
-          class="quoted-preview"
-        />
-      {:else}
-        {trimmedPreview || " "}
-      {/if}
+{#if loading}
+  <div class="quoted-message-skeleton"><SkeletonLoader /></div>
+{:else}
+  <div class="quoted-message">
+    <div class="quoted-bar" style="background: {borderColorStyle};" aria-hidden="true"></div>
+    <div class="quoted-body">
+      <div class="quoted-name" style="color: {nameColorStyle};">
+        {authorName}
+      </div>
+      <div class="quoted-content">
+        {#if useRichPreview}
+          <ShortTextPreview
+            content={content ?? ""}
+            emojiTags={emojiTags ?? []}
+            mediaUrls={mediaUrls ?? []}
+            {resolveMentionLabel}
+            maxLines={1}
+            class="quoted-preview"
+          />
+        {:else}
+          {trimmedPreview || " "}
+        {/if}
+      </div>
     </div>
   </div>
-</div>
+{/if}
 
 <style>
   .quoted-message {
@@ -117,5 +124,12 @@ onMount(() => {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .quoted-message-skeleton {
+    height: 42px;
+    border-radius: var(--radius-8);
+    overflow: hidden;
+    margin-bottom: 8px;
   }
 </style>

@@ -66,6 +66,8 @@
 
 	/** @type {import('nostr-tools').NostrEvent[]} */
 	let activityComments = $state([]);
+	/** All comments on the dev's apps — unfiltered, used only for parent resolution. */
+	let activityAllComments = $state(/** @type {import('nostr-tools').NostrEvent[]} */ ([]));
 	/** @type {import('nostr-tools').NostrEvent[]} */
 	let activityZapEvents = $state([]);
 	/** @type {Map<string, import('nostr-tools').NostrEvent>} root `a` value → kind 32267 app event */
@@ -73,9 +75,11 @@
 	/** @type {Map<string, { displayName?: string, name?: string, picture?: string }>} */
 	let activityProfiles = $state(new Map());
 
+	// Built from ALL comments (including the dev's own) so that replies to the dev's own
+	// comments can resolve their parentComment for the quoted-message block.
 	const activityCommentMap = $derived.by(() => {
 		const m = new Map();
-		for (const ev of activityComments) {
+		for (const ev of activityAllComments) {
 			m.set(ev.id, ev);
 			m.set(ev.id.toLowerCase(), ev);
 		}
@@ -130,6 +134,7 @@
 		if (!activityQuery) return;
 		const sub = activityQuery.subscribe({
 			next: (val) => {
+				activityAllComments = val ?? [];
 				activityComments = (val ?? []).filter((ev) => ev.pubkey !== devPubkey);
 				for (const ev of activityComments) {
 					resolveRootAppEvent(ev);
@@ -193,8 +198,17 @@
 	});
 
 	const activityZapsForFeed = $derived.by(() => {
+		// Build set of receipt IDs already covered by a kind 1111 z-wrapper in the comments feed.
+		// When a zap-with-comment publishes both a kind 9735 receipt and a kind 1111 z-wrapper,
+		// only the z-wrapper appears in activityComments — skip the raw receipt to avoid doubles.
+		const coveredReceiptIds = new Set();
+		for (const ev of activityComments) {
+			const zTag = ev.tags?.find((t) => t[0] === 'z' && typeof t[1] === 'string' && t[1]);
+			if (zTag?.[1]) coveredReceiptIds.add(String(zTag[1]).trim().toLowerCase());
+		}
 		const rows = [];
 		for (const ev of activityZapEvents) {
+			if (coveredReceiptIds.has(ev.id.toLowerCase())) continue;
 			let p;
 			try {
 				p = parseZapReceipt(ev);

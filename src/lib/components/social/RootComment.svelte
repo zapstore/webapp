@@ -78,6 +78,12 @@
 		onZapPending,
 		onZapPendingClear,
 		onGetStarted /** When true (e.g. from Activity ?comment=id), open this thread modal on mount */,
+		/**
+		 * When true, shows ONLY the three-dot options button on hover (no reply/zap).
+		 * Used for backward-compatible raw kind-9735 zap rows where comment/zap actions
+		 * are not supported, but the user can still view details, delete own, or report.
+		 */
+		showOptionsOnly = false,
 		openThreadOnMount = false,
 		/** After thread opens, open the actions sheet once (feed three-dots). */
 		openActionsOnMount = false,
@@ -686,7 +692,7 @@
 	});
 
 	/** Thread modal + root ⋯: actions sheet without Comment/Zap sections. */
-	const actionsModalCompact = $derived(modalOpen && actionsModalTarget === 'root');
+	const actionsModalCompact = $derived(showOptionsOnly || (modalOpen && actionsModalTarget === 'root'));
 
 	/** Thread visible first, then actions (legacy bundled open). */
 	let didApplyBundledActions = $state(false);
@@ -752,14 +758,21 @@
 	/>
 {/snippet}
 
+{#snippet feedOptionsOnlyRail()}
+	<CommentBubbleActionRail
+		optionsOnly={true}
+		onOptions={() => { openActionsModal('root'); }}
+	/>
+{/snippet}
+
 {#if !hideRoot}
 	<div
 		class="root-comment {className}"
-		class:desktop-bubble-actions-target={showThreadActions}
+		class:desktop-bubble-actions-target={showThreadActions || showOptionsOnly}
 		role="button"
 		tabindex="0"
-		onclick={openThread}
-		onkeydown={onRootCommentKeydown}
+		onclick={showOptionsOnly ? undefined : openThread}
+		onkeydown={showOptionsOnly ? undefined : onRootCommentKeydown}
 	>
 		{#if isZapRoot}
 			<ZapBubble
@@ -774,8 +787,8 @@
 				{emojiTags}
 				{resolveMentionLabel}
 				{zapsOnThis}
-				actionRail={showThreadActions ? feedDesktopRail : undefined}
-			/>
+			actionRail={showThreadActions ? feedDesktopRail : showOptionsOnly ? feedOptionsOnlyRail : undefined}
+		/>
 		{:else}
 		<MessageBubble
 			{pictureUrl}
@@ -788,7 +801,7 @@
 			{outgoing}
 			{version}
 			{zapsOnThis}
-			actionRail={showThreadActions ? feedDesktopRail : undefined}
+			actionRail={showThreadActions ? feedDesktopRail : showOptionsOnly ? feedOptionsOnlyRail : undefined}
 		>
 				{#if (content != null && content !== undefined) || (mediaUrls?.length ?? 0) > 0}
 					<ShortTextContent
@@ -1262,7 +1275,7 @@
 	{labelCommunityPubkey}
 	searchProfiles={_threadSearchProfiles}
 	{searchEmojis}
-	{signEvent}
+	signEvent={showOptionsOnly ? null : signEvent}
 	onComment={actionsModalOnComment}
 	onZap={actionsModalOnZap}
 	onZapPreset={handleActionsZapPreset}

@@ -221,7 +221,7 @@ const rootCommentsWithReplies = $derived(rootComments.map((comment) => ({
     replies: repliesByParent.get(comment.id) || [],
 })));
 
-// enrichedZaps must be defined before threadByZapId, threadZapsByZapId, and threadZapsByRootId
+// enrichedZaps must be defined before threadZapsByRootId
 const enrichedZaps = $derived(zaps
     .map((zap) => {
     const profile = zap.senderPubkey ? zapperProfiles.get(zap.senderPubkey) : undefined;
@@ -259,65 +259,9 @@ const threadByRootId = $derived.by(() => {
     }
     return map;
 });
-/** Replies (and their descendants) per zap id, for zap thread modal. Zaps are not in comments, so key by zap id. */
-const threadByZapId = $derived.by(() => {
-    const allZapIds = new SvelteSet(zaps.map((z) => z.id.toLowerCase()));
-    const map = new SvelteMap();
-    const norm = (id) => (id ?? "").toLowerCase();
-    for (const zap of enrichedZaps) {
-        const zapIdNorm = zap.id.toLowerCase();
-        if (!allZapIds.has(zapIdNorm))
-            continue;
-        const direct = comments.filter((c) => norm(c.parentId) === zapIdNorm);
-        const allIds = new SvelteSet(direct.map((c) => c.id));
-        let queue = [...direct.map((c) => c.id)];
-        while (queue.length) {
-            const parentId = queue.shift();
-            const parentNorm = norm(parentId);
-            const children = comments.filter((c) => norm(c.parentId) === parentNorm);
-            for (const c of children) {
-                allIds.add(c.id);
-                queue.push(c.id);
-            }
-        }
-        const thread = comments.filter((c) => allIds.has(c.id)).map((c) => enrichComment(c));
-        map.set(zap.id, thread.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0)));
-    }
-    return map;
-});
-/** For each root zap in the feed: zaps on that zap (e-tag = this receipt id). Modal shows these when opened. */
-const threadZapsByZapId = $derived.by(() => {
-    const norm = (id) => (id ?? "").toLowerCase();
-    const byParent = new SvelteMap();
-    for (const z of enrichedZaps) {
-        const pid = norm(z.zappedEventId);
-        if (!pid)
-            continue;
-        if (!byParent.has(pid))
-            byParent.set(pid, []);
-        byParent.get(pid).push(z);
-    }
-    const map = new SvelteMap();
-    function collectDescendants(rootId) {
-        const out = [];
-        let queue = [rootId.toLowerCase()];
-        while (queue.length) {
-            const pid = queue.shift();
-            const children = byParent.get(pid) ?? [];
-            for (const z of children) {
-                out.push(z);
-                queue.push(z.id.toLowerCase());
-            }
-        }
-        return out.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
-    }
-    for (const zap of enrichedZaps) {
-        const descendants = collectDescendants(zap.id.toLowerCase());
-        if (descendants.length > 0)
-            map.set(zap.id, descendants);
-    }
-    return map;
-});
+// threadByZapId and threadZapsByZapId have been removed: comment trees hang exclusively
+// from kind-1111 events. Raw kind-9735 root rows (backward-compat fallback) open with
+// empty thread data — their threads were published as z-wrappers and appear in threadByRootId.
 /** For each root comment in the feed: zaps on any event in that thread. Used when opening the modal for that root comment. */
 const threadZapsByRootId = $derived.by(() => {
     const norm = (id) => (id ?? "").toLowerCase();
@@ -355,12 +299,20 @@ const combinedFeed = $derived.by(() => {
         }
         return { ...c, type: "comment", timestamp: c.createdAt };
     });
-    // Comments tab: root-level zaps that carry a comment or emoji. No pending —
-    // don't optimistically display at root level before the receipt arrives.
-    // No commentId filter needed — RootComment no longer adds aTag to comment zap
-    // targets, so receipts for comment zaps never land in enrichedZaps.
+    // Build a set of zap receipt IDs already represented by a z-wrapper in this feed.
+    // Raw kind-9735 receipts for which a wrapper exists are excluded to avoid duplicates.
+    const wrappedReceiptIds = new Set(
+        commentsWithType
+            .filter((c) => c.isWrapper && c.zapReceiptId)
+            .map((c) => String(c.zapReceiptId).toLowerCase())
+    );
+    // Show raw zaps with comment/emoji ONLY when no z-wrapper already covers them.
+    // This provides backward-compat display for zaps sent by clients that don't
+    // publish wrappers, without doubling up for those that do.
     const zapsForComments = enrichedZaps.filter(
-        (z) => !!(z.comment && z.comment.trim()) || ((z.emojiTags?.length ?? 0) > 0)
+        (z) =>
+            (!!(z.comment && z.comment.trim()) || (z.emojiTags?.length ?? 0) > 0) &&
+            !wrappedReceiptIds.has(String(z.id ?? '').toLowerCase())
     );
     const combined = [...commentsWithType, ...zapsForComments];
     return combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -382,9 +334,6 @@ $effect(() => {
     // so pills show on deeper comments too, not just root-level feed items.
     const threadIds = [];
     for (const arr of threadByRootId.values()) {
-        for (const c of arr) if (c.id) threadIds.push(c.id);
-    }
-    for (const arr of threadByZapId.values()) {
         for (const c of arr) if (c.id) threadIds.push(c.id);
     }
     const ids = [...new Set([...feedIds, ...threadIds])];
@@ -510,26 +459,23 @@ const zapsByTargetId = $derived.by(() => {
                 isZapWrapper={item.isWrapper === true}
                 zapAmount={item.amountSats ?? 0}
                 pending={item.pending === true}
-                threadComments={item.isWrapper
-                  ? (threadByRootId.get(item.id) ?? [])
-                  : (threadByZapId.get(item.id) ?? [])}
-                threadZaps={item.isWrapper
-                  ? (threadZapsByRootId.get(item.id) ?? [])
-                  : (threadZapsByZapId.get(item.id) ?? [])}
+                threadComments={item.isWrapper ? (threadByRootId.get(item.id) ?? []) : []}
+                threadZaps={item.isWrapper ? (threadZapsByRootId.get(item.id) ?? []) : []}
                 authorPubkey={app?.pubkey}
                 openThreadOnMount={false}
                 resolveMentionLabel={(pk) => profiles[pk]?.displayName ?? profiles[pk]?.name}
                 appIconUrl={app?.icon}
                 appName={app?.name}
                 appIdentifier={app?.dTag}
-                {wrapperRoot}
+                wrapperRoot={item.isWrapper ? wrapperRoot : null}
                 zapsOnThis={zapsByTargetId.get(String(item.id ?? '').toLowerCase()) ?? []}
                 {zapsByTargetId}
                 {version}
                 {searchProfiles}
                 {searchEmojis}
-                signEvent={signEvent}
-                onReplySubmit={onCommentSubmit
+                showOptionsOnly={item.isWrapper !== true}
+                {signEvent}
+                onReplySubmit={item.isWrapper && onCommentSubmit
                   ? (e) => onCommentSubmit({
                       text: e.text,
                       emojiTags: e.emojiTags,
@@ -541,10 +487,10 @@ const zapsByTargetId = $derived.by(() => {
                       parentKind: e.parentKind,
                     })
                   : undefined}
-                onZapReceived={onZapReceived}
-                {onZapPending}
-                {onZapPendingClear}
-                onGetStarted={onGetStarted}
+                onZapReceived={item.isWrapper ? onZapReceived : undefined}
+                onZapPending={item.isWrapper ? onZapPending : undefined}
+                onZapPendingClear={item.isWrapper ? onZapPendingClear : undefined}
+                onGetStarted={item.isWrapper ? onGetStarted : undefined}
               />
             {:else}
               <RootComment

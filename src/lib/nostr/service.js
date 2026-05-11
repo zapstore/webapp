@@ -2174,11 +2174,19 @@ export function parseZapFromCommentWrapper(event) {
  */
 export async function publishZapCommentWrapper(params, signEvent) {
 	if (typeof signEvent !== 'function') throw new Error('signEvent is required');
-	const { zapReceiptId, amountSats, parent, root, content = '', emojiTags = [], relays } = params ?? {};
+	const { zapReceiptId, amountSats, parent, root, content = '', emojiTags = [], mentions = [], relays } = params ?? {};
 
 	const receiptId = String(zapReceiptId ?? '').trim().toLowerCase();
 	if (!/^[a-f0-9]{64}$/.test(receiptId)) throw new Error('Invalid zap receipt id');
-	if (!parent?.id || !parent?.pubkey || !parent?.kind) throw new Error('Wrapper parent (id, kind, pubkey) required');
+	const parentPubkeyHex = String(parent?.pubkey ?? '').trim().toLowerCase();
+	if (!/^[a-f0-9]{64}$/.test(parentPubkeyHex)) throw new Error('Wrapper parent pubkey required');
+	if (!parent?.kind) throw new Error('Wrapper parent kind required');
+	// parent.id is required for non-addressable events; parent.aTag for addressable (app/stack).
+	const parentATag = typeof parent?.aTag === 'string' ? parent.aTag.trim().toLowerCase() : null;
+	const parentEventId = !parentATag && parent?.id ? String(parent.id).trim().toLowerCase() : null;
+	if (!parentATag && (!parentEventId || !/^[a-f0-9]{64}$/.test(parentEventId))) {
+		throw new Error('Wrapper parent (id or aTag) required');
+	}
 	if (!root?.kind || !root?.pubkey || (!root.identifier && !root.eventId)) {
 		throw new Error('Wrapper root (kind, pubkey, identifier|eventId) required');
 	}
@@ -2199,10 +2207,15 @@ export async function publishZapCommentWrapper(params, signEvent) {
 	tags.push(['K', String(root.kind)]);
 	tags.push(['P', root.pubkey.toLowerCase()]);
 
-	// Parent markers (the comment/zap being zapped)
-	tags.push(['e', parent.id.toLowerCase(), relayHint]);
+	// Parent markers (the comment/zap being wrapped).
+	// Addressable events (app/stack) use lowercase 'a'; all others use lowercase 'e'.
+	if (parentATag) {
+		tags.push(['a', parentATag, relayHint]);
+	} else {
+		tags.push(['e', parentEventId, relayHint]);
+	}
 	tags.push(['k', String(parent.kind)]);
-	tags.push(['p', parent.pubkey.toLowerCase()]);
+	tags.push(['p', parentPubkeyHex]);
 
 	// The z tag — what makes this comment a zap wrapper.
 	tags.push(['z', receiptId, relayHint, String(sats), 'sats']);
@@ -2213,6 +2226,16 @@ export async function publishZapCommentWrapper(params, signEvent) {
 		if (shortcode && url && !seenEmoji.has(shortcode)) {
 			seenEmoji.add(shortcode);
 			tags.push(['emoji', shortcode, url]);
+		}
+	}
+
+	// Profile mentions — deduplicated against root/parent pubkeys already in the tags.
+	const seenP = new Set([root.pubkey.toLowerCase(), parent.pubkey.toLowerCase()]);
+	for (const pk of mentions ?? []) {
+		const normalized = String(pk).trim().toLowerCase();
+		if (/^[a-f0-9]{64}$/.test(normalized) && !seenP.has(normalized)) {
+			seenP.add(normalized);
+			tags.push(['p', normalized]);
 		}
 	}
 

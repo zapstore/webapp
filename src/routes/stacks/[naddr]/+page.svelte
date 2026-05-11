@@ -358,7 +358,14 @@ async function loadCommentsForStack(pubkey, dTag) {
         }
         const merged = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
         comments = merged.map((ev) => parseComment(ev));
-        const uniquePubkeys = [...new Set(comments.map((c) => c.pubkey))];
+        const uniquePubkeys = [
+            ...new Set([
+                ...comments.map((c) => c.pubkey),
+                ...merged.flatMap((ev) =>
+                    ev.tags.filter((t) => t[0] === 'p' && t[1]?.length === 64).map((t) => t[1])
+                )
+            ].filter(Boolean))
+        ];
         profilesLoading = true;
         const nextProfiles = { ...profiles };
         const fetchedProfiles = await fetchProfilesBatch(uniquePubkeys);
@@ -571,8 +578,8 @@ async function handleStackBottomBarZap(event) {
     const pk = stack?.pubkey;
     const dt = stack?.dTag;
     if (pk && dt) {
-        void loadZapsForStack(pk, dt);
-        setTimeout(() => void loadZapsForStack(pk, dt), 2500);
+        void Promise.all([loadZapsForStack(pk, dt), loadCommentsForStack(pk, dt)]);
+        setTimeout(() => void Promise.all([loadZapsForStack(pk, dt), loadCommentsForStack(pk, dt)]), 2500);
     }
 }
 async function handleCommentSubmit(event) {

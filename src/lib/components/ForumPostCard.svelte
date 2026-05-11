@@ -6,6 +6,7 @@
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import Label from '$lib/components/common/Label.svelte';
 	import ProfilePicStack from '$lib/components/common/ProfilePicStack.svelte';
+	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import ShortTextPreview from '$lib/components/common/ShortTextPreview.svelte';
 	import { Zap } from '$lib/components/icons';
 
@@ -24,6 +25,8 @@
 		commentCount = 0,
 		/** Total sats zapped on this post. Shows a gold pill when > 0. */
 		totalZapAmount = 0,
+		/** While comment counts haven't loaded yet — show L-shape with skeleton profile row. */
+		commentersLoading = false,
 		onClick = () => {}
 	} = $props();
 
@@ -33,7 +36,7 @@
 	}
 
 	const hasCommenters = $derived(commenters && commenters.length > 0);
-	const showReplyRow = $derived(hasCommenters || totalZapAmount > 0);
+	const showReplyRow = $derived(hasCommenters || totalZapAmount > 0 || commentersLoading);
 
 	function formatAmount(val) {
 		if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(val % 1_000_000 === 0 ? 0 : 1)}M`;
@@ -122,7 +125,7 @@
 				<div class="row labels-row">
 					<div class="labels-mask-wrap">
 						<div class="labels-scroll">
-							{#each labels as label}
+							{#each labels as label (label)}
 								<div class="label-slot">
 									<Label text={label} isSelected={false} isEmphasized={false} size="small" />
 								</div>
@@ -149,20 +152,33 @@
 				</div>
 			</div>
 			<div class="repliers-row">
-				{#if hasCommenters}
-					<ProfilePicStack
-						profiles={stackProfiles}
-						text={stackText}
-						suffix={String(commentCount || commenters.length)}
-						size="sm"
-						onclick={() => onClick()}
-					/>
-				{/if}
-				{#if totalZapAmount > 0}
-					<div class="zap-pill" aria-label="{formatAmount(totalZapAmount)} sats zapped">
-						<Zap variant="fill" size={12} color="url(#fpc-zap-grad)" />
-						<span class="zap-pill-amount">{formatAmount(totalZapAmount)}</span>
+				{#if commentersLoading && !hasCommenters && totalZapAmount === 0}
+					<div class="commenters-skeleton" aria-hidden="true">
+						<div class="commenters-skeleton-avatars">
+							{#each [0, 1, 2] as i (i)}
+								<div class="commenters-skeleton-avatar" style="z-index: {3 - i};">
+									<SkeletonLoader />
+								</div>
+							{/each}
+						</div>
+						<div class="commenters-skeleton-text"><SkeletonLoader /></div>
 					</div>
+				{:else}
+					{#if hasCommenters}
+						<ProfilePicStack
+							profiles={stackProfiles}
+							text={stackText}
+							suffix={String(commentCount || commenters.length)}
+							size="sm"
+							onclick={() => onClick()}
+						/>
+					{/if}
+					{#if totalZapAmount > 0}
+						<div class="zap-pill" aria-label="{formatAmount(totalZapAmount)} sats zapped">
+							<Zap variant="fill" size={12} color="url(#fpc-zap-grad)" />
+							<span class="zap-pill-amount">{formatAmount(totalZapAmount)}</span>
+						</div>
+					{/if}
 				{/if}
 			</div>
 		</div>
@@ -412,5 +428,37 @@
 		font-weight: 600;
 		line-height: 1;
 		color: var(--white);
+	}
+
+	.commenters-skeleton {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.commenters-skeleton-avatars {
+		display: flex;
+		align-items: center;
+	}
+
+	.commenters-skeleton-avatar {
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		overflow: hidden;
+		margin-left: -6px;
+		border: 1.5px solid var(--black);
+		flex-shrink: 0;
+	}
+
+	.commenters-skeleton-avatar:first-child {
+		margin-left: 0;
+	}
+
+	.commenters-skeleton-text {
+		width: 80px;
+		height: 11px;
+		border-radius: 6px;
+		overflow: hidden;
 	}
 </style>

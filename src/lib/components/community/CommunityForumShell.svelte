@@ -70,6 +70,8 @@
 	let commentersByPostId = $state(new Map());
 	/** @type {Map<string, number>} Total sats zapped per forum post ID. */
 	let zapsByPostId = $state(/** @type {Map<string,number>} */ (new Map()));
+	/** True after the first commentCountsQuery emission — drives ForumPostCard skeleton state. */
+	let commentCountsSettled = $state(false);
 	/** Non-reactive cache for commenter profiles; used by the reactive comment liveQuery. */
 	let commentProfileCache = new Map();
 	let addPostModalOpen = $state(false);
@@ -172,8 +174,8 @@
 			? liveQuery(async () => {
 					const ids = posts.map((p) => p.id);
 					const [lo, hi] = await Promise.all([
-						queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': ids, limit: 1000 }),
-						queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': ids, limit: 1000 })
+						queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': ids, limit: 300 }),
+						queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': ids, limit: 300 })
 					]);
 					const all = new Map();
 					for (const e of [...lo, ...hi]) all.set(e.id, e);
@@ -186,6 +188,7 @@
 		if (!commentCountsQuery) return;
 		const sub = commentCountsQuery.subscribe({
 			next: (commentEvs) => {
+				commentCountsSettled = true;
 				const evs = commentEvs ?? [];
 				const byPost = new Map();
 				for (const c of evs) {
@@ -222,8 +225,8 @@
 					const ids = posts.map((p) => p.id);
 					// Zap receipts use lowercase 'e' tag; query both cases for safety
 					const [lo, hi] = await Promise.all([
-						queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#e': ids, limit: 2000 }),
-						queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#E': ids, limit: 2000 })
+						queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#e': ids, limit: 400 }),
+						queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#E': ids, limit: 400 })
 					]);
 					// Deduplicate by event ID
 					const byId = new Map();
@@ -286,10 +289,16 @@
 		let cancelled = false;
 
 		(async () => {
-			const pEvs = await fetchProfilesBatch(pks, { timeout: 4000 });
+			// Run profile fetch and Dexie comment fetch in parallel — don't let the
+			// 4s profile relay timeout block comment counts from appearing quickly.
+			const [pEvs, evsE, evsEUpper] = await Promise.all([
+				fetchProfilesBatch(pks, { timeout: 4000 }),
+				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': postIds, limit: 300 }),
+				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': postIds, limit: 300 })
+			]);
 			if (cancelled) return;
+
 			const m = new Map();
-			// fetchProfilesBatch returns Map<pubkey, event>
 			for (const [pk, event] of pEvs) {
 				try {
 					m.set(pk, { ...parseProfile(event), content: event.content });
@@ -322,11 +331,6 @@
 			}
 			feedProfiles = m;
 
-			const [evsE, evsEUpper] = await Promise.all([
-				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': postIds, limit: 500 }),
-				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': postIds, limit: 500 })
-			]);
-			if (cancelled) return;
 			const byId = new Map();
 			for (const e of [...evsE, ...evsEUpper]) {
 				if (!byId.has(e.id)) byId.set(e.id, e);
@@ -609,6 +613,7 @@
 					commenters={postCommenters?.profiles ?? []}
 					commentCount={postCommenters?.count ?? 0}
 					totalZapAmount={zapsByPostId.get(post.id?.toLowerCase?.() ?? post.id) ?? 0}
+					commentersLoading={!commentCountsSettled}
 					onClick={() => openPost(post)}
 				/>
 			{/each}

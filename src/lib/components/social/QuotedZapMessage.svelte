@@ -4,6 +4,7 @@
  * Gold theme: `--gradient-gold66` for accent bar + name; icon fill matches same 66% gold stops.
  */
 import ShortTextPreview from '$lib/components/common/ShortTextPreview.svelte';
+import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 import { Zap } from '$lib/components/icons';
 
 let {
@@ -15,7 +16,9 @@ let {
 	emojiTags = [],
 	mediaUrls = [],
 	resolveMentionLabel = null,
-	maxPreviewLength = 80
+	maxPreviewLength = 80,
+	/** Show a loading skeleton instead of content (parent zap event not yet resolved). */
+	loading = false
 } = $props();
 
 function formatAmount(val) {
@@ -32,32 +35,36 @@ const plainPreview = $derived.by(() => {
 });
 </script>
 
-<div class="quoted-zap" data-zapper-pubkey={authorPubkey ?? undefined}>
-	<div class="quoted-zap-bar" aria-hidden="true"></div>
-	<div class="quoted-zap-body">
-		<div class="quoted-zap-top">
-			<span class="quoted-zap-name">{authorName}</span>
-			<span class="quoted-zap-amount-row" aria-label="{amountSats} sats">
-				<Zap variant="fill" size={12} color="var(--goldColor)" />
-				<span class="quoted-zap-sats">{formatAmount(amountSats)}</span>
-			</span>
-		</div>
-		{#if useRichPreview}
-			<div class="quoted-zap-content">
-				<ShortTextPreview
-					content={content ?? ''}
-					emojiTags={emojiTags ?? []}
-					mediaUrls={mediaUrls ?? []}
-					{resolveMentionLabel}
-					maxLines={1}
-					class="quoted-zap-preview"
-				/>
+{#if loading}
+	<div class="quoted-zap-skeleton"><SkeletonLoader /></div>
+{:else}
+	<div class="quoted-zap" data-zapper-pubkey={authorPubkey ?? undefined}>
+		<div class="quoted-zap-bar" aria-hidden="true"></div>
+		<div class="quoted-zap-body">
+			<div class="quoted-zap-top">
+				<span class="quoted-zap-name">{authorName}</span>
+				<span class="quoted-zap-amount-row" aria-label="{amountSats} sats">
+					<Zap variant="fill" size={12} color="var(--goldColor)" />
+					<span class="quoted-zap-sats">{formatAmount(amountSats)}</span>
+				</span>
 			</div>
-		{:else if plainPreview}
-			<div class="quoted-zap-content quoted-zap-content--plain">{plainPreview}</div>
-		{/if}
+			{#if useRichPreview}
+				<div class="quoted-zap-content">
+					<ShortTextPreview
+						content={content ?? ''}
+						emojiTags={emojiTags ?? []}
+						mediaUrls={mediaUrls ?? []}
+						{resolveMentionLabel}
+						maxLines={1}
+						class="quoted-zap-preview"
+					/>
+				</div>
+			{:else if plainPreview}
+				<div class="quoted-zap-content quoted-zap-content--plain">{plainPreview}</div>
+			{/if}
+		</div>
 	</div>
-</div>
+{/if}
 
 <style>
 	.quoted-zap {
@@ -140,5 +147,12 @@ const plainPreview = $derived.by(() => {
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.quoted-zap-skeleton {
+		height: 42px;
+		border-radius: var(--radius-8);
+		overflow: hidden;
+		margin-bottom: 8px;
 	}
 </style>

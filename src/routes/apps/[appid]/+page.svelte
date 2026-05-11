@@ -496,7 +496,14 @@ let _refreshing = $state(false);
 			}
 			const merged = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
 			comments = merged.map((ev) => parseComment(ev));
-			const uniquePubkeys = [...new Set(comments.map((c) => c.pubkey).filter(Boolean))];
+			const uniquePubkeys = [
+				...new Set([
+					...comments.map((c) => c.pubkey),
+					...merged.flatMap((ev) =>
+						ev.tags.filter((t) => t[0] === 'p' && t[1]?.length === 64).map((t) => t[1])
+					)
+				].filter(Boolean))
+			];
 			profilesLoading = true;
 			const fetchedProfiles = await fetchProfilesBatch(uniquePubkeys);
 			const nextProfiles = { ...profiles };
@@ -547,6 +554,27 @@ let _refreshing = $state(false);
 			});
 			if (newComments.length > 0) {
 				comments = [...comments, ...newComments];
+				const newPubkeys = [
+					...new Set([
+						...newEvents.map((ev) => ev.pubkey),
+						...newEvents.flatMap((ev) =>
+							ev.tags.filter((t) => t[0] === 'p' && t[1]?.length === 64).map((t) => t[1])
+						)
+					].filter(Boolean))
+				];
+				if (newPubkeys.length > 0) {
+					const batch = await fetchProfilesBatch(newPubkeys, { timeout: 5000 });
+					const next = { ...profiles };
+					for (const [pk, ev] of batch) {
+						if (ev?.content) {
+							try {
+								const c = JSON.parse(ev.content);
+								next[pk] = { displayName: c.display_name ?? c.displayName, name: c.name, picture: c.picture };
+							} catch { /* ignore */ }
+						}
+					}
+					profiles = next;
+				}
 			}
 		} catch (err) {
 			console.error('Failed to load comment replies by #e:', err);
@@ -749,7 +777,7 @@ let _refreshing = $state(false);
 			await hydrateZapperProfiles();
 		}
 		function refetchZapsAndThreads() {
-			loadZaps().then(async () => {
+			Promise.all([loadZaps(), loadComments()]).then(async () => {
 				const mainFeedZapIds = zaps.filter((z) => !z.pending && !z.zappedEventId).map((z) => z.id);
 				const allCommentIds = await loadCommentReplies();
 				loadZapsByMainFeedIds([...allCommentIds, ...mainFeedZapIds]);
@@ -836,6 +864,23 @@ let _refreshing = $state(false);
 				} catch {
 					/* ignore */
 				}
+			}
+			// Also resolve profiles for anyone @mentioned in the just-published comment
+			const mentionedPks = signed.tags
+				.filter((t) => t[0] === 'p' && t[1]?.length === 64 && !profiles[t[1]])
+				.map((t) => t[1]);
+			if (mentionedPks.length > 0) {
+				const batch = await fetchProfilesBatch(mentionedPks, { timeout: 5000 });
+				const next = { ...profiles };
+				for (const [pk, ev] of batch) {
+					if (ev?.content) {
+						try {
+							const c = JSON.parse(ev.content);
+							next[pk] = { displayName: c.display_name ?? c.displayName, name: c.name, picture: c.picture };
+						} catch { /* ignore */ }
+					}
+				}
+				profiles = next;
 			}
 		} catch (err) {
 			console.error('Failed to publish comment:', err);

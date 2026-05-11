@@ -8,6 +8,8 @@ let {
     onReply = () => {},
     onZap = () => {},
     onOptions = () => {},
+    /** When true, only the Options button is shown (Reply and Zap are hidden). */
+    optionsOnly = false,
 } = $props();
 function stop(e) {
     e.stopPropagation();
@@ -15,12 +17,14 @@ function stop(e) {
 </script>
 
 <div class="comment-bubble-action-rail" role="group" aria-label="Comment actions">
+  {#if !optionsOnly}
   <button type="button" class="rail-btn" aria-label="Reply" onclick={(e) => { stop(e); onReply(); }}>
     <Reply variant="outline" size={14} strokeWidth={1.4} color={white33} />
   </button>
   <button type="button" class="rail-btn" aria-label="Zap" onclick={(e) => { stop(e); onZap(); }}>
     <Zap variant="fill" size={14} color={white33} />
   </button>
+  {/if}
   <button type="button" class="rail-btn" aria-label="More options" onclick={(e) => { stop(e); onOptions(); }}>
     <Options variant="fill" size={14} color={white33} />
   </button>
