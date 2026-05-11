@@ -70,9 +70,11 @@ const isReply = $derived.by(() => {
 	return upperRoot ? lowerParent[1] !== upperRoot[1] : true;
 });
 
+/** Parent event expected (isReply) but not yet in Dexie — show skeleton quote. */
+const parentCommentLoading = $derived(isReply && !parentComment && !parentZapParsed);
 const showQuote = $derived(
 	isReply &&
-		(!!parentComment || !!(parentZapParsed && parentZapParsed.senderPubkey))
+		(!!parentComment || !!(parentZapParsed && parentZapParsed.senderPubkey) || parentCommentLoading)
 );
 const rootOneliner = $derived(getEventOneliner(rootEvent));
 const isStackRoot = $derived(
@@ -338,6 +340,8 @@ const contentText = $derived(event?.content ?? '');
 										mediaUrls={[]}
 										{resolveMentionLabel}
 									/>
+								{:else}
+									<QuotedMessage loading={true} />
 								{/if}
 							</div>
 						{/if}
@@ -404,6 +408,8 @@ const contentText = $derived(event?.content ?? '');
 								mediaUrls={[]}
 								{resolveMentionLabel}
 							/>
+						{:else}
+							<QuotedMessage loading={true} />
 						{/if}
 					</div>
 				{/if}

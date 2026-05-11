@@ -12,7 +12,7 @@
 	import { EVENT_KINDS, ZAPSTORE_COMMUNITY_PUBKEY, FORUM_RELAY } from '$lib/config';
 	import { getCached } from '$lib/stores/query-cache.js';
 	import ForumPostDetail from '$lib/components/community/ForumPostDetail.svelte';
-	import Spinner from '$lib/components/common/Spinner.svelte';
+	import ForumPostDetailSkeleton from '$lib/components/community/ForumPostDetailSkeleton.svelte';
 
 	let { data } = $props();
 
@@ -106,9 +106,8 @@
 <SeoHead title="{post?.title ?? 'Post'} — Zapstore" />
 
 {#if loading}
-	<div class="loading-wrap">
-		<Spinner size={24} />
-		<span>Loading post…</span>
+	<div class="panel-content panel-content-detail">
+		<ForumPostDetailSkeleton />
 	</div>
 {:else if notFound}
 	<div class="not-found-wrap">
@@ -137,16 +136,6 @@
 
 	.panel-content-detail {
 		position: relative;
-	}
-
-	.loading-wrap {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 12px;
-		padding: 60px 24px;
-		color: var(--white33);
-		font-size: 0.9375rem;
 	}
 
 	.not-found-wrap {

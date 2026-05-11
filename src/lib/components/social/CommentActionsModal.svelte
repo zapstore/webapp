@@ -24,9 +24,9 @@
 		Check
 	} from '$lib/components/icons';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
-	import { queryEvent, publishTopicLabelOnEvent } from '$lib/nostr';
-	import { EVENT_KINDS, FORUM_CATEGORIES, SITE_URL } from '$lib/config.js';
-	import { getIsSignedIn } from '$lib/stores/auth.svelte.js';
+	import { queryEvent, publishTopicLabelOnEvent, publishDeletionRequest } from '$lib/nostr';
+	import { EVENT_KINDS, FORUM_CATEGORIES, SITE_URL, COMMENT_PUBLISH_RELAYS } from '$lib/config.js';
+	import { getIsSignedIn, getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 
 	/** Preset sats chips (horizontal row); chevron opens full slider. */
 	const ZAP_PRESET_AMOUNTS = [1000, 2000, 5000, 10000, 25000, 50000, 100000];
@@ -61,6 +61,8 @@
 		onComment,
 		onZap,
 		onZapPreset,
+		/** Called after the user's own event is successfully deleted. */
+		onDelete = null,
 		searchProfiles = async () => [],
 		searchEmojis = async () => [],
 		signEvent = null,
@@ -93,6 +95,14 @@
 	let labelPublishing = $state(false);
 	let detailsEvent = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
 	let detailsLoading = $state(false);
+	let deleteLoading = $state(false);
+	let deleteError = $state('');
+
+	const isOwnEvent = $derived.by(() => {
+		const mine = getCurrentPubkey();
+		if (!mine || !authorPubkey) return false;
+		return String(mine).trim().toLowerCase() === String(authorPubkey).trim().toLowerCase();
+	});
 
 	const reportContentType = $derived(
 		targetEventKind === EVENT_KINDS.ZAP_RECEIPT ? 'zap' : 'comment'
@@ -264,6 +274,63 @@
 		}
 	}
 
+	/**
+	 * NIP-09 delete for own comments / zaps.
+	 * For z-wrapper comments (kind 1111 with a `z` tag), also deletes the referenced zap receipt.
+	 */
+	async function deleteMyEvent() {
+		if (!signEvent || !targetEventId?.trim() || deleteLoading) return;
+		deleteError = '';
+		deleteLoading = true;
+		try {
+			const id = targetEventId.trim().toLowerCase();
+		if (isZapPreview) {
+			// Could be a z-wrapper (kind 1111 + z-tag) or a real zap receipt (kind 9735).
+			// Look up the event from Dexie to decide.
+			const ev = await queryEvent({ ids: [id] });
+			const zTag = ev?.tags?.find((t) => t[0] === 'z' && typeof t[1] === 'string' && t[1]);
+			if (zTag) {
+				// Z-wrapper comment: delete both the wrapper (1111) and the underlying receipt (9735).
+				const receiptId = String(zTag[1]).trim().toLowerCase();
+				await Promise.all([
+					publishDeletionRequest(signEvent, {
+						eventId: id,
+						eventKind: EVENT_KINDS.COMMENT,
+						relays: COMMENT_PUBLISH_RELAYS
+					}),
+					/^[a-f0-9]{64}$/.test(receiptId)
+						? publishDeletionRequest(signEvent, {
+								eventId: receiptId,
+								eventKind: EVENT_KINDS.ZAP_RECEIPT,
+								relays: COMMENT_PUBLISH_RELAYS
+							})
+						: Promise.resolve()
+				]);
+			} else {
+				// Raw zap receipt (kind 9735) — best-effort NIP-09 deletion.
+				// Will fail if the receipt was signed by a wallet service key, not your key.
+				await publishDeletionRequest(signEvent, {
+					eventId: id,
+					eventKind: EVENT_KINDS.ZAP_RECEIPT,
+					relays: COMMENT_PUBLISH_RELAYS
+				});
+			}
+		} else {
+			await publishDeletionRequest(signEvent, {
+				eventId: id,
+				eventKind: EVENT_KINDS.COMMENT,
+				relays: COMMENT_PUBLISH_RELAYS
+			});
+		}
+			open = false;
+			onDelete?.();
+		} catch (err) {
+			deleteError = err instanceof Error ? err.message : 'Failed to delete';
+		} finally {
+			deleteLoading = false;
+		}
+	}
+
 	function formatChipAmount(n) {
 		if (n >= 1000000) return `${n / 1000000}M`;
 		if (n >= 1000) return `${n / 1000}K`;
@@ -306,6 +373,8 @@
 			shareUrlCopied = false;
 			labelError = '';
 			labelInputValue = '';
+			deleteError = '';
+			deleteLoading = false;
 		}
 	});
 </script>
@@ -395,12 +464,14 @@
 						</span>
 						<span class="cam-panel-label">Details</span>
 					</button>
-					<button type="button" class="cam-panel-btn" onclick={openLabelPanel} disabled={!canLabel}>
-						<span class="cam-panel-icon-wrap" aria-hidden="true">
-							<Label variant="outline" size={24} strokeWidth={1.4} color="var(--white66)" />
-						</span>
-						<span class="cam-panel-label">Label</span>
-					</button>
+				{#if !compactMode}
+				<button type="button" class="cam-panel-btn" onclick={openLabelPanel} disabled={!canLabel}>
+					<span class="cam-panel-icon-wrap" aria-hidden="true">
+						<Label variant="outline" size={24} strokeWidth={1.4} color="var(--white66)" />
+					</span>
+					<span class="cam-panel-label">Label</span>
+				</button>
+				{/if}
 					<button type="button" class="cam-panel-btn" onclick={openSharePanel} disabled={!canShare}>
 						<span class="cam-panel-icon-wrap" aria-hidden="true">
 							<Share variant="outline" size={24} strokeWidth={1.4} color="var(--white66)" />
@@ -410,9 +481,24 @@
 				</div>
 			</div>
 
-			<button type="button" class="cam-report-btn" onclick={openReportPanel}>
-				Report this {reportContentType === 'zap' ? 'zap' : 'comment'}
-			</button>
+			{#if isOwnEvent && signEvent}
+				<button
+					type="button"
+					class="cam-report-btn cam-delete-btn"
+					onclick={deleteMyEvent}
+					disabled={deleteLoading || !targetEventId?.trim()}
+					aria-busy={deleteLoading}
+				>
+					{deleteLoading ? 'Deleting…' : `Delete this ${reportContentType === 'zap' ? 'zap' : 'comment'}`}
+				</button>
+				{#if deleteError}
+					<p class="cam-delete-error" role="alert">{deleteError}</p>
+				{/if}
+			{:else}
+				<button type="button" class="cam-report-btn" onclick={openReportPanel}>
+					Report this {reportContentType === 'zap' ? 'zap' : 'comment'}
+				</button>
+			{/if}
 		{:else if subPanel === 'details'}
 			<div class="cam-subpanel">
 				<div class="details-modal-inner cam-subpanel-body">
@@ -884,6 +970,27 @@
 		.cam-report-btn {
 			height: 38px;
 		}
+	}
+
+	.cam-delete-btn {
+		color: var(--rougeColor);
+	}
+
+	.cam-delete-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.cam-delete-btn:not(:disabled):active {
+		transform: scale(0.99);
+	}
+
+	.cam-delete-error {
+		margin: 4px 0 0 0;
+		padding: 0 4px;
+		font-size: 13px;
+		color: var(--rougeColor);
+		text-align: center;
 	}
 
 	.details-modal-inner {

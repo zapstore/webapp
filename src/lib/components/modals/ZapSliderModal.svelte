@@ -7,16 +7,57 @@ import { onDestroy } from "svelte";
 import { Loader2, AlertCircle, Copy } from "lucide-svelte";
 import { Check as CheckIcon } from "$lib/components/icons";
 import { generateSecretKey, finalizeEvent } from "nostr-tools/pure";
-import { createZap, subscribeToZapReceipt, fetchZapReceiptFallback, putEvents } from "$lib/nostr";
+import { createZap, subscribeToZapReceipt, fetchZapReceiptFallback, putEvents, publishZapCommentWrapper } from "$lib/nostr";
 import { getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
+import { EVENT_KINDS } from "$lib/config";
 import Modal from "$lib/components/common/Modal.svelte";
 import ZapSlider from "./ZapSlider.svelte";
+/**
+ * Build wrapper parent/root context for root-level zaps (app, stack, forum post).
+ * Returns null if the target doesn't have enough identity info.
+ * @param {typeof target} tgt
+ * @param {string} type
+ */
+function buildRootWrapperCtx(tgt, type) {
+    const pubkey = String(tgt?.pubkey ?? '').trim().toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(pubkey)) return null;
+    if (type === 'app') {
+        const dTag = String(tgt?.dTag ?? '').trim();
+        if (!dTag) return null;
+        const kind = EVENT_KINDS.APP;
+        const aTag = String(tgt?.aTag ?? '').trim().toLowerCase() || `${kind}:${pubkey}:${dTag}`;
+        return { parent: { kind, pubkey, aTag }, root: { kind, pubkey, identifier: dTag } };
+    }
+    if (type === 'stack') {
+        const dTag = String(tgt?.dTag ?? '').trim();
+        if (!dTag) return null;
+        const kind = EVENT_KINDS.APP_STACK;
+        const aTag = String(tgt?.aTag ?? '').trim().toLowerCase() || `${kind}:${pubkey}:${dTag}`;
+        return { parent: { kind, pubkey, aTag }, root: { kind, pubkey, identifier: dTag } };
+    }
+    if (type === 'forum') {
+        const id = String(tgt?.id ?? '').trim().toLowerCase();
+        if (!/^[a-f0-9]{64}$/.test(id)) return null;
+        return {
+            parent: { kind: EVENT_KINDS.FORUM_POST, pubkey, id },
+            root: { kind: EVENT_KINDS.FORUM_POST, pubkey, eventId: id }
+        };
+    }
+    return null;
+}
+
 /** Sign zap request with a fresh random keypair (for guest zaps). */
 async function signWithAnonymousKey(template) {
     const sk = generateSecretKey();
     return finalizeEvent(template, sk);
 }
-let { target = null, publisherName = "", contentType = "app", otherZaps = [], isOpen = $bindable(false), nestedModal = false, lockBodyScroll = true, scopedInPanel = false, zIndex = 50, searchProfiles = async () => [], searchEmojis = async () => [], onclose, onzapReceived, onZapPending, onZapPendingClear, /** When set, opening the modal pre-fills this amount on the slider (e.g. quick chips). */
+let { target = null, publisherName = "", contentType = "app", otherZaps = [], isOpen = $bindable(false), nestedModal = false, lockBodyScroll = true, scopedInPanel = false, zIndex = 50, searchProfiles = async () => [], searchEmojis = async () => [], onclose, onzapReceived, onZapPending, onZapPendingClear,
+/**
+ * When set, a kind-1111 z-wrapper is published after the receipt lands (deeper zaps only).
+ * Shape: `{ parent: { id, kind, pubkey }, root: { kind, pubkey, identifier?, eventId? } }`
+ */
+wrapperParent = null,
+/** When set, opening the modal pre-fills this amount on the slider (e.g. quick chips). */
 presetZapSats = null, } = $props();
 let sliderComponent = $state(null);
 let zapValue = $state(1000);
@@ -37,6 +78,10 @@ let _waitingForReceipt = $state(false);
 let showManualClose = $state(false);
 let receiptTimeout = null;
 let lastEmojiTags = $state([]);
+/** Stashed for z-wrapper publishing after receipt lands. Cleared on reset. */
+let _pendingWrapperComment = $state('');
+let _pendingWrapperEmojiTags = $state(/** @type {{ shortcode: string, url: string }[]} */ ([]));
+let _pendingWrapperMentions = $state(/** @type {string[]} */ ([]));
 /** Optimistic UI: temp row id until receipt or cancel */
 let pendingTempId = $state(null);
 const isConnected = $derived(getIsSignedIn());
@@ -79,6 +124,9 @@ function resetZapFormState() {
     step = "slider";
     _waitingForReceipt = false;
     showManualClose = false;
+    _pendingWrapperComment = '';
+    _pendingWrapperEmojiTags = [];
+    _pendingWrapperMentions = [];
 }
 /** Successful close after receipt (pending row already cleared in parent). */
 function closeAfterSuccess() {
@@ -111,8 +159,13 @@ async function handleZap() {
     error = "";
     try {
         const serialized = sliderComponent?.getSerializedContent?.();
-        const commentText = serialized?.text?.trim() ?? message;
+        // Use || (not ??) so we fall back to message if serialized.text is an empty string.
+        const commentText = serialized?.text?.trim() || message;
         const emojiTagsToSend = (serialized?.emojiTags?.length ? serialized.emojiTags : lastEmojiTags) ?? [];
+        // Stash for z-wrapper publishing after the receipt lands.
+        _pendingWrapperComment = commentText;
+        _pendingWrapperEmojiTags = emojiTagsToSend;
+        _pendingWrapperMentions = serialized?.mentions ?? [];
         const signer = isConnected
             ? signEvent
             : signWithAnonymousKey;
@@ -163,6 +216,31 @@ function startListeningForReceipt(zapStartedAt) {
         const temp = pendingTempId;
         pendingTempId = null;
         onzapReceived?.({ zapReceipt, pendingTempId: temp });
+        // Publish a kind-1111 z-wrapper for any zap that carries comment text.
+        // wrapperParent covers deeper (thread-level) zaps passed in from RootComment.
+        // For root-level zaps (app/stack/forum post) we derive the context from target.
+        // Publish a kind-1111 z-wrapper for any zap that carries comment text.
+        // wrapperParent covers deeper (thread-level) zaps passed in from RootComment.
+        // For root-level zaps (app/stack/forum post) we derive the context from target.
+        if (_pendingWrapperComment.trim() && getIsSignedIn()) {
+            const wrapperCtx = (wrapperParent?.parent && wrapperParent?.root)
+                ? wrapperParent
+                : buildRootWrapperCtx(target, contentType);
+            if (wrapperCtx) {
+                void publishZapCommentWrapper(
+                    {
+                        zapReceiptId: zapReceipt.id,
+                        amountSats: Math.round(zapValue),
+                        parent: wrapperCtx.parent,
+                        root: wrapperCtx.root,
+                        content: _pendingWrapperComment,
+                        emojiTags: _pendingWrapperEmojiTags,
+                        mentions: _pendingWrapperMentions
+                    },
+                    signEvent
+                ).catch((err) => console.warn('[zap] z-wrapper publish failed:', err));
+            }
+        }
         setTimeout(() => closeAfterSuccess(), 2000);
     }, { invoice: invoice ?? undefined, appAddress: targetAddress, appEventId: target.id, zapStartedAt, relays: zapRelays });
     receiptTimeout = setTimeout(() => {

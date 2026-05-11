@@ -41,7 +41,18 @@
 		showUnreadDot = false
 	} = $props();
 
-	const showQuote = $derived(!!parentComment && !!parsed?.zappedEventId);
+	/**
+	 * True when this z-wrapper is a reply to another comment (NIP-22: E tag ≠ e tag),
+	 * vs a direct zap on a root event where no quoted comment is expected.
+	 */
+	const isReplyToComment = $derived.by(() => {
+		const tags = zapEvent?.tags ?? [];
+		const upper = tags.find((t) => t[0] === 'E' && t[1])?.[1]?.toLowerCase();
+		const lower = tags.find((t) => t[0] === 'e' && t[1])?.[1]?.toLowerCase();
+		return !!lower && !!upper && lower !== upper;
+	});
+	const parentCommentLoading = $derived(isReplyToComment && !parentComment && !!parsed?.zappedEventId);
+	const showQuote = $derived((!!parentComment || parentCommentLoading) && !!parsed?.zappedEventId);
 	const rootOneliner = $derived(getEventOneliner(rootEvent));
 
 	/** Kind inferred from the zap receipt's A/a/e tags — used for the loading label only. */
@@ -282,15 +293,17 @@
 										mediaUrls={parentMediaUrls}
 										{resolveMentionLabel}
 									/>
-								{:else}
+								{:else if parentComment}
 									<QuotedMessage
 										authorName={parentDisplayName || 'Anonymous'}
-										authorPubkey={parentComment?.pubkey ?? null}
+										authorPubkey={parentComment.pubkey ?? null}
 										content={parentComment.content ?? ''}
 										emojiTags={parentEmojiTags}
 										mediaUrls={parentMediaUrls}
 										{resolveMentionLabel}
 									/>
+								{:else}
+									<QuotedMessage loading={true} />
 								{/if}
 							</div>
 						{/if}
@@ -344,15 +357,17 @@
 									mediaUrls={parentMediaUrls}
 									{resolveMentionLabel}
 								/>
-							{:else}
+							{:else if parentComment}
 								<QuotedMessage
 									authorName={parentDisplayName || 'Anonymous'}
-									authorPubkey={parentComment?.pubkey ?? null}
+									authorPubkey={parentComment.pubkey ?? null}
 									content={parentComment.content ?? ''}
 									emojiTags={parentEmojiTags}
 									mediaUrls={parentMediaUrls}
 									{resolveMentionLabel}
 								/>
+							{:else}
+								<QuotedMessage loading={true} />
 							{/if}
 						</div>
 					{/if}
