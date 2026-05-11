@@ -64,7 +64,9 @@
 	} from '$lib/components/icons';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 let { data } = $props();
-const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
+const searchProfiles = $derived(
+	createSearchProfilesFunction(() => getCurrentPubkey(), () => (app?.pubkey ? [app.pubkey] : []))
+);
 const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
 // Error is mutable: server may set it, but client can clear it when Dexie has data
 let error = $state(null);
