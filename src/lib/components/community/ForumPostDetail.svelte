@@ -141,7 +141,12 @@ const zapTarget = $derived(
 		: null
 );
 const publisherName = $derived(authorProfile?.displayName ?? authorProfile?.name ?? 'Author');
-const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
+const searchProfiles = $derived(
+	createSearchProfilesFunction(
+		() => getCurrentPubkey(),
+		() => (post?.pubkey ? [post.pubkey] : [])
+	)
+);
 const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
 const catalogs = $derived(communityPubkey ? [{ name: 'Zapstore', pictureUrl: undefined, pubkey: communityPubkey }] : []);
 const postEmojiTags = $derived(

@@ -28,6 +28,7 @@
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import { getIsSignedIn, getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from '$lib/services/upload-nostr-build';
+	import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 	import { EVENT_KINDS } from '$lib/config.js';
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
@@ -69,7 +70,7 @@
 		id = null,
 		isZapRoot = false,
 		zapAmount = 0,
-		searchProfiles = async () => [],
+		searchProfiles: _searchProfiles = async () => [],
 		searchEmojis = async () => [],
 		signEvent = null,
 		onReplySubmit,
@@ -163,6 +164,33 @@
 		/** When true, disable media lightbox (e.g. inside inbox panel where full-screen is meaningless). */
 		disableMediaLightbox = false
 	} = $props();
+	// Collect author pubkeys for @mention suggestions, ordered by relevance:
+	//   1. Direct parent author — the person being replied to right now
+	//      (replyingToComment.pubkey when replying to a comment, else pubkey for root)
+	//   2. Root event author (authorPubkey / pubkey)
+	//   3. Everyone else who has commented in the thread
+	const _threadParticipantPubkeys = $derived.by(() => {
+		const pks = new SvelteSet();
+		// Direct parent first — most relevant mention target
+		const directParent = replyingToComment?.pubkey ?? pubkey;
+		if (directParent?.length === 64) pks.add(directParent);
+		// Root / content author next
+		if (authorPubkey?.length === 64) pks.add(authorPubkey);
+		if (pubkey?.length === 64) pks.add(pubkey);
+		// Everyone else in the thread
+		for (const c of threadComments) {
+			if (c.pubkey?.length === 64) pks.add(c.pubkey);
+		}
+		return Array.from(pks);
+	});
+
+	// Thread-aware search function: thread participants surface first, then user
+	// contacts, then NIP-50 relay fallback. Recreated when the participant set changes.
+	const _threadSearchProfiles = $derived.by(() => {
+		const tpks = _threadParticipantPubkeys;
+		return createSearchProfilesFunction(getCurrentPubkey, () => tpks);
+	});
+
 	let lightboxOpen = $state(false);
 	let lightboxUrls = $state([]);
 	let lightboxIndex = $state(0);
@@ -1134,11 +1162,11 @@
 									placeholder="Write your comment..."
 									size="medium"
 									{getCurrentPubkey}
-									{searchProfiles}
-									{searchEmojis}
-									autoFocus={true}
-									showActionRow={true}
-									onClose={closeReply}
+								searchProfiles={_threadSearchProfiles}
+								{searchEmojis}
+								autoFocus={true}
+								showActionRow={true}
+								onClose={closeReply}
 									onCameraTap={handleReplyCameraTap}
 									onEmojiTap={handleEmojiTap}
 									onGifTap={() => {}}
@@ -1232,7 +1260,7 @@
 	targetEventId={actionsTargetEventId}
 	targetEventKind={actionsTargetEventKind}
 	{labelCommunityPubkey}
-	{searchProfiles}
+	searchProfiles={_threadSearchProfiles}
 	{searchEmojis}
 	{signEvent}
 	onComment={actionsModalOnComment}
@@ -1252,7 +1280,7 @@
 	zIndex={modalZIndex + 10}
 	presetZapSats={zapPresetSats}
 	wrapperParent={zapWrapperParent}
-	{searchProfiles}
+	searchProfiles={_threadSearchProfiles}
 	{searchEmojis}
 	onclose={handleZapClose}
 	onzapReceived={handleZapReceived}

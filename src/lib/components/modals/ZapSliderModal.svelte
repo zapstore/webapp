@@ -4,7 +4,8 @@
  * Aligned with local-first ARCHITECTURE; invoice from LNURL, receipt via relay subscription + EventStore.
  */
 import { onDestroy } from "svelte";
-import { Loader2, AlertCircle, CheckCircle, Copy, Check } from "lucide-svelte";
+import { Loader2, AlertCircle, Copy } from "lucide-svelte";
+import { Check as CheckIcon } from "$lib/components/icons";
 import { generateSecretKey, finalizeEvent } from "nostr-tools/pure";
 import { createZap, subscribeToZapReceipt, fetchZapReceiptFallback, putEvents } from "$lib/nostr";
 import { getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
@@ -348,7 +349,7 @@ $effect(() => {
           disabled={!invoice}
         >
           {#if copied}
-            <Check size={18} class="flex-shrink-0" style="color: var(--blurpleColor);" />
+            <CheckIcon variant="outline" size={16} strokeWidth={2} color="var(--blurpleColor)" className="flex-shrink-0" />
             <span>Copied!</span>
           {:else}
             <Copy size={18} class="flex-shrink-0" />
@@ -356,14 +357,14 @@ $effect(() => {
           {/if}
         </button>
         <div class="invoice-button-row">
-          <button type="button" class="invoice-back-btn" onclick={goBack}>Back</button>
+          <button type="button" class="btn-secondary-large btn-secondary-dark invoice-back-btn" onclick={goBack}>Back</button>
           {#if showManualClose}
-            <button type="button" class="invoice-done-btn" onclick={handleManualDone}>
-              <CheckCircle size={16} class="flex-shrink-0" />
+            <button type="button" class="btn-primary-large invoice-action-btn" onclick={handleManualDone}>
+              <CheckIcon variant="outline" size={16} strokeWidth={2} color="var(--whiteEnforced)" className="flex-shrink-0" />
               <span>I've paid. Close this</span>
             </button>
           {:else}
-            <button type="button" class="invoice-waiting-btn" disabled>
+            <button type="button" class="btn-primary-large invoice-action-btn invoice-waiting-btn" disabled>
               <Loader2 size={16} class="animate-spin flex-shrink-0" />
               <span>Waiting for payment</span>
             </button>
@@ -371,12 +372,12 @@ $effect(() => {
         </div>
       </div>
     {:else if step === "success"}
-      <div class="success-view">
-        <div class="success-icon">
-          <CheckCircle size={48} style="color: var(--blurpleColor);" />
+      <div class="invoice-view">
+        <h2 class="modal-title invoice-title modal-heading">Success</h2>
+        <div class="success-icon-circle">
+          <CheckIcon variant="outline" size={56} strokeWidth={2.5} color="var(--blurpleColor)" />
         </div>
-        <h2 class="modal-title success-title modal-heading">Zap Sent!</h2>
-        <p class="success-message">{formatAmount(Math.round(zapValue))} zapped successfully</p>
+        <p class="success-message">{formatAmount(Math.round(zapValue))} sats zapped</p>
       </div>
     {/if}
   </div>
@@ -480,73 +481,28 @@ $effect(() => {
     align-items: stretch;
   }
   .invoice-back-btn {
-    padding: 12px 16px;
-    background: var(--black33);
-    border: none;
-    border-radius: var(--radius-12);
-    color: var(--white66);
-    font-size: 14px;
-    cursor: pointer;
-    transition: color 0.15s ease, background-color 0.15s ease;
+    color: var(--white66) !important;
   }
-  .invoice-back-btn:hover {
-    color: var(--white);
-    background: var(--white16);
+  /* Back: let the global btn class handle size; no override needed */
+  .invoice-action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
   .invoice-waiting-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: var(--blurpleColor33);
-    border: none;
-    border-radius: var(--radius-12);
-    color: var(--white66);
-    font-size: 14px;
+    opacity: 0.6;
     cursor: not-allowed;
   }
-  .invoice-done-btn {
-    flex: 1;
+  .success-icon-circle {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: var(--blurpleColor);
-    border: none;
-    border-radius: var(--radius-12);
-    color: var(--whiteEnforced);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: opacity 0.15s ease;
-  }
-  .invoice-done-btn:hover {
-    opacity: 0.9;
-  }
-  .success-view {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 32px 16px;
-    text-align: center;
-  }
-  .success-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 80px;
-    height: 80px;
-    background: color-mix(in srgb, var(--blurpleColor) 15%, transparent);
+    width: 104px;
+    height: 104px;
+    background: color-mix(in srgb, var(--blurpleColor) 12%, transparent);
     border-radius: 50%;
-    margin-bottom: 16px;
-  }
-  .success-title {
-    font-size: 1.875rem;
-    color: var(--blurpleColor);
-    margin: 0 0 8px;
   }
   .success-message {
     font-size: 14px;
