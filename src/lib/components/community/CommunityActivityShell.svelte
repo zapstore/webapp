@@ -716,7 +716,7 @@
 	const activityLikelyHasMore = $derived(
 		!inboxUserPubkey &&
 			activityFeedItems.length > 0 &&
-			activityHasMoreTimeline &&
+			(activityHasMoreTimeline || activityBackfillInFlight) &&
 			activityFeedVisibleLimit < ACTIVITY_FEED_VISIBLE_MAX
 	);
 
@@ -808,6 +808,8 @@
 	/** True while Activity tab should subscribe to Dexie; seed runs in parallel and must not block this. */
 	let activityReady = $state(false);
 	let activityLoading = $state(false);
+	/** True while backfillActivityThreadsScoped is running (after initial seed settles). */
+	let activityBackfillInFlight = $state(false);
 	/** First relay seed for this route-entry finished (success or failure). */
 	let activityInitialSeedDone = $state(false);
 	let activityError = $state('');
@@ -1379,11 +1381,16 @@
 	).catch(() => []);
 	commentPromise
 		.catch(() => {})
-		.then(() =>
-			backfillActivityThreadsScoped().catch((err) =>
-				console.error('[Activity] thread backfill failed', err)
-			)
-		);
+		.then(async () => {
+			activityBackfillInFlight = true;
+			try {
+				await backfillActivityThreadsScoped();
+			} catch (err) {
+				console.error('[Activity] thread backfill failed', err);
+			} finally {
+				activityBackfillInFlight = false;
+			}
+		});
 	await Promise.all([commentPromise, postPromise, zapPromise]);
 		} catch (err) {
 			console.error('[Activity] relay seed failed', err);
@@ -2600,6 +2607,10 @@
 					</div>
 					{/if}
 				{/each}
+					{#if activityBackfillInFlight && !activityLoading && activityInitialSeedDone}
+						<!-- Skeleton rows while the backfill wave runs so the feed never looks stuck. -->
+						<ActivityFeedSkeleton rows={3} />
+					{/if}
 					{#if activityLikelyHasMore}
 						<!-- Invisible anchor: intersection observer extends the merged timeline (no separate “load more” UX). -->
 						<div
