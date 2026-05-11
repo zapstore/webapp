@@ -1,17 +1,13 @@
 /**
- * Profile Search Service — Local-First
- *
- * Follows ARCHITECTURE.md: UI renders from local data (Dexie) first.
- * Network is used only in the background to populate Dexie.
+ * Profile Search Service
  *
  * Priority for @mention suggestions:
- *   1. Thread participants (root author + comment authors in the current thread)
+ *   1. Thread participants (direct parent author first, then root author, then other commenters)
  *   2. Logged-in user's contacts/follows from Dexie
- *   3. Vertexlab NIP-50 search (globalPagerank-ordered, writes to Dexie, last resort)
+ *   3. Vertexlab NIP-50 search — relay-side text matching, results appended after local ones
  *
- * - Empty query: thread participants first, then default profiles, then contacts
- * - Non-empty query: scored results with thread participant bonus; Vertexlab races 1 second
- * - Background: fetch profiles from relays, write to Dexie
+ * Empty query: thread participants → defaults → contacts (all from Dexie, no relay call)
+ * Non-empty query: local scored results first; Vertexlab races 1s and new-to-local results appended
  */
 import { writable } from 'svelte/store';
 import { queryEvents, queryEvent, fetchProfilesBatch, fetchFromRelays } from '$lib/nostr';
@@ -23,7 +19,6 @@ const KIND_PROFILE = 0;
 const KIND_CONTACT_LIST = 3;
 const KIND_FOLLOW_SET = 30000;
 
-/** Default npubs for empty query. */
 const DEFAULT_NPUBS = [
 	'npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8', // Zapstore
 	'npub1wf4pufsucer5va8g9p0rj5dnhvfeh6d8w0g6eayaep5dhps6rsgs43dgh9',
@@ -43,10 +38,8 @@ function npubToPubkey(npub) {
 
 const DEFAULT_PUBKEYS = DEFAULT_NPUBS.map(npubToPubkey).filter((pk) => !!pk);
 
-/** Zapstore pubkey (first default profile) */
 export const ZAPSTORE_PUBKEY = DEFAULT_PUBKEYS[0];
 
-/** Reactive store: Zapstore profile when loaded. Null until then. */
 export const zapstoreProfileStore = writable(null);
 
 function setZapstoreProfileFromEvent(event) {
@@ -58,14 +51,11 @@ function setZapstoreProfileFromEvent(event) {
 	});
 }
 
-/** Started once so default profiles populate Dexie in background */
 let defaultProfilesStarted = false;
 
 function startFetchDefaultProfiles() {
 	if (defaultProfilesStarted) return;
 	defaultProfilesStarted = true;
-
-	// Async: check Dexie for Zapstore profile, then fetch missing from relays
 	void (async () => {
 		try {
 			const zapstoreEvent = await queryEvent({
@@ -74,7 +64,6 @@ function startFetchDefaultProfiles() {
 				limit: 1
 			});
 			setZapstoreProfileFromEvent(zapstoreEvent);
-
 			const batch = await fetchProfilesBatch(DEFAULT_PUBKEYS, { timeout: 8000 });
 			const zapstore = batch.get(ZAPSTORE_PUBKEY) ?? null;
 			if (zapstore) setZapstoreProfileFromEvent(zapstore);
@@ -84,17 +73,10 @@ function startFetchDefaultProfiles() {
 	})();
 }
 
-/** Per-user: fetch contacts and their profiles in background */
 const userFetchStarted = new Set();
-
-/** Per-pubkey: background fetch for thread participant profiles */
 const threadProfileFetchStarted = new Set();
 
-/**
- * Pubkeys discovered via the Vertexlab NIP-50 search.
- * Persisted in memory so subsequent keystrokes can find them in Dexie
- * even though they're not in the user's contact list.
- */
+/** Pubkeys found via Vertexlab search — kept so subsequent keystrokes hit Dexie instead of relay. */
 const relayDiscoveredPubkeys = new Set();
 
 function startFetchThreadProfiles(pubkeys) {
@@ -107,20 +89,16 @@ function startFetchThreadProfiles(pubkeys) {
 function startFetchUserContacts(userPubkey) {
 	if (userFetchStarted.has(userPubkey)) return;
 	userFetchStarted.add(userPubkey);
-
 	void (async () => {
 		try {
-			// Local-first: try Dexie, then relay fallback so contacts load on first visit
 			let kind3 = await queryEvents({ kinds: [KIND_CONTACT_LIST], authors: [userPubkey], limit: 1 });
 			if ((!kind3 || kind3.length === 0) && typeof window !== 'undefined') {
 				kind3 = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, { kinds: [KIND_CONTACT_LIST], authors: [userPubkey], limit: 1 }, { timeout: 5000, feature: 'profile-search' });
 			}
 			const pubkeys = new Set();
-
 			for (const ev of kind3) {
 				ev.tags.filter((t) => t[0] === 'p' && t[1]?.length === 64).forEach((t) => pubkeys.add(t[1]));
 			}
-
 			let kind30k = await queryEvents({ kinds: [KIND_FOLLOW_SET], authors: [userPubkey], limit: 50 });
 			if ((!kind30k || kind30k.length === 0) && typeof window !== 'undefined') {
 				kind30k = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, { kinds: [KIND_FOLLOW_SET], authors: [userPubkey], limit: 50 }, { timeout: 5000, feature: 'profile-search' });
@@ -128,7 +106,6 @@ function startFetchUserContacts(userPubkey) {
 			for (const ev of kind30k) {
 				ev.tags.filter((t) => t[0] === 'p' && t[1]?.length === 64).forEach((t) => pubkeys.add(t[1]));
 			}
-
 			if (pubkeys.size > 0) {
 				await fetchProfilesBatch([...pubkeys], { timeout: 5000 }).catch(() => {});
 			}
@@ -138,9 +115,6 @@ function startFetchUserContacts(userPubkey) {
 	})();
 }
 
-/**
- * Get profile from Dexie (async). Returns SearchResult or null.
- */
 async function profileFromDexie(pubkey) {
 	const event = await queryEvent({ kinds: [KIND_PROFILE], authors: [pubkey], limit: 1 });
 	if (!event) return null;
@@ -154,9 +128,6 @@ async function profileFromDexie(pubkey) {
 	};
 }
 
-/**
- * Default profile row: from Dexie if present, else placeholder.
- */
 async function defaultProfileRow(pubkey, isZapstore) {
 	const fromDexie = await profileFromDexie(pubkey);
 	if (fromDexie) return fromDexie;
@@ -170,8 +141,7 @@ async function defaultProfileRow(pubkey, isZapstore) {
 }
 
 /**
- * Thread participant row: from Dexie if present, else a pubkey-truncated placeholder.
- * Unlike contacts, thread participants always appear — even before their kind-0 arrives —
+ * Thread participants always appear even before their kind-0 profile arrives in Dexie,
  * because the user is actively in a conversation with them.
  */
 async function threadParticipantRow(pubkey) {
@@ -186,20 +156,12 @@ async function threadParticipantRow(pubkey) {
 	};
 }
 
-/**
- * Get candidate pubkeys: thread participants first, then defaults + contacts/follows from Dexie.
- * @param {string | null} userPubkey
- * @param {string[]} threadPubkeys - pubkeys of participants in the current thread (highest priority)
- */
 async function getCandidatePubkeys(userPubkey, threadPubkeys = []) {
-	// Thread participants go first so they appear at the top in empty-query suggestions
 	const out = new Set();
 	for (const pk of threadPubkeys) {
 		if (pk?.length === 64) out.add(pk);
 	}
 	for (const pk of DEFAULT_PUBKEYS) out.add(pk);
-	// Profiles discovered via Vertexlab search on previous keystrokes — already in
-	// Dexie, searchable by text match so "jack" stays findable after the first hit.
 	for (const pk of relayDiscoveredPubkeys) out.add(pk);
 	if (userPubkey) {
 		const kind3 = await queryEvents({ kinds: [KIND_CONTACT_LIST], authors: [userPubkey], limit: 1 });
@@ -214,13 +176,6 @@ async function getCandidatePubkeys(userPubkey, threadPubkeys = []) {
 	return Array.from(out);
 }
 
-/**
- * Search profiles from Dexie. Returns up to 10 results.
- * Thread participants are surfaced first for empty queries and scored higher for non-empty ones.
- * @param {string | null} userPubkey
- * @param {string} query
- * @param {string[]} threadPubkeys - pubkeys of participants in the current thread
- */
 async function searchFromDexie(userPubkey, query, threadPubkeys = []) {
 	startFetchDefaultProfiles();
 	if (userPubkey) startFetchUserContacts(userPubkey);
@@ -228,7 +183,6 @@ async function searchFromDexie(userPubkey, query, threadPubkeys = []) {
 
 	const candidates = await getCandidatePubkeys(userPubkey, threadPubkeys);
 	const normalizedQuery = (query ?? '').toLowerCase().trim();
-
 	const defaultSet = new Set(DEFAULT_PUBKEYS);
 	const threadSet = new Set(threadPubkeys.filter((pk) => pk?.length === 64));
 	const withResults = [];
@@ -246,7 +200,6 @@ async function searchFromDexie(userPubkey, query, threadPubkeys = []) {
 	}
 
 	if (normalizedQuery === '') {
-		// Thread participants first, then defaults, then contacts
 		const inThreadOrder = threadPubkeys
 			.map((pk) => withResults.find((r) => r.pubkey === pk))
 			.filter((r) => !!r);
@@ -260,7 +213,6 @@ async function searchFromDexie(userPubkey, query, threadPubkeys = []) {
 		return [...inThreadOrder, ...inDefaultOrder, ...rest].slice(0, 10);
 	}
 
-	// Filter by query; thread participants get a +200 score bonus
 	const matches = [];
 	for (const result of withResults) {
 		const name = (result.name || '').toLowerCase();
@@ -290,15 +242,6 @@ async function searchFromDexie(userPubkey, query, threadPubkeys = []) {
 	return matches.slice(0, 10).map((m) => m.result);
 }
 
-/**
- * NIP-50 profile search on the Vertexlab relay.
- * Vertexlab orders kind-0 results by their globalPagerank score, so the most
- * well-known person matching the query comes first (e.g. "jack" → @jack).
- * Results are written to Dexie automatically via fetchFromRelays.
- *
- * @param {string} query
- * @returns {Promise<Array<{pubkey: string, name: string, displayName: string, picture: string, nip05: string}>>}
- */
 async function fetchVertexlabProfiles(query) {
 	if (!query || typeof window === 'undefined') return [];
 	try {
@@ -309,7 +252,6 @@ async function fetchVertexlabProfiles(query) {
 		);
 		return events.map((event) => {
 			const p = parseProfile(event);
-			// Register so subsequent keystrokes find them in Dexie via getCandidatePubkeys
 			if (p.pubkey) relayDiscoveredPubkeys.add(p.pubkey);
 			return {
 				pubkey: p.pubkey,
@@ -366,16 +308,10 @@ export function clearProfileSearchCache() {
 }
 
 /**
- * Create the search function for ShortTextInput / mention suggestion.
+ * Creates the search function used by ShortTextInput for @mention suggestions.
  *
- * Priority order:
- *   1. Thread participants (via getThreadPubkeys) — shown first and scored highest
- *   2. Logged-in user's contacts/follows from Dexie
- *   3. Vertexlab NIP-50 search (globalPagerank-ordered) — races 1 second before
- *      returning local results; writes to Dexie so next keystroke hits locally
- *
- * @param {() => string | null} getUserPubkey - getter for the signed-in user's pubkey
- * @param {(() => string[]) | null} getThreadPubkeys - getter for thread participant pubkeys (optional)
+ * @param {() => string | null} getUserPubkey
+ * @param {(() => string[]) | null} getThreadPubkeys
  */
 export function createSearchProfilesFunction(getUserPubkey, getThreadPubkeys = null) {
 	return async (query) => {
@@ -383,33 +319,26 @@ export function createSearchProfilesFunction(getUserPubkey, getThreadPubkeys = n
 		const threadPubkeys = getThreadPubkeys ? (getThreadPubkeys() ?? []) : [];
 		const q = query?.trim() ?? '';
 
-		// For non-empty queries, race the Vertexlab NIP-50 search (ranked by globalPagerank)
-		// against a 1s window. Either way it writes to Dexie, so the next keystroke will
-		// find those profiles locally even if the race was lost this time.
-		const relayPromise = q.length > 0
-			? Promise.race([
-					fetchVertexlabProfiles(q),
-					new Promise((res) => setTimeout(() => res([]), 1000))
-				])
-			: Promise.resolve([]);
+		if (q === '') {
+			return searchFromDexie(userPubkey, q, threadPubkeys);
+		}
 
 		const [localResults, relayResults] = await Promise.all([
 			searchFromDexie(userPubkey, q, threadPubkeys),
-			relayPromise
+			Promise.race([
+				fetchVertexlabProfiles(q),
+				new Promise((res) => setTimeout(() => res([]), 1000))
+			])
 		]);
 
 		if (relayResults.length === 0) return localResults;
 
-		// Append relay-only profiles after local results (deduped by pubkey)
 		const seen = new Set(localResults.map((r) => r.pubkey));
 		const newFromRelay = relayResults.filter((r) => !seen.has(r.pubkey));
 		return [...localResults, ...newFromRelay].slice(0, 10);
 	};
 }
 
-/**
- * Call early to start background loading of default profiles.
- */
 export function startProfileSearchBackground() {
 	startFetchDefaultProfiles();
 }
