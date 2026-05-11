@@ -7,7 +7,7 @@
 <script lang="js">
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import { goto, afterNavigate } from '$app/navigation';
 	import { Search, Loader2 } from 'lucide-svelte';
 	import { Menu, Cross, Inbox, Alert, Profile, ChevronRight, ArrowDown, Studio } from '$lib/components/icons';
 	import Nostr from '$lib/components/icons/Nostr.svelte';
@@ -338,6 +338,10 @@
 			if (pubkey) markInboxHeaderOpenedNow(pubkey);
 		}
 	}
+
+	afterNavigate(() => {
+		inboxOpen = false;
+	});
 </script>
 
 <header
