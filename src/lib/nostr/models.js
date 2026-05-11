@@ -117,7 +117,7 @@ export function parseProfile(event) {
     return {
         pubkey: event.pubkey,
         name: content.name,
-        displayName: content.display_name,
+        displayName: content.display_name ?? content.displayName,
         picture: content.picture,
         about: content.about,
         nip05: content.nip05,
