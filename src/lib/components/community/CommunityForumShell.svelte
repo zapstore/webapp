@@ -188,7 +188,9 @@
 		if (!commentCountsQuery) return;
 		const sub = commentCountsQuery.subscribe({
 			next: (commentEvs) => {
-				commentCountsSettled = true;
+				// NOTE: commentCountsSettled is intentionally NOT set here.
+				// The big $effect below owns that flag — it stays false until the relay
+				// fetch completes so ForumPostCard shows a skeleton for empty-Dexie posts.
 				const evs = commentEvs ?? [];
 				const byPost = new Map();
 				for (const c of evs) {
@@ -284,11 +286,15 @@
 
 	$effect(() => {
 		if (!browser || posts.length === 0) return;
+		// Reset to false so ForumPostCard shows the skeleton while we (re-)load.
+		// This is set back to true in the finally block below, after the relay fetch.
+		commentCountsSettled = false;
 		const pks = [...new Set(posts.map((p) => p.pubkey))];
 		const postIds = posts.map((p) => p.id);
 		let cancelled = false;
 
 		(async () => {
+		  try {
 			// Run profile fetch and Dexie comment fetch in parallel — don't let the
 			// 4s profile relay timeout block comment counts from appearing quickly.
 			const [pEvs, evsE, evsEUpper] = await Promise.all([
@@ -442,6 +448,11 @@
 				}
 				commentersByPostId = byPost;
 			}
+		  } finally {
+			// Only mark settled when the run completes normally (not cancelled mid-flight).
+			// A cancelled run means posts changed and a new run is already under way.
+			if (!cancelled) commentCountsSettled = true;
+		  }
 		})();
 
 		return () => {

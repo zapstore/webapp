@@ -239,7 +239,7 @@
 		const pk = parts[1];
 		const dTag = parts.slice(2).join(':');
 
-		const { DEFAULT_CATALOG_RELAYS, PLATFORM_FILTER } = await import('$lib/config.js');
+		const { ZAPSTORE_RELAY, PLATFORM_FILTER } = await import('$lib/config.js');
 		let appEv = await queryEvent({
 			kinds: [EVENT_KINDS.APP],
 			authors: [pk],
@@ -256,7 +256,7 @@
 		try {
 			const { fetchFromRelays } = await import('$lib/nostr/service.js');
 			const arr = await fetchFromRelays(
-				DEFAULT_CATALOG_RELAYS,
+				[ZAPSTORE_RELAY],
 				{
 					kinds: [EVENT_KINDS.APP],
 					authors: [pk],

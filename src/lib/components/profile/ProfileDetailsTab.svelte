@@ -176,7 +176,7 @@ async function copy(text, setCopied) {
 		{#if lnAddress}
 			<div class="row-divider"></div>
 			<div class="identifier-row">
-				<span class="identifier-label">Lightning</span>
+				<span class="identifier-label">Lightning Address</span>
 				<span class="identifier-value" title={lnAddress}>{lnAddress}</span>
 				<button
 					type="button"

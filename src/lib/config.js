@@ -17,7 +17,9 @@ export const ZAPSTORE_RELAY = 'wss://relay.zapstore.dev';
 export const ZAPSTORE_BLOSSOM_URL = 'https://cdn.zapstore.dev';
 // Profile relay — kind 0 profiles only
 export const VERTEXLAB_RELAY = 'wss://relay.vertexlab.io';
-// Both catalog relays (used for publishing and profile resolution)
+// relay.vertexlab.io is ONLY for kind 0 profiles — NOT apps, stacks, comments, or zaps.
+// DEFAULT_CATALOG_RELAYS is used only for: publishing events (both for redundancy),
+// closing the pool, and fetching profiles. Do NOT use it for reading app/stack/comment data.
 export const DEFAULT_CATALOG_RELAYS = [ZAPSTORE_RELAY, VERTEXLAB_RELAY];
 // Social relays (profiles, comments, zaps) — align with Flutter zapstore app
 export const DEFAULT_SOCIAL_RELAYS = [

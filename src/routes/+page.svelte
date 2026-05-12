@@ -93,7 +93,14 @@ $effect(() => {
 });
 </script>
 
-<SeoHead url={SITE_URL} jsonld={homeJsonLd} />
+<SeoHead
+	url={SITE_URL}
+	image="{SITE_URL}/images/og-landing.png"
+	imageWidth={1200}
+	imageHeight={630}
+	imageAlt="Zapstore — The Open App Store"
+	jsonld={homeJsonLd}
+/>
 
 <svelte:head>
 	<link rel="preload" as="image" href={downloadModalHeroSrc} fetchpriority="high" />

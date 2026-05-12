@@ -11,113 +11,16 @@
 		ZAPSTORE_COMMUNITY_PUBKEY,
 		ZAPSTORE_COMMUNITY_NPUB,
 		EVENT_KINDS,
-		FORUM_RELAY,
-		DEFAULT_CATALOG_RELAYS,
-		PLATFORM_FILTER
+		FORUM_RELAY
 	} from '$lib/config.js';
 	import { fetchFromRelays, queryEvents, putEvents } from '$lib/nostr';
-	import { getCurrentPubkey, getIsSignedIn } from '$lib/stores/auth.svelte.js';
-	import { isLegacyRelease, stackNeedsMigration } from '$lib/nostr/migration';
 	import CommunityForumShell from '$lib/components/community/CommunityForumShell.svelte';
 	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
-	import CommunityMigrationShell from '$lib/components/community/CommunityMigrationShell.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import DetailsTab from '$lib/components/social/DetailsTab.svelte';
 
 	let detailsModalOpen = $state(false);
 	let termsModalOpen = $state(false);
-
-	// ── Migration count (for sidebar badge) ──────────────────────────────────
-	let migrationCount = $state(0);
-	const pubkey = $derived(getCurrentPubkey());
-	const isSignedIn = $derived(getIsSignedIn());
-
-	// Check migration count whenever user accesses /community or any nested route
-	$effect(() => {
-		if (!browser || !isSignedIn || !pubkey) {
-			migrationCount = 0;
-			return;
-		}
-
-		// Trigger check when accessing any /community route
-		const currentPath = $page.url.pathname;
-		if (!currentPath.startsWith('/community')) {
-			return;
-		}
-
-		let cancelled = false;
-
-		(async () => {
-			let count = 0;
-
-			try {
-				// Check for legacy apps
-				const apps = await fetchFromRelays(
-					DEFAULT_CATALOG_RELAYS,
-					{ kinds: [EVENT_KINDS.APP], authors: [pubkey], ...PLATFORM_FILTER, limit: 50 },
-					{ timeout: 8000, feature: 'migration-count-apps' }
-				);
-
-				for (const app of apps) {
-					if (cancelled) return;
-					const aTag = app.tags.find((t) => t[0] === 'a')?.[1];
-					if (!aTag?.startsWith('30063:')) continue;
-
-					const parts = aTag.split(':');
-					if (parts.length < 3) continue;
-					const relPubkey = parts[1];
-					const dTag = parts.slice(2).join(':');
-
-					const releases = await fetchFromRelays(
-						DEFAULT_CATALOG_RELAYS,
-						{ kinds: [EVENT_KINDS.RELEASE], authors: [relPubkey], '#d': [dTag], limit: 1 },
-						{ timeout: 3000, feature: 'migration-count-release' }
-					);
-					if (!releases.length) continue;
-
-					const release = releases[0];
-					const artifactIds = release.tags
-						.filter((t) => t[0] === 'e' || t[0] === 'E')
-						.map((t) => t[1]);
-					if (!artifactIds.length) continue;
-
-					const artifacts = await fetchFromRelays(
-						DEFAULT_CATALOG_RELAYS,
-						{ ids: artifactIds, limit: artifactIds.length },
-						{ timeout: 3000, feature: 'migration-count-artifacts' }
-					);
-					if (!artifacts.length) continue;
-
-					if (isLegacyRelease(release, artifacts)) {
-						count++;
-					}
-				}
-
-				// Check for legacy stacks
-				const stacks = await fetchFromRelays(
-					DEFAULT_CATALOG_RELAYS,
-					{ kinds: [EVENT_KINDS.APP_STACK], authors: [pubkey], limit: 50 },
-					{ timeout: 5000, feature: 'migration-count-stacks' }
-				);
-
-				for (const stack of stacks) {
-					if (stackNeedsMigration(stack)) {
-						count++;
-					}
-				}
-
-				if (!cancelled) {
-					migrationCount = count;
-				}
-			} catch (e) {
-				console.warn('[Community] Migration count check failed:', e);
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-		};
-	});
 
 	// ── Community Details modal data ─────────────────────────────────────────
 	let communityEvent = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
@@ -182,13 +85,7 @@
 					label: 'Activity',
 					icon: '/images/emoji/activity.png',
 					href: '/community/activity'
-				},
-			{
-				id: 'migration',
-				label: 'Migration',
-				icon: '/images/emoji/migration.png',
-				href: '/community/migration'
-			}
+				}
 		]
 	: [
 			{
@@ -196,12 +93,6 @@
 				label: 'Support',
 				icon: '/images/emoji/activity.png',
 				href: '/community/support'
-			},
-			{
-				id: 'migration',
-				label: 'Migration',
-				icon: '/images/emoji/migration.png',
-				href: '/community/migration'
 			}
 		];
 
@@ -213,21 +104,13 @@
 	const isCommunityActivity = $derived(
 		path === '/community/activity' || path.startsWith('/community/activity/')
 	);
-	const isCommunityMigration = $derived(
-		path === '/community/migration' || path.startsWith('/community/migration/')
-	);
 	let forumShellMounted = $state(false);
 	let activityShellMounted = $state(false);
-	let migrationShellMounted = $state(false);
 
 	$effect(() => {
 		if (!COMMUNITY_FORUM_AND_ACTIVITY_ENABLED) return;
 		if (isCommunityForumFeed) forumShellMounted = true;
 		if (isCommunityActivity) activityShellMounted = true;
-	});
-
-	$effect(() => {
-		if (isCommunityMigration) migrationShellMounted = true;
 	});
 
 	const activeSection = $derived(
@@ -237,9 +120,7 @@
 				? 'support'
 				: path.startsWith('/community/activity')
 					? 'activity'
-					: path.startsWith('/community/migration')
-						? 'migration'
-						: defaultSectionId
+					: defaultSectionId
 	);
 	const activeSectionLabel = $derived(
 		SECTIONS.find((s) => s.id === activeSection)?.label ??
@@ -263,8 +144,7 @@
 	}
 
 	const hideOutletForShell = $derived(
-		(COMMUNITY_FORUM_AND_ACTIVITY_ENABLED && (isCommunityForumFeed || isCommunityActivity)) ||
-			isCommunityMigration
+		COMMUNITY_FORUM_AND_ACTIVITY_ENABLED && (isCommunityForumFeed || isCommunityActivity)
 	);
 
 	/** True when viewing a forum post detail page — hides the mobile section switcher. */
@@ -296,9 +176,6 @@
 			>
 				<span class="section-switcher-label">
 					{activeSectionLabel}
-					{#if activeSection === 'migration' && migrationCount > 0}
-						<span class="migration-badge">{migrationCount}</span>
-					{/if}
 				</span>
 				<span class="section-chevron" class:open={sectionMenuOpen}>
 					<ChevronDown variant="outline" color="var(--white33)" size={14} strokeWidth={1.4} />
@@ -317,10 +194,7 @@
 								{#if section.icon}
 									<img src={section.icon} alt="" class="section-item-icon" />
 								{/if}
-								{section.label}
-								{#if section.id === 'migration' && migrationCount > 0}
-									<span class="migration-badge">{migrationCount}</span>
-								{/if}
+						{section.label}
 							</a>
 						{/each}
 					</div>
@@ -353,10 +227,7 @@
 								</svg>
 							{/if}
 						</span>
-						<span class="nav-label">{section.label}</span>
-						{#if section.id === 'migration' && migrationCount > 0}
-							<span class="migration-badge">{migrationCount}</span>
-						{/if}
+					<span class="nav-label">{section.label}</span>
 					</a>
 				{/each}
 			</nav>
@@ -433,17 +304,8 @@
 						<CommunityActivityShell />
 					</div>
 				{/if}
-			{/if}
-			{#if migrationShellMounted}
-				<div
-					class="community-shell-panel"
-					class:community-shell-panel--active={isCommunityMigration}
-					aria-hidden={!isCommunityMigration}
-				>
-					<CommunityMigrationShell />
-				</div>
-			{/if}
-			<div class="community-route-outlet" class:community-route-outlet--hidden={hideOutletForShell}>
+		{/if}
+		<div class="community-route-outlet" class:community-route-outlet--hidden={hideOutletForShell}>
 				{@render children()}
 			</div>
 		</div>

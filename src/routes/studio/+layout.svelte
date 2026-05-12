@@ -6,17 +6,17 @@
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import InsightsIcon from '$lib/components/icons/Insights.svelte';
 	import InboxIcon from '$lib/components/icons/Inbox.svelte';
+	import { queryEvents, parseAppStack, liveQuery, putEvents } from '$lib/nostr';
+	import { encodeStackNaddr, stackDisplayTitle, parseApp } from '$lib/nostr/models.js';
 	import { getIsSignedIn, getIsConnecting, isAuthInitialized } from '$lib/stores/auth.svelte.js';
-	import { queryEvents, putEvents } from '$lib/nostr/dexie.js';
-	import { parseApp } from '$lib/nostr/models.js';
 	import { fetchAppsByAuthorFromRelays } from '$lib/nostr/service.js';
-	import { DEFAULT_CATALOG_RELAYS } from '$lib/config.js';
 	import { resolveStudioCatalogPubkey } from '$lib/studio/resolve-studio-catalog-pubkey.js';
 	import { TEST_PUBKEY } from '$lib/components/studio/studio-config.js';
 	import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import { npubToHex } from '$lib/studio/analytics-http.js';
 	import { loadIfNeeded as loadStudioAnalytics, resetStudioAnalytics } from '$lib/stores/studio-analytics.svelte.js';
 	import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
+	import { SITE_URL } from '$lib/config';
 
 	let { children } = $props();
 
@@ -121,7 +121,9 @@
 			if (gen !== appsLoadGen) return;
 
 			if (events.length === 0) {
-				events = await fetchAppsByAuthorFromRelays(DEFAULT_CATALOG_RELAYS, policy.catalogPubkey);
+				// App events live only on the zapstore relay.
+				const { ZAPSTORE_RELAY } = await import('$lib/config.js');
+				events = await fetchAppsByAuthorFromRelays([ZAPSTORE_RELAY], policy.catalogPubkey);
 				if (events.length > 0) await putEvents(events);
 			}
 			if (gen !== appsLoadGen) return;
@@ -156,6 +158,36 @@
 		}
 	});
 
+	// ── Stacks loading ─────────────────────────────────────────────────────────
+	let userStacks = $state([]);
+	let stacksLoading = $state(false);
+
+	$effect(() => {
+		if (!browser || !showDashboard) {
+			userStacks = [];
+			return;
+		}
+		const pubkey = getCurrentPubkey();
+		if (!pubkey) {
+			userStacks = [];
+			return;
+		}
+		stacksLoading = true;
+		const sub = liveQuery(() =>
+			queryEvents({ kinds: [30267], authors: [pubkey] })
+		).subscribe({
+			next: (events) => {
+				userStacks = (events ?? []).map(parseAppStack).sort((a, b) => b.createdAt - a.createdAt);
+				stacksLoading = false;
+			},
+			error: (err) => {
+				console.error('[StudioLayout] stacks query failed:', err);
+				stacksLoading = false;
+			}
+		});
+		return () => sub.unsubscribe();
+	});
+
 	// Kick off the per-publisher analytics fetch as soon as we know who the user is
 	// and which apps to chart. Idempotent — slicing the cache for shorter timeframes
 	// happens entirely inside the consuming components.
@@ -174,13 +206,16 @@
 		if (p === '/studio/apps') return 'apps';
 		if (p.startsWith('/studio/apps/')) return 'app';
 		if (p.startsWith('/studio/assets')) return 'assets';
+		if (p === '/studio/stacks') return 'stacks';
+		if (p.startsWith('/studio/stacks/')) return 'stack';
+		if (p.startsWith('/studio/migration')) return 'migration';
 		return 'insights'; // /studio and /studio/insights both map here
 	});
 
 	/** Active app id (d-tag) from URL for sidebar highlight. URL-decoded. */
 	const activeAppId = $derived.by(() => {
 		if (activeSection !== 'app') return null;
-		const raw = $page.url.pathname.replace('/studio/apps/', '');
+		const raw = $page.url.pathname.replace('/studio/apps/', '').split('/')[0];
 		try {
 			return decodeURIComponent(raw);
 		} catch {
@@ -188,9 +223,18 @@
 		}
 	});
 
+	/** Active stack naddr from URL for sidebar highlight. */
+	const activeStackNaddr = $derived.by(() => {
+		if (activeSection !== 'stack') return null;
+		return $page.url.pathname.replace('/studio/stacks/', '').split('/')[0];
+	});
+
 	const activeNavLabel = $derived.by(() => {
 		if (activeSection === 'inbox') return 'Inbox';
 		if (activeSection === 'assets') return 'Assets';
+		if (activeSection === 'stacks') return 'Stacks';
+		if (activeSection === 'stack') return 'Edit Stack';
+		if (activeSection === 'migration') return 'Migration';
 		if (activeSection === 'app') {
 			const app = userApps.find((a) => a.id === activeAppId);
 			return app?.name ?? 'App';
@@ -201,6 +245,15 @@
 	function closeMobile() { mobileMenuOpen = false; }
 	function navTo(href) { goto(href); closeMobile(); }
 </script>
+
+<svelte:head>
+	<meta property="og:image" content="{SITE_URL}/images/og-studio.png" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content="Zapstore Studio" />
+	<meta name="twitter:image" content="{SITE_URL}/images/og-studio.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+</svelte:head>
 
 {#if showDashboard}
 	<div class="dashboard-outer container mx-auto px-0 sm:px-6 lg:px-8">
@@ -253,54 +306,89 @@
 									<span class="nav-label">Inbox</span>
 								</button>
 							</nav>
-							<div class="apps-section">
-								<div class="apps-section-head">
-									<span class="eyebrow-label apps-eyebrow">Your Apps</span>
-								</div>
-								{#if !appsLoading && userApps.length === 0}
-									<button
-										class="nav-item no-apps-item"
-										class:active={activeSection === 'apps'}
-										onclick={() => navTo('/studio/apps')}
-									>
-										<span class="nav-label no-apps-label">No apps yet</span>
-									</button>
-								{/if}
-								{#each userApps as app (app.id)}
-									<button
-										class="nav-item"
-										class:active={activeAppId === app.id}
-										onclick={() => navTo(`/studio/apps/${encodeURIComponent(app.id)}`)}
-									>
-										<span class="icon-wrap">
-											<img src={app.icon} alt={app.name} class="app-img" loading="lazy" />
-										</span>
-										<span class="nav-label">{app.name}</span>
-									</button>
-								{/each}
+						<div class="apps-section">
+							<div class="apps-section-head">
+								<span class="eyebrow-label apps-eyebrow">Apps</span>
 							</div>
-							<div class="sidebar-section">
-								<span class="eyebrow-label section-eyebrow">Docs &amp; Tools</span>
+							{#if !appsLoading && userApps.length === 0}
+								<button
+									class="nav-item no-apps-item"
+									class:active={activeSection === 'apps'}
+									onclick={() => navTo('/studio/apps')}
+								>
+									<span class="nav-label no-apps-label">No apps yet</span>
+								</button>
+							{/if}
+							{#each userApps as app (app.id)}
 								<button
 									class="nav-item"
-									class:active={activeSection === 'assets'}
-									onclick={() => navTo('/studio/assets')}
+									class:active={activeAppId === app.id}
+									onclick={() => navTo(`/studio/apps/${encodeURIComponent(app.id)}`)}
 								>
-									<span class="nav-label">Assets</span>
+									<span class="icon-wrap">
+										<img src={app.icon} alt={app.name} class="app-img" loading="lazy" />
+									</span>
+									<span class="nav-label">{app.name}</span>
 								</button>
-								<a href="/docs" class="nav-item" onclick={closeMobile}>
-									<span class="nav-label">Documentation</span>
-								</a>
-								<a
-									href="https://github.com/zapstore/zsp"
-									class="nav-item"
-									target="_blank"
-									rel="noopener noreferrer"
-									onclick={closeMobile}
-								>
-									<span class="nav-label">ZSP</span>
-								</a>
+							{/each}
+						</div>
+						<div class="stacks-section">
+							<div class="apps-section-head">
+								<span class="eyebrow-label apps-eyebrow">Stacks</span>
 							</div>
+							{#if !stacksLoading && userStacks.length === 0}
+								<button
+									class="nav-item no-apps-item"
+									class:active={activeSection === 'stacks'}
+									onclick={() => navTo('/studio/stacks')}
+								>
+									<span class="nav-label no-apps-label">No stacks yet</span>
+								</button>
+							{/if}
+							{#each userStacks as stack (stack.id)}
+								{@const stackNaddr = encodeStackNaddr(stack.pubkey, stack.dTag)}
+								{@const label = stackDisplayTitle({ title: stack.title, description: stack.description })}
+								<button
+									class="nav-item"
+									class:active={activeStackNaddr === stackNaddr}
+									onclick={() => navTo(`/studio/stacks/${stackNaddr}/edit`)}
+								>
+									<span class="icon-wrap">
+										<img src="/images/emoji/stack.png" alt="Stack" class="app-img" loading="lazy" />
+									</span>
+									<span class="nav-label">{label}</span>
+								</button>
+							{/each}
+						</div>
+						<div class="sidebar-section">
+							<span class="eyebrow-label section-eyebrow">Docs &amp; Tools</span>
+							<button
+								class="nav-item"
+								class:active={activeSection === 'assets'}
+								onclick={() => navTo('/studio/assets')}
+							>
+								<span class="nav-label">Assets</span>
+							</button>
+							<a href="/docs" class="nav-item" onclick={closeMobile}>
+								<span class="nav-label">Documentation</span>
+							</a>
+							<button
+								class="nav-item"
+								class:active={activeSection === 'migration'}
+								onclick={() => navTo('/studio/migration')}
+							>
+								<span class="nav-label">Migration</span>
+							</button>
+							<a
+								href="https://github.com/zapstore/zsp"
+								class="nav-item"
+								target="_blank"
+								rel="noopener noreferrer"
+								onclick={closeMobile}
+							>
+								<span class="nav-label">ZSP</span>
+							</a>
+						</div>
 						</div>
 						<button
 							type="button"
@@ -343,11 +431,12 @@
 						</span>
 						<span class="nav-label">Inbox</span>
 					</button>
-				</nav>
+			</nav>
 
+			<div class="sidebar-mid">
 				<div class="apps-section">
 					<div class="apps-section-head">
-						<span class="eyebrow-label apps-eyebrow">Your Apps</span>
+						<span class="eyebrow-label apps-eyebrow">Apps</span>
 					</div>
 					{#if !appsLoading && userApps.length === 0}
 						<button
@@ -372,6 +461,36 @@
 					{/each}
 				</div>
 
+				<div class="stacks-section">
+					<div class="apps-section-head">
+						<span class="eyebrow-label apps-eyebrow">Stacks</span>
+					</div>
+					{#if !stacksLoading && userStacks.length === 0}
+						<button
+							class="nav-item no-apps-item"
+							class:active={activeSection === 'stacks'}
+							onclick={() => goto('/studio/stacks')}
+						>
+							<span class="nav-label no-apps-label">No stacks yet</span>
+						</button>
+					{/if}
+					{#each userStacks as stack (stack.id)}
+						{@const stackNaddr = encodeStackNaddr(stack.pubkey, stack.dTag)}
+						{@const label = stackDisplayTitle({ title: stack.title, description: stack.description })}
+						<button
+							class="nav-item"
+							class:active={activeStackNaddr === stackNaddr}
+							onclick={() => goto(`/studio/stacks/${stackNaddr}/edit`)}
+						>
+							<span class="icon-wrap">
+								<img src="/images/emoji/stack.png" alt="Stack" class="app-img" loading="lazy" />
+							</span>
+							<span class="nav-label">{label}</span>
+						</button>
+					{/each}
+				</div>
+			</div>
+
 				<div class="sidebar-section">
 					<span class="eyebrow-label section-eyebrow">Docs &amp; Tools</span>
 					<button
@@ -384,6 +503,13 @@
 					<a href="/docs" class="nav-item">
 						<span class="nav-label">Documentation</span>
 					</a>
+					<button
+						class="nav-item"
+						class:active={activeSection === 'migration'}
+						onclick={() => goto('/studio/migration')}
+					>
+						<span class="nav-label">Migration</span>
+					</button>
 					<a
 						href="https://github.com/zapstore/zsp"
 						class="nav-item"
@@ -501,10 +627,12 @@
 		margin-top: 16px;
 	}
 
-	.sidebar > .apps-section {
+	.sidebar-mid {
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.apps-section-head {
@@ -543,6 +671,14 @@
 		padding-left: 12px;
 		padding-right: 12px;
 		border-top: 1px solid var(--white16);
+	}
+
+	.stacks-section {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		margin-top: 16px;
+		flex-shrink: 0;
 	}
 
 	.section-eyebrow {

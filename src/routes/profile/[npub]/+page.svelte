@@ -19,6 +19,7 @@ import ProfileActivityTab from '$lib/components/profile/ProfileActivityTab.svelt
 import ProfileDetailsTab from '$lib/components/profile/ProfileDetailsTab.svelte';
 import { hexToColor } from '$lib/utils/color.js';
 import { Copy, Check } from '$lib/components/icons';
+import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 
 let { data } = $props();
 const npub = $derived(data.npub ?? '');
@@ -109,20 +110,39 @@ onMount(async () => {
 	stacks = data.stacks ?? [];
 	resolvedStacks = data.resolvedStacks ?? [];
 	if (!profile) await loadProfile(pubkey);
-	if (apps.length === 0) {
-		appsLoading = true;
-		try {
-			let events = await queryEvents({ kinds: [32267], authors: [pubkey] });
-			if (events.length === 0) {
-				await fetchAppsByAuthorFromRelays([ZAPSTORE_RELAY], pubkey, { limit: 50 });
-				events = await queryEvents({ kinds: [32267], authors: [pubkey] });
-			}
-			const parsed = events.map(parseApp);
-			const prefix = data.appFilterPrefix ?? null;
-			apps = prefix ? parsed.filter((a) => a.dTag?.startsWith(prefix)) : parsed;
-		} finally {
+	// Always fetch apps — local-first then relay update.
+	// Skip platform filter: profile pages show ALL apps a developer published,
+	// not just the platform the browser happens to be on.
+	// Query both catalog relays so apps on either relay are found.
+	appsLoading = true;
+	try {
+		const prefix = data.appFilterPrefix ?? null;
+		const applyPrefix = (evts) => {
+			const parsed = evts.map(parseApp);
+			return prefix ? parsed.filter((a) => a.dTag?.startsWith(prefix)) : parsed;
+		};
+
+		// Show whatever is already in Dexie immediately (may be empty on first visit).
+		const local = await queryEvents({ kinds: [32267], authors: [pubkey] });
+		if (local.length > 0) {
+			apps = applyPrefix(local);
 			appsLoading = false;
 		}
+
+		// Only zapstore relay has app events — vertexlab is profiles-only.
+		const fetched = await fetchAppsByAuthorFromRelays([ZAPSTORE_RELAY], pubkey, {
+			limit: 100,
+			skipPlatformFilter: true,
+			timeout: 6000
+		});
+
+		// fetchAppsByAuthorFromRelays writes to Dexie; re-query for a clean deduped list.
+		const fresh = fetched.length > 0
+			? await queryEvents({ kinds: [32267], authors: [pubkey] })
+			: local;
+		apps = applyPrefix(fresh);
+	} finally {
+		appsLoading = false;
 	}
 	if (stacks.length === 0) {
 		stacksLoading = true;
@@ -277,8 +297,9 @@ function stackToCard(s, resolvedApps) {
 								onmouseleave={() => (npubOverlayOpen = false)}
 							>
 								<p class="overlay-desc">
-									A Public Identifier (npub) on the Nostr protocol. The profile color is derived from it for extra recognisability.
+									This is a Public Nostr Identifier (npub). The profile color is uniquely derived from it for visual recognition.
 								</p>
+								<div class="overlay-divider"></div>
 								<div class="overlay-row">
 									<span class="overlay-val npub-mono" title={npub}>{npub}</span>
 									<button type="button" class="overlay-copy" onclick={(e) => { e.stopPropagation(); copyNpub(); }} aria-label="Copy npub">
@@ -289,6 +310,7 @@ function stackToCard(s, resolvedApps) {
 										{/if}
 									</button>
 								</div>
+								<div class="overlay-divider"></div>
 								<div class="overlay-row">
 									<span class="overlay-val color-hex" style="color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});">{profileColorHex}</span>
 									<button type="button" class="overlay-copy" onclick={(e) => { e.stopPropagation(); copyProfileColor(); }} aria-label="Copy color">
@@ -338,11 +360,18 @@ function stackToCard(s, resolvedApps) {
 			<div class="apps-stack">
 
 				<!-- Published -->
-				<div class="bento-panel content-panel">
-					<h2 class="panel-title">Published</h2>
+				<div class="content-panel">
+					<SectionHeader title="Published" />
 					{#if appsLoading}
-						<div class="panel-item">
+						<div class="cards-grid">
 							<div class="sk-row">
+								<div class="sk-icon"><SkeletonLoader /></div>
+								<div class="sk-info">
+									<div class="sk-name"><SkeletonLoader /></div>
+									<div class="sk-desc"><SkeletonLoader /></div>
+								</div>
+							</div>
+							<div class="sk-row sk-second">
 								<div class="sk-icon"><SkeletonLoader /></div>
 								<div class="sk-info">
 									<div class="sk-name"><SkeletonLoader /></div>
@@ -353,54 +382,58 @@ function stackToCard(s, resolvedApps) {
 					{:else if apps.length === 0}
 						<p class="panel-empty">No apps published</p>
 					{:else}
-						{#each apps as app, i (app.id)}
-							{#if i > 0}<div class="item-divider"></div>{/if}
-							<div class="panel-item">
+						<div class="cards-grid">
+							{#each apps as app (app.id)}
 								<AppSmallCard
 									app={{ name: app.name, icon: app.icon, description: app.description, dTag: app.dTag }}
 									href="/apps/{app.dTag}"
 								/>
-							</div>
-						{/each}
+							{/each}
+						</div>
 					{/if}
 				</div>
 
 				<!-- Stacks -->
-				<div class="bento-panel content-panel">
-					<h2 class="panel-title">Stacks</h2>
+				<div class="content-panel">
+					<SectionHeader title="Stacks" />
 					{#if stacksLoading}
-						{#each Array(3) as _, i (i)}
-							{#if i > 0}<div class="item-divider"></div>{/if}
-							<div class="panel-item">
-								<div class="sk-row">
-									<div class="sk-stack-grid"><SkeletonLoader /></div>
-									<div class="sk-info">
-										<div class="sk-name"><SkeletonLoader /></div>
-										<div class="sk-desc"><SkeletonLoader /></div>
-									</div>
+						<div class="cards-grid">
+							<div class="sk-row">
+								<div class="sk-stack-grid"><SkeletonLoader /></div>
+								<div class="sk-info">
+									<div class="sk-name"><SkeletonLoader /></div>
+									<div class="sk-desc"><SkeletonLoader /></div>
 								</div>
 							</div>
-						{/each}
+							<div class="sk-row sk-second">
+								<div class="sk-stack-grid"><SkeletonLoader /></div>
+								<div class="sk-info">
+									<div class="sk-name"><SkeletonLoader /></div>
+									<div class="sk-desc"><SkeletonLoader /></div>
+								</div>
+							</div>
+						</div>
 					{:else if resolvedStacks.length === 0}
 						<p class="panel-empty">No stacks created</p>
 					{:else}
-						{#each resolvedStacks as { stack, apps: resolvedApps }, i (`${stack.id}-${i}`)}
-							{#if i > 0}<div class="item-divider"></div>{/if}
-							<div class="panel-item">
+						<div class="cards-grid">
+							{#each resolvedStacks as { stack, apps: resolvedApps } (`${stack.id}`)}
 								<AppStackCard
 									stack={stackToCard(stack, resolvedApps)}
 									href="/stacks/{encodeStackNaddr(stack.pubkey, stack.dTag)}"
 								/>
-							</div>
-						{/each}
+							{/each}
+						</div>
 					{/if}
 				</div>
 
 			</div>
 
-		<!-- ── Tab: Activity ─────────────────────────────────────────── -->
-		{:else if activeTab === 'activity'}
+	<!-- ── Tab: Activity ─────────────────────────────────────────── -->
+	{:else if activeTab === 'activity'}
+		<div class="activity-tab-wrap">
 			<ProfileActivityTab {pubkey} profileName={profileName} profilePicture={profilePictureUrl} />
+		</div>
 
 		<!-- ── Tab: Details ──────────────────────────────────────────── -->
 		{:else if activeTab === 'details'}
@@ -439,8 +472,11 @@ function stackToCard(s, resolvedApps) {
 	}
 
 	/* ── Profile panel ─────────────────────────────────────────────────────── */
+	/* overflow: visible lets the npub overlay escape; clip-path on .profile-bg
+	   keeps the blurred background clipped to the rounded shape instead. */
 	.profile-panel {
 		position: relative;
+		overflow: visible;
 	}
 
 	.profile-bg {
@@ -448,6 +484,9 @@ function stackToCard(s, resolvedApps) {
 		inset: 0;
 		z-index: 0;
 		pointer-events: none;
+		border-radius: 20px;
+		clip-path: inset(0 round 20px);
+		overflow: hidden;
 	}
 
 	.profile-bg-img {
@@ -463,14 +502,13 @@ function stackToCard(s, resolvedApps) {
 		position: relative;
 		z-index: 1;
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		gap: 20px;
 		padding: 24px 20px;
 	}
 
 	@media (min-width: 768px) {
 		.profile-inner {
-			align-items: center;
 			gap: 28px;
 			padding: 32px 28px;
 		}
@@ -479,7 +517,12 @@ function stackToCard(s, resolvedApps) {
 	.profile-pic-wrap { flex-shrink: 0; }
 
 	@media (max-width: 767px) {
-		.profile-pic-wrap { transform: scale(0.8); transform-origin: top left; }
+		.profile-pic-wrap :global(.profile-pic) {
+			width: 100px !important;
+			height: 100px !important;
+			min-width: 100px !important;
+			min-height: 100px !important;
+		}
 	}
 
 	.profile-info { flex: 1; min-width: 0; }
@@ -505,7 +548,7 @@ function stackToCard(s, resolvedApps) {
 		text-align: left;
 		cursor: pointer;
 		color: var(--white66);
-		font-size: 1rem;
+		font-size: 0.875rem;
 		line-height: 1.4;
 		margin-bottom: 8px;
 	}
@@ -520,7 +563,7 @@ function stackToCard(s, resolvedApps) {
 
 	.profile-about-empty {
 		margin: 0 0 8px;
-		font-size: 1rem;
+		font-size: 0.875rem;
 		color: var(--white33);
 	}
 
@@ -552,34 +595,43 @@ function stackToCard(s, resolvedApps) {
 	.npub-overlay {
 		display: none;
 		position: absolute;
-		bottom: calc(100% + 6px);
+		top: calc(100% + 8px);
 		left: 0;
-		min-width: 280px;
-		max-width: min(360px, 90vw);
-		padding: 12px 14px 8px;
-		background: hsl(241 15% 18%);
-		border: 1px solid var(--white16);
-		border-radius: 12px;
-		box-shadow: 0 8px 24px color-mix(in srgb, var(--black66) 40%, transparent);
-		z-index: 100;
+		min-width: 300px;
+		max-width: min(380px, 90vw);
+		background: var(--gray66);
+		backdrop-filter: blur(24px);
+		-webkit-backdrop-filter: blur(24px);
+		border: 0.33px solid var(--white16);
+		border-radius: 16px;
+		overflow: hidden;
+		box-shadow: 0 8px 32px var(--black33);
+		z-index: 200;
 		pointer-events: auto;
 	}
 
 	.npub-overlay.open { display: block; }
 
-	.overlay-desc { margin: 0 0 10px; font-size: 0.8125rem; line-height: 1.45; color: var(--white66); }
+	.overlay-desc {
+		margin: 0;
+		padding: 10px 14px;
+		font-size: 0.8125rem;
+		line-height: 1.45;
+		color: var(--white66);
+	}
+
+	.overlay-divider {
+		height: 0.33px;
+		background: var(--white16);
+	}
 
 	.overlay-row {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 10px;
-		min-height: 28px;
-		padding: 2px 0;
-		border-bottom: 1px solid var(--white11);
+		padding: 10px 14px;
 	}
-
-	.overlay-row:last-child { border-bottom: none; }
 
 	.overlay-val {
 		font-size: 0.8125rem;
@@ -625,6 +677,9 @@ function stackToCard(s, resolvedApps) {
 		100% { transform: scale(1); }
 	}
 
+	/* Activity tab gets a tighter connection to the tab buttons */
+	.activity-tab-wrap { margin-top: -6px; }
+
 	/* ── Tab bar ──────────────────────────────────────────────────────────── */
 	.tab-bar {
 		display: flex;
@@ -642,6 +697,7 @@ function stackToCard(s, resolvedApps) {
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
+		padding-top: 8px;
 	}
 
 	/* ── Content panel (Published / Stacks) ───────────────────────────────── */
@@ -649,37 +705,31 @@ function stackToCard(s, resolvedApps) {
 		/* panels grow with their content */
 	}
 
-	.panel-title {
-		margin: 0;
-		/* 14px top (2px less than before), 0 bottom so the gap to the first card
-		   comes entirely from panel-item's 16px top padding → exactly 16px total */
-		padding: 14px 16px 0;
-		font-size: 1.25rem;
-		font-weight: 600;
-		color: var(--white);
+	/* Grid used by both Published (apps) and Stacks: 1 col on mobile, 2 on desktop */
+	.cards-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 4px;
+		padding: 0 0 4px;
 	}
 
-	.panel-item {
-		padding: 16px;
+	@media (min-width: 640px) {
+		.cards-grid {
+			grid-template-columns: 1fr 1fr;
+			gap: 8px;
+		}
 	}
 
-	/* Zero out AppStackCard's own 8px top/bottom padding so the panel-item's
-	   16px is the only spacing — prevents the "more padding" on the last card. */
-	.panel-item :global(.app-stack-card) {
+	/* Zero out AppStackCard's own 8px top/bottom padding inside the grid */
+	.cards-grid :global(.app-stack-card) {
 		padding-top: 0;
 		padding-bottom: 0;
-	}
-
-	.item-divider {
-		height: 1px;
-		background: var(--white11);
-		margin: 0 16px;
 	}
 
 	/* Empty state: same typography as EmptyState.svelte but no extra background */
 	.panel-empty {
 		margin: 0;
-		padding: 40px 16px;
+		padding: 40px 0;
 		font-size: 1.5rem;
 		font-weight: 600;
 		color: var(--white16);
@@ -688,6 +738,10 @@ function stackToCard(s, resolvedApps) {
 	}
 
 	/* ── Skeletons ────────────────────────────────────────────────────────── */
+	/* Second skeleton cell: hidden on mobile (1-col grid), visible on desktop (2-col). */
+	.sk-second { display: none; }
+	@media (min-width: 640px) { .sk-second { display: flex; } }
+
 	.sk-row { display: flex; align-items: flex-start; gap: 16px; }
 
 	.sk-icon {

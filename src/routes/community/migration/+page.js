@@ -1,5 +1,8 @@
-/**
- * Migration page load — no server data needed.
- * Migration detection happens client-side after sign-in.
- */
+import { redirect } from '@sveltejs/kit';
+
+/** Permanent redirect — /community/migration has moved to /studio/migration. */
 export const prerender = false;
+
+export function load() {
+	throw redirect(301, '/studio/migration');
+}

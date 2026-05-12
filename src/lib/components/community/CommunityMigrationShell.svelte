@@ -15,7 +15,7 @@
 		getStackMissingTags,
 		migrateStack
 	} from '$lib/nostr/migration';
-	import { DEFAULT_CATALOG_RELAYS, EVENT_KINDS, PLATFORM_FILTER } from '$lib/config.js';
+	import { ZAPSTORE_RELAY, DEFAULT_CATALOG_RELAYS, EVENT_KINDS, PLATFORM_FILTER } from '$lib/config.js';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import CodeBlock from '$lib/components/common/CodeBlock.svelte';
 	import Check from '$lib/components/icons/Check.svelte';
@@ -66,7 +66,7 @@
 
 			try {
 				const apps = await fetchFromRelays(
-					DEFAULT_CATALOG_RELAYS,
+					[ZAPSTORE_RELAY],
 					{ kinds: [EVENT_KINDS.APP], authors: [pubkey], ...PLATFORM_FILTER, limit: 100 },
 					{ timeout: 10000, feature: 'migration-detect-apps' }
 				);
@@ -85,7 +85,7 @@
 					const dTag = parts.slice(2).join(':');
 
 					const releases = await fetchFromRelays(
-						DEFAULT_CATALOG_RELAYS,
+						[ZAPSTORE_RELAY],
 						{ kinds: [EVENT_KINDS.RELEASE], authors: [relPubkey], '#d': [dTag], limit: 1 },
 						{ timeout: 5000, feature: 'migration-release' }
 					);
@@ -100,7 +100,7 @@
 					if (!artifactIds.length) continue;
 
 					const artifacts = await fetchFromRelays(
-						DEFAULT_CATALOG_RELAYS,
+						[ZAPSTORE_RELAY],
 						{ ids: artifactIds, limit: artifactIds.length },
 						{ timeout: 5000, feature: 'migration-artifacts' }
 					);
@@ -152,7 +152,7 @@
 
 			try {
 				const stacks = await fetchFromRelays(
-					DEFAULT_CATALOG_RELAYS,
+					[ZAPSTORE_RELAY],
 					{ kinds: [EVENT_KINDS.APP_STACK], authors: [pubkey], limit: 100 },
 					{ timeout: 10000, feature: 'migration-detect-stacks' }
 				);
