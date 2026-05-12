@@ -36,6 +36,10 @@ let {
 
 const canonicalUrl = $derived(url ?? (SITE_URL + $page.url.pathname));
 const twitterCard = $derived(image ? 'summary_large_image' : 'summary');
+// Escape `<` so serialized JSON cannot close the JSON-LD script block early (breaks DOM + hydration).
+const jsonldText = $derived(
+	jsonld ? JSON.stringify(jsonld).replace(/</g, '\\u003c') : ''
+);
 </script>
 
 <svelte:head>
@@ -84,6 +88,6 @@ const twitterCard = $derived(image ? 'summary_large_image' : 'summary');
 
 	{#if jsonld}
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-		{@html `<script type="application/ld+json">${JSON.stringify(jsonld)}</` + `script>`}
+		{@html '<script type="application/ld+json">' + jsonldText + '</' + 'script>'}
 	{/if}
 </svelte:head>

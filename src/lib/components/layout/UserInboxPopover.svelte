@@ -6,6 +6,7 @@
 <script lang="js">
 	import { browser } from '$app/environment';
 	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
+	import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	import { Inbox, Cross } from '$lib/components/icons';
 
 	/** Matches header inbox chrome: landing = 32px + Cross 12; browse/studio = 40px + Cross 15 */
@@ -13,6 +14,9 @@
 
 	/** @type {CommunityActivityShell | null} */
 	let shellRef = $state(null);
+
+	/** True while the inbox relay seed is in flight. */
+	let inboxRelayLoading = $state(false);
 
 	$effect(() => {
 		if (!browser || !open) return;
@@ -69,12 +73,14 @@
 				{/if}
 			</div>
 		</div>
+		<RelayLoadingBar loading={inboxRelayLoading} />
 		<div class="user-inbox-body flex-1 min-h-0 flex flex-col min-w-0">
 			<CommunityActivityShell
 				bind:this={shellRef}
 				inboxUserPubkey={pubkey}
 				inboxEmbed
 				inboxActive={open}
+				onRelayLoadingChange={(v) => { inboxRelayLoading = v; }}
 			/>
 		</div>
 	</div>
@@ -95,6 +101,7 @@
 		align-items: center;
 		gap: 10px;
 	}
+
 
 	.mark-all-read-btn {
 		background: none;

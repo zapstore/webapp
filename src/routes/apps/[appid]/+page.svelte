@@ -5,7 +5,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
-	import { Package, X } from 'lucide-svelte';
+	import { X } from 'lucide-svelte';
+	import ZappyError from '$lib/components/common/ZappyError.svelte';
 	import {
 		queryEvents,
 		queryEvent,
@@ -27,7 +28,6 @@
 		putEvents
 	} from '$lib/nostr';
 	import { fetchFromRelays } from '$lib/nostr/service';
-	import { db } from '$lib/nostr/dexie';
 	import { ZAPSTORE_RELAY, ZAPSTORE_BLOSSOM_URL } from '$lib/config';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import { nip19 } from 'nostr-tools';
@@ -500,7 +500,9 @@ let _refreshing = $state(false);
 				...new Set([
 					...comments.map((c) => c.pubkey),
 					...merged.flatMap((ev) =>
-						ev.tags.filter((t) => t[0] === 'p' && t[1]?.length === 64).map((t) => t[1])
+						(ev.tags ?? [])
+							.filter((t) => t[0] === 'p' && t[1]?.length === 64)
+							.map((t) => t[1])
 					)
 				].filter(Boolean))
 			];
@@ -558,7 +560,9 @@ let _refreshing = $state(false);
 					...new Set([
 						...newEvents.map((ev) => ev.pubkey),
 						...newEvents.flatMap((ev) =>
-							ev.tags.filter((t) => t[0] === 'p' && t[1]?.length === 64).map((t) => t[1])
+							(ev.tags ?? [])
+								.filter((t) => t[0] === 'p' && t[1]?.length === 64)
+								.map((t) => t[1])
 						)
 					].filter(Boolean))
 				];
@@ -953,6 +957,11 @@ let _refreshing = $state(false);
 
 		// Resolve pubkey + identifier: appid may be a plain d-tag or a legacy naddr
 		const pointer = decodeNaddr(appid);
+		// Stack naddr under /apps/… — canonical URL is /stacks/…
+		if (pointer?.kind === EVENT_KINDS.APP_STACK) {
+			goto(`/stacks/${appid}`, { replaceState: true });
+			return;
+		}
 		let _pubkey = data.app?.pubkey ?? pointer?.pubkey;
 		let _identifier = data.app?.dTag ?? pointer?.identifier ?? (pointer ? undefined : appid);
 
@@ -979,30 +988,9 @@ let _refreshing = $state(false);
 			_pubkey = app.pubkey;
 			_identifier = app.dTag;
 			error = null;
-
-			// Background relay verification: confirm the app still exists on the relay.
-			// If the relay returns nothing (event was removed without a NIP-09 deletion),
-			// evict the stale Dexie entry and show "App not found".
-			if (isOnline()) {
-				fetchFromRelays(
-					[ZAPSTORE_RELAY],
-					{
-						kinds: [EVENT_KINDS.APP],
-						authors: [_pubkey],
-						'#d': [_identifier],
-						...PLATFORM_FILTER,
-						limit: 1
-					},
-					{ feature: 'app-detail-verify' }
-				).then((events) => {
-					if (events.length === 0) {
-						// App no longer on relay — evict from Dexie and surface the error
-						db.events.delete(cachedApp.id).catch(() => {});
-						app = null;
-						error = 'App not found';
-					}
-				});
-			}
+			// Do not run a follow-up "verify" one-shot that can clear this view. A second
+			// relay round-trip often finishes seconds later; empty/flaky results are not
+			// proof the app vanished — they used to flip a healthy page to "not found".
 		}
 
 		if (!_identifier) {
@@ -1140,23 +1128,11 @@ let _refreshing = $state(false);
 {/if}
 
 {#if error}
-	<div class="container mx-auto py-16 px-3 sm:px-6 lg:px-8">
-		<div class="flex items-center justify-center py-24">
-			<div class="text-center">
-				<div class="rounded-lg bg-destructive/10 border border-destructive/20 p-6 max-w-md">
-					<Package class="h-16 w-16 text-destructive mx-auto mb-4" />
-					<h3 class="semibold18 text-destructive mb-2">App Not Found</h3>
-					<p class="text-muted-foreground mb-4">{error}</p>
-					<button
-						onclick={retryLoad}
-						class="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 medium14 text-primary-foreground hover:bg-primary/90 w-full"
-					>
-						Try Again
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
+	<ZappyError
+		message="this app wasn't found."
+		primaryAction={{ label: 'Browse apps', href: '/apps' }}
+		secondaryAction={{ label: 'Try again', onclick: retryLoad }}
+	/>
 {:else if app}
 	<div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">
 		<!-- Mobile only: author + timestamp above the app icon -->

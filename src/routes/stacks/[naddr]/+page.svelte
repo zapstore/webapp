@@ -28,6 +28,7 @@ import { resolve } from "$app/paths";
 import BottomBar from "$lib/components/social/BottomBar.svelte";
 import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
+import ZappyError from "$lib/components/common/ZappyError.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import { createSearchProfilesFunction, ZAPSTORE_PUBKEY, zapstoreProfileStore } from "$lib/services/profile-search";
@@ -232,8 +233,17 @@ async function loadStack() {
     try {
         error = null;
         let foundStack = data.stack;
-        // Client-side navigation / offline: query Dexie if no server data
         const pointer = browser ? decodeNaddr($page.params.naddr) : null;
+        if (browser && !pointer && $page.params.naddr && !$page.params.naddr.startsWith('naddr1')) {
+            goto(`/apps/${$page.params.naddr}`, { replaceState: true });
+            return;
+        }
+        // App naddr pasted under /stacks/… — canonical URL is /apps/…
+        if (pointer?.kind === EVENT_KINDS.APP) {
+            goto(`/apps/${$page.params.naddr}`, { replaceState: true });
+            return;
+        }
+        // Client-side navigation / offline: query Dexie if no server data
         if (!foundStack && pointer) {
             const event = await queryEvent({
                 kinds: [EVENT_KINDS.APP_STACK],
@@ -742,20 +752,11 @@ const displayDescription = $derived(
         </div>
       </div>
     {:else if error}
-      <!-- Error State -->
-      <div class="flex items-center justify-center py-24">
-        <div class="text-center">
-          <div
-            class="rounded-lg bg-destructive/10 border border-destructive/20 p-6 max-w-md"
-          >
-            <h3 class="semibold18 text-destructive mb-2">
-              Error Loading Stack
-            </h3>
-            <p class="text-muted-foreground mb-4">{error}</p>
-            <a href="/apps" class="btn-primary"> Back to Apps </a>
-          </div>
-        </div>
-      </div>
+      <ZappyError
+        message="this stack wasn't found."
+        primaryAction={{ label: 'Browse stacks', href: '/stacks' }}
+        secondaryAction={{ label: 'Go back', onclick: () => history.back() }}
+      />
     {:else if stack}
       <!-- Publisher row above title (author left, timestamp right) -->
       <div class="detail-publisher-row">

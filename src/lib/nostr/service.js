@@ -1802,13 +1802,21 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
 	if (!dTag) throw new Error('Stack must have a d tag');
 	
 	const descTrimmed = newDescription?.trim() || '';
-	const content = '';
+
+	// Preserve content — private stacks use content for encrypted payload.
+	// Never overwrite it; public stacks already have content = ''.
+	const content = stackEvent.content || '';
+	const isPublic = !content.trim();
 
 	const tags = [
 		['d', dTag],
 		['f', PLATFORM_FILTER['#f'][0]],
-		['h', ZAPSTORE_COMMUNITY_PUBKEY]
 	];
+
+	// h tag only on public stacks (invariant: private stacks MUST NOT have h tag)
+	if (isPublic) {
+		tags.push(['h', ZAPSTORE_COMMUNITY_PUBKEY]);
+	}
 
 	// Add title tag if name is provided
 	if (newName?.trim()) {
