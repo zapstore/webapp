@@ -28,6 +28,7 @@
 	// ── Local edit state ───────────────────────────────────────────────────────
 	let editName = $state('');
 	let editDescription = $state('');
+	// eslint-disable-next-line svelte/prefer-writable-derived -- user-mutable (removeApp mutates it)
 	let editApps = $state([]);
 
 	let saving = $state(false);
@@ -77,17 +78,23 @@
 		labelValue = '';
 	}
 
-	// ── Sync when stack/apps props change ─────────────────────────────────────
+	// ── Init form fields when stack identity changes ───────────────────────────
+	// NOTE: must NOT read `apps` here — apps load async and would re-trigger this
+	// effect, silently resetting any name/description the user has already typed.
 	$effect(() => {
 		if (!stack) return;
 		editName = stack.title || '';
 		editDescription = stack.description || '';
-		editApps = [...apps];
 		editLabels = (stack.event?.tags ?? []).filter((t) => t[0] === 't' && t[1]).map((t) => t[1]);
 		saveError = '';
 		confirmingDelete = false;
 		deleting = false;
 		deleteError = '';
+	});
+
+	// ── Sync apps list separately so it never resets name/description ─────────
+	$effect(() => {
+		editApps = [...apps];
 	});
 
 	function removeApp(appToRemove) {

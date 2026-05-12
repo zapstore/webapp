@@ -39,7 +39,20 @@ async function loadStack() {
 	loadError = '';
 	try {
 		const pointer = decodeNaddr(naddr);
-		if (!pointer) { loadError = 'Invalid stack URL'; return; }
+		if (!pointer) {
+			const seg = naddr ?? '';
+			if (seg && !seg.startsWith('naddr1')) {
+				goto(`/apps/${seg}`, { replaceState: true });
+				return;
+			}
+			loadError = 'Invalid stack URL';
+			return;
+		}
+
+		if (pointer.kind === EVENT_KINDS.APP) {
+			goto(`/studio/apps/${encodeURIComponent(pointer.identifier)}`, { replaceState: true });
+			return;
+		}
 
 		let event = await queryEvent({
 			kinds: [EVENT_KINDS.APP_STACK],

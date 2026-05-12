@@ -1,31 +1,25 @@
 <script lang="js">
-	/**
-	 * Community route error boundary — surfaces errors so we can debug.
-	 */
-	import { page } from '$app/stores';
-	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
-	import SeoHead from '$lib/components/layout/SeoHead.svelte';
+/**
+ * Community route error boundary.
+ */
+import { page } from '$app/stores';
+import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
+import SeoHead from '$lib/components/layout/SeoHead.svelte';
+import ZappyError from '$lib/components/common/ZappyError.svelte';
 
-	const communityFallbackHref = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED
-		? '/community/forum'
-		: '/community/support';
-	const communityFallbackLabel = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? 'Try Forum' : 'Try Support';
+const communityFallbackHref = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED
+	? '/community/forum'
+	: '/community/support';
+const communityFallbackLabel = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? 'Try Forum' : 'Try Support';
 
-	const error = $derived($page.error);
-	const message = $derived(error?.message ?? 'Unknown error');
-	const stack = $derived(error?.stack ?? '');
+const errorMessage = $derived($page.error?.message ?? 'Unknown error');
+const message = $derived(`something went wrong in the community section. ${errorMessage}`);
 </script>
 
 <SeoHead title="Community error — Zapstore" />
 
-<div class="community-error" style="background: var(--black); color: var(--white); padding: 2rem; max-width: 640px; margin: 0 auto;">
-	<h1 style="font-size: 1.25rem; margin-bottom: 0.5rem;">Community route error</h1>
-	<p style="font-family: monospace; font-size: 0.875rem; color: var(--white66); margin-bottom: 1rem;">{message}</p>
-	{#if stack}
-		<pre style="font-size: 0.75rem; overflow: auto; background: var(--white8); padding: 1rem; border-radius: 8px; white-space: pre-wrap; word-break: break-all;">{stack}</pre>
-	{/if}
-	<div style="margin-top: 1.5rem; display: flex; gap: 0.75rem;">
-		<a href={communityFallbackHref} style="color: var(--blurpleLightColor);">{communityFallbackLabel}</a>
-		<a href="/" style="color: var(--white66);">Home</a>
-	</div>
-</div>
+<ZappyError
+	{message}
+	primaryAction={{ label: communityFallbackLabel, href: communityFallbackHref }}
+	secondaryAction={{ label: 'Home', href: '/' }}
+/>

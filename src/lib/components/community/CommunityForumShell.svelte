@@ -21,14 +21,16 @@
 	parseZapReceipt
 } from '$lib/nostr';
 	import { parseProfile } from '$lib/nostr/models';
-	import {
-		EVENT_KINDS,
-		ZAPSTORE_COMMUNITY_NPUB,
-		FORUM_RELAY,
-		ZAPSTORE_RELAY,
-		FORUM_CATEGORIES,
-		commentZapRelayReadSince
-	} from '$lib/config';
+import {
+	EVENT_KINDS,
+	ZAPSTORE_COMMUNITY_NPUB,
+	FORUM_RELAY,
+	ZAPSTORE_RELAY,
+	FORUM_CATEGORIES,
+	commentZapRelayReadSince
+} from '$lib/config';
+import { relayLoading } from '$lib/stores/relay-loading.svelte.js';
+import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { goto } from '$app/navigation';
@@ -188,9 +190,10 @@
 		if (!commentCountsQuery) return;
 		const sub = commentCountsQuery.subscribe({
 			next: (commentEvs) => {
-				// NOTE: commentCountsSettled is intentionally NOT set here.
-				// The big $effect below owns that flag — it stays false until the relay
-				// fetch completes so ForumPostCard shows a skeleton for empty-Dexie posts.
+				// Dexie fired — mark settled immediately so cached data is shown without
+				// waiting for relay. The relay fetch runs in the background and updates
+				// commentersByPostId reactively via liveQuery when it writes to Dexie.
+				commentCountsSettled = true;
 				const evs = commentEvs ?? [];
 				const byPost = new Map();
 				for (const c of evs) {
@@ -286,15 +289,18 @@
 
 	$effect(() => {
 		if (!browser || posts.length === 0) return;
-		// Reset to false so ForumPostCard shows the skeleton while we (re-)load.
-		// This is set back to true in the finally block below, after the relay fetch.
-		commentCountsSettled = false;
+		// Only show skeleton when Dexie has no comment data at all for the visible posts.
+		// On a return visit the liveQuery already populated commentersByPostId so we skip
+		// the skeleton entirely and go straight to showing cached data.
+		const anyPostHasDexieData = posts.some((p) => commentersByPostId.has(p.id));
+		if (!anyPostHasDexieData) commentCountsSettled = false;
 		const pks = [...new Set(posts.map((p) => p.pubkey))];
 		const postIds = posts.map((p) => p.id);
 		let cancelled = false;
 
 		(async () => {
 		  try {
+			relayLoading.forum = true;
 			// Run profile fetch and Dexie comment fetch in parallel — don't let the
 			// 4s profile relay timeout block comment counts from appearing quickly.
 			const [pEvs, evsE, evsEUpper] = await Promise.all([
@@ -449,14 +455,18 @@
 				commentersByPostId = byPost;
 			}
 		  } finally {
-			// Only mark settled when the run completes normally (not cancelled mid-flight).
-			// A cancelled run means posts changed and a new run is already under way.
-			if (!cancelled) commentCountsSettled = true;
+			// Only mark settled / clear relay indicator when this run completed (not cancelled).
+			// A cancelled run means posts changed and a fresh run is already underway.
+			if (!cancelled) {
+				commentCountsSettled = true;
+				relayLoading.forum = false;
+			}
 		  }
 		})();
 
 		return () => {
 			cancelled = true;
+			relayLoading.forum = false;
 		};
 	});
 
@@ -577,6 +587,7 @@
 		</div>
 	</div>
 	</header>
+	<RelayLoadingBar loading={relayLoading.forum && !commentCountsSettled} />
 	{#if publishError}
 		<div class="forum-publish-error" role="alert">
 			{publishError}

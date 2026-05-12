@@ -8,8 +8,10 @@
  * Client-side navigation: returns empty — component queries Dexie directly.
  * Offline: no server round-trip needed, component loads from IndexedDB.
  */
+import { redirect } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { decodeNaddr } from '$lib/nostr';
+import { EVENT_KINDS } from '$lib/config';
 
 export const prerender = false;
 
@@ -22,6 +24,10 @@ export const load = async ({ params }) => {
 	const pointer = decodeNaddr(appid);
 
 	if (pointer) {
+		// `/apps/naddr…` must be an app (32267). Stack naddrs belong on `/stacks/…`.
+		if (pointer.kind === EVENT_KINDS.APP_STACK) {
+			redirect(302, `/stacks/${appid}`);
+		}
 		const { pubkey, identifier } = pointer;
 		const result = await fetchApp(pubkey, identifier);
 		if (!result) {

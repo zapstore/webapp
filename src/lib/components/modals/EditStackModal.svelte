@@ -62,6 +62,7 @@ async function handleSave() {
 			editName.trim(),
 			editDescription.trim(),
 			editApps,
+			null,
 			signEvent
 		);
 		

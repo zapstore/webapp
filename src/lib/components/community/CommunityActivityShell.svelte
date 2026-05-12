@@ -53,6 +53,8 @@
 	} from '$lib/config';
 	import { goto } from '$app/navigation';
 	import { setCached } from '$lib/stores/query-cache.js';
+	import { relayLoading } from '$lib/stores/relay-loading.svelte.js';
+	import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	import CommentCard from '$lib/components/community/CommentCard.svelte';
 	import ZapActivityCard from '$lib/components/community/ZapActivityCard.svelte';
 	import RootComment from '$lib/components/social/RootComment.svelte';
@@ -77,8 +79,15 @@
 		inboxEmbed = false,
 		inboxActive = true,
 		/** Called when user taps "Mark All as Read"; parent can use this to update UI. */
-		onMarkAllRead = null
+		onMarkAllRead = null,
+		/** Called with (loading: boolean) when the inbox relay fetch starts/ends. */
+		onRelayLoadingChange = null
 	} = $props();
+
+	$effect(() => {
+		if (!inboxEmbed || !onRelayLoadingChange) return;
+		onRelayLoadingChange(activityLoading);
+	});
 
 	/** Re-seed when user opens Activity (shell can stay mounted while they use Forum). */
 	const activityRouteActive = $derived(
@@ -1392,6 +1401,7 @@
 	async function seedActivityFromRelay() {
 		if (!browser) return;
 		activityLoading = true;
+		relayLoading.activity = true;
 		activityError = '';
 		try {
 			activityAddrRelayAttempted.clear();
@@ -1465,6 +1475,7 @@
 			activityError = 'Failed to sync activity.';
 		} finally {
 			activityLoading = false;
+			relayLoading.activity = false;
 			activityInitialSeedDone = true;
 		}
 	}
@@ -2351,24 +2362,33 @@
 					? !!threadModalZapId
 					: false}
 		>
-			{#if !activityReady || !activityFeedQuerySettled || (!inboxEmbed && activityFeedItems.length === 0 && !activityHadCachedData && (!activityInitialSeedDone || activityLoading))}
-				<div class="loading-wrap">
-					<ActivityFeedSkeleton rows={6} />
-				</div>
-			{:else if activityError && activityFeedItems.length === 0}
-				<div class="empty-state-wrap">
-					<EmptyState message={activityError} minHeight={280} />
-				</div>
-			{:else if activityFeedItems.length === 0}
-				<div class="empty-state-wrap">
-					<EmptyState
-						message={inboxUserPubkey ? 'Your inbox is empty' : 'No Activity yet'}
-						minHeight={280}
-					/>
-				</div>
+		<!-- Relay sync bar: only for the activity tab; inbox has its own bar in UserInboxPopover -->
+		{#if !inboxEmbed}
+			<RelayLoadingBar loading={activityLoading} />
+		{/if}
+		{#if !activityReady || !activityFeedQuerySettled || (!inboxEmbed && activityFeedItems.length === 0 && !activityHadCachedData && (!activityInitialSeedDone || activityLoading))}
+			<div class="loading-wrap">
+				<ActivityFeedSkeleton rows={6} />
+			</div>
+		{:else if activityError && activityFeedItems.length === 0}
+			<div class="empty-state-wrap">
+				<EmptyState message={activityError} minHeight={280} />
+			</div>
+		{:else if activityFeedItems.length === 0 && activityLoading}
+			<!-- Still seeding from relay; show skeleton instead of "empty" to avoid false negative -->
+			<div class="loading-wrap">
+				<ActivityFeedSkeleton rows={4} />
+			</div>
+		{:else if activityFeedItems.length === 0}
+			<div class="empty-state-wrap">
+				<EmptyState
+					message={inboxUserPubkey ? 'Your inbox is empty' : 'No Activity yet'}
+					minHeight={280}
+				/>
+			</div>
 			{:else}
 				<div class="activity-list">
-					{#each activityFeedItems as item (item.kind === 'zap' ? `zap-${item.row.event.id}` : item.ev.id)}
+				{#each activityFeedItems as item (item.kind === 'zap' ? `zap-${item.row.event.id}` : item.ev.id)}
 					{#if item.kind === 'comment'}
 						{@const commentEv = item.ev}
 						{@const _parsedComment = parseComment(commentEv)}
