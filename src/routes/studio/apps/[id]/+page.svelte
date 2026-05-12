@@ -3,7 +3,6 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import StudioAppDetail from '$lib/components/studio/StudioAppDetail.svelte';
-	import StudioAppEdit from '$lib/components/studio/StudioAppEdit.svelte';
 	import { buildIsoDateRange, timeframeToDays } from '$lib/studio/analytics-http.js';
 	import {
 		appSeriesFor,
@@ -14,7 +13,7 @@
 		slice2x,
 		studioAnalytics
 	} from '$lib/stores/studio-analytics.svelte.js';
-	import { ZAPSTORE_INDEXER_PUBKEY, DEFAULT_CATALOG_RELAYS } from '$lib/config.js';
+	import { ZAPSTORE_INDEXER_PUBKEY, ZAPSTORE_RELAY } from '$lib/config.js';
 	import { queryEvents } from '$lib/nostr/dexie.js';
 	import { parseApp } from '$lib/nostr/models.js';
 	import { fetchFromRelays } from '$lib/nostr/service.js';
@@ -54,8 +53,8 @@
 			});
 			if (events.length === 0) {
 				// Direct relay lookup — `fetchFromRelays` persists hits to Dexie automatically.
-				const fetched = await fetchFromRelays(
-					DEFAULT_CATALOG_RELAYS,
+			const fetched = await fetchFromRelays(
+				[ZAPSTORE_RELAY],
 					{ kinds: [32267], authors: [ZAPSTORE_INDEXER_PUBKEY], '#d': [id], limit: 1 },
 					{ timeout: 5000, feature: 'studio-app' }
 				);
@@ -93,8 +92,6 @@
 	$effect(() => {
 		if (app?.external) loadAppSeriesIfNeeded(app.pubkey, app.id);
 	});
-
-	let editingApp = $state(false);
 
 	let selectedImpTimeframe = $state('30 Days');
 	let selectedDlTimeframe = $state('30 Days');
@@ -194,11 +191,6 @@
 			}
 		})();
 	});
-
-	function handleSaved(updatedApp) {
-		if (updatedApp) studio.updateApp(updatedApp);
-		editingApp = false;
-	}
 </script>
 
 <div class="detail-scroll">
@@ -210,12 +202,6 @@
 				<p class="eyebrow-label">Loading…</p>
 			{/if}
 		</div>
-	{:else if editingApp}
-		<StudioAppEdit
-			{app}
-			onBack={() => (editingApp = false)}
-			onSaved={handleSaved}
-		/>
 	{:else}
 		<StudioAppDetail
 			{app}
@@ -234,7 +220,7 @@
 			platformRows={detailPlatformRows}
 			platformLoading={detailPlatformLoading}
 			onBack={() => goto('/studio/insights')}
-			onEdit={() => (editingApp = true)}
+			onEdit={() => goto('/studio/apps/' + encodeURIComponent(appId) + '/edit')}
 			canEdit={!app.external}
 		/>
 	{/if}

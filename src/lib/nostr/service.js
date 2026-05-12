@@ -1674,16 +1674,18 @@ export async function publishStack(name, description, apps, signEvent) {
 	// Generate a unique identifier from name + timestamp
 	const identifier = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now();
 
-	const content = description?.trim() || '';
+	const descTrimmed = description?.trim() || '';
+	const content = '';
 
 	const tags = [
 		['d', identifier],
 		['title', name.trim()],
-		['f', PLATFORM_FILTER['#f'][0]] // android-arm64-v8a
+		['f', PLATFORM_FILTER['#f'][0]], // android-arm64-v8a
+		['h', ZAPSTORE_COMMUNITY_PUBKEY]
 	];
 
-	if (!content) {
-		tags.push(['h', ZAPSTORE_COMMUNITY_PUBKEY]);
+	if (descTrimmed) {
+		tags.push(['description', descTrimmed]);
 	}
 
 	// Add app references as 'a' tags (format: "kind:pubkey:identifier")
@@ -1792,27 +1794,34 @@ export async function updateStackApps(stackEvent, app, action, signEvent) {
  * Update an existing stack with new name, description, and/or apps list.
  * Since stacks are replaceable events (kind 30267), we create a new event with the same 'd' tag.
  */
-export async function updateStack(stackEvent, newName, newDescription, newApps, signEvent) {
+export async function updateStack(stackEvent, newName, newDescription, newApps, newLabels, signEvent) {
 	
 	if (!stackEvent?.id) throw new Error('Stack event is required');
 	
 	const dTag = stackEvent.tags.find(t => t[0] === 'd')?.[1];
 	if (!dTag) throw new Error('Stack must have a d tag');
 	
-	const content = newDescription?.trim() || '';
+	const descTrimmed = newDescription?.trim() || '';
+	const content = '';
 
 	const tags = [
 		['d', dTag],
-		['f', PLATFORM_FILTER['#f'][0]]
+		['f', PLATFORM_FILTER['#f'][0]],
+		['h', ZAPSTORE_COMMUNITY_PUBKEY]
 	];
 
-	if (!content) {
-		tags.push(['h', ZAPSTORE_COMMUNITY_PUBKEY]);
-	}
-	
 	// Add title tag if name is provided
 	if (newName?.trim()) {
 		tags.push(['title', newName.trim()]);
+	}
+
+	if (descTrimmed) {
+		tags.push(['description', descTrimmed]);
+	}
+
+	// t tags (labels) — same pattern as app events
+	for (const label of (newLabels || [])) {
+		if (label?.trim()) tags.push(['t', label.trim()]);
 	}
 	
 	// Build app 'a' tags from the new apps list

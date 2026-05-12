@@ -34,9 +34,8 @@ import { createSearchProfilesFunction, ZAPSTORE_PUBKEY, zapstoreProfileStore } f
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
 import { persistEventsInBackground } from "$lib/nostr/cache-writer.js";
-import EditStackModal from "$lib/components/modals/EditStackModal.svelte";
-import GetStartedModal from "$lib/components/modals/GetStartedModal.svelte";
 import SpinKeyModal from "$lib/components/modals/SpinKeyModal.svelte";
+import GetStartedModal from "$lib/components/modals/GetStartedModal.svelte";
 import OnboardingBuildingModal from "$lib/components/modals/OnboardingBuildingModal.svelte";
 import Pen from "$lib/components/icons/Pen.svelte";
 let { data } = $props();
@@ -75,9 +74,8 @@ let commentsLoading = $state(false);
 let commentsError = $state("");
 let getStartedModalOpen = $state(false);
 let spinKeyModalOpen = $state(false);
-let onboardingBuildingModalOpen = $state(false);
 let onboardingProfileName = $state('');
-let editStackModalOpen = $state(false);
+let onboardingBuildingModalOpen = $state(false);
 function _handleGetStartedStart(_event) {
     onboardingProfileName = _event.profileName;
     spinKeyModalOpen = true;
@@ -111,10 +109,41 @@ const otherZaps = $derived(
 // Check if current user owns this stack
 const isOwner = $derived(
     getIsSignedIn() && 
-    getCurrentPubkey() && 
+    getCurrentPubkey() &&
     stack?.pubkey && 
     getCurrentPubkey() === stack.pubkey
 );
+
+/**
+ * Merge the stack's own `t` tags (author-set labels) into the labelEntries list
+ * so they show in the Labels tab alongside community kind-1985 labels.
+ * Own tags appear first; if a community label uses the same text the pubkeys are merged.
+ */
+const mergedLabelEntries = $derived.by(() => {
+    const tTags = (stack?.event?.tags ?? [])
+        .filter((t) => t[0] === 't' && t[1])
+        .map((t) => String(t[1]));
+
+    if (!tTags.length) return labelEntries;
+
+    const ownEntries = tTags.map((label) => {
+        const existing = labelEntries.find((e) => e.label.toLowerCase() === label.toLowerCase());
+        if (existing) {
+            const pubkeys = existing.pubkeys.includes(stack.pubkey)
+                ? existing.pubkeys
+                : [stack.pubkey, ...existing.pubkeys];
+            return { label: existing.label, pubkeys };
+        }
+        return { label, pubkeys: [stack.pubkey] };
+    });
+
+    const ownLabelsLower = new Set(ownEntries.map((e) => e.label.toLowerCase()));
+    const remainingCommunity = labelEntries.filter(
+        (e) => !ownLabelsLower.has(e.label.toLowerCase())
+    );
+
+    return [...ownEntries, ...remainingCommunity];
+});
 const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
 const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
 const stackNaddr = $derived($page.params.naddr);
@@ -758,7 +787,7 @@ const displayDescription = $derived(
             <button
               type="button"
               class="edit-stack-btn"
-              onclick={() => editStackModalOpen = true}
+              onclick={() => goto('/studio/stacks/' + stackNaddr)}
               aria-label="Edit stack"
             >
               <Pen size={14} variant="fill" color="var(--white66)" />
@@ -851,9 +880,8 @@ const displayDescription = $derived(
           {commentsError}
           {profiles}
           {profilesLoading}
-          {labelEntries}
-          {labelsLoading}
-          searchProfiles={searchProfiles}
+          labelEntries={mergedLabelEntries}
+          {labelsLoading}          searchProfiles={searchProfiles}
           searchEmojis={searchEmojis}
           onCommentSubmit={handleCommentSubmit}
           onZapPending={handleStackZapPending}
@@ -898,18 +926,6 @@ const displayDescription = $derived(
     }}
     onOwnContentDeleted={() => {
       goto(resolve("/stacks"));
-    }}
-  />
-{/if}
-
-<!-- Edit Stack Modal (only for stack owners) -->
-{#if isOwner && stack}
-  <EditStackModal
-    bind:isOpen={editStackModalOpen}
-    {stack}
-    {apps}
-    onSaved={(_newEvent) => {
-      loadStack();
     }}
   />
 {/if}

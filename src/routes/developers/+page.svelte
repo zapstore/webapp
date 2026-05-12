@@ -24,6 +24,10 @@
 	title="Zapstore — Developers"
 	description="Publish without permission. Sign with your keys. Let communities curate. A developer suite built on open protocols."
 	url="{SITE_URL}/developers"
+	image="{SITE_URL}/images/og-studio.png"
+	imageWidth={1200}
+	imageHeight={630}
+	imageAlt="Zapstore Studio — The developer suite for open app distribution"
 />
 
 <WhatIfHero />

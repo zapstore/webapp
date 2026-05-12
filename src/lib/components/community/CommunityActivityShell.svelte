@@ -8,6 +8,7 @@
 	 * comment vs zap slice). Scroll sentinel extends the window; no “load more” button.
 	 */
 	import { browser } from '$app/environment';
+	import { tick } from 'svelte';
 	import { page } from '$app/stores';
 	import { nip19 } from 'nostr-tools';
 	import {
@@ -45,7 +46,6 @@
 	import {
 		EVENT_KINDS,
 		SAVED_APPS_STACK_D_TAG,
-		DEFAULT_CATALOG_RELAYS,
 		COMMENT_PUBLISH_RELAYS,
 		commentZapRelayReadSince,
 		ZAPSTORE_COMMUNITY_PUBKEY,
@@ -68,7 +68,8 @@
 		inboxSeenSignal
 	} from '$lib/stores/user-inbox-seen.svelte.js';
 
-	const ACTIVITY_CATALOG_RELAYS = [...DEFAULT_CATALOG_RELAYS];
+	// App/stack/comment events live only on the zapstore relay — vertexlab is profiles-only.
+	const ACTIVITY_CATALOG_RELAYS = [ZAPSTORE_RELAY];
 
 	/** Embedded header inbox: #p-filtered feed + same thread modals as Activity. */
 	let {
@@ -714,16 +715,14 @@
 	});
 
 	const activityLikelyHasMore = $derived(
-		!inboxUserPubkey &&
-			activityFeedItems.length > 0 &&
-			(activityHasMoreTimeline || activityBackfillInFlight) &&
-			activityFeedVisibleLimit < ACTIVITY_FEED_VISIBLE_MAX
+		activityFeedItems.length > 0 &&
+			activityFeedVisibleLimit < ACTIVITY_FEED_VISIBLE_MAX &&
+			(activityHasMoreTimeline || (!inboxUserPubkey && activityBackfillInFlight))
 	);
 
 	function loadMoreActivity() {
-		if (inboxUserPubkey) return;
 		activityFeedVisibleLimit = Math.min(ACTIVITY_FEED_VISIBLE_MAX, activityFeedVisibleLimit + 160);
-		void seedActivityFromRelay();
+		if (!inboxUserPubkey) void seedActivityFromRelay();
 	}
 
 	/** @param {string} eventId */
@@ -810,6 +809,13 @@
 	let activityLoading = $state(false);
 	/** True while backfillActivityThreadsScoped is running (after initial seed settles). */
 	let activityBackfillInFlight = $state(false);
+	/**
+	 * Set true when backfill completes; cleared by the next liveQuery emission + tick
+	 * so the skeleton stays until the new rows are actually on screen.
+	 */
+	let activityBackfillSettlePending = false;
+	/** Fallback timer handle — hides skeleton if no liveQuery emission arrives after backfill. */
+	let activityBackfillFallbackTimer = /** @type {ReturnType<typeof setTimeout> | null} */ (null);
 	/** First relay seed for this route-entry finished (success or failure). */
 	let activityInitialSeedDone = $state(false);
 	let activityError = $state('');
@@ -870,11 +876,11 @@
 			// Activity: kind index over all scoped comments (unchanged).
 			let commentRows;
 			if (inboxUserPubkey) {
-				const mentions = await queryEvents({
-					kinds: [EVENT_KINDS.COMMENT],
-					'#p': [inboxUserPubkey],
-					limit: 400
-				});
+			const mentions = await queryEvents({
+				kinds: [EVENT_KINDS.COMMENT],
+				'#p': [inboxUserPubkey],
+				limit: Math.min(visibleLimitSnap + 20, 800)
+			});
 				// Collect every e-tag parent ID from inbox items for quote context.
 				const parentIds = [
 					...new Set(
@@ -918,13 +924,13 @@
 			// filterZapsForActivityFeed (full scan + iterative expansion) must NOT run inside
 			// a liveQuery — it fires on every relay event and would block the main thread.
 			let activityScopedRawZaps;
-			if (inboxUserPubkey) {
-				// Inbox: all receipts targeting the user, direct #p index query.
-				activityScopedRawZaps = await queryEvents({
-					kinds: [EVENT_KINDS.ZAP_RECEIPT],
-					'#p': [inboxUserPubkey],
-					limit: 400
-				});
+		if (inboxUserPubkey) {
+			// Inbox: all receipts targeting the user, direct #p index query.
+			activityScopedRawZaps = await queryEvents({
+				kinds: [EVENT_KINDS.ZAP_RECEIPT],
+				'#p': [inboxUserPubkey],
+				limit: Math.min(visibleLimitSnap + 20, 800)
+			});
 			} else {
 				// Activity: two fast indexed queries, then union.
 				// 1) K-tagged receipts (NIP-22 activity scope — modern clients set this).
@@ -1008,7 +1014,7 @@
 			}
 
 			const feedLimit = Math.min(ACTIVITY_FEED_VISIBLE_MAX, visibleLimitSnap);
-			const hasMoreTimeline = inboxUserPubkey ? false : merged.length > feedLimit;
+			const hasMoreTimeline = merged.length > feedLimit;
 			const feedItems = merged.slice(0, feedLimit);
 
 			return {
@@ -1033,11 +1039,21 @@
 				activityFeedQuerySettled = true;
 				const threadComments = val?.threadComments ?? [];
 				const threadZaps = val?.threadZaps ?? [];
-				activityFeedItems = feedItems;
-				activityThreadComments = threadComments;
-				activityThreadZaps = threadZaps;
-				activityHasMoreTimeline = !!val?.hasMoreTimeline;
-				void hydrateActivityRootsForVisibleFeed(feedItems);
+			activityFeedItems = feedItems;
+			activityThreadComments = threadComments;
+			activityThreadZaps = threadZaps;
+			activityHasMoreTimeline = !!val?.hasMoreTimeline;
+			// If backfill just finished, wait one tick for Svelte to flush the new
+			// rows into the DOM, then drop the skeleton — content is now on screen.
+			if (activityBackfillSettlePending) {
+				activityBackfillSettlePending = false;
+				if (activityBackfillFallbackTimer) {
+					clearTimeout(activityBackfillFallbackTimer);
+					activityBackfillFallbackTimer = null;
+				}
+				tick().then(() => { activityBackfillInFlight = false; });
+			}
+			void hydrateActivityRootsForVisibleFeed(feedItems);
 				const threadCommentById = new Map();
 				for (const c of threadComments) {
 					threadCommentById.set(c.id, c);
@@ -1160,7 +1176,11 @@
 	}
 
 	$effect(() => {
-		if (!browser || !activityReady || !activityRouteActive) return;
+		// Works for both Activity tab and inbox embed.
+		const ioReady = inboxEmbed
+			? !!(inboxUserPubkey && inboxActive)
+			: activityReady && activityRouteActive;
+		if (!browser || !ioReady) return;
 		if (!activityLikelyHasMore) return;
 		const el = activityLoadSentinel;
 		if (!el) return;
@@ -1196,6 +1216,40 @@
 		})();
 		if (senderPk) scheduleActivityProfileFetch(senderPk);
 		}
+	});
+
+	/**
+	 * Inbox: fetch parent comments that weren't in Dexie when liveQuery ran.
+	 * These are older events outside the relay subscription's `since` window.
+	 * Tracked per component instance so each ID is only attempted once.
+	 */
+	const _inboxParentFetchAttempted = new Set();
+	$effect(() => {
+		if (!browser || !inboxUserPubkey || !isOnline()) return;
+		const missing = [];
+		for (const item of activityFeedItems) {
+			if (item.kind !== 'comment') continue;
+			const ev = item.ev;
+			const eTag = ev.tags?.find((t) => t[0] === 'e' && t[1]);
+			const pid = eTag?.[1]?.toLowerCase();
+			if (!pid) continue;
+			// If the e-tag IS the root (E tag matches), this is a direct root reply — no quoted parent needed.
+			const rootTag = ev.tags?.find((t) => t[0] === 'E' && t[1]);
+			if (rootTag?.[1]?.toLowerCase() === pid) continue;
+			if (activityCommentMap.has(pid)) continue;
+			if (activityZapMap.has(pid)) continue;
+			if (_inboxParentFetchAttempted.has(pid)) continue;
+			missing.push(pid);
+			_inboxParentFetchAttempted.add(pid);
+		}
+		if (missing.length === 0) return;
+		fetchFromRelays(
+			ACTIVITY_CATALOG_RELAYS,
+			{ ids: missing, limit: missing.length + 5 },
+			{ timeout: 5000, feature: 'inbox-parent-resolve' }
+		)
+			.then((evs) => { if (evs.length > 0) void putEvents(evs); })
+			.catch(() => {});
 	});
 
 	async function resolveActivityRootEvent(commentEvent) {
@@ -1379,15 +1433,29 @@
 		},
 		{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-9735-K' }
 	).catch(() => []);
-	commentPromise
+		commentPromise
 		.catch(() => {})
 		.then(async () => {
 			activityBackfillInFlight = true;
 			try {
 				await backfillActivityThreadsScoped();
+				// Signal that the NEXT liveQuery emission should dismiss the skeleton
+				// (after one tick so Svelte flushes the new rows first).
+				// This is more precise than a fixed timeout: the skeleton stays until
+				// the data is literally on screen.
+				activityBackfillSettlePending = true;
+				// Fallback: if no liveQuery emission arrives within 1s, hide anyway.
+				if (activityBackfillFallbackTimer) clearTimeout(activityBackfillFallbackTimer);
+				activityBackfillFallbackTimer = setTimeout(() => {
+					if (activityBackfillSettlePending) {
+						activityBackfillSettlePending = false;
+						activityBackfillInFlight = false;
+					}
+					activityBackfillFallbackTimer = null;
+				}, 1000);
 			} catch (err) {
 				console.error('[Activity] thread backfill failed', err);
-			} finally {
+				activityBackfillSettlePending = false;
 				activityBackfillInFlight = false;
 			}
 		});
@@ -2607,9 +2675,9 @@
 					</div>
 					{/if}
 				{/each}
-					{#if activityBackfillInFlight && !activityLoading && activityInitialSeedDone}
-						<!-- Skeleton rows while the backfill wave runs so the feed never looks stuck. -->
-						<ActivityFeedSkeleton rows={3} />
+				{#if activityBackfillInFlight}
+					<!-- Skeleton rows while the backfill wave runs so the feed never looks stuck. -->
+					<ActivityFeedSkeleton rows={3} />
 					{/if}
 					{#if activityLikelyHasMore}
 						<!-- Invisible anchor: intersection observer extends the merged timeline (no separate “load more” UX). -->

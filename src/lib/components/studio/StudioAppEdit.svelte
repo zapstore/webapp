@@ -477,7 +477,7 @@ async function handleConfirmDelete() {
 				onclick={openDeleteConfirm}
 				disabled={deleting || saving}
 			>
-				{deleting ? 'Deleting…' : `Delete ${app.name ?? 'this app'}`}
+				{deleting ? 'Deleting…' : 'Delete this App'}
 			</button>
 
 			{#if deleteError && !confirmingDelete}
