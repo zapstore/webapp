@@ -52,6 +52,7 @@ let post = $derived.by(() => postProp ? { ...postProp } : null);
 let authorProfile = $state(null);
 let comments = $state([]);
 let commentsLoading = $state(false);
+let commentsSyncing = $state(false);
 let commentsError = $state('');
 let zaps = $state([]);
 /**
@@ -220,62 +221,154 @@ async function loadForumPostZaps(postId, postPubkey) {
 	return Array.from(byId.values()).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
 
+/**
+ * Same as commentQuery liveQuery: #e and #E on post id — includes nested replies
+ * (which use E=root), not only direct #e children.
+ */
+async function queryForumThreadCommentsFromDexie(postId) {
+	if (!postId) return [];
+	const [lo, hi] = await Promise.all([
+		queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': [postId], limit: 500 }),
+		queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': [postId], limit: 500 })
+	]);
+	const byId = new Map();
+	for (const e of [...lo, ...hi]) if (e?.id) byId.set(e.id, e);
+	return Array.from(byId.values()).sort((a, b) => a.created_at - b.created_at);
+}
+
+/** Kind 0 from IndexedDB so names/avatars match forum-feed latency (local-first). */
+async function mergeProfilesFromDexie(pubkeys) {
+	const uniq = [...new Set(pubkeys.filter((pk) => typeof pk === 'string' && /^[0-9a-f]{64}$/i.test(pk)))];
+	if (uniq.length === 0) return;
+	const CHUNK = 40;
+	/** @type {Record<string, { displayName?: string, name?: string, picture?: string }>} */
+	const patch = {};
+	for (let i = 0; i < uniq.length; i += CHUNK) {
+		const chunk = uniq.slice(i, i + CHUNK);
+		const evs = await queryEvents({ kinds: [0], authors: chunk, limit: chunk.length });
+		for (const ev of evs) {
+			if (!ev?.pubkey || !ev.content) continue;
+			try {
+				const j = JSON.parse(ev.content);
+				patch[ev.pubkey] = {
+					displayName: j.display_name ?? j.displayName ?? j.name,
+					name: j.name,
+					picture: j.picture
+				};
+			} catch {
+				/* skip */
+			}
+		}
+	}
+	if (Object.keys(patch).length > 0) profiles = { ...profiles, ...patch };
+}
+
 $effect(() => {
 	const p = postProp;
 	if (!p?.id) return;
 	post = { ...p };
 	rawPostEvent = p._raw ?? null;
 	commentsLoading = true;
+	commentsSyncing = true;
 	let cancelled = false;
 
 	(async () => {
-		// Author profile
-		const authorEv = await queryEvent({ kinds: [0], authors: [p.pubkey], limit: 1 });
-		if (cancelled) return;
-		authorProfile = authorEv ? parseProfile(authorEv) : null;
-		if (!authorEv && p.pubkey) {
-			const batch = await fetchProfilesBatch([p.pubkey], { timeout: 3000 });
-			if (cancelled) return;
-			const ev = batch.get(p.pubkey);
-			authorProfile = ev ? parseProfile(ev) : null;
-		}
-
-		// Comments: Dexie + relay in parallel — mirrors app page pattern.
-		// fetchComments with eventId uses #K + #e / #E on Zapstore relay.
-		const rs = commentZapRelayReadSince();
-		const [relayEvs, dexieEvs] = await Promise.all([
-			fetchComments(p.pubkey, null, { eventId: p.id, since: rs, timeout: 6000 }),
-			queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': [p.id], limit: 500 })
-		]);
-		if (cancelled) return;
-		const byId = new Map();
-		for (const e of [...dexieEvs, ...relayEvs]) {
-			if (e?.id) byId.set(e.id, e);
-		}
-	const evs = Array.from(byId.values()).sort((a, b) => a.created_at - b.created_at);
-	comments = evs.map((e) => { const c = parseComment(e); c.npub = nip19.npubEncode(e.pubkey); return c; });
-	commentsLoading = false;
-	commentsError = '';
-
-	const pks = [...new Set(evs.map((e) => e.pubkey))];
-		if (pks.length) {
-			const batch = await fetchProfilesBatch(pks, { timeout: 3000 });
-			if (cancelled) return;
-			const next = { ...profiles };
-			for (const [pk, ev] of batch) {
-				if (ev?.content) {
+		try {
+			// Post author from Dexie first (same profiles the forum list already warmed).
+			if (p.pubkey) {
+				const authorLocal = await queryEvent({ kinds: [0], authors: [p.pubkey], limit: 1 });
+				if (cancelled) return;
+				if (authorLocal?.content) {
 					try {
-						const j = JSON.parse(ev.content);
-						next[pk] = { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture };
-					} catch {}
+						authorProfile = parseProfile(authorLocal);
+					} catch {
+						/* ignore */
+					}
 				}
 			}
-			profiles = next;
+
+			// Full thread from Dexie — must match liveQuery (#e + #E) so nested replies appear with first paint.
+			let threadEvs = await queryForumThreadCommentsFromDexie(p.id);
+			if (cancelled) return;
+
+			if (threadEvs.length > 0) {
+				comments = threadEvs.map((e) => {
+					const c = parseComment(e);
+					c.npub = nip19.npubEncode(e.pubkey);
+					return c;
+				});
+				commentsLoading = false;
+				const threadPks = threadEvs.map((e) => e.pubkey);
+				if (p.pubkey) threadPks.push(p.pubkey);
+				await mergeProfilesFromDexie(threadPks);
+				if (cancelled) return;
+			}
+
+			profilesLoading = true;
+
+			const rs = commentZapRelayReadSince();
+			await fetchComments(p.pubkey, null, { eventId: p.id, since: rs, timeout: 6000 });
+			if (cancelled) return;
+
+			// Relay path persists to Dexie — re-read so merges + reply depth match DB before we drop the tab spinner.
+			threadEvs = await queryForumThreadCommentsFromDexie(p.id);
+			if (cancelled) return;
+
+			comments = threadEvs.map((e) => {
+				const c = parseComment(e);
+				c.npub = nip19.npubEncode(e.pubkey);
+				return c;
+			});
+			commentsLoading = false;
+			commentsError = '';
+
+			const pks = [...new Set(threadEvs.map((e) => e.pubkey))];
+			await mergeProfilesFromDexie(p.pubkey ? [...pks, p.pubkey] : pks);
+			if (cancelled) return;
+
+			const missing = pks.filter((pk) => !profiles[pk]);
+			if (missing.length > 0) {
+				const batch = await fetchProfilesBatch(missing, { timeout: 3000 });
+				if (cancelled) return;
+				const next = { ...profiles };
+				for (const [pk, ev] of batch) {
+					if (ev?.content) {
+						try {
+							const j = JSON.parse(ev.content);
+							next[pk] = { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture };
+						} catch {
+							/* skip */
+						}
+					}
+				}
+				profiles = next;
+			}
+
+			if (p.pubkey && !authorProfile) {
+				const batch = await fetchProfilesBatch([p.pubkey], { timeout: 3000 });
+				if (cancelled) return;
+				const ev = batch.get(p.pubkey);
+				if (ev) {
+					try {
+						authorProfile = parseProfile(ev);
+					} catch {
+						/* ignore */
+					}
+				}
+			}
+
+		} catch (err) {
+			console.error('[ForumPostDetail] Comment thread load failed:', err);
+			commentsError = 'Failed to load comments';
+		} finally {
+			commentsSyncing = false;
+			profilesLoading = false;
 		}
-		profilesLoading = false;
 	})();
 
-	return () => { cancelled = true; };
+	return () => {
+		cancelled = true;
+	};
 });
 
 $effect(() => {
@@ -567,6 +660,7 @@ function handleForumBottomBarZap(event) {
 							: null}
 						{comments}
 						{commentsLoading}
+						{commentsSyncing}
 						{commentsError}
 					{zaps}
 						{zapsLoading}

@@ -145,6 +145,8 @@ let _refreshing = $state(false);
 	// Comments and zaps state (comments may have pending + npub for display)
 	let comments = $state([]);
 	let commentsLoading = $state(false);
+	/** Relay catch-up after Dexie — drives Comments tab spinner without blocking bubbles. */
+	let commentsSyncing = $state(false);
 	let commentsError = $state('');
 	let profiles = $state({});
 	let profilesLoading = $state(false);
@@ -476,17 +478,21 @@ let _refreshing = $state(false);
 			console.error('Error fetching publisher profile:', err);
 		}
 	}
-	// Load comments (cached comments from store show immediately; only show loading when no cache)
+	// Load comments — Dexie first (local-first paint), then relay merge (tab spinner while syncing).
 	async function loadComments() {
 		if (!app?.pubkey || !app?.dTag) return;
-		const hadCached = comments.length > 0;
-		if (!hadCached) commentsLoading = true;
 		commentsError = '';
+		commentsSyncing = true;
 		try {
-			const [relayEvents, storeEvents] = await Promise.all([
-				fetchComments(app.pubkey, app.dTag),
-				queryCommentsFromStore(app.pubkey, app.dTag)
-			]);
+			const storeEvents = await queryCommentsFromStore(app.pubkey, app.dTag);
+			if (storeEvents.length > 0) {
+				comments = storeEvents.map((ev) => parseComment(ev));
+				commentsLoading = false;
+			} else if (comments.length === 0) {
+				commentsLoading = true;
+			}
+
+			const relayEvents = await fetchComments(app.pubkey, app.dTag);
 			const byId = new SvelteMap();
 			for (const e of storeEvents) {
 				if (e?.id) byId.set(e.id.toLowerCase(), e);
@@ -533,6 +539,7 @@ let _refreshing = $state(false);
 			console.error(err);
 		} finally {
 			commentsLoading = false;
+			commentsSyncing = false;
 		}
 	}
 	/**
@@ -1685,6 +1692,7 @@ let _refreshing = $state(false);
 				{zapperProfiles}
 				{comments}
 				{commentsLoading}
+				{commentsSyncing}
 				{commentsError}
 				{zapsLoading}
 				{profiles}

@@ -72,6 +72,7 @@ let loading = $state(false); // Start false, only show loading if no cached data
 let error = $state(data.error ?? null);
 let comments = $state([]);
 let commentsLoading = $state(false);
+let commentsSyncing = $state(false);
 let commentsError = $state("");
 let getStartedModalOpen = $state(false);
 let spinKeyModalOpen = $state(false);
@@ -382,15 +383,19 @@ async function loadStack() {
     }
 }
 async function loadCommentsForStack(pubkey, dTag) {
-    const hadCached = comments.length > 0;
-    if (!hadCached)
-        commentsLoading = true;
     commentsError = "";
+    commentsSyncing = true;
     try {
-        const [relayEvents, storeEvents] = await Promise.all([
-            fetchComments(pubkey, dTag, { aTagKind: EVENT_KINDS.APP_STACK }),
-            queryCommentsFromStore(pubkey, dTag, EVENT_KINDS.APP_STACK),
-        ]);
+        const storeEvents = await queryCommentsFromStore(pubkey, dTag, EVENT_KINDS.APP_STACK);
+        if (storeEvents.length > 0) {
+            comments = storeEvents.map((ev) => parseComment(ev));
+            commentsLoading = false;
+        }
+        else if (comments.length === 0) {
+            commentsLoading = true;
+        }
+
+        const relayEvents = await fetchComments(pubkey, dTag, { aTagKind: EVENT_KINDS.APP_STACK });
         const byId = new Map();
         for (const e of storeEvents) {
             if (e?.id)
@@ -439,6 +444,7 @@ async function loadCommentsForStack(pubkey, dTag) {
     }
     finally {
         commentsLoading = false;
+        commentsSyncing = false;
         profilesLoading = false;
     }
 }
@@ -879,6 +885,7 @@ const displayDescription = $derived(
           {zapsLoading}
           {comments}
           {commentsLoading}
+          {commentsSyncing}
           {commentsError}
           {profiles}
           {profilesLoading}
