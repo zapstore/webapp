@@ -25,7 +25,10 @@ import { nip19 } from "nostr-tools";
 let {
     app = {}, stack = null, version = "", publisherProfile: _publisherProfile = null,
     zaps = [], zapperProfiles = new SvelteMap(), className = "",
-    comments = [], commentsLoading = false, commentsError = "",
+    comments = [], commentsLoading = false,
+    /** True while relay catch-up runs after local Dexie data is shown (tab spinner only). */
+    commentsSyncing = false,
+    commentsError = "",
     zapsLoading = false, profiles = {}, profilesLoading = false,
     getAppSlug = () => "", getStackSlug = () => "",
     pubkeyToNpub = () => "", searchProfiles = async () => [],
@@ -407,7 +410,7 @@ const zapsByTargetId = $derived.by(() => {
         {:else if tab.id === "comments"}
           <span>Comments</span>
           <span class="tab-stats">
-            {#if commentsLoading}
+            {#if commentsLoading || commentsSyncing}
               <Spinner color="hsl(0 0% 100% / 0.44)" size={14} />
             {:else}
               {totalCommentCount}
