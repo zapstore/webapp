@@ -1,14 +1,15 @@
 <script lang="js">
 /**
  * NostrRefCard - Renders a Nostr reference card in posts/comments.
- * Supports app naddr cards and forum/comment nevent cards.
+ * Supports app naddr, stack naddr, other addressable kinds, and forum/comment nevent cards.
  */
 import { onMount } from 'svelte';
 import { queryEvent } from '$lib/nostr/dexie';
 import { nip19 } from 'nostr-tools';
-import { decodeNaddr, parseApp, parseForumPost, parseProfile } from '$lib/nostr/models';
-import { parseComment } from '$lib/nostr/service';
+import { decodeNaddr, parseApp, parseAppStack, parseForumPost, parseProfile } from '$lib/nostr/models';
+import { parseComment, resolveAppEventForNaddr, resolveStackEventForNaddr } from '$lib/nostr/service';
 import { EVENT_KINDS } from '$lib/config';
+import Nostr from '$lib/components/icons/Nostr.svelte';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import Timestamp from '$lib/components/common/Timestamp.svelte';
 import ShortTextPreview from '$lib/components/common/ShortTextPreview.svelte';
@@ -29,10 +30,10 @@ const refType = $derived.by(() => {
 		return '';
 	}
 });
-const isAppRef = $derived(refType === 'naddr');
 const isForumRef = $derived(refType === 'nevent' || refType === 'note');
 
 let app = $state(null);
+let stack = $state(null);
 let refEvent = $state(null);
 let authorProfile = $state(null);
 let isDarkMode = $state(true);
@@ -51,13 +52,17 @@ onMount(() => {
 
 		if (decoded.type === 'naddr') {
 			const pointer = decodeNaddr(refRaw);
-			if (!pointer || pointer.kind !== EVENT_KINDS.APP) return;
-			const event = await queryEvent({
-				kinds: [EVENT_KINDS.APP],
-				authors: [pointer.pubkey],
-				'#d': [pointer.identifier]
-			});
-			if (!cancelled && event) app = parseApp(event);
+			if (!pointer) return;
+			if (pointer.kind === EVENT_KINDS.APP) {
+				const event = await resolveAppEventForNaddr(refRaw);
+				if (!cancelled && event) app = parseApp(event);
+				return;
+			}
+			if (pointer.kind === EVENT_KINDS.APP_STACK) {
+				const event = await resolveStackEventForNaddr(refRaw);
+				if (!cancelled && event) stack = parseAppStack(event);
+				return;
+			}
 			return;
 		}
 
@@ -183,29 +188,64 @@ function stopCardEventBubble(e) {
 				{/if}
 			</div>
 		</a>
-	{:else if isAppRef}
-	<a
-		href="/apps/{refRaw}"
-		class="nostr-ref-card {className}"
-		data-kind="app"
-		onclick={stopCardEventBubble}
-		onkeydown={stopCardEventBubble}
-	>
-		<div class="nostr-ref-card-inner">
-			{#if app}
-				<div class="nostr-ref-card-pic">
-					{#if app.icon}
-						<img src={app.icon} alt="" loading="lazy" />
+	{:else if refType === 'naddr'}
+		{@const naddrPointer = decodeNaddr(refRaw)}
+		{#if naddrPointer?.kind === EVENT_KINDS.APP}
+			<a
+				href="/apps/{refRaw}"
+				class="nostr-ref-card {className}"
+				data-kind="app"
+				onclick={stopCardEventBubble}
+				onkeydown={stopCardEventBubble}
+			>
+				<div class="nostr-ref-card-inner">
+					{#if app}
+						<div class="nostr-ref-card-pic">
+							{#if app.icon}
+								<img src={app.icon} alt="" loading="lazy" />
+							{:else}
+								<span class="nostr-ref-card-initial">{ (app.name || app.dTag || '?').trim()[0]?.toUpperCase() ?? '?' }</span>
+							{/if}
+						</div>
+						<span class="nostr-ref-card-name">{app.name || app.dTag}</span>
 					{:else}
-						<span class="nostr-ref-card-initial">{ (app.name || app.dTag || '?').trim()[0]?.toUpperCase() ?? '?' }</span>
+						<span class="nostr-ref-card-placeholder">App</span>
 					{/if}
 				</div>
-				<span class="nostr-ref-card-name">{app.name || app.dTag}</span>
-			{:else}
-				<span class="nostr-ref-card-placeholder">App</span>
-			{/if}
-		</div>
-	</a>
+			</a>
+		{:else if naddrPointer?.kind === EVENT_KINDS.APP_STACK}
+			<a
+				href="/stacks/{refRaw}"
+				class="nostr-ref-card {className}"
+				data-kind="stack"
+				onclick={stopCardEventBubble}
+				onkeydown={stopCardEventBubble}
+			>
+				<div class="nostr-ref-card-inner">
+					<div class="nostr-ref-card-pic nostr-ref-card-pic--stack-tile">
+						<img src="/images/emoji/stack.png" alt="" loading="lazy" class="nostr-ref-card-stack-emoji" />
+					</div>
+					{#if stack}
+						<span class="nostr-ref-card-name">{stack.title || stack.dTag}</span>
+					{:else}
+						<span class="nostr-ref-card-placeholder">Stack</span>
+					{/if}
+				</div>
+			</a>
+		{:else if naddrPointer}
+			<div
+				class="nostr-ref-card nostr-ref-card--generic {className}"
+				data-kind="nostr_publication"
+				role="group"
+			>
+				<div class="nostr-ref-card-inner">
+					<div class="nostr-ref-card-pic nostr-ref-card-pic--nostr">
+						<Nostr variant="fill" color="var(--white33)" size={22} />
+					</div>
+					<span class="nostr-ref-card-name nostr-ref-card-name--muted">Nostr Publication</span>
+				</div>
+			</div>
+		{/if}
 	{:else if isForumRef}
 		<div class="nostr-ref-card nostr-ref-card--forum {className}" data-kind="forum_ref">
 			<div class="nostr-ref-forum-inner">
@@ -278,6 +318,29 @@ function stopCardEventBubble(e) {
 		font-size: 18px;
 		font-weight: 700;
 		color: var(--white66);
+	}
+
+	.nostr-ref-card-pic--stack-tile {
+		padding: 5px;
+		background: var(--gray66);
+	}
+	.nostr-ref-card-stack-emoji {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+		display: block;
+	}
+	.nostr-ref-card-pic--nostr {
+		background: transparent;
+		border-color: var(--white16);
+	}
+	.nostr-ref-card-name--muted {
+		color: var(--white66);
+		max-width: 200px;
+	}
+
+	.nostr-ref-card--generic {
+		cursor: default;
 	}
 
 	.nostr-ref-card--forum {

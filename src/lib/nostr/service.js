@@ -24,6 +24,7 @@ import {
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
+import { decodeNaddr } from './models.js';
 import { db, putEvents, queryEvents, queryEvent } from './dexie';
 const ZAPSTORE_READ_RELAYS = [ZAPSTORE_RELAY];
 
@@ -608,6 +609,113 @@ export async function fetchAppFromRelays(relayUrls, pubkey, dTag, options = {}) 
 	};
 	const events = await fetchFromRelays(relayUrls, filter, { timeout, signal, feature: 'app-detail' });
 	return events.length > 0 ? events[0] : null;
+}
+
+/**
+ * Fetch a single stack event by pubkey + d-tag from relays.
+ */
+export async function fetchStackFromRelays(relayUrls, pubkey, dTag, options = {}) {
+	const { timeout = 5000, signal } = options;
+	if (signal?.aborted || !pubkey || !dTag) return null;
+	const filter = {
+		kinds: [EVENT_KINDS.APP_STACK],
+		authors: [pubkey],
+		'#d': [dTag],
+		...PLATFORM_FILTER,
+		limit: 1
+	};
+	const events = await fetchFromRelays(relayUrls, filter, { timeout, signal, feature: 'stack-detail' });
+	return events.length > 0 ? events[0] : null;
+}
+
+/** In-flight dedupe for embed resolution (many naddrs on one page). @type {Map<string, Promise<import('nostr-tools').Event | null>>} */
+const resolveAppEventForNaddrInFlight = new Map();
+
+/**
+ * Resolve a kind 32267 app event for embedded naddr refs (ShortText, comments, etc.).
+ * IndexedDB first; if missing and online, one-shot catalog relay fetch (persisted via fetchFromRelays).
+ *
+ * @param {string} naddrBech32 - naddr1… or nostr:naddr1…
+ * @param {{ timeout?: number, signal?: AbortSignal }} [options]
+ * @returns {Promise<import('nostr-tools').Event | null>}
+ */
+export async function resolveAppEventForNaddr(naddrBech32, options = {}) {
+	const raw = (naddrBech32 ?? '').trim();
+	const bech = raw.startsWith('nostr:') ? raw.slice(6) : raw;
+	if (!bech) return null;
+
+	const pointer = decodeNaddr(bech);
+	if (!pointer || pointer.kind !== EVENT_KINDS.APP) return null;
+
+	const dedupeKey = `${EVENT_KINDS.APP}:${pointer.pubkey}:${pointer.identifier}`;
+	const inFlight = resolveAppEventForNaddrInFlight.get(dedupeKey);
+	if (inFlight) return inFlight;
+
+	const run = (async () => {
+		const local = await queryEvent({
+			kinds: [EVENT_KINDS.APP],
+			authors: [pointer.pubkey],
+			'#d': [pointer.identifier],
+			limit: 1
+		}).catch(() => null);
+		if (local) return local;
+
+		if (typeof navigator !== 'undefined' && !navigator.onLine) return null;
+
+		return fetchAppFromRelays(DEFAULT_CATALOG_RELAYS, pointer.pubkey, pointer.identifier, options);
+	})();
+
+	resolveAppEventForNaddrInFlight.set(dedupeKey, run);
+	try {
+		return await run;
+	} finally {
+		resolveAppEventForNaddrInFlight.delete(dedupeKey);
+	}
+}
+
+/** In-flight dedupe for stack embed resolution. @type {Map<string, Promise<import('nostr-tools').Event | null>>} */
+const resolveStackEventForNaddrInFlight = new Map();
+
+/**
+ * Resolve a kind 30267 stack event for embedded naddr refs.
+ * IndexedDB first; if missing and online, one-shot catalog relay fetch.
+ *
+ * @param {string} naddrBech32 - naddr1… or nostr:naddr1…
+ * @param {{ timeout?: number, signal?: AbortSignal }} [options]
+ * @returns {Promise<import('nostr-tools').Event | null>}
+ */
+export async function resolveStackEventForNaddr(naddrBech32, options = {}) {
+	const raw = (naddrBech32 ?? '').trim();
+	const bech = raw.startsWith('nostr:') ? raw.slice(6) : raw;
+	if (!bech) return null;
+
+	const pointer = decodeNaddr(bech);
+	if (!pointer || pointer.kind !== EVENT_KINDS.APP_STACK) return null;
+
+	const dedupeKey = `${EVENT_KINDS.APP_STACK}:${pointer.pubkey}:${pointer.identifier}`;
+	const inFlight = resolveStackEventForNaddrInFlight.get(dedupeKey);
+	if (inFlight) return inFlight;
+
+	const run = (async () => {
+		const local = await queryEvent({
+			kinds: [EVENT_KINDS.APP_STACK],
+			authors: [pointer.pubkey],
+			'#d': [pointer.identifier],
+			limit: 1
+		}).catch(() => null);
+		if (local) return local;
+
+		if (typeof navigator !== 'undefined' && !navigator.onLine) return null;
+
+		return fetchStackFromRelays(DEFAULT_CATALOG_RELAYS, pointer.pubkey, pointer.identifier, options);
+	})();
+
+	resolveStackEventForNaddrInFlight.set(dedupeKey, run);
+	try {
+		return await run;
+	} finally {
+		resolveStackEventForNaddrInFlight.delete(dedupeKey);
+	}
 }
 
 /**
