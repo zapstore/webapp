@@ -12,10 +12,30 @@ import InsertModal from "$lib/components/modals/InsertModal.svelte";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { createSearchProfilesFunction } from "$lib/services/profile-search";
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
+import * as nip19 from "nostr-tools/nip19";
+/** Label for zap/comment target when building “Write to …” placeholder. */
+function recipientLabel(/** @type {{ name?: string | null, pubkey?: string | null } | null} */ tgt) {
+    if (!tgt)
+        return "Creator";
+    const n = tgt.name != null && String(tgt.name).trim() !== "" ? String(tgt.name).trim() : "";
+    if (n)
+        return n;
+    const pk = tgt.pubkey;
+    if (pk && String(pk).trim().length === 64) {
+        try {
+            const enc = nip19.npubEncode(pk);
+            return `npub1${enc.slice(5, 8)}…${enc.slice(-6)}`;
+        }
+        catch {
+            return pk.slice(0, 8);
+        }
+    }
+    return "Creator";
+}
 let {
     isOpen = $bindable(false),
     target = null,
-    placeholder = "Write your comment...",
+    placeholder = undefined,
     getCurrentPubkey = () => null,
     searchProfiles: searchProfilesProp = null,
     searchEmojis: searchEmojisProp = null,
@@ -33,6 +53,7 @@ const searchProfiles = $derived(
     searchProfilesProp ?? createSearchProfilesFunction(getCurrentPubkey, () => threadPubkeys)
 );
 const searchEmojis = $derived(searchEmojisProp ?? createSearchEmojisFunction(getCurrentPubkey));
+const effectivePlaceholder = $derived(placeholder ?? `Write to ${recipientLabel(target)}`);
 let textInput = $state(null);
 let submitting = $state(false);
 let emojiPickerOpen = $state(false);
@@ -151,7 +172,7 @@ $effect(() => {
         />
         <ShortTextInput
           bind:this={textInput}
-          {placeholder}
+          placeholder={effectivePlaceholder}
           size="medium"
           {getCurrentPubkey}
           {searchProfiles}

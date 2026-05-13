@@ -393,7 +393,6 @@ $effect(() => {
           bind:message
           {searchProfiles}
           {searchEmojis}
-          placeholder="Write your comment..."
           onvalueChanged={handleValueChanged}
           onsendZap={handleSendZap}
         />

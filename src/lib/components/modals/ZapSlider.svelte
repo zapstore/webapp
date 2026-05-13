@@ -7,7 +7,27 @@ import Zap from "$lib/components/icons/Zap.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import { hexToColor, getProfileTextColor, rgbToCssString } from "$lib/utils/color.js";
-let { profile = null, initialValue = 100, otherZaps = [], message = $bindable(""), searchProfiles = async () => [], searchEmojis = async () => [], placeholder = "Write your comment...", onvalueChanged, onsendZap, } = $props();
+import * as nip19 from "nostr-tools/nip19";
+function profileRecipientLabel(/** @type {{ name?: string | null, pubkey?: string | null } | null} */ p) {
+    if (!p)
+        return "Creator";
+    const n = p.name != null && String(p.name).trim() !== "" ? String(p.name).trim() : "";
+    if (n)
+        return n;
+    const pk = p.pubkey;
+    if (pk && String(pk).trim().length === 64) {
+        try {
+            const enc = nip19.npubEncode(pk);
+            return `npub1${enc.slice(5, 8)}…${enc.slice(-6)}`;
+        }
+        catch {
+            return pk.slice(0, 8);
+        }
+    }
+    return "Creator";
+}
+let { profile = null, initialValue = 100, otherZaps = [], message = $bindable(""), searchProfiles = async () => [], searchEmojis = async () => [], placeholder = undefined, onvalueChanged, onsendZap, } = $props();
+const effectivePlaceholder = $derived(placeholder ?? `Write to ${profileRecipientLabel(profile)}`);
 let shortTextInput = $state(null);
 let amountInputElement = $state(null);
 const START_ANGLE = (Math.PI * 3) / 4;
@@ -375,7 +395,7 @@ export function getSerializedContent() {
 
     <ShortTextInput
       bind:this={shortTextInput}
-      {placeholder}
+      placeholder={effectivePlaceholder}
       {searchProfiles}
       {searchEmojis}
       size="small"

@@ -129,10 +129,13 @@ const communityPubkey = $derived((() => {
 		return d?.type === 'npub' ? d.data : '';
 	} catch { return ''; }
 })());
+const publisherName = $derived(
+	(authorProfile?.displayName ?? authorProfile?.name ?? '').trim() || 'Author'
+);
 const zapTarget = $derived(
 	post && communityPubkey
 		? {
-				name: post.title,
+				name: publisherName,
 				pubkey: post.pubkey,
 				id: post.id,
 				pictureUrl: authorProfile?.picture,
@@ -140,7 +143,6 @@ const zapTarget = $derived(
 			}
 		: null
 );
-const publisherName = $derived(authorProfile?.displayName ?? authorProfile?.name ?? 'Author');
 const searchProfiles = $derived(
 	createSearchProfilesFunction(
 		() => getCurrentPubkey(),

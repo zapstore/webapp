@@ -13,6 +13,7 @@ let zapValue = $state(100);
 let message = $state("");
 let loading = $state(false);
 let error = $state("");
+const zapMessagePlaceholder = $derived(`Write to ${target?.name?.trim() || publisherName?.trim() || "Creator"}`);
 const presets = [21, 100, 500, 1000, 5000, 10000];
 const isConnected = $derived(getCurrentPubkey() !== null);
 function close() {
@@ -109,7 +110,7 @@ async function handleZap() {
           id="zap-message-input"
           bind:value={message}
           class="message-input"
-          placeholder="Write your comment..."
+          placeholder={zapMessagePlaceholder}
           rows="2"
         ></textarea>
       </div>

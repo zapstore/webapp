@@ -116,6 +116,11 @@ $effect(() => {
         return () => clearTimeout(t);
     }
 });
+const bottomBarRecipientLabel = $derived.by(() => {
+    const raw = publisherName?.trim() || zapTarget?.name?.trim?.() || appName?.trim?.();
+    return raw || 'Creator';
+});
+const bottomBarCommentPlaceholder = $derived(`Write to ${bottomBarRecipientLabel}`);
 </script>
 
 <svelte:window onkeydown={handleCommentKeydown} />
@@ -136,7 +141,7 @@ $effect(() => {
 				/>
 				<ShortTextInput
 					bind:this={commentInput}
-					placeholder="Write your comment..."
+					placeholder={bottomBarCommentPlaceholder}
 					size="medium"
 					{getCurrentPubkey}
 					{searchProfiles}
