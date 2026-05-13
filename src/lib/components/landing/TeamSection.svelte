@@ -562,11 +562,17 @@
 		border-radius: 50%;
 		border: 2px solid var(--white8);
 		flex-shrink: 0;
+		/*
+		 * WebKit: an ancestor `filter` (depth blur on .team-member) breaks overflow clipping
+		 * for border-radius on descendants. inset(round) clip-path still masks correctly.
+		 */
+		clip-path: inset(0 round 9999px);
 	}
 
 	.profile-pic-wrap {
 		overflow: hidden;
 		position: relative;
+		isolation: isolate;
 	}
 
 	.profile-pic-img {
@@ -601,6 +607,8 @@
 		border: 2px solid var(--white8);
 		flex-shrink: 0;
 		background-color: var(--gray66);
+		clip-path: inset(0 round 9999px);
+		isolation: isolate;
 	}
 
 	.profile-pic-img {
