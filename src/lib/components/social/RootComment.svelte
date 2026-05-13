@@ -197,6 +197,10 @@
 		return createSearchProfilesFunction(getCurrentPubkey, () => tpks);
 	});
 
+	const threadReplyPlaceholder = $derived(
+		`Write to ${displayNameOrNpubShort(replyingToComment ? replyingToComment.displayName : name, replyingToComment ? replyingToComment.pubkey : pubkey) || 'Creator'}`
+	);
+
 	let lightboxOpen = $state(false);
 	let lightboxUrls = $state([]);
 	let lightboxIndex = $state(0);
@@ -1172,7 +1176,7 @@
 								/>
 								<ShortTextInput
 									bind:this={replyInput}
-									placeholder="Write your comment..."
+									placeholder={threadReplyPlaceholder}
 									size="medium"
 									{getCurrentPubkey}
 								searchProfiles={_threadSearchProfiles}
