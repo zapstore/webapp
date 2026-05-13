@@ -757,41 +757,57 @@
 		onMarkAllRead?.();
 	}
 
+	/**
+	 * One in-flight inbox seed at a time. Each seed is two large REQs (1111 + 9735 by #p);
+	 * duplicate $effect runs / strict-mode double mounts must not stack them (relay rate limits).
+	 */
+	let _inboxSeedFlight = /** @type {Promise<void> | null} */ (null);
+
 	async function seedInboxFromRelay(pk) {
 		if (!browser || !pk) return;
-		activityLoading = true;
-		activityError = '';
-		try {
-			activityAddrRelayAttempted.clear();
-			const sinceSec = commentZapRelayReadSince();
-			await Promise.all([
-				fetchFromRelays(
-					[ZAPSTORE_RELAY],
-					{
-						kinds: [EVENT_KINDS.COMMENT],
-						'#p': [pk],
-						since: sinceSec,
-						limit: 500
-					},
-					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'inbox-1111-p' }
-				),
-				fetchFromRelays(
-					[ZAPSTORE_RELAY],
-					{
-						kinds: [EVENT_KINDS.ZAP_RECEIPT],
-						'#p': [pk],
-						since: sinceSec,
-						limit: 400
-					},
-					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'inbox-9735-p' }
-				)
-			]);
-		} catch (err) {
-			console.error('[Inbox] relay seed failed', err);
-			activityError = 'Failed to sync inbox.';
-		} finally {
-			activityLoading = false;
-		}
+		if (_inboxSeedFlight) return _inboxSeedFlight;
+
+		_inboxSeedFlight = (async () => {
+			activityLoading = true;
+			activityError = '';
+			try {
+				activityAddrRelayAttempted.clear();
+				const sinceSec = commentZapRelayReadSince();
+				await Promise.all([
+					fetchFromRelays(
+						[ZAPSTORE_RELAY],
+						{
+							kinds: [EVENT_KINDS.COMMENT],
+							'#p': [pk],
+							since: sinceSec,
+							limit: 500
+						},
+						{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'inbox-1111-p' }
+					),
+					fetchFromRelays(
+						[ZAPSTORE_RELAY],
+						{
+							kinds: [EVENT_KINDS.ZAP_RECEIPT],
+							'#p': [pk],
+							since: sinceSec,
+							limit: 400
+						},
+						{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'inbox-9735-p' }
+					)
+				]);
+			} catch (err) {
+				console.error('[Inbox] relay seed failed', err);
+				activityError = 'Failed to sync inbox.';
+			} finally {
+				activityLoading = false;
+			}
+		})();
+
+		void _inboxSeedFlight.finally(() => {
+			_inboxSeedFlight = null;
+		});
+
+		return _inboxSeedFlight;
 	}
 
 	function forumPostIdForZapParsed(parsed) {
@@ -1398,86 +1414,99 @@
 		await Promise.allSettled([commentBackfillByEventIds, commentBackfillByATags]);
 	}
 
+	/** Coalesce concurrent activity seeds — three large REQs plus thread backfill (relay rate limits). */
+	let _activitySeedFlight = /** @type {Promise<void> | null} */ (null);
+
 	async function seedActivityFromRelay() {
 		if (!browser) return;
-		activityLoading = true;
-		relayLoading.activity = true;
-		activityError = '';
-		try {
-			activityAddrRelayAttempted.clear();
-			const sinceSec = activityRelaySince();
-			const lim = ACTIVITY_INITIAL_SEED_LIMIT;
-	// Fetch comments, forum posts, and zap receipts in parallel.
-	// Backfill starts right after comments land.
-	const commentPromise = fetchFromRelays(
-		[ZAPSTORE_RELAY],
-		{
-			kinds: [EVENT_KINDS.COMMENT],
-			'#K': ACTIVITY_NIP22_K_TAGS,
-			since: sinceSec,
-			limit: lim
-		},
-		{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-1111-K' }
-	);
-	// Kind-11 forum posts scoped to the community (#h tag). Fetching these upfront
-	// ensures root labels resolve immediately.
-	const postPromise = fetchFromRelays(
-		[ZAPSTORE_RELAY],
-		{
-			kinds: [EVENT_KINDS.FORUM_POST],
-			'#h': [ZAPSTORE_COMMUNITY_PUBKEY],
-			since: sinceSec,
-			limit: lim
-		},
-		{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-11-posts' }
-	);
-	// Kind 9735 zap receipts with the activity K-tag scope (fast first pass;
-	// filterZapsForActivityFeed in the liveQuery handles broader scoping from Dexie).
-	const zapPromise = fetchFromRelays(
-		[ZAPSTORE_RELAY],
-		{
-			kinds: [EVENT_KINDS.ZAP_RECEIPT],
-			'#K': ACTIVITY_NIP22_K_TAGS,
-			since: sinceSec,
-			limit: lim
-		},
-		{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-9735-K' }
-	).catch(() => []);
-		commentPromise
-		.catch(() => {})
-		.then(async () => {
-			activityBackfillInFlight = true;
+		if (_activitySeedFlight) return _activitySeedFlight;
+
+		_activitySeedFlight = (async () => {
+			activityLoading = true;
+			relayLoading.activity = true;
+			activityError = '';
 			try {
-				await backfillActivityThreadsScoped();
-				// Signal that the NEXT liveQuery emission should dismiss the skeleton
-				// (after one tick so Svelte flushes the new rows first).
-				// This is more precise than a fixed timeout: the skeleton stays until
-				// the data is literally on screen.
-				activityBackfillSettlePending = true;
-				// Fallback: if no liveQuery emission arrives within 1s, hide anyway.
-				if (activityBackfillFallbackTimer) clearTimeout(activityBackfillFallbackTimer);
-				activityBackfillFallbackTimer = setTimeout(() => {
-					if (activityBackfillSettlePending) {
-						activityBackfillSettlePending = false;
-						activityBackfillInFlight = false;
-					}
-					activityBackfillFallbackTimer = null;
-				}, 1000);
+				activityAddrRelayAttempted.clear();
+				const sinceSec = activityRelaySince();
+				const lim = ACTIVITY_INITIAL_SEED_LIMIT;
+				// Fetch comments, forum posts, and zap receipts in parallel.
+				// Backfill starts right after comments land.
+				const commentPromise = fetchFromRelays(
+					[ZAPSTORE_RELAY],
+					{
+						kinds: [EVENT_KINDS.COMMENT],
+						'#K': ACTIVITY_NIP22_K_TAGS,
+						since: sinceSec,
+						limit: lim
+					},
+					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-1111-K' }
+				);
+				// Kind-11 forum posts scoped to the community (#h tag). Fetching these upfront
+				// ensures root labels resolve immediately.
+				const postPromise = fetchFromRelays(
+					[ZAPSTORE_RELAY],
+					{
+						kinds: [EVENT_KINDS.FORUM_POST],
+						'#h': [ZAPSTORE_COMMUNITY_PUBKEY],
+						since: sinceSec,
+						limit: lim
+					},
+					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-11-posts' }
+				);
+				// Kind 9735 zap receipts with the activity K-tag scope (fast first pass;
+				// filterZapsForActivityFeed in the liveQuery handles broader scoping from Dexie).
+				const zapPromise = fetchFromRelays(
+					[ZAPSTORE_RELAY],
+					{
+						kinds: [EVENT_KINDS.ZAP_RECEIPT],
+						'#K': ACTIVITY_NIP22_K_TAGS,
+						since: sinceSec,
+						limit: lim
+					},
+					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-9735-K' }
+				).catch(() => []);
+				commentPromise
+					.catch(() => {})
+					.then(async () => {
+						activityBackfillInFlight = true;
+						try {
+							await backfillActivityThreadsScoped();
+							// Signal that the NEXT liveQuery emission should dismiss the skeleton
+							// (after one tick so Svelte flushes the new rows first).
+							// This is more precise than a fixed timeout: the skeleton stays until
+							// the data is literally on screen.
+							activityBackfillSettlePending = true;
+							// Fallback: if no liveQuery emission arrives within 1s, hide anyway.
+							if (activityBackfillFallbackTimer) clearTimeout(activityBackfillFallbackTimer);
+							activityBackfillFallbackTimer = setTimeout(() => {
+								if (activityBackfillSettlePending) {
+									activityBackfillSettlePending = false;
+									activityBackfillInFlight = false;
+								}
+								activityBackfillFallbackTimer = null;
+							}, 1000);
+						} catch (err) {
+							console.error('[Activity] thread backfill failed', err);
+							activityBackfillSettlePending = false;
+							activityBackfillInFlight = false;
+						}
+					});
+				await Promise.all([commentPromise, postPromise, zapPromise]);
 			} catch (err) {
-				console.error('[Activity] thread backfill failed', err);
-				activityBackfillSettlePending = false;
-				activityBackfillInFlight = false;
+				console.error('[Activity] relay seed failed', err);
+				activityError = 'Failed to sync activity.';
+			} finally {
+				activityLoading = false;
+				relayLoading.activity = false;
+				activityInitialSeedDone = true;
 			}
+		})();
+
+		void _activitySeedFlight.finally(() => {
+			_activitySeedFlight = null;
 		});
-	await Promise.all([commentPromise, postPromise, zapPromise]);
-		} catch (err) {
-			console.error('[Activity] relay seed failed', err);
-			activityError = 'Failed to sync activity.';
-		} finally {
-			activityLoading = false;
-			relayLoading.activity = false;
-			activityInitialSeedDone = true;
-		}
+
+		return _activitySeedFlight;
 	}
 
 	/** @param {import('nostr-tools').NostrEvent | null} ev */

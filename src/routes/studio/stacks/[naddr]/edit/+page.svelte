@@ -10,6 +10,7 @@ import { onMount } from 'svelte';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
 import StudioStackEdit from '$lib/components/studio/StudioStackEdit.svelte';
+import ZappyError from '$lib/components/common/ZappyError.svelte';
 import {
 	decodeNaddr,
 	parseAppStack,
@@ -140,10 +141,7 @@ function handleBack() {
 
 <div class="detail-scroll">
 	{#if loadError}
-		<div class="state-center">
-			<p class="eyebrow-label">{loadError}</p>
-			<a href="/stacks" class="btn-secondary-small" style="margin-top: 16px;">Back to Stacks</a>
-		</div>
+		<ZappyError message="this stack wasn't found." />
 	{:else if stack}
 		<StudioStackEdit
 			{stack}
@@ -168,14 +166,4 @@ function handleBack() {
 		flex-direction: column;
 	}
 
-	.state-center {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 40px;
-		color: var(--white33);
-		text-align: center;
-	}
 </style>

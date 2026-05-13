@@ -19,14 +19,6 @@ let message = $derived(
 			? "this page doesn't exist."
 			: "something went wrong on our end."
 );
-
-let primaryAction = { label: 'Go to apps', href: '/apps' };
-
-let secondaryAction = $derived(
-	isOfflineError
-		? null
-		: { label: 'Go back', onclick: () => history.back() }
-);
 </script>
 
-<ZappyError {message} {primaryAction} {secondaryAction} />
+<ZappyError {message} />

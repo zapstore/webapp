@@ -1094,9 +1094,6 @@ let _refreshing = $state(false);
 			loadReleases();
 		});
 	});
-	function retryLoad() {
-		window.location.reload();
-	}
 	function _formatReleaseDate(ts) {
 		return new Date(ts * 1000).toLocaleDateString(undefined, {
 			year: 'numeric',
@@ -1128,11 +1125,7 @@ let _refreshing = $state(false);
 {/if}
 
 {#if error}
-	<ZappyError
-		message="this app wasn't found."
-		primaryAction={{ label: 'Browse apps', href: '/apps' }}
-		secondaryAction={{ label: 'Try again', onclick: retryLoad }}
-	/>
+	<ZappyError message="this app wasn't found." />
 {:else if app}
 	<div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">
 		<!-- Mobile only: author + timestamp above the app icon -->

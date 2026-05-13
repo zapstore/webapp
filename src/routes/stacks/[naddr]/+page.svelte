@@ -66,10 +66,10 @@ const effectiveCatalogs = $derived(
         ? [{ ...catalogs[0], pictureUrl: zapstoreProfile.picture, name: zapstoreProfile.name }]
         : [...catalogs]
 );
-let stack = $state(null);
-let apps = $state([]);
+let stack = $state(data.stack ?? null);
+let apps = $state(data.apps ?? []);
 let loading = $state(false); // Start false, only show loading if no cached data
-let error = $state(null);
+let error = $state(data.error ?? null);
 let comments = $state([]);
 let commentsLoading = $state(false);
 let commentsError = $state("");
@@ -222,16 +222,20 @@ function tryRestoreHorizontalScroll() {
         requestAnimationFrame(tryRestoreHorizontalScroll);
     }
 }
-onMount(() => {
+$effect(() => {
+    void stackNaddr;
     stack = data.stack ?? null;
     apps = data.apps ?? [];
     error = data.error ?? null;
-    loadStack();
+    if (browser) {
+        void loadStack();
+    }
+});
+onMount(() => {
     restoreScrollPositions();
 });
 async function loadStack() {
     try {
-        error = null;
         let foundStack = data.stack;
         const pointer = browser ? decodeNaddr($page.params.naddr) : null;
         if (browser && !pointer && $page.params.naddr && !$page.params.naddr.startsWith('naddr1')) {
@@ -304,6 +308,7 @@ async function loadStack() {
                 };
             }
         }
+        error = null;
         stack = { ...foundStack, creator };
         // Async: comments from Dexie (local-first)
         const cachedCommentEvents = await queryCommentsFromStore(foundStack.pubkey, foundStack.dTag, EVENT_KINDS.APP_STACK);
@@ -719,7 +724,7 @@ const displayDescription = $derived(
 
 <section class="stack-page">
   <div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">
-    {#if loading}
+    {#if loading && !error}
       <!-- Loading State -->
       <div class="skeleton-publisher-row">
         <div class="skeleton-publisher">
@@ -752,11 +757,7 @@ const displayDescription = $derived(
         </div>
       </div>
     {:else if error}
-      <ZappyError
-        message="this stack wasn't found."
-        primaryAction={{ label: 'Browse stacks', href: '/stacks' }}
-        secondaryAction={{ label: 'Go back', onclick: () => history.back() }}
-      />
+      <ZappyError message="this stack wasn't found." />
     {:else if stack}
       <!-- Publisher row above title (author left, timestamp right) -->
       <div class="detail-publisher-row">
