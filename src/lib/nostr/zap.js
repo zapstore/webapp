@@ -14,17 +14,16 @@ import { SimplePool } from 'nostr-tools';
 import { resolveLightningAddress, fetchInvoiceFromCallback, validateZapSupport } from '$lib/lnurl';
 import { fetchProfile, fetchRecipientInboxRelayUrls } from './service';
 import { putEvents } from './dexie';
-import { DEFAULT_SOCIAL_RELAYS, SUB_PREFIX, ZAPSTORE_RELAY } from '$lib/config';
+import { SUB_PREFIX, ZAPSTORE_RELAY } from '$lib/config';
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 
 /**
  * Relays included in the zap request's `relays` tag.
- * zapstore.dev is first — highest priority signal to the LN backend.
- * Social relays follow for broad fan-out. Recipient inbox relays are appended per-zap.
+ * zapstore.dev is first — highest priority for the LN backend; recipient inbox relays are appended per zap (NIP-57).
  */
 function zapReceiptPublishRelays() {
-	return [ZAPSTORE_RELAY, ...DEFAULT_SOCIAL_RELAYS];
+	return [ZAPSTORE_RELAY];
 }
 
 /**

@@ -33,7 +33,7 @@ let myAppsLoading = $state(false);
 /** @type {HTMLInputElement | null} */
 let searchInputEl = $state(null);
 
-const catalogRelays = [ZAPSTORE_RELAY, 'wss://relay.vertexlab.io'];
+const catalogRelays = [ZAPSTORE_RELAY];
 
 $effect(() => {
 	if (!isOpen) {

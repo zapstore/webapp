@@ -133,6 +133,7 @@ export async function loadMoreApps() {
 	try {
 		const relayFilter = {
 			kinds: [EVENT_KINDS.RELEASE],
+			...PLATFORM_FILTER,
 			limit: APPS_PAGE_SIZE
 		};
 		if (_cursor != null) relayFilter.until = _cursor;
@@ -146,42 +147,24 @@ export async function loadMoreApps() {
 			return;
 		}
 
+		const orderedIdentifiers = [];
 		const seen = new SvelteSet();
-		const missingIdentifiers = [];
-		const missingAuthors = [];
 
 		for (const ev of releaseEvents) {
 			const identifier = getReleaseIdentifier(ev);
 			if (!identifier || seen.has(identifier)) continue;
 			seen.add(identifier);
-
-			const aTag = ev.tags?.find((t) => t[0] === 'a')?.[1] ?? '';
-			const parts = aTag.split(':');
-			const appPubkey = parts[1];
-			const appD = parts.slice(2).join(':');
-			if (!appPubkey || !appD) continue;
-
-			const existing = await queryEvents({
-				kinds: [EVENT_KINDS.APP],
-				authors: [appPubkey],
-				'#d': [appD],
-				limit: 1
-			});
-			if (existing.length === 0) {
-				missingIdentifiers.push(appD);
-				missingAuthors.push(appPubkey);
-			}
+			orderedIdentifiers.push(identifier);
 		}
 
-		if (missingIdentifiers.length > 0) {
+		if (orderedIdentifiers.length > 0) {
 			await fetchFromRelays(
 				[ZAPSTORE_RELAY],
 				{
 					kinds: [EVENT_KINDS.APP],
-					authors: [...new SvelteSet(missingAuthors)],
-					'#d': [...new SvelteSet(missingIdentifiers)],
+					'#d': orderedIdentifiers,
 					...PLATFORM_FILTER,
-					limit: missingIdentifiers.length + 10
+					limit: orderedIdentifiers.length + 10
 				},
 				{ feature: 'load-more-apps' }
 			);

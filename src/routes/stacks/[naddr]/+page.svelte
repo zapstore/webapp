@@ -10,14 +10,14 @@
  */
 import { page } from "$app/stores";
 import { onMount } from "svelte";
-import { SvelteSet, SvelteMap } from "svelte/reactivity";
+import { SvelteMap } from "svelte/reactivity";
 import SeoHead from "$lib/components/layout/SeoHead.svelte";
 import { browser } from "$app/environment";
 import { beforeNavigate, goto } from "$app/navigation";
-import { fetchProfilesBatch, queryEvent, queryEvents, putEvents, queryCommentsFromStore, fetchComments, fetchLabelsForAddressable, groupLabelEventsToEntries, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, fetchZaps, parseZapReceipt, } from "$lib/nostr";
+import { fetchProfilesBatch, queryEvent, queryEvents, putEvents, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, parseZapReceipt, } from "$lib/nostr";
 import { stackDisplayDescription, stackDisplayTitle } from "$lib/nostr/models.js";
 import { fetchFromRelays } from "$lib/nostr/service";
-import { ZAPSTORE_RELAY, EVENT_KINDS, PLATFORM_FILTER, SITE_ICON, SITE_URL } from "$lib/config";
+import { ZAPSTORE_RELAY, EVENT_KINDS, PLATFORM_FILTER, SITE_URL } from "$lib/config";
 import { isOnline } from "$lib/stores/online.svelte.js";
 import { nip19 } from "nostr-tools";
 
@@ -30,7 +30,7 @@ import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import ZappyError from "$lib/components/common/ZappyError.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
-import { createSearchProfilesFunction, ZAPSTORE_PUBKEY, zapstoreProfileStore } from "$lib/services/profile-search";
+import { createSearchProfilesFunction } from "$lib/services/profile-search";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
 import { persistEventsInBackground } from "$lib/nostr/cache-writer.js";
@@ -38,33 +38,8 @@ import SpinKeyModal from "$lib/components/modals/SpinKeyModal.svelte";
 import GetStartedModal from "$lib/components/modals/GetStartedModal.svelte";
 import OnboardingBuildingModal from "$lib/components/modals/OnboardingBuildingModal.svelte";
 import Pen from "$lib/components/icons/Pen.svelte";
+import { createAddressableSocialQuery } from "$lib/purpleweb/svelte/social.svelte.js";
 let { data } = $props();
-// Catalog for this stack - currently just Zapstore
-const catalogs = [
-    {
-        name: "Zapstore",
-        pictureUrl: SITE_ICON,
-        pubkey: "78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55f2fe2202182",
-    },
-];
-// Reactive Zapstore profile so catalog image is always fresh
-let zapstoreProfile = $state(null);
-$effect(() => {
-    const unsub = zapstoreProfileStore.subscribe((v) => (zapstoreProfile = v));
-    return unsub;
-});
-const isZapstoreCatalog = $derived(
-    catalogs.length > 0 &&
-    catalogs[0]?.pubkey &&
-    ZAPSTORE_PUBKEY &&
-    (catalogs[0].pubkey.toLowerCase() === ZAPSTORE_PUBKEY.toLowerCase() ||
-        (catalogs[0].name ?? '').toLowerCase() === 'zapstore')
-);
-const _effectiveCatalogs = $derived(
-    isZapstoreCatalog && zapstoreProfile
-        ? [{ ...catalogs[0], pictureUrl: zapstoreProfile.picture, name: zapstoreProfile.name }]
-        : [...catalogs]
-);
 let stack = $state(data.stack ?? null);
 let apps = $state(data.apps ?? []);
 let loading = $state(false); // Start false, only show loading if no cached data
@@ -96,6 +71,26 @@ let labelsLoading = $state(false);
 let zaps = $state([]);
 let zapsLoading = $state(false);
 let zapperProfiles = new SvelteMap();
+const social = createAddressableSocialQuery(
+    () =>
+        stack?.pubkey && stack?.dTag
+            ? { kind: EVENT_KINDS.APP_STACK, pubkey: stack.pubkey, identifier: stack.dTag }
+            : null,
+    { hydrateEnabled: () => isOnline() }
+);
+$effect(() => {
+    comments = social.comments;
+    commentsLoading = social.commentsLoading;
+    commentsSyncing = social.commentsSyncing;
+    commentsError = social.commentsError;
+    zaps = social.zaps;
+    zapsLoading = social.zapsLoading;
+    labelEntries = social.labelEntries;
+    labelsLoading = social.labelsLoading;
+    profiles = social.profiles;
+    profilesLoading = social.profilesLoading;
+    zapperProfiles = new SvelteMap(social.zapperProfiles);
+});
 const otherZaps = $derived(
     zaps.map((z) => {
         const prof = z.senderPubkey ? zapperProfiles.get(z.senderPubkey) : undefined;
@@ -310,33 +305,6 @@ async function loadStack() {
         }
         error = null;
         stack = { ...foundStack, creator };
-        // Async: comments from Dexie (local-first)
-        const cachedCommentEvents = await queryCommentsFromStore(foundStack.pubkey, foundStack.dTag, EVENT_KINDS.APP_STACK);
-        if (cachedCommentEvents.length > 0) {
-            comments = cachedCommentEvents.map((ev) => parseComment(ev));
-            // Hydrate comment-author profiles from Dexie so names/pics show immediately
-            const nextProfiles = { ...profiles };
-            const pubkeys = [...new SvelteSet(comments.map((c) => c.pubkey))];
-            for (const pk of pubkeys) {
-                const ev = await queryEvent({ kinds: [0], authors: [pk] });
-                if (ev?.content) {
-                    try {
-                        const c = JSON.parse(ev.content);
-                        nextProfiles[pk] = {
-                            displayName: c.display_name ?? c.name,
-                            name: c.name,
-                            picture: c.picture,
-                        };
-                    }
-                    catch {
-                        /* ignore */
-                    }
-                }
-            }
-            profiles = nextProfiles;
-        }
-        loadCommentsForStack(foundStack.pubkey, foundStack.dTag);
-        loadLabelsForStack(foundStack.pubkey, foundStack.dTag);
         // Resolve apps: use server data → Dexie → relay backfill
         if (data.apps?.length > 0) {
             apps = data.apps;
@@ -379,198 +347,6 @@ async function loadStack() {
     }
     finally {
         loading = false;
-    }
-}
-async function loadCommentsForStack(pubkey, dTag) {
-    commentsError = "";
-    commentsSyncing = true;
-    try {
-        const storeEvents = await queryCommentsFromStore(pubkey, dTag, EVENT_KINDS.APP_STACK);
-        if (storeEvents.length > 0) {
-            comments = storeEvents.map((ev) => parseComment(ev));
-            commentsLoading = false;
-        }
-        else if (comments.length === 0) {
-            commentsLoading = true;
-        }
-
-        const relayEvents = await fetchComments(pubkey, dTag, { aTagKind: EVENT_KINDS.APP_STACK });
-        const byId = new SvelteMap();
-        for (const e of storeEvents) {
-            if (e?.id)
-                byId.set(e.id.toLowerCase(), e);
-        }
-        for (const e of relayEvents) {
-            if (e?.id)
-                byId.set(e.id.toLowerCase(), e);
-        }
-        const merged = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
-        comments = merged.map((ev) => parseComment(ev));
-        const uniquePubkeys = [
-            ...new SvelteSet([
-                ...comments.map((c) => c.pubkey),
-                ...merged.flatMap((ev) =>
-                    ev.tags.filter((t) => t[0] === 'p' && t[1]?.length === 64).map((t) => t[1])
-                )
-            ].filter(Boolean))
-        ];
-        profilesLoading = true;
-        const nextProfiles = { ...profiles };
-        const fetchedProfiles = await fetchProfilesBatch(uniquePubkeys);
-        for (const pk of uniquePubkeys) {
-            const event = fetchedProfiles.get(pk);
-            if (!event?.content) {
-                nextProfiles[pk] = nextProfiles[pk] ?? null;
-                continue;
-            }
-            try {
-                const c = JSON.parse(event.content);
-                nextProfiles[pk] = {
-                    displayName: c.display_name ?? c.name,
-                    name: c.name,
-                    picture: c.picture,
-                };
-            }
-            catch {
-                nextProfiles[pk] = nextProfiles[pk] ?? null;
-            }
-        }
-        profiles = nextProfiles;
-    }
-    catch (err) {
-        commentsError = "Failed to load comments";
-        console.error(err);
-    }
-    finally {
-        commentsLoading = false;
-        commentsSyncing = false;
-        profilesLoading = false;
-    }
-}
-async function loadLabelsForStack(pubkey, dTag) {
-    labelsLoading = true;
-    try {
-        const pk = pubkey.toLowerCase();
-        const aVal = `${EVENT_KINDS.APP_STACK}:${pk}:${dTag}`;
-        const [lo, up] = await Promise.all([
-            queryEvents({ kinds: [EVENT_KINDS.LABEL], "#a": [aVal], limit: 300 }),
-            queryEvents({ kinds: [EVENT_KINDS.LABEL], "#A": [aVal], limit: 300 }),
-        ]);
-        const byId = new SvelteMap();
-        for (const e of [...lo, ...up]) {
-            if (e?.id && !byId.has(e.id))
-                byId.set(e.id, e);
-        }
-        labelEntries = groupLabelEventsToEntries(Array.from(byId.values()));
-        const remote = await fetchLabelsForAddressable(pk, dTag, { aTagKind: EVENT_KINDS.APP_STACK });
-        for (const e of remote) {
-            if (e?.id && !byId.has(e.id))
-                byId.set(e.id, e);
-        }
-        labelEntries = groupLabelEventsToEntries(Array.from(byId.values()));
-        const allLabelers = [...new SvelteSet(labelEntries.flatMap((en) => en.pubkeys))];
-        if (allLabelers.length > 0) {
-            const batch = await fetchProfilesBatch(allLabelers, { timeout: 3000 });
-            const next = { ...profiles };
-            for (const [pkey, ev] of batch) {
-                if (ev?.content) {
-                    try {
-                        const j = JSON.parse(ev.content);
-                        next[pkey] = {
-                            displayName: j.display_name ?? j.displayName,
-                            name: j.name,
-                            picture: j.picture,
-                        };
-                    }
-                    catch {
-                        /* ignore */
-                    }
-                }
-            }
-            profiles = next;
-        }
-    }
-    catch (err) {
-        console.error("[StackDetail] Labels failed:", err);
-    }
-    finally {
-        labelsLoading = false;
-    }
-}
-async function loadZapsForStack(pubkey, dTag) {
-    if (!pubkey || !dTag)
-        return;
-    zapsLoading = true;
-    try {
-        const aTagValue = `${EVENT_KINDS.APP_STACK}:${pubkey}:${dTag}`;
-        const [initialEvents, zLo, zUp] = await Promise.all([
-            fetchZaps(pubkey, dTag, { aTagKind: EVENT_KINDS.APP_STACK }),
-            queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], "#a": [aTagValue], limit: 200 }),
-            queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], "#A": [aTagValue], limit: 200 }),
-        ]);
-        const byId = new SvelteMap();
-        for (const e of [...zLo, ...zUp]) {
-            if (e?.id)
-                byId.set(e.id, e);
-        }
-        for (const e of initialEvents) {
-            if (e?.id)
-                byId.set(e.id, e);
-        }
-        const parseOne = (e) => {
-            const parsed = { ...parseZapReceipt(e), id: e.id };
-            if (!parsed.zappedEventId && e.tags?.length) {
-                const eTag = e.tags.find((t) => t[0]?.toLowerCase() === "e" && t[1]);
-                if (eTag?.[1])
-                    parsed.zappedEventId = eTag[1];
-            }
-            return parsed;
-        };
-        zaps = Array.from(byId.values()).map(parseOne);
-        await hydrateStackZapperProfiles();
-    }
-    catch (err) {
-        console.error("Failed to load stack zaps:", err);
-    }
-    finally {
-        zapsLoading = false;
-    }
-}
-async function hydrateStackZapperProfiles() {
-    const uniqueSenders = [...new SvelteSet(zaps.map((z) => z.senderPubkey).filter(Boolean))];
-    for (const pk of uniqueSenders) {
-        const ev = await queryEvent({ kinds: [0], authors: [pk] });
-        if (ev?.content) {
-            try {
-                const c = JSON.parse(ev.content);
-                zapperProfiles.set(pk, {
-                    displayName: c.display_name ?? c.name,
-                    name: c.name,
-                    picture: c.picture,
-                });
-            }
-            catch {
-                /* ignore */
-            }
-        }
-    }
-    const missing = uniqueSenders.filter((pk) => !zapperProfiles.has(pk)).slice(0, 40);
-    const fetched = await fetchProfilesBatch(missing);
-    for (const pubkey of missing) {
-        const event = fetched.get(pubkey);
-        if (!event?.content)
-            continue;
-        try {
-            const content = JSON.parse(event.content);
-            zapperProfiles.set(pubkey, {
-                displayName: content.display_name ?? content.name,
-                name: content.name,
-                picture: content.picture,
-            });
-        }
-        catch {
-            /* ignore */
-        }
     }
 }
 function parseStackZapFromReceiptEvent(e) {
@@ -622,13 +398,6 @@ async function handleStackBottomBarZap(event) {
         if (!zaps.some((z) => String(z.id).toLowerCase() === pid)) {
             zaps = [parsed, ...zaps];
         }
-        await hydrateStackZapperProfiles();
-    }
-    const pk = stack?.pubkey;
-    const dt = stack?.dTag;
-    if (pk && dt) {
-        void Promise.all([loadZapsForStack(pk, dt), loadCommentsForStack(pk, dt)]);
-        setTimeout(() => void Promise.all([loadZapsForStack(pk, dt), loadCommentsForStack(pk, dt)]), 2500);
     }
 }
 async function handleCommentSubmit(event) {
@@ -673,7 +442,7 @@ async function handleCommentSubmit(event) {
                     }
                 }
             } catch (_err) {
-                /* ignore parse errors */
+                /* keep optimistic comment even if profile hydration fails */
             }
         }
     }
@@ -930,10 +699,6 @@ const displayDescription = $derived(
     onzapReceived={handleStackBottomBarZap}
     onZapPending={handleStackZapPending}
     onZapPendingClear={handleStackZapPendingClear}
-    onLabelPublished={() => {
-      if (stack?.pubkey && stack?.dTag)
-        loadLabelsForStack(stack.pubkey, stack.dTag);
-    }}
     onOwnContentDeleted={() => {
       goto(resolve("/stacks"));
     }}

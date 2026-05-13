@@ -5,7 +5,7 @@
  * Displays tabs for: Comments, Zaps, Labels, Stacks, Details
  * Only loads content for the currently selected tab.
  *
- * Comments and zaps are loaded by parent routes via `fetchComments` / `fetchZaps` from the Zapstore relay.
+ * Comments and zaps are provided by parent routes from Dexie-backed local-first queries.
  */
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { AlertCircle } from "lucide-svelte";
@@ -19,7 +19,7 @@ import Spinner from "$lib/components/common/Spinner.svelte";
 import Label from "$lib/components/common/Label.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import { Zap } from "$lib/components/icons";
-import { queryEvent, queryEvents, liveQuery, parseRelease, fetchZapsByEventIds, parseZapReceipt } from "$lib/nostr";
+import { queryEvent, queryEvents, parseRelease } from "$lib/nostr";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
 import { nip19 } from "nostr-tools";
 let {
@@ -373,70 +373,18 @@ const combinedFeed = $derived.by(() => {
 });
 
 /**
- * kind 9735 receipts fetched for every bubble visible in the comments feed
- * (root comments + zap-bubbles). These are the source-of-truth for pill rows:
- * z-wrappers are intentionally excluded — they already appear as ZapBubbles
- * in the feed, so showing them again as pills would be redundant.
- *
- * Re-fetches whenever the set of visible IDs changes OR when new zaps land
- * (zaps.length changes) so freshly-received receipts surface quickly.
- */
-let _pillReceipts = $state(/** @type {import('nostr-tools').Event[]} */ ([]));
-$effect(() => {
-    if (!includeReceiptZapsInCommentsFeed) {
-        _pillReceipts = [];
-        return;
-    }
-    const feedIds = combinedFeed.map((item) => item.id).filter(Boolean);
-    // Also collect IDs of all thread replies (visible inside opened comment modals)
-    // so pills show on deeper comments too, not just root-level feed items.
-    const threadIds = [];
-    for (const arr of threadByRootId.values()) {
-        for (const c of arr) if (c.id) threadIds.push(c.id);
-    }
-    const ids = [...new Set([...feedIds, ...threadIds])];
-    if (!ids.length) { _pillReceipts = []; return; }
-    // Kick off a relay fetch to hydrate Dexie with any receipts not yet stored locally.
-    fetchZapsByEventIds(ids, { timeout: 5000 }).catch(() => {});
-    // liveQuery fires immediately from local Dexie and re-fires whenever new receipts land.
-    const obs = liveQuery(() => queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#e': ids }));
-    const sub = obs.subscribe({
-        next: (receipts) => { _pillReceipts = receipts; },
-        error: (e) => { console.error('[SocialTabs] pill receipts error', e); }
-    });
-    return () => sub.unsubscribe();
-});
-
-/**
  * Map of `eventIdLowercase → enriched-zap[]` keyed by `zappedEventId`.
- * Built exclusively from kind 9735 receipts fetched above — never from
- * z-wrappers. Each pill shows the real zapper + amount from the receipt.
+ * Built exclusively from root-scoped zap receipts supplied by the parent
+ * local-first query. No per-comment/per-zap relay queries happen here.
  */
 const zapsByTargetId = $derived.by(() => {
     /** @type {SvelteMap<string, Array<{ id: string, senderPubkey: string|null, amountSats: number, displayName: string, avatarUrl: string|null, profileUrl: string, timestamp: number, createdAt: number }>>} */
     const map = new SvelteMap();
-    for (const receipt of _pillReceipts) {
-        const parsed = parseZapReceipt(receipt);
-        const t = String(parsed.zappedEventId ?? "").toLowerCase();
+    for (const zap of enrichedZaps) {
+        const t = String(zap.zappedEventId ?? "").toLowerCase();
         if (!t) continue;
-        const profile = parsed.senderPubkey ? (zapperProfiles.get(parsed.senderPubkey) ?? profiles[parsed.senderPubkey]) : undefined;
-        const senderNpub = safeNpubFromPubkey(parsed.senderPubkey ?? "");
-        const displayName =
-            profile?.displayName?.trim() ||
-            profile?.name?.trim() ||
-            (senderNpub ? formatNpubDisplay(senderNpub) : "Anonymous");
-        const enriched = {
-            id: receipt.id,
-            senderPubkey: parsed.senderPubkey,
-            amountSats: parsed.amountSats,
-            displayName,
-            avatarUrl: profile?.picture?.trim() ?? null,
-            profileUrl: senderNpub ? `/profile/${senderNpub}` : "",
-            timestamp: receipt.created_at,
-            createdAt: receipt.created_at,
-        };
         if (!map.has(t)) map.set(t, []);
-        map.get(t).push(enriched);
+        map.get(t).push(zap);
     }
     return map;
 });

@@ -18,6 +18,7 @@ import {
 import {
 	EVENT_KINDS,
 	PLATFORM_FILTER,
+	PROFILE_FETCH_RELAYS,
 	SAVED_APPS_STACK_D_TAG,
 	ZAPSTORE_COMMUNITY_NPUB,
 	ZAPSTORE_COMMUNITY_RELAY
@@ -25,7 +26,6 @@ import {
 import { APPS_PAGE_SIZE } from '$lib/constants';
 
 const RELAY = 'wss://relay.zapstore.dev';
-const PROFILE_RELAYS = ['wss://relay.zapstore.dev', 'wss://relay.vertexlab.io'];
 
 const EOSE_GRACE_MS = 300;
 const QUERY_TIMEOUT_MS = 4000;
@@ -129,6 +129,7 @@ export async function fetchApps(limit = APPS_PAGE_SIZE) {
 
 	const releases = await queryRelay([RELAY], {
 		kinds: [EVENT_KINDS.RELEASE],
+		...(platformTag ? { '#f': [platformTag] } : {}),
 		limit: limit * 2
 	});
 
@@ -197,7 +198,7 @@ export async function fetchApp(pubkey, identifier) {
 	if (!appEvent?.pubkey || !appEvent?.tags) return null;
 	const app = parseApp(appEvent);
 
-	const profileEvents = await queryRelay(PROFILE_RELAYS, {
+	const profileEvents = await queryRelay(PROFILE_FETCH_RELAYS, {
 		kinds: [EVENT_KINDS.PROFILE],
 		authors: [pubkey],
 		limit: 1
@@ -229,7 +230,7 @@ export async function fetchAppByIdentifier(identifier) {
 	if (!appEvent?.pubkey || !appEvent?.tags) return null;
 	const app = parseApp(appEvent);
 
-	const profileEvents = await queryRelay(PROFILE_RELAYS, {
+	const profileEvents = await queryRelay(PROFILE_FETCH_RELAYS, {
 		kinds: [EVENT_KINDS.PROFILE],
 		authors: [appEvent.pubkey],
 		limit: 1
@@ -294,7 +295,7 @@ export async function fetchStack(pubkey, identifier) {
 	const stack = parseAppStack(stackEvent);
 	const { apps, appEvents } = await resolveStackApps(stack);
 
-	const profileEvents = await queryRelay(PROFILE_RELAYS, {
+	const profileEvents = await queryRelay(PROFILE_FETCH_RELAYS, {
 		kinds: [EVENT_KINDS.PROFILE],
 		authors: [pubkey],
 		limit: 1
@@ -333,7 +334,7 @@ export async function fetchProfilesServer(pubkeys) {
 	];
 	if (normalized.length === 0) return results;
 
-	const events = await queryRelay(PROFILE_RELAYS, {
+	const events = await queryRelay(PROFILE_FETCH_RELAYS, {
 		kinds: [EVENT_KINDS.PROFILE],
 		authors: normalized,
 		limit: normalized.length

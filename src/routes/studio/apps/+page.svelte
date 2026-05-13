@@ -3,7 +3,8 @@
 	import { goto } from '$app/navigation';
 	import StudioEmptyState from '$lib/components/studio/StudioEmptyState.svelte';
 
-	const studio = getContext('studio');
+	const ctx = getContext('studio');
+const studio = ctx ?? { appsLoading: true, userApps: [] };
 
 	$effect(() => {
 		if (!studio.appsLoading && studio.userApps.length > 0) {

@@ -14,11 +14,11 @@ import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import { SvelteSet } from "svelte/reactivity";
 import { signEvent } from "$lib/stores/auth.svelte.js";
 import { publishToRelays } from "$lib/nostr/service.js";
-import { ACTIONS_DELETABLE_CONTENT_LABELS, DEFAULT_CATALOG_RELAYS, DEFAULT_SOCIAL_RELAYS } from "$lib/config.js";
+import { ACTIONS_DELETABLE_CONTENT_LABELS, ZAPSTORE_RELAY } from "$lib/config.js";
 
 // Zapstore receives all reports so the team can act on them.
 const ZAPSTORE_PUBKEY = "78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55f2fe2202182";
-const REPORT_RELAYS = [...DEFAULT_CATALOG_RELAYS, ...DEFAULT_SOCIAL_RELAYS];
+const REPORT_RELAYS = [ZAPSTORE_RELAY];
 
 let {
 	isOpen = $bindable(false),

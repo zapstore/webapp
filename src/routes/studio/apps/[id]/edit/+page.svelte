@@ -10,7 +10,8 @@ import { page } from '$app/stores';
 import { goto } from '$app/navigation';
 import StudioAppEdit from '$lib/components/studio/StudioAppEdit.svelte';
 
-const studio = getContext('studio');
+const ctx = getContext('studio');
+const studio = ctx ?? { userApps: [], appsLoading: true, updateApp: () => {} };
 
 const appId = $derived.by(() => {
 	const raw = $page.params.id ?? '';

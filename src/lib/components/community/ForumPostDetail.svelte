@@ -27,7 +27,7 @@ import { resolve } from '$app/paths';
 import {
 	EVENT_KINDS,
 	ZAPSTORE_COMMUNITY_NPUB,
-	DEFAULT_SOCIAL_RELAYS,
+	ZAPSTORE_RELAY,
 	COMMENT_PUBLISH_RELAYS,
 	commentZapRelayReadSince
 } from '$lib/config';
@@ -534,7 +534,7 @@ $effect(() => {
 				if (!labelMap.has(label)) labelMap.set(label, new SvelteSet());
 				if (postPubkey) labelMap.get(label)?.add(postPubkey);
 			}
-			const labelRelays = [...new Set([...(relays ?? []), ...DEFAULT_SOCIAL_RELAYS])];
+			const labelRelays = [...new Set([...(relays ?? []), ZAPSTORE_RELAY])];
 			const labelEvents = await fetchLabelEvents(labelRelays, pid, cpk, { enforced: true });
 			for (const ev of labelEvents) {
 				const lTags = ev.tags.filter((t) => t[0] === 'l' && t[1]);

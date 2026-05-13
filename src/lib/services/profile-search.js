@@ -13,7 +13,7 @@ import { writable } from 'svelte/store';
 import { queryEvents, queryEvent, fetchProfilesBatch, fetchFromRelays } from '$lib/nostr';
 import { parseProfile } from '$lib/nostr/models';
 import { nip19 } from 'nostr-tools';
-import { DEFAULT_SOCIAL_RELAYS, VERTEXLAB_RELAY, SITE_ICON } from '$lib/config';
+import { ZAPSTORE_RELAY, VERTEXLAB_RELAY, SITE_ICON } from '$lib/config';
 
 const KIND_PROFILE = 0;
 const KIND_CONTACT_LIST = 3;
@@ -93,7 +93,7 @@ function startFetchUserContacts(userPubkey) {
 		try {
 			let kind3 = await queryEvents({ kinds: [KIND_CONTACT_LIST], authors: [userPubkey], limit: 1 });
 			if ((!kind3 || kind3.length === 0) && typeof window !== 'undefined') {
-				kind3 = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, { kinds: [KIND_CONTACT_LIST], authors: [userPubkey], limit: 1 }, { timeout: 5000, feature: 'profile-search' });
+				kind3 = await fetchFromRelays([ZAPSTORE_RELAY], { kinds: [KIND_CONTACT_LIST], authors: [userPubkey], limit: 1 }, { timeout: 5000, feature: 'profile-search' });
 			}
 			const pubkeys = new Set();
 			for (const ev of kind3) {
@@ -101,7 +101,7 @@ function startFetchUserContacts(userPubkey) {
 			}
 			let kind30k = await queryEvents({ kinds: [KIND_FOLLOW_SET], authors: [userPubkey], limit: 50 });
 			if ((!kind30k || kind30k.length === 0) && typeof window !== 'undefined') {
-				kind30k = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, { kinds: [KIND_FOLLOW_SET], authors: [userPubkey], limit: 50 }, { timeout: 5000, feature: 'profile-search' });
+				kind30k = await fetchFromRelays([ZAPSTORE_RELAY], { kinds: [KIND_FOLLOW_SET], authors: [userPubkey], limit: 50 }, { timeout: 5000, feature: 'profile-search' });
 			}
 			for (const ev of kind30k) {
 				ev.tags.filter((t) => t[0] === 'p' && t[1]?.length === 64).forEach((t) => pubkeys.add(t[1]));

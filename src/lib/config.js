@@ -11,27 +11,16 @@ export const SITE_ICON = `${SITE_URL}/zapstore-icon.png`;
 export const SITE_THEME_COLOR = '#7c3aed';
 export const SITE_TWITTER = '@zapstore_';
 export const SITE_GITHUB = 'https://github.com/zapstore/zapstore';
-// Primary catalog relay — source of app/release/stack events
+// Primary catalog relay — apps/releases/stacks/comments/zaps/labels/synced social are read & published here (see relay pipeline).
 export const ZAPSTORE_RELAY = 'wss://relay.zapstore.dev';
 /** Zapstore Blossom CDN — same as zsp `BLOSSOM_URL` default; kind 24242 auth + PUT `/upload`. */
 export const ZAPSTORE_BLOSSOM_URL = 'https://cdn.zapstore.dev';
-// Profile relay — kind 0 profiles only
+// Profile indexer relay — kind 0 (+ NIP-50 profile search). Not for catalog/comments/zaps reads.
 export const VERTEXLAB_RELAY = 'wss://relay.vertexlab.io';
-// relay.vertexlab.io is ONLY for kind 0 profiles — NOT apps, stacks, comments, or zaps.
-// DEFAULT_CATALOG_RELAYS is used only for: publishing events (both for redundancy),
-// closing the pool, and fetching profiles. Do NOT use it for reading app/stack/comment data.
-export const DEFAULT_CATALOG_RELAYS = [ZAPSTORE_RELAY, VERTEXLAB_RELAY];
-// Social relays (profiles, comments, zaps) — align with Flutter zapstore app
-export const DEFAULT_SOCIAL_RELAYS = [
-    'wss://relay.damus.io',
-    'wss://relay.primal.net',
-    'wss://nos.lol',
-];
-// Profile relays (social + catalog for broad coverage)
-export const PROFILE_RELAYS = [
-    ...DEFAULT_SOCIAL_RELAYS,
-    ...DEFAULT_CATALOG_RELAYS,
-];
+/** One-shot fetches for kind 0 by author / profile batch only. */
+export const PROFILE_FETCH_RELAYS = [VERTEXLAB_RELAY];
+/** Default publish targets for apps, stacks, releases, migrations, studio. */
+export const DEFAULT_CATALOG_RELAYS = [ZAPSTORE_RELAY];
 // Relay subscription timeout (ms after first EOSE)
 export const EOSE_TIMEOUT = 2500;
 // Dexie database name (used for clear-local-data fallback)

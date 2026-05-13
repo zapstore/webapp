@@ -18,7 +18,8 @@
 	import { parseApp } from '$lib/nostr/models.js';
 	import { fetchFromRelays } from '$lib/nostr/service.js';
 
-	const studio = getContext('studio');
+	const ctx = getContext('studio');
+const studio = ctx ?? { userApps: [], adminAccess: false, studioPubkey: null };
 
 	// URL param `id` is the app's d-tag, percent-encoded.
 	const appId = $derived.by(() => {

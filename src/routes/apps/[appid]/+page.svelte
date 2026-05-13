@@ -10,16 +10,10 @@
 	import {
 		queryEvents,
 		queryEvent,
-		queryCommentsFromStore,
 		parseApp,
 		parseRelease,
 		fetchProfile,
 		fetchProfilesBatch,
-		fetchComments,
-		fetchCommentRepliesByE,
-		fetchZaps,
-		fetchLabelsForAddressable,
-		groupLabelEventsToEntries,
 		parseComment,
 		parseZapReceipt,
 		encodeAppNaddr,
@@ -63,6 +57,7 @@
 		ChevronDown
 	} from '$lib/components/icons';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
+	import { createAddressableSocialQuery } from '$lib/purpleweb/svelte/social.svelte.js';
 let { data } = $props();
 const searchProfiles = $derived(
 	createSearchProfilesFunction(() => getCurrentPubkey(), () => (app?.pubkey ? [app.pubkey] : []))
@@ -161,6 +156,30 @@ let _refreshing = $state(false);
 	let releasesModalOpen = $state(false);
 	/** Single expanded release id (null = none). Toggling this one value is reliable in Svelte 5. */
 	let expandedReleaseId = $state(null);
+	const social = createAddressableSocialQuery(
+		() =>
+			app?.pubkey && app?.dTag
+				? {
+						kind: EVENT_KINDS.APP,
+						pubkey: app.pubkey,
+						identifier: app.dTag
+					}
+				: null,
+		{ hydrateEnabled: () => isOnline() }
+	);
+	$effect(() => {
+		comments = social.comments;
+		commentsLoading = social.commentsLoading;
+		commentsSyncing = social.commentsSyncing;
+		commentsError = social.commentsError;
+		zaps = social.zaps;
+		zapsLoading = social.zapsLoading;
+		labelEntries = social.labelEntries;
+		labelsLoading = social.labelsLoading;
+		profiles = social.profiles;
+		profilesLoading = social.profilesLoading;
+		zapperProfiles = new SvelteMap(social.zapperProfiles);
+	});
 	let downloadModalOpen = $state(false);
 	let downloadDropdownOpen = $state(false);
 	/** @type {HTMLDivElement | null} */
@@ -478,267 +497,6 @@ let _refreshing = $state(false);
 			console.error('Error fetching publisher profile:', err);
 		}
 	}
-	// Load comments — Dexie first (local-first paint), then relay merge (tab spinner while syncing).
-	async function loadComments() {
-		if (!app?.pubkey || !app?.dTag) return;
-		commentsError = '';
-		commentsSyncing = true;
-		try {
-			const storeEvents = await queryCommentsFromStore(app.pubkey, app.dTag);
-			if (storeEvents.length > 0) {
-				comments = storeEvents.map((ev) => parseComment(ev));
-				commentsLoading = false;
-			} else if (comments.length === 0) {
-				commentsLoading = true;
-			}
-
-			const relayEvents = await fetchComments(app.pubkey, app.dTag);
-			const byId = new SvelteMap();
-			for (const e of storeEvents) {
-				if (e?.id) byId.set(e.id.toLowerCase(), e);
-			}
-			for (const e of relayEvents) {
-				if (e?.id) byId.set(e.id.toLowerCase(), e);
-			}
-			const merged = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
-			comments = merged.map((ev) => parseComment(ev));
-			const uniquePubkeys = [
-				...new Set([
-					...comments.map((c) => c.pubkey),
-					...merged.flatMap((ev) =>
-						(ev.tags ?? [])
-							.filter((t) => t[0] === 'p' && t[1]?.length === 64)
-							.map((t) => t[1])
-					)
-				].filter(Boolean))
-			];
-			profilesLoading = true;
-			const fetchedProfiles = await fetchProfilesBatch(uniquePubkeys);
-			const nextProfiles = { ...profiles };
-			for (const pubkey of uniquePubkeys) {
-				const event = fetchedProfiles.get(pubkey);
-				if (!event?.content) {
-					nextProfiles[pubkey] = nextProfiles[pubkey] ?? null;
-					continue;
-				}
-				try {
-					const content = JSON.parse(event.content);
-					nextProfiles[pubkey] = {
-						displayName: content.display_name || content.displayName,
-						name: content.name,
-						picture: content.picture
-					};
-				} catch {
-					nextProfiles[pubkey] = nextProfiles[pubkey] ?? null;
-				}
-			}
-			profiles = nextProfiles;
-			profilesLoading = false;
-		} catch (err) {
-			commentsError = 'Failed to load comments';
-			console.error(err);
-		} finally {
-			commentsLoading = false;
-			commentsSyncing = false;
-		}
-	}
-	/**
-	 * Load replies that reference comments/zaps via #e (fallback for clients that don't include #A).
-	 * Iterates until no new replies are found so all nesting depths are covered.
-	 * Returns all comment ids after merging (used by caller to fetch zaps on them).
-	 */
-	async function loadCommentReplies() {
-		if (!app?.pubkey || !app?.dTag) return comments.map((c) => c.id);
-		// Start with all current comment + zap ids as the initial frontier.
-		let frontier = [...new Set([...comments.map((c) => c.id), ...zaps.map((z) => z.id)])];
-		if (frontier.length === 0) return comments.map((c) => c.id);
-		try {
-			const events = await fetchCommentRepliesByE(frontier);
-			const existingIds = new Set(comments.map((c) => c.id.toLowerCase()));
-			const newEvents = events.filter((ev) => !existingIds.has(ev.id.toLowerCase()));
-			const newComments = newEvents.map((ev) => {
-				const p = parseComment(ev);
-				p.npub = nip19.npubEncode(ev.pubkey);
-				return p;
-			});
-			if (newComments.length > 0) {
-				comments = [...comments, ...newComments];
-				const newPubkeys = [
-					...new Set([
-						...newEvents.map((ev) => ev.pubkey),
-						...newEvents.flatMap((ev) =>
-							(ev.tags ?? [])
-								.filter((t) => t[0] === 'p' && t[1]?.length === 64)
-								.map((t) => t[1])
-						)
-					].filter(Boolean))
-				];
-				if (newPubkeys.length > 0) {
-					const batch = await fetchProfilesBatch(newPubkeys, { timeout: 5000 });
-					const next = { ...profiles };
-					for (const [pk, ev] of batch) {
-						if (ev?.content) {
-							try {
-								const c = JSON.parse(ev.content);
-								next[pk] = { displayName: c.display_name ?? c.displayName, name: c.name, picture: c.picture };
-							} catch { /* ignore */ }
-						}
-					}
-					profiles = next;
-				}
-			}
-		} catch (err) {
-			console.error('Failed to load comment replies by #e:', err);
-		}
-		return comments.map((c) => c.id);
-	}
-	/** 1) Fetch zaps that tag the main app/stack (#a) → main feed zaps. 2) Then fetch zaps that tag any comment or zap in that main feed (#e) and merge. One level only; deeper zaps later. */
-	async function loadZaps() {
-		if (!app?.pubkey || !app?.dTag) return;
-		zapsLoading = true;
-		try {
-			// Step 1: zaps on the main event (app) — merge relay one-shot + Dexie (live sub + prior visits)
-			const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-			const [initialEvents, zLo, zUp] = await Promise.all([
-				fetchZaps(app.pubkey, app.dTag),
-				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aTagValue], limit: 200 }),
-				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aTagValue], limit: 200 })
-			]);
-			const byId = new SvelteMap();
-			for (const e of [...zLo, ...zUp]) {
-				if (e?.id) byId.set(e.id, e);
-			}
-			for (const e of initialEvents) {
-				if (e?.id) byId.set(e.id, e);
-			}
-			const parseOne = (e) => {
-				const parsed = { ...parseZapReceipt(e), id: e.id };
-				if (!parsed.zappedEventId && e.tags?.length) {
-					const eTag = e.tags.find((t) => t[0]?.toLowerCase() === 'e' && t[1]);
-					if (eTag?.[1]) parsed.zappedEventId = eTag[1];
-				}
-				return parsed;
-			};
-			zaps = Array.from(byId.values()).map(parseOne);
-			await hydrateZapperProfiles();
-		} catch (err) {
-			console.error('Failed to load zaps:', err);
-		} finally {
-			zapsLoading = false;
-		}
-	}
-	async function loadLabels() {
-		if (!app?.pubkey || !app?.dTag) return;
-		const pk = app.pubkey.toLowerCase();
-		const d = app.dTag;
-		const aVal = `${EVENT_KINDS.APP}:${pk}:${d}`;
-		labelsLoading = true;
-		try {
-			const [lo, up] = await Promise.all([
-				queryEvents({ kinds: [EVENT_KINDS.LABEL], '#a': [aVal], limit: 300 }),
-				queryEvents({ kinds: [EVENT_KINDS.LABEL], '#A': [aVal], limit: 300 })
-			]);
-			const byId = new SvelteMap();
-			for (const e of [...lo, ...up]) {
-				if (e?.id && !byId.has(e.id)) byId.set(e.id, e);
-			}
-			labelEntries = groupLabelEventsToEntries(Array.from(byId.values()));
-			const remote = await fetchLabelsForAddressable(pk, d, { aTagKind: EVENT_KINDS.APP });
-			for (const e of remote) {
-				if (e?.id && !byId.has(e.id)) byId.set(e.id, e);
-			}
-			labelEntries = groupLabelEventsToEntries(Array.from(byId.values()));
-			const allLabelers = [...new Set(labelEntries.flatMap((en) => en.pubkeys))];
-			if (allLabelers.length > 0) {
-				const batch = await fetchProfilesBatch(allLabelers, { timeout: 3000 });
-				const next = { ...profiles };
-				for (const [pkey, ev] of batch) {
-					if (ev?.content) {
-						try {
-							const j = JSON.parse(ev.content);
-							next[pkey] = {
-								displayName: j.display_name ?? j.displayName,
-								name: j.name,
-								picture: j.picture
-							};
-						} catch {
-							/* ignore */
-						}
-					}
-				}
-				profiles = next;
-			}
-		} catch (err) {
-			console.error('[AppDetail] Labels failed:', err);
-		} finally {
-			labelsLoading = false;
-		}
-	}
-	/** Fetch zaps that tag any of the given event ids (#e) and merge into zaps. Used for zaps on main-feed comments and zaps. */
-	async function loadZapsByMainFeedIds(mainFeedEventIds) {
-		if (!app?.pubkey || !app?.dTag || mainFeedEventIds.length === 0) return;
-		try {
-			const events = await fetchZaps(app.pubkey, app.dTag, { eventIds: mainFeedEventIds });
-			const existingIds = new Set(zaps.map((z) => z.id.toLowerCase()));
-			const newEvents = events.filter((e) => !existingIds.has(e.id.toLowerCase()));
-			if (newEvents.length === 0) return;
-			const parseOne = (e) => {
-				const parsed = { ...parseZapReceipt(e), id: e.id };
-				if (!parsed.zappedEventId && e.tags?.length) {
-					const eTag = e.tags.find((t) => t[0]?.toLowerCase() === 'e' && t[1]);
-					if (eTag?.[1]) parsed.zappedEventId = eTag[1].toLowerCase();
-				}
-				return parsed;
-			};
-			const newZaps = newEvents.map(parseOne);
-			const merged = [...zaps];
-			const mergedIds = new SvelteSet(merged.map((z) => z.id.toLowerCase()));
-			for (const z of newZaps) {
-				if (!mergedIds.has(z.id.toLowerCase())) {
-					merged.push(z);
-					mergedIds.add(z.id.toLowerCase());
-				}
-			}
-			zaps = merged;
-			await hydrateZapperProfiles();
-		} catch (err) {
-			console.error('Failed to load zaps by main feed ids:', err);
-		}
-	}
-	async function hydrateZapperProfiles() {
-		const uniqueSenders = [...new SvelteSet(zaps.map((z) => z.senderPubkey).filter(Boolean))];
-		for (const pk of uniqueSenders) {
-			const ev = await queryEvent({ kinds: [0], authors: [pk] });
-			if (ev?.content) {
-				try {
-					const c = JSON.parse(ev.content);
-					zapperProfiles.set(pk, {
-						displayName: c.display_name ?? c.name,
-						name: c.name,
-						picture: c.picture
-					});
-				} catch {
-					/* ignore */
-				}
-			}
-		}
-		const missing = uniqueSenders.filter((pk) => !zapperProfiles.has(pk)).slice(0, 40);
-		const fetched = await fetchProfilesBatch(missing);
-		for (const pubkey of missing) {
-			const event = fetched.get(pubkey);
-			if (!event?.content) continue;
-			try {
-				const content = JSON.parse(event.content);
-				zapperProfiles.set(pubkey, {
-					displayName: content.display_name ?? content.name,
-					name: content.name,
-					picture: content.picture
-				});
-			} catch {
-				/* ignore malformed profile */
-			}
-		}
-	}
 	function parseZapFromReceiptEvent(e) {
 		const parsed = { ...parseZapReceipt(e), id: e.id };
 		if (!parsed.zappedEventId && e.tags?.length) {
@@ -785,17 +543,7 @@ let _refreshing = $state(false);
 			if (!zaps.some((z) => String(z.id).toLowerCase() === pid)) {
 				zaps = [parsed, ...zaps];
 			}
-			await hydrateZapperProfiles();
 		}
-		function refetchZapsAndThreads() {
-			Promise.all([loadZaps(), loadComments()]).then(async () => {
-				const mainFeedZapIds = zaps.filter((z) => !z.pending && !z.zappedEventId).map((z) => z.id);
-				const allCommentIds = await loadCommentReplies();
-				loadZapsByMainFeedIds([...allCommentIds, ...mainFeedZapIds]);
-			});
-		}
-		refetchZapsAndThreads();
-		setTimeout(refetchZapsAndThreads, 2500);
 	}
 	async function handleCommentSubmit(event) {
 		const userPubkey = getCurrentPubkey();
@@ -901,12 +649,14 @@ let _refreshing = $state(false);
 		}
 	}
 	async function loadReleases() {
-		if (!app?.pubkey || !app?.dTag) return;
+		const pubkey = app?.pubkey;
+		const dTag = app?.dTag;
+		if (!pubkey || !dTag) return;
 		releasesLoading = true;
 		try {
 			// Fetch releases from relays (server doesn't cache releases).
 			// Query both #a (older releases) and #i (newer releases that omit #a).
-			const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
+			const aTagValue = `${EVENT_KINDS.APP}:${pubkey}:${dTag}`;
 			await Promise.all([
 				fetchFromRelays(
 					[ZAPSTORE_RELAY],
@@ -921,7 +671,7 @@ let _refreshing = $state(false);
 					[ZAPSTORE_RELAY],
 					{
 						kinds: [EVENT_KINDS.RELEASE],
-						'#i': [app.dTag],
+						'#i': [dTag],
 						limit: 50
 					},
 					{ feature: 'app-detail' }
@@ -930,7 +680,7 @@ let _refreshing = $state(false);
 			// Read from Dexie (fetchFromRelays wrote them there); merge and deduplicate.
 			const [byATag, byITag] = await Promise.all([
 				queryEvents({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], limit: 50 }),
-				queryEvents({ kinds: [EVENT_KINDS.RELEASE], '#i': [app.dTag], limit: 50 })
+				queryEvents({ kinds: [EVENT_KINDS.RELEASE], '#i': [dTag], limit: 50 })
 			]);
 			const seen = new SvelteSet();
 			const merged = [];
@@ -945,12 +695,6 @@ let _refreshing = $state(false);
 			releases = releaseEvents.map(parseRelease);
 			if (releases.length > 0 && !latestRelease) {
 				latestRelease = releases[0];
-			}
-			// Re-fetch zaps with release/metadata ids
-			const latest = releases[0];
-			if (latest && app?.pubkey && app?.dTag) {
-				const ids = [latest.id, ...(latest.artifacts ?? [])];
-				loadZapsByMainFeedIds(ids);
 			}
 		} catch (err) {
 			console.error('Failed to load releases:', err);
@@ -1063,37 +807,8 @@ let _refreshing = $state(false);
 				console.error('[AppDetail] Seed persist failed:', err)
 			);
 		}
-		// Hydrate social data from Dexie (local-first)
-		const cachedCommentEvents = await queryCommentsFromStore(_pubkey, _identifier);
-		if (cachedCommentEvents.length > 0) {
-			comments = cachedCommentEvents.map(parseComment);
-			const nextProfiles = { ...profiles };
-			const commentPubkeys = [...new Set(comments.map((c) => c.pubkey))];
-			for (const pk of commentPubkeys) {
-				const ev = await queryEvent({ kinds: [0], authors: [pk] });
-				if (ev?.content) {
-					try {
-						const c = JSON.parse(ev.content);
-						nextProfiles[pk] = {
-							displayName: c.display_name ?? c.displayName,
-							name: c.name,
-							picture: c.picture
-						};
-					} catch {
-						/* ignore */
-					}
-				}
-			}
-			profiles = nextProfiles;
-		}
 		// Load publisher profile
 		loadPublisherProfile(_pubkey);
-		// Background cascade: comments, zaps, then replies by #e
-		Promise.all([loadComments(), loadZaps(), loadLabels()]).then(async () => {
-			const mainFeedZapIds = zaps.filter((z) => !z.zappedEventId).map((z) => z.id);
-			const allCommentIds = await loadCommentReplies();
-			loadZapsByMainFeedIds([...allCommentIds, ...mainFeedZapIds]);
-		});
 		// Load releases from server data
 		const schedule =
 			'requestIdleCallback' in window ? window.requestIdleCallback : (cb) => setTimeout(cb, 1);
@@ -2161,9 +1876,6 @@ let _refreshing = $state(false);
 			onzapReceived={handleBottomBarZapUpdate}
 			onZapPending={handleZapPending}
 			onZapPendingClear={handleZapPendingClear}
-			onLabelPublished={() => {
-				loadLabels();
-			}}
 			onOwnContentDeleted={() => {
 				goto(resolve('/apps'));
 			}}

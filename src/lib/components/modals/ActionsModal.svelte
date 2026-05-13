@@ -29,8 +29,7 @@
 	import {
 		EVENT_KINDS,
 		FORUM_CATEGORIES,
-		FORUM_RELAY,
-		DEFAULT_SOCIAL_RELAYS,
+		ZAPSTORE_RELAY,
 		DEFAULT_CATALOG_RELAYS,
 		ACTIONS_DELETABLE_CONTENT_LABELS
 	} from '$lib/config.js';
@@ -322,7 +321,7 @@
 			labelError = '';
 			labelPublishing = true;
 			try {
-				await publishLabelDeletion(signEvent, existingEventId, DEFAULT_SOCIAL_RELAYS);
+				await publishLabelDeletion(signEvent, existingEventId, [ZAPSTORE_RELAY]);
 				onLabelPublished();
 			} catch (err) {
 				labelError = err instanceof Error ? err.message : 'Failed to remove label';
@@ -377,7 +376,7 @@
 			labelError = '';
 			labelPublishing = true;
 			try {
-				await publishLabelDeletion(signEvent, existingEventId, DEFAULT_SOCIAL_RELAYS);
+				await publishLabelDeletion(signEvent, existingEventId, [ZAPSTORE_RELAY]);
 				labelValue = '';
 				labelStructuredKind = null;
 				onLabelPublished();
@@ -429,7 +428,7 @@
 				await publishDeletionRequest(signEvent, {
 					eventId: targetApp.id,
 					eventKind: EVENT_KINDS.FORUM_POST,
-					relays: [...new Set([...DEFAULT_SOCIAL_RELAYS, FORUM_RELAY])]
+				relays: [ZAPSTORE_RELAY]
 				});
 			} else if (contentType === 'app') {
 				const appEvId = String(targetApp.ownContentEventId ?? targetApp.id ?? '').trim();

@@ -9,7 +9,7 @@
  * Based on Grimoire's implementation
  */
 import { queryEvents, fetchFromRelays } from '$lib/nostr';
-import { DEFAULT_SOCIAL_RELAYS } from '$lib/config';
+import { ZAPSTORE_RELAY } from '$lib/config';
 const KIND_USER_EMOJI_LIST = 10030;
 const KIND_EMOJI_SET = 30030;
 // Common Unicode emojis with shortcode mappings
@@ -293,7 +293,7 @@ export function createEmojiSearch(userPubkey = null) {
                 };
                 let userEmojiListEvents = await queryEvents(emojiListFilter);
                 if ((!userEmojiListEvents || userEmojiListEvents.length === 0) && typeof window !== 'undefined') {
-                    userEmojiListEvents = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, emojiListFilter, { timeout: 5000, feature: 'emoji-search' });
+                    userEmojiListEvents = await fetchFromRelays([ZAPSTORE_RELAY], emojiListFilter, { timeout: 5000, feature: 'emoji-search' });
                 }
                 // Fetch user's emoji sets (kind 30030) — local-first, relay fallback
                 const emojiSetFilter = {
@@ -303,7 +303,7 @@ export function createEmojiSearch(userPubkey = null) {
                 };
                 let userEmojiSets = await queryEvents(emojiSetFilter);
                 if ((!userEmojiSets || userEmojiSets.length === 0) && typeof window !== 'undefined') {
-                    userEmojiSets = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, emojiSetFilter, { timeout: 5000, feature: 'emoji-search' });
+                    userEmojiSets = await fetchFromRelays([ZAPSTORE_RELAY], emojiSetFilter, { timeout: 5000, feature: 'emoji-search' });
                 }
                 // Process user emoji list
                 if (userEmojiListEvents && userEmojiListEvents.length > 0) {
@@ -333,7 +333,7 @@ export function createEmojiSearch(userPubkey = null) {
                                 // Local-first: try Dexie, then relay fallback
                                 let setEvents = await queryEvents(setFilter);
                                 if ((!setEvents || setEvents.length === 0) && typeof window !== 'undefined') {
-                                    setEvents = await fetchFromRelays(DEFAULT_SOCIAL_RELAYS, setFilter, { timeout: 5000, feature: 'emoji-search' });
+                                    setEvents = await fetchFromRelays([ZAPSTORE_RELAY], setFilter, { timeout: 5000, feature: 'emoji-search' });
                                 }
                                 if (setEvents && setEvents.length > 0) {
                                     addEmojiSet(setEvents[0]);

@@ -21,6 +21,9 @@ build
 *.swp
 *.swo
 
+# Engram MCP (SQLite under .cursor/mcp.json ENGRAM_DATA_DIR)
+.engram/
+
 # OS
 .DS_Store
 Thumbs.db

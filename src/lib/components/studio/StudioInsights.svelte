@@ -17,7 +17,8 @@
 	} from '$lib/stores/studio-analytics.svelte.js';
 
 	/** Shared state from layout (userApps, studioPubkey). */
-	const studio = getContext('studio');
+	const ctx = getContext('studio');
+	const studio = ctx ?? { userApps: [], appsLoading: true, studioPubkey: null };
 
 	let dlDropdownOpen = $state(false);
 	let zapDropdownOpen = $state(false);

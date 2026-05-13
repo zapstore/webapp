@@ -32,7 +32,6 @@ import { resolveAppDiscussionRootCommentId, collectCommentSubtree } from '$lib/n
 import {
 	EVENT_KINDS,
 	ZAPSTORE_RELAY,
-	DEFAULT_SOCIAL_RELAYS,
 	COMMENT_PUBLISH_RELAYS
 } from '$lib/config';
 import { signEvent, getCurrentPubkey } from '$lib/stores/auth.svelte.js';
@@ -149,7 +148,7 @@ onMount(async () => {
 		}
 
 		const fetched = await fetchFromRelays(
-			[ZAPSTORE_RELAY, ...DEFAULT_SOCIAL_RELAYS],
+			[ZAPSTORE_RELAY],
 			{ kinds: [EVENT_KINDS.COMMENT], authors: [pubkey], limit: 50 },
 			{ timeout: 7000, feature: 'profile-activity' }
 		);
@@ -249,7 +248,7 @@ async function resolveParents(evts) {
 	const missing = parentIds.filter((id) => !foundIds.has(id));
 	if (missing.length > 0) {
 		const fromRelay = await fetchFromRelays(
-			[ZAPSTORE_RELAY, ...DEFAULT_SOCIAL_RELAYS],
+			[ZAPSTORE_RELAY],
 			{ ids: missing, limit: missing.length },
 			{ timeout: 5000, feature: 'profile-parent-comments' }
 		);
@@ -290,7 +289,7 @@ async function fetchEvent(id) {
 	const local = await queryEvent({ ids: [id] });
 	if (local) return local;
 	const fetched = await fetchFromRelays(
-		[ZAPSTORE_RELAY, ...DEFAULT_SOCIAL_RELAYS],
+		[ZAPSTORE_RELAY],
 		{ ids: [id], limit: 1 },
 		{ timeout: 4000, feature: 'profile-thread-parent' }
 	);
@@ -360,7 +359,7 @@ async function loadThreadComments(rootId, addrATag) {
 		: { kinds: [EVENT_KINDS.COMMENT], '#E': [rootId], limit: 300 };
 
 	fetchFromRelays(
-		[ZAPSTORE_RELAY, ...DEFAULT_SOCIAL_RELAYS],
+		[ZAPSTORE_RELAY],
 		relayFilter,
 		{ timeout: 6000, feature: 'profile-thread-comments' }
 	).then(async (more) => {

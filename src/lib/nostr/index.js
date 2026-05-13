@@ -33,7 +33,6 @@ export {
 	publishToRelays,
 	cleanup,
 	// Social features
-	queryCommentsFromStore,
 	fetchComments,
 	fetchCommentsByRootATags,
 	fetchCommentRepliesByE,

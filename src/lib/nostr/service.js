@@ -12,7 +12,8 @@ import { SimplePool, utils } from 'nostr-tools';
 import {
 	ZAPSTORE_RELAY,
 	DEFAULT_CATALOG_RELAYS,
-	DEFAULT_SOCIAL_RELAYS,
+	PROFILE_FETCH_RELAYS,
+	VERTEXLAB_RELAY,
 	COMMENT_PUBLISH_RELAYS,
 	commentZapRelayReadSince,
 	commentZapNakReadSince,
@@ -234,6 +235,72 @@ export function stopLiveSubscriptions() {
 		putEvents(batch).catch(() => {});
 	}
 
+}
+
+/**
+ * Open persistent, root-scoped social subscriptions for one app/stack.
+ * All filters include limits and all events stream into Dexie via the shared
+ * batched writer. The caller owns cleanup.
+ *
+ * @param {{ kind: number, pubkey: string, identifier: string }} root
+ * @param {{ relays?: string[], limit?: number, feature?: string, onInitialEose?: () => void }} [options]
+ * @returns {{ close: () => void }}
+ */
+export function subscribeAddressableSocialRoot(root, options = {}) {
+	if (!root?.kind || !root?.pubkey || !root?.identifier) return { close() {} };
+	const relays = options.relays?.length ? options.relays : ZAPSTORE_READ_RELAYS;
+	const limit = Math.max(1, Number(options.limit ?? 500));
+	const aTagValue = normalizeAddressableATagValue(root.kind, root.pubkey, root.identifier);
+	const kStr = String(root.kind);
+	const feature = options.feature ?? 'social-root';
+	const p = getPool();
+	let eoseCount = 0;
+	let initialEoseDone = false;
+	function markInitialEose() {
+		if (initialEoseDone) return;
+		eoseCount += 1;
+		if (eoseCount >= filters.length) {
+			initialEoseDone = true;
+			options.onInitialEose?.();
+		}
+	}
+	const subParams = {
+		onevent(event) {
+			bufferEvent(event);
+		},
+		oneose() {
+			// Keep open for live updates on this root.
+			markInitialEose();
+		},
+		onclose(reasons) {
+			if (!isNostrDebug() || !reasons?.length) return;
+			const ignorable = reasons.every((r) => r === 'closed by caller');
+			if (!ignorable) console.warn('[Zapstore] Social root subscription closed', reasons);
+		}
+	};
+	const filters = [
+		{ kinds: [EVENT_KINDS.COMMENT], '#K': [kStr], '#a': [aTagValue], limit },
+		{ kinds: [EVENT_KINDS.COMMENT], '#K': [kStr], '#A': [aTagValue], limit },
+		{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aTagValue], limit },
+		{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aTagValue], limit },
+		{ kinds: [EVENT_KINDS.LABEL], '#a': [aTagValue], limit: Math.min(limit, 300) },
+		{ kinds: [EVENT_KINDS.LABEL], '#A': [aTagValue], limit: Math.min(limit, 300) }
+	];
+	const subs = filters.map((filter, index) =>
+		p.subscribeMany(relays, filter, { ...subParams, id: subId(`${feature}-${index}`) })
+	);
+	nostrDebug('social root subscriptions started', { root: aTagValue, relays, filters });
+	return {
+		close() {
+			for (const sub of subs) {
+				try {
+					sub.close();
+				} catch {
+					/* noop */
+				}
+			}
+		}
+	};
 }
 
 // ============================================================================
@@ -788,9 +855,8 @@ export async function fetchProfilesBatch(pubkeys, options = {}) {
 	// Second pass: fetch missing from relays directly
 	if (missingPubkeys.length > 0 && typeof window !== 'undefined') {
 		try {
-			const profileRelays = [...DEFAULT_SOCIAL_RELAYS, ...DEFAULT_CATALOG_RELAYS];
 			const events = await fetchFromRelays(
-				profileRelays,
+				PROFILE_FETCH_RELAYS,
 				{ kinds: [0], authors: missingPubkeys, limit: missingPubkeys.length * 2 },
 				{ timeout, signal, feature: 'profile' }
 			);
@@ -981,8 +1047,6 @@ export async function fetchKind9735MatchingRefs(relayUrls, spec, options = {}) {
 	return Array.from(byId.values());
 }
 
-const SOCIAL_RELAYS = [...DEFAULT_SOCIAL_RELAYS];
-
 /** Cap merged publish list so NIP-65 lists cannot fan out unbounded. */
 const MAX_COMMENT_PUBLISH_RELAYS = 24;
 
@@ -1041,7 +1105,7 @@ export async function fetchRecipientInboxRelayUrls(pubkey) {
 		let ev = await queryEvent({ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 });
 		if (!ev) {
 			const arr = await fetchFromRelays(
-				[...DEFAULT_SOCIAL_RELAYS, ZAPSTORE_RELAY],
+				[ZAPSTORE_RELAY],
 				{ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 },
 				{ timeout: 4000, feature: 'nip65-recipient-inbox' }
 			);
@@ -1055,17 +1119,8 @@ export async function fetchRecipientInboxRelayUrls(pubkey) {
 }
 
 /**
- * Zapstore + default social + optional caller extras + signer’s NIP-65 write relays (Dexie, then relay fetch).
- * @param {string} signerPubkey - hex pubkey of the signed comment author
- * @param {string[] | null | undefined} relayExtras - merged in after core relays (e.g. explicit `COMMENT_PUBLISH_RELAYS` from callers)
- * @returns {Promise<string[]>}
- */
-/**
- * Zapstore + default social + optional caller extras + signer's NIP-65 write relays.
- * Shared by `publishComment` and forum-post publish so both get the same relay spread.
- * @param {string} signerPubkey
- * @param {string[] | null | undefined} relayExtras
- * @returns {Promise<string[]>}
+ * {@link COMMENT_PUBLISH_RELAYS} plus optional extras and signer's NIP-65 write relays (Dexie, then Zapstore fetch).
+ * Shared by `publishComment` and forum-post publish so both use the same publish set cap.
  */
 export async function buildEventPublishRelayUrls(signerPubkey, relayExtras) {
 	return buildCommentPublishRelayUrls(signerPubkey, relayExtras);
@@ -1084,7 +1139,6 @@ async function buildCommentPublishRelayUrls(signerPubkey, relayExtras) {
 	}
 
 	for (const u of COMMENT_PUBLISH_RELAYS) add(u);
-	for (const u of DEFAULT_SOCIAL_RELAYS) add(u);
 	if (Array.isArray(relayExtras)) for (const u of relayExtras) add(u);
 
 	if (signerPubkey && typeof window !== 'undefined') {
@@ -1093,7 +1147,7 @@ async function buildCommentPublishRelayUrls(signerPubkey, relayExtras) {
 			let ev = await queryEvent({ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 });
 			if (!ev) {
 				const arr = await fetchFromRelays(
-					[...DEFAULT_SOCIAL_RELAYS, ZAPSTORE_RELAY],
+					[ZAPSTORE_RELAY],
 					{ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 },
 					{ timeout: 4000, feature: 'nip65-comment-publish' }
 				);
@@ -1102,30 +1156,11 @@ async function buildCommentPublishRelayUrls(signerPubkey, relayExtras) {
 			}
 			if (ev) for (const u of parseNip65WriteRelayUrls(ev)) add(u);
 		} catch {
-			/* keep core + social */
+			/* keep core publish targets */
 		}
 	}
 
 	return ordered.slice(0, MAX_COMMENT_PUBLISH_RELAYS);
-}
-
-/**
- * Query comments from Dexie.
- */
-export async function queryCommentsFromStore(pubkey, identifier, aTagKind = 32267) {
-	if (!pubkey || !identifier) return [];
-	const aTagValue = normalizeAddressableATagValue(aTagKind, pubkey, identifier);
-	const kStr = String(aTagKind);
-
-	const lower = await queryEvents({ kinds: [1111], '#K': [kStr], '#a': [aTagValue], limit: 500 });
-	const upper = await queryEvents({ kinds: [1111], '#K': [kStr], '#A': [aTagValue], limit: 500 });
-
-	const byId = new Map();
-	for (const e of [...lower, ...upper]) {
-		if (!byId.has(e.id)) byId.set(e.id, e);
-	}
-
-	return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
 }
 
 /**
@@ -1409,7 +1444,7 @@ export function parseZapReceipt(event) {
  * @param {string} [replyToPubkey] - Pubkey being replied to (p tag on reply)
  * @param {number} [parentKind] - Kind of parent (e.g. 1111 or 9735)
  * @param {string[]} [mentions] - Pubkeys mentioned in content (p tags for notifications)
- * @param {string[]} [relays] - Extra publish URLs merged in (after Zapstore + social); full set also adds signer NIP-65 write relays.
+ * @param {string[]} [relays] - Extra publish URLs merged after {@link COMMENT_PUBLISH_RELAYS}; signer NIP-65 write relays are added too.
  * @param {string[]} [mediaUrls] - Media URLs (images/videos) as 'media' tags
  *
  * **Relay hint inside the signed event:** every NIP-22 `e` / `E` / `a` / `A` tag that includes a relay
@@ -1417,7 +1452,7 @@ export function parseZapReceipt(event) {
  * multiple hints per tag, and not other relays.
  *
  * **Publish targets:** {@link COMMENT_PUBLISH_RELAYS} first (awaited — UI treats this as "accepted"), then
- * {@link DEFAULT_SOCIAL_RELAYS}, optional `relays`, and NIP-65 write relays are published in the background
+ * optional caller `relays` and signer NIP-65 write relays are published in the background
  * without blocking the returned promise.
  */
 export async function publishComment(content, target, signEvent, emojiTags, parentEventId, replyToPubkey, parentKind, mentions, relays, mediaUrls, version = null) {
@@ -1573,7 +1608,7 @@ const TOPIC_LABEL_NAMESPACE = '#t';
  * @param {{ timeout?: number, signal?: AbortSignal, relays?: string[], aTagKind?: number }} [options]
  */
 export async function fetchLabelsForAddressable(pubkey, identifier, options = {}) {
-	const { timeout = 5000, signal, relays = SOCIAL_RELAYS, aTagKind = EVENT_KINDS.APP } = options;
+	const { timeout = 5000, signal, relays = ZAPSTORE_READ_RELAYS, aTagKind = EVENT_KINDS.APP } = options;
 	if (signal?.aborted || !pubkey?.trim() || !identifier?.trim()) return [];
 	const pk = pubkey.trim().toLowerCase();
 	const id = identifier.trim();
@@ -1626,7 +1661,7 @@ export async function publishAddressableLabel(signEvent, params) {
 		identifier,
 		contentType = 'app',
 		labelValue: rawLabel,
-		relays = SOCIAL_RELAYS
+		relays = ZAPSTORE_READ_RELAYS
 	} = params;
 	if (!pubkey?.trim() || !identifier?.trim()) throw new Error('Label target (pubkey, identifier) is required');
 	const trimmed = String(rawLabel ?? '').trim();
@@ -1670,7 +1705,7 @@ export async function publishAddressableLabel(signEvent, params) {
 export async function publishForumPostLabel(signEvent, params) {
 	if (typeof signEvent !== 'function') throw new Error('signEvent is required');
 	const { eventId, communityPubkey, labelValue: rawLabel, relays } = params;
-	const relayUrls = Array.isArray(relays) && relays.length > 0 ? relays : SOCIAL_RELAYS;
+	const relayUrls = Array.isArray(relays) && relays.length > 0 ? relays : ZAPSTORE_READ_RELAYS;
 	if (!eventId?.trim() || !communityPubkey?.trim()) {
 		throw new Error('Forum label target (eventId, communityPubkey) is required');
 	}
@@ -1707,7 +1742,7 @@ export async function publishForumPostLabel(signEvent, params) {
 export async function publishTopicLabelOnEvent(signEvent, params) {
 	if (typeof signEvent !== 'function') throw new Error('signEvent is required');
 	const { eventId, labelValue: rawLabel, communityPubkey, relays } = params;
-	const relayUrls = Array.isArray(relays) && relays.length > 0 ? relays : SOCIAL_RELAYS;
+	const relayUrls = Array.isArray(relays) && relays.length > 0 ? relays : ZAPSTORE_READ_RELAYS;
 	if (!eventId?.trim()) throw new Error('eventId is required');
 	const trimmed = String(rawLabel ?? '').trim();
 	if (!trimmed) throw new Error('Label text is required');
@@ -1742,7 +1777,7 @@ export async function publishTopicLabelOnEvent(signEvent, params) {
 export async function publishDeletionRequest(signEvent, opts) {
 	if (typeof signEvent !== 'function') throw new Error('signEvent is required');
 	const { eventId, eventKind, aTagValue, relays } = opts;
-	const relayUrls = Array.isArray(relays) && relays.length > 0 ? relays : SOCIAL_RELAYS;
+	const relayUrls = Array.isArray(relays) && relays.length > 0 ? relays : ZAPSTORE_READ_RELAYS;
 	const id = String(eventId ?? '').trim().toLowerCase();
 	if (!/^[a-f0-9]{64}$/.test(id)) throw new Error('Invalid event id');
 	const tags = [
@@ -1779,7 +1814,7 @@ export async function publishLabelDeletion(signEvent, labelEventId, relays) {
 	return publishDeletionRequest(signEvent, {
 		eventId: id,
 		eventKind: EVENT_KINDS.LABEL,
-		relays: Array.isArray(relays) && relays.length > 0 ? relays : SOCIAL_RELAYS
+		relays: Array.isArray(relays) && relays.length > 0 ? relays : ZAPSTORE_READ_RELAYS
 	});
 }
 
@@ -2385,12 +2420,11 @@ export async function publishZapCommentWrapper(params, signEvent) {
 	const signed = await signEvent(template);
 	if (!signed?.id) throw new Error('Failed to sign zap wrapper comment');
 
-	const targetRelays = Array.isArray(relays) && relays.length > 0
-		? relays
-		: [...new Set([...COMMENT_PUBLISH_RELAYS, ...DEFAULT_SOCIAL_RELAYS])];
+	const targetRelays =
+		Array.isArray(relays) && relays.length > 0 ? relays : [...COMMENT_PUBLISH_RELAYS];
 
 	const p = getPool();
-	// Best-effort across all targets; never block the UI on slow social relays.
+	// Best-effort; never block the UI on redundant relay targets.
 	void Promise.allSettled(p.publish(targetRelays, signed)).catch(() => {});
 	await putEvents([signed]);
 	return signed;
@@ -2435,7 +2469,7 @@ export async function syncDeletions(relayUrls) {
 export function cleanup() {
 	stopLiveSubscriptions();
 	if (pool) {
-		pool.close([...DEFAULT_CATALOG_RELAYS, ...DEFAULT_SOCIAL_RELAYS]);
+		pool.close([...new Set([ZAPSTORE_RELAY, VERTEXLAB_RELAY])]);
 		pool = null;
 	}
 }
