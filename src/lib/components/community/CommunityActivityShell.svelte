@@ -6,7 +6,7 @@
 	 * Scroll sentinel extends the window; no “load more” button.
 	 */
 	import { browser } from '$app/environment';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { page } from '$app/stores';
 	import { nip19 } from 'nostr-tools';
 	import {
@@ -819,6 +819,10 @@
 
 	/** True while Activity tab should subscribe to Dexie; seed runs in parallel and must not block this. */
 	let activityReady = $state(false);
+	/** Inbox: same gate as liveQuery — avoids skeleton stuck before activityReady effect runs. */
+	const feedUiReady = $derived(
+		inboxEmbed ? !!(inboxUserPubkey && inboxActive) : activityReady
+	);
 	let activityLoading = $state(false);
 	/** True while backfillActivityThreadsScoped is running (after initial seed settles). */
 	let activityBackfillInFlight = $state(false);
@@ -853,9 +857,11 @@
 		activityLoading || activityBackfillInFlight || activityAddrRelayInFlight
 	);
 
+	// Inbox popover bar: seed only — not addr-root/backfill (those can run continuously).
 	$effect(() => {
 		if (!inboxEmbed || !onRelayLoadingChange) return;
-		onRelayLoadingChange(activityRelayBarLoading);
+		const loading = activityLoading;
+		untrack(() => onRelayLoadingChange(loading));
 	});
 
 	$effect(() => {
@@ -2312,13 +2318,20 @@
 		selectedThreadZaps = zapsEnriched;
 	}
 
+	let inboxWasActive = false;
+
 	$effect(() => {
 		if (!browser) return;
 		if (inboxEmbed) {
-			activityReady = !!(inboxUserPubkey && inboxActive);
-			if (activityReady && inboxUserPubkey) void seedInboxFromRelay(inboxUserPubkey);
+			const active = !!(inboxUserPubkey && inboxActive);
+			activityReady = active;
+			if (active && inboxUserPubkey && !inboxWasActive) {
+				void seedInboxFromRelay(inboxUserPubkey);
+			}
+			inboxWasActive = active;
 			return;
 		}
+		inboxWasActive = false;
 		if (!activityRouteActive) return;
 		activityReady = true;
 		activityInitialSeedDone = false;
@@ -2341,7 +2354,7 @@
 		{#if !inboxEmbed}
 			<RelayLoadingBar loading={activityRelayBarLoading} />
 		{/if}
-		{#if !activityReady || !activityFeedQuerySettled || (!inboxEmbed && activityFeedItems.length === 0 && !activityHadCachedData && (!activityInitialSeedDone || activityLoading))}
+		{#if !feedUiReady || !activityFeedQuerySettled || (!inboxEmbed && activityFeedItems.length === 0 && !activityHadCachedData && (!activityInitialSeedDone || activityLoading))}
 			<div class="loading-wrap">
 				<ActivityFeedSkeleton rows={6} />
 			</div>
@@ -2359,6 +2372,7 @@
 				<EmptyState
 					message={inboxUserPubkey ? 'Your inbox is empty' : 'No Activity yet'}
 					minHeight={280}
+					topAlign={inboxEmbed}
 				/>
 			</div>
 			{:else}

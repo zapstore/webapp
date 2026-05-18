@@ -103,7 +103,7 @@ export const NostrRefBlockExtension = Node.create({
 	parseHTML() {
 		return [{ tag: 'div[data-nostr-ref-block]' }];
 	},
-	renderHTML({ node }) {
+	renderHTML({ node: _node }) {
 		return [
 			'div',
 			mergeAttributes(this.options.HTMLAttributes, { 'data-nostr-ref-block': '' }),

@@ -5,6 +5,7 @@
 	 */
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { page } from '$app/stores';
 	import { nip19 } from 'nostr-tools';
 	import {
@@ -67,15 +68,17 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	let posts = $state(/** @type {any[]} */ (getCached('forum_posts') ?? []));
 	let postsLoading = $state(false);
 	let postsError = $state('');
-	let feedProfiles = $state(/** @type {Map<string,any>} */ (new Map()));
+	/* eslint-disable svelte/no-unnecessary-state-wrap -- $state tracks wholesale SvelteMap replacements */
+	let feedProfiles = $state(/** @type {Map<string,any>} */ (new SvelteMap()));
 	/** @type {Map<string, { profiles: any[], count: number }>} */
-	let commentersByPostId = $state(new Map());
+	let commentersByPostId = $state(new SvelteMap());
 	/** @type {Map<string, number>} Total sats zapped per forum post ID. */
-	let zapsByPostId = $state(/** @type {Map<string,number>} */ (new Map()));
+	let zapsByPostId = $state(/** @type {Map<string,number>} */ (new SvelteMap()));
+	/* eslint-enable svelte/no-unnecessary-state-wrap */
 	/** True after the first commentCountsQuery emission — drives ForumPostCard skeleton state. */
 	let commentCountsSettled = $state(false);
 	/** Non-reactive cache for commenter profiles; used by the reactive comment liveQuery. */
-	let commentProfileCache = new Map();
+	let commentProfileCache = new SvelteMap();
 	let addPostModalOpen = $state(false);
 	let searchModalOpen = $state(false);
 	let getStartedModalOpen = $state(false);
@@ -184,7 +187,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 						queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': ids, limit: 300 }),
 						queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': ids, limit: 300 })
 					]);
-					const all = new Map();
+					const all = new SvelteMap();
 					for (const e of [...lo, ...hi]) all.set(e.id, e);
 					return Array.from(all.values());
 				})
@@ -200,7 +203,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 				// commentersByPostId reactively via liveQuery when it writes to Dexie.
 				commentCountsSettled = true;
 				const evs = commentEvs ?? [];
-				const byPost = new Map();
+				const byPost = new SvelteMap();
 				for (const c of evs) {
 					const rootE =
 						c.tags?.find((t) => t[0] === 'E')?.[1] ??
@@ -239,11 +242,11 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 						queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#E': ids, limit: 400 })
 					]);
 					// Deduplicate by event ID
-					const byId = new Map();
+					const byId = new SvelteMap();
 					for (const e of [...lo, ...hi]) if (e?.id) byId.set(e.id, e);
 					// Sum sats per post ID using bolt11 parsing
-					const idsSet = new Set(ids.map((id) => id.toLowerCase()));
-					const totals = new Map();
+					const idsSet = new SvelteSet(ids.map((id) => id.toLowerCase()));
+					const totals = new SvelteMap();
 					for (const e of byId.values()) {
 						const { amountSats, zappedEventId } = parseZapReceipt(e);
 						if (!amountSats || amountSats <= 0 || !zappedEventId) continue;
@@ -259,7 +262,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		if (!zapTotalsQuery) return;
 		const sub = zapTotalsQuery.subscribe({
 			next: (totals) => {
-				zapsByPostId = totals ?? new Map();
+				zapsByPostId = totals ?? new SvelteMap();
 			}
 		});
 		return () => sub.unsubscribe();
@@ -299,7 +302,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		// the skeleton entirely and go straight to showing cached data.
 		const anyPostHasDexieData = posts.some((p) => commentersByPostId.has(p.id));
 		if (!anyPostHasDexieData) commentCountsSettled = false;
-		const pks = [...new Set(posts.map((p) => p.pubkey))];
+		const pks = [...new SvelteSet(posts.map((p) => p.pubkey))];
 		const postIds = posts.map((p) => p.id);
 		let cancelled = false;
 
@@ -315,7 +318,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 			]);
 			if (cancelled) return;
 
-			const m = new Map();
+			const m = new SvelteMap();
 			for (const [pk, event] of pEvs) {
 				try {
 					m.set(pk, { ...parseProfile(event), content: event.content });
@@ -348,13 +351,13 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 			}
 			feedProfiles = m;
 
-			const byId = new Map();
+			const byId = new SvelteMap();
 			for (const e of [...evsE, ...evsEUpper]) {
 				if (!byId.has(e.id)) byId.set(e.id, e);
 			}
 			const commentEvs = Array.from(byId.values());
 
-			const byPost = new Map();
+			const byPost = new SvelteMap();
 			for (const c of commentEvs) {
 				const rootE = c.tags?.find((t) => t[0] === 'E')?.[1] ?? c.tags?.find((t) => t[0] === 'e')?.[1];
 				if (!rootE) continue;
@@ -367,11 +370,11 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 				}
 			}
 
-			const allCommenterPks = [...new Set(commentEvs.map((e) => e.pubkey))];
+			const allCommenterPks = [...new SvelteSet(commentEvs.map((e) => e.pubkey))];
 			const commenterProfiles =
 				allCommenterPks.length > 0 ? await fetchProfilesBatch(allCommenterPks, { timeout: 3000 }) : [];
 			if (cancelled) return;
-			const profileMap = new Map();
+			const profileMap = new SvelteMap();
 			for (const [pk, event] of commenterProfiles) {
 				try {
 					profileMap.set(pk, parseProfile(event));
@@ -413,7 +416,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 						entry.profiles.push({ pubkey: pk, displayName: '', avatarUrl: '' });
 					}
 				}
-				const extraPks = [...new Set(newEvs.map((e) => e.pubkey))].filter((pk) => !profileMap.has(pk));
+				const extraPks = [...new SvelteSet(newEvs.map((e) => e.pubkey))].filter((pk) => !profileMap.has(pk));
 				const extraProfiles = extraPks.length > 0 ? await fetchProfilesBatch(extraPks, { timeout: 3000 }) : [];
 				for (const [pk, event] of extraProfiles) {
 					try {
@@ -521,7 +524,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	// Secondary relays (fire-and-forget) — social relays + signer's NIP-65 write relays (outbox).
 	// Same best-effort pattern used for comments; failures are silent.
 	void buildEventPublishRelayUrls(ev.pubkey, null).then((allUrls) => {
-		const primarySet = new Set(RELAYS);
+		const primarySet = new SvelteSet(RELAYS);
 		const secondary = allUrls.filter((u) => !primarySet.has(u));
 		if (secondary.length > 0) {
 			void publishToRelays(secondary, ev).catch(() => {});
@@ -544,7 +547,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	<div class="forum-categories-wrap">
 		<div class="forum-categories-scroll" use:wheelScroll>
 			<div class="forum-categories-inner">
-				{#each FORUM_CATEGORIES as category}
+				{#each FORUM_CATEGORIES as category (category)}
 					<Label
 						text={category}
 						isSelected={selectedCategory === category}

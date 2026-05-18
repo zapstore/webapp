@@ -118,7 +118,7 @@ $effect(() => {
 			</div>
 			{#if hasMultiple}
 				<div class="media-lightbox-dots">
-					{#each list as _, i}
+					{#each list as _, i (i)}
 						<button
 							type="button"
 							class="media-lightbox-dot"

@@ -18,7 +18,7 @@ import { FORUM_CATEGORIES } from '$lib/config.js';
 
 let {
 	isOpen = $bindable(false),
-	communityName = '',
+	communityName: _communityName = '',
 	getCurrentPubkey = () => null,
 	searchProfiles: searchProfilesProp = null,
 	searchEmojis: searchEmojisProp = null,
@@ -176,7 +176,6 @@ $effect(() => {
 <svelte:window onkeydown={handleKeydown} />
 
 {#if isOpen}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 	<div class="overlay bg-overlay" onclick={close} role="presentation" transition:fade={{ duration: 180 }}></div>
 
 	<div class="post-sheet-wrapper" role="dialog" aria-modal="true" aria-label="New post">

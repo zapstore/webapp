@@ -159,7 +159,6 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 <svelte:window onkeydown={handleKeydown} />
 
 {#if isOpen}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 	<div class="insert-overlay" onclick={handleOverlayClick} role="presentation"></div>
 
 	<div class="insert-wrapper" role="dialog" aria-modal="true" aria-label={title}>

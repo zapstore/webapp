@@ -38,8 +38,6 @@ let showFooter = $derived(
 		path.startsWith('/studio/') ||
 		path === '/blog' ||
 		path.startsWith('/blog/') ||
-		path === '/docs' ||
-		path.startsWith('/docs/') ||
 		path === '/terms') &&
 		!showingStudioDashboard
 );

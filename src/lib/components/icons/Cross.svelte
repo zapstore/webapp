@@ -1,22 +1,27 @@
 <script>
-  import BaseIcon from "./BaseIcon.svelte";
-  export let variant = "fill";
-  export let strokeWidth = 1.4;
-  export let color = "var(--white)";
-  export let size = 24;
-  export let className = "";
+	import BaseIcon from './BaseIcon.svelte';
+
+	export let variant = 'fill';
+	export let strokeWidth = 1.4;
+	export let color = 'var(--white)';
+	export let size = 24;
+	export let className = '';
 </script>
+
 <BaseIcon {variant} {strokeWidth} {color} {size} {className}>
-  <!-- Inline style: WebKit resolves hsl(var(...)) here; presentation attrs often do not. -->
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 14 14"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    xmlns="http://www.w3.org/2000/svg"
-    style="fill:{variant === 'fill' ? color : 'none'};stroke:{variant === 'outline' ? color : 'none'};stroke-width:{variant === 'outline' ? strokeWidth : 0}px"
-  >
-    <path d="M12.7001 0.699299L6.70025 6.69916M6.70025 6.69916L0.700195 12.6992M6.70025 6.69916L12.7002 12.6991M6.70025 6.69916L0.700308 0.699219" stroke-miterlimit="10" stroke-linecap="round"/>
-  </svg>
+	<!--
+	  Two full diagonals so only two strokes cross at the center (not four radiating segments).
+	  Keeps translucent colors from stacking into a muddy blob.
+	  variant kept for API compat; rendering is stroke-based for both fill/outline callers.
+	-->
+	<svg
+		width={size}
+		height={size}
+		viewBox="0 0 14 14"
+		xmlns="http://www.w3.org/2000/svg"
+		style="fill:none;stroke:{color};stroke-width:{strokeWidth}px;stroke-linecap:round;stroke-linejoin:round;"
+	>
+		<path d="M 2 2 L 12 12" />
+		<path d="M 12 2 L 2 12" />
+	</svg>
 </BaseIcon>

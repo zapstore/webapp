@@ -6,17 +6,17 @@
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import InsightsIcon from '$lib/components/icons/Insights.svelte';
 	import InboxIcon from '$lib/components/icons/Inbox.svelte';
-	import { queryEvents, parseAppStack, liveQuery, putEvents } from '$lib/nostr';
+	import { queryEvents, parseAppStack, liveQuery } from '$lib/nostr';
 	import { encodeStackNaddr, stackDisplayTitle, parseApp } from '$lib/nostr/models.js';
 	import { getIsSignedIn, getIsConnecting, isAuthInitialized } from '$lib/stores/auth.svelte.js';
 	import { fetchAppsByAuthorFromRelays } from '$lib/nostr/service.js';
 	import { resolveStudioCatalogPubkey } from '$lib/studio/resolve-studio-catalog-pubkey.js';
-	import { TEST_PUBKEY } from '$lib/components/studio/studio-config.js';
 	import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import { npubToHex } from '$lib/studio/analytics-http.js';
 	import { loadIfNeeded as loadStudioAnalytics, resetStudioAnalytics } from '$lib/stores/studio-analytics.svelte.js';
+	import { isOnline } from '$lib/stores/online.svelte.js';
 	import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
-	import { SITE_URL } from '$lib/config';
+	import { SITE_URL, ZAPSTORE_RELAY } from '$lib/config';
 
 	let { children } = $props();
 
@@ -40,6 +40,9 @@
 	$effect(() => {
 		if (!browser) return;
 		if (!authReady || authConnecting) return;
+		const path = $page.url.pathname;
+		// This layout only serves /studio/* — never redirect when we're not actually on a studio URL.
+		if (!path.startsWith('/studio')) return;
 		if (!showDashboard) {
 			goto('/developers', { replaceState: true });
 		}
@@ -78,84 +81,103 @@
 		}
 	});
 
-	// ── Apps loading (triggers only on auth changes, not analytics timeframes) ──
-	let appsLoadGen = 0;
+	// ── Apps: local-first (liveQuery) + relay refresh on each studio session ───
+	/** Catalog author whose kind 32267 events power the sidebar. */
+	let appsCatalogPubkey = $state(/** @type {string | null} */ (null));
 
-	async function resolveStudioPubkeyHex() {
-		const raw = TEST_PUBKEY == null || TEST_PUBKEY === '' ? '' : String(TEST_PUBKEY).trim();
-		if (raw) {
-			try { return npubToHex(raw); } catch { return null; }
-		}
+	function resolveStudioPubkeyHex() {
 		const fromAuth = getCurrentPubkey();
-		if (fromAuth) {
-			try { return npubToHex(fromAuth); }
-			catch { return String(fromAuth).toLowerCase(); }
+		if (!fromAuth) return null;
+		try {
+			return npubToHex(fromAuth);
+		} catch {
+			return String(fromAuth).toLowerCase();
 		}
-		return null;
 	}
 
-	async function loadUserApps() {
-		appsLoadGen += 1;
-		const gen = appsLoadGen;
-
-		appsLoading = true;
-		try {
-			const signerPubkey = await resolveStudioPubkeyHex();
-			if (gen !== appsLoadGen) return;
-			if (!signerPubkey) {
-				studioPubkey = null;
-				adminAccess = false;
-				userApps = [];
-				return;
-			}
-
-			const policy = await resolveStudioCatalogPubkey(signerPubkey);
-			if (gen !== appsLoadGen) return;
-			studioPubkey = policy.catalogPubkey;
-			adminAccess = policy.adminAccess;
-
-			// Sidebar always lists apps published BY the signer (or override catalog).
-		// Admin users still only see their own apps in the sidebar; arbitrary
-		// apps on the relay are reachable only by URL (`/studio/apps/<id>`).
-			let events = await queryEvents({ kinds: [32267], authors: [policy.catalogPubkey] });
-			if (gen !== appsLoadGen) return;
-
-			if (events.length === 0) {
-				// App events live only on the zapstore relay.
-				const { ZAPSTORE_RELAY } = await import('$lib/config.js');
-				events = await fetchAppsByAuthorFromRelays([ZAPSTORE_RELAY], policy.catalogPubkey);
-				if (events.length > 0) await putEvents(events);
-			}
-			if (gen !== appsLoadGen) return;
-
-			const parsedApps = events.map(parseApp);
-			const next = parsedApps.map((a) => ({
-				id: a.dTag,
-				name: a.name,
-				icon: a.icon ?? '',
-				description: a.description ?? '',
-				url: a.url ?? '',
-				images: a.images ?? [],
-				eventId: a.id,
-				event: a.event,
-				/** Owner pubkey — used by the per-app page to fetch analytics with `app_pubkey`. */
-				pubkey: policy.catalogPubkey
-			}));
-			if (gen !== appsLoadGen) return;
-			userApps = next;
-		} catch (err) {
-			console.error('[StudioLayout] app load failed:', err);
-		} finally {
-			if (gen === appsLoadGen) appsLoading = false;
-		}
+	/** @param {import('nostr-tools').NostrEvent[]} events */
+	function mapEventsToStudioApps(events, catalogPubkey) {
+		return events.map(parseApp).map((a) => ({
+			id: a.dTag,
+			name: a.name,
+			icon: a.icon ?? '',
+			description: a.description ?? '',
+			url: a.url ?? '',
+			images: a.images ?? [],
+			eventId: a.id,
+			event: a.event,
+			pubkey: catalogPubkey
+		}));
 	}
 
 	$effect(() => {
-		if (showDashboard) {
-			loadUserApps().catch((err) => console.error('[StudioLayout] loadUserApps:', err));
-		} else {
-			resetStudioAnalytics();
+		if (!browser || !showDashboard) {
+			appsCatalogPubkey = null;
+			studioPubkey = null;
+			adminAccess = false;
+			userApps = [];
+			appsLoading = false;
+			return;
 		}
+
+		const authPubkey = getCurrentPubkey();
+		if (!authPubkey) {
+			appsCatalogPubkey = null;
+			userApps = [];
+			appsLoading = true;
+			return;
+		}
+
+		let cancelled = false;
+		appsLoading = true;
+
+		void (async () => {
+			try {
+				const signerHex = resolveStudioPubkeyHex();
+				if (cancelled || !signerHex) return;
+
+				const policy = await resolveStudioCatalogPubkey(signerHex);
+				if (cancelled) return;
+
+				studioPubkey = policy.catalogPubkey;
+				adminAccess = policy.adminAccess;
+				appsCatalogPubkey = policy.catalogPubkey;
+
+				if (isOnline()) {
+					void fetchAppsByAuthorFromRelays([ZAPSTORE_RELAY], policy.catalogPubkey, {
+						limit: 50,
+						timeout: 5000
+					}).catch((err) => console.error('[StudioLayout] app relay refresh failed:', err));
+				}
+			} catch (err) {
+				console.error('[StudioLayout] app catalog resolve failed:', err);
+			}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	$effect(() => {
+		if (!browser || !showDashboard || !appsCatalogPubkey) return;
+
+		const catalogPk = appsCatalogPubkey;
+		const sub = liveQuery(() => queryEvents({ kinds: [32267], authors: [catalogPk] })).subscribe({
+			next: (events) => {
+				userApps = mapEventsToStudioApps(events ?? [], catalogPk);
+				appsLoading = false;
+			},
+			error: (err) => {
+				console.error('[StudioLayout] apps liveQuery failed:', err);
+				appsLoading = false;
+			}
+		});
+		return () => sub.unsubscribe();
+	});
+
+	$effect(() => {
+		if (!showDashboard) resetStudioAnalytics();
 	});
 
 	// ── Stacks loading ─────────────────────────────────────────────────────────
@@ -165,6 +187,11 @@
 	$effect(() => {
 		if (!browser || !showDashboard) {
 			userStacks = [];
+			return;
+		}
+		// Inbox feed liveQuery + relay seed write heavily to Dexie — a second layout
+		// liveQuery here re-runs on every write and freezes the tab.
+		if ($page.url.pathname.startsWith('/studio/inbox')) {
 			return;
 		}
 		const pubkey = getCurrentPubkey();

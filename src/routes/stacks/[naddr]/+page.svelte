@@ -29,7 +29,6 @@ import BottomBar from "$lib/components/social/BottomBar.svelte";
 import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import ZappyError from "$lib/components/common/ZappyError.svelte";
-import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import { createSearchProfilesFunction, ZAPSTORE_PUBKEY, zapstoreProfileStore } from "$lib/services/profile-search";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
@@ -61,7 +60,7 @@ const isZapstoreCatalog = $derived(
     (catalogs[0].pubkey.toLowerCase() === ZAPSTORE_PUBKEY.toLowerCase() ||
         (catalogs[0].name ?? '').toLowerCase() === 'zapstore')
 );
-const effectiveCatalogs = $derived(
+const _effectiveCatalogs = $derived(
     isZapstoreCatalog && zapstoreProfile
         ? [{ ...catalogs[0], pictureUrl: zapstoreProfile.picture, name: zapstoreProfile.name }]
         : [...catalogs]
@@ -139,7 +138,7 @@ const mergedLabelEntries = $derived.by(() => {
         return { label, pubkeys: [stack.pubkey] };
     });
 
-    const ownLabelsLower = new Set(ownEntries.map((e) => e.label.toLowerCase()));
+    const ownLabelsLower = new SvelteSet(ownEntries.map((e) => e.label.toLowerCase()));
     const remainingCommunity = labelEntries.filter(
         (e) => !ownLabelsLower.has(e.label.toLowerCase())
     );
@@ -317,7 +316,7 @@ async function loadStack() {
             comments = cachedCommentEvents.map((ev) => parseComment(ev));
             // Hydrate comment-author profiles from Dexie so names/pics show immediately
             const nextProfiles = { ...profiles };
-            const pubkeys = [...new Set(comments.map((c) => c.pubkey))];
+            const pubkeys = [...new SvelteSet(comments.map((c) => c.pubkey))];
             for (const pk of pubkeys) {
                 const ev = await queryEvent({ kinds: [0], authors: [pk] });
                 if (ev?.content) {
@@ -350,14 +349,14 @@ async function loadStack() {
                 apps = events.map(parseApp);
                 // Relay backfill: fetch any refs not yet in Dexie (single batch query)
                 if (browser && isOnline() && apps.length < appRefs.length) {
-                    const foundDTags = new Set(apps.map((a) => a.dTag));
+                    const foundDTags = new SvelteSet(apps.map((a) => a.dTag));
                     const missing = appRefs.filter((r) => !foundDTags.has(r.identifier));
                     if (missing.length > 0) {
                         const missingEvents = await fetchFromRelays(
                             [ZAPSTORE_RELAY],
                             {
                                 kinds: [EVENT_KINDS.APP],
-                                authors: [...new Set(missing.map((r) => r.pubkey))],
+                                authors: [...new SvelteSet(missing.map((r) => r.pubkey))],
                                 '#d': missing.map((r) => r.identifier),
                                 ...PLATFORM_FILTER,
                                 limit: missing.length + 5
@@ -396,7 +395,7 @@ async function loadCommentsForStack(pubkey, dTag) {
         }
 
         const relayEvents = await fetchComments(pubkey, dTag, { aTagKind: EVENT_KINDS.APP_STACK });
-        const byId = new Map();
+        const byId = new SvelteMap();
         for (const e of storeEvents) {
             if (e?.id)
                 byId.set(e.id.toLowerCase(), e);
@@ -408,7 +407,7 @@ async function loadCommentsForStack(pubkey, dTag) {
         const merged = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
         comments = merged.map((ev) => parseComment(ev));
         const uniquePubkeys = [
-            ...new Set([
+            ...new SvelteSet([
                 ...comments.map((c) => c.pubkey),
                 ...merged.flatMap((ev) =>
                     ev.tags.filter((t) => t[0] === 'p' && t[1]?.length === 64).map((t) => t[1])
@@ -457,7 +456,7 @@ async function loadLabelsForStack(pubkey, dTag) {
             queryEvents({ kinds: [EVENT_KINDS.LABEL], "#a": [aVal], limit: 300 }),
             queryEvents({ kinds: [EVENT_KINDS.LABEL], "#A": [aVal], limit: 300 }),
         ]);
-        const byId = new Map();
+        const byId = new SvelteMap();
         for (const e of [...lo, ...up]) {
             if (e?.id && !byId.has(e.id))
                 byId.set(e.id, e);
@@ -469,7 +468,7 @@ async function loadLabelsForStack(pubkey, dTag) {
                 byId.set(e.id, e);
         }
         labelEntries = groupLabelEventsToEntries(Array.from(byId.values()));
-        const allLabelers = [...new Set(labelEntries.flatMap((en) => en.pubkeys))];
+        const allLabelers = [...new SvelteSet(labelEntries.flatMap((en) => en.pubkeys))];
         if (allLabelers.length > 0) {
             const batch = await fetchProfilesBatch(allLabelers, { timeout: 3000 });
             const next = { ...profiles };
@@ -509,7 +508,7 @@ async function loadZapsForStack(pubkey, dTag) {
             queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], "#a": [aTagValue], limit: 200 }),
             queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], "#A": [aTagValue], limit: 200 }),
         ]);
-        const byId = new Map();
+        const byId = new SvelteMap();
         for (const e of [...zLo, ...zUp]) {
             if (e?.id)
                 byId.set(e.id, e);
@@ -673,7 +672,9 @@ async function handleCommentSubmit(event) {
                         profiles = { ...profiles, [userPubkey]: { displayName: c.display_name ?? c.displayName, name: c.name, picture: c.picture } };
                     }
                 }
-            } catch (_) {}
+            } catch (_err) {
+                /* ignore parse errors */
+            }
         }
     }
     catch (err) {

@@ -4,6 +4,7 @@
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import SeoHead from '$lib/components/layout/SeoHead.svelte';
+	import AppsSearchPage from '$lib/components/apps/AppsSearchPage.svelte';
 	import { SITE_URL } from '$lib/config';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
@@ -28,13 +29,11 @@
 		loadMoreStacks
 	} from '$lib/stores/stacks.svelte.js';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
-	import { fetchFromRelays, searchApps } from '$lib/nostr/service';
+	import { fetchFromRelays, fetchProfilesBatch } from '$lib/nostr/service';
 	import { ZAPSTORE_RELAY, ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
 	import { nip19 } from 'nostr-tools';
-	import { encodeStackNaddr, parseApp, parseProfile } from '$lib/nostr/models';
-	import { fetchProfilesBatch } from '$lib/nostr/service';
+	import { encodeStackNaddr, parseProfile } from '$lib/nostr/models';
 	import { DISCOVER_APPS_INITIAL, DISCOVER_STACKS_INITIAL } from '$lib/constants';
-
 	/** `true` = show category chips + alternative-to row at top of /apps (off for now). */
 	const SHOW_APPS_CATEGORY_ROW = false;
 
@@ -62,6 +61,10 @@
 	function gotoCategorySearch(/** @type {string} */ label) {
 		goto(`/apps?q=${encodeURIComponent(label)}`);
 	}
+
+	const searchQ = $derived($page.url.searchParams.get('q')?.trim() ?? '');
+	const releasesBrowse = $derived($page.url.searchParams.get('view') === 'releases');
+	const showSearchPanel = $derived(!!searchQ || releasesBrowse);
 
 	// liveQuery-driven data (local-first, auto-updates)
 	// Initialize from cache to avoid skeleton flash on back navigation.
@@ -135,46 +138,6 @@
 	let stacksSettled = $state(false);
 	let resolvedStackKeys = $state('');
 
-	// ── Search ──────────────────────────────────────────────────────────────
-	const searchQ = $derived(browser ? ($page.url.searchParams.get('q')?.trim() ?? '') : '');
-	let searchResults = $state(null);
-	let searchLoading = $state(false);
-	let searchAbortController = null;
-
-	$effect(() => {
-		if (!browser) return;
-		const q = searchQ;
-		searchAbortController?.abort();
-		searchAbortController = null;
-
-		if (!q) {
-			searchResults = null;
-			searchLoading = false;
-			return;
-		}
-
-		searchLoading = true;
-		searchResults = null;
-
-		const controller = new AbortController();
-		searchAbortController = controller;
-
-		searchApps(['wss://relay.zapstore.dev'], q, { signal: controller.signal, limit: 50 })
-			.then((events) => {
-				if (!controller.signal.aborted) {
-					console.log('[Search] raw events for', JSON.stringify(q), ':', events.length, events);
-					searchResults = events.map(parseApp);
-					searchLoading = false;
-				}
-			})
-			.catch((err) => {
-				if (!controller.signal.aborted) {
-					console.error('[Apps] Search failed:', err);
-					searchResults = [];
-					searchLoading = false;
-				}
-			});
-	});
 
 	// Save scroll positions before navigating away
 	beforeNavigate(() => {
@@ -404,28 +367,11 @@
 	url="{SITE_URL}/apps"
 />
 
-<section class="apps-page">
-	<div class="container mx-auto pt-3 pb-6 px-3 sm:px-6 sm:pt-4 lg:px-8">
-
-	{#if searchQ}
-		<!-- Search Results -->
-		<div class="section-container">
-			<SectionHeader title={`Results for "${searchQ}"`} />
-			{#if searchLoading}
-				<div class="search-spinner-wrap">
-					<div class="spinner"></div>
-				</div>
-			{:else if searchResults && searchResults.length > 0}
-				<div class="search-results-grid">
-				{#each searchResults as app (app.id)}
-					<AppSmallCard {app} href={getAppUrl(app)} />
-					{/each}
-				</div>
-			{:else if searchResults !== null}
-				<p class="text-muted-foreground regular14 px-1 py-4">No apps found for "{searchQ}".</p>
-			{/if}
-		</div>
+<section class="apps-page" class:apps-page--search={showSearchPanel}>
+	{#if showSearchPanel}
+		<AppsSearchPage />
 	{:else}
+	<div class="container mx-auto pt-3 pb-6 px-3 sm:px-6 sm:pt-4 lg:px-8">
 
 		{#if SHOW_APPS_CATEGORY_ROW}
 			<!-- Categories + alternative-to picker -->
@@ -459,7 +405,7 @@
 
 		<!-- App stacks (first main section) -->
 		<div class="section-container stacks-section">
-			<SectionHeader title="App Stacks" />
+			<SectionHeader title="Stacks" linkText="See more" href="/stacks" />
 			<div class="scroll-wrap">
 				{#if resolvedDisplayStacks.length === 0 && !stacksSettled}
 					<div class="horizontal-scroll">
@@ -509,10 +455,6 @@
 							</div>
 						{/if}
 
-						<a href="/stacks" class="stacks-see-more-column" aria-label="See all stacks">
-							<span class="stacks-see-more-label">See more</span>
-							<ChevronRight size={18} strokeWidth={1.4} color="var(--white33)" />
-						</a>
 					</div>
 				</div>
 				{/if}
@@ -535,7 +477,7 @@
 
 		<!-- Latest apps (second main section) -->
 		<div class="section-container apps-section">
-			<SectionHeader title="Latest Apps" />
+			<SectionHeader title="Latest Releases" linkText="See more" href="/apps?view=releases" />
 			<div class="scroll-wrap">
 				{#if apps.length === 0}
 					<div class="horizontal-scroll">
@@ -598,26 +540,25 @@
 			</div>
 		</div>
 
-	{/if}
-
 	</div>
+	{/if}
 </section>
 
 <style>
-	.search-spinner-wrap {
+	.apps-page--search {
 		display: flex;
-		justify-content: center;
-		padding: 3rem 0;
-	}
-
-	.search-results-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-		gap: 0.25rem;
+		flex-direction: column;
+		min-height: calc(100dvh - 64px);
+		height: calc(100dvh - 64px);
+		overflow: hidden;
 	}
 
 	.apps-page {
 		min-height: 100vh;
+	}
+
+	.apps-page--search.apps-page {
+		min-height: 0;
 	}
 
 	.section-container {
@@ -907,32 +848,6 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-	}
-
-	.stacks-see-more-column {
-		flex-shrink: 0;
-		width: 80px;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 6px;
-		text-decoration: none;
-		color: var(--white33);
-		border-radius: 12px;
-		transition: color 0.15s ease, background-color 0.15s ease;
-		padding: 8px;
-	}
-
-	.stacks-see-more-column:hover {
-		color: var(--white66);
-		background-color: var(--white8);
-	}
-
-	.stacks-see-more-label {
-		font-size: 0.75rem;
-		font-weight: 500;
-		white-space: nowrap;
 	}
 
 	.spinner {

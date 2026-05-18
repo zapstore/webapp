@@ -1,80 +1,166 @@
 <script lang="js">
-import { page } from '$app/stores';
-import { ChevronRight } from 'lucide-svelte';
-import DocsNavNode from './DocsNavNode.svelte';
-let { node, expanded = {}, toggle = () => { } } = $props();
-let currentPath = $derived($page.url.pathname);
-function isActive(href) {
-    if (!href)
-        return false;
-    return currentPath === href;
-}
-function isAncestorActive(href) {
-    if (!href)
-        return false;
-    if (href === '/')
-        return false;
-    return currentPath.startsWith(href + '/');
-}
-let isFolder = $derived(Array.isArray(node.children) && node.children.length > 0);
+	import { page } from '$app/stores';
+	import { ChevronDown } from '$lib/components/icons';
+	import DocsNavNode from './DocsNavNode.svelte';
+
+	let { node, expanded = {}, toggle = () => {}, onNavigate = undefined } = $props();
+
+	let currentPath = $derived($page.url.pathname);
+
+	function isActive(href) {
+		if (!href) return false;
+		return currentPath === href;
+	}
+
+	function isAncestorActive(href) {
+		if (!href) return false;
+		if (href === '/') return false;
+		return currentPath.startsWith(href + '/');
+	}
+
+	let isFolder = $derived(Array.isArray(node.children) && node.children.length > 0);
 </script>
 
-<li>
+<li class="docs-nav-item">
 	{#if isFolder}
-		<div class="flex items-center justify-between w-full text-left regular14 mb-1">
+		<div class="docs-nav-row">
 			{#if node.href}
 				<a
 					href={node.href}
-					data-sveltekit-reload
-				class="flex-1 px-3 py-1.5 rounded-lg transition-colors {isActive(node.href)
-					? 'bg-[var(--color-accent)]/10 text-[var(--color-text-primary)] medium14'
-					: isAncestorActive(node.href)
-						? 'text-[var(--color-text-primary)] medium14'
-						: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'}"
+					class="docs-nav-link"
+					class:active={isActive(node.href)}
+					class:ancestor={!isActive(node.href) && isAncestorActive(node.href)}
+					onclick={onNavigate}
 				>
 					{node.title}
 				</a>
 			{:else}
 				<span
-				class="flex-1 px-3 py-1.5 {isAncestorActive(node.id)
-					? 'text-[var(--color-text-primary)] medium14'
-					: 'text-[var(--color-text-secondary)]'}"
+					class="docs-nav-link docs-nav-label"
+					class:ancestor={isAncestorActive(node.id)}
 				>
 					{node.title}
 				</span>
 			{/if}
 			<button
 				type="button"
-				class="p-1.5 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+				class="docs-nav-toggle"
 				onclick={() => toggle(node.id)}
 				aria-expanded={!!expanded[node.id]}
 				aria-controls={`section-${node.id}`}
 				aria-label={expanded[node.id] ? 'Collapse section' : 'Expand section'}
 			>
-				<ChevronRight
-					class="h-4 w-4 transition-transform duration-200 {expanded[node.id] ? 'rotate-90' : ''}"
-				/>
+				<span class="docs-nav-chevron" class:open={!!expanded[node.id]}>
+					<ChevronDown variant="outline" color="var(--white33)" size={14} strokeWidth={1.4} />
+				</span>
 			</button>
 		</div>
 		{#if expanded[node.id]}
-			<ul
-				id={`section-${node.id}`}
-				class="ml-3 pl-3 border-l border-[var(--color-border)]/50 space-y-1 mt-1"
-			>
+			<ul id={`section-${node.id}`} class="docs-nav-children">
 				{#each node.children as child (child.id)}
-					<DocsNavNode node={child} {expanded} {toggle} />
+					<DocsNavNode node={child} {expanded} {toggle} {onNavigate} />
 				{/each}
 			</ul>
 		{/if}
 	{:else if node.href}
 		<a
 			href={node.href}
-			data-sveltekit-reload
-			class="block regular14 px-3 py-1.5 rounded-lg transition-colors {isActive(node.href)
-			? 'bg-[var(--color-accent)]/10 text-[var(--color-text-primary)] medium14'
-			: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'}"
+			class="docs-nav-link"
+			class:active={isActive(node.href)}
+			onclick={onNavigate}
 		>
 			{node.title}
 		</a>
 	{/if}
 </li>
+
+<style>
+	.docs-nav-item {
+		list-style: none;
+	}
+
+	.docs-nav-row {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		min-width: 0;
+	}
+
+	.docs-nav-link {
+		display: block;
+		flex: 1;
+		min-width: 0;
+		padding: 8px 12px;
+		border-radius: 8px;
+		border: none;
+		background: transparent;
+		color: var(--white66);
+		font-size: 14px;
+		font-weight: 500;
+		line-height: 1.3;
+		text-decoration: none;
+		text-align: left;
+		transition: color 0.15s, background 0.15s;
+		cursor: pointer;
+	}
+
+	.docs-nav-link:hover:not(.active) {
+		background: var(--white4);
+		color: var(--white);
+	}
+
+	.docs-nav-link.active {
+		color: var(--white);
+		background: var(--white8);
+	}
+
+	.docs-nav-link.ancestor {
+		color: var(--white);
+	}
+
+	.docs-nav-label {
+		cursor: default;
+	}
+
+	.docs-nav-toggle {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		border: none;
+		border-radius: 8px;
+		background: transparent;
+		color: var(--white33);
+		cursor: pointer;
+		transition: background 0.15s, color 0.15s;
+	}
+
+	.docs-nav-toggle:hover {
+		background: var(--white4);
+		color: var(--white);
+	}
+
+	.docs-nav-chevron {
+		display: flex;
+		align-items: center;
+		transition: transform 0.2s;
+	}
+
+	.docs-nav-chevron.open {
+		transform: rotate(180deg);
+	}
+
+	.docs-nav-children {
+		list-style: none;
+		margin: 2px 0 0;
+		padding: 0 0 0 10px;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		border-left: 1px solid var(--white16);
+		margin-left: 12px;
+	}
+</style>

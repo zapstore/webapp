@@ -11,6 +11,7 @@
  * hideRoot={true}. The app/stack/forum context is passed separately via rootContext.
  */
 import { onMount } from 'svelte';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
 import { nip19 } from 'nostr-tools';
@@ -47,20 +48,22 @@ let { pubkey = '', profileName = '', profilePicture = '' } = $props();
 /** @type {import('nostr-tools').NostrEvent[]} */
 let comments = $state([]);
 
+/* eslint-disable svelte/no-unnecessary-state-wrap -- $state tracks wholesale SvelteMap replacements */
 /**
  * Unified root event map — keyed by A/a-tag value (addr) or event-id (forum post).
  * These are the APP / STACK / FORUM-POST events, used for rootContext + appBadge.
  */
-let rootEventByKey = $state(/** @type {Map<string, import('nostr-tools').NostrEvent>} */ (new Map()));
+let rootEventByKey = $state(/** @type {Map<string, import('nostr-tools').NostrEvent>} */ (new SvelteMap()));
 
 /** Parsed badge info for addr roots. */
-let rootInfoByATag = $state(/** @type {Map<string, { icon?: string|null, name: string, identifier: string, isStack: boolean, href: string|null }>} */ (new Map()));
+let rootInfoByATag = $state(/** @type {Map<string, { icon?: string|null, name: string, identifier: string, isStack: boolean, href: string|null }>} */ (new SvelteMap()));
 
 /** parent comment event map for reply quotes in the activity feed. */
-let parentCommentMap = $state(/** @type {Map<string, import('nostr-tools').NostrEvent>} */ (new Map()));
+let parentCommentMap = $state(/** @type {Map<string, import('nostr-tools').NostrEvent>} */ (new SvelteMap()));
 
 /** pubkey → parsed profile; used to resolve @mention labels in comment content. */
-let mentionProfiles = $state(/** @type {Map<string, { name?: string, displayName?: string }>} */ (new Map()));
+let mentionProfiles = $state(/** @type {Map<string, { name?: string, displayName?: string }>} */ (new SvelteMap()));
+/* eslint-enable svelte/no-unnecessary-state-wrap */
 
 let loading = $state(true);
 let error = $state('');
@@ -152,7 +155,7 @@ onMount(async () => {
 		);
 
 		if (fetched.length > 0) {
-			const deduped = new Map();
+			const deduped = new SvelteMap();
 			for (const e of [...local, ...fetched]) if (e.id) deduped.set(e.id, e);
 			const merged = Array.from(deduped.values()).sort((a, b) => b.created_at - a.created_at);
 			comments = merged;
@@ -167,8 +170,8 @@ onMount(async () => {
 });
 
 async function resolveRoots(evts) {
-	const addrKeys = new Set();
-	const forumIds = new Set();
+	const addrKeys = new SvelteSet();
+	const forumIds = new SvelteSet();
 
 	for (const e of evts) {
 		const ref = getRootRef(e);
@@ -196,8 +199,8 @@ async function resolveRoots(evts) {
 		forumIds.size > 0 ? queryEvents({ ids: [...forumIds] }) : Promise.resolve([])
 	]);
 
-	const nextEvents = new Map(rootEventByKey);
-	const nextInfo = new Map(rootInfoByATag);
+	const nextEvents = new SvelteMap(rootEventByKey);
+	const nextInfo = new SvelteMap(rootInfoByATag);
 
 	for (const rawEvent of appEvents) {
 		const app = parseApp(rawEvent);
@@ -239,9 +242,9 @@ async function resolveParents(evts) {
 	}
 	if (toFetch.length === 0) return;
 
-	const parentIds = [...new Set(toFetch.map((f) => f.parentId))];
+	const parentIds = [...new SvelteSet(toFetch.map((f) => f.parentId))];
 	let found = await queryEvents({ ids: parentIds });
-	const foundIds = new Set(found.map((e) => e.id));
+	const foundIds = new SvelteSet(found.map((e) => e.id));
 
 	const missing = parentIds.filter((id) => !foundIds.has(id));
 	if (missing.length > 0) {
@@ -253,8 +256,8 @@ async function resolveParents(evts) {
 		found = [...found, ...fromRelay];
 	}
 
-	const byId = new Map(found.map((e) => [e.id, e]));
-	const next = new Map(parentCommentMap);
+	const byId = new SvelteMap(found.map((e) => [e.id, e]));
+	const next = new SvelteMap(parentCommentMap);
 	for (const { commentId, parentId } of toFetch) {
 		const parent = byId.get(parentId);
 		if (parent) next.set(commentId, parent);
@@ -263,7 +266,7 @@ async function resolveParents(evts) {
 }
 
 async function resolveMentionProfiles(evts) {
-	const pubkeys = new Set();
+	const pubkeys = new SvelteSet();
 	for (const ev of evts) {
 		// Include the comment author so thread bubbles get real names/pics.
 		if (ev.pubkey) pubkeys.add(ev.pubkey);
@@ -274,7 +277,7 @@ async function resolveMentionProfiles(evts) {
 	if (pubkeys.size === 0) return;
 
 	const rawProfiles = await fetchProfilesBatch([...pubkeys]);
-	const next = new Map(mentionProfiles);
+	const next = new SvelteMap(mentionProfiles);
 	for (const [pk, event] of rawProfiles) {
 		if (event) next.set(pk, parseProfile(event));
 	}
@@ -299,7 +302,7 @@ async function openThread(commentEv) {
 	if (!ref) return;
 
 	// Build a comment map from what's already loaded (avoids relay trips when possible).
-	const commentMap = new Map(comments.map((c) => [c.id.toLowerCase(), c]));
+	const commentMap = new SvelteMap(comments.map((c) => [c.id.toLowerCase(), c]));
 
 	// resolveAppDiscussionRootCommentId walks the `e` parent chain upward.
 	// It works for both addr (app/stack) and id (forum post) threads:
@@ -363,7 +366,7 @@ async function loadThreadComments(rootId, addrATag) {
 	).then(async (more) => {
 		if (!more.length || threadRootId !== rootId) return;
 		await putEvents(more);
-		const combined = new Map();
+		const combined = new SvelteMap();
 		for (const e of [...pool, ...more]) combined.set(e.id, e);
 		const subtree2 = collectCommentSubtree(rootId, Array.from(combined.values()));
 		const all = subtree2.filter((e) => e.id !== rootId);
@@ -429,7 +432,6 @@ async function handleThreadReply(e) {
 				{@const rootRef = getRootRef(event)}
 				{@const rootEvent = rootRef ? (rootEventByKey.get(rootRef.value) ?? null) : null}
 				{@const rootInfo = rootRef?.type === 'addr' ? (rootInfoByATag.get(rootRef.value) ?? null) : null}
-				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 				<div
 					class="activity-item"
 					role="button"

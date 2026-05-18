@@ -28,7 +28,7 @@ const platformTag = PLATFORM_FILTER['#f']?.[0];
  * Prevents duplicate fetches across multiple liveQuery re-runs.
  * Module-scoped so it persists for the lifetime of the page session.
  */
-const fetchedRefs = new Set();
+const fetchedRefs = new SvelteSet();
 
 /**
  * Fire-and-forget: fetch the given app refs from relay.
@@ -43,8 +43,8 @@ async function fetchMissingApps(refs) {
 		[ZAPSTORE_RELAY],
 		{
 			kinds: [EVENT_KINDS.APP],
-			authors: [...new Set(refs.map((r) => r.pubkey))],
-			'#d': [...new Set(refs.map((r) => r.identifier))],
+			authors: [...new SvelteSet(refs.map((r) => r.pubkey))],
+			'#d': [...new SvelteSet(refs.map((r) => r.identifier))],
 			...PLATFORM_FILTER,
 			limit: refs.length + 5
 		},
@@ -199,9 +199,9 @@ export function createStacksQuery() {
  * @param {object[]} stackEvents - raw kind 30267 events
  * @param {string[]} relayUrls
  */
-async function fillMissingPreviewApps(stackEvents, relayUrls) {
+async function fillMissingPreviewApps(stackEvents, _relayUrls) {
 	// Collect all unique preview refs across all stacks
-	const allRefs = new Map(); // key → ref
+	const allRefs = new SvelteMap(); // key → ref
 	for (const ev of stackEvents) {
 		if (ev.kind !== EVENT_KINDS.APP_STACK) continue;
 		const stack = parseAppStack(ev);
@@ -218,14 +218,14 @@ async function fillMissingPreviewApps(stackEvents, relayUrls) {
 
 	// Single Dexie batch check — must use same platform filter as createStacksQuery so we
 	// don't skip the relay fetch for refs that exist in Dexie without the platform tag.
-	const allIdentifiers = [...new Set([...allRefs.values()].map((r) => r.identifier))];
+	const allIdentifiers = [...new SvelteSet([...allRefs.values()].map((r) => r.identifier))];
 	const existing = await queryEvents({
 		kinds: [EVENT_KINDS.APP],
 		'#d': allIdentifiers,
 		...(platformTag ? { '#f': [platformTag] } : {}),
 		limit: allRefs.size * 2 + 20
 	});
-	const existingKeys = new Set(
+	const existingKeys = new SvelteSet(
 		existing.map((e) => {
 			const dTag = e.tags?.find((t) => t[0] === 'd')?.[1] ?? '';
 			return `${e.pubkey}:${dTag}`;

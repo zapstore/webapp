@@ -8,8 +8,7 @@
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import StudioCountryChart from './StudioCountryChart.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
-	import { FORCE_EMPTY_INSIGHTS } from './studio-config.js';
-	import StudioEmptyState from './StudioEmptyState.svelte';
+	import StudioInsightsEmptyPreview from './StudioInsightsEmptyPreview.svelte';
 	import { buildIsoDateRange, timeframeToDays } from '$lib/studio/analytics-http.js';
 	import {
 		getCountryBreakdown,
@@ -107,15 +106,13 @@
 	});
 
 	// ── Show empty state once apps have finished loading with zero results ───
-	const showEmpty = $derived(
-		FORCE_EMPTY_INSIGHTS || (!studio.appsLoading && studio.userApps.length === 0)
-	);
+	const showEmpty = $derived(!studio.appsLoading && studio.userApps.length === 0);
 </script>
 
 <div class="insights-scroll">
 
 {#if showEmpty}
-	<StudioEmptyState context="insights" />
+	<StudioInsightsEmptyPreview />
 {:else}
 
 	<!-- Downloads section -->

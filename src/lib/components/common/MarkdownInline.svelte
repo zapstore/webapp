@@ -10,7 +10,7 @@ import MarkdownInline from './MarkdownInline.svelte';
 let { tokens = [] } = $props();
 </script>
 
-{#each tokens as token}
+{#each tokens as token, i (i)}
 	{#if token.type === 'text'}
 		{#if token.tokens?.length}
 			<MarkdownInline tokens={token.tokens} />
@@ -51,7 +51,7 @@ let { tokens = [] } = $props();
 		<img src={token.href} alt={token.text} title={token.title ?? undefined} loading="lazy" />
 
 	{:else if token.type === 'html'}
-		<!-- Pre-validated HTML: emoji <img> tags from tokenizeNostrMarkdown -->
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html token.raw}
 
 	{:else}

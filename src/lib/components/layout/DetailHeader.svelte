@@ -19,7 +19,6 @@ import { getCurrentPubkey, connect } from '$lib/stores/auth.svelte.js';
 import { queryEvent, fetchProfile } from '$lib/nostr';
 import { parseProfile } from '$lib/nostr/models';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
-import ProfilePicStack from '$lib/components/common/ProfilePicStack.svelte';
 import Timestamp from '$lib/components/common/Timestamp.svelte';
 import { zapstoreProfileStore, ZAPSTORE_PUBKEY, startProfileSearchBackground } from '$lib/services/profile-search';
 import SearchModal from '$lib/components/common/SearchModal.svelte';
@@ -35,8 +34,8 @@ let {
     title = '',            // page variant: header title
     showBack: _showBack = false,      // page variant: show back button
     rightContent,          // page variant: optional snippet rendered right of title
-    publisherPic = null, publisherName = null, publisherNameForPic = undefined, publisherPubkey = null, publisherUrl = '#', timestamp = null, catalogs = [], catalogText = 'In Zapstore', showPublisher = true, scrollThreshold, getStartedModalOpen = $bindable(false),
-    showBackButton = false, onBack, compactPadding = false, catalogDisplayOnly = false
+    publisherPic = null, publisherName = null, publisherNameForPic = undefined, publisherPubkey = null, publisherUrl = '#', timestamp = null, catalogs = [], catalogText: _catalogText = 'In Zapstore', showPublisher = true, scrollThreshold, getStartedModalOpen = $bindable(false),
+    showBackButton = false, onBack, compactPadding = false, catalogDisplayOnly: _catalogDisplayOnly = false
 } = $props();
 const nameForPic = $derived(publisherNameForPic !== undefined ? publisherNameForPic : publisherName);
 function formatNpubDisplay(npubStr) {
@@ -64,7 +63,7 @@ const isZapstoreCatalog = $derived(catalogs.length > 0 &&
     ZAPSTORE_PUBKEY &&
     (catalogs[0].pubkey.toLowerCase() === ZAPSTORE_PUBKEY.toLowerCase() ||
         (catalogs[0].name ?? '').toLowerCase() === 'zapstore'));
-const effectiveCatalogs = $derived(isZapstoreCatalog && zapstoreProfile
+const _effectiveCatalogs = $derived(isZapstoreCatalog && zapstoreProfile
     ? [{ ...catalogs[0], pictureUrl: zapstoreProfile.picture, name: zapstoreProfile.name }]
     : catalogs);
 let scrolled = $state(false);
@@ -360,14 +359,14 @@ async function _handleSignIn() {
 			{/if}
 			<!-- Catalog ProfilePicStack commented out for now
 			{#if catalogs.length > 0}
-				<div class="catalog-dropdown-wrap" bind:this={catalogDropdownContainer} class:catalog-display-only={catalogDisplayOnly}>
+				<div class="catalog-dropdown-wrap" bind:this={catalogDropdownContainer} class:catalog-display-only={_catalogDisplayOnly}>
 					<ProfilePicStack
-						profiles={effectiveCatalogs}
-						text={catalogText}
+						profiles={_effectiveCatalogs}
+						text={_catalogText}
 						size="sm"
-						onclick={catalogDisplayOnly ? undefined : () => (catalogDropdownOpen = !catalogDropdownOpen)}
+						onclick={_catalogDisplayOnly ? undefined : () => (catalogDropdownOpen = !catalogDropdownOpen)}
 					/>
-					{#if !catalogDisplayOnly && catalogDropdownOpen}
+					{#if !_catalogDisplayOnly && catalogDropdownOpen}
 						<div class="catalog-dropdown-panel" role="dialog" aria-label="Catalog info">
 							<p class="catalog-dropdown-text">
 								For now Zapstore only reads app events from the Zapstore server (relay + Blossom).
