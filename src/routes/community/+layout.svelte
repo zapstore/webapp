@@ -18,7 +18,6 @@
 	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import DetailsTab from '$lib/components/social/DetailsTab.svelte';
-	import { relayLoading } from '$lib/stores/relay-loading.svelte.js';
 
 	let detailsModalOpen = $state(false);
 	let termsModalOpen = $state(false);
@@ -177,9 +176,6 @@
 			>
 				<span class="section-switcher-label">
 					{activeSectionLabel}
-					{#if (activeSection === 'forum' && relayLoading.forum) || (activeSection === 'activity' && relayLoading.activity)}
-						<span class="nav-sync-dot" aria-hidden="true"></span>
-					{/if}
 				</span>
 				<span class="section-chevron" class:open={sectionMenuOpen}>
 					<ChevronDown variant="outline" color="var(--white33)" size={14} strokeWidth={1.4} />
@@ -232,9 +228,6 @@
 							{/if}
 						</span>
 						<span class="nav-label">{section.label}</span>
-						{#if (section.id === 'forum' && relayLoading.forum) || (section.id === 'activity' && relayLoading.activity)}
-							<span class="nav-sync-dot" aria-hidden="true"></span>
-						{/if}
 					</a>
 				{/each}
 			</nav>
@@ -542,23 +535,6 @@
 
 	.nav-item.active .icon-wrap.icon-emoji {
 		opacity: 1;
-	}
-
-	/* Background relay-sync indicator — tiny pulsing dot at far right of nav item */
-	.nav-sync-dot {
-		display: inline-block;
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: var(--white33);
-		margin-left: auto;
-		flex-shrink: 0;
-		animation: nav-dot-pulse 1.6s ease-in-out infinite;
-	}
-
-	@keyframes nav-dot-pulse {
-		0%, 100% { opacity: 0.2; transform: scale(0.8); }
-		50% { opacity: 0.65; transform: scale(1); }
 	}
 
 	.section-icon {

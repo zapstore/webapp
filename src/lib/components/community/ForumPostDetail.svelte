@@ -4,17 +4,19 @@
  * Simpler than chateau: enforcing relay, all comments allowed, no filtering.
  */
 import { browser } from '$app/environment';
+import { untrack } from 'svelte';
 import { nip19 } from 'nostr-tools';
 import {
 	queryEvents,
 	queryEvent,
 	liveQuery,
+	queryForumThreadCommentsByPostId,
+	queryZapReceiptsByTargetEventId,
 	fetchComments,
 	fetchProfilesBatch,
 	fetchZapsByEventIds,
 	fetchZapReceiptsByPubkeys,
 	fetchLabelEvents,
-	parseForumPost,
 	parseProfile,
 	parseComment,
 	parseZapReceipt,
@@ -38,6 +40,7 @@ import BottomBar from '$lib/components/social/BottomBar.svelte';
 import EmptyState from '$lib/components/common/EmptyState.svelte';
 import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
 import MediaLightboxModal from '$lib/components/modals/MediaLightboxModal.svelte';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 let {
 	post: postProp = null,
@@ -48,9 +51,15 @@ let {
 	openCommentId = null
 } = $props();
 
+/** Clears stale thread rows when navigating between posts (liveQuery may emit a tick later). */
+let lastCommentThreadPostId = $state('');
+
 let post = $derived.by(() => postProp ? { ...postProp } : null);
+/** Stable id for thread effects — avoids re-fetch when other post fields change. */
+const threadPostId = $derived(post?.id ?? '');
 let authorProfile = $state(null);
 let comments = $state([]);
+/** False when there is no thread yet; true only until the first Dexie snapshot for the active `threadPostId`. */
 let commentsLoading = $state(false);
 let commentsSyncing = $state(false);
 let commentsError = $state('');
@@ -63,7 +72,7 @@ let zaps = $state([]);
 let zapsLoading = $state(false);
 let profiles = $state({});
 let profilesLoading = $state(false);
-let zapperProfiles = $state(new Map());
+let zapperProfiles = new SvelteMap();
 const otherZaps = $derived(
 	zaps.map((z) => {
 		const prof = z.senderPubkey ? zapperProfiles.get(z.senderPubkey) : undefined;
@@ -86,40 +95,133 @@ let lightboxUrls = $state([]);
 let lightboxIndex = $state(0);
 
 // ── Reactive comment list ──────────────────────────────────────────────────
-// liveQuery re-fires whenever Dexie changes (e.g. new comment published from
-// the Inbox or another tab), keeping the comment list current without a reload.
+// Single Dexie `_tags` anyOf(e,E) + liveQuery — replaces dual queryEvents + duplicate load effect.
 const commentQuery = $derived(
-	browser && post?.id
-		? liveQuery(async () => {
-				const id = post.id;
-				const [lo, hi] = await Promise.all([
-					queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': [id], limit: 500 }),
-					queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': [id], limit: 500 })
-				]);
-				const byId = new Map();
-				for (const e of [...lo, ...hi]) if (e?.id) byId.set(e.id, e);
-				return Array.from(byId.values()).sort((a, b) => a.created_at - b.created_at);
-			})
+	browser && threadPostId
+		? liveQuery(() => queryForumThreadCommentsByPostId(threadPostId))
 		: null
 );
+
+$effect(() => {
+	const id = threadPostId;
+	if (!id) {
+		commentsLoading = false;
+		return;
+	}
+	if (lastCommentThreadPostId !== id) {
+		lastCommentThreadPostId = id;
+		comments = [];
+		commentsLoading = true;
+	}
+});
+
+$effect(() => {
+	if (post?.id) commentsError = '';
+});
+
+/** Eager IndexedDB read on thread change — same query as liveQuery, fills rows before liveQuery's first async tick. */
+$effect(() => {
+	const id = threadPostId;
+	if (!browser || !id) return;
+	let cancelled = false;
+	void (async () => {
+		try {
+			const evs = await queryForumThreadCommentsByPostId(id);
+			if (cancelled || threadPostId !== id) return;
+			const realIds = new Set(evs.map((e) => e.id));
+			const optimistic = untrack(() =>
+				comments.filter((c) => c.pending && !realIds.has(c.id))
+			);
+			const parsed = evs.map((e) => {
+				const c = parseComment(e);
+				try {
+					c.npub = nip19.npubEncode(e.pubkey);
+				} catch {
+					c.npub = '';
+				}
+				return c;
+			});
+			comments = [...parsed, ...optimistic];
+		} catch (err) {
+			console.error('[ForumPostDetail] Eager thread load:', err);
+			commentsLoading = false;
+		} finally {
+			if (!cancelled && threadPostId === id) commentsLoading = false;
+		}
+	})();
+	return () => {
+		cancelled = true;
+	};
+});
 
 $effect(() => {
 	if (!commentQuery) return;
 	const sub = commentQuery.subscribe({
 		next: (evs) => {
 			const all = evs ?? [];
-			// Preserve in-flight optimistic comments (pending: true) until real events land.
 			const realIds = new Set(all.map((e) => e.id));
 			const optimistic = comments.filter((c) => c.pending && !realIds.has(c.id));
 			const parsed = all.map((e) => {
 				const c = parseComment(e);
-				try { c.npub = nip19.npubEncode(e.pubkey); } catch { c.npub = ''; }
+				try {
+					c.npub = nip19.npubEncode(e.pubkey);
+				} catch {
+					c.npub = '';
+				}
 				return c;
 			});
 			comments = [...parsed, ...optimistic];
+			commentsLoading = false;
+		},
+		error: (err) => {
+			console.error('[ForumPostDetail] Comment liveQuery:', err);
+			commentsError = 'Failed to load comments';
+			commentsLoading = false;
 		}
 	});
 	return () => sub.unsubscribe();
+});
+
+/** Post author from Dexie for fast header paint (parallel to thread liveQuery). */
+$effect(() => {
+	const pk = post?.pubkey;
+	if (!pk) {
+		authorProfile = null;
+		return;
+	}
+	let cancelled = false;
+	(async () => {
+		const authorLocal = await queryEvent({ kinds: [0], authors: [pk], limit: 1 });
+		if (cancelled) return;
+		if (authorLocal?.content) {
+			try {
+				authorProfile = parseProfile(authorLocal);
+			} catch {
+				/* ignore */
+			}
+		} else {
+			authorProfile = null;
+		}
+	})();
+	return () => {
+		cancelled = true;
+	};
+});
+
+/** Relay NIP-22 thread refresh — puts events into Dexie; liveQuery picks them up. */
+$effect(() => {
+	const pk = post?.pubkey;
+	const id = post?.id;
+	if (!pk || !id) return;
+	commentsSyncing = true;
+	const rs = commentZapRelayReadSince();
+	void fetchComments(pk, null, { eventId: id, since: rs, timeout: 6000 })
+		.catch((err) => {
+			console.warn('[ForumPostDetail] Relay comment fetch:', err);
+		})
+		.finally(() => {
+			commentsSyncing = false;
+		});
 });
 
 const npub = $derived(post?.pubkey ? (() => { try { return nip19.npubEncode(post.pubkey); } catch { return ''; } })() : '');
@@ -178,73 +280,68 @@ function parseZapRows(events, postId) {
 	return out;
 }
 
-async function loadForumPostZaps(postId, postPubkey) {
+function mergeParsedZapRows(existing, incoming) {
+	const byId = /** @type {Record<string, (typeof existing)[number]>} */ ({});
+	for (const z of existing) {
+		if (z?.id) byId[z.id] = z;
+	}
+	for (const z of incoming) {
+		if (z?.id && byId[z.id] === undefined) byId[z.id] = z;
+	}
+	return Object.values(byId).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
+
+/** One Dexie `_tags` read for e/E + relay by event id. Recipient fallback runs idle (see zaps effect). */
+async function loadForumPostZapsPhase1(postId) {
 	const pid = String(postId ?? '').toLowerCase();
 	if (!pid) return [];
-	const byId = new Map();
+	const byId = /** @type {Record<string, ReturnType<typeof parseZapRows>[number]>} */ ({});
 	const addEvents = (events) => {
 		for (const z of parseZapRows(events, pid)) {
-			if (!byId.has(z.id)) byId.set(z.id, z);
+			if (!byId[z.id]) byId[z.id] = z;
 		}
 	};
-
-	// 1) Dexie local-first: strict e/E + recipient fallback filtered by parsed target.
-	const [dexieByE, dexieByEUpper, dexieByP] = await Promise.all([
-		queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#e': [pid], limit: 300 }),
-		queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#E': [pid], limit: 300 }),
-		postPubkey
-			? queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#p': [postPubkey], limit: 500 })
-			: Promise.resolve([])
-	]);
-	addEvents(dexieByE);
-	addEvents(dexieByEUpper);
-	addEvents(dexieByP);
-
-	// 2) Relay by e/E reference (fast path).
+	addEvents(await queryZapReceiptsByTargetEventId(pid));
 	try {
-		const byEventIds = await fetchZapsByEventIds([pid], { timeout: 5000 });
-		addEvents(byEventIds);
+		addEvents(await fetchZapsByEventIds([pid], { timeout: 5000 }));
 	} catch {
-		/* keep local results */
+		/* keep local */
 	}
+	return Object.values(byId).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
 
-	// 3) Relay by recipient pubkey fallback, then strict post-id filter via parser.
-	if (postPubkey) {
-		try {
-			const byRecipient = await fetchZapReceiptsByPubkeys([postPubkey], { timeout: 6000, limit: 500 });
-			addEvents(byRecipient);
-		} catch {
-			/* keep partial */
+/** Full local + relay merge — used by explicit refetch after publish/zap. */
+async function loadForumPostZapsFull(postId, postPubkey) {
+	const phase1 = await loadForumPostZapsPhase1(postId);
+	if (!postPubkey) return phase1;
+	const byId = /** @type {Record<string, (typeof phase1)[number]>} */ ({});
+	for (const z of phase1) {
+		if (z?.id) byId[z.id] = z;
+	}
+	const addEvents = (events) => {
+		for (const z of parseZapRows(events, String(postId ?? '').toLowerCase())) {
+			if (!byId[z.id]) byId[z.id] = z;
 		}
+	};
+	try {
+		const byRecipient = await fetchZapReceiptsByPubkeys([postPubkey], { timeout: 6000, limit: 500 });
+		addEvents(byRecipient);
+	} catch {
+		/* keep partial */
 	}
-
-	return Array.from(byId.values()).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+	return Object.values(byId).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
 
-/**
- * Same as commentQuery liveQuery: #e and #E on post id — includes nested replies
- * (which use E=root), not only direct #e children.
- */
-async function queryForumThreadCommentsFromDexie(postId) {
-	if (!postId) return [];
-	const [lo, hi] = await Promise.all([
-		queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': [postId], limit: 500 }),
-		queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': [postId], limit: 500 })
-	]);
-	const byId = new Map();
-	for (const e of [...lo, ...hi]) if (e?.id) byId.set(e.id, e);
-	return Array.from(byId.values()).sort((a, b) => a.created_at - b.created_at);
-}
-
-/** Kind 0 from IndexedDB so names/avatars match forum-feed latency (local-first). */
+/** Kind 0 from IndexedDB — only authors still missing from `profiles`. */
 async function mergeProfilesFromDexie(pubkeys) {
 	const uniq = [...new Set(pubkeys.filter((pk) => typeof pk === 'string' && /^[0-9a-f]{64}$/i.test(pk)))];
-	if (uniq.length === 0) return;
+	const need = uniq.filter((pk) => !profiles[pk]);
+	if (need.length === 0) return;
 	const CHUNK = 40;
 	/** @type {Record<string, { displayName?: string, name?: string, picture?: string }>} */
 	const patch = {};
-	for (let i = 0; i < uniq.length; i += CHUNK) {
-		const chunk = uniq.slice(i, i + CHUNK);
+	for (let i = 0; i < need.length; i += CHUNK) {
+		const chunk = need.slice(i, i + CHUNK);
 		const evs = await queryEvents({ kinds: [0], authors: chunk, limit: chunk.length });
 		for (const ev of evs) {
 			if (!ev?.pubkey || !ev.content) continue;
@@ -264,78 +361,33 @@ async function mergeProfilesFromDexie(pubkeys) {
 }
 
 $effect(() => {
-	const p = postProp;
-	if (!p?.id) return;
-	post = { ...p };
-	rawPostEvent = p._raw ?? null;
-	commentsLoading = true;
-	commentsSyncing = true;
+	const pid = post?.id;
+	const ppk = post?.pubkey;
+	const pars = comments;
+	if (!pid) return;
+
+	const uniq = [
+		...new Set([...(ppk ? [ppk] : []), ...pars.map((c) => c.pubkey).filter(Boolean)])
+	];
+	if (uniq.length === 0) return;
+
 	let cancelled = false;
 
 	(async () => {
+		profilesLoading = true;
 		try {
-			// Post author from Dexie first (same profiles the forum list already warmed).
-			if (p.pubkey) {
-				const authorLocal = await queryEvent({ kinds: [0], authors: [p.pubkey], limit: 1 });
-				if (cancelled) return;
-				if (authorLocal?.content) {
-					try {
-						authorProfile = parseProfile(authorLocal);
-					} catch {
-						/* ignore */
-					}
-				}
-			}
-
-			// Full thread from Dexie — must match liveQuery (#e + #E) so nested replies appear with first paint.
-			let threadEvs = await queryForumThreadCommentsFromDexie(p.id);
+			await mergeProfilesFromDexie(uniq);
 			if (cancelled) return;
-
-			if (threadEvs.length > 0) {
-				comments = threadEvs.map((e) => {
-					const c = parseComment(e);
-					c.npub = nip19.npubEncode(e.pubkey);
-					return c;
-				});
-				commentsLoading = false;
-				const threadPks = threadEvs.map((e) => e.pubkey);
-				if (p.pubkey) threadPks.push(p.pubkey);
-				await mergeProfilesFromDexie(threadPks);
-				if (cancelled) return;
-			}
-
-			profilesLoading = true;
-
-			const rs = commentZapRelayReadSince();
-			await fetchComments(p.pubkey, null, { eventId: p.id, since: rs, timeout: 6000 });
-			if (cancelled) return;
-
-			// Relay path persists to Dexie — re-read so merges + reply depth match DB before we drop the tab spinner.
-			threadEvs = await queryForumThreadCommentsFromDexie(p.id);
-			if (cancelled) return;
-
-			comments = threadEvs.map((e) => {
-				const c = parseComment(e);
-				c.npub = nip19.npubEncode(e.pubkey);
-				return c;
-			});
-			commentsLoading = false;
-			commentsError = '';
-
-			const pks = [...new Set(threadEvs.map((e) => e.pubkey))];
-			await mergeProfilesFromDexie(p.pubkey ? [...pks, p.pubkey] : pks);
-			if (cancelled) return;
-
-			const missing = pks.filter((pk) => !profiles[pk]);
+			const missing = uniq.filter((pk) => !profiles[pk]);
 			if (missing.length > 0) {
 				const batch = await fetchProfilesBatch(missing, { timeout: 3000 });
 				if (cancelled) return;
 				const next = { ...profiles };
-				for (const [pk, ev] of batch) {
+				for (const [pub, ev] of batch) {
 					if (ev?.content) {
 						try {
 							const j = JSON.parse(ev.content);
-							next[pk] = { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture };
+							next[pub] = { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture };
 						} catch {
 							/* skip */
 						}
@@ -343,12 +395,10 @@ $effect(() => {
 				}
 				profiles = next;
 			}
-
-			if (p.pubkey && !authorProfile) {
-				const batch = await fetchProfilesBatch([p.pubkey], { timeout: 3000 });
-				if (cancelled) return;
-				const ev = batch.get(p.pubkey);
-				if (ev) {
+			if (cancelled) return;
+			if (ppk && !authorProfile) {
+				const ev = (await fetchProfilesBatch([ppk], { timeout: 3000 })).get(ppk);
+				if (ev?.content) {
 					try {
 						authorProfile = parseProfile(ev);
 					} catch {
@@ -356,13 +406,10 @@ $effect(() => {
 					}
 				}
 			}
-
 		} catch (err) {
-			console.error('[ForumPostDetail] Comment thread load failed:', err);
-			commentsError = 'Failed to load comments';
+			console.error('[ForumPostDetail] Profile merge failed:', err);
 		} finally {
-			commentsSyncing = false;
-			profilesLoading = false;
+			if (!cancelled) profilesLoading = false;
 		}
 	})();
 
@@ -376,23 +423,32 @@ $effect(() => {
 	const ppk = post?.pubkey;
 	if (!pid) return;
 	let cancelled = false;
+	/** @type {ReturnType<typeof setTimeout> | number} */
+	let idleHandle = 0;
+
 	(async () => {
 		zapsLoading = true;
 		try {
-			const parsedRows = await loadForumPostZaps(pid, ppk);
+			const phase1 = await loadForumPostZapsPhase1(pid);
 			if (cancelled) return;
-			zaps = parsedRows;
+			zaps = phase1;
 			const senders = [...new Set(zaps.map((z) => z.senderPubkey).filter(Boolean))];
 			const batch = await fetchProfilesBatch(senders, { timeout: 3000 });
 			if (cancelled) return;
-			const next = new Map(zapperProfiles);
+			const next = new SvelteMap(zapperProfiles);
 			for (const pk of senders) {
 				const ev = batch.get(pk);
 				if (ev?.content) {
 					try {
 						const j = JSON.parse(ev.content);
-						next.set(pk, { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture });
-					} catch {}
+						next.set(pk, {
+							displayName: j.display_name ?? j.name,
+							name: j.name,
+							picture: j.picture
+						});
+					} catch {
+						/* skip */
+					}
 				}
 			}
 			zapperProfiles = next;
@@ -401,8 +457,61 @@ $effect(() => {
 		} finally {
 			if (!cancelled) zapsLoading = false;
 		}
+
+		if (!ppk || cancelled) return;
+
+		const runRecipientFallback = async () => {
+			if (cancelled) return;
+			try {
+				const byRecipient = await fetchZapReceiptsByPubkeys([ppk], { timeout: 6000, limit: 500 });
+				if (cancelled) return;
+				const extra = parseZapRows(byRecipient, pid);
+				zaps = mergeParsedZapRows(zaps, extra);
+				const newSenders = [...new Set(extra.map((z) => z.senderPubkey).filter(Boolean))].filter(
+					(p) => p && !zapperProfiles.has(p)
+				);
+				if (newSenders.length === 0) return;
+				const batch = await fetchProfilesBatch(newSenders, { timeout: 3000 });
+				if (cancelled) return;
+				const zm = new SvelteMap(zapperProfiles);
+				for (const senderPk of newSenders) {
+					const ev = batch.get(senderPk);
+					if (ev?.content) {
+						try {
+							const j = JSON.parse(ev.content);
+							zm.set(senderPk, {
+								displayName: j.display_name ?? j.name,
+								name: j.name,
+								picture: j.picture
+							});
+						} catch {
+							/* skip */
+						}
+					}
+				}
+				zapperProfiles = zm;
+			} catch {
+				/* keep phase-1 zaps */
+			}
+		};
+
+		if (typeof requestIdleCallback === 'function') {
+			idleHandle = requestIdleCallback(runRecipientFallback, { timeout: 4000 });
+		} else {
+			idleHandle = setTimeout(runRecipientFallback, 0);
+		}
 	})();
-	return () => { cancelled = true; };
+
+	return () => {
+		cancelled = true;
+		if (idleHandle) {
+			if (typeof cancelIdleCallback === 'function') {
+				cancelIdleCallback(/** @type {number} */ (idleHandle));
+			} else {
+				clearTimeout(idleHandle);
+			}
+		}
+	};
 });
 
 // Labels: merge self-labels (t tags) with kind 1985 events from relay
@@ -419,10 +528,10 @@ $effect(() => {
 	labelsLoading = true;
 	(async () => {
 		try {
-			/** @type {Map<string, Set<string>>} */
-			const labelMap = new Map();
+			/** @type {SvelteMap<string, SvelteSet<string>>} */
+			const labelMap = new SvelteMap();
 			for (const label of selfLabels) {
-				if (!labelMap.has(label)) labelMap.set(label, new Set());
+				if (!labelMap.has(label)) labelMap.set(label, new SvelteSet());
 				if (postPubkey) labelMap.get(label)?.add(postPubkey);
 			}
 			const labelRelays = [...new Set([...(relays ?? []), ...DEFAULT_SOCIAL_RELAYS])];
@@ -431,7 +540,7 @@ $effect(() => {
 				const lTags = ev.tags.filter((t) => t[0] === 'l' && t[1]);
 				for (const lt of lTags) {
 					const lv = lt[1];
-					if (!labelMap.has(lv)) labelMap.set(lv, new Set());
+					if (!labelMap.has(lv)) labelMap.set(lv, new SvelteSet());
 					labelMap.get(lv)?.add(ev.pubkey);
 				}
 			}
@@ -444,7 +553,9 @@ $effect(() => {
 						try {
 							const j = JSON.parse(ev.content);
 							next[pk] = { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture };
-						} catch {}
+						} catch {
+							/* ignore */
+						}
 					}
 				}
 				profiles = next;
@@ -535,7 +646,9 @@ async function handleCommentSubmit(e) {
 						profiles = { ...profiles, [myPk]: { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture } };
 					}
 				}
-			} catch (_) {}
+			} catch {
+				/* ignore */
+			}
 		}
 	} catch (err) {
 		console.error('[ForumPostDetail] Comment failed:', err);
@@ -548,7 +661,7 @@ async function handleCommentSubmit(e) {
 
 function refetchZaps() {
 	if (!post?.id) return;
-	loadForumPostZaps(post.id, post.pubkey).then((rows) => {
+	loadForumPostZapsFull(post.id, post.pubkey).then((rows) => {
 		zaps = rows;
 	});
 }
@@ -646,6 +759,7 @@ function handleForumBottomBarZap(event) {
 				<div class="social-tabs-wrap">
 					<SocialTabs
 						app={{}}
+						includeReceiptZapsInCommentsFeed={false}
 						mainEventIds={[post.id]}
 						openCommentId={openCommentId}
 						signEvent={signEvent}

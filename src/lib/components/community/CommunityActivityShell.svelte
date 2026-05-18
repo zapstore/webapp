@@ -1,11 +1,9 @@
 <script lang="js">
 	/**
-	 * Activity: local-first from Dexie. Relay `since` is unified: {@link activityRelaySince} →
-	 * `commentZapRelayReadSince()` for bulk 1111/9735 seed and for {@link backfillActivityThreadsScoped}
-	 * (comments + zaps by thread refs, not zaps-only).
-	 * Zaps are filtered to the same scope as NIP-22 comments, then merged with comments into **one**
-	 * newest-first timeline; a single visible row limit preserves true chronological order (no separate
-	 * comment vs zap slice). Scroll sentinel extends the window; no “load more” button.
+	 * Activity: local-first from Dexie. Relay `since` is unified via {@link activityRelaySince}.
+	 * **Activity tab** list: kind **1111** only (plain comments + z-wrappers); no bulk 9735 in the feed.
+	 * **Inbox embed** (`#p`): kind **1111** plus raw **9735** zap receipts (seed + Dexie merge).
+	 * Scroll sentinel extends the window; no “load more” button.
 	 */
 	import { browser } from '$app/environment';
 	import { tick } from 'svelte';
@@ -53,7 +51,6 @@
 	} from '$lib/config';
 	import { goto } from '$app/navigation';
 	import { setCached } from '$lib/stores/query-cache.js';
-	import { relayLoading } from '$lib/stores/relay-loading.svelte.js';
 	import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	import CommentCard from '$lib/components/community/CommentCard.svelte';
 	import ZapActivityCard from '$lib/components/community/ZapActivityCard.svelte';
@@ -83,11 +80,6 @@
 		/** Called with (loading: boolean) when the inbox relay fetch starts/ends. */
 		onRelayLoadingChange = null
 	} = $props();
-
-	$effect(() => {
-		if (!inboxEmbed || !onRelayLoadingChange) return;
-		onRelayLoadingChange(activityLoading);
-	});
 
 	/** Re-seed when user opens Activity (shell can stay mounted while they use Forum). */
 	const activityRouteActive = $derived(
@@ -675,7 +667,7 @@
 	});
 
 	$effect(() => {
-		if (!browser || !activityReady) return;
+		if (!browser || !activityReady || (!inboxEmbed && !activityRouteActive)) return;
 		void activityThreadComments;
 		void activityThreadZaps;
 		void activityRootEvents;
@@ -731,7 +723,7 @@
 
 	function loadMoreActivity() {
 		activityFeedVisibleLimit = Math.min(ACTIVITY_FEED_VISIBLE_MAX, activityFeedVisibleLimit + 160);
-		if (!inboxUserPubkey) void seedActivityFromRelay();
+		if (!inboxUserPubkey && activityRouteActive) void seedActivityFromRelay();
 	}
 
 	/** @param {string} eventId */
@@ -758,7 +750,7 @@
 	}
 
 	/**
-	 * One in-flight inbox seed at a time. Each seed is two large REQs (1111 + 9735 by #p);
+	 * One in-flight inbox seed at a time. Merged REQ: kind 1111 + kind 9735 by `#p` (Activity tab list omits 9735 only).
 	 * duplicate $effect runs / strict-mode double mounts must not stack them (relay rate limits).
 	 */
 	let _inboxSeedFlight = /** @type {Promise<void> | null} */ (null);
@@ -773,28 +765,24 @@
 			try {
 				activityAddrRelayAttempted.clear();
 				const sinceSec = commentZapRelayReadSince();
-				await Promise.all([
-					fetchFromRelays(
-						[ZAPSTORE_RELAY],
+				await fetchFromRelays(
+					[ZAPSTORE_RELAY],
+					[
 						{
 							kinds: [EVENT_KINDS.COMMENT],
 							'#p': [pk],
 							since: sinceSec,
 							limit: 500
 						},
-						{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'inbox-1111-p' }
-					),
-					fetchFromRelays(
-						[ZAPSTORE_RELAY],
 						{
 							kinds: [EVENT_KINDS.ZAP_RECEIPT],
 							'#p': [pk],
 							since: sinceSec,
 							limit: 400
-						},
-						{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'inbox-9735-p' }
-					)
-				]);
+						}
+					],
+					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'inbox-1111-9735-p' }
+				);
 			} catch (err) {
 				console.error('[Inbox] relay seed failed', err);
 				activityError = 'Failed to sync inbox.';
@@ -849,8 +837,7 @@
 	/**
 	 * True when Dexie already had activity events before the current seed started (return visit).
 	 * On a return visit: show local data immediately (local-first).
-	 * On a fresh/cleared DB: hold the skeleton until both seeds finish, so the zap-only
-	 * flash (zap seed writing before comment seed) never shows.
+	 * On a fresh/cleared DB: hold the skeleton until the initial relay seed finishes.
 	 */
 	let activityHadCachedData = $state(false);
 	/** Footer target for intersection-based “load more” (throttled). */
@@ -861,8 +848,20 @@
 	const activityAddrRelayAttempted = new Set();
 	let activityAddrRelayInFlight = false;
 
+	/** Blurple relay bar: stays on for initial seed, thread backfill, or addr-root fetch (matches skeleton/footer loaders). */
+	const activityRelayBarLoading = $derived(
+		activityLoading || activityBackfillInFlight || activityAddrRelayInFlight
+	);
+
 	$effect(() => {
-		const feedAddrReady = inboxEmbed ? !!(inboxUserPubkey && inboxActive) : activityReady;
+		if (!inboxEmbed || !onRelayLoadingChange) return;
+		onRelayLoadingChange(activityRelayBarLoading);
+	});
+
+	$effect(() => {
+		const feedAddrReady = inboxEmbed
+			? !!(inboxUserPubkey && inboxActive)
+			: activityReady && activityRouteActive;
 		if (!browser || !feedAddrReady || !isOnline()) return;
 		const missing = [];
 		for (const c of activityThreadComments) {
@@ -890,7 +889,9 @@
 
 	// Subscribe in $effect (not $derived.by): Svelte 5 + liveQuery Observable must not be recreated opaquely; `filter` tolerates kind stored as string.
 	$effect(() => {
-		const feedLive = inboxEmbed ? !!(inboxUserPubkey && inboxActive) : activityReady;
+		const feedLive = inboxEmbed
+			? !!(inboxUserPubkey && inboxActive)
+			: activityReady && activityRouteActive;
 		if (!browser || !feedLive) return;
 		const visibleLimitSnap = Math.min(ACTIVITY_FEED_VISIBLE_MAX, activityFeedVisibleLimit);
 
@@ -938,57 +939,21 @@
 				else regularCommentEvents.push(ev);
 			}
 
-			// Build set of receipt IDs covered by kind 1111 z-wrappers to avoid double display.
-			// Zaps WITH comments produce both a kind 9735 receipt AND a kind 1111 z-wrapper;
-			// only the z-wrapper (interactive) is shown — the raw receipt is skipped.
+			// Raw 9735 dedup: skip receipts already represented by a kind-1111 z-wrapper (inbox only loads both).
 			const coveredReceiptIds = new Set(
 				zapWrapperParsedList.map(({ parsed }) => parsed.zapReceiptId).filter(Boolean)
 			);
-
-			// Query raw kind 9735 receipts from Dexie using indexed lookups only.
-			// filterZapsForActivityFeed (full scan + iterative expansion) must NOT run inside
-			// a liveQuery — it fires on every relay event and would block the main thread.
-			let activityScopedRawZaps;
-		if (inboxUserPubkey) {
-			// Inbox: all receipts targeting the user, direct #p index query.
-			activityScopedRawZaps = await queryEvents({
-				kinds: [EVENT_KINDS.ZAP_RECEIPT],
-				'#p': [inboxUserPubkey],
-				limit: Math.min(visibleLimitSnap + 20, 800)
-			});
-			} else {
-				// Activity: two fast indexed queries, then union.
-				// 1) K-tagged receipts (NIP-22 activity scope — modern clients set this).
-				const kTagged = await queryEvents({
+			let uncoveredZapReceipts = /** @type {import('nostr-tools').NostrEvent[]} */ ([]);
+			if (inboxUserPubkey) {
+				const rawZaps = await queryEvents({
 					kinds: [EVENT_KINDS.ZAP_RECEIPT],
-					'#K': ACTIVITY_NIP22_K_TAGS,
-					limit: 300
+					'#p': [inboxUserPubkey],
+					limit: Math.min(visibleLimitSnap + 20, 800)
 				});
-				// 2) a/A-tagged receipts for apps/stacks already referenced in comments.
-				//    aTags come from already-computed scopedComments — no extra Dexie query.
-				const activityATags = new Set();
-				for (const c of scopedComments) {
-					const a = addrTagFromComment(c);
-					if (a && isAddressableActivityATag(a)) activityATags.add(a.toLowerCase());
-				}
-				for (const { ev } of zapWrapperParsedList) {
-					const a = addrTagFromComment(ev);
-					if (a && isAddressableActivityATag(a)) activityATags.add(a.toLowerCase());
-				}
-				const aTagged = activityATags.size > 0
-					? await queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [...activityATags], limit: 200 })
-					: [];
-				// Union, deduped by id.
-				const unionMap = new Map();
-				for (const ev of kTagged) unionMap.set(ev.id, ev);
-				for (const ev of aTagged) unionMap.set(ev.id, ev);
-				activityScopedRawZaps = [...unionMap.values()];
+				uncoveredZapReceipts = rawZaps.filter(
+					(ev) => !coveredReceiptIds.has(ev.id.toLowerCase())
+				);
 			}
-
-			// Drop receipts already represented by a z-wrapper.
-			const uncoveredZapReceipts = activityScopedRawZaps.filter(
-				(ev) => !coveredReceiptIds.has(ev.id.toLowerCase())
-			);
 
 			let merged;
 			/** @type {import('nostr-tools').NostrEvent[]} */
@@ -1008,10 +973,13 @@
 					if (ev.pubkey === pk) continue; // own wrapper
 					merged.push({ kind: 'zap', ts: ev.created_at, row: { event: ev, parsed, isWrapper: true } });
 				}
-				// Raw kind 9735 receipts targeting the user (not covered by z-wrappers).
 				for (const ev of uncoveredZapReceipts) {
 					let p;
-					try { p = parseZapReceipt(ev); } catch { continue; }
+					try {
+						p = parseZapReceipt(ev);
+					} catch {
+						continue;
+					}
 					merged.push({ kind: 'zap', ts: ev.created_at, row: { event: ev, parsed: p, isWrapper: false } });
 				}
 				merged.sort((a, b) => b.ts - a.ts);
@@ -1027,10 +995,7 @@
 				for (const ev of regularCommentEvents) {
 					merged.push({ kind: 'comment', ts: ev.created_at, ev });
 				}
-				// Z-wrappers (kind 1111 with z tag) are interactive comment-style entries.
-				// Raw kind 9735 receipts are intentionally excluded from the activity feed
-				// (they are shown in inbox only). Uncovered receipts remain in threadZaps so
-				// backward-compatible parent-quote resolution still works for old replies.
+				// Z-wrappers (kind 1111 with z tag) as feed rows. Raw kind 9735 is not in this list.
 				for (const { ev, parsed } of zapWrapperParsedList) {
 					merged.push({ kind: 'zap', ts: ev.created_at, row: { event: ev, parsed, isWrapper: true } });
 				}
@@ -1045,8 +1010,9 @@
 			return {
 				feedItems,
 				threadComments: threadCommentsForMap,
-				// threadZaps: z-wrappers (kind 1111) + raw kind 9735 for thread context / root resolution.
-				threadZaps: [...zapWrapperParsedList.map(({ ev }) => ev), ...uncoveredZapReceipts],
+				threadZaps: inboxUserPubkey
+					? [...zapWrapperParsedList.map(({ ev }) => ev), ...uncoveredZapReceipts]
+					: zapWrapperParsedList.map(({ ev }) => ev),
 				hasMoreTimeline
 			};
 		});
@@ -1056,8 +1022,7 @@
 				const feedItems = val?.feedItems ?? [];
 				// On the very first emission: if Dexie already had data we're on a return visit
 				// and should show it immediately (local-first). On a fresh/cleared DB the first
-				// emission is empty → hold the skeleton until both seeds finish so the zap-only
-				// flash (zap seed writing before comment seed) is never shown to the user.
+				// emission is empty → hold the skeleton until the initial relay seed finishes.
 				if (!activityFeedQuerySettled) {
 					activityHadCachedData = feedItems.length > 0;
 				}
@@ -1414,58 +1379,40 @@
 		await Promise.allSettled([commentBackfillByEventIds, commentBackfillByATags]);
 	}
 
-	/** Coalesce concurrent activity seeds — three large REQs plus thread backfill (relay rate limits). */
+	/** Coalesce concurrent activity seeds — one merged REQ (1111 K + forum #h) plus thread backfill. */
 	let _activitySeedFlight = /** @type {Promise<void> | null} */ (null);
 
 	async function seedActivityFromRelay() {
 		if (!browser) return;
+		if (!activityRouteActive) return;
 		if (_activitySeedFlight) return _activitySeedFlight;
 
 		_activitySeedFlight = (async () => {
 			activityLoading = true;
-			relayLoading.activity = true;
 			activityError = '';
 			try {
 				activityAddrRelayAttempted.clear();
 				const sinceSec = activityRelaySince();
 				const lim = ACTIVITY_INITIAL_SEED_LIMIT;
-				// Fetch comments, forum posts, and zap receipts in parallel.
-				// Backfill starts right after comments land.
-				const commentPromise = fetchFromRelays(
-					[ZAPSTORE_RELAY],
+				const seedFilters = [
 					{
 						kinds: [EVENT_KINDS.COMMENT],
 						'#K': ACTIVITY_NIP22_K_TAGS,
 						since: sinceSec,
 						limit: lim
 					},
-					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-1111-K' }
-				);
-				// Kind-11 forum posts scoped to the community (#h tag). Fetching these upfront
-				// ensures root labels resolve immediately.
-				const postPromise = fetchFromRelays(
-					[ZAPSTORE_RELAY],
 					{
 						kinds: [EVENT_KINDS.FORUM_POST],
 						'#h': [ZAPSTORE_COMMUNITY_PUBKEY],
 						since: sinceSec,
 						limit: lim
-					},
-					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-11-posts' }
-				);
-				// Kind 9735 zap receipts with the activity K-tag scope (fast first pass;
-				// filterZapsForActivityFeed in the liveQuery handles broader scoping from Dexie).
-				const zapPromise = fetchFromRelays(
-					[ZAPSTORE_RELAY],
-					{
-						kinds: [EVENT_KINDS.ZAP_RECEIPT],
-						'#K': ACTIVITY_NIP22_K_TAGS,
-						since: sinceSec,
-						limit: lim
-					},
-					{ timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS, feature: 'activity-9735-K' }
-				).catch(() => []);
-				commentPromise
+					}
+				];
+				const combinedPromise = fetchFromRelays([ZAPSTORE_RELAY], seedFilters, {
+					timeout: ACTIVITY_BULK_RELAY_TIMEOUT_MS,
+					feature: 'activity-1111-post-K'
+				});
+				combinedPromise
 					.catch(() => {})
 					.then(async () => {
 						activityBackfillInFlight = true;
@@ -1491,13 +1438,12 @@
 							activityBackfillInFlight = false;
 						}
 					});
-				await Promise.all([commentPromise, postPromise, zapPromise]);
+				await combinedPromise;
 			} catch (err) {
 				console.error('[Activity] relay seed failed', err);
 				activityError = 'Failed to sync activity.';
 			} finally {
 				activityLoading = false;
-				relayLoading.activity = false;
 				activityInitialSeedDone = true;
 			}
 		})();
@@ -2028,7 +1974,7 @@
 				}
 			];
 			if (inboxEmbed && inboxUserPubkey) void seedInboxFromRelay(inboxUserPubkey);
-			else void seedActivityFromRelay();
+			else if (activityRouteActive) void seedActivityFromRelay();
 			return;
 		}
 		if (!rootPostId) return;
@@ -2071,7 +2017,7 @@
 			}
 		];
 		if (inboxEmbed && inboxUserPubkey) void seedInboxFromRelay(inboxUserPubkey);
-		else void seedActivityFromRelay();
+		else if (activityRouteActive) void seedActivityFromRelay();
 	}
 
 	function openZapThreadForum(zapEvent, withReply = false, opts = {}) {
@@ -2391,9 +2337,9 @@
 					? !!threadModalZapId
 					: false}
 		>
-		<!-- Relay sync bar: only for the activity tab; inbox has its own bar in UserInboxPopover -->
+			<!-- Relay sync bar: on until seed, backfill, or addr-root fetch completes (never hides early while skeleton/footer spinners run). -->
 		{#if !inboxEmbed}
-			<RelayLoadingBar loading={activityLoading} />
+			<RelayLoadingBar loading={activityRelayBarLoading} />
 		{/if}
 		{#if !activityReady || !activityFeedQuerySettled || (!inboxEmbed && activityFeedItems.length === 0 && !activityHadCachedData && (!activityInitialSeedDone || activityLoading))}
 			<div class="loading-wrap">

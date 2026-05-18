@@ -43,6 +43,18 @@
 	const loading = $derived(!!eventId && !post);
 	let notFound = $state(false);
 
+	/** Before first paint: restore post from forum-feed cache so we never block the detail on SSR/client-only gap. */
+	$effect.pre(() => {
+		if (!browser) return;
+		const id = eventId;
+		if (!id) return;
+		const cached = getCached(`forum_post:${id}`);
+		if (cached?.id === id) {
+			clientPost = cached;
+			notFound = false;
+		}
+	});
+
 	function hydrateFromFeedCache(id) {
 		if (!browser || !id) return;
 		const cached = getCached(`forum_post:${id}`);

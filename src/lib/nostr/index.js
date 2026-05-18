@@ -5,7 +5,15 @@
  */
 
 // Dexie database and helpers
-export { db, putEvents, queryEvents, queryEvent, liveQuery } from './dexie';
+export {
+	db,
+	putEvents,
+	queryEvents,
+	queryEvent,
+	liveQuery,
+	queryForumThreadCommentsByPostId,
+	queryZapReceiptsByTargetEventId
+} from './dexie';
 
 // Service layer (client-side)
 export {
