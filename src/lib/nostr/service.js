@@ -244,17 +244,33 @@ export function stopLiveSubscriptions() {
  * Fetch events from relays (one-shot: EOSE + grace → close → putEvents).
  * Returns the collected events after writing them to Dexie.
  *
- * Note: nostr-tools SimplePool.subscribeMany expects a single filter object
- * as the second argument (it handles grouping internally via subscribeMap).
+ * `filter` may be one NIP-01 filter object, or an array of filters — the latter is merged
+ * into a single SUB per relay (one round-trip) via SimplePool.subscribeMap.
  *
  * @param {string[]} relayUrls
- * @param {object} filter - NIP-01 filter object
+ * @param {object | object[]} filter
  * @param {{ timeout?: number, signal?: AbortSignal }} options
  * @returns {Promise<import('nostr-tools').Event[]>}
  */
 export async function fetchFromRelays(relayUrls, filter, options = {}) {
 	const { timeout = 5000, signal, feature = 'q', immediateFlush = false } = options;
 	if (signal?.aborted) return [];
+
+	const filterList = /** @type {object[]} */ (
+		Array.isArray(filter) &&
+			filter.length > 0 &&
+			filter.every((f) => f && typeof f === 'object' && !Array.isArray(f))
+			? filter
+			: [filter]
+	);
+	if (filterList.length === 0) return [];
+
+	const requests = [];
+	for (const url of relayUrls) {
+		for (const f of filterList) {
+			requests.push({ url, filter: f });
+		}
+	}
 
 	return new Promise((resolve) => {
 		const events = [];
@@ -289,28 +305,23 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 			} catch {
 				/* noop */
 			}
-			// Flush streaming writes before resolving.
 			await queuePersist();
 			if (isNostrDebug()) {
-				nostrDebug('fetchFromRelays', feature, `→ ${events.length} events`, filter);
+				nostrDebug('fetchFromRelays', feature, `→ ${events.length} events`, filterList);
 				if (events.length === 0 && (feature === 'comments' || feature === 'zaps')) {
-					console.warn('[Zapstore] fetchFromRelays returned 0 events', { feature, filter, relays: relayUrls });
+					console.warn('[Zapstore] fetchFromRelays returned 0 events', { feature, filterList, relays: relayUrls });
 				}
 			}
 			resolve(events);
 		};
 
 		const p = getPool();
-		const sub = p.subscribeMany(relayUrls, filter, {
+		const sub = p.subscribeMap(requests, {
 			id: subId(feature),
 			onevent(event) {
 				if (!event?.id) return;
 				events.push(event);
 				pendingPersist.push(event);
-				// immediateFlush: write every event to Dexie as it arrives so liveQuery
-				// (and therefore the UI) reacts event-by-event rather than waiting for
-				// EOSE. Used for small-result lookups like addr-root resolution where
-				// each event unblocks a specific card.
 				if (immediateFlush || pendingPersist.length >= STREAM_PERSIST_BATCH) void queuePersist();
 			},
 			oneose() {

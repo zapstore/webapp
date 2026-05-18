@@ -89,6 +89,11 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 
 	const isSignedIn = $derived(getIsSignedIn());
 
+	/** Forum list only — post detail is a separate route; avoid relay work while user is on Activity. */
+	const isForumFeedRoute = $derived(
+		$page.url.pathname === '/community/forum' || $page.url.pathname === '/community/forum/'
+	);
+
 	const forumQuery = $derived(
 		browser && COMMUNITY_PUBKEY && forumReady
 			? liveQuery(async () => {
@@ -264,7 +269,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	// above has fresh data even on first load. putEvents (called inside fetchZapsByEventIds)
 	// writes to Dexie, which triggers the liveQuery automatically.
 	$effect(() => {
-		if (!browser || posts.length === 0) return;
+		if (!browser || posts.length === 0 || !isForumFeedRoute) return;
 		const ids = posts.map((p) => p.id);
 		fetchZapsByEventIds(ids, { timeout: 5000, limit: 2000 }).catch(() => {});
 	});
@@ -288,7 +293,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	}
 
 	$effect(() => {
-		if (!browser || posts.length === 0) return;
+		if (!browser || posts.length === 0 || !isForumFeedRoute) return;
 		// Only show skeleton when Dexie has no comment data at all for the visible posts.
 		// On a return visit the liveQuery already populated commentersByPostId so we skip
 		// the skeleton entirely and go straight to showing cached data.
@@ -527,7 +532,9 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	onMount(() => {
 		if (!browser) return;
 		forumReady = true;
-		if (COMMUNITY_PUBKEY) syncForumFromRelay();
+		if (!COMMUNITY_PUBKEY) return;
+		const p = window.location.pathname;
+		if (p === '/community/forum' || p === '/community/forum/') void syncForumFromRelay();
 	});
 </script>
 

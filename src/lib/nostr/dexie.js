@@ -442,6 +442,62 @@ export async function queryEvent(filter) {
 	return results[0] ?? null;
 }
 
+/** Max thread comments stored per forum detail (matches prior dual-query limits). */
+const FORUM_THREAD_COMMENT_LIMIT = 500;
+/** Max zap receipts kept per target event after filtering. */
+const ZAP_RECEIPT_BY_TARGET_LIMIT = 400;
+
+/**
+ * Forum thread comments (kind 1111) referencing a post id via lowercase `e` or `E`
+ * — one `_tags` anyOf index read instead of two `queryEvents` merges.
+ *
+ * @param {string} postEventIdHex
+ * @returns {Promise<import('nostr-tools').Event[]>}
+ */
+export async function queryForumThreadCommentsByPostId(postEventIdHex) {
+	if (!postEventIdHex || typeof postEventIdHex !== 'string') return [];
+	const id = postEventIdHex.trim().toLowerCase();
+	if (!/^[a-f0-9]{64}$/.test(id)) return [];
+	const idUp = id.toUpperCase();
+	const tagKeys = [`e:${id}`, `E:${id}`, `e:${idUp}`, `E:${idUp}`];
+	const rows = await db.events.where('_tags').anyOf(tagKeys).toArray();
+	const k = EVENT_KINDS.COMMENT;
+	const filtered = rows.filter((e) => Number(e.kind) === k);
+	const byId = new Map();
+	for (const e of filtered) {
+		if (e?.id) byId.set(e.id, e);
+	}
+	const merged = Array.from(byId.values()).sort((a, b) => a.created_at - b.created_at);
+	return merged.length > FORUM_THREAD_COMMENT_LIMIT
+		? merged.slice(0, FORUM_THREAD_COMMENT_LIMIT)
+		: merged;
+}
+
+/**
+ * Zap receipts (kind 9735) with top-level `e`/`E` pointing at an event — one index read.
+ *
+ * @param {string} targetEventIdHex
+ * @returns {Promise<import('nostr-tools').Event[]>}
+ */
+export async function queryZapReceiptsByTargetEventId(targetEventIdHex) {
+	if (!targetEventIdHex || typeof targetEventIdHex !== 'string') return [];
+	const id = targetEventIdHex.trim().toLowerCase();
+	if (!/^[a-f0-9]{64}$/.test(id)) return [];
+	const idUp = id.toUpperCase();
+	const tagKeys = [`e:${id}`, `E:${id}`, `e:${idUp}`, `E:${idUp}`];
+	const rows = await db.events.where('_tags').anyOf(tagKeys).toArray();
+	const k = EVENT_KINDS.ZAP_RECEIPT;
+	const filtered = rows.filter((e) => Number(e.kind) === k);
+	const byId = new Map();
+	for (const e of filtered) {
+		if (e?.id) byId.set(e.id, e);
+	}
+	const merged = Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
+	return merged.length > ZAP_RECEIPT_BY_TARGET_LIMIT
+		? merged.slice(0, ZAP_RECEIPT_BY_TARGET_LIMIT)
+		: merged;
+}
+
 // ============================================================================
 // Eviction — prune non-replaceable events to prevent unbounded growth
 // ============================================================================

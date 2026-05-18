@@ -59,6 +59,12 @@ let {
      * @type {null | { kind: number, pubkey: string, identifier?: string | null, eventId?: string | null }}
      */
     wrapperRoot = null,
+    /**
+     * Forum: set false so the Comments tab lists only kind-1111 (including z-wrappers with a `z` tag).
+     * Raw kind-9735 receipts stay on the Zaps tab — not interleaved in the comment feed.
+     * Apps/stacks default true (backward compatible).
+     */
+    includeReceiptZapsInCommentsFeed = true,
 } = $props();
 
 /** Root comment id whose thread contains openCommentId; used to open that thread modal on load */
@@ -66,13 +72,14 @@ const openThreadRootId = $derived.by(() => {
     const cid = openCommentId;
     const postId = mainEventIds?.[0];
     if (!cid || !postId || !comments.length) return null;
+    const postNorm = postId.toLowerCase();
     let c = comments.find((x) => x.id === cid);
     if (!c) return null;
-    while (c.parentId && c.parentId !== postId) {
+    while (c.parentId && (c.parentId ?? "").toLowerCase() !== postNorm) {
         c = comments.find((x) => x.id === c.parentId);
         if (!c) return null;
     }
-    return c.parentId === postId ? c.id : null;
+    return (c.parentId ?? "").toLowerCase() === postNorm ? c.id : null;
 });
 
 const tabs = $derived([
@@ -146,6 +153,8 @@ $effect(() => {
     });
 });
 const totalZapAmount = $derived(zaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0));
+/** Main root event id (forum post id, app notes) — normalized for tag/event id comparisons */
+const mainEventIdNorm = $derived((mainEventIds?.[0] ?? "").toLowerCase());
 const zapsInCommentsFeed = $derived(
     zaps.filter((z) =>
         z.pending === true ||
@@ -153,7 +162,11 @@ const zapsInCommentsFeed = $derived(
         ((z.emojiTags?.length ?? 0) > 0)
     )
 );
-const totalCommentCount = $derived(comments.length + zapsInCommentsFeed.length);
+const totalCommentCount = $derived(
+    includeReceiptZapsInCommentsFeed
+        ? comments.length + zapsInCommentsFeed.length
+        : comments.length
+);
 const totalLabelCount = $derived(labelEntries.length);
 function safeNpubFromPubkey(pubkey) {
     if (typeof pubkey !== "string")
@@ -197,21 +210,29 @@ function enrichComment(comment) {
         profileLoading: profilesLoading && !hasProfile,
     };
 }
-const commentIds = $derived(new SvelteSet(comments.map((c) => c.id)));
-const zapIds = $derived(new SvelteSet(zaps.map((z) => (z.id ?? '').toLowerCase())));
-// Model: main feed = zaps on the main event + root comments.
-// A comment is a root if it has no parentId, AND its parentId is not another comment's ID,
-// AND its parentId is not a zap receipt ID (zap-reply comments only appear inside the zap thread).
-const isRoot = (c) => !c.parentId || (!commentIds.has(c.parentId) && !zapIds.has((c.parentId ?? '').toLowerCase()));
+const commentIds = $derived(new SvelteSet(comments.map((c) => (c.id ?? "").toLowerCase())));
+const zapIds = $derived(new SvelteSet(zaps.map((z) => (z.id ?? "").toLowerCase())));
+// Root rows: top-level on the main event, or any item whose parent is not another row in this thread.
+// Include `mainEventIdNorm` so a direct reply to the root id always counts as root even if id casing differs.
+// Include `zapIds` so replies to raw receipts nest under zap rows on app/stack feeds.
+const isRoot = (c) => {
+    const parent = (c.parentId ?? "").toLowerCase();
+    if (!parent) return true;
+    if (mainEventIdNorm && parent === mainEventIdNorm) return true;
+    return !commentIds.has(parent) && !zapIds.has(parent);
+};
 const rootComments = $derived(comments
     .filter(isRoot)
     .map(enrichComment));
 const repliesByParent = $derived.by(() => {
     const map = new SvelteMap();
     comments
-        .filter((c) => c.parentId && commentIds.has(c.parentId))
+        .filter((c) => {
+            const pid = (c.parentId ?? "").toLowerCase();
+            return pid && (commentIds.has(pid) || zapIds.has(pid));
+        })
         .forEach((reply) => {
-        const parentId = reply.parentId;
+        const parentId = (reply.parentId ?? "").toLowerCase();
         if (!map.has(parentId)) {
             map.set(parentId, []);
         }
@@ -221,7 +242,7 @@ const repliesByParent = $derived.by(() => {
 });
 const rootCommentsWithReplies = $derived(rootComments.map((comment) => ({
     ...comment,
-    replies: repliesByParent.get(comment.id) || [],
+    replies: repliesByParent.get((comment.id ?? "").toLowerCase()) || [],
 })));
 
 // enrichedZaps must be defined before threadZapsByRootId
@@ -251,7 +272,9 @@ const threadByRootId = $derived.by(() => {
         const queue = [root.id];
         while (queue.length) {
             const parentId = queue.shift();
-            const children = comments.filter((c) => c.parentId === parentId);
+            const children = comments.filter(
+                (c) => (c.parentId ?? "").toLowerCase() === (parentId ?? "").toLowerCase()
+            );
             for (const c of children) {
                 const enriched = enrichComment(c);
                 collected.push(enriched);
@@ -275,7 +298,9 @@ const threadZapsByRootId = $derived.by(() => {
         while (queue.length) {
             const cid = queue.shift();
             threadCommentIds.add(norm(cid));
-            const kids = comments.filter((c) => norm(c.parentId) === norm(cid)).map((c) => c.id);
+            const kids = comments.filter(
+                (c) => (c.parentId ?? "").toLowerCase() === norm(cid)
+            ).map((c) => c.id);
             queue.push(...kids);
         }
         const zapsInThread = enrichedZaps.filter((z) => z.zappedEventId && threadCommentIds.has(norm(z.zappedEventId)));
@@ -302,6 +327,32 @@ const combinedFeed = $derived.by(() => {
         }
         return { ...c, type: "comment", timestamp: c.createdAt };
     });
+
+    const sortChrono = (/** @type {typeof commentsWithType} */ arr) =>
+        [...arr].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    if (!includeReceiptZapsInCommentsFeed) {
+        let rows = sortChrono(commentsWithType);
+        if (rows.length === 0 && comments.length > 0) {
+            rows = sortChrono(
+                comments.map((raw) => {
+                    const c = enrichComment(raw);
+                    if (c.isWrapper) {
+                        return {
+                            ...c,
+                            type: "zap",
+                            senderPubkey: c.pubkey,
+                            amountSats: c.zapAmountSats ?? 0,
+                            comment: c.content ?? "",
+                            timestamp: c.createdAt,
+                        };
+                    }
+                    return { ...c, type: "comment", timestamp: c.createdAt };
+                })
+            );
+        }
+        return rows;
+    }
     // Build a set of zap receipt IDs already represented by a z-wrapper in this feed.
     // Raw kind-9735 receipts for which a wrapper exists are excluded to avoid duplicates.
     const wrappedReceiptIds = new Set(
@@ -332,6 +383,10 @@ const combinedFeed = $derived.by(() => {
  */
 let _pillReceipts = $state(/** @type {import('nostr-tools').Event[]} */ ([]));
 $effect(() => {
+    if (!includeReceiptZapsInCommentsFeed) {
+        _pillReceipts = [];
+        return;
+    }
     const feedIds = combinedFeed.map((item) => item.id).filter(Boolean);
     // Also collect IDs of all thread replies (visible inside opened comment modals)
     // so pills show on deeper comments too, not just root-level feed items.
@@ -410,7 +465,7 @@ const zapsByTargetId = $derived.by(() => {
         {:else if tab.id === "comments"}
           <span>Comments</span>
           <span class="tab-stats">
-            {#if commentsLoading || commentsSyncing}
+            {#if (commentsLoading && comments.length === 0) || commentsSyncing}
               <Spinner color="hsl(0 0% 100% / 0.44)" size={14} />
             {:else}
               {totalCommentCount}
@@ -443,8 +498,10 @@ const zapsByTargetId = $derived.by(() => {
 
       {#if commentsLoading && combinedFeed.length === 0}
         <BubbleSkeleton />
-      {:else if combinedFeed.length === 0}
+      {:else if combinedFeed.length === 0 && comments.length === 0}
         <EmptyState message="No comments yet" minHeight={300} topAlign={true} />
+      {:else if combinedFeed.length === 0}
+        <BubbleSkeleton />
       {:else}
         <div class="space-y-4">
           {#each combinedFeed as item (item.type === "zap" ? `zap-${item.id}` : item.id)}
