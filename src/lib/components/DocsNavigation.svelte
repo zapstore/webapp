@@ -1,79 +1,67 @@
 <script lang="js">
-import DocsNavNode from './DocsNavNode.svelte';
-import { page } from '$app/stores';
-import { untrack } from 'svelte';
-let { navigation = [], mobileMenuOpen = false, toggleMobileMenu = () => { } } = $props();
-let expanded = $state({});
-function toggle(id) {
-    expanded[id] = !expanded[id];
-    expanded = { ...expanded };
-}
-let currentPath = $derived($page.url.pathname);
-// Initialize expansion from frontmatter (sidebar.open) and active path
-$effect(() => {
-    if (navigation && navigation.length) {
-        const next = {};
-        function traverse(nodes, ancestors = []) {
-            for (const node of nodes) {
-                if (node.expandedByDefault === true) {
-                    next[node.id] = true;
-                }
-                const isSelfActive = !!(node.href && currentPath === node.href);
-                const isDescActive = !!(node.href && currentPath.startsWith(node.href + '/'));
-                if (isSelfActive || isDescActive) {
-                    for (const a of ancestors)
-                        next[a.id] = true;
-                    if (node.children && node.children.length)
-                        next[node.id] = true;
-                }
-                if (node.children && node.children.length) {
-                    traverse(node.children, [...ancestors, node]);
-                }
-            }
-        }
-        traverse(navigation, []);
-        // Use untrack to read expanded without adding it as an effect dependency
-        const current = untrack(() => expanded);
-        expanded = { ...current, ...next };
-    }
-});
+	import DocsNavNode from './DocsNavNode.svelte';
+	import { page } from '$app/stores';
+	import { untrack } from 'svelte';
+
+	let { navigation = [], onNavigate = undefined } = $props();
+
+	let expanded = $state({});
+
+	function toggle(id) {
+		expanded[id] = !expanded[id];
+		expanded = { ...expanded };
+	}
+
+	let currentPath = $derived($page.url.pathname);
+
+	$effect(() => {
+		if (navigation && navigation.length) {
+			const next = {};
+			function traverse(nodes, ancestors = []) {
+				for (const node of nodes) {
+					if (node.expandedByDefault === true) {
+						next[node.id] = true;
+					}
+					const isSelfActive = !!(node.href && currentPath === node.href);
+					const isDescActive = !!(node.href && currentPath.startsWith(node.href + '/'));
+					if (isSelfActive || isDescActive) {
+						for (const a of ancestors) next[a.id] = true;
+						if (node.children && node.children.length) next[node.id] = true;
+					}
+					if (node.children && node.children.length) {
+						traverse(node.children, [...ancestors, node]);
+					}
+				}
+			}
+			traverse(navigation, []);
+			const current = untrack(() => expanded);
+			expanded = { ...current, ...next };
+		}
+	});
 </script>
 
-<!-- Mobile menu overlay -->
-{#if mobileMenuOpen}
-	<div
-		class="lg:hidden fixed inset-0 z-40 bg-[var(--color-bg-primary)]/80 backdrop-blur-sm"
-		onclick={toggleMobileMenu}
-		onkeydown={(e) => e.key === 'Enter' && toggleMobileMenu()}
-		role="button"
-		tabindex="0"
-	></div>
-{/if}
-
-<!-- Navigation sidebar -->
-<aside
-	class="
-		fixed lg:sticky top-0 lg:top-24 left-0 z-40 
-		h-screen lg:h-auto w-72 lg:w-auto 
-		bg-[var(--color-bg-primary)] lg:bg-transparent 
-		border-r lg:border-r-0 border-[var(--color-border)]/50 
-		overflow-y-auto 
-		transition-transform duration-300 ease-out
-		{mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} 
-		lg:translate-x-0
-	"
->
-	<nav class="p-6 lg:p-0">
-		<ul class="space-y-1">
-			{#each navigation as node (node.id)}
-				<DocsNavNode {node} {expanded} {toggle} />
-			{/each}
-		</ul>
-	</nav>
-</aside>
+<nav class="docs-nav" aria-label="Documentation">
+	<ul class="docs-nav-list">
+		{#each navigation as node (node.id)}
+			<DocsNavNode {node} {expanded} {toggle} {onNavigate} />
+		{/each}
+	</ul>
+</nav>
 
 <style>
-	aside {
+	.docs-nav {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
 		-webkit-overflow-scrolling: touch;
+	}
+
+	.docs-nav-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
 	}
 </style>

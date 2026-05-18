@@ -178,8 +178,8 @@ export async function loadMoreApps() {
 				[ZAPSTORE_RELAY],
 				{
 					kinds: [EVENT_KINDS.APP],
-					authors: [...new Set(missingAuthors)],
-					'#d': [...new Set(missingIdentifiers)],
+					authors: [...new SvelteSet(missingAuthors)],
+					'#d': [...new SvelteSet(missingIdentifiers)],
 					...PLATFORM_FILTER,
 					limit: missingIdentifiers.length + 10
 				},

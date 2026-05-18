@@ -9,6 +9,7 @@
  */
 import { fly } from 'svelte/transition';
 import { cubicOut } from 'svelte/easing';
+import { SvelteSet } from 'svelte/reactivity';
 import Label from '$lib/components/common/Label.svelte';
 import InputLabel from '$lib/components/common/InputLabel.svelte';
 import { wheelScroll } from '$lib/actions/wheelScroll.js';
@@ -44,7 +45,7 @@ const chipRows = $derived(
 	})
 );
 
-const selectedSet = $derived(new Set(selectedLabels));
+const selectedSet = $derived(new SvelteSet(selectedLabels));
 
 $effect(() => {
 	if (!isOpen) {
@@ -53,7 +54,7 @@ $effect(() => {
 });
 
 function toggle(/** @type {string} */ label) {
-	const next = new Set(selectedLabels);
+	const next = new SvelteSet(selectedLabels);
 	if (next.has(label)) next.delete(label);
 	else next.add(label);
 	selectedLabels = [...next];
@@ -87,7 +88,6 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 <svelte:window onkeydown={handleKeydown} />
 
 {#if isOpen}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 	<div class="labels-overlay" onclick={handleClose} role="presentation"></div>
 
 	<div class="labels-wrapper" role="dialog" aria-modal="true" aria-label="Labels">
@@ -104,9 +104,9 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 
 			<div class="labels-chips-scroll" use:wheelScroll>
 				<div class="chips-rows">
-					{#each chipRows as row}
+					{#each chipRows as row, ri (ri)}
 						<div class="chips-row">
-							{#each row as label}
+							{#each row as label (label)}
 								<Label
 									text={label}
 									isSelected={selectedSet.has(label)}

@@ -184,7 +184,7 @@
 			{#if sectionMenuOpen}
 				<div class="section-switcher-dropdown" role="dialog" aria-modal="true" aria-label="Community sections">
 					<div class="section-switcher-content">
-						{#each SECTIONS as section}
+						{#each SECTIONS as section (section.id)}
 							<a
 								href={section.href}
 								class="section-item"
@@ -212,7 +212,7 @@
 		<!-- Sidebar — desktop only -->
 		<aside class="sidebar">
 			<nav class="sidebar-nav">
-				{#each SECTIONS as section}
+				{#each SECTIONS as section (section.id)}
 					<a
 						href={section.href}
 						class="nav-item"

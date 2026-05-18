@@ -5,6 +5,7 @@
 	 */
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { nip19 } from 'nostr-tools';
 	import {
 		fetchCommentsByRootATags,
@@ -36,7 +37,7 @@
 	import RootComment from '$lib/components/social/RootComment.svelte';
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
 	import ActivityFeedSkeleton from '$lib/components/community/ActivityFeedSkeleton.svelte';
-	import { signEvent, getCurrentPubkey, getIsSignedIn } from '$lib/stores/auth.svelte.js';
+	import { signEvent, getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 	import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
 
@@ -56,7 +57,7 @@
 
 	/** @type {Map<string, { id: string, name: string, icon: string }>} */
 	const appByAddr = $derived.by(() => {
-		const m = new Map();
+		const m = new SvelteMap();
 		if (!devPubkey) return m;
 		for (const a of apps) {
 			m.set(`${EVENT_KINDS.APP}:${devPubkey}:${a.id}`, a);
@@ -70,15 +71,17 @@
 	let activityAllComments = $state(/** @type {import('nostr-tools').NostrEvent[]} */ ([]));
 	/** @type {import('nostr-tools').NostrEvent[]} */
 	let activityZapEvents = $state([]);
+	/* eslint-disable svelte/no-unnecessary-state-wrap -- $state tracks wholesale SvelteMap replacements */
 	/** @type {Map<string, import('nostr-tools').NostrEvent>} root `a` value → kind 32267 app event */
-	let rootAppEvents = $state(new Map());
+	let rootAppEvents = $state(new SvelteMap());
 	/** @type {Map<string, { displayName?: string, name?: string, picture?: string }>} */
-	let activityProfiles = $state(new Map());
+	let activityProfiles = $state(new SvelteMap());
+	/* eslint-enable svelte/no-unnecessary-state-wrap */
 
 	// Built from ALL comments (including the dev's own) so that replies to the dev's own
 	// comments can resolve their parentComment for the quoted-message block.
 	const activityCommentMap = $derived.by(() => {
-		const m = new Map();
+		const m = new SvelteMap();
 		for (const ev of activityAllComments) {
 			m.set(ev.id, ev);
 			m.set(ev.id.toLowerCase(), ev);
@@ -87,7 +90,7 @@
 	});
 
 	const activityZapMap = $derived.by(() => {
-		const m = new Map();
+		const m = new SvelteMap();
 		for (const ev of activityZapEvents) {
 			m.set(ev.id, ev);
 			m.set(ev.id.toLowerCase(), ev);
@@ -109,7 +112,7 @@
 						queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#a': appAddrs, limit: 500 }),
 						queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#A': appAddrs, limit: 500 })
 					]);
-					const byId = new Map();
+					const byId = new SvelteMap();
 					for (const ev of [...commentsA, ...commentsUpper]) byId.set(ev.id, ev);
 					return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
 				})
@@ -123,7 +126,7 @@
 						queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': appAddrs, limit: 400 }),
 						queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': appAddrs, limit: 400 })
 					]);
-					const byId = new Map();
+					const byId = new SvelteMap();
 					for (const ev of [...zLo, ...zUp]) byId.set(ev.id, ev);
 					return Array.from(byId.values()).sort((a, b) => b.created_at - a.created_at);
 				})
@@ -201,7 +204,7 @@
 		// Build set of receipt IDs already covered by a kind 1111 z-wrapper in the comments feed.
 		// When a zap-with-comment publishes both a kind 9735 receipt and a kind 1111 z-wrapper,
 		// only the z-wrapper appears in activityComments — skip the raw receipt to avoid doubles.
-		const coveredReceiptIds = new Set();
+		const coveredReceiptIds = new SvelteSet();
 		for (const ev of activityComments) {
 			const zTag = ev.tags?.find((t) => t[0] === 'z' && typeof t[1] === 'string' && t[1]);
 			if (zTag?.[1]) coveredReceiptIds.add(String(zTag[1]).trim().toLowerCase());
@@ -249,7 +252,7 @@
 		}).catch(() => null);
 
 		if (appEv) {
-			rootAppEvents = new Map(rootAppEvents).set(aRoot, appEv);
+			rootAppEvents = new SvelteMap(rootAppEvents).set(aRoot, appEv);
 			return;
 		}
 
@@ -268,7 +271,7 @@
 			);
 			if (arr?.[0]) {
 				await putEvents([arr[0]]).catch(() => {});
-				rootAppEvents = new Map(rootAppEvents).set(aRoot, arr[0]);
+				rootAppEvents = new SvelteMap(rootAppEvents).set(aRoot, arr[0]);
 			}
 		} catch {
 			/* non-fatal */
@@ -276,7 +279,7 @@
 	}
 
 	let _activityProfileTimer = null;
-	const _activityPendingProfiles = new Set();
+	const _activityPendingProfiles = new SvelteSet();
 	function scheduleActivityProfileFetch(pubkey) {
 		if (!pubkey || activityProfiles.get(pubkey)) return;
 		_activityPendingProfiles.add(pubkey);
@@ -290,7 +293,7 @@
 				const results = await fetchProfilesBatch(keys, { timeout: 4000 });
 				for (const [pk, event] of results) {
 					try {
-						activityProfiles = new Map(activityProfiles).set(pk, parseProfile(event));
+						activityProfiles = new SvelteMap(activityProfiles).set(pk, parseProfile(event));
 					} catch {
 						/* skip */
 					}
@@ -449,7 +452,7 @@
 		threadModalRootEvent = null;
 		initialReplyTargetForModal = null;
 
-		const cmap = new Map();
+		const cmap = new SvelteMap();
 		for (const c of activityComments) cmap.set(c.id.toLowerCase(), c);
 
 		(async () => {
@@ -576,7 +579,7 @@
 					queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#A': [aRoot], limit: 500 }),
 					queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#a': [aRoot], limit: 500 })
 				]);
-				const m = new Map();
+				const m = new SvelteMap();
 				for (const e of [...lo, ...up]) m.set(e.id, e);
 				return Array.from(m.values());
 			};
@@ -585,7 +588,7 @@
 					queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aRoot], limit: 400 }),
 					queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aRoot], limit: 400 })
 				]);
-				const m = new Map();
+				const m = new SvelteMap();
 				for (const e of [...lo, ...up]) m.set(e.id, e);
 				return Array.from(m.values());
 			};
@@ -643,7 +646,7 @@
 
 	async function enrichZapModalThread(zapRootId, gen, commentEvents, zapReceiptEvents) {
 		const pks = [
-			...new Set([
+			...new SvelteSet([
 				...commentEvents.map((e) => e.pubkey),
 				...zapReceiptEvents
 					.map((ev) => {
@@ -656,8 +659,8 @@
 					.filter(Boolean)
 			])
 		];
-		const profileResults = await fetchProfilesBatch(pks, { timeout: 4000 }).catch(() => new Map());
-		const profileMap = new Map();
+		const profileResults = await fetchProfilesBatch(pks, { timeout: 4000 }).catch(() => new SvelteMap());
+		const profileMap = new SvelteMap();
 		for (const [pk, ev] of profileResults) {
 			if (ev?.content) {
 				try {
@@ -741,7 +744,7 @@
 			if (!poolArr.some((e) => e.id === rootEv.id)) poolArr.push(rootEv);
 
 			let subtree = collectCommentSubtree(rootId, poolArr);
-			let byId = new Map(subtree.map((e) => [e.id, e]));
+			let byId = new SvelteMap(subtree.map((e) => [e.id, e]));
 
 			const { fetchFromRelays } = await import('$lib/nostr/service.js');
 			const rs = commentZapRelayReadSince();
@@ -763,7 +766,7 @@
 						if (!merged.some((x) => x.id === e.id)) merged.push(e);
 					}
 					const sub2 = collectCommentSubtree(rootId, merged);
-					const m2 = new Map(sub2.map((e) => [e.id, e]));
+					const m2 = new SvelteMap(sub2.map((e) => [e.id, e]));
 					await putEvents([...m2.values()]).catch(() => {});
 					if (gen !== threadLoadGen || threadModalKind !== 'comment') return;
 					await enrichAndSetThread(rootId, gen, m2);
@@ -778,9 +781,9 @@
 
 	async function enrichAndSetThread(rootId, gen, byIdMap) {
 		const evs = Array.from(byIdMap.values()).sort((a, b) => a.created_at - b.created_at);
-		const pks = [...new Set(evs.map((e) => e.pubkey))];
-		const profileResults = await fetchProfilesBatch(pks, { timeout: 4000 }).catch(() => new Map());
-		const profileMap = new Map();
+		const pks = [...new SvelteSet(evs.map((e) => e.pubkey))];
+		const profileResults = await fetchProfilesBatch(pks, { timeout: 4000 }).catch(() => new SvelteMap());
+		const profileMap = new SvelteMap();
 		for (const [pk, ev] of profileResults) {
 			if (ev?.content) {
 				try {
@@ -949,7 +952,6 @@
 						return '';
 					}
 				})()}
-				{@const isDeeperReply = !!parentId}
 				{@const appMeta = rootATag ? appByAddr.get(rootATag) : null}
 				{@const rootBadgeSkeleton = !!rootATag && !appMeta && !rootEvent}
 				{@const appBadge = (() => {
@@ -970,7 +972,6 @@
 					}
 					return null;
 				})()}
-				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 				<div
 					class="activity-item"
 					role="button"
@@ -1056,7 +1057,6 @@
 						return '';
 					}
 				})()}
-				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 				<div
 					class="activity-item"
 					role="button"

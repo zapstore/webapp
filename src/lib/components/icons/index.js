@@ -86,6 +86,7 @@ export { default as Plus } from './Plus.svelte';
 export { default as Pricing } from './Pricing.svelte';
 export { default as Profile } from './Profile.svelte';
 export { default as ProfileQR } from './ProfileQR.svelte';
+export { default as Recent } from './Recent.svelte';
 export { default as Reply } from './Reply.svelte';
 export { default as Search } from './Search.svelte';
 export { default as Security } from './Security.svelte';

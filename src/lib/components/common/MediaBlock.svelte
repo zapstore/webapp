@@ -50,7 +50,6 @@ function handleRemove(e) {
 			<Cross variant="outline" color="var(--white66)" size={14} strokeWidth={2} />
 		</button>
 	{/if}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions a11y_no_noninteractive_tabindex -->
 	<div
 		class="media-block"
 		class:removable

@@ -9,7 +9,7 @@
  *   const tokens = $derived(tokenizeNostrMarkdown(text, { wikiLinkFn, emojiMap }));
  *   <MarkdownBody {tokens} />
  */
-import { onMount } from 'svelte';
+import { SvelteMap } from 'svelte/reactivity';
 import MarkdownInline from './MarkdownInline.svelte';
 import MarkdownBody from './MarkdownBody.svelte';
 import CodeBlock from './CodeBlock.svelte';
@@ -17,26 +17,24 @@ import { highlightCode } from '$lib/utils/highlight.js';
 
 let { tokens = [] } = $props();
 
-// Pre-highlight code blocks
-let highlightedCode = $state(new Map());
+// Pre-highlight code blocks (SvelteMap mutations are reactive)
+const highlightedCode = new SvelteMap();
 
 $effect(() => {
-	// Reset when tokens change
-	highlightedCode = new Map();
-	
+	highlightedCode.clear();
+
 	// Highlight all code blocks
 	for (const token of tokens) {
 		if (token.type === 'code') {
-			highlightCode(token.text, token.lang ?? '').then(html => {
+			highlightCode(token.text, token.lang ?? '').then((html) => {
 				highlightedCode.set(token, html);
-				highlightedCode = highlightedCode; // trigger reactivity
 			});
 		}
 	}
 });
+</script>
 
-
-{#each tokens as token}
+{#each tokens as token, ti (ti)}
 	{#if token.type === 'space'}
 		<!-- intentional whitespace -->
 
@@ -75,7 +73,7 @@ $effect(() => {
 	{:else if token.type === 'list'}
 		{#if token.ordered}
 			<ol start={token.start || 1}>
-				{#each token.items as item}
+				{#each token.items as item, ii (ii)}
 					<li>
 						{#if item.task}
 							<input type="checkbox" checked={item.checked} disabled />
@@ -93,7 +91,7 @@ $effect(() => {
 			</ol>
 		{:else}
 			<ul>
-				{#each token.items as item}
+				{#each token.items as item, ii (ii)}
 					<li>
 						{#if item.task}
 							<input type="checkbox" checked={item.checked} disabled />
@@ -119,7 +117,7 @@ $effect(() => {
 			<table>
 				<thead>
 					<tr>
-						{#each token.header as cell, i}
+						{#each token.header as cell, i (i)}
 							<th style:text-align={token.align?.[i] ?? null}>
 								<MarkdownInline tokens={cell.tokens ?? []} />
 							</th>
@@ -127,10 +125,10 @@ $effect(() => {
 					</tr>
 				</thead>
 				<tbody>
-					{#each token.rows as row}
+					{#each token.rows as row, ri (ri)}
 						<tr>
-							{#each row as cell, i}
-								<td style:text-align={token.align?.[i] ?? null}>
+							{#each row as cell, ci (`${ri}:${ci}`)}
+								<td style:text-align={token.align?.[ci] ?? null}>
 									<MarkdownInline tokens={cell.tokens ?? []} />
 								</td>
 							{/each}
@@ -141,6 +139,7 @@ $effect(() => {
 		</div>
 
 	{:else if token.type === 'html'}
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html token.text}
 
 	{:else if token.type === 'text'}

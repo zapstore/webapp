@@ -10,8 +10,14 @@ export function entries() {
         { slug: 'trust-model' },
     ];
 }
+function normalizeSlug(param) {
+    if (param === undefined || param === null || param === '')
+        return '';
+    const raw = typeof param === 'string' ? param : Array.isArray(param) ? param.join('/') : String(param);
+    return raw.replace(/\\/g, '/').split('/').filter((s) => s.length > 0).join('/');
+}
 export function load({ params }) {
-    const slug = params.slug ? (Array.isArray(params.slug) ? params.slug.join('/') : params.slug) : '';
+    const slug = normalizeSlug(params.slug);
     let targetPath;
     if (!slug) {
         // Root docs page - try _index.md first, then fallback to other files

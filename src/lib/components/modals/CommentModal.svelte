@@ -60,7 +60,7 @@ let emojiPickerOpen = $state(false);
 let insertModalOpen = $state(false);
 /** @type {HTMLInputElement | null} */
 let fileInputEl = $state(null);
-let mediaUploading = $state(false);
+let _mediaUploading = $state(false);
 function close() {
     isOpen = false;
     onclose?.();
@@ -85,7 +85,7 @@ function handleCameraTap() {
 async function handleFileChange(e) {
     const files = /** @type {HTMLInputElement} */ (e.target).files;
     if (!files?.length || !signEvent || !textInput) return;
-    mediaUploading = true;
+    _mediaUploading = true;
     const inputEl = /** @type {HTMLInputElement} */ (e.target);
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -105,7 +105,7 @@ async function handleFileChange(e) {
         }
         URL.revokeObjectURL(placeholderUrl);
     }
-    mediaUploading = false;
+    _mediaUploading = false;
     inputEl.value = "";
 }
 async function handleSubmit(event) {

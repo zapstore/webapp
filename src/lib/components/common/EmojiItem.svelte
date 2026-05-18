@@ -34,7 +34,6 @@ let imgError = $state(false);
 		{#if !imgLoaded}
 			<span class="emoji-skeleton" aria-hidden="true"></span>
 		{/if}
-		<!-- svelte-ignore svelte_component_deprecated -->
 		<img
 			src={url}
 			alt={shortcode}

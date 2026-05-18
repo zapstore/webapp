@@ -16,7 +16,9 @@ async function handleCopy() {
 		await navigator.clipboard.writeText(code || html.replace(/<[^>]+>/g, ''));
 		copied = true;
 		setTimeout(() => { copied = false; }, 1500);
-	} catch {}
+	} catch (_err) {
+		/* clipboard unavailable */
+	}
 }
 </script>
 
@@ -36,6 +38,7 @@ async function handleCopy() {
 		{/if}
 		<div class="code-scroll">
 			{#if html}
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 				<pre><code>{@html html}</code></pre>
 			{:else}
 				<pre><code>{code}</code></pre>

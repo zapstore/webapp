@@ -5,18 +5,15 @@
 -->
 <script lang="js">
 	import { browser } from '$app/environment';
-	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
-	import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
-	import { Inbox, Cross } from '$lib/components/icons';
+	import { goto } from '$app/navigation';
+	import UserInboxFeed from '$lib/components/layout/UserInboxFeed.svelte';
+	import { Inbox, Cross, Expand } from '$lib/components/icons';
 
 	/** Matches header inbox chrome: landing = 32px + Cross 12; browse/studio = 40px + Cross 15 */
 	let { pubkey = null, open = false, onClose, inboxHeaderVariant = 'browse' } = $props();
 
 	/** @type {CommunityActivityShell | null} */
 	let shellRef = $state(null);
-
-	/** True while the inbox relay seed is in flight. */
-	let inboxRelayLoading = $state(false);
 
 	$effect(() => {
 		if (!browser || !open) return;
@@ -35,6 +32,11 @@
 			document.body.style.overflow = savedOverflow;
 		};
 	});
+
+	function openStudioInbox() {
+		onClose?.();
+		void goto('/studio/inbox');
+	}
 </script>
 
 {#if open && pubkey}
@@ -53,7 +55,20 @@
 					type="button"
 					class="mark-all-read-btn"
 					onclick={() => shellRef?.markAllRead()}
-				>Mark all as read</button>
+				>
+					Mark all as read
+				</button>
+				<a
+					href="/studio/inbox"
+					class="studio-inbox-expand"
+					aria-label="Open inbox in Studio"
+					onclick={(e) => {
+						e.preventDefault();
+						openStudioInbox();
+					}}
+				>
+					<Expand variant="outline" size={17} strokeWidth={1.4} color="var(--white33)" />
+				</a>
 				{#if onClose}
 					<button
 						type="button"
@@ -73,16 +88,7 @@
 				{/if}
 			</div>
 		</div>
-		<RelayLoadingBar loading={inboxRelayLoading} />
-		<div class="user-inbox-body flex-1 min-h-0 flex flex-col min-w-0">
-			<CommunityActivityShell
-				bind:this={shellRef}
-				inboxUserPubkey={pubkey}
-				inboxEmbed
-				inboxActive={open}
-				onRelayLoadingChange={(v) => { inboxRelayLoading = v; }}
-			/>
-		</div>
+		<UserInboxFeed bind:shellRef {pubkey} inboxActive={open} />
 	</div>
 {/if}
 
@@ -101,7 +107,6 @@
 		align-items: center;
 		gap: 10px;
 	}
-
 
 	.mark-all-read-btn {
 		background: none;
@@ -126,7 +131,21 @@
 		flex-shrink: 0;
 	}
 
-	/* Same look as SiteHeader .header-inbox-btn (+ landing / browse sizes) */
+	.studio-inbox-expand {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		padding: 0;
+		margin: 0 0 0 8px; /* extra space after “Mark all as read” (head-right gap is 8px) */
+		border: none;
+		background: none;
+		cursor: pointer;
+		line-height: 0;
+		text-decoration: none;
+		-webkit-tap-highlight-color: transparent;
+	}
+
 	.user-inbox-close-mobile {
 		display: none;
 		position: relative;
@@ -170,10 +189,7 @@
 		width: min(480px, calc(100vw - 24px));
 		max-height: min(90vh, calc(100dvh - 16px));
 		overflow: visible;
-		/* Only top-right stays tight to header chrome; other corners match sheet tokens */
 		border-radius: 24px 8px 24px 24px;
-		/* Nested fixed modals: reserve top 20% of inbox height so there's always
-		   comfortable tap-to-close space above the thread sheet */
 		--inbox-modal-top-reserve: 20%;
 		background-color: var(--black);
 		backdrop-filter: blur(var(--blur-sm));
@@ -191,7 +207,6 @@
 		}
 
 		.user-inbox-popover {
-			/* Full-screen sheet: below header chrome z-50, above page; thread modals use z-130 */
 			position: fixed;
 			inset: 0;
 			top: 0;
@@ -209,9 +224,7 @@
 			padding-bottom: env(safe-area-inset-bottom, 0px);
 			box-shadow: none;
 			overflow: hidden;
-			/* Let fixed overlays use the viewport; matches community +layout .right-page-viewport mobile */
 			transform: none;
 		}
 	}
-
 </style>

@@ -7,9 +7,9 @@
 <script lang="js">
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
-	import { goto, afterNavigate } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
 	import { Search, Loader2 } from 'lucide-svelte';
-	import { Menu, Cross, Inbox, Alert, Profile, ChevronRight, ArrowDown, Studio } from '$lib/components/icons';
+	import { Menu, Cross, Inbox, Alert, ChevronRight, ArrowDown } from '$lib/components/icons';
 	import Nostr from '$lib/components/icons/Nostr.svelte';
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import { handleBack } from '$lib/utils/back.js';
@@ -37,6 +37,7 @@
 		markInboxHeaderOpenedNow
 	} from '$lib/stores/user-inbox-seen.svelte.js';
 	import { isOnline } from '$lib/stores/online.svelte.js';
+	import { redirectAfterSignInAction } from '$lib/utils/redirect-after-sign-in.js';
 
 	const communityFirstHref = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED
 		? '/community/forum'
@@ -45,20 +46,6 @@
 
 	let { variant = 'landing', pageTitle = '' } = $props();
 	let scrolled = $state(false);
-	let activeTheme = $state('gray');
-
-	function cycleTheme() {
-		const themes = ['gray', 'dark', 'light'];
-		const next = themes[(themes.indexOf(activeTheme) + 1) % themes.length];
-		activeTheme = next;
-		if (browser) {
-			if (next === 'gray') {
-				document.documentElement.removeAttribute('data-theme');
-			} else {
-				document.documentElement.setAttribute('data-theme', next);
-			}
-		}
-	}
 	let dropdownOpen = $state(false);
 	let menuOpen = $state(false);
 	let landingNavOpen = $state(null); // 'discover' | 'studio' | 'community' | null (desktop hover dropdowns)
@@ -90,9 +77,23 @@
 	const isConnecting = $derived(getIsConnecting());
 	const isConnected = $derived(pubkey !== null);
 	const isDevelopersActive = $derived($page.url.pathname === '/developers');
+	const isStudioNavActive = $derived($page.url.pathname.startsWith('/studio'));
+	/** Signed-in dashboard: replace header “Developers” with primary “Studio” (dropdown duplicate removed). */
+	const showStudioPrimaryNav = $derived(isConnected && SHOW_STUDIO_SIGNED_IN_DASHBOARD);
+	/**
+	 * One anchor for this slot — when auth hydrates, `href`/`label` update in place instead of swapping
+	 * two `<a>` nodes (avoids clicks/programs targeting `/developers` being applied to `/studio/*`).
+	 */
+	const primaryDevStudioHref = $derived(showStudioPrimaryNav ? '/studio/insights' : '/developers');
+	const primaryDevStudioLabel = $derived(showStudioPrimaryNav ? 'Studio' : 'Developers');
+	const primaryDevStudioNavSelected = $derived(
+		showStudioPrimaryNav ? isStudioNavActive : isDevelopersActive
+	);
 	const isDiscoverActive = $derived(
 		$page.url.pathname === '/apps' ||
-			$page.url.pathname === '/stacks'
+			$page.url.pathname.startsWith('/apps/') ||
+			$page.url.pathname === '/stacks' ||
+			$page.url.pathname.startsWith('/stacks/')
 	);
 	const isCommunityActive = $derived($page.url.pathname.startsWith('/community'));
 	const offline = $derived(browser && !isOnline());
@@ -230,17 +231,13 @@
 			inboxOpen = false;
 		}
 	}
-	function setLandingNavOpen(key) {
-		landingNavOpen = key;
-	}
-	function clearLandingNavOpen() {
-		landingNavOpen = null;
-	}
 	function openSearch(e) {
 		if (e) {
 			e.stopPropagation();
 			e.preventDefault();
 		}
+		dropdownOpen = false;
+		inboxOpen = false;
 		searchOpen = true;
 	}
 	function toggleMenu(e) {
@@ -261,7 +258,7 @@
 		const handleKeydown = (e) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
 				e.preventDefault();
-				searchOpen = true;
+				openSearch();
 			}
 		};
 		window.addEventListener('scroll', handleScroll, { passive: true });
@@ -311,42 +308,42 @@
 		signOut();
 		dropdownOpen = false;
 		inboxOpen = false;
+		searchOpen = false;
 	}
 	/**
-	 * Post-sign-in redirect for header-initiated sign-ins (Sign In button, Get Started CTA).
-	 * Sends the user to Studio Insights unless they're already inside `/studio/*`
-	 * (avoids interrupting an in-progress dashboard task) or the dashboard flag is off.
-	 * Inline sign-ins triggered by content actions (zap, comment, app install) don't
-	 * call this — they keep the user on the page they were reading.
+	 * Post-sign-in redirect for header-initiated sign-ins only (Sign In modal, Get Started).
+	 * Sign-in action → Studio; not tied to “already signed in” hydration elsewhere.
 	 */
-	async function handleHeaderSignedIn() {
-		if (!SHOW_STUDIO_SIGNED_IN_DASHBOARD) return;
-		const p = $page.url.pathname;
-		if (p.startsWith('/studio')) return;
-		await goto('/studio/insights');
+	function handleHeaderSignedIn() {
+		void redirectAfterSignInAction($page.url.pathname);
 	}
 	function toggleDropdown(e) {
 		e.stopPropagation();
 		dropdownOpen = !dropdownOpen;
-		if (dropdownOpen) inboxOpen = false;
+		if (dropdownOpen) {
+			inboxOpen = false;
+			searchOpen = false;
+		}
 	}
 	function toggleInbox(e) {
 		e.stopPropagation();
 		inboxOpen = !inboxOpen;
 		if (inboxOpen) {
 			dropdownOpen = false;
+			searchOpen = false;
 			if (pubkey) markInboxHeaderOpenedNow(pubkey);
 		}
 	}
 
 	afterNavigate(() => {
 		inboxOpen = false;
+		searchOpen = false;
 	});
 </script>
 
 <header
 	class={cn(
-		'header fixed top-0 left-0 right-0 transition-all duration-300',
+		'header fixed top-0 left-0 right-0 transition-all duration-300 overflow-visible',
 		menuOpen ? 'z-[200]' : 'z-50',
 		scrolled
 			? 'bg-background/60 border-b border-border/50'
@@ -461,13 +458,16 @@
 										<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 									</div>
 
-							<div class="menu-section">
-								<a href="/developers" class="menu-section-link" onclick={closeMenu}>Developers</a>
-								<nav class="menu-subnav">
-									<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
-									<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
-								</nav>
-							</div>
+								<div class="menu-section">
+									<a
+										href={primaryDevStudioHref}
+										class="menu-section-link"
+										onclick={closeMenu}>{primaryDevStudioLabel}</a>
+									<nav class="menu-subnav">
+										<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
+										<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
+									</nav>
+								</div>
 
 							<div class="menu-section">
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
@@ -685,13 +685,16 @@
 									<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 								</div>
 
-							<div class="menu-section">
-								<a href="/developers" class="menu-section-link" onclick={closeMenu}>Developers</a>
-								<nav class="menu-subnav">
-									<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
-									<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
-								</nav>
-							</div>
+								<div class="menu-section">
+									<a
+										href={primaryDevStudioHref}
+										class="menu-section-link"
+										onclick={closeMenu}>{primaryDevStudioLabel}</a>
+									<nav class="menu-subnav">
+										<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
+										<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
+									</nav>
+								</div>
 
 							<div class="menu-section">
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
@@ -765,7 +768,7 @@
 				{#if variant === 'landing'}
 					<!-- Landing: one row — nav items (desktop) + Get Started (+ menu icon on mobile) -->
 					<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
-						<!-- Desktop only: Download, Apps, Developers, Community, Search (direct links, no dropdowns) -->
+						<!-- Desktop only: Download, Apps, Developers (or Studio when signed in), Community, Search -->
 						<div class="hidden md:flex items-center landing-nav-row gap-4 md:gap-6 lg:gap-8">
 							<!-- Download button -->
 							<button
@@ -784,14 +787,14 @@
 							>
 								Apps
 							</a>
-					<a
-							href="/developers"
-							class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-							class:landing-nav-studio-selected={isDevelopersActive}
-							style="color: var(--white66);"
-						>
-							Developers
-						</a>
+							<a
+								href={primaryDevStudioHref}
+								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+								class:landing-nav-studio-selected={primaryDevStudioNavSelected}
+								style="color: var(--white66);"
+							>
+								{primaryDevStudioLabel}
+							</a>
 							<a
 								href="/community"
 								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
@@ -878,17 +881,6 @@
 								</button>
 							{#if dropdownOpen}
 								<DropdownMenu class="profile-popup" itemChevron={true}>
-									{#if SHOW_STUDIO_SIGNED_IN_DASHBOARD}
-										<a
-											href="/studio/insights"
-											class="dropdown-item"
-											onclick={() => (dropdownOpen = false)}
-										>
-											<span class="dropdown-icon-wrap"><Studio variant="fill" size={16} color="var(--white)" /></span>
-											Studio
-											<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-										</a>
-									{/if}
 									<a
 										href={profileHref}
 										class="dropdown-item"
@@ -1029,11 +1021,11 @@
 										{/if}
 									</button>
 									<UserInboxPopover
-											{pubkey}
-											open={inboxOpen}
-											onClose={() => (inboxOpen = false)}
-											inboxHeaderVariant={variant === 'landing' ? 'landing' : 'browse'}
-										/>
+										{pubkey}
+										open={inboxOpen}
+										onClose={() => (inboxOpen = false)}
+										inboxHeaderVariant={variant === 'landing' ? 'landing' : 'browse'}
+									/>
 								</div>
 							<!-- Profile Avatar with Dropdown -->
 						<div class="relative profile-dropdown flex items-center">
@@ -1052,17 +1044,6 @@
 
 					{#if dropdownOpen}
 						<DropdownMenu class="profile-popup" itemChevron={true}>
-							{#if SHOW_STUDIO_SIGNED_IN_DASHBOARD}
-								<a
-									href="/studio/insights"
-									class="dropdown-item"
-									onclick={() => (dropdownOpen = false)}
-								>
-									<span class="dropdown-icon-wrap"><Studio variant="fill" size={16} color="var(--white)" /></span>
-									Studio
-									<span class="item-chevron"><ChevronRight variant="outline" size={12} strokeWidth={1.4} color="var(--white33)" /></span>
-								</a>
-							{/if}
 							<a
 								href={profileHref}
 								class="dropdown-item"
@@ -1146,16 +1127,6 @@
 					</div>
 				{/if}
 			</div>
-			<!-- DEV: theme cycle button — uncomment to test themes
-			<button
-				type="button"
-				onclick={cycleTheme}
-				class="theme-dev-btn"
-				title="Cycle theme (dev only)"
-			>
-				{#if activeTheme === 'light'}☀{:else if activeTheme === 'dark'}🌑{:else}◑{/if}
-			</button>
-			-->
 		</div>
 	</nav>
 </header>
@@ -1653,6 +1624,12 @@
 	.landing-nav-btn:hover,
 	.landing-nav-btn-open,
 	.landing-nav-studio-trigger:hover {
+		color: var(--white) !important;
+	}
+
+	/* Current section in desktop landing nav (Apps / Studio|Developers / Community) */
+	.landing-nav-btn.landing-nav-studio-selected {
+		background-color: var(--white8);
 		color: var(--white) !important;
 	}
 

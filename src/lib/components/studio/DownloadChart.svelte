@@ -81,7 +81,9 @@
 		 * When true, each series uses its own Y scale (0..max for that series, min span 1).
 		 * The combined total line still uses the summed series and a global max.
 		 */
-		perSeriesYScale = false
+		perSeriesYScale = false,
+		/** `false` = straight segments per day (preview dummy data). `true` = smooth cubic curves (live analytics). */
+		smoothCurves = true
 	} = $props();
 
 	const TOTAL_DOT_R = 6;
@@ -238,8 +240,12 @@
 				while (i < pts.length) {
 					const edgeFaded = data[i - 1] === 0 && data[i] === 0;
 					if (edgeFaded !== faded) break;
-					const cpx = ((pts[i - 1][0] + pts[i][0]) / 2).toFixed(2);
-					d += ` C ${cpx} ${pts[i - 1][1].toFixed(2)} ${cpx} ${pts[i][1].toFixed(2)} ${pts[i][0].toFixed(2)} ${pts[i][1].toFixed(2)}`;
+					if (smoothCurves) {
+						const cpx = ((pts[i - 1][0] + pts[i][0]) / 2).toFixed(2);
+						d += ` C ${cpx} ${pts[i - 1][1].toFixed(2)} ${cpx} ${pts[i][1].toFixed(2)} ${pts[i][0].toFixed(2)} ${pts[i][1].toFixed(2)}`;
+					} else {
+						d += ` L ${pts[i][0].toFixed(2)} ${pts[i][1].toFixed(2)}`;
+					}
 					i++;
 				}
 				out.push({ faded, d });
