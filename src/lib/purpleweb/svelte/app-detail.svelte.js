@@ -1,5 +1,3 @@
-import { browser } from '$app/environment';
-import { liveQuery } from 'dexie';
 import {
 	DEFAULT_CATALOG_RELAYS,
 	EVENT_KINDS,
@@ -7,9 +5,9 @@ import {
 	PROFILE_FETCH_RELAYS,
 	ZAPSTORE_BLOSSOM_URL
 } from '$lib/config.js';
-import { putEvents, queryEvent, queryEvents } from '$lib/nostr/dexie.js';
+import { queryEvent, queryEvents } from '$lib/nostr/dexie.js';
 import { decodeNaddr, parseApp, parseProfile, parseRelease } from '$lib/nostr/models.js';
-import { hydrateFilters } from '../sync/hydrate.js';
+import { createDetailQuery } from './createDetailQuery.svelte.js';
 
 /**
  * @param {unknown} value
@@ -26,7 +24,9 @@ function dedupeNewest(events) {
 	for (const event of events ?? []) {
 		if (event?.id) byId[event.id] = event;
 	}
-	return Object.values(byId).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+	return Object.values(byId).sort(
+		(/** @type {any} */ a, /** @type {any} */ b) => (b.created_at ?? 0) - (a.created_at ?? 0)
+	);
 }
 
 /**
@@ -69,6 +69,10 @@ function appLookup(appid, seedApp) {
 }
 
 /**
+ * Prefer the Blossom CDN URL when available; otherwise fall back to whatever
+ * URL the release advertises. Pure UI/business choice — kept next to the read
+ * so it stays consistent with the asset events we just queried.
+ *
  * @param {any} release
  * @param {import('nostr-tools').Event[]} assetEvents
  */
@@ -93,7 +97,7 @@ function directDownloadUrlForRelease(release, assetEvents) {
 /**
  * @param {{ appid?: string, seedApp?: any }} input
  */
-async function queryAppDetail(input) {
+async function loadAppDetail(input) {
 	const appid = input.appid ?? '';
 	if (!appid) {
 		return {
@@ -101,15 +105,13 @@ async function queryAppDetail(input) {
 			publisherProfile: null,
 			releases: [],
 			latestRelease: null,
-			directDownloadUrl: null
+			directDownloadUrl: null,
+			releasesLoading: false
 		};
 	}
 
 	const lookup = appLookup(appid, input.seedApp);
-	let appEvent = null;
-	if (lookup.filter) {
-		appEvent = await queryEvent(lookup.filter);
-	}
+	const appEvent = lookup.filter ? await queryEvent(lookup.filter) : null;
 	const app = appEvent ? parseApp(appEvent) : null;
 	if (!app) {
 		return {
@@ -117,7 +119,8 @@ async function queryAppDetail(input) {
 			publisherProfile: null,
 			releases: [],
 			latestRelease: null,
-			directDownloadUrl: null
+			directDownloadUrl: null,
+			releasesLoading: false
 		};
 	}
 
@@ -144,145 +147,88 @@ async function queryAppDetail(input) {
 		publisherProfile: profileEvent ? parseProfile(profileEvent) : null,
 		releases,
 		latestRelease,
-		directDownloadUrl: directDownloadUrlForRelease(latestRelease, assetEvents)
+		directDownloadUrl: directDownloadUrlForRelease(latestRelease, assetEvents),
+		releasesLoading: false
 	};
 }
 
 /**
- * App detail query. Consumers provide URL/seed input; purpleweb owns Dexie reads,
- * seed persistence, and relay hydration.
+ * App detail query — consumes URL/seed input, returns reactive `$state`.
+ *
+ * Layered on `createDetailQuery`: the primitive owns lifecycle, SSR seed,
+ * not-found timer, and hydration dedup; this wrapper supplies the
+ * Dexie-only read shape and the per-stage hydration plan.
  *
  * @param {() => { appid?: string, seedApp?: any, seedEvents?: import('nostr-tools').Event[], error?: string | null }} getInput
  * @param {{ hydrate?: boolean, timeout?: number }} [options]
  */
 export function createAppDetailQuery(getInput, options = {}) {
-	const initialInput = getInput?.() ?? {};
-	const state = $state({
-		app: browser ? null : (initialInput.seedApp ?? null),
-		publisherProfile: null,
-		releases: [],
-		latestRelease: null,
-		directDownloadUrl: null,
-		loading: false,
-		releasesLoading: false,
-		error: browser ? '' : (initialInput.error ?? '')
-	});
+	const shouldHydrate = options.hydrate !== false;
 
-	$effect(() => {
-		const input = getInput?.() ?? {};
-		const appid = input.appid ?? '';
-		if (!browser) {
-			state.app = input.seedApp ?? null;
-			state.error = input.error ?? '';
-			return;
-		}
-		if (!appid) {
-			state.app = null;
-			state.publisherProfile = null;
-			state.releases = [];
-			state.latestRelease = null;
-			state.directDownloadUrl = null;
-			state.loading = false;
-			state.releasesLoading = false;
-			state.error = input.error ?? '';
-			return;
-		}
+	return createDetailQuery({
+		initial: {
+			app: null,
+			publisherProfile: null,
+			releases: [],
+			latestRelease: null,
+			directDownloadUrl: null,
+			releasesLoading: false
+		},
+		notFoundMessage: 'App not found',
+		timeout: options.timeout ?? 5000,
+		featurePrefix: 'purpleweb-app-detail',
+		getInput,
+		getSeed: (input) => ({ app: input?.seedApp ?? null }),
+		getSeedEvents: (input) => {
+			const events = [...(input?.seedEvents ?? [])];
+			if (input?.seedApp?.event) events.push(input.seedApp.event);
+			return events;
+		},
+		getInitialError: (input) => input?.error ?? '',
+		load: loadAppDetail,
+		isPresent: (value) => value?.app != null,
+		hydrate({ input, value, hydrateOnce }) {
+			if (!shouldHydrate) return;
+			const appid = input?.appid ?? '';
+			if (!appid) return;
 
-		let cancelled = false;
-		let notFoundTimer = null;
-		const hydrated = Object.create(null);
-		const shouldHydrate = options.hydrate !== false;
-		const lookup = appLookup(appid, input.seedApp);
+			// 1. Hydrate the app event itself — only stage we can run before
+			//    liveQuery emits, because we need the URL pointer or seed dTag.
+			const lookup = appLookup(appid, input.seedApp);
+			if (lookup.filter) {
+				hydrateOnce(`app:${appid}`, DEFAULT_CATALOG_RELAYS, lookup.filter, 'purpleweb-app-detail');
+			}
 
-		if (input.seedEvents?.length) {
-			putEvents(input.seedEvents).catch((err) =>
-				console.error('[purpleweb] failed to persist app detail seed events:', err)
+			// 2..4 require the parsed app — only fire after liveQuery resolves.
+			const app = value?.app;
+			if (!app) return;
+
+			const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
+			hydrateOnce(
+				`profile:${app.pubkey}`,
+				PROFILE_FETCH_RELAYS,
+				{ kinds: [EVENT_KINDS.PROFILE], authors: [app.pubkey], limit: 2 },
+				'purpleweb-app-profile'
 			);
-		}
-		if (input.seedApp?.event) {
-			putEvents([input.seedApp.event]).catch(() => {});
-		}
+			hydrateOnce(
+				`releases:${aTagValue}`,
+				DEFAULT_CATALOG_RELAYS,
+				[
+					{ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], limit: 50 },
+					{ kinds: [EVENT_KINDS.RELEASE], '#i': [app.dTag], limit: 50 }
+				],
+				'purpleweb-app-releases'
+			);
 
-		function hydrateOnce(key, relays, filters, feature) {
-			if (!shouldHydrate || hydrated[key]) return;
-			hydrated[key] = true;
-			hydrateFilters(relays, filters, {
-				timeout: options.timeout ?? 5000,
-				feature
-			}).catch(() => {});
-		}
-
-		if (lookup.filter) {
-			hydrateOnce(`app:${appid}`, DEFAULT_CATALOG_RELAYS, lookup.filter, 'purpleweb-app-detail');
-		}
-
-		state.loading = true;
-		state.releasesLoading = true;
-		notFoundTimer = setTimeout(() => {
-			if (!cancelled && !state.app) {
-				state.loading = false;
-				state.error = input.error ?? 'App not found';
-			}
-		}, options.timeout ?? 5000);
-
-		const sub = liveQuery(() => queryAppDetail(input)).subscribe({
-			next(value) {
-				if (cancelled) return;
-				state.app = value.app;
-				state.publisherProfile = value.publisherProfile;
-				state.releases = value.releases;
-				state.latestRelease = value.latestRelease;
-				state.directDownloadUrl = value.directDownloadUrl;
-				state.loading = false;
-				state.releasesLoading = false;
-				state.error = value.app ? '' : (input.error ?? '');
-				if (value.app && notFoundTimer) {
-					clearTimeout(notFoundTimer);
-					notFoundTimer = null;
-				}
-
-				if (!value.app) return;
-				const aTagValue = `${EVENT_KINDS.APP}:${value.app.pubkey}:${value.app.dTag}`;
+			const artifactIds = value?.latestRelease?.artifacts?.filter(isHexId) ?? [];
+			if (artifactIds.length > 0) {
 				hydrateOnce(
-					`profile:${value.app.pubkey}`,
-					PROFILE_FETCH_RELAYS,
-					{ kinds: [EVENT_KINDS.PROFILE], authors: [value.app.pubkey], limit: 2 },
-					'purpleweb-app-profile'
-				);
-				hydrateOnce(
-					`releases:${aTagValue}`,
+					`assets:${artifactIds.join(',')}`,
 					DEFAULT_CATALOG_RELAYS,
-					[
-						{ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], limit: 50 },
-						{ kinds: [EVENT_KINDS.RELEASE], '#i': [value.app.dTag], limit: 50 }
-					],
-					'purpleweb-app-releases'
+					{ ids: artifactIds, limit: artifactIds.length },
+					'purpleweb-app-assets'
 				);
-
-				const artifactIds = value.latestRelease?.artifacts?.filter(isHexId) ?? [];
-				if (artifactIds.length > 0) {
-					hydrateOnce(
-						`assets:${artifactIds.join(',')}`,
-						DEFAULT_CATALOG_RELAYS,
-						{ ids: artifactIds, limit: artifactIds.length },
-						'purpleweb-app-assets'
-					);
-				}
-			},
-			error(err) {
-				if (cancelled) return;
-				state.loading = false;
-				state.releasesLoading = false;
-				state.error = err instanceof Error ? err.message : 'Failed to read app detail';
 			}
-		});
-
-		return () => {
-			cancelled = true;
-			if (notFoundTimer) clearTimeout(notFoundTimer);
-			sub.unsubscribe();
-		};
+		}
 	});
-
-	return state;
 }

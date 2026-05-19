@@ -10,15 +10,13 @@
  */
 import { page } from "$app/stores";
 import { onMount } from "svelte";
-import { SvelteMap } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import SeoHead from "$lib/components/layout/SeoHead.svelte";
 import { browser } from "$app/environment";
 import { beforeNavigate, goto } from "$app/navigation";
-import { fetchProfilesBatch, queryEvent, queryEvents, putEvents, encodeAppNaddr, encodeStackNaddr, parseProfile, parseComment, publishComment, decodeNaddr, parseAppStack, parseApp, parseZapReceipt, } from "$lib/nostr";
+import { fetchProfilesBatch, queryEvent, encodeAppNaddr, encodeStackNaddr, parseComment, publishComment, decodeNaddr, parseZapReceipt, } from "$lib/nostr";
 import { stackDisplayDescription, stackDisplayTitle } from "$lib/nostr/models.js";
-import { fetchFromRelays } from "$lib/nostr/service";
-import { ZAPSTORE_RELAY, EVENT_KINDS, PLATFORM_FILTER, SITE_URL } from "$lib/config";
-import { isOnline } from "$lib/stores/online.svelte.js";
+import { EVENT_KINDS, SITE_URL } from "$lib/config";
 import { nip19 } from "nostr-tools";
 
 import { ChevronLeft, ChevronRight } from "$lib/components/icons";
@@ -33,26 +31,27 @@ import Timestamp from "$lib/components/common/Timestamp.svelte";
 import { createSearchProfilesFunction } from "$lib/services/profile-search";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { getCurrentPubkey, getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
-import { persistEventsInBackground } from "$lib/nostr/cache-writer.js";
 import SpinKeyModal from "$lib/components/modals/SpinKeyModal.svelte";
 import GetStartedModal from "$lib/components/modals/GetStartedModal.svelte";
 import OnboardingBuildingModal from "$lib/components/modals/OnboardingBuildingModal.svelte";
 import Pen from "$lib/components/icons/Pen.svelte";
-import { createStackSocialQuery } from "$lib/purpleweb/svelte/social.svelte.js";
+import {
+    createStackDetailQuery,
+    createStackSocialQuery
+} from "$lib/purpleweb";
 let { data } = $props();
-function getInitialStack() {
-    return data.stack ?? null;
-}
-function getInitialApps() {
-    return data.apps ?? [];
-}
-function getInitialError() {
-    return data.error ?? null;
-}
-let stack = $state(getInitialStack());
-let apps = $state(getInitialApps());
-let loading = $state(false); // Start false, only show loading if no cached data
-let error = $state(getInitialError());
+const stackNaddr = $derived($page.params.naddr ?? '');
+const detail = createStackDetailQuery(() => ({
+    naddr: stackNaddr,
+    seedStack: data.stack,
+    seedApps: data.apps,
+    seedEvents: data.seedEvents,
+    error: data.error ?? null
+}));
+const stack = $derived(detail.stack);
+const apps = $derived(detail.apps);
+const loading = $derived(detail.loading && !detail.stack);
+const error = $derived(detail.error);
 let comments = $state([]);
 let commentsLoading = $state(false);
 let commentsSyncing = $state(false);
@@ -148,7 +147,6 @@ const mergedLabelEntries = $derived.by(() => {
 });
 const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
 const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
-const stackNaddr = $derived($page.params.naddr);
 // Ref for horizontal scroll container
 let appsScrollContainer = $state(null);
 /** ~one column width + gap — matches apps listing scroll step */
@@ -223,138 +221,25 @@ function tryRestoreHorizontalScroll() {
         requestAnimationFrame(tryRestoreHorizontalScroll);
     }
 }
+// URL hygiene: app naddrs and bare package ids belong under /apps/.
+// Data loading is handled by `createStackDetailQuery` above; this effect
+// only redirects when the route param is on the wrong page.
 $effect(() => {
-    void stackNaddr;
-    stack = data.stack ?? null;
-    apps = data.apps ?? [];
-    error = data.error ?? null;
-    if (browser) {
-        void loadStack();
+    if (!browser) return;
+    const naddr = stackNaddr;
+    if (!naddr) return;
+    const pointer = decodeNaddr(naddr);
+    if (!pointer && !naddr.startsWith('naddr1')) {
+        goto(`/apps/${naddr}`, { replaceState: true });
+        return;
+    }
+    if (pointer?.kind === EVENT_KINDS.APP) {
+        goto(`/apps/${naddr}`, { replaceState: true });
     }
 });
 onMount(() => {
     restoreScrollPositions();
 });
-async function loadStack() {
-    try {
-        let foundStack = data.stack;
-        const pointer = browser ? decodeNaddr($page.params.naddr) : null;
-        if (browser && !pointer && $page.params.naddr && !$page.params.naddr.startsWith('naddr1')) {
-            goto(`/apps/${$page.params.naddr}`, { replaceState: true });
-            return;
-        }
-        // App naddr pasted under /stacks/… — canonical URL is /apps/…
-        if (pointer?.kind === EVENT_KINDS.APP) {
-            goto(`/apps/${$page.params.naddr}`, { replaceState: true });
-            return;
-        }
-        // Client-side navigation / offline: query Dexie if no server data
-        if (!foundStack && pointer) {
-            const event = await queryEvent({
-                kinds: [EVENT_KINDS.APP_STACK],
-                authors: [pointer.pubkey],
-                '#d': [pointer.identifier]
-            });
-            if (event)
-                foundStack = parseAppStack(event);
-        }
-        // Not in cache or Dexie: try relays once before showing 404 (online only)
-        if (!foundStack && browser && pointer && isOnline()) {
-            loading = true;
-            const events = await fetchFromRelays([ZAPSTORE_RELAY], {
-                kinds: [EVENT_KINDS.APP_STACK],
-                authors: [pointer.pubkey],
-                '#d': [pointer.identifier],
-                ...PLATFORM_FILTER,
-                limit: 1
-            }, { feature: 'stack-detail' });
-            if (events.length > 0)
-                foundStack = parseAppStack(events[0]);
-        }
-        if (!foundStack) {
-            error = data.error ?? "Stack not found";
-            return;
-        }
-        persistEventsInBackground(data.seedEvents ?? []);
-        // Fetch creator profile
-        let creator = null;
-        const creatorPubkey = foundStack.pubkey;
-        if (creatorPubkey) {
-            try {
-                const profileEvent = (await fetchProfilesBatch([creatorPubkey])).get(creatorPubkey) ?? null;
-                if (profileEvent) {
-                    const profile = parseProfile(profileEvent);
-                    creator = {
-                        name: profile?.displayName || profile?.name,
-                        picture: profile?.picture,
-                        pubkey: creatorPubkey,
-                        npub: nip19.npubEncode(creatorPubkey),
-                    };
-                }
-                else {
-                    creator = {
-                        name: undefined,
-                        picture: undefined,
-                        pubkey: creatorPubkey,
-                        npub: nip19.npubEncode(creatorPubkey),
-                    };
-                }
-            }
-            catch (_e) {
-                creator = {
-                    name: undefined,
-                    picture: undefined,
-                    pubkey: creatorPubkey,
-                    npub: nip19.npubEncode(creatorPubkey),
-                };
-            }
-        }
-        error = null;
-        stack = { ...foundStack, creator };
-        // Resolve apps: use server data → Dexie → relay backfill
-        if (data.apps?.length > 0) {
-            apps = data.apps;
-        }
-        else if (foundStack.appRefs?.length > 0) {
-            const appRefs = foundStack.appRefs.filter((r) => r.kind === EVENT_KINDS.APP);
-            const ids = appRefs.map((r) => r.identifier);
-            if (ids.length > 0) {
-                const events = await queryEvents({ kinds: [EVENT_KINDS.APP], '#d': ids });
-                apps = events.map(parseApp);
-                // Relay backfill: fetch any refs not yet in Dexie (single batch query)
-                if (browser && isOnline() && apps.length < appRefs.length) {
-                    const foundDTags = new SvelteSet(apps.map((a) => a.dTag));
-                    const missing = appRefs.filter((r) => !foundDTags.has(r.identifier));
-                    if (missing.length > 0) {
-                        const missingEvents = await fetchFromRelays(
-                            [ZAPSTORE_RELAY],
-                            {
-                                kinds: [EVENT_KINDS.APP],
-                                authors: [...new SvelteSet(missing.map((r) => r.pubkey))],
-                                '#d': missing.map((r) => r.identifier),
-                                ...PLATFORM_FILTER,
-                                limit: missing.length + 5
-                            },
-                            { feature: 'stack-apps-fill' }
-                        );
-                        if (missingEvents.length > 0) {
-                            await putEvents(missingEvents).catch(() => {});
-                            const allEvents = await queryEvents({ kinds: [EVENT_KINDS.APP], '#d': ids });
-                            apps = allEvents.map(parseApp);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    catch (err) {
-        console.error("Error loading stack:", err);
-        error = err instanceof Error ? err.message : "Unknown error";
-    }
-    finally {
-        loading = false;
-    }
-}
 function parseStackZapFromReceiptEvent(e) {
     const parsed = { ...parseZapReceipt(e), id: e.id };
     if (!parsed.zappedEventId && e.tags?.length) {
