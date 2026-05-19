@@ -1,5 +1,5 @@
 ---
-description: Quality expectations — layer standards, anti-patterns, testing, when to spec
+description: Quality expectations — layer standards, anti-patterns, testing, planning
 alwaysApply: true
 ---
 
@@ -15,9 +15,16 @@ quality bar items involve judgment and tradeoffs.
 - Failures must be explicit and observable.
 - Performance is a feature, not an afterthought.
 
-## When to Create a Feature Spec
+## Planning and Memory
 
-Create a spec in `spec/features/` if the work:
+For non-trivial work, slow down before coding:
+
+- Outline the approach and trade-offs
+- Search Engram (`mem_search`) for prior decisions or related bug fixes
+- Save key decisions, reasoning, and gotchas to Engram (`mem_save`) as you work
+- End the session with `mem_session_summary` so the next agent inherits context
+
+Treat work as non-trivial when it:
 
 - Touches async/lifecycle code (risk of memory leaks or race conditions)
 - Modifies authentication or signing flows (NIP-07, future NWC)
@@ -25,22 +32,9 @@ Create a spec in `spec/features/` if the work:
 - Affects multiple routes or components
 - Could regress existing UX or performance
 
-**Skip the spec** if:
+Skip the planning ritual for pure UI cosmetics, single-field type additions, obvious bug fixes, and dependency updates with no API changes.
 
-- Pure UI cosmetics (colors, spacing, copy changes)
-- Adding a field to an existing type with no behavioral change
-- Bug fix with obvious cause and obvious solution
-- Dependency update with no API changes
-
-When in doubt, create a spec. The overhead is low.
-
-## Work Packet Lifecycle
-
-1. Create `spec/work/WORK-XXX-*.md` when starting non-trivial work
-2. Update tasks and decisions as you work
-3. **Delete after PR merges** — the feature spec remains as the contract
-
-If multiple phases: `WORK-005-a.md`, `WORK-005-b.md` (same feature number).
+Episodic state (decisions, in-progress work, learnings, bugfixes) lives in Engram — not in tracked spec files. The repo holds standing guidelines; Engram holds what changed and why.
 
 ## Layer Expectations
 
@@ -88,7 +82,3 @@ If multiple phases: `WORK-005-a.md`, `WORK-005-b.md` (same feature number).
 - Polling or artificial delays
 - Large refactors unrelated to the task
 - Using `any` to silence TypeScript
-
-## Knowledge Entries
-
-After a work packet merges, promote non-obvious decisions to `spec/knowledge/DEC-XXX-*.md`. See `spec/knowledge/_TEMPLATE.md` for format and criteria.

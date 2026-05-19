@@ -1,6 +1,7 @@
 ---
 description: Purpleweb local-first data boundary for page-visible Nostr events
-alwaysApply: true
+globs: ["src/lib/purpleweb/**", "src/lib/nostr/**", "src/lib/stores/**", "src/routes/**"]
+alwaysApply: false
 ---
 
 # Purpleweb Data Flow

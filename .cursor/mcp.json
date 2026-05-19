@@ -1,11 +1,8 @@
 {
   "mcpServers": {
     "engram": {
-      "command": "engram",
-      "args": ["mcp"],
-      "env": {
-        "ENGRAM_DATA_DIR": "${workspaceFolder}/.engram"
-      }
+      "command": "bash",
+      "args": [".cursor/engram-mcp.sh"]
     }
   }
 }

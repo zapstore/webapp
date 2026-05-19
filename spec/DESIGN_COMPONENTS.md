@@ -1,7 +1,7 @@
 # Design System — Component Reference
 
 Reference documentation for mandatory components. Read this when working on or with these components.
-For design tokens, panels, buttons, colors, and layout patterns, see `spec/guidelines/DESIGN_SYSTEM.md`.
+For design tokens, panels, buttons, colors, and layout patterns, see `spec/DESIGN_SYSTEM.md`.
 
 ---
 

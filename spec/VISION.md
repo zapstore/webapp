@@ -1,6 +1,6 @@
 ---
-description: Product vision — what Zapstore Webapp is and who it serves
-alwaysApply: true
+description: Product vision — what Zapstore Webapp is and who it serves. Read at session start or when scoping new features.
+alwaysApply: false
 ---
 
 # Zapstore Webapp — Vision

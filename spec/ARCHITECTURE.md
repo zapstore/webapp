@@ -1,6 +1,7 @@
 ---
 description: Core architecture — local-first data flow, Dexie/liveQuery, relay patterns, universal loads, PWA
-alwaysApply: true
+globs: ["src/lib/**", "src/routes/**", "src/service-worker.js", "src/app.html"]
+alwaysApply: false
 ---
 
 # Zapstore Webapp — Architecture

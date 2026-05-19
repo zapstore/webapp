@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Design System
 
-For component APIs (ProfilePic, AppPic, Modal, Selector, etc.), see `spec/guidelines/DESIGN_COMPONENTS.md`.
+For component APIs (ProfilePic, AppPic, Modal, Selector, etc.), see `spec/DESIGN_COMPONENTS.md`.
 
 ## Color System
 
@@ -181,7 +181,7 @@ These components are required — no custom implementations.
 | `EmptyState` | `$lib/components/common/EmptyState.svelte` | All empty states |
 | `SkeletonLoader` | `$lib/components/SkeletonLoader.svelte` | Image/title loading states |
 
-For component props, usage examples, and fallback behavior, see `spec/guidelines/DESIGN_COMPONENTS.md`.
+For component props, usage examples, and fallback behavior, see `spec/DESIGN_COMPONENTS.md`.
 
 ## General Rules
 

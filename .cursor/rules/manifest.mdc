@@ -1,0 +1,35 @@
+---
+description: Map of guidelines and how to consult them
+alwaysApply: true
+---
+
+# Guidelines Manifest
+
+Authoritative docs live in `spec/`. They're symlinked into `.cursor/rules/` and load via the rules below.
+
+## Always loaded (every conversation)
+
+- **invariants** — non-negotiable rules; violating any is a bug. `spec/INVARIANTS.md`
+- **quality-bar** — anti-patterns, planning, layer expectations. `spec/QUALITY_BAR.md`
+- **engram-memory** — when to save observations and recover state across sessions
+
+## Auto-loaded by file type
+
+- **architecture** — touching `src/lib/**`, `src/routes/**`, `src/service-worker.js`. Data flow, Dexie/liveQuery, relays, universal loads, PWA. `spec/ARCHITECTURE.md`
+- **purpleweb-data-flow** — touching `src/lib/purpleweb/**`, `src/lib/nostr/**`, `src/lib/stores/**`, `src/routes/**`. The local-first data boundary.
+- **design-system** — touching `*.svelte`, `*.css`. Colors, panels, buttons, typography, layout patterns. `spec/DESIGN_SYSTEM.md`
+- **svelte** — touching `*.svelte`, `*.ts`, `+page*`, `+layout*`, `+server*`. SvelteKit/Svelte 5 conventions.
+
+## Read on demand
+
+- **`spec/VISION.md`** — what we're building and who it serves. Consult at session start or when scoping new features.
+- **`spec/DESIGN_COMPONENTS.md`** — APIs for ProfilePic, AppPic, Modal, Selector, icon standards. Consult when working on or with those components.
+
+## Engram (cross-session memory)
+
+Use Engram for what isn't in the repo: decisions and their reasoning, bug fixes, in-progress work, discoveries, user preferences. Not for static guidelines — those live in `spec/`.
+
+- `mem_context` after context resets
+- `mem_search` before non-trivial work to recover prior decisions
+- `mem_save` proactively after significant work
+- `mem_session_summary` at end of session

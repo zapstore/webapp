@@ -39,4 +39,4 @@ bun run format     # Format code with Prettier
 
 ## Documentation
 
-See `spec/guidelines/` for architecture, vision, and development guidelines.
+See `spec/` for architecture, vision, and development guidelines.
