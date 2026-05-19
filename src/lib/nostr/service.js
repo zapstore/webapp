@@ -254,6 +254,14 @@ export function subscribeAddressableSocialRoot(root, options = {}) {
 	const kStr = String(root.kind);
 	const feature = options.feature ?? 'social-root';
 	const p = getPool();
+	const filters = [
+		{ kinds: [EVENT_KINDS.COMMENT], '#K': [kStr], '#a': [aTagValue], limit },
+		{ kinds: [EVENT_KINDS.COMMENT], '#K': [kStr], '#A': [aTagValue], limit },
+		{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aTagValue], limit },
+		{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aTagValue], limit },
+		{ kinds: [EVENT_KINDS.LABEL], '#a': [aTagValue], limit: Math.min(limit, 300) },
+		{ kinds: [EVENT_KINDS.LABEL], '#A': [aTagValue], limit: Math.min(limit, 300) }
+	];
 	let eoseCount = 0;
 	let initialEoseDone = false;
 	function markInitialEose() {
@@ -278,18 +286,83 @@ export function subscribeAddressableSocialRoot(root, options = {}) {
 			if (!ignorable) console.warn('[Zapstore] Social root subscription closed', reasons);
 		}
 	};
-	const filters = [
-		{ kinds: [EVENT_KINDS.COMMENT], '#K': [kStr], '#a': [aTagValue], limit },
-		{ kinds: [EVENT_KINDS.COMMENT], '#K': [kStr], '#A': [aTagValue], limit },
-		{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#a': [aTagValue], limit },
-		{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#A': [aTagValue], limit },
-		{ kinds: [EVENT_KINDS.LABEL], '#a': [aTagValue], limit: Math.min(limit, 300) },
-		{ kinds: [EVENT_KINDS.LABEL], '#A': [aTagValue], limit: Math.min(limit, 300) }
-	];
 	const subs = filters.map((filter, index) =>
 		p.subscribeMany(relays, filter, { ...subParams, id: subId(`${feature}-${index}`) })
 	);
 	nostrDebug('social root subscriptions started', { root: aTagValue, relays, filters });
+	return {
+		close() {
+			for (const sub of subs) {
+				try {
+					sub.close();
+				} catch {
+					/* noop */
+				}
+			}
+		}
+	};
+}
+
+/**
+ * Open persistent zap receipt subscriptions for comment/thread event ids.
+ * Used by purpleweb to keep deep zaps live without page-level one-shot fetches.
+ *
+ * @param {string[]} eventIds
+ * @param {{ relays?: string[], limit?: number, feature?: string, onInitialEose?: () => void }} [options]
+ * @returns {{ close: () => void }}
+ */
+export function subscribeZapReceiptsForEventIds(eventIds, options = {}) {
+	const ids = [
+		...new Set(
+			(eventIds ?? [])
+				.map((id) => String(id).trim().toLowerCase())
+				.filter((id) => /^[a-f0-9]{64}$/.test(id))
+		)
+	];
+	if (ids.length === 0) return { close() {} };
+
+	const relays = options.relays?.length ? options.relays : ZAPSTORE_READ_RELAYS;
+	const limit = Math.max(1, Number(options.limit ?? 400));
+	const feature = options.feature ?? 'event-zaps';
+	const filters = [];
+	for (let i = 0; i < ids.length; i += ZAP_9735_E_BATCH) {
+		const chunk = ids.slice(i, i + ZAP_9735_E_BATCH);
+		filters.push(
+			{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#e': chunk, limit },
+			{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#E': chunk, limit }
+		);
+	}
+
+	let eoseCount = 0;
+	let initialEoseDone = false;
+	function markInitialEose() {
+		if (initialEoseDone) return;
+		eoseCount += 1;
+		if (eoseCount >= filters.length) {
+			initialEoseDone = true;
+			options.onInitialEose?.();
+		}
+	}
+
+	const p = getPool();
+	const subs = filters.map((filter, index) =>
+		p.subscribeMany(relays, filter, {
+			id: subId(`${feature}-${index}`),
+			onevent(event) {
+				bufferEvent(event);
+			},
+			oneose() {
+				// Keep open for live zap receipts after initial backfill.
+				markInitialEose();
+			},
+			onclose(reasons) {
+				if (!isNostrDebug() || !reasons?.length) return;
+				const ignorable = reasons.every((r) => r === 'closed by caller');
+				if (!ignorable) console.warn('[Zapstore] Event zap subscription closed', reasons);
+			}
+		})
+	);
+
 	return {
 		close() {
 			for (const sub of subs) {

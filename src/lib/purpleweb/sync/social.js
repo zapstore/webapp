@@ -1,5 +1,8 @@
 import { browser } from '$app/environment';
-import { subscribeAddressableSocialRoot } from '$lib/nostr/service.js';
+import {
+	subscribeAddressableSocialRoot,
+	subscribeZapReceiptsForEventIds
+} from '$lib/nostr/service.js';
 
 /**
  * Open a persistent root-scoped social subscription for an app or stack.
@@ -16,6 +19,25 @@ export function subscribeAddressableSocial(root, options = {}) {
 	return subscribeAddressableSocialRoot(root, {
 		limit: options.limit ?? 500,
 		feature: 'social-root',
+		onInitialEose: options.onInitialEose
+	});
+}
+
+/**
+ * Open persistent zap receipt subscriptions for event ids in a thread.
+ * Events stream into Dexie; liveQuery remains the UI source of truth.
+ *
+ * @param {string[]} eventIds
+ * @param {{ enabled?: boolean, limit?: number, onInitialEose?: () => void }} [options]
+ * @returns {{ close: () => void }}
+ */
+export function subscribeEventZaps(eventIds, options = {}) {
+	if (!browser || options.enabled === false || !eventIds?.length) {
+		return { close() {} };
+	}
+	return subscribeZapReceiptsForEventIds(eventIds, {
+		limit: options.limit ?? 400,
+		feature: 'event-zaps',
 		onInitialEose: options.onInitialEose
 	});
 }

@@ -1,0 +1,12 @@
+---
+description: Purpleweb owns page data loading and hydration
+alwaysApply: true
+---
+
+# Purpleweb Data Flow
+
+- Page-visible event data must be read from Dexie through purpleweb. Routes and components must not display relay responses directly.
+- Purpleweb owns both background one-shot hydration and persistent subscriptions. Consumers should describe the model/root they need, not relay filters, hydration toggles, or subscription lifecycles.
+- All relay results must be written to Dexie first. UI updates come from Dexie `liveQuery` / purpleweb state.
+- Route code may publish user actions, but published events must be persisted to Dexie and read back through purpleweb/local state derived from Dexie.
+- SSR seed data is only bootstrap input for purpleweb hydration; client-side display should converge immediately to Dexie-backed state.

@@ -8,24 +8,14 @@
 	import { X } from 'lucide-svelte';
 	import ZappyError from '$lib/components/common/ZappyError.svelte';
 	import {
-		queryEvents,
-		queryEvent,
-		parseApp,
-		parseRelease,
-		fetchProfile,
-		fetchProfilesBatch,
-		parseComment,
 		parseZapReceipt,
 		encodeAppNaddr,
 		publishComment,
-		decodeNaddr,
-		putEvents
+		decodeNaddr
 	} from '$lib/nostr';
-	import { fetchFromRelays } from '$lib/nostr/service';
-	import { ZAPSTORE_RELAY, ZAPSTORE_BLOSSOM_URL } from '$lib/config';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import { nip19 } from 'nostr-tools';
-	import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
+	import { EVENT_KINDS } from '$lib/config';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
@@ -42,7 +32,6 @@
 	} from '$lib/services/profile-search';
 	import { createSearchEmojisFunction } from '$lib/services/emoji-search';
 	import { getCurrentPubkey, getIsSignedIn, signEvent } from '$lib/stores/auth.svelte.js';
-	import { isOnline } from '$lib/stores/online.svelte.js';
 	import { markdownToPlainTextLine, renderMarkdown } from '$lib/utils/markdown';
 	import SeoHead from '$lib/components/layout/SeoHead.svelte';
 	import { SITE_URL, SITE_ICON } from '$lib/config';
@@ -57,19 +46,23 @@
 		ChevronDown
 	} from '$lib/components/icons';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
-	import { createAddressableSocialQuery } from '$lib/purpleweb/svelte/social.svelte.js';
+	import { createAppDetailQuery } from '$lib/purpleweb/svelte/app-detail.svelte.js';
+	import { createAppSocialQuery } from '$lib/purpleweb/svelte/social.svelte.js';
 let { data } = $props();
+const appid = $derived($page.params.appid ?? '');
+const detail = createAppDetailQuery(() => ({
+	appid,
+	seedApp: data.app,
+	seedEvents: data.seedEvents,
+	error: data.error
+}));
+const app = $derived(detail.app);
 const searchProfiles = $derived(
 	createSearchProfilesFunction(() => getCurrentPubkey(), () => (app?.pubkey ? [app.pubkey] : []))
 );
 const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
-// Error is mutable: server may set it, but client can clear it when Dexie has data
-let error = $state(null);
-// Seed from server data so SSR renders the SeoHead branch with og:image (app icon)
-// for link-preview crawlers. onMount may later replace this with fresher Dexie data.
-let app = $state(data.app ?? null);
-// Publisher profile
-let publisherProfile = $state(null);
+const error = $derived(detail.error);
+const publisherProfile = $derived(detail.publisherProfile);
 
 const appJsonLd = $derived.by(() => {
 	const currentApp = app;
@@ -95,7 +88,7 @@ const appJsonLd = $derived.by(() => {
 			}
 		: null;
 });
-let latestRelease = $state(null);
+const latestRelease = $derived(detail.latestRelease);
 let _refreshing = $state(false);
 	// Description expand state
 	let descriptionExpanded = $state(false);
@@ -151,22 +144,12 @@ let _refreshing = $state(false);
 	/** @type {Array<{ label: string, pubkeys: string[] }>} */
 	let labelEntries = $state([]);
 	let labelsLoading = $state(false);
-	let releases = $state([]);
-	let releasesLoading = $state(false);
+	const releases = $derived(detail.releases);
+	const releasesLoading = $derived(detail.releasesLoading);
 	let releasesModalOpen = $state(false);
 	/** Single expanded release id (null = none). Toggling this one value is reliable in Svelte 5. */
 	let expandedReleaseId = $state(null);
-	const social = createAddressableSocialQuery(
-		() =>
-			app?.pubkey && app?.dTag
-				? {
-						kind: EVENT_KINDS.APP,
-						pubkey: app.pubkey,
-						identifier: app.dTag
-					}
-				: null,
-		{ hydrateEnabled: () => isOnline() }
-	);
+	const social = createAppSocialQuery(() => app);
 	$effect(() => {
 		comments = social.comments;
 		commentsLoading = social.commentsLoading;
@@ -178,7 +161,10 @@ let _refreshing = $state(false);
 		labelsLoading = social.labelsLoading;
 		profiles = social.profiles;
 		profilesLoading = social.profilesLoading;
-		zapperProfiles = new SvelteMap(social.zapperProfiles);
+		zapperProfiles.clear();
+		for (const [pubkey, profile] of social.zapperProfiles) {
+			zapperProfiles.set(pubkey, profile);
+		}
 	});
 	let downloadModalOpen = $state(false);
 	let downloadDropdownOpen = $state(false);
@@ -186,8 +172,7 @@ let _refreshing = $state(false);
 	let downloadDropdownWrapDesktop = $state(null);
 	/** @type {HTMLDivElement | null} */
 	let downloadDropdownWrapMobile = $state(null);
-	/** Resolved lazily after latestRelease loads — never blocks page or modal render. */
-	let directDownloadUrl = $state(/** @type {string | null} */ (null));
+	const directDownloadUrl = $derived(detail.directDownloadUrl);
 	let getStartedModalOpen = $state(false);
 	let spinKeyModalOpen = $state(false);
 	let onboardingBuildingModalOpen = $state(false);
@@ -217,80 +202,6 @@ let _refreshing = $state(false);
 		return () => document.removeEventListener('click', handleClick, true);
 	});
 
-	/**
-	 * Resolve the direct CDN download URL from the latest release's referenced
-	 * asset events (kind 3063 / 1063). Runs entirely in the background — the
-	 * result populates `directDownloadUrl` whenever it becomes available without
-	 * blocking any page, modal, or LCP render path.
-	 *
-	 * Priority: cdn.zapstore.dev URL from url tag > constructed from x tag hash.
-	 */
-	async function resolveDirectDownloadUrl(release) {
-		if (!release) return;
-
-		// Legacy releases occasionally carry the url tag directly on the release event.
-		if (release.url) {
-			const cdnDirect = release.url.startsWith(ZAPSTORE_BLOSSOM_URL) ? release.url : null;
-			if (cdnDirect) {
-				directDownloadUrl = cdnDirect;
-				return;
-			}
-		}
-
-		const artifactIds = release.artifacts ?? [];
-		if (!artifactIds.length) {
-			// No artifacts — fall back to the release url even if not CDN
-			if (release.url) directDownloadUrl = release.url;
-			return;
-		}
-
-		// 1. Check local Dexie cache first (zero network cost)
-		let assetEvents = await queryEvents({
-			kinds: [EVENT_KINDS.ASSET, EVENT_KINDS.FILE_METADATA],
-			ids: artifactIds
-		});
-
-		// 2. If not cached, fetch from relay in the background
-		if (!assetEvents.length) {
-			await fetchFromRelays(
-				[ZAPSTORE_RELAY],
-				{ ids: artifactIds },
-				{ feature: 'app-detail-download' }
-			);
-			assetEvents = await queryEvents({
-				kinds: [EVENT_KINDS.ASSET, EVENT_KINDS.FILE_METADATA],
-				ids: artifactIds
-			});
-		}
-
-		// 3. Pick the cdn.zapstore.dev URL — fall back to x-tag construction, then any url
-		for (const ev of assetEvents) {
-			const urls = ev.tags.filter((t) => t[0] === 'url').map((t) => t[1]);
-			const cdnUrl = urls.find((u) => u.startsWith(ZAPSTORE_BLOSSOM_URL));
-			if (cdnUrl) {
-				directDownloadUrl = cdnUrl;
-				return;
-			}
-			const xHash = ev.tags.find((t) => t[0] === 'x')?.[1];
-			if (xHash) {
-				directDownloadUrl = `${ZAPSTORE_BLOSSOM_URL}/${xHash}`;
-				return;
-			}
-			const anyUrl = urls[0];
-			if (anyUrl) {
-				directDownloadUrl = anyUrl;
-				return;
-			}
-		}
-	}
-
-	// Kick off URL resolution whenever the latest release changes.
-	// Not awaited — result feeds in reactively without delaying any render.
-	$effect(() => {
-		const release = latestRelease;
-		directDownloadUrl = null;
-		if (release) void resolveDirectDownloadUrl(release);
-	});
 	/**
 	 * Fetch an APK from the Blossom CDN with the X-Zapstore-Client header so the
 	 * relay backend records this download as originating from the web client.
@@ -326,7 +237,6 @@ let _refreshing = $state(false);
 		spinKeyModalOpen = false;
 		getStartedModalOpen = true;
 	}
-	const appid = $derived($page.params.appid ?? '');
 	// appid may be a plain d-tag or a legacy naddr — the onMount logic handles both
 	const otherZaps = $derived(
 		zaps.map((z) => {
@@ -480,23 +390,6 @@ let _refreshing = $state(false);
 		const firstSentence = stripped.split(/[.!?](?:\s|$)/)[0]?.trim() ?? stripped;
 		return (firstSentence.length > 50 ? firstSentence.slice(0, 50) : firstSentence) || '';
 	}
-	// Load publisher profile
-	async function loadPublisherProfile(pubkey) {
-		if (!pubkey) return;
-		try {
-			const event = await fetchProfile(pubkey);
-			if (event) {
-				const content = JSON.parse(event.content);
-				publisherProfile = {
-					displayName: content.display_name || content.displayName,
-					name: content.name,
-					picture: content.picture
-				};
-			}
-		} catch (err) {
-			console.error('Error fetching publisher profile:', err);
-		}
-	}
 	function parseZapFromReceiptEvent(e) {
 		const parsed = { ...parseZapReceipt(e), id: e.id };
 		if (!parsed.zappedEventId && e.tags?.length) {
@@ -557,23 +450,8 @@ let _refreshing = $state(false);
 			parentKind,
 			mediaUrls: submitMediaUrls
 		} = event;
-		const tempId = `pending-${Date.now()}`;
-		const optimistic = {
-			id: tempId,
-			pubkey: userPubkey,
-			content: text,
-			contentHtml: '',
-			emojiTags: submitEmojiTags ?? [],
-			mediaUrls: submitMediaUrls ?? [],
-			createdAt: Math.floor(Date.now() / 1000),
-			parentId: parentId ?? null,
-			isReply: parentId != null,
-			pending: true,
-			npub: nip19.npubEncode(userPubkey)
-		};
-		comments = [...comments, optimistic];
 		try {
-			const signed = await publishComment(
+			await publishComment(
 				text,
 				{ contentType: 'app', pubkey: app.pubkey, identifier: app.dTag },
 				signEvent,
@@ -586,235 +464,18 @@ let _refreshing = $state(false);
 				submitMediaUrls,
 				parentId ? null : (latestRelease?.version ?? null)
 			);
-			const parsed = parseComment(signed);
-			parsed.npub = nip19.npubEncode(signed.pubkey);
-			comments = comments.filter((c) => c.id !== tempId);
-			comments = [...comments, parsed];
-			// So the new comment shows our name/avatar: ensure current user's profile is in profiles (cache first, then fetch)
-			const existing = await queryEvent({ kinds: [0], authors: [userPubkey] });
-			if (existing?.content) {
-				try {
-					const c = JSON.parse(existing.content);
-					profiles = {
-						...profiles,
-						[userPubkey]: {
-							displayName: c.display_name ?? c.displayName,
-							name: c.name,
-							picture: c.picture
-						}
-					};
-				} catch {
-					/* ignore */
-				}
-			} else {
-				try {
-					const event = (await fetchProfilesBatch([userPubkey])).get(userPubkey);
-					if (event?.content) {
-						const content = JSON.parse(event.content);
-						profiles = {
-							...profiles,
-							[userPubkey]: {
-								displayName: content.display_name ?? content.displayName,
-								name: content.name,
-								picture: content.picture
-							}
-						};
-					}
-				} catch {
-					/* ignore */
-				}
-			}
-			// Also resolve profiles for anyone @mentioned in the just-published comment
-			const mentionedPks = signed.tags
-				.filter((t) => t[0] === 'p' && t[1]?.length === 64 && !profiles[t[1]])
-				.map((t) => t[1]);
-			if (mentionedPks.length > 0) {
-				const batch = await fetchProfilesBatch(mentionedPks, { timeout: 5000 });
-				const next = { ...profiles };
-				for (const [pk, ev] of batch) {
-					if (ev?.content) {
-						try {
-							const c = JSON.parse(ev.content);
-							next[pk] = { displayName: c.display_name ?? c.displayName, name: c.name, picture: c.picture };
-						} catch { /* ignore */ }
-					}
-				}
-				profiles = next;
-			}
 		} catch (err) {
 			console.error('Failed to publish comment:', err);
-			comments = comments.filter((c) => c.id !== tempId);
 			commentsError =
 				err instanceof Error ? err.message : 'Comment could not be published to any relay.';
 		}
 	}
-	async function loadReleases() {
-		const pubkey = app?.pubkey;
-		const dTag = app?.dTag;
-		if (!pubkey || !dTag) return;
-		releasesLoading = true;
-		try {
-			// Fetch releases from relays (server doesn't cache releases).
-			// Query both #a (older releases) and #i (newer releases that omit #a).
-			const aTagValue = `${EVENT_KINDS.APP}:${pubkey}:${dTag}`;
-			await Promise.all([
-				fetchFromRelays(
-					[ZAPSTORE_RELAY],
-					{
-						kinds: [EVENT_KINDS.RELEASE],
-						'#a': [aTagValue],
-						limit: 50
-					},
-					{ feature: 'app-detail' }
-				),
-				fetchFromRelays(
-					[ZAPSTORE_RELAY],
-					{
-						kinds: [EVENT_KINDS.RELEASE],
-						'#i': [dTag],
-						limit: 50
-					},
-					{ feature: 'app-detail' }
-				)
-			]);
-			// Read from Dexie (fetchFromRelays wrote them there); merge and deduplicate.
-			const [byATag, byITag] = await Promise.all([
-				queryEvents({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], limit: 50 }),
-				queryEvents({ kinds: [EVENT_KINDS.RELEASE], '#i': [dTag], limit: 50 })
-			]);
-			const seen = new SvelteSet();
-			const merged = [];
-			for (const e of [...byATag, ...byITag]) {
-				if (!seen.has(e.id)) {
-					seen.add(e.id);
-					merged.push(e);
-				}
-			}
-			merged.sort((a, b) => b.created_at - a.created_at);
-			const releaseEvents = merged.slice(0, 50);
-			releases = releaseEvents.map(parseRelease);
-			if (releases.length > 0 && !latestRelease) {
-				latestRelease = releases[0];
-			}
-		} catch (err) {
-			console.error('Failed to load releases:', err);
-			releases = [];
-		} finally {
-			releasesLoading = false;
-		}
-	}
 	onMount(async () => {
 		if (!browser) return;
-
-		// Resolve pubkey + identifier: appid may be a plain d-tag or a legacy naddr
 		const pointer = decodeNaddr(appid);
-		// Stack naddr under /apps/… — canonical URL is /stacks/…
 		if (pointer?.kind === EVENT_KINDS.APP_STACK) {
 			goto(`/stacks/${appid}`, { replaceState: true });
-			return;
 		}
-		let _pubkey = data.app?.pubkey ?? pointer?.pubkey;
-		let _identifier = data.app?.dTag ?? pointer?.identifier ?? (pointer ? undefined : appid);
-
-		// 1. Try Dexie first (local-first: IndexedDB is the single client-side source of truth)
-		// When navigating client-side to /apps/:dtag we may only have the identifier (no pubkey yet).
-		let cachedApp = null;
-		if (_pubkey && _identifier) {
-			cachedApp = await queryEvent({
-				kinds: [EVENT_KINDS.APP],
-				authors: [_pubkey],
-				'#d': [_identifier],
-				...PLATFORM_FILTER
-			});
-		} else if (_identifier) {
-			// d-tag only — query by tag, pick first result
-			cachedApp = await queryEvent({
-				kinds: [EVENT_KINDS.APP],
-				'#d': [_identifier],
-				...PLATFORM_FILTER
-			});
-		}
-		if (cachedApp) {
-			app = parseApp(cachedApp);
-			_pubkey = app.pubkey;
-			_identifier = app.dTag;
-			error = null;
-			// Do not run a follow-up "verify" one-shot that can clear this view. A second
-			// relay round-trip often finishes seconds later; empty/flaky results are not
-			// proof the app vanished — they used to flip a healthy page to "not found".
-		}
-
-		if (!_identifier) {
-			error = data.error ?? 'Invalid app URL';
-			return;
-		}
-
-		// 2. Supplement with server data (may be fresher)
-		if (data.app && !app) {
-			app = data.app;
-			_pubkey = app.pubkey;
-			_identifier = app.dTag;
-			error = null;
-		}
-
-		// 3. Not in cache or Dexie: try relays once before showing 404 (online only)
-		//    Works with d-tag only — no pubkey required.
-		if (!app && isOnline()) {
-			const events = await fetchFromRelays(
-				[ZAPSTORE_RELAY],
-				{
-					kinds: [EVENT_KINDS.APP],
-					...(_pubkey ? { authors: [_pubkey] } : {}),
-					'#d': [_identifier],
-					...PLATFORM_FILTER,
-					limit: 1
-				},
-				{ feature: 'app-detail' }
-			);
-			if (events.length > 0) {
-				app = parseApp(events[0]);
-				_pubkey = app.pubkey;
-				_identifier = app.dTag;
-				error = null;
-			}
-		}
-
-		if (!app) {
-			error = data.error ?? 'App not found';
-			return;
-		}
-
-		if (!_pubkey || !_identifier) {
-			error = 'Invalid app URL';
-			return;
-		}
-
-		const aTagValue = `${EVENT_KINDS.APP}:${_pubkey}:${_identifier}`;
-		// Old format: #a + platform filter. New format: #i only (no #f on release events).
-		const [cachedByA, cachedByI] = await Promise.all([
-			queryEvent({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], ...PLATFORM_FILTER }),
-			queryEvent({ kinds: [EVENT_KINDS.RELEASE], '#i': [_identifier] })
-		]);
-		const cachedRelease =
-			[cachedByA, cachedByI].filter(Boolean).sort((a, b) => b.created_at - a.created_at)[0] ?? null;
-		if (cachedRelease) {
-			latestRelease = parseRelease(cachedRelease);
-		}
-		// Seed server events (app + publisher profile) into Dexie so subsequent
-		// queries (e.g. loadPublisherProfile) find them locally without relay fetch.
-		if (data.seedEvents?.length > 0) {
-			await putEvents(data.seedEvents).catch((err) =>
-				console.error('[AppDetail] Seed persist failed:', err)
-			);
-		}
-		// Load publisher profile
-		loadPublisherProfile(_pubkey);
-		// Load releases from server data
-		const schedule =
-			'requestIdleCallback' in window ? window.requestIdleCallback : (cb) => setTimeout(cb, 1);
-		schedule(async () => {
-			loadReleases();
-		});
 	});
 	function _formatReleaseDate(ts) {
 		return new Date(ts * 1000).toLocaleDateString(undefined, {

@@ -38,12 +38,21 @@ import SpinKeyModal from "$lib/components/modals/SpinKeyModal.svelte";
 import GetStartedModal from "$lib/components/modals/GetStartedModal.svelte";
 import OnboardingBuildingModal from "$lib/components/modals/OnboardingBuildingModal.svelte";
 import Pen from "$lib/components/icons/Pen.svelte";
-import { createAddressableSocialQuery } from "$lib/purpleweb/svelte/social.svelte.js";
+import { createStackSocialQuery } from "$lib/purpleweb/svelte/social.svelte.js";
 let { data } = $props();
-let stack = $state(data.stack ?? null);
-let apps = $state(data.apps ?? []);
+function getInitialStack() {
+    return data.stack ?? null;
+}
+function getInitialApps() {
+    return data.apps ?? [];
+}
+function getInitialError() {
+    return data.error ?? null;
+}
+let stack = $state(getInitialStack());
+let apps = $state(getInitialApps());
 let loading = $state(false); // Start false, only show loading if no cached data
-let error = $state(data.error ?? null);
+let error = $state(getInitialError());
 let comments = $state([]);
 let commentsLoading = $state(false);
 let commentsSyncing = $state(false);
@@ -71,13 +80,7 @@ let labelsLoading = $state(false);
 let zaps = $state([]);
 let zapsLoading = $state(false);
 let zapperProfiles = new SvelteMap();
-const social = createAddressableSocialQuery(
-    () =>
-        stack?.pubkey && stack?.dTag
-            ? { kind: EVENT_KINDS.APP_STACK, pubkey: stack.pubkey, identifier: stack.dTag }
-            : null,
-    { hydrateEnabled: () => isOnline() }
-);
+const social = createStackSocialQuery(() => stack);
 $effect(() => {
     comments = social.comments;
     commentsLoading = social.commentsLoading;
@@ -89,7 +92,10 @@ $effect(() => {
     labelsLoading = social.labelsLoading;
     profiles = social.profiles;
     profilesLoading = social.profilesLoading;
-    zapperProfiles = new SvelteMap(social.zapperProfiles);
+    zapperProfiles.clear();
+    for (const [pubkey, profile] of social.zapperProfiles) {
+        zapperProfiles.set(pubkey, profile);
+    }
 });
 const otherZaps = $derived(
     zaps.map((z) => {

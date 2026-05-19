@@ -12,7 +12,8 @@ import {
 	Zap,
 	commentFiltersForAddressables,
 	labelFiltersForAddressables,
-	zapFiltersForAddressables
+	zapFiltersForAddressables,
+	zapFiltersForEventIds
 } from '../models/index.js';
 import { dedupeEvents } from './query.js';
 import { parseModels } from '../core/registry.js';
@@ -51,7 +52,7 @@ async function queryProfilesForSocial(commentEvents, zapEvents, labelEvents) {
 	]).map((pk) => pk.toLowerCase());
 
 	if (pubkeys.length === 0) {
-		return { profiles: {}, zapperProfiles: new Map() };
+		return { profiles: {}, zapperProfiles: new Map(), profilePubkeys: [], missingProfilePubkeys: [] };
 	}
 
 	const profileEvents = await queryEvents({
@@ -64,6 +65,7 @@ async function queryProfilesForSocial(commentEvents, zapEvents, labelEvents) {
 	for (const profile of profileModels) {
 		profiles[profile.pubkey] = profile;
 	}
+	const missingProfilePubkeys = pubkeys.filter((pubkey) => !profiles[pubkey]);
 
 	const zapperProfiles = new Map();
 	for (const zap of zapModels) {
@@ -72,7 +74,7 @@ async function queryProfilesForSocial(commentEvents, zapEvents, labelEvents) {
 		}
 	}
 
-	return { profiles, zapperProfiles };
+	return { profiles, zapperProfiles, profilePubkeys: pubkeys, missingProfilePubkeys };
 }
 
 /**
@@ -95,11 +97,19 @@ export async function queryAddressableSocial(root) {
 	}
 
 	const rootRef = addressableId(root.kind, root.pubkey, root.identifier);
-	const rootZapEvents = await queryMany(zapFiltersForAddressables([rootRef]));
 	const commentEvents = await queryCommentsForAddressable(root.kind, root.pubkey, root.identifier);
-	const zapEvents = rootZapEvents;
+	const eventIds = uniqueStrings([
+		...(root.mainEventIds ?? []),
+		...commentEvents.map((event) => event.id).filter(Boolean)
+	]);
+	const [rootZapEvents, eventZapEvents] = await Promise.all([
+		queryMany(zapFiltersForAddressables([rootRef])),
+		queryMany(zapFiltersForEventIds(eventIds))
+	]);
+	const zapEvents = dedupeEvents([...rootZapEvents, ...eventZapEvents]);
 	const labelEvents = await queryMany(labelFiltersForAddressables([rootRef]));
-	const { profiles, zapperProfiles } = await queryProfilesForSocial(commentEvents, zapEvents, labelEvents);
+	const { profiles, zapperProfiles, profilePubkeys, missingProfilePubkeys } =
+		await queryProfilesForSocial(commentEvents, zapEvents, labelEvents);
 
 	return {
 		commentEvents,
@@ -110,6 +120,9 @@ export async function queryAddressableSocial(root) {
 		labels: parseModels(labelEvents, Label),
 		labelEntries: groupLabelEventsToEntries(labelEvents),
 		profiles,
-		zapperProfiles
+		zapperProfiles,
+		profilePubkeys,
+		missingProfilePubkeys,
+		eventZapTargetIds: eventIds
 	};
 }

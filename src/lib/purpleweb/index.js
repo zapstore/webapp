@@ -56,5 +56,11 @@ export {
 
 export { liveModelGraph, liveModels } from './storage/live.js';
 export { queryAddressableSocial } from './storage/social.js';
+export { createAppDetailQuery } from './svelte/app-detail.svelte.js';
+export {
+	createAddressableSocialQuery,
+	createAppSocialQuery,
+	createStackSocialQuery
+} from './svelte/social.svelte.js';
 export { hydrateFilters } from './sync/hydrate.js';
-export { subscribeAddressableSocial } from './sync/social.js';
+export { subscribeAddressableSocial, subscribeEventZaps } from './sync/social.js';
