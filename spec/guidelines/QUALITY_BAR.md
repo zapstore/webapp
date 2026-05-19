@@ -44,17 +44,19 @@ If multiple phases: `WORK-005-a.md`, `WORK-005-b.md` (same feature number).
 
 ## Layer Expectations
 
+### Data Layer (`src/lib/stores/` and `src/lib/purpleweb/`)
+
+- Store and purpleweb state must be derivable from Dexie (IndexedDB) via liveQuery.
+- liveQuery subscriptions must clean up on component destroy (`$effect` return or equivalent).
+- Loading/error states must be explicit.
+- Prefer purpleweb query helpers for new page data on catalog detail and social surfaces; extend existing store patterns for listings until migrated.
+- Purpleweb hydration errors on user-initiated actions must be surfaced; background sync failures may degrade silently only when cached local data is already shown.
+
 ### Nostr Layer (`src/lib/nostr/`)
 
 - Event parsing must tolerate unknown tags.
 - Server relay pool must handle disconnection and reconnection gracefully.
 - Dexie writes must not block rendering.
-
-### Data Layer (`src/lib/stores/`)
-
-- Store state must be derivable from Dexie (IndexedDB) via liveQuery.
-- liveQuery subscriptions must clean up on component destroy.
-- Loading/error states must be explicit.
 
 ### Presentation Layer (`src/routes/`, `src/lib/components/`)
 

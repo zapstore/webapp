@@ -24,8 +24,8 @@ These are the most critical invariants. Local-first is not optional.
 
 - **Server polls, client streams.** The server polls two catalog relays every 60 seconds to maintain its seed data cache. The client maintains persistent relay connections for live updates.
 - **NIP-01 filters are the universal query language.** The same filter objects are used to query relays, the server cache, and IndexedDB. No custom query APIs.
-- **`queryEvents(filter)` is the single client-side query primitive.** All data queries — inside liveQuery, for one-shot reads, for relationship resolution — go through this function. No raw Dexie `.where()` chains in application code.
-- **No REST API for data refresh.** The client gets live data from relay connections, not from server API endpoints. REST APIs exist only for initial page seed data delivery via `+page.server.js`.
+- **`queryEvents(filter)` is the single client-side query primitive.** All data queries — inside liveQuery, for one-shot reads, for relationship resolution — go through this function (directly or via purpleweb/storage helpers). No raw Dexie `.where()` chains in application code.
+- **No REST API for catalog data refresh.** The client gets live catalog data from relay connections, not from server API endpoints. Catalog seed data is delivered via universal `+page.js` loads during SSR. REST endpoints exist only for non-catalog concerns (file upload, studio analytics, redirects).
 
 ## Performance
 
@@ -108,14 +108,15 @@ These are the most critical invariants. Local-first is not optional.
 
 ## SEO
 
-- App detail pages must be fully pre-rendered with complete metadata.
-- Pages must have appropriate `<title>`, `<meta description>`, and Open Graph tags.
+- Catalog detail pages (apps, stacks) must be server-rendered on first visit with complete metadata (`<title>`, `<meta description>`, Open Graph tags) embedded in the HTML response.
+- All pages must have appropriate `<title>`, `<meta description>`, and Open Graph tags.
 - URLs must be stable and human-readable.
 
 ## Prerendering
 
-- All app pages are prerendered at build time via SvelteKit.
-- Prerendered HTML must be valid and complete.
+- **Static/marketing pages** (blog, docs, terms, enterprise) are prerendered at build time via SvelteKit. Prerendered HTML must be valid and complete.
+- **Catalog pages** (`/apps`, `/stacks`, detail pages, profiles) use runtime SSR with `prerender = false` — they are not prerendered at build time. First-visit content comes from the server cache seed embedded in the SSR response.
+- **Client-only sections** (studio signed-in dashboard) use `ssr = false` and are not prerendered.
 - Build failures must not deploy broken pages.
 
 ## PWA

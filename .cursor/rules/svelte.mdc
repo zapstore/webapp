@@ -19,9 +19,16 @@ globs: ["**/*.svelte", "**/*.ts", "**/*.js", "**/+page*", "**/+layout*", "**/+se
 
 ## Data Loading
 
-- Server data: use `+page.server.js` load functions for SSR seed data.
-- Client data: write to Dexie (IndexedDB) in `+page.js` or components; use `liveQuery` for reactivity.
-- Never fetch data directly in `$effect` on mount — use load functions or a dedicated store.
+- **Catalog SSR seed:** use universal `+page.js` load functions — not `+page.server.js`. Pattern:
+  ```js
+  if (browser) return { seedEvents: [] };
+  const { fetchApps } = await import('$lib/nostr/server.js');
+  return { seedEvents: fetchApps(24) };
+  ```
+  Universal loads run in the browser during client-side navigation (offline-safe). Server-only loads break offline nav.
+- **`+page.server.js`:** use only for non-catalog concerns (redirects, auth gates) — not for catalog seed data.
+- **Client reactivity:** subscribe to Dexie `liveQuery` in `$effect` (or use purpleweb/svelte helpers). Assign results to `$state`; cleanup must unsubscribe.
+- **Background hydration:** relay fetches write to Dexie via `fetchFromRelays` / purpleweb `hydrateFilters` — never bind relay responses directly to UI state.
 - All one-shot relay queries must have a timeout (default 5s).
 
 ## Component Structure
@@ -34,9 +41,9 @@ globs: ["**/*.svelte", "**/*.ts", "**/*.js", "**/+page*", "**/+layout*", "**/+se
 ## Routing
 
 - `+page.svelte` — page UI
-- `+page.server.js` — server-only load (SSR, DB queries)
-- `+page.js` — universal load (runs on server and client)
-- `+layout.svelte` — shared layout
+- `+page.js` — universal load (SSR seed + browser empty return for catalog pages)
+- `+page.server.js` — server-only load (redirects, auth; not catalog seed)
+- `+layout.svelte` / `+layout.js` — shared layout (`ssr = false` for client-only sections like studio dashboard)
 - `+server.js` — API route (REST endpoint)
 
 ## TypeScript

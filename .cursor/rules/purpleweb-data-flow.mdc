@@ -1,12 +1,28 @@
 ---
-description: Purpleweb owns page data loading and hydration
+description: Purpleweb local-first data boundary for page-visible Nostr events
 alwaysApply: true
 ---
 
 # Purpleweb Data Flow
 
-- Page-visible event data must be read from Dexie through purpleweb. Routes and components must not display relay responses directly.
-- Purpleweb owns both background one-shot hydration and persistent subscriptions. Consumers should describe the model/root they need, not relay filters, hydration toggles, or subscription lifecycles.
-- All relay results must be written to Dexie first. UI updates come from Dexie `liveQuery` / purpleweb state.
-- Route code may publish user actions, but published events must be persisted to Dexie and read back through purpleweb/local state derived from Dexie.
-- SSR seed data is only bootstrap input for purpleweb hydration; client-side display should converge immediately to Dexie-backed state.
+Purpleweb (`src/lib/purpleweb/`) is the local-first runtime for page-visible Nostr event data. It sits above Dexie and delegates relay I/O to `$lib/nostr/service.js`.
+
+## Rules (where purpleweb is adopted)
+
+- Page-visible event data on purpleweb-owned surfaces must be read from Dexie through purpleweb. Routes and components must not display relay responses directly.
+- All relay results must be written to Dexie first (`putEvents`). UI updates come from Dexie `liveQuery` / purpleweb reactive state.
+- Consumers describe the model or addressable root they need (e.g. app, stack social root) — not relay filters, hydration toggles, or subscription lifecycles.
+- SSR seed data is bootstrap input only; client-side display must converge immediately to Dexie-backed purpleweb state.
+- Route code may publish user actions (comments, zaps); published events must be persisted to Dexie and read back through purpleweb or Dexie-derived local state.
+
+## Ownership boundaries
+
+| Concern | Owner |
+|---------|-------|
+| App detail reads + hydration | purpleweb (`createAppDetailQuery`) |
+| App/stack social reads + hydration | purpleweb (`createAppSocialQuery`, `createStackSocialQuery`) |
+| Catalog persistent subscriptions (apps, releases, stacks) | `$lib/nostr/service.js` via `+layout.svelte` |
+| Catalog listing queries + load-more | `$lib/stores/nostr.svelte.js`, `stacks.svelte.js` |
+| Stack detail entity + app resolution | Route code (not yet purpleweb) — same Dexie-first invariants apply |
+
+When adding new page data on catalog detail or social surfaces, use or extend purpleweb. When touching listings or the app-shell relay pool, follow existing nostr/store patterns until those surfaces migrate.
