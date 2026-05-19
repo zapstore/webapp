@@ -4,7 +4,7 @@
  *
  * Displays a curated collection of apps with:
  * - Stack header with title and description
- * - Horizontal scrolling grid of apps (3 per column)
+ * - App results grid (search-style cards, expandable when long)
  * - Social engagement (comments, zaps)
  * - Bottom bar for interactions
  */
@@ -21,7 +21,6 @@ import { ZAPSTORE_RELAY, EVENT_KINDS, PLATFORM_FILTER, SITE_ICON, SITE_URL } fro
 import { isOnline } from "$lib/stores/online.svelte.js";
 import { nip19 } from "nostr-tools";
 
-import { ChevronLeft, ChevronRight } from "$lib/components/icons";
 import AppSmallCard from "$lib/components/cards/AppSmallCard.svelte";
 import SocialTabs from "$lib/components/social/SocialTabs.svelte";
 import { resolve } from "$app/paths";
@@ -38,6 +37,8 @@ import SpinKeyModal from "$lib/components/modals/SpinKeyModal.svelte";
 import GetStartedModal from "$lib/components/modals/GetStartedModal.svelte";
 import OnboardingBuildingModal from "$lib/components/modals/OnboardingBuildingModal.svelte";
 import Pen from "$lib/components/icons/Pen.svelte";
+import { wheelScrollPassthrough } from "$lib/actions/wheelScrollPassthrough.js";
+import "$lib/styles/bordered-detail-column.css";
 let { data } = $props();
 // Catalog for this stack - currently just Zapstore
 const catalogs = [
@@ -65,10 +66,12 @@ const _effectiveCatalogs = $derived(
         ? [{ ...catalogs[0], pictureUrl: zapstoreProfile.picture, name: zapstoreProfile.name }]
         : [...catalogs]
 );
+// Seed from SSR so first paint and hydration keep stack content; client load may clear data.stack.
 let stack = $state(data.stack ?? null);
 let apps = $state(data.apps ?? []);
-let loading = $state(false); // Start false, only show loading if no cached data
-let error = $state(data.error ?? null);
+let loading = $state(false);
+// Mutable: only set after client resolution — never from SSR data.error (avoids 404 flash on reload).
+let error = $state(null);
 let comments = $state([]);
 let commentsLoading = $state(false);
 let commentsSyncing = $state(false);
@@ -148,41 +151,81 @@ const mergedLabelEntries = $derived.by(() => {
 const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
 const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
 const stackNaddr = $derived($page.params.naddr);
-// Ref for horizontal scroll container
-let appsScrollContainer = $state(null);
-/** ~one column width + gap — matches apps listing scroll step */
-const STACK_APPS_SCROLL_STEP = 320;
-let stackAppsScrolledRight = $state(false);
-let stackAppsCanScrollRight = $state(false);
-function handleStackAppsScroll() {
-    if (!appsScrollContainer)
-        return;
-    const { scrollLeft, scrollWidth, clientWidth } = appsScrollContainer;
-    stackAppsScrolledRight = scrollLeft > 20;
-    stackAppsCanScrollRight =
-        scrollWidth > clientWidth + 2 && scrollLeft + clientWidth < scrollWidth - 2;
+/** Collapsed preview: max cards before "View all" */
+const STACK_APPS_PREVIEW_MAX = 6;
+/** Max grid height when collapsed — must match CSS --stack-apps-clip-max-h per breakpoint */
+const STACK_APPS_CLIP_MAX_HEIGHT_MOBILE_PX = 292;
+const STACK_APPS_CLIP_MAX_HEIGHT_DESKTOP_PX = 400;
+
+function getStackAppsClipMaxHeightPx() {
+    if (!browser)
+        return STACK_APPS_CLIP_MAX_HEIGHT_DESKTOP_PX;
+    return window.matchMedia('(min-width: 768px)').matches
+        ? STACK_APPS_CLIP_MAX_HEIGHT_DESKTOP_PX
+        : STACK_APPS_CLIP_MAX_HEIGHT_MOBILE_PX;
 }
-function scrollStackApps(dir) {
-    if (!appsScrollContainer)
+
+let stackAppsExpanded = $state(false);
+let stackAppsGridEl = $state(null);
+let stackAppsHeightOverflow = $state(false);
+
+const stackAppsNeedsViewAll = $derived(
+    apps.length > STACK_APPS_PREVIEW_MAX || stackAppsHeightOverflow
+);
+
+/** Full list always; collapsed state clips via CSS max-height on the clip container */
+const stackAppsDisplayList = $derived(apps);
+
+$effect(() => {
+    void stackNaddr;
+    stackAppsExpanded = false;
+});
+
+$effect(() => {
+    if (!browser || apps.length === 0) {
+        stackAppsHeightOverflow = false;
         return;
-    appsScrollContainer.scrollBy({ left: dir * STACK_APPS_SCROLL_STEP, behavior: 'smooth' });
-    if (dir > 0)
-        setTimeout(handleStackAppsScroll, 350);
-}
-// Save scroll positions before navigating away
+    }
+    if (stackAppsExpanded) {
+        stackAppsHeightOverflow = apps.length > STACK_APPS_PREVIEW_MAX;
+        return;
+    }
+    const el = stackAppsGridEl;
+    if (!el)
+        return;
+    const measure = () => {
+        if (stackAppsExpanded) {
+            return;
+        }
+        const maxH = getStackAppsClipMaxHeightPx();
+        stackAppsHeightOverflow =
+            apps.length > STACK_APPS_PREVIEW_MAX || el.scrollHeight > maxH + 2;
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    const mq = window.matchMedia('(min-width: 768px)');
+    const onMqChange = () => measure();
+    mq.addEventListener('change', onMqChange);
+    void apps.length;
+    return () => {
+        ro.disconnect();
+        mq.removeEventListener('change', onMqChange);
+    };
+});
+
+// Save vertical scroll before navigating away
 beforeNavigate(() => {
     if (!browser)
         return;
     const scrollState = {
         scrollY: window.scrollY,
-        appsScrollX: appsScrollContainer?.scrollLeft ?? 0,
         timestamp: Date.now(),
         stackNaddr
     };
     sessionStorage.setItem('stack_detail_scroll', JSON.stringify(scrollState));
 });
-// Restore scroll positions on mount (when coming back)
-let pendingScrollRestore = null;
+
 function restoreScrollPositions() {
     if (!browser)
         return;
@@ -190,56 +233,63 @@ function restoreScrollPositions() {
     if (saved) {
         try {
             const scrollState = JSON.parse(saved);
-            // Only restore if saved within last 5 minutes and for the same stack
             if (Date.now() - scrollState.timestamp < 5 * 60 * 1000 &&
-                scrollState.stackNaddr === stackNaddr) {
-                pendingScrollRestore = scrollState;
-                // Restore vertical scroll immediately
-                if (scrollState.scrollY > 0) {
-                    window.scrollTo(0, scrollState.scrollY);
-                }
-                // Try to restore horizontal position
-                tryRestoreHorizontalScroll();
+                scrollState.stackNaddr === stackNaddr &&
+                scrollState.scrollY > 0) {
+                window.scrollTo(0, scrollState.scrollY);
             }
         }
         catch (_e) {
-            // Ignore parse errors
+            /* ignore */
         }
-        // Clear after attempting restore
         sessionStorage.removeItem('stack_detail_scroll');
     }
 }
-function tryRestoreHorizontalScroll() {
-    if (!pendingScrollRestore)
-        return;
-    if (appsScrollContainer && pendingScrollRestore.appsScrollX > 0) {
-        appsScrollContainer.scrollLeft = pendingScrollRestore.appsScrollX;
-        handleStackAppsScroll();
-        pendingScrollRestore = null;
-    }
-    else {
-        // Container not ready, try again next frame
-        requestAnimationFrame(tryRestoreHorizontalScroll);
-    }
-}
+/** Previous naddr — detect client-side navigation between stacks (not initial mount). */
+let prevStackNaddr = '';
+
 $effect(() => {
-    void stackNaddr;
-    stack = data.stack ?? null;
-    apps = data.apps ?? [];
-    error = data.error ?? null;
+    const naddr = stackNaddr;
+    if (!browser || !prevStackNaddr || prevStackNaddr === naddr) {
+        prevStackNaddr = naddr;
+        return;
+    }
+    prevStackNaddr = naddr;
+    stack = null;
+    apps = [];
+    error = null;
+    loading = false;
+    void loadStack();
+});
+
+onMount(() => {
+    restoreScrollPositions();
     if (browser) {
         void loadStack();
     }
 });
-onMount(() => {
-    restoreScrollPositions();
-});
+
 async function loadStack() {
+    const hadStack = !!stack;
+    if (!hadStack) {
+        loading = true;
+    }
     try {
-        let foundStack = data.stack;
+        // Seed Dexie before querying so hard reload can resolve from local data immediately.
+        if (data.seedEvents?.length > 0) {
+            await putEvents(data.seedEvents).catch(() => {});
+        } else {
+            persistEventsInBackground(data.seedEvents ?? []);
+        }
+
+        let foundStack = stack ?? data.stack;
         const pointer = browser ? decodeNaddr($page.params.naddr) : null;
         if (browser && !pointer && $page.params.naddr && !$page.params.naddr.startsWith('naddr1')) {
             goto(`/apps/${$page.params.naddr}`, { replaceState: true });
+            return;
+        }
+        if (browser && !pointer) {
+            error = 'Invalid stack URL';
             return;
         }
         // App naddr pasted under /stacks/… — canonical URL is /apps/…
@@ -271,10 +321,9 @@ async function loadStack() {
                 foundStack = parseAppStack(events[0]);
         }
         if (!foundStack) {
-            error = data.error ?? "Stack not found";
+            error = "Stack not found";
             return;
         }
-        persistEventsInBackground(data.seedEvents ?? []);
         // Fetch creator profile
         let creator = null;
         const creatorPubkey = foundStack.pubkey;
@@ -687,28 +736,6 @@ async function handleCommentSubmit(event) {
 function getAppUrl(app) {
     return `/apps/${app.dTag}`;
 }
-// Group apps into columns of 3 for horizontal scroll
-function getAppColumns(appList, itemsPerColumn = 3) {
-    const columns = [];
-    for (let i = 0; i < appList.length; i += itemsPerColumn) {
-        columns.push(appList.slice(i, i + itemsPerColumn));
-    }
-    return columns;
-}
-const appColumns = $derived(getAppColumns(apps, 3));
-// Recompute scroll affordances after apps render (container width vs content)
-$effect(() => {
-    if (!browser)
-        return;
-    void apps.length;
-    void appColumns;
-    if (!appsScrollContainer)
-        return;
-    const id = requestAnimationFrame(() => {
-        requestAnimationFrame(handleStackAppsScroll);
-    });
-    return () => cancelAnimationFrame(id);
-});
 // Computed display values for stack (same rules as AppStackCard)
 const displayTitle = $derived(
     stack ? stackDisplayTitle({ title: stack.title, description: stack.description }) : ""
@@ -729,9 +756,16 @@ const displayDescription = $derived(
   type="product"
 />
 
-<section class="stack-page">
-  <div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">
-    {#if loading && !error}
+{#if error}
+  <section class="stack-page stack-page--error">
+    <ZappyError message="this stack wasn't found." />
+  </section>
+{:else}
+<div class="app-detail-page" use:wheelScrollPassthrough>
+  <div class="app-detail-outer container mx-auto px-0 sm:px-6 lg:px-8">
+    <div class="app-detail-frame">
+      <div class="app-detail-scroll stack-detail-scroll" data-main-scroll>
+    {#if loading && !stack}
       <!-- Loading State -->
       <div class="skeleton-publisher-row">
         <div class="skeleton-publisher">
@@ -739,32 +773,27 @@ const displayDescription = $derived(
           <div class="skeleton-name-small"></div>
         </div>
       </div>
+      <div class="stack-header-divider" aria-hidden="true"></div>
       <div class="stack-header-skeleton">
         <div class="skeleton-title"><SkeletonLoader /></div>
         <div class="skeleton-desc"></div>
       </div>
 
-      <div class="section-container">
-        <div class="horizontal-scroll">
-          <div class="scroll-content">
-            {#each Array(3) as _, colIndex (colIndex)}
-              <div class="app-column">
-                {#each Array(3) as _, cardIndex (cardIndex)}
-                  <div class="skeleton-card">
-                    <div class="skeleton-icon"><SkeletonLoader /></div>
-                    <div class="skeleton-info">
-                      <div class="skeleton-name"><SkeletonLoader /></div>
-                      <div class="skeleton-desc-small"></div>
-                    </div>
-                  </div>
-                {/each}
+      <div class="section-container stack-apps-section">
+        <ul class="stack-apps-grid stack-apps-grid--skeleton" aria-hidden="true">
+          {#each Array(6) as _, i (i)}
+            <li class="stack-apps-grid-item">
+              <div class="skeleton-card">
+                <div class="skeleton-icon"><SkeletonLoader /></div>
+                <div class="skeleton-info">
+                  <div class="skeleton-name"><SkeletonLoader /></div>
+                  <div class="skeleton-desc-small"></div>
+                </div>
               </div>
-            {/each}
-          </div>
-        </div>
+            </li>
+          {/each}
+        </ul>
       </div>
-    {:else if error}
-      <ZappyError message="this stack wasn't found." />
     {:else if stack}
       <!-- Publisher row above title (author left, timestamp right) -->
       <div class="detail-publisher-row">
@@ -788,6 +817,7 @@ const displayDescription = $derived(
           <Timestamp timestamp={stack.createdAt} size="xs" className="detail-publisher-timestamp" />
         {/if}
       </div>
+      <div class="stack-header-divider" aria-hidden="true"></div>
       <!-- Stack Header: title row, then description row -->
       <div class="stack-header">
         <div class="stack-title-row">
@@ -804,51 +834,36 @@ const displayDescription = $derived(
             </button>
           {/if}
         </div>
-        <div class="stack-desc-row">
+        {#if displayDescription}
           <p class="stack-description">{displayDescription}</p>
-          {#if apps.length > 0}
-            <span class="stack-page-app-count">{apps.length} Apps</span>
-          {/if}
-        </div>
+        {/if}
       </div>
 
       <!-- Apps Section -->
-      <div class="section-container">
+      <div
+        class="section-container stack-apps-section"
+        class:stack-apps-section--expanded={stackAppsExpanded && apps.length > 0}
+      >
         {#if apps.length > 0}
-          <div class="stack-apps-scroll-wrap">
-            <div
-              class="horizontal-scroll"
-              bind:this={appsScrollContainer}
-              onscroll={handleStackAppsScroll}
-            >
-              <div class="scroll-content">
-                {#each appColumns as column, ci (ci)}
-                  <div class="app-column">
-                    {#each column as app (app.id)}
-                      <AppSmallCard {app} href={getAppUrl(app)} />
-                    {/each}
-                  </div>
-                {/each}
-              </div>
-            </div>
-            {#if stackAppsScrolledRight}
+          <div
+            class="stack-apps-clip"
+            class:stack-apps-clip--collapsed={!stackAppsExpanded && stackAppsNeedsViewAll}
+          >
+            <ul class="stack-apps-grid" bind:this={stackAppsGridEl}>
+              {#each stackAppsDisplayList as app (app.id)}
+                <li class="stack-apps-grid-item">
+                  <AppSmallCard {app} href={getAppUrl(app)} />
+                </li>
+              {/each}
+            </ul>
+            {#if !stackAppsExpanded && stackAppsNeedsViewAll}
+              <div class="stack-apps-fade" aria-hidden="true"></div>
               <button
                 type="button"
-                class="stack-apps-scroll-btn stack-apps-scroll-btn-left"
-                onclick={() => scrollStackApps(-1)}
-                aria-label="Scroll apps left"
+                class="stack-apps-view-all-btn"
+                onclick={() => (stackAppsExpanded = true)}
               >
-                <ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
-              </button>
-            {/if}
-            {#if stackAppsCanScrollRight}
-              <button
-                type="button"
-                class="stack-apps-scroll-btn stack-apps-scroll-btn-right"
-                onclick={() => scrollStackApps(1)}
-                aria-label="Scroll apps right"
-              >
-                <ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
+                View all {apps.length} {apps.length === 1 ? 'App' : 'Apps'}
               </button>
             {/if}
           </div>
@@ -862,7 +877,7 @@ const displayDescription = $derived(
       </div>
 
       <!-- Social tabs (Comments, Labels, etc.) -->
-      <div class="mb-8">
+      <div class="stack-social-section">
         <SocialTabs
           stack={stack}
           app={{ pubkey: stack.pubkey, dTag: stack.dTag }}
@@ -901,8 +916,11 @@ const displayDescription = $derived(
         />
       </div>
     {/if}
+      </div>
+    </div>
   </div>
-</section>
+</div>
+{/if}
 
 <!-- Bottom Bar: shown for everyone; guests see "Get started to comment" and can zap with anon keypair. -->
 {#if stack}
@@ -955,8 +973,23 @@ const displayDescription = $derived(
 <OnboardingBuildingModal bind:open={onboardingBuildingModalOpen} zIndex={56} />
 
 <style>
-  .stack-page {
-    min-height: 100vh;
+  .stack-page--error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100dvh - 64px);
+    padding: 2rem;
+  }
+
+  /* 8px less top inset than shared app-detail-scroll (stacks only) */
+  .app-detail-scroll.stack-detail-scroll {
+    padding-top: 8px;
+  }
+
+  @media (min-width: 768px) {
+    .app-detail-scroll.stack-detail-scroll {
+      padding-top: 10px;
+    }
   }
 
   /* ── Publisher info row (replaces DetailHeader) ── */
@@ -965,7 +998,17 @@ const displayDescription = $derived(
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding-bottom: 0.5rem;
+    padding-bottom: 0;
+  }
+
+  .stack-header-divider {
+    margin-left: calc(-1 * var(--detail-pad-x));
+    margin-right: calc(-1 * var(--detail-pad-x));
+    width: calc(100% + 2 * var(--detail-pad-x));
+    height: 0;
+    border-bottom: 1px solid var(--white16);
+    margin-top: 12px;
+    margin-bottom: 16px;
   }
 
   .detail-publisher-link {
@@ -1002,8 +1045,8 @@ const displayDescription = $derived(
     display: flex;
     flex-direction: column;
     gap: 8px;
-    margin-top: 8px;
-    margin-bottom: 32px;
+    margin-top: 0;
+    margin-bottom: 16px;
   }
 
   .stack-title-row {
@@ -1068,27 +1111,11 @@ const displayDescription = $derived(
     }
   }
 
-  .stack-desc-row {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
-  }
-
   .stack-description {
-    flex: 1;
-    min-width: 0;
     font-size: 1rem;
     color: var(--white66);
     margin: 0;
     line-height: 1.5;
-  }
-
-  .stack-page-app-count {
-    flex-shrink: 0;
-    font-size: 1rem;
-    color: var(--white33);
   }
 
   @media (min-width: 768px) {
@@ -1099,10 +1126,6 @@ const displayDescription = $derived(
     .stack-description {
       font-size: 1.125rem;
     }
-
-    .stack-page-app-count {
-      font-size: 1.125rem;
-    }
   }
 
   .section-container {
@@ -1110,159 +1133,143 @@ const displayDescription = $derived(
     min-width: 0;
   }
 
-  .stack-apps-scroll-wrap {
+  .stack-social-section {
+    margin-top: 0;
+    margin-bottom: 2rem;
+  }
+
+  .stack-apps-section {
+    --stack-apps-clip-max-h: 292px;
+    margin-left: calc(-1 * var(--detail-pad-x));
+    margin-right: calc(-1 * var(--detail-pad-x));
+    width: calc(100% + 2 * var(--detail-pad-x));
+    margin-bottom: 16px;
+    border-top: 1px solid var(--white16);
+    border-bottom: 1px solid var(--white16);
+  }
+
+  @media (min-width: 768px) {
+    .stack-apps-section {
+      --stack-apps-clip-max-h: 400px;
+    }
+  }
+
+  .stack-apps-section.section-container {
+    margin-bottom: 16px;
+  }
+
+  .stack-apps-clip {
     position: relative;
   }
 
-  /* Scroll arrows — desktop + fine pointer (same idea as /apps) */
-  .stack-apps-scroll-btn {
-    display: none;
+  .stack-apps-clip--collapsed {
+    max-height: calc(var(--stack-apps-clip-max-h) + 48px);
+    overflow: hidden;
+    padding-bottom: 48px;
+    box-sizing: border-box;
   }
 
-  @media (min-width: 768px) and (hover: hover) and (pointer: fine) {
-    .stack-apps-scroll-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%) scale(1);
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      border: none;
-      background: var(--white16);
-      backdrop-filter: blur(var(--blur-sm));
-      -webkit-backdrop-filter: blur(var(--blur-sm));
-      cursor: pointer;
-      z-index: 10;
-      transition: transform 0.2s ease;
-    }
-
-    .stack-apps-scroll-btn:hover {
-      transform: translateY(-50%) scale(1.08);
-    }
-
-    .stack-apps-scroll-btn:active {
-      transform: translateY(-50%) scale(0.95);
-    }
-
-    .stack-apps-scroll-btn-right {
-      right: -56px;
-    }
-
-    .stack-apps-scroll-btn-right :global(svg) {
-      padding-left: 2px;
-    }
-
-    .stack-apps-scroll-btn-left {
-      left: -56px;
-    }
-
-    .stack-apps-scroll-btn-left :global(svg) {
-      padding-right: 2px;
-    }
-  }
-
-  /* Horizontal scroll container — mirrors the apps page pattern */
-  .horizontal-scroll {
-    margin-left: -1rem;
-    margin-right: -1rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-
-    mask-image: linear-gradient(
-      to right,
-      transparent 0%,
-      black 1rem,
-      black calc(100% - 1rem),
-      transparent 100%
-    );
-    -webkit-mask-image: linear-gradient(
-      to right,
-      transparent 0%,
-      black 1rem,
-      black calc(100% - 1rem),
-      transparent 100%
-    );
-  }
-
-  .horizontal-scroll::-webkit-scrollbar {
-    display: none;
-  }
-
-  @media (min-width: 640px) {
-    .horizontal-scroll {
-      margin-left: -1.5rem;
-      margin-right: -1.5rem;
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
-
-      mask-image: linear-gradient(
-        to right,
-        transparent 0%,
-        black 1.5rem,
-        black calc(100% - 1.5rem),
-        transparent 100%
-      );
-      -webkit-mask-image: linear-gradient(
-        to right,
-        transparent 0%,
-        black 1.5rem,
-        black calc(100% - 1.5rem),
-        transparent 100%
-      );
-    }
+  .stack-apps-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    list-style: none;
+    margin: 0;
+    padding: 0;
   }
 
   @media (min-width: 768px) {
-    .horizontal-scroll {
-      margin-left: -38px;
-      margin-right: -38px;
-      padding-left: 38px;
-      padding-right: 38px;
-
-      mask-image: linear-gradient(
-        to right,
-        transparent 0%,
-        black 38px,
-        black calc(100% - 38px),
-        transparent 100%
-      );
-      -webkit-mask-image: linear-gradient(
-        to right,
-        transparent 0%,
-        black 38px,
-        black calc(100% - 38px),
-        transparent 100%
-      );
+    .stack-apps-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
-  .scroll-content {
-    display: flex;
-    gap: 16px;
-    padding-bottom: 8px;
-  }
-
-  .app-column {
-    flex-shrink: 0;
-    width: 280px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  .stack-apps-grid-item {
+    min-width: 0;
+    padding: 14px 14px 8px;
+    border-bottom: 1px solid var(--white16);
+    box-sizing: border-box;
   }
 
   @media (min-width: 768px) {
-    .app-column {
-      width: 320px;
-      gap: 16px;
+    .stack-apps-grid-item {
+      padding: 20px 20px 12px;
+    }
+
+    .stack-apps-grid-item:nth-child(odd) {
+      border-right: 1px solid var(--white16);
+    }
+  }
+
+  /* Expanded: one section bottom border — clear last row cell borders only */
+  .stack-apps-section--expanded .stack-apps-grid-item:last-child {
+    border-bottom: none;
+  }
+
+  @media (min-width: 768px) {
+    /* Even app count: last row has two cells (penultimate is odd-indexed) */
+    .stack-apps-section--expanded
+      .stack-apps-grid-item:nth-last-child(2):nth-child(odd):not(:last-child) {
+      border-bottom: none;
+    }
+  }
+
+  .stack-apps-fade {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 72px;
+    background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--black) 40%, transparent) 35%, var(--black) 100%);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  @media (min-width: 768px) {
+    .stack-apps-fade {
+      height: 120px;
+    }
+  }
+
+  .stack-apps-view-all-btn {
+    position: absolute;
+    bottom: 16px;
+    left: 14px;
+    z-index: 3;
+    height: 32px;
+    padding: 0 14px;
+    background-color: var(--gray66);
+    border: none;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--white66);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .stack-apps-view-all-btn:hover {
+    transform: scale(1.025);
+    color: var(--white);
+  }
+
+  .stack-apps-view-all-btn:active {
+    transform: scale(0.98);
+  }
+
+  @media (min-width: 768px) {
+    .stack-apps-view-all-btn {
+      left: 20px;
+    }
+  }
+
+  .stack-apps-grid--skeleton .stack-apps-grid-item {
+    padding: 14px 14px 8px;
+  }
+
+  @media (min-width: 768px) {
+    .stack-apps-grid--skeleton .stack-apps-grid-item {
+      padding: 20px 20px 12px;
     }
   }
 
@@ -1278,7 +1285,7 @@ const displayDescription = $derived(
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
+    margin-bottom: 0;
   }
 
   .skeleton-publisher {

@@ -2344,6 +2344,7 @@
 		<div
 			class="panel-content activity-panel"
 			class:activity-panel--inbox={inboxEmbed}
+			data-main-scroll
 			class:scroll-locked={threadModalKind === 'comment'
 				? !!threadModalRootId
 				: threadModalKind === 'zap'

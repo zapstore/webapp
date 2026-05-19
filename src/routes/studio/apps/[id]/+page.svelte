@@ -188,7 +188,7 @@
 	});
 </script>
 
-<div class="detail-scroll">
+<div class="detail-scroll" data-main-scroll>
 	{#if !app}
 		<div class="app-not-found">
 			{#if indexerLookupFailed}

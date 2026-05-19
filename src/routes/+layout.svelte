@@ -29,6 +29,7 @@ let isClearingLocalData = $state(false);
 // Hide footer on studio only when the signed-in dashboard is actually being shown
 const isStudio = $derived(path === '/studio' || path.startsWith('/studio/'));
 const showingStudioDashboard = $derived(isStudio && getCurrentPubkey() !== null && SHOW_STUDIO_SIGNED_IN_DASHBOARD);
+const isAppsPage = $derived(path === '/apps');
 let showFooter = $derived(
 	(path === '/' ||
 		path === '/apps' ||
@@ -39,7 +40,8 @@ let showFooter = $derived(
 		path === '/blog' ||
 		path.startsWith('/blog/') ||
 		path === '/terms') &&
-		!showingStudioDashboard
+		!showingStudioDashboard &&
+		!isAppsPage
 );
 onMount(() => {
     let cancelled = false;

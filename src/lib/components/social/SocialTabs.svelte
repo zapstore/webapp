@@ -65,6 +65,8 @@ let {
      * Apps/stacks default true (backward compatible).
      */
     includeReceiptZapsInCommentsFeed = true,
+    /** Full-width divider under tab pills; spans `--page-content-pad-x` breakout when set on an ancestor. */
+    showTabDivider = true,
 } = $props();
 
 /** Root comment id whose thread contains openCommentId; used to open that thread modal on load */
@@ -487,6 +489,10 @@ const zapsByTargetId = $derived.by(() => {
     {/each}
   </div>
 
+  {#if showTabDivider}
+    <div class="social-tabs-tab-divider" aria-hidden="true"></div>
+  {/if}
+
   <div class="tab-content">
     {#if activeTab === "comments"}
       {#if commentsError}
@@ -679,6 +685,22 @@ const zapsByTargetId = $derived.by(() => {
     -ms-overflow-style: none;
     padding: 4px 2px;
     margin: -4px -2px;
+  }
+
+  /*
+   * Edge-to-edge under tab pills when an ancestor sets --page-content-pad-x
+   * (e.g. app detail scroll). Defaults to 0 — divider matches content width only.
+   */
+  .social-tabs-tab-divider {
+    flex-shrink: 0;
+    height: 1.4px;
+		margin-top: 16px;
+    margin-bottom: 0;
+    margin-left: calc(-1 * var(--page-content-pad-x, 0px));
+    margin-right: calc(-1 * var(--page-content-pad-x, 0px));
+    width: calc(100% + 2 * var(--page-content-pad-x, 0px));
+    background-color: var(--white11);
+    border: none;
   }
 
   .tab-row::-webkit-scrollbar {

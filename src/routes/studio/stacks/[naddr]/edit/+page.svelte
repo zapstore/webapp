@@ -135,11 +135,11 @@ function handleDeleted() {
 }
 
 function handleBack() {
-	goto('/stacks/' + naddr);
+	goto('/studio/insights');
 }
 </script>
 
-<div class="detail-scroll">
+<div class="detail-scroll" data-main-scroll>
 	{#if loadError}
 		<ZappyError message="this stack wasn't found." />
 	{:else if stack}

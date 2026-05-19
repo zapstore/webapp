@@ -1,169 +1,258 @@
 <script lang="js">
+	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { Search } from 'lucide-svelte';
+	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
+	import { ChevronDown, ChevronLeft, ChevronRight } from '$lib/components/icons';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
-	import { ChevronDown } from '$lib/components/icons';
+	import AppsPageCarousel from '$lib/components/apps/AppsPageCarousel.svelte';
 	import AppSearchHitRow from '$lib/components/cards/AppSearchHitRow.svelte';
 	import AppSearchHitRowSkeleton from '$lib/components/cards/AppSearchHitRowSkeleton.svelte';
 	import { APP_SEARCH_HIT_SKELETON_VARIANT_COUNT } from '$lib/components/cards/app-search-hit-skeleton-presets.js';
-	import { createAppsQuery } from '$lib/stores/nostr.svelte.js';
-	import { getCached, setCached } from '$lib/stores/query-cache.js';
-	import { searchApps, fetchProfilesBatch } from '$lib/nostr/service';
-	import { ZAPSTORE_RELAY } from '$lib/config';
-	import { parseApp, parseProfile } from '$lib/nostr/models';
 	import {
-		sortAppsByLatestRelease,
-		sortAppsDeveloperFirst,
-		sortAppsRelevanceDeveloperFirst
-	} from '$lib/utils/app-search.js';
+		createAppsQuery,
+		seedEvents,
+		loadMoreApps,
+		getHasMore,
+		isLoadingMore
+	} from '$lib/stores/nostr.svelte.js';
+	import {
+		createStacksQuery,
+		seedStackEvents,
+		getStacksHasMore,
+		isStacksLoadingMore,
+		loadMoreStacks
+	} from '$lib/stores/stacks.svelte.js';
+	import { getCached, setCached } from '$lib/stores/query-cache.js';
+	import { searchApps, fetchProfilesBatch, fetchFromRelays } from '$lib/nostr/service';
+	import { ZAPSTORE_RELAY, ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
+	import { nip19 } from 'nostr-tools';
+	import { parseApp, parseProfile, encodeStackNaddr } from '$lib/nostr/models';
+	import { sortAppsRelevanceDeveloperFirst, sortAppsByLatestRelease } from '$lib/utils/app-search.js';
 	import { isOnline } from '$lib/stores/online.svelte.js';
+	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
+	import { DISCOVER_APPS_INITIAL, DISCOVER_STACKS_INITIAL } from '$lib/constants';
 
 	const APPS_SEARCH_SKELETON_ROW_COUNT = APP_SEARCH_HIT_SKELETON_VARIANT_COUNT * 3;
 	const SEARCH_RELAYS = [ZAPSTORE_RELAY];
-	const SEARCH_DEBOUNCE_MS = 300;
+	const SEARCH_FETCH_DEBOUNCE_MS = 150;
+	const SEARCH_URL_SYNC_DEBOUNCE_MS = 400;
 	const SEARCH_RELAY_FETCH_LIMIT = 48;
+	const APPS_PER_PANEL = 4;
+	const STACKS_PER_PANEL = 2;
+
+	let { seedEvents: seedEventsProp = [] } = $props();
 
 	const searchQ = $derived($page.url.searchParams.get('q')?.trim() ?? '');
-	const releasesBrowse = $derived($page.url.searchParams.get('view') === 'releases');
-	const isLocalBrowse = $derived(!searchQ);
 
-	let liveApps = $state(getCached('apps'));
+	let sortDropdownOpen = $state(false);
+	let sortDropdownWrap = $state(/** @type {HTMLDivElement | null} */ (null));
+	/** @type {import('$lib/components/apps/AppsPageCarousel.svelte').default | null} */
+	let releasesCarousel = $state(null);
+	/** @type {import('$lib/components/apps/AppsPageCarousel.svelte').default | null} */
+	let stacksCarousel = $state(null);
+	let releasesControls = $state({
+		top: 0,
+		left: 0,
+		right: 0,
+		showLeft: false,
+		showRight: false
+	});
+	let stacksControls = $state({
+		top: 0,
+		left: 0,
+		right: 0,
+		showLeft: false,
+		showRight: false
+	});
+
 	let searchParsedApps = $state(/** @type {ReturnType<typeof parseApp>[] | null} */ null);
 	let searchProfileByLc = $state(/** @type {Record<string, ReturnType<typeof parseProfile> | null>} */ ({}));
-	let browseProfileByLc = $state(
-		/** @type {Record<string, ReturnType<typeof parseProfile> | null>} */ ({})
-	);
 	let searchLoading = $state(false);
 	let searchError = $state(/** @type {string|null} */ (null));
 	let lastSyncedUrlQ = $state('');
+	let urlSyncGen = 0;
 
 	// eslint-disable-next-line svelte/prefer-writable-derived -- live search field; synced from URL on external nav only
 	let searchBarValue = $state('');
 	let searchInputEl = $state(/** @type {HTMLInputElement | null} */ (null));
 
 	const activeSearchQuery = $derived(searchBarValue.trim());
-	const offlineForSearch = $derived(browser && !!searchQ && !isOnline());
+	const showSearchResults = $derived(activeSearchQuery.length > 0);
+	const offlineForSearch = $derived(browser && showSearchResults && !isOnline());
 
-	/** @type {'latest-releases' | 'relevance'} */
-	let listMode = $state('latest-releases');
-	let toolbarDropdownOpen = $state(false);
-	let toolbarDropdownWrap = $state(/** @type {HTMLDivElement | null} */ (null));
+	// Browse (default view)
+	const cachedApps = getCached('apps') ?? [];
+	const cachedStacks = getCached('stacks') ?? [];
+	let liveApps = $state(cachedApps);
+	let liveStacks = $state(cachedStacks);
+	let displayAppsLimit = $state(DISCOVER_APPS_INITIAL);
+	let displayStacksLimit = $state(DISCOVER_STACKS_INITIAL);
+	let resolvedDisplayStacks = $state(getCached('apps:resolvedStacks') ?? []);
+	let stacksSettled = $state(false);
+	let resolvedStackKeys = $state('');
+	/** True until first apps liveQuery result or initial fetch attempt finishes. */
+	let appsBrowseLoading = $state(cachedApps.length === 0);
 
-	const toolbarDropdownLabel = $derived(
-		listMode === 'latest-releases' ? 'Latest Releases' : 'Relevance'
+	const appsHasMore = $derived(getHasMore());
+	const appsLoadingMore = $derived(isLoadingMore());
+	const stacksHasMore = $derived(getStacksHasMore());
+	const stacksLoadingMore = $derived(isStacksLoadingMore());
+
+	const browseApps = $derived(
+		sortAppsByLatestRelease((liveApps ?? []).slice(0, displayAppsLimit))
 	);
+	const rawStacks = $derived((liveStacks ?? []).slice(0, displayStacksLimit));
+	const communityStacks = $derived(
+		resolvedDisplayStacks.filter((s) => s.pubkey === ZAPSTORE_COMMUNITY_PUBKEY)
+	);
+	const releasePanels = $derived(chunkItems(browseApps, APPS_PER_PANEL));
+	const stackPanels = $derived(chunkItems(communityStacks, STACKS_PER_PANEL));
+
+	const showSearchSkeleton = $derived(
+		showSearchResults && (searchLoading || searchParsedApps === null)
+	);
+
+	/** @template T @param {T[]} items @param {number} size @returns {T[][]} */
+	function chunkItems(items, size) {
+		const panels = [];
+		for (let i = 0; i < items.length; i += size) {
+			panels.push(items.slice(i, i + size));
+		}
+		return panels;
+	}
+
+	function focusSearchInput() {
+		searchInputEl?.focus({ preventScroll: true });
+	}
+
+	$effect.pre(() => {
+		const typed = searchBarValue.trim();
+		if (searchQ === typed) {
+			lastSyncedUrlQ = searchQ;
+			return;
+		}
+		if (searchQ === lastSyncedUrlQ) return;
+		if (typed !== searchQ && typed !== lastSyncedUrlQ && !(typed === '' && searchQ)) {
+			return;
+		}
+		searchBarValue = searchQ;
+		lastSyncedUrlQ = searchQ;
+	});
+
+	$effect(() => {
+		if (!browser) return;
+		const typed = searchBarValue.trim();
+		if (typed === searchQ) return;
+
+		const gen = ++urlSyncGen;
+		const timer = window.setTimeout(() => {
+			if (gen !== urlSyncGen) return;
+			const current = searchBarValue.trim();
+			if (current !== typed) return;
+
+			const url = new URL($page.url);
+			if (typed) url.searchParams.set('q', typed);
+			else url.searchParams.delete('q');
+			url.searchParams.delete('view');
+			const next = url.pathname + url.search;
+			if (next === $page.url.pathname + $page.url.search) return;
+			replaceState(next, {});
+		}, SEARCH_URL_SYNC_DEBOUNCE_MS);
+
+		return () => window.clearTimeout(timer);
+	});
+
+	$effect(() => {
+		if (!browser || $page.url.searchParams.get('view') !== 'releases') return;
+		const url = new URL($page.url);
+		url.searchParams.delete('view');
+		const next = url.pathname + url.search;
+		if (next !== $page.url.pathname + $page.url.search) replaceState(next, {});
+	});
 
 	$effect(() => {
 		const sub = createAppsQuery().subscribe({
 			next: (value) => {
 				liveApps = value;
 				setCached('apps', value);
+				appsBrowseLoading = false;
 			},
-			error: (err) => console.error('[AppsSearch] apps liveQuery error:', err)
+			error: (err) => {
+				console.error('[AppsPage] apps liveQuery error:', err);
+				appsBrowseLoading = false;
+			}
 		});
 		return () => sub.unsubscribe();
 	});
 
-	$effect.pre(() => {
-		if (!searchQ) {
-			lastSyncedUrlQ = '';
-			return;
-		}
-		if (searchQ !== lastSyncedUrlQ) {
-			searchBarValue = searchQ;
-			lastSyncedUrlQ = searchQ;
-		}
+	$effect(() => {
+		const sub = createStacksQuery().subscribe({
+			next: (value) => {
+				liveStacks = value;
+				setCached('stacks', value);
+			},
+			error: (err) => console.error('[AppsPage] stacks liveQuery error:', err)
+		});
+		return () => sub.unsubscribe();
 	});
 
 	$effect(() => {
 		if (!browser) return;
-		searchQ;
-		releasesBrowse;
-		listMode = searchQ ? 'relevance' : 'latest-releases';
-		toolbarDropdownOpen = false;
+		if (rawStacks.length === 0) {
+			stacksSettled = true;
+			return;
+		}
+		const key = rawStacks.map((s) => s.stack.id).join(',');
+		if (key !== resolvedStackKeys) {
+			resolvedStackKeys = key;
+			resolveCreatorsForStacks(rawStacks);
+		}
 	});
 
-	const showSearchSkeleton = $derived(
-		!!searchQ && (searchLoading || searchParsedApps === null)
-	);
-
-	function focusSearchInput() {
-		searchInputEl?.focus({ preventScroll: true });
-	}
-
 	$effect(() => {
-		if (!browser || !searchQ) return;
-		const t = window.setTimeout(focusSearchInput, 100);
+		if (!browser || showSearchResults) return;
+		sortDropdownOpen = false;
+		const t = window.setTimeout(focusSearchInput, 50);
 		return () => window.clearTimeout(t);
 	});
 
-	/** Profiles for local browse (?view=releases, no ?q=). */
 	$effect(() => {
-		if (!browser || searchQ) return;
-		const apps = liveApps ?? [];
-		if (apps.length === 0) {
-			browseProfileByLc = {};
-			return;
-		}
-
-		let aborted = false;
-		void (async () => {
-			try {
-				const pubs = [...new Set(apps.map((a) => a.pubkey))];
-				const rawProfiles = await fetchProfilesBatch(pubs);
-				if (aborted) return;
-				const byLc = /** @type {Record<string, ReturnType<typeof parseProfile> | null>} */ ({});
-				for (const [pk, ev] of rawProfiles) {
-					byLc[String(pk).trim().toLowerCase()] = parseProfile(ev);
-				}
-				browseProfileByLc = Object.fromEntries(
-					pubs.map((pk) => [String(pk).trim().toLowerCase(), byLc[String(pk).trim().toLowerCase()] ?? null])
-				);
-			} catch (err) {
-				console.error('[AppsSearch] browse profile fetch failed:', err);
-			}
-		})();
-
-		return () => {
-			aborted = true;
-		};
+		if (showSearchResults) sortDropdownOpen = false;
 	});
 
-	function orderApps(/** @type {ReturnType<typeof parseApp>[]} */ apps) {
-		if (listMode === 'latest-releases') {
-			return sortAppsByLatestRelease(apps);
+	$effect(() => {
+		if (!browser || !sortDropdownOpen || !sortDropdownWrap) return;
+		function handleClick(/** @type {MouseEvent} */ e) {
+			if (sortDropdownWrap && !sortDropdownWrap.contains(/** @type {Node} */ (e.target))) {
+				sortDropdownOpen = false;
+			}
 		}
-		if (searchQ) {
-			return sortAppsRelevanceDeveloperFirst(apps);
-		}
-		return sortAppsDeveloperFirst(apps);
-	}
+		document.addEventListener('click', handleClick, true);
+		return () => document.removeEventListener('click', handleClick, true);
+	});
 
 	const orderedApps = $derived.by(() => {
-		if (searchQ) {
-			const apps = searchParsedApps;
-			if (apps === null) return null;
-			return orderApps(apps);
-		}
-		return orderApps(liveApps ?? []);
+		if (!showSearchResults) return null;
+		const apps = searchParsedApps;
+		if (apps === null) return null;
+		return sortAppsRelevanceDeveloperFirst(apps);
 	});
 
 	const resultRows = $derived.by(() => {
 		const apps = orderedApps;
 		if (apps === null) return null;
 		const pkLcFn = (/** @type {string} */ p) => String(p).trim().toLowerCase();
-		const profiles = searchQ ? searchProfileByLc : browseProfileByLc;
 		return apps.map((app) => ({
 			app,
-			profile: profiles[pkLcFn(app.pubkey)]
+			profile: searchProfileByLc[pkLcFn(app.pubkey)]
 		}));
 	});
 
-	/** @param {FocusEvent} e */
 	function handleSearchInputBlur(e) {
-		if (!searchQ) return;
+		if (!showSearchResults) return;
 		const related = /** @type {Node | null} */ (e.relatedTarget);
 		const toolbar =
 			e.currentTarget instanceof HTMLElement
@@ -176,20 +265,8 @@
 
 	$effect(() => {
 		if (!browser) return;
-		if (!toolbarDropdownOpen || !toolbarDropdownWrap) return;
-		function handleClick(/** @type {MouseEvent} */ e) {
-			if (toolbarDropdownWrap && !toolbarDropdownWrap.contains(/** @type {Node} */ (e.target))) {
-				toolbarDropdownOpen = false;
-			}
-		}
-		document.addEventListener('click', handleClick, true);
-		return () => document.removeEventListener('click', handleClick, true);
-	});
 
-	$effect(() => {
-		if (!browser || !searchQ) return;
-
-		const q = activeSearchQuery || searchQ;
+		const q = activeSearchQuery;
 		searchError = null;
 
 		if (!q) {
@@ -199,18 +276,18 @@
 			return;
 		}
 
-		if (offlineForSearch) {
+		searchLoading = true;
+		searchParsedApps = null;
+		searchProfileByLc = {};
+
+		if (!isOnline()) {
 			searchLoading = false;
 			searchParsedApps = [];
-			searchProfileByLc = {};
 			return;
 		}
 
 		let aborted = false;
 		const ac = new AbortController();
-		searchLoading = true;
-		searchParsedApps = null;
-		searchProfileByLc = {};
 
 		const timer = window.setTimeout(() => {
 			void (async () => {
@@ -242,7 +319,7 @@
 					if (!aborted && !ac.signal.aborted) searchLoading = false;
 				}
 			})();
-		}, SEARCH_DEBOUNCE_MS);
+		}, SEARCH_FETCH_DEBOUNCE_MS);
 
 		return () => {
 			aborted = true;
@@ -251,139 +328,339 @@
 		};
 	});
 
-	function submitAppsSearch(/** @type {SubmitEvent} */ ev) {
+	function submitAppsSearch(ev) {
 		ev.preventDefault();
+		urlSyncGen += 1;
 		const q = searchBarValue.trim();
-		if (q) goto(`/apps?q=${encodeURIComponent(q)}`);
-		else if (releasesBrowse) goto('/apps');
-		else goto('/apps');
+		lastSyncedUrlQ = q;
+		if (q) goto(`/apps?q=${encodeURIComponent(q)}`, { keepFocus: true, noScroll: true });
+		else goto('/apps', { keepFocus: true, noScroll: true });
 	}
+
+	function handleLoadMoreApps() {
+		displayAppsLimit += DISCOVER_APPS_INITIAL;
+		if (appsHasMore && !appsLoadingMore) loadMoreApps();
+	}
+
+	function handleLoadMoreStacks() {
+		displayStacksLimit += DISCOVER_STACKS_INITIAL;
+		if (stacksHasMore && !stacksLoadingMore) {
+			loadMoreStacks(fetchFromRelays, [ZAPSTORE_RELAY]);
+		}
+	}
+
+	function getAppUrl(app) {
+		return `/apps/${app.dTag}`;
+	}
+
+	function isHexPubkey(value) {
+		return typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value.trim());
+	}
+
+	function hasIdentifier(value) {
+		return typeof value === 'string' && value.trim().length > 0;
+	}
+
+	function safeEncodeStackNaddr(pubkey, dTag) {
+		if (!isHexPubkey(pubkey) || !hasIdentifier(dTag)) return '';
+		try {
+			return encodeStackNaddr(pubkey.trim().toLowerCase(), dTag.trim());
+		} catch {
+			return '';
+		}
+	}
+
+	function safeNpub(pubkey) {
+		if (!isHexPubkey(pubkey)) return '';
+		try {
+			return nip19.npubEncode(pubkey.trim().toLowerCase());
+		} catch {
+			return '';
+		}
+	}
+
+	function getStackUrl(stack) {
+		const naddr = safeEncodeStackNaddr(stack?.pubkey, stack?.dTag);
+		return naddr ? `/stacks/${naddr}` : '#';
+	}
+
+	async function resolveCreatorsForStacks(stacksWithApps) {
+		if (!browser || stacksWithApps.length === 0) return;
+		try {
+			const creatorPubkeys = [
+				...new Set(stacksWithApps.map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk)))
+			];
+			const creatorEvents = await fetchProfilesBatch(creatorPubkeys);
+			resolvedDisplayStacks = stacksWithApps.map(({ stack, apps: stackApps }) => {
+				let creator = undefined;
+				if (isHexPubkey(stack.pubkey)) {
+					const profileEvent = creatorEvents.get(stack.pubkey);
+					if (profileEvent) {
+						const profile = parseProfile(profileEvent);
+						creator = {
+							name: profile.displayName || profile.name,
+							picture: profile.picture,
+							pubkey: stack.pubkey,
+							npub: safeNpub(stack.pubkey)
+						};
+					}
+				}
+				return {
+					name: stack.title,
+					description: stack.description,
+					apps: stackApps,
+					creator,
+					pubkey: stack.pubkey,
+					dTag: stack.dTag
+				};
+			});
+			setCached('apps:resolvedStacks', resolvedDisplayStacks);
+		} catch (err) {
+			console.error('[AppsPage] Error resolving stack creators:', err);
+		} finally {
+			stacksSettled = true;
+		}
+	}
+
+	onMount(async () => {
+		if (!browser) return;
+		try {
+			await seedEvents(seedEventsProp ?? []);
+			await seedStackEvents(seedEventsProp ?? []);
+			if (navigator.onLine) {
+				if ((liveApps ?? []).length === 0) {
+					await loadMoreApps();
+				}
+				if ((liveStacks ?? []).length === 0) {
+					await loadMoreStacks(fetchFromRelays, [ZAPSTORE_RELAY]);
+				}
+			}
+		} catch (err) {
+			console.error('[AppsPage] browse bootstrap failed:', err);
+		} finally {
+			appsBrowseLoading = false;
+		}
+		window.setTimeout(focusSearchInput, 50);
+	});
 </script>
 
-<div class="apps-search-outer container mx-auto px-0 sm:px-6 lg:px-8">
-	<div class="apps-search-frame">
-		<div class="apps-search-toolbar">
-			<div class="apps-search-toolbar-query">
-				<form class="apps-search-field-wrap" onsubmit={submitAppsSearch}>
-					<div class="apps-search-input-row">
-						<Search
-							class="apps-search-input-icon flex-shrink-0"
-							style="color: var(--white33);"
-							strokeWidth={2.5}
-							aria-hidden="true"
-						/>
-						<input
-							type="search"
-							bind:this={searchInputEl}
-							bind:value={searchBarValue}
-							placeholder="Search apps"
-							class="apps-search-input semibold18"
-							aria-label="Search apps"
-							autocomplete="off"
-							spellcheck="false"
-							autofocus={!!searchQ}
-							onblur={handleSearchInputBlur}
-						/>
+<section class="apps-page" use:wheelScrollPassthrough>
+	<div class="apps-search-outer container mx-auto px-0 sm:px-6 lg:px-8">
+		<div class="apps-search-frame">
+			<div class="apps-search-toolbar">
+				<div class="apps-search-toolbar-query">
+					<form class="apps-search-field-wrap" onsubmit={submitAppsSearch}>
+						<div class="apps-search-input-row">
+							<Search
+								class="apps-search-input-icon flex-shrink-0"
+								style="color: var(--white33);"
+								strokeWidth={2.5}
+								aria-hidden="true"
+							/>
+							<input
+								type="search"
+								bind:this={searchInputEl}
+								bind:value={searchBarValue}
+								placeholder="Search apps"
+								class="apps-search-input semibold18"
+								aria-label="Search apps"
+								autocomplete="off"
+								spellcheck="false"
+								onblur={handleSearchInputBlur}
+							/>
+						</div>
+					</form>
+				</div>
+				<div class="apps-search-toolbar-divider" aria-hidden="true"></div>
+				<div
+					class="apps-search-toolbar-filters apps-search-controls"
+					class:apps-search-controls--disabled={showSearchSkeleton}
+				>
+					<div class="apps-sort-wrap" bind:this={sortDropdownWrap}>
+						<button
+							type="button"
+							class="forum-all-btn forum-latest-btn apps-sort-trigger"
+							onclick={() => {
+								sortDropdownOpen = !sortDropdownOpen;
+							}}
+							aria-label="Sort order"
+							aria-expanded={sortDropdownOpen}
+							disabled={showSearchSkeleton}
+						>
+							<span>Relevance</span>
+							<span class="forum-all-btn-icon">
+								<ChevronDown variant="outline" size={14} strokeWidth={1.4} color="var(--white66)" />
+							</span>
+						</button>
+						{#if sortDropdownOpen}
+							<DropdownMenu class="apps-search-sort-dropdown">
+								<button
+									type="button"
+									class="dropdown-item dropdown-item--active"
+									role="menuitem"
+									onclick={() => {
+										sortDropdownOpen = false;
+									}}
+								>
+									Relevance
+								</button>
+							</DropdownMenu>
+						{/if}
 					</div>
-				</form>
-			</div>
-			<div class="apps-search-toolbar-divider" aria-hidden="true"></div>
-			<div
-				class="apps-search-toolbar-filters apps-search-controls"
-				class:apps-search-controls--disabled={showSearchSkeleton}
-			>
-				<div class="apps-sort-wrap" bind:this={toolbarDropdownWrap}>
-					<button
-						type="button"
-						class="forum-all-btn forum-latest-btn apps-sort-trigger"
-						onclick={() => {
-							toolbarDropdownOpen = !toolbarDropdownOpen;
-						}}
-						aria-label="List mode"
-						aria-expanded={toolbarDropdownOpen}
-						disabled={showSearchSkeleton}
-					>
-						<span>{toolbarDropdownLabel}</span>
-						<span class="forum-all-btn-icon">
-							<ChevronDown variant="outline" size={14} strokeWidth={1.4} color="var(--white66)" />
-						</span>
-					</button>
-					{#if toolbarDropdownOpen}
-						<DropdownMenu class="apps-search-sort-dropdown">
-							<button
-								type="button"
-								class="dropdown-item"
-								class:dropdown-item--active={listMode === 'latest-releases'}
-								role="menuitem"
-								onclick={() => {
-									listMode = 'latest-releases';
-									toolbarDropdownOpen = false;
-								}}
-							>
-								Latest Releases
-							</button>
-							<button
-								type="button"
-								class="dropdown-item"
-								class:dropdown-item--active={listMode === 'relevance'}
-								role="menuitem"
-								onclick={() => {
-									listMode = 'relevance';
-									toolbarDropdownOpen = false;
-								}}
-							>
-								Relevance
-							</button>
-						</DropdownMenu>
-					{/if}
 				</div>
 			</div>
+
+			<div class="apps-search-results-scroll" data-main-scroll>
+				{#if showSearchResults}
+					{#if offlineForSearch}
+						<p class="apps-search-empty regular14">
+							You're offline — connect to the network to search the catalog.
+						</p>
+					{:else if showSearchSkeleton}
+						<ul class="apps-search-results-list" role="list">
+							{#each Array(APPS_SEARCH_SKELETON_ROW_COUNT) as _, i (i)}
+								<li class="apps-search-result-row">
+									<AppSearchHitRowSkeleton
+										variant={i % APP_SEARCH_HIT_SKELETON_VARIANT_COUNT}
+										showDescription={true}
+										showChevron={false}
+									/>
+								</li>
+							{/each}
+						</ul>
+					{:else if searchError}
+						<p class="apps-search-empty regular14">{searchError}</p>
+					{:else if resultRows && resultRows.length > 0}
+						<ul class="apps-search-results-list" role="list">
+							{#each resultRows as row (row.app.id)}
+								<li class="apps-search-result-row">
+									<AppSearchHitRow
+										app={row.app}
+										authorProfile={row.profile}
+										showDescription={true}
+									/>
+								</li>
+							{/each}
+						</ul>
+					{:else if searchParsedApps !== null}
+						<p class="apps-search-empty regular14">
+							No apps found for "{activeSearchQuery}".
+						</p>
+					{/if}
+				{:else}
+					<div class="apps-home-sections">
+						<section class="apps-home-section">
+							<SectionHeader title="Latest Releases" />
+							<AppsPageCarousel
+								bind:this={releasesCarousel}
+								bind:controls={releasesControls}
+								variant="apps"
+								panels={releasePanels}
+								loading={appsBrowseLoading}
+								loadingMore={appsLoadingMore}
+								skeletonPanels={2}
+								skeletonItemsPerPanel={APPS_PER_PANEL}
+								getAppHref={getAppUrl}
+								onNearEnd={handleLoadMoreApps}
+							/>
+						</section>
+
+						<section class="apps-home-section">
+							<SectionHeader title="Stacks" linkText="See more" href="/stacks" />
+							<AppsPageCarousel
+								bind:this={stacksCarousel}
+								bind:controls={stacksControls}
+								variant="stacks"
+								panels={stackPanels}
+								loading={!stacksSettled}
+								loadingMore={stacksLoadingMore}
+								skeletonPanels={6}
+								skeletonItemsPerPanel={STACKS_PER_PANEL}
+								getStackHref={getStackUrl}
+								onNearEnd={handleLoadMoreStacks}
+							/>
+						</section>
+					</div>
+				{/if}
+			</div>
 		</div>
 
-		<div class="apps-search-results-scroll">
-			{#if offlineForSearch}
-				<p class="apps-search-empty regular14">
-					You're offline — connect to the network to search the catalog.
-				</p>
-			{:else if showSearchSkeleton}
-				<ul class="apps-search-results-list" role="list">
-					{#each Array(APPS_SEARCH_SKELETON_ROW_COUNT) as _, i (i)}
-						<li class="apps-search-result-row">
-							<AppSearchHitRowSkeleton
-								variant={i % APP_SEARCH_HIT_SKELETON_VARIANT_COUNT}
-								showDescription={true}
-								showChevron={false}
-							/>
-						</li>
-					{/each}
-				</ul>
-			{:else if searchError}
-				<p class="apps-search-empty regular14">{searchError}</p>
-			{:else if resultRows && resultRows.length > 0}
-				<ul class="apps-search-results-list" role="list">
-					{#each resultRows as row (row.app.id)}
-						<li class="apps-search-result-row">
-							<AppSearchHitRow
-								app={row.app}
-								authorProfile={row.profile}
-								showDescription={true}
-							/>
-						</li>
-					{/each}
-				</ul>
-			{:else if searchQ && searchParsedApps !== null}
-				<p class="apps-search-empty regular14">
-					No apps found for "{activeSearchQuery}".
-				</p>
-			{:else if isLocalBrowse}
-				<p class="apps-search-empty regular14">No releases in your catalog yet.</p>
+		{#if !showSearchResults}
+			{#if releasesControls.showLeft || releasesControls.showRight}
+				<div
+					class="screenshots-controls"
+					style="top: {releasesControls.top}px"
+					aria-hidden={!releasesControls.showLeft && !releasesControls.showRight}
+				>
+					{#if releasesControls.showLeft}
+						<button
+							type="button"
+							class="screenshots-btn screenshots-btn-left"
+							style="left: {releasesControls.left}px"
+							onclick={() => releasesCarousel?.scroll(-1)}
+							aria-label="Scroll releases left"
+						>
+							<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
+						</button>
+					{/if}
+					{#if releasesControls.showRight}
+						<button
+							type="button"
+							class="screenshots-btn screenshots-btn-right"
+							style="right: {releasesControls.right}px"
+							onclick={() => releasesCarousel?.scroll(1)}
+							aria-label="Scroll releases right"
+						>
+							<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
+						</button>
+					{/if}
+				</div>
 			{/if}
-		</div>
+			{#if stacksControls.showLeft || stacksControls.showRight}
+				<div
+					class="screenshots-controls"
+					style="top: {stacksControls.top}px"
+					aria-hidden={!stacksControls.showLeft && !stacksControls.showRight}
+				>
+					{#if stacksControls.showLeft}
+						<button
+							type="button"
+							class="screenshots-btn screenshots-btn-left"
+							style="left: {stacksControls.left}px"
+							onclick={() => stacksCarousel?.scroll(-1)}
+							aria-label="Scroll stacks left"
+						>
+							<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
+						</button>
+					{/if}
+					{#if stacksControls.showRight}
+						<button
+							type="button"
+							class="screenshots-btn screenshots-btn-right"
+							style="right: {stacksControls.right}px"
+							onclick={() => stacksCarousel?.scroll(1)}
+							aria-label="Scroll stacks right"
+						>
+							<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
+						</button>
+					{/if}
+				</div>
+			{/if}
+		{/if}
 	</div>
-</div>
+</section>
 
 <style>
+	.apps-page {
+		display: flex;
+		flex-direction: column;
+		min-height: calc(100dvh - 64px);
+		height: calc(100dvh - 64px);
+		overflow: hidden;
+	}
+
 	.apps-search-outer {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		flex: 1;
@@ -391,6 +668,7 @@
 	}
 
 	.apps-search-frame {
+		--apps-pad-x: 14px;
 		display: flex;
 		flex-direction: column;
 		flex: 1;
@@ -399,6 +677,12 @@
 		border-right: 1px solid var(--white16);
 		margin-left: -16px;
 		margin-right: -16px;
+	}
+
+	@media (min-width: 768px) {
+		.apps-search-frame {
+			--apps-pad-x: 16px;
+		}
 	}
 
 	@media (max-width: 639px) {
@@ -428,18 +712,16 @@
 		z-index: 2;
 	}
 
+	.apps-search-toolbar-query,
+	.apps-search-toolbar-filters {
+		display: flex;
+		align-items: center;
+		padding: var(--apps-pad-x);
+	}
+
 	.apps-search-toolbar-query {
 		flex: 1;
 		min-width: 0;
-		display: flex;
-		align-items: center;
-		padding: 14px;
-	}
-
-	@media (min-width: 768px) {
-		.apps-search-toolbar-query {
-			padding: 16px;
-		}
 	}
 
 	.apps-search-toolbar-divider {
@@ -451,16 +733,7 @@
 
 	.apps-search-toolbar-filters {
 		flex-shrink: 0;
-		display: flex;
-		align-items: center;
 		justify-content: flex-end;
-		padding: 14px;
-	}
-
-	@media (min-width: 768px) {
-		.apps-search-toolbar-filters {
-			padding: 16px;
-		}
 	}
 
 	.apps-search-results-scroll {
@@ -537,7 +810,6 @@
 		position: relative;
 		z-index: 2;
 		flex-shrink: 0;
-		pointer-events: auto;
 	}
 
 	.forum-all-btn {
@@ -556,14 +828,6 @@
 		background: var(--white16);
 		border: none;
 		border-radius: 12px;
-		cursor: pointer;
-		transition: background 0.15s ease;
-	}
-
-	.forum-all-btn .forum-all-btn-icon {
-		display: flex;
-		align-items: center;
-		padding-top: 2px;
 	}
 
 	.forum-all-btn.forum-latest-btn {
@@ -580,6 +844,12 @@
 		opacity: 0.6;
 	}
 
+	.forum-all-btn .forum-all-btn-icon {
+		display: flex;
+		align-items: center;
+		padding-top: 2px;
+	}
+
 	:global(.apps-search-sort-dropdown) {
 		position: absolute;
 		top: calc(100% + 6px);
@@ -591,13 +861,7 @@
 	.apps-search-empty {
 		color: var(--white66);
 		margin: 0;
-		padding: 14px;
-	}
-
-	@media (min-width: 768px) {
-		.apps-search-empty {
-			padding: 16px;
-		}
+		padding: var(--apps-pad-x);
 	}
 
 	.apps-search-results-list {
@@ -617,12 +881,11 @@
 	.apps-search-result-row {
 		min-width: 0;
 		border-bottom: 1px solid var(--white16);
-		padding: 14px 14px 12px;
+		padding: var(--apps-pad-x) var(--apps-pad-x) calc(var(--apps-pad-x) - 2px);
 	}
 
 	@media (min-width: 768px) {
 		.apps-search-result-row {
-			padding: 16px 16px 14px;
 			border-right: 1px solid var(--white16);
 		}
 
@@ -633,5 +896,91 @@
 
 	.apps-search-result-row:hover {
 		background-color: var(--white4);
+	}
+
+	.apps-home-sections {
+		padding-top: 24px;
+		padding-bottom: 24px;
+	}
+
+	.apps-home-section {
+		margin-bottom: 24px;
+	}
+
+	.apps-home-section :global(.section-header) {
+		padding-left: var(--apps-pad-x);
+		padding-right: var(--apps-pad-x);
+	}
+
+	/* Screenshot-style carousel controls (same as app detail page) */
+	.screenshots-controls {
+		position: absolute;
+		left: 0;
+		right: 0;
+		transform: translateY(-50%);
+		pointer-events: none;
+		z-index: 30;
+	}
+
+	.screenshots-controls .screenshots-btn {
+		pointer-events: auto;
+	}
+
+	.screenshots-btn {
+		display: none;
+	}
+
+	@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+		.screenshots-btn {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			position: absolute;
+			top: 50%;
+			transform: translateY(-60%) scale(1);
+			width: 34px;
+			height: 34px;
+			border-radius: 50%;
+			border: none;
+			background: var(--gray66);
+			backdrop-filter: blur(var(--blur-sm));
+			-webkit-backdrop-filter: blur(var(--blur-sm));
+			cursor: pointer;
+			z-index: 20;
+			transition: transform 0.2s ease;
+		}
+
+		.screenshots-btn-left {
+			transform: translate(-50%, -60%);
+		}
+
+		.screenshots-btn-left:hover {
+			transform: translate(-50%, -60%) scale(1.08);
+		}
+
+		.screenshots-btn-left:active {
+			transform: translate(-50%, -60%) scale(0.95);
+		}
+
+		.screenshots-btn-left :global(svg) {
+			padding-right: 2px;
+		}
+
+		.screenshots-btn-right {
+			left: auto;
+			transform: translate(50%, -60%);
+		}
+
+		.screenshots-btn-right:hover {
+			transform: translate(50%, -60%) scale(1.08);
+		}
+
+		.screenshots-btn-right:active {
+			transform: translate(50%, -60%) scale(0.95);
+		}
+
+		.screenshots-btn-right :global(svg) {
+			padding-left: 2px;
+		}
 	}
 </style>

@@ -7,6 +7,8 @@ import { fetchProfile, queryEvents, encodeStackNaddr, parseApp, parseAppStack, f
 import { ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG, SITE_URL } from '$lib/config';
 import { nip19 } from 'nostr-tools';
 import { wheelScroll } from '$lib/actions/wheelScroll.js';
+import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
+import '$lib/styles/bordered-detail-column.css';
 import { parseShortText } from '$lib/utils/short-text-parser.js';
 import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
@@ -231,131 +233,126 @@ function stackToCard(s, resolvedApps) {
 		</div>
 	</div>
 {:else}
-	<div class="page-wrap container mx-auto px-4 sm:px-6 lg:px-8">
-
-		<!-- ── Profile panel ─────────────────────────────────────────── -->
-		<div class="bento-panel profile-panel">
-			{#if profilePictureUrl}
-				<div class="profile-bg" aria-hidden="true">
-					<div class="profile-bg-img" style="background-image: url('{profilePictureUrl}');"></div>
-				</div>
-			{/if}
-
-			<div class="profile-inner">
-				<div class="profile-pic-wrap">
-					<ProfilePic
-						pictureUrl={profilePictureUrl || undefined}
-						{pubkey}
-						name={profileNameForPic}
-						size="3xl"
-						loading={profileLoading}
-					/>
-				</div>
-
-				<div class="profile-info">
-					<h1 class="profile-name">{profileName}</h1>
-
-					{#if profile?.about?.trim()}
-						<button
-							type="button"
-							class="profile-about-btn"
-							onclick={() => (descriptionModalOpen = true)}
-							aria-label="View full description"
-						>
-							<div class="profile-about-clamp">
-								<ShortTextRenderer
-									content={profile.about}
-									resolveMentionLabel={(pk) => mentionProfiles[pk]}
-								/>
-							</div>
-						</button>
-					{:else if !profileLoading}
-						<p class="profile-about-empty">No description</p>
-					{/if}
-
-					<!-- npub row -->
-					<div class="npub-row">
-						<div
-							class="npub-hover-wrap"
-							role="group"
-							aria-label="Public identifier and profile color"
-							onmouseenter={() => (npubOverlayOpen = true)}
-							onmouseleave={() => (npubOverlayOpen = false)}
-						>
-							<span
-								class="profile-dot"
-								style="background-color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});"
-							></span>
-							<span class="npub-text">{npub ? `${npub.slice(0, 12)}...${npub.slice(-6)}` : ''}</span>
-
-							<div
-								class="npub-overlay"
-								class:open={npubOverlayOpen}
-								role="group"
-								aria-label="Npub and color details"
-								onmouseenter={() => (npubOverlayOpen = true)}
-								onmouseleave={() => (npubOverlayOpen = false)}
-							>
-								<p class="overlay-desc">
-									This is a Public Nostr Identifier (npub). The profile color is uniquely derived from it for visual recognition.
-								</p>
-								<div class="overlay-divider"></div>
-								<div class="overlay-row">
-									<span class="overlay-val npub-mono" title={npub}>{npub}</span>
-									<button type="button" class="overlay-copy" onclick={(e) => { e.stopPropagation(); copyNpub(); }} aria-label="Copy npub">
-										{#if npubCopied}
-											<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
-										{:else}
-											<Copy variant="outline" size={14} color="var(--white66)" />
-										{/if}
-									</button>
-								</div>
-								<div class="overlay-divider"></div>
-								<div class="overlay-row">
-									<span class="overlay-val color-hex" style="color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});">{profileColorHex}</span>
-									<button type="button" class="overlay-copy" onclick={(e) => { e.stopPropagation(); copyProfileColor(); }} aria-label="Copy color">
-										{#if colorCopied}
-											<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
-										{:else}
-											<Copy variant="outline" size={14} color="var(--white66)" />
-										{/if}
-									</button>
-								</div>
-							</div>
+	<div class="app-detail-page" use:wheelScrollPassthrough>
+		<div class="app-detail-outer container mx-auto px-0 sm:px-6 lg:px-8">
+			<div class="app-detail-frame">
+				<div class="app-detail-scroll profile-detail-scroll" data-main-scroll>
+					<div class="profile-header">
+						<div class="profile-pic-wrap">
+							<ProfilePic
+								pictureUrl={profilePictureUrl || undefined}
+								{pubkey}
+								name={profileNameForPic}
+								size="3xl"
+								loading={profileLoading}
+							/>
 						</div>
 
-						<button type="button" class="npub-copy-btn" onclick={copyNpub} aria-label="Copy npub">
-							{#if npubCopied}
-								<span class="check-pop"><Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" /></span>
-							{:else}
-								<Copy variant="outline" size={16} color="var(--white66)" />
+						<div class="profile-info">
+							<h1 class="profile-name">{profileName}</h1>
+
+							{#if profile?.about?.trim()}
+								<button
+									type="button"
+									class="profile-about-btn"
+									onclick={() => (descriptionModalOpen = true)}
+									aria-label="View full description"
+								>
+									<div class="profile-about-clamp">
+										<ShortTextRenderer
+											content={profile.about}
+											resolveMentionLabel={(pk) => mentionProfiles[pk]}
+										/>
+									</div>
+								</button>
+							{:else if !profileLoading}
+								<p class="profile-about-empty">No description</p>
 							{/if}
-						</button>
+
+							<div class="npub-row">
+								<div
+									class="npub-hover-wrap"
+									role="group"
+									aria-label="Public identifier and profile color"
+									onmouseenter={() => (npubOverlayOpen = true)}
+									onmouseleave={() => (npubOverlayOpen = false)}
+								>
+									<span
+										class="profile-dot"
+										style="background-color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});"
+									></span>
+									<span class="npub-text">{npub ? `${npub.slice(0, 12)}...${npub.slice(-6)}` : ''}</span>
+
+									<div
+										class="npub-overlay"
+										class:open={npubOverlayOpen}
+										role="group"
+										aria-label="Npub and color details"
+										onmouseenter={() => (npubOverlayOpen = true)}
+										onmouseleave={() => (npubOverlayOpen = false)}
+									>
+										<p class="overlay-desc">
+											This is a Public Nostr Identifier (npub). The profile color is uniquely derived from it for visual recognition.
+										</p>
+										<div class="overlay-divider"></div>
+										<div class="overlay-row">
+											<span class="overlay-val npub-mono" title={npub}>{npub}</span>
+											<button type="button" class="overlay-copy" onclick={(e) => { e.stopPropagation(); copyNpub(); }} aria-label="Copy npub">
+												{#if npubCopied}
+													<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
+												{:else}
+													<Copy variant="outline" size={14} color="var(--white66)" />
+												{/if}
+											</button>
+										</div>
+										<div class="overlay-divider"></div>
+										<div class="overlay-row">
+											<span class="overlay-val color-hex" style="color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});">{profileColorHex}</span>
+											<button type="button" class="overlay-copy" onclick={(e) => { e.stopPropagation(); copyProfileColor(); }} aria-label="Copy color">
+												{#if colorCopied}
+													<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
+												{:else}
+													<Copy variant="outline" size={14} color="var(--white66)" />
+												{/if}
+											</button>
+										</div>
+									</div>
+								</div>
+
+								<button type="button" class="npub-copy-btn" onclick={copyNpub} aria-label="Copy npub">
+									{#if npubCopied}
+										<span class="check-pop"><Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" /></span>
+									{:else}
+										<Copy variant="outline" size={16} color="var(--white66)" />
+									{/if}
+								</button>
+							</div>
+						</div>
 					</div>
-				</div>
-			</div>
-		</div>
 
-		<!-- ── Tab row ───────────────────────────────────────────────── -->
-		<div class="tab-bar" use:wheelScroll>
-			<button
-				type="button"
-				class={activeTab === 'apps' ? 'btn-primary-small' : 'btn-secondary-small'}
-				onclick={() => (activeTab = 'apps')}
-			>Apps</button>
-			<button
-				type="button"
-				class={activeTab === 'activity' ? 'btn-primary-small' : 'btn-secondary-small'}
-				onclick={() => (activeTab = 'activity')}
-			>Activity</button>
-			<button
-				type="button"
-				class={activeTab === 'details' ? 'btn-primary-small' : 'btn-secondary-small'}
-				onclick={() => (activeTab = 'details')}
-			>Details</button>
-		</div>
+					<div class="profile-tab-divider" aria-hidden="true"></div>
 
-		<!-- ── Tab: Apps ─────────────────────────────────────────────── -->
+					<div class="tab-bar" use:wheelScroll>
+						<button
+							type="button"
+							class={activeTab === 'apps' ? 'btn-primary-small' : 'btn-secondary-small'}
+							onclick={() => (activeTab = 'apps')}
+						>Apps</button>
+						<button
+							type="button"
+							class={activeTab === 'activity' ? 'btn-primary-small' : 'btn-secondary-small'}
+							onclick={() => (activeTab = 'activity')}
+						>Activity</button>
+						<button
+							type="button"
+							class={activeTab === 'details' ? 'btn-primary-small' : 'btn-secondary-small'}
+							onclick={() => (activeTab = 'details')}
+						>Details</button>
+					</div>
+
+					<div class="profile-tab-divider" aria-hidden="true"></div>
+
+					<div class="profile-tab-content" class:profile-tab-content--activity={activeTab === 'activity'}>
 		{#if activeTab === 'apps'}
 			<div class="apps-stack">
 
@@ -429,17 +426,16 @@ function stackToCard(s, resolvedApps) {
 
 			</div>
 
-	<!-- ── Tab: Activity ─────────────────────────────────────────── -->
 	{:else if activeTab === 'activity'}
-		<div class="activity-tab-wrap">
 			<ProfileActivityTab {pubkey} profileName={profileName} profilePicture={profilePictureUrl} />
-		</div>
 
-		<!-- ── Tab: Details ──────────────────────────────────────────── -->
 		{:else if activeTab === 'details'}
 			<ProfileDetailsTab {npub} {pubkey} />
 		{/if}
-
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 
 	{#if profile?.about?.trim()}
@@ -455,62 +451,17 @@ function stackToCard(s, resolvedApps) {
 {/if}
 
 <style>
-	/* ── Page wrapper ─────────────────────────────────────────────────────── */
-	.page-wrap {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-		padding-top: 12px;
-		padding-bottom: 48px;
-	}
-
-	/* ── Bento panel base ─────────────────────────────────────────────────── */
-	.bento-panel {
-		background: var(--gray33);
-		border-radius: 20px;
-		overflow: hidden;
-	}
-
-	/* ── Profile panel ─────────────────────────────────────────────────────── */
-	/* overflow: visible lets the npub overlay escape; clip-path on .profile-bg
-	   keeps the blurred background clipped to the rounded shape instead. */
-	.profile-panel {
-		position: relative;
-		overflow: visible;
-	}
-
-	.profile-bg {
-		position: absolute;
-		inset: 0;
-		z-index: 0;
-		pointer-events: none;
-		border-radius: 20px;
-		clip-path: inset(0 round 20px);
-		overflow: hidden;
-	}
-
-	.profile-bg-img {
-		position: absolute;
-		inset: -20%;
-		background-size: cover;
-		background-position: center;
-		filter: blur(40px);
-		opacity: 0.18;
-	}
-
-	.profile-inner {
-		position: relative;
-		z-index: 1;
+	/* ── Profile header ───────────────────────────────────────────────────── */
+	.profile-header {
 		display: flex;
 		align-items: center;
 		gap: 20px;
-		padding: 24px 20px;
+		padding-bottom: 4px;
 	}
 
 	@media (min-width: 768px) {
-		.profile-inner {
+		.profile-header {
 			gap: 28px;
-			padding: 32px 28px;
 		}
 	}
 
@@ -677,8 +628,26 @@ function stackToCard(s, resolvedApps) {
 		100% { transform: scale(1); }
 	}
 
-	/* Activity tab gets a tighter connection to the tab buttons */
-	.activity-tab-wrap { margin-top: -6px; }
+	/* Full-width dividers framing tab pills */
+	.profile-tab-divider {
+		flex-shrink: 0;
+		height: 1.4px;
+		margin-left: calc(-1 * var(--page-content-pad-x, 0px));
+		margin-right: calc(-1 * var(--page-content-pad-x, 0px));
+		width: calc(100% + 2 * var(--page-content-pad-x, 0px));
+		background-color: var(--white11);
+		border: none;
+	}
+
+	.profile-header + .profile-tab-divider {
+		margin-top: 12px;
+		margin-bottom: 16px;
+	}
+
+	.tab-bar + .profile-tab-divider {
+		margin-top: 16px;
+		margin-bottom: 0;
+	}
 
 	/* ── Tab bar ──────────────────────────────────────────────────────────── */
 	.tab-bar {
@@ -687,22 +656,32 @@ function stackToCard(s, resolvedApps) {
 		overflow-x: auto;
 		scrollbar-width: none;
 		-ms-overflow-style: none;
-		padding: 2px 0;
+		padding: 4px 2px;
+		margin: -4px -2px;
 	}
 
 	.tab-bar::-webkit-scrollbar { display: none; }
+
+	.profile-tab-content {
+		padding-top: 16px;
+	}
+
+	.profile-tab-content--activity {
+		padding-top: 0;
+		margin-left: calc(-1 * var(--page-content-pad-x, 0px));
+		margin-right: calc(-1 * var(--page-content-pad-x, 0px));
+		width: calc(100% + 2 * var(--page-content-pad-x, 0px));
+	}
+
+	.profile-tab-content--activity :global(.activity-feed-skeleton) {
+		padding: 0;
+	}
 
 	/* ── Apps stack (always single column) ───────────────────────────────── */
 	.apps-stack {
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		padding-top: 8px;
-	}
-
-	/* ── Content panel (Published / Stacks) ───────────────────────────────── */
-	.content-panel {
-		/* panels grow with their content */
 	}
 
 	/* Grid used by both Published (apps) and Stacks: 1 col on mobile, 2 on desktop */

@@ -1,5 +1,5 @@
 <!--
-	Global site chrome: logo, nav, search, auth, and modals. Used only from
+	Global site chrome: logo, nav, auth, and modals. Used only from
 	src/routes/+layout.svelte (import as SiteHeader). Not the barrel-export
 	legacy stub — that file was removed; use cards/SectionHeader or
 	layout/DetailHeader for in-page titles.
@@ -8,7 +8,7 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import { afterNavigate } from '$app/navigation';
-	import { Search, Loader2 } from 'lucide-svelte';
+	import { Loader2 } from 'lucide-svelte';
 	import { Menu, Cross, Inbox, Alert, ChevronRight, ArrowDown } from '$lib/components/icons';
 	import Nostr from '$lib/components/icons/Nostr.svelte';
 	import BackButton from '$lib/components/common/BackButton.svelte';
@@ -19,7 +19,6 @@
 	import { getCurrentPubkey, getIsConnecting, signOut } from '$lib/stores/auth.svelte.js';
 	import { parseProfile } from '$lib/nostr/models';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
-	import SearchModal from '$lib/components/common/SearchModal.svelte';
 	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 	import SignInModal from '$lib/components/modals/SignInModal.svelte';
 	import OnboardingBuildingModal from '$lib/components/modals/OnboardingBuildingModal.svelte';
@@ -50,8 +49,6 @@
 	let menuOpen = $state(false);
 	let landingNavOpen = $state(null); // 'discover' | 'studio' | 'community' | null (desktop hover dropdowns)
 	let downloadModalOpen = $state(false);
-	let searchOpen = $state(false);
-	let searchQuery = $state('');
 	let menuContainer = $state(null);
 	let getStartedModalOpen = $state(false);
 	let spinKeyModalOpen = $state(false);
@@ -61,16 +58,6 @@
 	let inboxOpen = $state(false);
 	/** Boolean only — never show a numeric badge on the inbox icon. */
 	let headerInboxShowDot = $state(false);
-	// Categories and platforms for search
-	const categories = [
-		'Productivity',
-		'Social',
-		'Entertainment',
-		'Utilities',
-		'Developer Tools',
-		'Games'
-	];
-	const platforms = ['Android', 'Mac', 'Linux', 'CLI', 'Web', 'iOS'];
 	// Reactive auth state
 	const pubkey = $derived(getCurrentPubkey());
 	const profileHref = $derived(pubkey ? '/profile/' + nip19.npubEncode(pubkey) : '#');
@@ -231,15 +218,6 @@
 			inboxOpen = false;
 		}
 	}
-	function openSearch(e) {
-		if (e) {
-			e.stopPropagation();
-			e.preventDefault();
-		}
-		dropdownOpen = false;
-		inboxOpen = false;
-		searchOpen = true;
-	}
 	function toggleMenu(e) {
 		if (e) e.stopPropagation();
 		menuOpen = !menuOpen;
@@ -247,27 +225,15 @@
 	function closeMenu() {
 		menuOpen = false;
 	}
-	function openMenuSearch() {
-		menuOpen = false;
-		searchOpen = true;
-	}
 	onMount(() => {
 		const handleScroll = () => {
 			scrolled = window.scrollY > 10;
 		};
-		const handleKeydown = (e) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-				e.preventDefault();
-				openSearch();
-			}
-		};
 		window.addEventListener('scroll', handleScroll, { passive: true });
 		document.addEventListener('click', handleClickOutside);
-		document.addEventListener('keydown', handleKeydown);
 		return () => {
 			window.removeEventListener('scroll', handleScroll);
 			document.removeEventListener('click', handleClickOutside);
-			document.removeEventListener('keydown', handleKeydown);
 		};
 	});
 	function _openGetStartedModal() {
@@ -308,7 +274,6 @@
 		signOut();
 		dropdownOpen = false;
 		inboxOpen = false;
-		searchOpen = false;
 	}
 	/**
 	 * Post-sign-in redirect for header-initiated sign-ins only (Sign In modal, Get Started).
@@ -322,7 +287,6 @@
 		dropdownOpen = !dropdownOpen;
 		if (dropdownOpen) {
 			inboxOpen = false;
-			searchOpen = false;
 		}
 	}
 	function toggleInbox(e) {
@@ -330,14 +294,12 @@
 		inboxOpen = !inboxOpen;
 		if (inboxOpen) {
 			dropdownOpen = false;
-			searchOpen = false;
 			if (pubkey) markInboxHeaderOpenedNow(pubkey);
 		}
 	}
 
 	afterNavigate(() => {
 		inboxOpen = false;
-		searchOpen = false;
 	});
 </script>
 
@@ -435,11 +397,6 @@
 										</button>
 									{/if}
 								</div>
-
-									<button type="button" class="menu-search-btn" onclick={openMenuSearch}>
-										<Search class="h-5 w-5 flex-shrink-0" style="color: var(--white33);" />
-										<span class="menu-search-text">Search Any App</span>
-									</button>
 
 									<div class="menu-section">
 										<button
@@ -659,15 +616,6 @@
 								</div>
 							</div>
 
-								<button
-									type="button"
-									class="menu-search-btn menu-search-mobile-only"
-									onclick={openMenuSearch}
-								>
-									<Search class="h-5 w-5 flex-shrink-0" style="color: var(--white33);" />
-									<span class="menu-search-text">Search Any App</span>
-								</button>
-
 								<div class="menu-section">
 									<button
 										type="button"
@@ -735,40 +683,12 @@
 				{/if}
 			</div>
 
-			<!-- Non-landing: search bar -->
-			{#if variant !== 'landing'}
-				<div
-					class={cn(
-						'header-search-container hidden sm:flex flex-1 px-2 sm:px-3 min-w-0 lg:min-w-fit',
-						variant === 'studio' ? 'justify-end header-search-studio-gap' : 'justify-center'
-					)}
-				>
-					<button
-						type="button"
-						onclick={openSearch}
-						class={cn(
-							'search-bar-btn flex items-center gap-2 relative z-10 cursor-pointer regular16',
-							'search-bar-width gap-3 pl-2.5 pr-3 sm:pl-3 sm:pr-4 h-10 min-w-0 lg:min-w-fit'
-						)}
-						style="border-color: var(--white16); pointer-events: auto;"
-					>
-						<Search
-							class="h-5 w-5 flex-shrink-0 pointer-events-none"
-							style="color: var(--white33);"
-						/>
-						<span class="flex-1 text-left pointer-events-none" style="color: var(--white33);">
-							{variant === 'studio' ? 'Search / Command' : 'Search Any App'}
-						</span>
-					</button>
-				</div>
-			{/if}
-
-			<!-- Right: landing = one row (nav + CTA); other variants = search + auth -->
+			<!-- Right: landing = one row (nav + CTA); other variants = auth -->
 			<div class="flex items-center justify-end flex-shrink-0 gap-4 md:gap-3 lg:gap-4">
 				{#if variant === 'landing'}
 					<!-- Landing: one row — nav items (desktop) + Get Started (+ menu icon on mobile) -->
 					<div class="flex items-center gap-4 md:gap-3 lg:gap-4">
-						<!-- Desktop only: Download, Apps, Developers (or Studio when signed in), Community, Search -->
+						<!-- Desktop only: Download, Apps, Developers (or Studio when signed in), Community -->
 						<div class="hidden md:flex items-center landing-nav-row gap-4 md:gap-6 lg:gap-8">
 							<!-- Download button -->
 							<button
@@ -803,11 +723,6 @@
 							>
 								Community
 							</a>
-							<!-- Search button -->
-							<button type="button" class="nav-search-btn" onclick={openSearch} aria-label="Search">
-								<Search size={16} style="color: var(--white33);" />
-								<span class="nav-search-text">Search</span>
-							</button>
 						</div>
 						<!-- CTA: loader, profile, or Get Started (one row with nav) -->
 						{#if isConnecting}
@@ -1131,9 +1046,6 @@
 	</nav>
 </header>
 
-<!-- Search Modal -->
-<SearchModal bind:open={searchOpen} bind:searchQuery {categories} {platforms} />
-
 <DownloadModal bind:open={downloadModalOpen} isZapstore={true} />
 
 <SignInModal
@@ -1260,11 +1172,6 @@
 
 	.page-title-spacing {
 		margin-left: 12px;
-	}
-
-	/* Studio: search bar 16px from CTA (nav has gap-6 = 24px; -8px gives 16px) */
-	.header-search-studio-gap {
-		margin-right: -8px;
 	}
 
 	.menu-backdrop {
@@ -1444,37 +1351,7 @@
 		flex-shrink: 0;
 	}
 
-	.menu-search-btn {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		width: 100%;
-		margin: 12px 0;
-		padding: 8px 16px 8px 12px;
-		background-color: var(--white8);
-		border: 0.33px solid var(--white16);
-		border-radius: 12px;
-		cursor: pointer;
-	}
-
-	.menu-search-text {
-		color: var(--white33);
-		font-size: 1rem;
-	}
-
-	.menu-search-mobile-only {
-		display: flex;
-	}
-
-	.menu-dropdown-landing .menu-search-mobile-only {
-		margin-top: 6px;
-	}
-
 	@media (min-width: 768px) {
-		.menu-search-mobile-only {
-			display: none;
-		}
-
 		.menu-header-mobile-only {
 			display: none;
 		}
@@ -1690,34 +1567,6 @@
 
 	.landing-nav-panel-inner {
 		min-height: 60px;
-	}
-
-	/* Search button in desktop nav (replaces Pricing) */
-	.nav-search-btn {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		width: 128px;
-		height: 32px;
-		padding: 0 12px 0 8px;
-		margin-left: 14px;
-		background: var(--white8);
-		border: 0.33px solid var(--white16);
-		border-radius: 12px;
-		cursor: pointer;
-		transition: border-color 0.15s ease;
-		flex-shrink: 0;
-	}
-
-	.nav-search-btn:hover {
-		border-color: var(--white33);
-	}
-
-	.nav-search-text {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--white33);
-		white-space: nowrap;
 	}
 
 	/* GitHub: far-right nav control (footer SVG); gray66, circular */

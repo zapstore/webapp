@@ -738,7 +738,7 @@ function handleForumBottomBarZap(event) {
 			/>
 		</div>
 
-		<div class="content-scroll">
+		<div class="content-scroll" data-main-scroll>
 			<div class="content-inner">
 				<h1 class="post-title">{post.title}</h1>
 			<div class="description-container">
@@ -840,14 +840,20 @@ function handleForumBottomBarZap(event) {
 		flex-shrink: 0;
 	}
 	.content-scroll {
+		--page-content-pad-x: 12px;
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
 		padding-top: 16px;
 		padding-bottom: 120px;
 	}
+	@media (min-width: 768px) {
+		.content-scroll {
+			--page-content-pad-x: 16px;
+		}
+	}
 	.content-inner {
-		padding: 0 16px 16px;
+		padding: 0 var(--page-content-pad-x) 16px;
 		max-width: 100%;
 	}
 	.post-title {

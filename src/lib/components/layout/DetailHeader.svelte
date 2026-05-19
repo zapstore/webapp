@@ -12,7 +12,6 @@ import { browser } from '$app/environment';
 import { Menu, Cross } from '$lib/components/icons';
 import BackButton from '$lib/components/common/BackButton.svelte';
 import { handleBack } from '$lib/utils/back.js';
-import { Search } from 'lucide-svelte';
 import { cn } from '$lib/utils';
 import { nip19 } from 'nostr-tools';
 import { getCurrentPubkey, connect } from '$lib/stores/auth.svelte.js';
@@ -21,7 +20,6 @@ import { parseProfile } from '$lib/nostr/models';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import Timestamp from '$lib/components/common/Timestamp.svelte';
 import { zapstoreProfileStore, ZAPSTORE_PUBKEY, startProfileSearchBackground } from '$lib/services/profile-search';
-import SearchModal from '$lib/components/common/SearchModal.svelte';
 import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 import OnboardingBuildingModal from '$lib/components/modals/OnboardingBuildingModal.svelte';
 import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
@@ -73,21 +71,9 @@ let menuContainer = $state(null);
 let menuContainerFloating = $state(null);
 let catalogDropdownOpen = $state(false);
 let catalogDropdownContainer = $state(null);
-let searchOpen = $state(false);
-let searchQuery = $state('');
 let spinKeyModalOpen = $state(false);
 let onboardingBuildingModalOpen = $state(false);
 let onboardingProfileName = $state('');
-// Categories and platforms for the search modal
-const categories = [
-    'Productivity',
-    'Social',
-    'Entertainment',
-    'Utilities',
-    'Developer Tools',
-    'Games'
-];
-const platforms = ['Android', 'Mac', 'Linux', 'CLI', 'Web', 'iOS'];
 // Reactive auth state
 const pubkey = $derived(getCurrentPubkey());
 const _profileHref = $derived(pubkey ? '/profile/' + nip19.npubEncode(pubkey) : '#');
@@ -131,10 +117,6 @@ $effect(() => {
         }
     });
 });
-function openSearch() {
-    searchOpen = true;
-    menuOpen = false;
-}
 function handleClickOutside(event) {
     const target = event.target;
     const activeContainer = scrollThreshold != null && !headerVisible && menuContainerFloating
@@ -274,11 +256,6 @@ async function _handleSignIn() {
 		</button>
 		</div>
 
-		<button type="button" class="menu-search-btn" onclick={openSearch}>
-			<Search class="h-5 w-5 flex-shrink-0" style="color: var(--white33);" />
-			<span class="menu-search-text">Search Any App</span>
-		</button>
-
 		<div class="menu-section">
 			<a href="/apps" class="menu-section-link" onclick={closeMenu}>Apps</a>
 			<nav class="menu-subnav">
@@ -395,9 +372,6 @@ async function _handleSignIn() {
 		</nav>
 	</div>
 {/if}
-
-<!-- Search Modal -->
-<SearchModal bind:open={searchOpen} bind:searchQuery {categories} {platforms} />
 
 <!-- Onboarding Modals -->
 <GetStartedModal

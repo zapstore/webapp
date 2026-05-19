@@ -43,7 +43,7 @@ function getStackEditUrl(stack) {
 }
 </script>
 
-<div class="stacks-scroll">
+<div class="stacks-scroll" data-main-scroll>
 	<div class="stacks-content">
 		<div class="stacks-header">
 			<span class="eyebrow-label header-eyebrow">Your Stacks</span>

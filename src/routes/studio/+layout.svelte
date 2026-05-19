@@ -17,6 +17,7 @@
 	import { isOnline } from '$lib/stores/online.svelte.js';
 	import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
 	import { SITE_URL, ZAPSTORE_RELAY } from '$lib/config';
+	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 
 	let { children } = $props();
 
@@ -283,6 +284,7 @@
 </svelte:head>
 
 {#if showDashboard}
+	<div class="dashboard-page-shell" use:wheelScrollPassthrough>
 	<div class="dashboard-outer container mx-auto px-0 sm:px-6 lg:px-8">
 		<div class="dashboard">
 
@@ -460,7 +462,7 @@
 					</button>
 			</nav>
 
-			<div class="sidebar-mid">
+			<div class="sidebar-mid" data-sidebar-scroll>
 				<div class="apps-section">
 					<div class="apps-section-head">
 						<span class="eyebrow-label apps-eyebrow">Apps</span>
@@ -554,6 +556,7 @@
 			</div>
 		</div>
 	</div>
+</div>
 {/if}
 <!--
 	When showDashboard is false, render nothing. The route guard above redirects
@@ -563,6 +566,21 @@
 
 
 <style>
+	:global(main.main-content:has(.dashboard-page-shell)) {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+
+	.dashboard-page-shell {
+		flex: 1;
+		min-height: 0;
+		width: 100%;
+		min-height: calc(100dvh - 64px);
+		display: flex;
+		flex-direction: column;
+	}
+
 	.dashboard {
 		display: flex;
 		height: calc(100dvh - 64px);
@@ -660,6 +678,7 @@
 		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
+		overscroll-behavior: contain;
 	}
 
 	.apps-section-head {

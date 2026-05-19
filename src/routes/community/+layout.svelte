@@ -17,6 +17,7 @@
 	import CommunityForumShell from '$lib/components/community/CommunityForumShell.svelte';
 	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
+	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 	import DetailsTab from '$lib/components/social/DetailsTab.svelte';
 
 	let detailsModalOpen = $state(false);
@@ -161,6 +162,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
+<div class="dashboard-page-shell" use:wheelScrollPassthrough>
 <div class="dashboard-outer container mx-auto px-0 sm:px-6 lg:px-8">
 	<div class="dashboard">
 		<!-- Section switcher — mobile only: anchored dropdown below header, does not cover site nav -->
@@ -211,36 +213,38 @@
 
 		<!-- Sidebar — desktop only -->
 		<aside class="sidebar">
-			<nav class="sidebar-nav">
-				{#each SECTIONS as section (section.id)}
-					<a
-						href={section.href}
-						class="nav-item"
-						class:active={activeSection === section.id}
-					>
-						<span class="icon-wrap" class:icon-emoji={!!section.icon}>
-							{#if section.icon}
-								<img src={section.icon} alt="" class="section-icon" />
-							{:else}
-								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-									<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-								</svg>
-							{/if}
-						</span>
-						<span class="nav-label">{section.label}</span>
-					</a>
-				{/each}
-			</nav>
+			<div class="sidebar-scroll" data-sidebar-scroll>
+				<nav class="sidebar-nav">
+					{#each SECTIONS as section (section.id)}
+						<a
+							href={section.href}
+							class="nav-item"
+							class:active={activeSection === section.id}
+						>
+							<span class="icon-wrap" class:icon-emoji={!!section.icon}>
+								{#if section.icon}
+									<img src={section.icon} alt="" class="section-icon" />
+								{:else}
+									<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+										<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+									</svg>
+								{/if}
+							</span>
+							<span class="nav-label">{section.label}</span>
+						</a>
+					{/each}
+				</nav>
 
-			<!-- Community section — pinned to bottom of sidebar -->
-			<div class="sidebar-section">
-				<span class="eyebrow-label section-eyebrow">Community</span>
-				<button type="button" class="nav-item" onclick={() => (detailsModalOpen = true)}>
-					<span class="nav-label">Details</span>
-				</button>
-				<button type="button" class="nav-item" onclick={() => (termsModalOpen = true)}>
-					<span class="nav-label">Terms of Service</span>
-				</button>
+				<!-- Community section — pinned to bottom of sidebar -->
+				<div class="sidebar-section">
+					<span class="eyebrow-label section-eyebrow">Community</span>
+					<button type="button" class="nav-item" onclick={() => (detailsModalOpen = true)}>
+						<span class="nav-label">Details</span>
+					</button>
+					<button type="button" class="nav-item" onclick={() => (termsModalOpen = true)}>
+						<span class="nav-label">Terms of Service</span>
+					</button>
+				</div>
 			</div>
 		</aside>
 
@@ -311,8 +315,24 @@
 		</div>
 	</div>
 </div>
+</div>
 
 <style>
+	:global(main.main-content:has(.dashboard-page-shell)) {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+
+	.dashboard-page-shell {
+		flex: 1;
+		min-height: 0;
+		width: 100%;
+		min-height: calc(100dvh - 64px);
+		display: flex;
+		flex-direction: column;
+	}
+
 	.dashboard {
 		display: flex;
 		height: calc(100dvh - 64px);
@@ -456,6 +476,17 @@
 		flex-direction: column;
 		min-height: 0;
 		overflow: hidden;
+	}
+
+	.sidebar-scroll {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
+		display: flex;
+		flex-direction: column;
+		overscroll-behavior: contain;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	@media (max-width: 767px) {
