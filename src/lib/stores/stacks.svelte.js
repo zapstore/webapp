@@ -105,7 +105,7 @@ export function createStacksQuery() {
 				stacksByKey.set(key, stack);
 			}
 		}
-		// Zapstore community stacks always appear first
+		// Zapstore community-author stacks first, then newest
 		const stacks = [...stacksByKey.values()].sort((a, b) => {
 			const aIsCommunity = a.pubkey === ZAPSTORE_COMMUNITY_PUBKEY ? 0 : 1;
 			const bIsCommunity = b.pubkey === ZAPSTORE_COMMUNITY_PUBKEY ? 0 : 1;
@@ -173,15 +173,12 @@ export function createStacksQuery() {
 			fetchMissingApps(unresolvedRefs).catch(() => {});
 		}
 
-		// Exclude stacks with no resolved apps (stacks whose apps aren't in Dexie
-		// yet are kept if they have unresolved refs pending a backfill fetch).
-		return result.filter(({ stack, apps }) => {
-			if (apps.length > 0) return true;
-			// Keep if there are still pending backfill refs for this stack
-			const previewRefs = (stack.appRefs ?? [])
-				.filter((r) => r.kind === EVENT_KINDS.APP)
-				.slice(0, 4);
-			return previewRefs.some((r) => fetchedRefs.has(`${r.pubkey}:${r.identifier}`));
+		// Keep stacks that declare preview apps — icons fill via Dexie/relay backfill.
+		return result.filter(({ stack }) => {
+			const previewRefs = (stack.appRefs ?? []).filter(
+				(r) => r.kind === EVENT_KINDS.APP && r.pubkey && r.identifier
+			);
+			return previewRefs.length > 0;
 		});
 	});
 }
@@ -248,6 +245,42 @@ async function fillMissingPreviewApps(stackEvents, _relayUrls) {
  * Seed events into Dexie and initialize pagination cursor.
  * Called on mount with SSR-provided seed events.
  */
+/**
+ * One-shot fetch of Zapstore community-author stacks for /apps browse (does not block UI).
+ * @param {typeof fetchFromRelays} fetchFromRelaysFn
+ * @param {string[]} relayUrls
+ * @param {number} [limit]
+ */
+export async function primeZapstoreCommunityStacks(fetchFromRelaysFn, relayUrls, limit = 8) {
+	if (typeof window === 'undefined' || !navigator.onLine) return;
+
+	const safeLimit = Math.max(1, Math.min(24, Math.floor(limit)));
+	const filter = {
+		kinds: [EVENT_KINDS.APP_STACK],
+		authors: [ZAPSTORE_COMMUNITY_PUBKEY],
+		limit: safeLimit,
+		...(platformTag ? { '#f': [platformTag] } : {})
+	};
+
+	try {
+		const events = await fetchFromRelaysFn(relayUrls, filter, {
+			feature: 'discover-zapstore-community-stacks'
+		});
+		const publicEvents = events.filter(
+			(e) =>
+				e.kind === EVENT_KINDS.APP_STACK &&
+				e.pubkey === ZAPSTORE_COMMUNITY_PUBKEY &&
+				e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG &&
+				!e.content
+		);
+		if (publicEvents.length === 0) return;
+		await putEvents(publicEvents);
+		fillMissingPreviewApps(publicEvents, relayUrls).catch(() => {});
+	} catch (err) {
+		console.error('[StacksStore] primeZapstoreCommunityStacks failed:', err);
+	}
+}
+
 export function seedStackEvents(events) {
 	if (events && events.length > 0) {
 		// Exclude private Saved Apps stack from seed (don't persist for public listings)

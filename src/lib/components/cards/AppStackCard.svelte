@@ -142,7 +142,7 @@
 		display: flex;
 		align-items: stretch;
 		gap: 16px;
-		padding: 8px 0;
+		padding: 0;
 		text-decoration: none;
 		color: inherit;
 		cursor: pointer;
@@ -221,8 +221,9 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		justify-content: space-between;
-		padding: 4px 0;
+		justify-content: flex-start;
+		gap: 8px;
+		padding: 0;
 	}
 
 	.stack-text {

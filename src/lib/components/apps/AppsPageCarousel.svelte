@@ -1,24 +1,13 @@
 <script lang="js">
-	import { onMount } from 'svelte';
-	import { ChevronLeft, ChevronRight } from '$lib/components/icons';
+	import '$lib/styles/browse-grid.css';
 	import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 
-	/**
-	 * Horizontal carousel of bordered grid panels (stack-detail style cells).
-	 * Chevron + fade controls are rendered on `.apps-search-outer` via bindable state.
-	 *
-	 * @typedef {{
-	 *   top: number,
-	 *   left: number,
-	 *   right: number,
-	 *   showLeft: boolean,
-	 *   showRight: boolean
-	 * }} CarouselControls
-	 */
+	/** @typedef {{ top: number, left: number, right: number, showLeft: boolean, showRight: boolean }} CarouselUi */
 
 	/** @type {{
+	 *   active?: boolean,
 	 *   variant?: 'apps' | 'stacks',
 	 *   panels?: unknown[][],
 	 *   loading?: boolean,
@@ -28,25 +17,20 @@
 	 *   getAppHref?: (app: import('$lib/nostr/models').App) => string,
 	 *   getStackHref?: (stack: Record<string, unknown>) => string,
 	 *   onNearEnd?: () => void,
-	 *   controls?: CarouselControls
+	 *   onUiChange?: (ui: CarouselUi) => void
 	 * }} */
 	let {
+		active = true,
 		variant = 'apps',
 		panels = [],
 		loading = false,
 		loadingMore = false,
 		skeletonPanels = 4,
-		skeletonItemsPerPanel = 4,
+		skeletonItemsPerPanel = 2,
 		getAppHref = () => '#',
 		getStackHref = () => '#',
 		onNearEnd = () => {},
-		controls = $bindable({
-			top: 0,
-			left: 0,
-			right: 0,
-			showLeft: false,
-			showRight: false
-		})
+		onUiChange = () => {}
 	} = $props();
 
 	const SCROLL_STEP = 360;
@@ -54,42 +38,85 @@
 
 	let scrollWrap = $state(/** @type {HTMLDivElement | null} */ (null));
 	let scrollEl = $state(/** @type {HTMLDivElement | null} */ (null));
+	let showLeft = $state(false);
+	let showRight = $state(false);
+	let nearEndArmed = $state(true);
 
-	function updateScrollState() {
-		if (!scrollEl) return;
-		const { scrollLeft, scrollWidth, clientWidth } = scrollEl;
-		controls = {
-			...controls,
-			showLeft: scrollLeft > 4,
-			showRight: scrollLeft + clientWidth < scrollWidth - 4
-		};
-		if (scrollWidth - scrollLeft - clientWidth < NEAR_END_THRESHOLD) {
-			onNearEnd();
-		}
+	/** @type {CarouselUi | null} */
+	let lastEmittedUi = null;
+
+	/** @type {number | null} */
+	let syncRaf = null;
+
+	function scheduleSync() {
+		if (!active) return;
+		if (syncRaf != null) return;
+		syncRaf = requestAnimationFrame(() => {
+			syncRaf = null;
+			syncScrollUi();
+		});
 	}
 
-	function updateControlsPosition() {
+	function emitUiIfChanged(nextLeft, nextRight) {
 		const wrap = scrollWrap;
 		const outer = wrap?.closest('.apps-search-outer');
 		const frame = wrap?.closest('.apps-search-frame');
 		if (!wrap || !outer || !frame) return;
 		const wrapRect = wrap.getBoundingClientRect();
 		const outerRect = outer.getBoundingClientRect();
-		controls = {
-			...controls,
-			top: wrapRect.top - outerRect.top + wrapRect.height / 2,
+		/** @type {CarouselUi} */
+		const ui = {
+			showLeft: nextLeft,
+			showRight: nextRight,
+			top: Math.round(wrapRect.top - outerRect.top + wrapRect.height / 2),
 			left: frame.offsetLeft,
 			right: outer.clientWidth - frame.offsetLeft - frame.offsetWidth
 		};
+		if (
+			lastEmittedUi &&
+			lastEmittedUi.showLeft === ui.showLeft &&
+			lastEmittedUi.showRight === ui.showRight &&
+			lastEmittedUi.top === ui.top &&
+			lastEmittedUi.left === ui.left &&
+			lastEmittedUi.right === ui.right
+		) {
+			return;
+		}
+		lastEmittedUi = ui;
+		onUiChange(ui);
+	}
+
+	function syncScrollUi() {
+		if (!active || !scrollEl) return;
+		const { scrollLeft, scrollWidth, clientWidth } = scrollEl;
+		const nextLeft = scrollLeft > 4;
+		const nextRight = scrollLeft + clientWidth < scrollWidth - 4;
+		if (showLeft !== nextLeft) showLeft = nextLeft;
+		if (showRight !== nextRight) showRight = nextRight;
+		if (scrollWidth - scrollLeft - clientWidth >= NEAR_END_THRESHOLD) {
+			nearEndArmed = true;
+		}
+		emitUiIfChanged(nextLeft, nextRight);
+	}
+
+	/** Load-more only on user scroll when content overflows. */
+	function maybeLoadMoreNearEnd() {
+		if (!active || !scrollEl || !nearEndArmed) return;
+		const { scrollLeft, scrollWidth, clientWidth } = scrollEl;
+		if (scrollWidth <= clientWidth) return;
+		if (scrollWidth - scrollLeft - clientWidth < NEAR_END_THRESHOLD) {
+			nearEndArmed = false;
+			onNearEnd();
+		}
 	}
 
 	function handleScroll() {
-		updateScrollState();
+		scheduleSync();
+		maybeLoadMoreNearEnd();
 	}
 
 	function scrollBy(dir) {
 		scrollEl?.scrollBy({ left: dir * SCROLL_STEP, behavior: 'smooth' });
-		if (dir > 0) setTimeout(updateScrollState, 350);
 	}
 
 	/** @param {unknown} item */
@@ -99,47 +126,40 @@
 	}
 
 	$effect(() => {
+		if (!active) return;
 		const el = scrollEl;
 		if (!el) return;
-		updateScrollState();
-		const ro = new ResizeObserver(() => {
-			updateScrollState();
-			updateControlsPosition();
-		});
+		scheduleSync();
+		const ro = new ResizeObserver(scheduleSync);
 		ro.observe(el);
 		return () => ro.disconnect();
 	});
 
 	$effect(() => {
+		if (!active) return;
+		void panels.length;
+		void loading;
+		scheduleSync();
+	});
+
+	$effect(() => {
+		if (!active) return;
 		const wrap = scrollWrap;
 		if (!wrap) return;
-		updateControlsPosition();
-		const frame = wrap.closest('.apps-search-frame');
 		const scrollParent = wrap.closest('.apps-search-results-scroll');
-		const ro = new ResizeObserver(updateControlsPosition);
-		ro.observe(wrap);
-		if (frame) ro.observe(frame);
-		scrollParent?.addEventListener('scroll', updateControlsPosition, { passive: true });
-		window.addEventListener('resize', updateControlsPosition);
+		const onLayout = () => scheduleSync();
+		scrollParent?.addEventListener('scroll', onLayout, { passive: true });
+		window.addEventListener('resize', onLayout);
 		return () => {
-			ro.disconnect();
-			scrollParent?.removeEventListener('scroll', updateControlsPosition);
-			window.removeEventListener('resize', updateControlsPosition);
+			scrollParent?.removeEventListener('scroll', onLayout);
+			window.removeEventListener('resize', onLayout);
 		};
 	});
 
 	$effect(() => {
-		void panels.length;
-		void loading;
-		requestAnimationFrame(() => {
-			updateScrollState();
-			updateControlsPosition();
-		});
-	});
-
-	onMount(() => {
-		updateScrollState();
-		updateControlsPosition();
+		return () => {
+			if (syncRaf != null) cancelAnimationFrame(syncRaf);
+		};
 	});
 
 	export function scroll(direction) {
@@ -157,11 +177,11 @@
 			<div class="screenshots-content">
 				{#each Array(skeletonPanels) as _, pi (pi)}
 					<ul
-						class="apps-browse-grid"
+						class="apps-browse-grid browse-grid"
 						class:apps-browse-grid--stacks={variant === 'stacks'}
 					>
 						{#each Array(skeletonItemsPerPanel) as _, ii (ii)}
-							<li class="apps-browse-grid-item">
+							<li class="apps-browse-grid-item browse-grid-item browse-grid-item--{variant === 'stacks' ? 'stack' : 'app'}">
 								{#if variant === 'stacks'}
 									<div class="carousel-skeleton-stack">
 										<div class="carousel-skeleton-stack-grid"><SkeletonLoader /></div>
@@ -190,18 +210,18 @@
 			<div class="screenshots-content">
 				{#each panels as panel, pi (pi)}
 					<ul
-						class="apps-browse-grid"
+						class="apps-browse-grid browse-grid"
 						class:apps-browse-grid--stacks={variant === 'stacks'}
 					>
 						{#if variant === 'apps'}
 							{#each panel as app (/** @type {import('$lib/nostr/models').App} */ (app).id)}
-								<li class="apps-browse-grid-item">
+								<li class="apps-browse-grid-item browse-grid-item browse-grid-item--{variant === 'stacks' ? 'stack' : 'app'}">
 									<AppSmallCard {app} href={getAppHref(/** @type {import('$lib/nostr/models').App} */ (app))} />
 								</li>
 							{/each}
 						{:else}
 							{#each panel as stack (stackKey(stack))}
-								<li class="apps-browse-grid-item">
+								<li class="apps-browse-grid-item browse-grid-item browse-grid-item--{variant === 'stacks' ? 'stack' : 'app'}">
 									<AppStackCard
 										{stack}
 										href={getStackHref(/** @type {Record<string, unknown>} */ (stack))}
@@ -220,10 +240,10 @@
 		</div>
 	{/if}
 
-	{#if controls.showLeft}
+	{#if showLeft}
 		<div class="screenshots-fade screenshots-fade-left" aria-hidden="true"></div>
 	{/if}
-	{#if controls.showRight}
+	{#if showRight}
 		<div class="screenshots-fade screenshots-fade-right" aria-hidden="true"></div>
 	{/if}
 </div>
@@ -279,44 +299,7 @@
 
 	@media (min-width: 768px) {
 		.apps-browse-grid {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
 			width: 340px;
-		}
-
-		.apps-browse-grid--stacks {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	.apps-browse-grid-item {
-		min-width: 0;
-		padding: 14px 14px 8px;
-		border-bottom: 1px solid var(--white16);
-		box-sizing: border-box;
-	}
-
-	@media (min-width: 768px) {
-		.apps-browse-grid-item {
-			padding: 20px 20px 12px;
-		}
-
-		.apps-browse-grid-item:nth-child(odd) {
-			border-right: 1px solid var(--white16);
-		}
-
-		.apps-browse-grid--stacks .apps-browse-grid-item:nth-child(odd) {
-			border-right: none;
-		}
-	}
-
-	.apps-browse-grid-item:last-child {
-		border-bottom: none;
-	}
-
-	@media (min-width: 768px) {
-		.apps-browse-grid:not(.apps-browse-grid--stacks)
-			.apps-browse-grid-item:nth-last-child(2):nth-child(odd):not(:last-child) {
-			border-bottom: none;
 		}
 	}
 
@@ -390,7 +373,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		padding-top: 6px;
+		padding-top: 0;
 	}
 
 	.carousel-skeleton-app-name {

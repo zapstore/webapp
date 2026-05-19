@@ -8,13 +8,12 @@
 	const preset = $derived(appSearchHitSkeletonPreset(variant));
 	const titleWidth = $derived(`${preset.titleWidthPx}px`);
 	const profileNameWidth = $derived(`${preset.profileNameWidthPx}px`);
-	const descriptionLine1Width = $derived(`${preset.descriptionLineWidthsPx[0]}px`);
-	const descriptionLine2Width = $derived(`${preset.descriptionLineWidthsPx[1]}px`);
+	const descriptionWidth = $derived(`${preset.descriptionWidthPx}px`);
 </script>
 
 <!--
   Search hit placeholder — shimmer on app icon + title only.
-  Publisher + description lines: static --white8 blocks.
+  Publisher + one description line: static --white8 blocks.
   Four fixed presets (app-search-hit-skeleton-presets.js).
 -->
 {#if showDescription}
@@ -36,16 +35,10 @@
 				</div>
 			</div>
 		</div>
-		<div class="app-search-hit-skeleton-description">
-			<div
-				class="app-search-hit-skeleton-desc-line"
-				style="width: {descriptionLine1Width};"
-			></div>
-			<div
-				class="app-search-hit-skeleton-desc-line"
-				style="width: {descriptionLine2Width};"
-			></div>
-		</div>
+		<div
+			class="app-search-hit-skeleton-desc-line"
+			style="width: {descriptionWidth};"
+		></div>
 	</div>
 {:else}
 	<div class="app-search-hit-skeleton" aria-hidden="true">
@@ -167,15 +160,8 @@
 		max-width: 100%;
 	}
 
-	.app-search-hit-skeleton-description {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		width: 100%;
-		min-width: 0;
-	}
-
 	.app-search-hit-skeleton-desc-line {
+		width: 100%;
 		height: 12px;
 		border-radius: 6px;
 		background-color: var(--white8);

@@ -1,0 +1,71 @@
+/**
+ * Shared browse grids: /apps carousel panels, profile tabs, search results, /stacks listing.
+ * Uniform cell padding (14px mobile, 20px desktop). Use .browse-grid--two-col when count > 1.
+ */
+.browse-grid {
+	--browse-grid-cell-pad: 14px;
+	display: grid;
+	grid-template-columns: 1fr;
+	align-items: start;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border-top: 1px solid var(--white16);
+	box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+	.browse-grid {
+		--browse-grid-cell-pad: 20px;
+	}
+
+	.browse-grid.browse-grid--two-col {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.browse-grid-item {
+	min-width: 0;
+	padding: var(--browse-grid-cell-pad);
+	border-bottom: 1px solid var(--white16);
+	box-sizing: border-box;
+}
+
+/* App rows: tighter bottom inset (matches pre-uniform carousel/search cells). */
+.browse-grid-item--app {
+	padding-bottom: 8px;
+}
+
+@media (min-width: 768px) {
+	.browse-grid-item--app {
+		padding-bottom: 12px;
+	}
+}
+
+@media (min-width: 768px) {
+	.browse-grid.browse-grid--two-col .browse-grid-item {
+		border-right: 1px solid var(--white16);
+	}
+
+	.browse-grid.browse-grid--two-col .browse-grid-item:nth-child(2n) {
+		border-right: none;
+	}
+
+	.browse-grid:not(.browse-grid--two-col) .browse-grid-item {
+		border-right: none;
+	}
+}
+
+.browse-grid-item:last-child {
+	border-bottom: none;
+}
+
+.browse-grid-item :global(.app-stack-card) {
+	padding: 0 !important;
+}
+
+.browse-grid-item :global(.app-stack-card .stack-info) {
+	padding: 0;
+	justify-content: flex-start;
+	gap: 8px;
+}

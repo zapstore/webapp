@@ -5,7 +5,7 @@
  * Used by both client and SSR/prerendering.
  */
 import { nip19 } from 'nostr-tools';
-import { EVENT_KINDS } from '$lib/config';
+import { EVENT_KINDS, ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
 // =============================================================================
 // Parsers
 // =============================================================================
@@ -238,6 +238,20 @@ export function getEventOneliner(event) {
 		default:
 			return { label: 'Post', emoji: '/images/emoji/forum.png' };
 	}
+}
+
+/**
+ * Public stack in the Zapstore community catalog (`h` tag, no encrypted content).
+ * @param {import('nostr-tools').NostrEvent | { tags?: string[][], content?: string } | null | undefined} event
+ */
+export function isCommunityCatalogStackEvent(event) {
+	if (!event?.tags || event.content) return false;
+	return event.tags.some((t) => t[0] === 'h' && t[1] === ZAPSTORE_COMMUNITY_PUBKEY);
+}
+
+/** Stack published by the Zapstore community account (default /apps browse). */
+export function isZapstoreCommunityAuthorStack(stack) {
+	return stack?.pubkey === ZAPSTORE_COMMUNITY_PUBKEY;
 }
 
 /**

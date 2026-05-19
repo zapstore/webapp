@@ -39,7 +39,7 @@ function handleClick(e) {
 <style>
 	.app-small-card {
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		gap: 16px;
 		padding: 0 !important;
 		text-decoration: none;
@@ -82,7 +82,7 @@ function handleClick(e) {
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		padding-top: 6px;
+		padding-top: 0;
 	}
 
 	/* Mobile: 1 line description */

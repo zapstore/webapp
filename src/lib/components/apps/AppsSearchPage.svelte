@@ -4,10 +4,9 @@
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { Search } from 'lucide-svelte';
-	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 	import { ChevronDown, ChevronLeft, ChevronRight } from '$lib/components/icons';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
-	import AppsPageCarousel from '$lib/components/apps/AppsPageCarousel.svelte';
+	import AppsBrowseSections from '$lib/components/apps/AppsBrowseSections.svelte';
 	import AppSearchHitRow from '$lib/components/cards/AppSearchHitRow.svelte';
 	import AppSearchHitRowSkeleton from '$lib/components/cards/AppSearchHitRowSkeleton.svelte';
 	import { APP_SEARCH_HIT_SKELETON_VARIANT_COUNT } from '$lib/components/cards/app-search-hit-skeleton-presets.js';
@@ -21,27 +20,26 @@
 	import {
 		createStacksQuery,
 		seedStackEvents,
-		getStacksHasMore,
-		isStacksLoadingMore,
-		loadMoreStacks
+		primeZapstoreCommunityStacks
 	} from '$lib/stores/stacks.svelte.js';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { searchApps, fetchProfilesBatch, fetchFromRelays } from '$lib/nostr/service';
 	import { ZAPSTORE_RELAY, ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
 	import { nip19 } from 'nostr-tools';
-	import { parseApp, parseProfile, encodeStackNaddr } from '$lib/nostr/models';
-	import { sortAppsRelevanceDeveloperFirst, sortAppsByLatestRelease } from '$lib/utils/app-search.js';
+	import { isZapstoreCommunityAuthorStack, parseApp, parseProfile, encodeStackNaddr } from '$lib/nostr/models';
+	import { sortAppsRelevanceDeveloperFirst } from '$lib/utils/app-search.js';
 	import { isOnline } from '$lib/stores/online.svelte.js';
 	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 	import { DISCOVER_APPS_INITIAL, DISCOVER_STACKS_INITIAL } from '$lib/constants';
+	import '$lib/styles/browse-grid.css';
 
 	const APPS_SEARCH_SKELETON_ROW_COUNT = APP_SEARCH_HIT_SKELETON_VARIANT_COUNT * 3;
 	const SEARCH_RELAYS = [ZAPSTORE_RELAY];
 	const SEARCH_FETCH_DEBOUNCE_MS = 150;
 	const SEARCH_URL_SYNC_DEBOUNCE_MS = 400;
 	const SEARCH_RELAY_FETCH_LIMIT = 48;
-	const APPS_PER_PANEL = 4;
-	const STACKS_PER_PANEL = 2;
+	const APPS_PER_COLUMN = 2;
+	const STACKS_PER_COLUMN = 2;
 
 	let { seedEvents: seedEventsProp = [] } = $props();
 
@@ -49,25 +47,6 @@
 
 	let sortDropdownOpen = $state(false);
 	let sortDropdownWrap = $state(/** @type {HTMLDivElement | null} */ (null));
-	/** @type {import('$lib/components/apps/AppsPageCarousel.svelte').default | null} */
-	let releasesCarousel = $state(null);
-	/** @type {import('$lib/components/apps/AppsPageCarousel.svelte').default | null} */
-	let stacksCarousel = $state(null);
-	let releasesControls = $state({
-		top: 0,
-		left: 0,
-		right: 0,
-		showLeft: false,
-		showRight: false
-	});
-	let stacksControls = $state({
-		top: 0,
-		left: 0,
-		right: 0,
-		showLeft: false,
-		showRight: false
-	});
-
 	let searchParsedApps = $state(/** @type {ReturnType<typeof parseApp>[] | null} */ null);
 	let searchProfileByLc = $state(/** @type {Record<string, ReturnType<typeof parseProfile> | null>} */ ({}));
 	let searchLoading = $state(false);
@@ -83,45 +62,46 @@
 	const showSearchResults = $derived(activeSearchQuery.length > 0);
 	const offlineForSearch = $derived(browser && showSearchResults && !isOnline());
 
-	// Browse (default view)
-	const cachedApps = getCached('apps') ?? [];
-	const cachedStacks = getCached('stacks') ?? [];
-	let liveApps = $state(cachedApps);
-	let liveStacks = $state(cachedStacks);
+	// Browse (default view) — same data path as legacy /apps +page.svelte
+	let liveApps = $state(getCached('apps'));
+	let liveStacks = $state(getCached('stacks'));
 	let displayAppsLimit = $state(DISCOVER_APPS_INITIAL);
 	let displayStacksLimit = $state(DISCOVER_STACKS_INITIAL);
 	let resolvedDisplayStacks = $state(getCached('apps:resolvedStacks') ?? []);
-	let stacksSettled = $state(false);
+	let stacksSettled = $state((getCached('apps:resolvedStacks') ?? []).length > 0);
 	let resolvedStackKeys = $state('');
-	/** True until first apps liveQuery result or initial fetch attempt finishes. */
-	let appsBrowseLoading = $state(cachedApps.length === 0);
+
+	/** @type {{ scroll: (direction: number) => void } | null} */
+	let releasesCarousel = $state(null);
+	/** @type {{ scroll: (direction: number) => void } | null} */
+	let stacksCarousel = $state(null);
+	let releasesUi = $state({ top: 0, left: 0, right: 0, showLeft: false, showRight: false });
+	let stacksUi = $state({ top: 0, left: 0, right: 0, showLeft: false, showRight: false });
 
 	const appsHasMore = $derived(getHasMore());
 	const appsLoadingMore = $derived(isLoadingMore());
-	const stacksHasMore = $derived(getStacksHasMore());
-	const stacksLoadingMore = $derived(isStacksLoadingMore());
-
-	const browseApps = $derived(
-		sortAppsByLatestRelease((liveApps ?? []).slice(0, displayAppsLimit))
+	const apps = $derived((liveApps ?? []).slice(0, displayAppsLimit));
+	const communityLiveStacks = $derived(
+		(liveStacks ?? []).filter(({ stack }) => isZapstoreCommunityAuthorStack(stack))
 	);
-	const rawStacks = $derived((liveStacks ?? []).slice(0, displayStacksLimit));
+	const rawStacks = $derived(communityLiveStacks.slice(0, displayStacksLimit));
 	const communityStacks = $derived(
 		resolvedDisplayStacks.filter((s) => s.pubkey === ZAPSTORE_COMMUNITY_PUBKEY)
 	);
-	const releasePanels = $derived(chunkItems(browseApps, APPS_PER_PANEL));
-	const stackPanels = $derived(chunkItems(communityStacks, STACKS_PER_PANEL));
+	const appColumns = $derived(getColumns(apps, APPS_PER_COLUMN));
+	const stackColumns = $derived(getColumns(communityStacks, STACKS_PER_COLUMN));
 
 	const showSearchSkeleton = $derived(
 		showSearchResults && (searchLoading || searchParsedApps === null)
 	);
 
 	/** @template T @param {T[]} items @param {number} size @returns {T[][]} */
-	function chunkItems(items, size) {
-		const panels = [];
+	function getColumns(items, size) {
+		const columns = [];
 		for (let i = 0; i < items.length; i += size) {
-			panels.push(items.slice(i, i + size));
+			columns.push(items.slice(i, i + size));
 		}
-		return panels;
+		return columns;
 	}
 
 	function focusSearchInput() {
@@ -178,12 +158,8 @@
 			next: (value) => {
 				liveApps = value;
 				setCached('apps', value);
-				appsBrowseLoading = false;
 			},
-			error: (err) => {
-				console.error('[AppsPage] apps liveQuery error:', err);
-				appsBrowseLoading = false;
-			}
+			error: (err) => console.error('[AppsPage] apps liveQuery error:', err)
 		});
 		return () => sub.unsubscribe();
 	});
@@ -201,12 +177,8 @@
 
 	$effect(() => {
 		if (!browser) return;
-		if (rawStacks.length === 0) {
-			stacksSettled = true;
-			return;
-		}
 		const key = rawStacks.map((s) => s.stack.id).join(',');
-		if (key !== resolvedStackKeys) {
+		if (rawStacks.length > 0 && key !== resolvedStackKeys) {
 			resolvedStackKeys = key;
 			resolveCreatorsForStacks(rawStacks);
 		}
@@ -250,6 +222,12 @@
 			profile: searchProfileByLc[pkLcFn(app.pubkey)]
 		}));
 	});
+
+	const searchResultsTwoCol = $derived(
+		showSearchSkeleton
+			? APPS_SEARCH_SKELETON_ROW_COUNT > 1
+			: (resultRows?.length ?? 0) > 1
+	);
 
 	function handleSearchInputBlur(e) {
 		if (!showSearchResults) return;
@@ -337,16 +315,28 @@
 		else goto('/apps', { keepFocus: true, noScroll: true });
 	}
 
+	let lastLoadMoreAppsAt = 0;
+	let lastLoadMoreStacksAt = 0;
+	const LOAD_MORE_COOLDOWN_MS = 600;
+
 	function handleLoadMoreApps() {
-		displayAppsLimit += DISCOVER_APPS_INITIAL;
+		const now = Date.now();
+		if (now - lastLoadMoreAppsAt < LOAD_MORE_COOLDOWN_MS) return;
+		lastLoadMoreAppsAt = now;
+		const nextLimit = displayAppsLimit + DISCOVER_APPS_INITIAL;
+		if (nextLimit === displayAppsLimit) return;
+		displayAppsLimit = nextLimit;
 		if (appsHasMore && !appsLoadingMore) loadMoreApps();
 	}
 
 	function handleLoadMoreStacks() {
-		displayStacksLimit += DISCOVER_STACKS_INITIAL;
-		if (stacksHasMore && !stacksLoadingMore) {
-			loadMoreStacks(fetchFromRelays, [ZAPSTORE_RELAY]);
-		}
+		const now = Date.now();
+		if (now - lastLoadMoreStacksAt < LOAD_MORE_COOLDOWN_MS) return;
+		lastLoadMoreStacksAt = now;
+		const nextLimit = displayStacksLimit + DISCOVER_STACKS_INITIAL;
+		if (nextLimit === displayStacksLimit) return;
+		displayStacksLimit = nextLimit;
+		void primeZapstoreCommunityStacks(fetchFromRelays, [ZAPSTORE_RELAY], displayStacksLimit);
 	}
 
 	function getAppUrl(app) {
@@ -424,22 +414,15 @@
 
 	onMount(async () => {
 		if (!browser) return;
-		try {
-			await seedEvents(seedEventsProp ?? []);
-			await seedStackEvents(seedEventsProp ?? []);
-			if (navigator.onLine) {
-				if ((liveApps ?? []).length === 0) {
-					await loadMoreApps();
-				}
-				if ((liveStacks ?? []).length === 0) {
-					await loadMoreStacks(fetchFromRelays, [ZAPSTORE_RELAY]);
-				}
-			}
-		} catch (err) {
-			console.error('[AppsPage] browse bootstrap failed:', err);
-		} finally {
-			appsBrowseLoading = false;
+
+		await seedEvents(seedEventsProp ?? []);
+		await seedStackEvents(seedEventsProp ?? []);
+
+		if ((!seedEventsProp || seedEventsProp.length === 0) && navigator.onLine) {
+			void loadMoreApps();
+			void primeZapstoreCommunityStacks(fetchFromRelays, [ZAPSTORE_RELAY], DISCOVER_STACKS_INITIAL);
 		}
+
 		window.setTimeout(focusSearchInput, 50);
 	});
 </script>
@@ -511,15 +494,19 @@
 			</div>
 
 			<div class="apps-search-results-scroll" data-main-scroll>
-				{#if showSearchResults}
-					{#if offlineForSearch}
+				<div class="apps-search-panel" class:hidden={!showSearchResults} aria-hidden={!showSearchResults}>
+					{#if showSearchResults && offlineForSearch}
 						<p class="apps-search-empty regular14">
 							You're offline — connect to the network to search the catalog.
 						</p>
-					{:else if showSearchSkeleton}
-						<ul class="apps-search-results-list" role="list">
+					{:else if showSearchResults && showSearchSkeleton}
+						<ul
+							class="browse-grid apps-search-results-list"
+							class:browse-grid--two-col={searchResultsTwoCol}
+							role="list"
+						>
 							{#each Array(APPS_SEARCH_SKELETON_ROW_COUNT) as _, i (i)}
-								<li class="apps-search-result-row">
+								<li class="browse-grid-item browse-grid-item--app apps-search-result-row">
 									<AppSearchHitRowSkeleton
 										variant={i % APP_SEARCH_HIT_SKELETON_VARIANT_COUNT}
 										showDescription={true}
@@ -528,12 +515,16 @@
 								</li>
 							{/each}
 						</ul>
-					{:else if searchError}
+					{:else if showSearchResults && searchError}
 						<p class="apps-search-empty regular14">{searchError}</p>
-					{:else if resultRows && resultRows.length > 0}
-						<ul class="apps-search-results-list" role="list">
+					{:else if showSearchResults && resultRows && resultRows.length > 0}
+						<ul
+							class="browse-grid apps-search-results-list"
+							class:browse-grid--two-col={searchResultsTwoCol}
+							role="list"
+						>
 							{#each resultRows as row (row.app.id)}
-								<li class="apps-search-result-row">
+								<li class="browse-grid-item browse-grid-item--app apps-search-result-row">
 									<AppSearchHitRow
 										app={row.app}
 										authorProfile={row.profile}
@@ -542,72 +533,79 @@
 								</li>
 							{/each}
 						</ul>
-					{:else if searchParsedApps !== null}
+					{:else if showSearchResults && searchParsedApps !== null}
 						<p class="apps-search-empty regular14">
 							No apps found for "{activeSearchQuery}".
 						</p>
 					{/if}
-				{:else}
-					<div class="apps-home-sections">
-						<section class="apps-home-section">
-							<SectionHeader title="Latest Releases" />
-							<AppsPageCarousel
-								bind:this={releasesCarousel}
-								bind:controls={releasesControls}
-								variant="apps"
-								panels={releasePanels}
-								loading={appsBrowseLoading}
-								loadingMore={appsLoadingMore}
-								skeletonPanels={2}
-								skeletonItemsPerPanel={APPS_PER_PANEL}
-								getAppHref={getAppUrl}
-								onNearEnd={handleLoadMoreApps}
-							/>
-						</section>
+				</div>
 
-						<section class="apps-home-section">
-							<SectionHeader title="Stacks" linkText="See more" href="/stacks" />
-							<AppsPageCarousel
-								bind:this={stacksCarousel}
-								bind:controls={stacksControls}
-								variant="stacks"
-								panels={stackPanels}
-								loading={!stacksSettled}
-								loadingMore={stacksLoadingMore}
-								skeletonPanels={6}
-								skeletonItemsPerPanel={STACKS_PER_PANEL}
-								getStackHref={getStackUrl}
-								onNearEnd={handleLoadMoreStacks}
-							/>
-						</section>
-					</div>
-				{/if}
+				<AppsBrowseSections
+					hidden={showSearchResults}
+					bind:releasesCarousel
+					bind:stacksCarousel
+					onReleasesUiChange={(ui) => {
+						if (
+							releasesUi.showLeft === ui.showLeft &&
+							releasesUi.showRight === ui.showRight &&
+							releasesUi.top === ui.top &&
+							releasesUi.left === ui.left &&
+							releasesUi.right === ui.right
+						) {
+							return;
+						}
+						releasesUi = ui;
+					}}
+					onStacksUiChange={(ui) => {
+						if (
+							stacksUi.showLeft === ui.showLeft &&
+							stacksUi.showRight === ui.showRight &&
+							stacksUi.top === ui.top &&
+							stacksUi.left === ui.left &&
+							stacksUi.right === ui.right
+						) {
+							return;
+						}
+						stacksUi = ui;
+					}}
+					{apps}
+					{appColumns}
+					{stackColumns}
+					{stacksSettled}
+					{resolvedDisplayStacks}
+					appsLoadingMore={appsLoadingMore}
+					stacksLoadingMore={false}
+					getAppUrl={getAppUrl}
+					getStackUrl={getStackUrl}
+					onLoadMoreApps={handleLoadMoreApps}
+					onLoadMoreStacks={handleLoadMoreStacks}
+				/>
 			</div>
 		</div>
 
 		{#if !showSearchResults}
-			{#if releasesControls.showLeft || releasesControls.showRight}
+			{#if releasesUi.showLeft || releasesUi.showRight}
 				<div
 					class="screenshots-controls"
-					style="top: {releasesControls.top}px"
-					aria-hidden={!releasesControls.showLeft && !releasesControls.showRight}
+					style="top: {releasesUi.top}px"
+					aria-hidden={!releasesUi.showLeft && !releasesUi.showRight}
 				>
-					{#if releasesControls.showLeft}
+					{#if releasesUi.showLeft}
 						<button
 							type="button"
 							class="screenshots-btn screenshots-btn-left"
-							style="left: {releasesControls.left}px"
+							style="left: {releasesUi.left}px"
 							onclick={() => releasesCarousel?.scroll(-1)}
 							aria-label="Scroll releases left"
 						>
 							<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
 						</button>
 					{/if}
-					{#if releasesControls.showRight}
+					{#if releasesUi.showRight}
 						<button
 							type="button"
 							class="screenshots-btn screenshots-btn-right"
-							style="right: {releasesControls.right}px"
+							style="right: {releasesUi.right}px"
 							onclick={() => releasesCarousel?.scroll(1)}
 							aria-label="Scroll releases right"
 						>
@@ -616,28 +614,28 @@
 					{/if}
 				</div>
 			{/if}
-			{#if stacksControls.showLeft || stacksControls.showRight}
+			{#if stacksUi.showLeft || stacksUi.showRight}
 				<div
 					class="screenshots-controls"
-					style="top: {stacksControls.top}px"
-					aria-hidden={!stacksControls.showLeft && !stacksControls.showRight}
+					style="top: {stacksUi.top}px"
+					aria-hidden={!stacksUi.showLeft && !stacksUi.showRight}
 				>
-					{#if stacksControls.showLeft}
+					{#if stacksUi.showLeft}
 						<button
 							type="button"
 							class="screenshots-btn screenshots-btn-left"
-							style="left: {stacksControls.left}px"
+							style="left: {stacksUi.left}px"
 							onclick={() => stacksCarousel?.scroll(-1)}
 							aria-label="Scroll stacks left"
 						>
 							<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
 						</button>
 					{/if}
-					{#if stacksControls.showRight}
+					{#if stacksUi.showRight}
 						<button
 							type="button"
 							class="screenshots-btn screenshots-btn-right"
-							style="right: {stacksControls.right}px"
+							style="right: {stacksUi.right}px"
 							onclick={() => stacksCarousel?.scroll(1)}
 							aria-label="Scroll stacks right"
 						>
@@ -656,7 +654,8 @@
 		flex-direction: column;
 		min-height: calc(100dvh - 64px);
 		height: calc(100dvh - 64px);
-		overflow: hidden;
+		overflow-x: visible;
+		overflow-y: hidden;
 	}
 
 	.apps-search-outer {
@@ -864,55 +863,14 @@
 		padding: var(--apps-pad-x);
 	}
 
-	.apps-search-results-list {
-		display: grid;
-		grid-template-columns: 1fr;
-		list-style: none;
-		margin: 0;
-		padding: 0;
-	}
-
-	@media (min-width: 768px) {
-		.apps-search-results-list {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-	}
-
-	.apps-search-result-row {
-		min-width: 0;
-		border-bottom: 1px solid var(--white16);
-		padding: var(--apps-pad-x) var(--apps-pad-x) calc(var(--apps-pad-x) - 2px);
-	}
-
-	@media (min-width: 768px) {
-		.apps-search-result-row {
-			border-right: 1px solid var(--white16);
-		}
-
-		.apps-search-result-row:nth-child(2n) {
-			border-right: none;
-		}
-	}
-
 	.apps-search-result-row:hover {
 		background-color: var(--white4);
 	}
 
-	.apps-home-sections {
-		padding-top: 24px;
-		padding-bottom: 24px;
+	.apps-search-panel.hidden {
+		display: none;
 	}
 
-	.apps-home-section {
-		margin-bottom: 24px;
-	}
-
-	.apps-home-section :global(.section-header) {
-		padding-left: var(--apps-pad-x);
-		padding-right: var(--apps-pad-x);
-	}
-
-	/* Screenshot-style carousel controls (same as app detail page) */
 	.screenshots-controls {
 		position: absolute;
 		left: 0;

@@ -12,17 +12,13 @@ import '$lib/styles/bordered-detail-column.css';
 import { parseShortText } from '$lib/utils/short-text-parser.js';
 import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
-import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
-import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
-import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
+import ProfileAppsBrowseSections from '$lib/components/profile/ProfileAppsBrowseSections.svelte';
 import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
 import Modal from '$lib/components/common/Modal.svelte';
 import ProfileActivityTab from '$lib/components/profile/ProfileActivityTab.svelte';
 import ProfileDetailsTab from '$lib/components/profile/ProfileDetailsTab.svelte';
 import { hexToColor } from '$lib/utils/color.js';
 import { Copy, Check } from '$lib/components/icons';
-import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
-
 let { data } = $props();
 const npub = $derived(data.npub ?? '');
 const pubkey = $derived(data.pubkey);
@@ -211,9 +207,25 @@ function stackToCard(s, resolvedApps) {
 		name: s.title || s.dTag || 'Untitled',
 		description: s.description || '',
 		apps: appsList,
-		creator: pubkey ? { name: profileName, picture: profilePictureUrl, pubkey, npub: creatorNpub } : undefined
+		creator: pubkey ? { name: profileName, picture: profilePictureUrl, pubkey, npub: creatorNpub } : undefined,
+		pubkey: s.pubkey,
+		dTag: s.dTag
 	};
 }
+
+const stackCards = $derived(
+	resolvedStacks.map(({ stack, apps: resolvedApps }) => stackToCard(stack, resolvedApps))
+);
+
+function getAppUrl(app) {
+	return app.dTag ? `/apps/${app.dTag}` : '#';
+}
+
+function getStackUrl(stack) {
+	const naddr = encodeStackNaddr(stack?.pubkey, stack?.dTag);
+	return naddr ? `/stacks/${naddr}` : '#';
+}
+
 </script>
 
 <SeoHead
@@ -352,80 +364,20 @@ function stackToCard(s, resolvedApps) {
 
 					<div class="profile-tab-divider" aria-hidden="true"></div>
 
-					<div class="profile-tab-content" class:profile-tab-content--activity={activeTab === 'activity'}>
+					<div
+						class="profile-tab-content"
+						class:profile-tab-content--activity={activeTab === 'activity'}
+						class:profile-tab-content--apps={activeTab === 'apps'}
+					>
 		{#if activeTab === 'apps'}
-			<div class="apps-stack">
-
-				<!-- Published -->
-				<div class="content-panel">
-					<SectionHeader title="Published" />
-					{#if appsLoading}
-						<div class="cards-grid">
-							<div class="sk-row">
-								<div class="sk-icon"><SkeletonLoader /></div>
-								<div class="sk-info">
-									<div class="sk-name"><SkeletonLoader /></div>
-									<div class="sk-desc"><SkeletonLoader /></div>
-								</div>
-							</div>
-							<div class="sk-row sk-second">
-								<div class="sk-icon"><SkeletonLoader /></div>
-								<div class="sk-info">
-									<div class="sk-name"><SkeletonLoader /></div>
-									<div class="sk-desc"><SkeletonLoader /></div>
-								</div>
-							</div>
-						</div>
-					{:else if apps.length === 0}
-						<p class="panel-empty">No apps published</p>
-					{:else}
-						<div class="cards-grid">
-							{#each apps as app (app.id)}
-								<AppSmallCard
-									app={{ name: app.name, icon: app.icon, description: app.description, dTag: app.dTag }}
-									href="/apps/{app.dTag}"
-								/>
-							{/each}
-						</div>
-					{/if}
-				</div>
-
-				<!-- Stacks -->
-				<div class="content-panel">
-					<SectionHeader title="Stacks" />
-					{#if stacksLoading}
-						<div class="cards-grid">
-							<div class="sk-row">
-								<div class="sk-stack-grid"><SkeletonLoader /></div>
-								<div class="sk-info">
-									<div class="sk-name"><SkeletonLoader /></div>
-									<div class="sk-desc"><SkeletonLoader /></div>
-								</div>
-							</div>
-							<div class="sk-row sk-second">
-								<div class="sk-stack-grid"><SkeletonLoader /></div>
-								<div class="sk-info">
-									<div class="sk-name"><SkeletonLoader /></div>
-									<div class="sk-desc"><SkeletonLoader /></div>
-								</div>
-							</div>
-						</div>
-					{:else if resolvedStacks.length === 0}
-						<p class="panel-empty">No stacks created</p>
-					{:else}
-						<div class="cards-grid">
-							{#each resolvedStacks as { stack, apps: resolvedApps } (`${stack.id}`)}
-								<AppStackCard
-									stack={stackToCard(stack, resolvedApps)}
-									href="/stacks/{encodeStackNaddr(stack.pubkey, stack.dTag)}"
-								/>
-							{/each}
-						</div>
-					{/if}
-				</div>
-
-			</div>
-
+			<ProfileAppsBrowseSections
+				{apps}
+				{appsLoading}
+				{stackCards}
+				{stacksLoading}
+				{getAppUrl}
+				{getStackUrl}
+			/>
 	{:else if activeTab === 'activity'}
 			<ProfileActivityTab {pubkey} profileName={profileName} profilePicture={profilePictureUrl} />
 
@@ -666,6 +618,13 @@ function stackToCard(s, resolvedApps) {
 		padding-top: 16px;
 	}
 
+	.profile-tab-content--apps {
+		padding-top: 0;
+		margin-left: calc(-1 * var(--page-content-pad-x, 0px));
+		margin-right: calc(-1 * var(--page-content-pad-x, 0px));
+		width: calc(100% + 2 * var(--page-content-pad-x, 0px));
+	}
+
 	.profile-tab-content--activity {
 		padding-top: 0;
 		margin-left: calc(-1 * var(--page-content-pad-x, 0px));
@@ -676,78 +635,6 @@ function stackToCard(s, resolvedApps) {
 	.profile-tab-content--activity :global(.activity-feed-skeleton) {
 		padding: 0;
 	}
-
-	/* ── Apps stack (always single column) ───────────────────────────────── */
-	.apps-stack {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
-	/* Grid used by both Published (apps) and Stacks: 1 col on mobile, 2 on desktop */
-	.cards-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 4px;
-		padding: 0 0 4px;
-	}
-
-	@media (min-width: 640px) {
-		.cards-grid {
-			grid-template-columns: 1fr 1fr;
-			gap: 8px;
-		}
-	}
-
-	/* Zero out AppStackCard's own 8px top/bottom padding inside the grid */
-	.cards-grid :global(.app-stack-card) {
-		padding-top: 0;
-		padding-bottom: 0;
-	}
-
-	/* Empty state: same typography as EmptyState.svelte but no extra background */
-	.panel-empty {
-		margin: 0;
-		padding: 40px 0;
-		font-size: 1.5rem;
-		font-weight: 600;
-		color: var(--white16);
-		text-align: center;
-		width: 100%;
-	}
-
-	/* ── Skeletons ────────────────────────────────────────────────────────── */
-	/* Second skeleton cell: hidden on mobile (1-col grid), visible on desktop (2-col). */
-	.sk-second { display: none; }
-	@media (min-width: 640px) { .sk-second { display: flex; } }
-
-	.sk-row { display: flex; align-items: flex-start; gap: 16px; }
-
-	.sk-icon {
-		width: 56px;
-		height: 56px;
-		border-radius: 14px;
-		overflow: hidden;
-		flex-shrink: 0;
-	}
-
-	.sk-stack-grid {
-		width: 70px;
-		height: 70px;
-		border-radius: 14px;
-		overflow: hidden;
-		flex-shrink: 0;
-	}
-
-	@media (min-width: 768px) {
-		.sk-icon { width: 72px; height: 72px; border-radius: 18px; }
-		.sk-stack-grid { width: 86px; height: 86px; border-radius: 18px; }
-		.sk-row { gap: 20px; }
-	}
-
-	.sk-info { flex: 1; display: flex; flex-direction: column; gap: 8px; padding-top: 6px; }
-	.sk-name { width: 110px; height: 16px; border-radius: 8px; overflow: hidden; }
-	.sk-desc { width: 180px; height: 12px; border-radius: 8px; overflow: hidden; }
 
 	/* ── Description modal ───────────────────────────────────────────────── */
 	.desc-modal { padding: 16px; }
