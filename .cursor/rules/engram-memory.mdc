@@ -1,0 +1,11 @@
+---
+description: Engram persistent memory — when to save and how to recover context
+alwaysApply: true
+---
+
+# Engram persistent memory
+
+You have access to Engram persistent memory (`mem_save`, `mem_search`, `mem_context`).
+
+- Save proactively only after significant work.
+- After context resets, call `mem_context` to recover state.

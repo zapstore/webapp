@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "Shell",
+        "command": "./.guardrail/hooks/pretool-review",
+        "timeout": 10,
+        "failClosed": true
+      }
+    ]
+  }
+}
