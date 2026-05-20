@@ -111,9 +111,8 @@
     }
   }
 
-  /* ── Shared pill style for both filter button and see-more link ── */
-  .filter-btn,
-  .section-link {
+  /* Filter pill (dropdown triggers) */
+  .filter-btn {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -122,6 +121,26 @@
     background: transparent;
     border: none;
     border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--white33);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* See-more link — matches /apps Relevance pill (12px radius, tighter right inset) */
+  .section-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 10px 0 16px;
+    background: transparent;
+    border: none;
+    border-radius: 12px;
     font-size: 0.875rem;
     font-weight: 500;
     color: var(--white33);

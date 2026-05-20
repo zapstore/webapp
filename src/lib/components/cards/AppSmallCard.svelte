@@ -32,6 +32,8 @@ function handleClick(e) {
 		<span class="app-name">{app.name || ''}</span>
 		{#if description}
 			<span class="app-description">{description}</span>
+		{:else}
+			<span class="app-description app-description-empty">No description</span>
 		{/if}
 	</div>
 </a>
@@ -39,7 +41,7 @@ function handleClick(e) {
 <style>
 	.app-small-card {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		gap: 16px;
 		padding: 0 !important;
 		text-decoration: none;
@@ -81,8 +83,16 @@ function handleClick(e) {
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
+		align-items: flex-start;
+		justify-content: flex-start;
 		gap: 2px;
-		padding-top: 0;
+		padding-top: 6px;
+	}
+
+	@media (min-width: 768px) {
+		.app-info {
+			padding-top: 6px;
+		}
 	}
 
 	/* Mobile: 1 line description */
@@ -105,6 +115,13 @@ function handleClick(e) {
 		line-clamp: 1;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
+	}
+
+	.app-description-empty {
+		color: var(--white33);
+		display: block;
+		-webkit-line-clamp: unset;
+		line-clamp: unset;
 	}
 
 	/* Desktop: larger text, 2 line description */

@@ -680,7 +680,7 @@
 
 	@media (min-width: 768px) {
 		.apps-search-frame {
-			--apps-pad-x: 16px;
+			--apps-pad-x: 20px;
 		}
 	}
 

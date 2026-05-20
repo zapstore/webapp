@@ -110,19 +110,6 @@
 	.apps-home-section :global(.section-header) {
 		padding-left: var(--apps-pad-x);
 		padding-right: var(--apps-pad-x);
-	}
-
-	.stacks-section :global(.section-header) {
 		margin-bottom: 12px;
-	}
-
-	.apps-home-section:not(.stacks-section) :global(.section-header) {
-		margin-bottom: 20px;
-	}
-
-	@media (max-width: 767px) {
-		.apps-home-section:not(.stacks-section) :global(.section-header) {
-			margin-bottom: 18px;
-		}
 	}
 </style>

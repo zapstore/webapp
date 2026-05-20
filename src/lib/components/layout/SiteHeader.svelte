@@ -76,12 +76,8 @@
 	const primaryDevStudioNavSelected = $derived(
 		showStudioPrimaryNav ? isStudioNavActive : isDevelopersActive
 	);
-	const isDiscoverActive = $derived(
-		$page.url.pathname === '/apps' ||
-			$page.url.pathname.startsWith('/apps/') ||
-			$page.url.pathname === '/stacks' ||
-			$page.url.pathname.startsWith('/stacks/')
-	);
+	/** Apps browse/search listing only — not app detail (`/apps/…`) or stacks. */
+	const isAppsActive = $derived($page.url.pathname === '/apps');
 	const isCommunityActive = $derived($page.url.pathname.startsWith('/community'));
 	const offline = $derived(browser && !isOnline());
 	// Current user profile (local-first: EventStore then background fetch) for header avatar
@@ -702,7 +698,7 @@
 							<a
 								href="/apps"
 								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-								class:landing-nav-studio-selected={isDiscoverActive}
+								class:landing-nav-studio-selected={isAppsActive}
 								style="color: var(--white66);"
 							>
 								Apps

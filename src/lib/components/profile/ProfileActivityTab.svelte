@@ -136,11 +136,13 @@ function toThreadComment(e) {
 
 // ── Data loading ──────────────────────────────────────────────────────────────
 
+const ACTIVITY_LIST_LIMIT = 20;
+
 onMount(async () => {
 	if (!browser || !pubkey) { loading = false; return; }
 
 	try {
-		let local = await queryEvents({ kinds: [EVENT_KINDS.COMMENT], authors: [pubkey], limit: 50 });
+		let local = await queryEvents({ kinds: [EVENT_KINDS.COMMENT], authors: [pubkey], limit: ACTIVITY_LIST_LIMIT });
 		if (local.length > 0) {
 			local.sort((a, b) => b.created_at - a.created_at);
 			comments = local;
@@ -150,7 +152,7 @@ onMount(async () => {
 
 		const fetched = await fetchFromRelays(
 			[ZAPSTORE_RELAY, ...DEFAULT_SOCIAL_RELAYS],
-			{ kinds: [EVENT_KINDS.COMMENT], authors: [pubkey], limit: 50 },
+			{ kinds: [EVENT_KINDS.COMMENT], authors: [pubkey], limit: ACTIVITY_LIST_LIMIT },
 			{ timeout: 7000, feature: 'profile-activity' }
 		);
 

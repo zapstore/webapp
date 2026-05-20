@@ -215,15 +215,15 @@
 		}
 	}
 
-	/* Stack info */
+	/* Stack info — stretch to icon height; creator row pinned to bottom */
 	.stack-info {
 		flex: 1;
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		justify-content: flex-start;
+		justify-content: space-between;
 		gap: 8px;
-		padding: 0;
+		padding: 4px 0;
 	}
 
 	.stack-text {

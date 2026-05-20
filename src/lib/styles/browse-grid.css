@@ -57,15 +57,9 @@
 }
 
 .browse-grid-item:last-child {
-	border-bottom: none;
+	border-bottom: 1px solid var(--white16);
 }
 
 .browse-grid-item :global(.app-stack-card) {
 	padding: 0 !important;
-}
-
-.browse-grid-item :global(.app-stack-card .stack-info) {
-	padding: 0;
-	justify-content: flex-start;
-	gap: 8px;
 }

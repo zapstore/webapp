@@ -10,17 +10,23 @@ import { browser } from '$app/environment';
 import { Copy, Check } from '$lib/components/icons';
 import NpubDisplay from '$lib/components/common/NpubDisplay.svelte';
 import CodeBlock from '$lib/components/common/CodeBlock.svelte';
+import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
 import { highlightJson } from '$lib/utils/highlight.js';
 import { queryEvent, fetchProfile } from '$lib/nostr';
 import { EVENT_KINDS } from '$lib/config.js';
 
-let { npub = '', pubkey = '' } = $props();
+let {
+	npub = '',
+	pubkey = '',
+	about = '',
+	panelBackground = 'black33',
+	resolveMentionLabel = () => null
+} = $props();
 
 /** Raw kind:0 Nostr event */
 let rawEvent = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
 let loading = $state(true);
 
-// Copy states
 let npubCopied = $state(false);
 let websiteCopied = $state(false);
 let nip05Copied = $state(false);
@@ -28,7 +34,6 @@ let lnCopied = $state(false);
 
 let highlightedJson = $state('');
 
-/** Parsed profile metadata from kind:0 content */
 const profileMeta = $derived.by(() => {
 	if (!rawEvent?.content) return {};
 	try {
@@ -38,11 +43,14 @@ const profileMeta = $derived.by(() => {
 	}
 });
 
+const description = $derived((about || profileMeta.about || '').trim());
 const website = $derived((profileMeta.website ?? '').trim());
 const nip05 = $derived((profileMeta.nip05 ?? '').trim());
 const lnAddress = $derived((profileMeta.lud16 ?? profileMeta.lud06 ?? '').trim());
 
-/** Strip the internal _tags field Dexie adds before showing JSON */
+const panelBgClass = $derived(panelBackground === 'black33' ? 'panel-black33' : 'panel-gray66');
+const codeBlockBackground = $derived(panelBackground === 'black33' ? 'black33' : 'gray33');
+
 const cleanedEvent = $derived.by(() => {
 	if (!rawEvent) return null;
 	const { _tags: _, ...nostrEvent } = rawEvent;
@@ -62,14 +70,12 @@ onMount(async () => {
 	if (!browser || !pubkey) { loading = false; return; }
 
 	try {
-		// 1. Try Dexie first
 		const local = await queryEvent({ kinds: [EVENT_KINDS.PROFILE], authors: [pubkey] });
 		if (local) {
 			rawEvent = local;
 			loading = false;
 		}
 
-		// 2. Fetch from relay to ensure freshness
 		const fetched = await fetchProfile(pubkey, { timeout: 5000 });
 		if (fetched) rawEvent = fetched;
 	} catch (e) {
@@ -94,14 +100,11 @@ async function copy(text, setCopied) {
 		// ignore
 	}
 }
-
-
 </script>
 
 <div class="profile-details-tab">
 	<h3 class="eyebrow-label section-title">IDENTIFIERS</h3>
-	<div class="panel panel-gray66">
-		<!-- npub -->
+	<div class="panel {panelBgClass}">
 		<div class="identifier-row">
 			<span class="identifier-label">Profile</span>
 			<div class="identifier-value-right">
@@ -196,13 +199,24 @@ async function copy(text, setCopied) {
 		{/if}
 	</div>
 
+	<h3 class="eyebrow-label section-title description-title">DESCRIPTION</h3>
+	<div class="panel {panelBgClass} description-panel">
+		{#if description}
+			<div class="description-body">
+				<ShortTextRenderer content={description} {resolveMentionLabel} />
+			</div>
+		{:else}
+			<p class="description-empty">No description</p>
+		{/if}
+	</div>
+
 	{#if rawEvent}
 		<h3 class="eyebrow-label section-title raw-data-title">RAW DATA</h3>
 		<CodeBlock
 			html={highlightedJson}
 			code={formattedJson}
 			language="JSON"
-			background="gray33"
+			background={codeBlockBackground}
 		/>
 	{:else if loading}
 		<p class="loading-hint">Loading profile event…</p>
@@ -220,8 +234,26 @@ async function copy(text, setCopied) {
 		margin-bottom: 8px;
 	}
 
-	.raw-data-title {
+	.raw-data-title,
+	.description-title {
 		margin-top: 12px;
+	}
+
+	.description-panel {
+		padding: 12px 14px;
+	}
+
+	.description-body {
+		font-size: 0.875rem;
+		line-height: 1.45;
+		color: var(--white66);
+		word-break: break-word;
+	}
+
+	.description-empty {
+		margin: 0;
+		font-size: 0.875rem;
+		color: var(--white33);
 	}
 
 	.panel {
@@ -232,6 +264,10 @@ async function copy(text, setCopied) {
 
 	.panel-gray66 {
 		background-color: var(--gray66);
+	}
+
+	.panel-black33 {
+		background-color: var(--black33);
 	}
 
 	.identifier-row {

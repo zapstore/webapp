@@ -59,8 +59,8 @@
 
 	function emitUiIfChanged(nextLeft, nextRight) {
 		const wrap = scrollWrap;
-		const outer = wrap?.closest('.apps-search-outer');
-		const frame = wrap?.closest('.apps-search-frame');
+		const outer = wrap?.closest('.apps-search-outer, .profile-apps-browse-outer');
+		const frame = wrap?.closest('.apps-search-frame, .app-detail-frame');
 		if (!wrap || !outer || !frame) return;
 		const wrapRect = wrap.getBoundingClientRect();
 		const outerRect = outer.getBoundingClientRect();
@@ -146,7 +146,9 @@
 		if (!active) return;
 		const wrap = scrollWrap;
 		if (!wrap) return;
-		const scrollParent = wrap.closest('.apps-search-results-scroll');
+		const scrollParent = wrap.closest(
+			'.apps-search-results-scroll, .app-detail-scroll, .profile-detail-scroll'
+		);
 		const onLayout = () => scheduleSync();
 		scrollParent?.addEventListener('scroll', onLayout, { passive: true });
 		window.addEventListener('resize', onLayout);
@@ -297,6 +299,11 @@
 		box-sizing: border-box;
 	}
 
+	/* Row dividers come from items; panel bottom edge is the grid border only. */
+	.apps-browse-grid :global(.browse-grid-item:last-child) {
+		border-bottom: none;
+	}
+
 	@media (min-width: 768px) {
 		.apps-browse-grid {
 			width: 340px;
@@ -373,7 +380,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		padding-top: 0;
+		padding-top: 6px;
 	}
 
 	.carousel-skeleton-app-name {
@@ -431,6 +438,10 @@
 			width: 72px;
 			height: 72px;
 			border-radius: 24px;
+		}
+
+		.carousel-skeleton-app-lines {
+			padding-top: 6px;
 		}
 
 		.carousel-skeleton-stack-grid {

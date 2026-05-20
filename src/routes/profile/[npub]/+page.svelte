@@ -6,8 +6,8 @@ import SeoHead from '$lib/components/layout/SeoHead.svelte';
 import { fetchProfile, queryEvents, encodeStackNaddr, parseApp, parseAppStack, fetchAppsByAuthorFromRelays, fetchAppFromRelays } from '$lib/nostr';
 import { ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG, SITE_URL } from '$lib/config';
 import { nip19 } from 'nostr-tools';
-import { wheelScroll } from '$lib/actions/wheelScroll.js';
 import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
+import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 import '$lib/styles/bordered-detail-column.css';
 import { parseShortText } from '$lib/utils/short-text-parser.js';
 import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
@@ -17,8 +17,6 @@ import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
 import Modal from '$lib/components/common/Modal.svelte';
 import ProfileActivityTab from '$lib/components/profile/ProfileActivityTab.svelte';
 import ProfileDetailsTab from '$lib/components/profile/ProfileDetailsTab.svelte';
-import { hexToColor } from '$lib/utils/color.js';
-import { Copy, Check } from '$lib/components/icons';
 let { data } = $props();
 const npub = $derived(data.npub ?? '');
 const pubkey = $derived(data.pubkey);
@@ -28,9 +26,9 @@ let apps = $state([]);
 let appsLoading = $state(true);
 let stacks = $state([]);
 let stacksLoading = $state(true);
-let descriptionModalOpen = $state(false);
-let colorCopied = $state(false);
-let activeTab = $state('apps');
+let detailsModalOpen = $state(false);
+let activityMounted = $state(false);
+let activitySentinel = $state(/** @type {HTMLElement | null} */ (null));
 let mentionProfiles = $state({});
 let resolvedStacks = $state([]);
 
@@ -38,10 +36,6 @@ const profileName = $derived(profile?.displayName || profile?.name || (npub ? `$
 const profileNameForPic = $derived(profile?.displayName || profile?.name || null);
 const profilePictureUrl = $derived(profile?.picture ?? '');
 const _isConnected = $derived(getCurrentPubkey() !== null);
-const profileColor = $derived(pubkey ? hexToColor(pubkey) : { r: 128, g: 128, b: 128 });
-const profileColorHex = $derived(
-	`#${profileColor.r.toString(16).padStart(2, '0')}${profileColor.g.toString(16).padStart(2, '0')}${profileColor.b.toString(16).padStart(2, '0')}`.toUpperCase()
-);
 
 async function loadProfile(pk) {
 	profileLoading = true;
@@ -78,27 +72,6 @@ async function loadMentionProfiles(about) {
 	const next = {};
 	for (const result of results) { if (result) next[result[0]] = result[1]; }
 	if (Object.keys(next).length > 0) mentionProfiles = { ...mentionProfiles, ...next };
-}
-
-let npubCopied = $state(false);
-let npubOverlayOpen = $state(false);
-
-async function copyNpub() {
-	if (!npub) return;
-	try {
-		await navigator.clipboard.writeText(npub);
-		npubCopied = true;
-		setTimeout(() => (npubCopied = false), 1500);
-	} catch { /* ignore */ }
-}
-
-async function copyProfileColor() {
-	if (!pubkey) return;
-	try {
-		await navigator.clipboard.writeText(profileColorHex);
-		colorCopied = true;
-		setTimeout(() => (colorCopied = false), 1500);
-	} catch { /* ignore */ }
 }
 
 onMount(async () => {
@@ -197,6 +170,24 @@ $effect(() => {
 	if (about && browser) loadMentionProfiles(about);
 });
 
+$effect(() => {
+	if (!browser || activityMounted) return;
+	const el = activitySentinel;
+	if (!el) return;
+
+	const observer = new IntersectionObserver(
+		(entries) => {
+			if (entries.some((entry) => entry.isIntersecting)) {
+				activityMounted = true;
+				observer.disconnect();
+			}
+		},
+		{ rootMargin: '200px 0px' }
+	);
+	observer.observe(el);
+	return () => observer.disconnect();
+});
+
 function stackToCard(s, resolvedApps) {
 	const creatorNpub = pubkey ? nip19.npubEncode(pubkey) : '';
 	const appRefs = s.appRefs || [];
@@ -250,7 +241,7 @@ function getStackUrl(stack) {
 			<div class="app-detail-frame">
 				<div class="app-detail-scroll profile-detail-scroll" data-main-scroll>
 					<div class="profile-header">
-						<div class="profile-pic-wrap">
+						<div class="profile-pic-cell">
 							<ProfilePic
 								pictureUrl={profilePictureUrl || undefined}
 								{pubkey}
@@ -264,171 +255,121 @@ function getStackUrl(stack) {
 							<h1 class="profile-name">{profileName}</h1>
 
 							{#if profile?.about?.trim()}
-								<button
-									type="button"
-									class="profile-about-btn"
-									onclick={() => (descriptionModalOpen = true)}
-									aria-label="View full description"
-								>
-									<div class="profile-about-clamp">
-										<ShortTextRenderer
-											content={profile.about}
-											resolveMentionLabel={(pk) => mentionProfiles[pk]}
-										/>
-									</div>
-								</button>
+								<div class="profile-about-clamp">
+									<ShortTextRenderer
+										content={profile.about}
+										resolveMentionLabel={(pk) => mentionProfiles[pk]}
+									/>
+								</div>
 							{:else if !profileLoading}
 								<p class="profile-about-empty">No description</p>
 							{/if}
 
-							<div class="npub-row">
-								<div
-									class="npub-hover-wrap"
-									role="group"
-									aria-label="Public identifier and profile color"
-									onmouseenter={() => (npubOverlayOpen = true)}
-									onmouseleave={() => (npubOverlayOpen = false)}
-								>
-									<span
-										class="profile-dot"
-										style="background-color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});"
-									></span>
-									<span class="npub-text">{npub ? `${npub.slice(0, 12)}...${npub.slice(-6)}` : ''}</span>
-
-									<div
-										class="npub-overlay"
-										class:open={npubOverlayOpen}
-										role="group"
-										aria-label="Npub and color details"
-										onmouseenter={() => (npubOverlayOpen = true)}
-										onmouseleave={() => (npubOverlayOpen = false)}
-									>
-										<p class="overlay-desc">
-											This is a Public Nostr Identifier (npub). The profile color is uniquely derived from it for visual recognition.
-										</p>
-										<div class="overlay-divider"></div>
-										<div class="overlay-row">
-											<span class="overlay-val npub-mono" title={npub}>{npub}</span>
-											<button type="button" class="overlay-copy" onclick={(e) => { e.stopPropagation(); copyNpub(); }} aria-label="Copy npub">
-												{#if npubCopied}
-													<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
-												{:else}
-													<Copy variant="outline" size={14} color="var(--white66)" />
-												{/if}
-											</button>
-										</div>
-										<div class="overlay-divider"></div>
-										<div class="overlay-row">
-											<span class="overlay-val color-hex" style="color: rgb({profileColor.r}, {profileColor.g}, {profileColor.b});">{profileColorHex}</span>
-											<button type="button" class="overlay-copy" onclick={(e) => { e.stopPropagation(); copyProfileColor(); }} aria-label="Copy color">
-												{#if colorCopied}
-													<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
-												{:else}
-													<Copy variant="outline" size={14} color="var(--white66)" />
-												{/if}
-											</button>
-										</div>
-									</div>
-								</div>
-
-								<button type="button" class="npub-copy-btn" onclick={copyNpub} aria-label="Copy npub">
-									{#if npubCopied}
-										<span class="check-pop"><Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" /></span>
-									{:else}
-										<Copy variant="outline" size={16} color="var(--white66)" />
-									{/if}
-								</button>
-							</div>
+							<button
+								type="button"
+								class="btn-secondary-small profile-details-btn"
+								onclick={() => (detailsModalOpen = true)}
+							>
+								Details
+							</button>
 						</div>
 					</div>
 
-					<div class="profile-tab-divider" aria-hidden="true"></div>
+					<div class="profile-section-divider" aria-hidden="true"></div>
 
-					<div class="tab-bar" use:wheelScroll>
-						<button
-							type="button"
-							class={activeTab === 'apps' ? 'btn-primary-small' : 'btn-secondary-small'}
-							onclick={() => (activeTab = 'apps')}
-						>Apps</button>
-						<button
-							type="button"
-							class={activeTab === 'activity' ? 'btn-primary-small' : 'btn-secondary-small'}
-							onclick={() => (activeTab = 'activity')}
-						>Activity</button>
-						<button
-							type="button"
-							class={activeTab === 'details' ? 'btn-primary-small' : 'btn-secondary-small'}
-							onclick={() => (activeTab = 'details')}
-						>Details</button>
+					<div class="profile-browse-content">
+						<ProfileAppsBrowseSections
+							{apps}
+							{appsLoading}
+							{stackCards}
+							{stacksLoading}
+							{getAppUrl}
+							{getStackUrl}
+						/>
 					</div>
 
-					<div class="profile-tab-divider" aria-hidden="true"></div>
-
-					<div
-						class="profile-tab-content"
-						class:profile-tab-content--activity={activeTab === 'activity'}
-						class:profile-tab-content--apps={activeTab === 'apps'}
-					>
-		{#if activeTab === 'apps'}
-			<ProfileAppsBrowseSections
-				{apps}
-				{appsLoading}
-				{stackCards}
-				{stacksLoading}
-				{getAppUrl}
-				{getStackUrl}
-			/>
-	{:else if activeTab === 'activity'}
-			<ProfileActivityTab {pubkey} profileName={profileName} profilePicture={profilePictureUrl} />
-
-		{:else if activeTab === 'details'}
-			<ProfileDetailsTab {npub} {pubkey} />
-		{/if}
-					</div>
+					<section class="profile-activity-section" aria-label="Activity">
+						<SectionHeader title="Activity" />
+						<div class="profile-activity-content">
+							<div bind:this={activitySentinel} class="profile-activity-sentinel" aria-hidden="true"></div>
+							{#if activityMounted}
+								<ProfileActivityTab {pubkey} profileName={profileName} profilePicture={profilePictureUrl} />
+							{/if}
+						</div>
+					</section>
 				</div>
 			</div>
 		</div>
 	</div>
 
-	{#if profile?.about?.trim()}
-		<Modal bind:open={descriptionModalOpen} ariaLabel="Profile Description" maxHeight={90}>
-			<div class="desc-modal">
-				<h2 class="modal-heading mb-4">About</h2>
-				<div class="desc-modal-text">
-					<ShortTextRenderer content={profile.about} resolveMentionLabel={(pk) => mentionProfiles[pk]} />
-				</div>
-			</div>
-		</Modal>
-	{/if}
+	<Modal bind:open={detailsModalOpen} title="Details" ariaLabel="Profile details" align="bottom" wide>
+		<div class="modal-sheet-body">
+			{#if detailsModalOpen}
+				<ProfileDetailsTab
+					{npub}
+					{pubkey}
+					about={profile?.about ?? ''}
+					panelBackground="black33"
+					resolveMentionLabel={(pk) => mentionProfiles[pk]}
+				/>
+			{/if}
+		</div>
+	</Modal>
 {/if}
 
 <style>
+	.profile-detail-scroll {
+		padding-top: 0;
+	}
+
 	/* ── Profile header ───────────────────────────────────────────────────── */
 	.profile-header {
+		--profile-pic-size: 104px;
+		--profile-pic-cell-pad: 20px;
 		display: flex;
-		align-items: center;
-		gap: 20px;
-		padding-bottom: 4px;
+		align-items: flex-start;
+		margin-left: calc(-1 * var(--page-content-pad-x, 0px));
+		margin-right: calc(-1 * var(--page-content-pad-x, 0px));
+		width: calc(100% + 2 * var(--page-content-pad-x, 0px));
 	}
 
 	@media (min-width: 768px) {
 		.profile-header {
-			gap: 28px;
+			--profile-pic-size: 140px;
+			--profile-pic-cell-pad: 24px;
 		}
 	}
 
-	.profile-pic-wrap { flex-shrink: 0; }
+	.profile-pic-cell {
+		flex-shrink: 0;
+		padding: var(--profile-pic-cell-pad);
+		border-right: 1px solid var(--white16);
+		box-sizing: border-box;
+	}
+
+	.profile-pic-cell :global(.profile-pic) {
+		display: block;
+		width: var(--profile-pic-size) !important;
+		height: var(--profile-pic-size) !important;
+		min-width: var(--profile-pic-size) !important;
+		min-height: var(--profile-pic-size) !important;
+	}
+
+	.profile-info {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		padding: var(--profile-pic-cell-pad);
+		padding-right: var(--detail-pad-x, 12px);
+	}
 
 	@media (max-width: 767px) {
-		.profile-pic-wrap :global(.profile-pic) {
-			width: 100px !important;
-			height: 100px !important;
-			min-width: 100px !important;
-			min-height: 100px !important;
+		.profile-info {
+			padding-bottom: 12px;
 		}
 	}
-
-	.profile-info { flex: 1; min-width: 0; }
 
 	.profile-name {
 		font-size: 1.5rem;
@@ -442,26 +383,21 @@ function getStackUrl(stack) {
 	@media (min-width: 640px)  { .profile-name { font-size: 1.75rem; } }
 	@media (min-width: 768px)  { .profile-name { font-size: 2.25rem; } }
 
-	.profile-about-btn {
-		display: block;
-		width: 100%;
-		background: none;
-		border: none;
-		padding: 0;
-		text-align: left;
-		cursor: pointer;
-		color: var(--white66);
-		font-size: 0.875rem;
-		line-height: 1.4;
-		margin-bottom: 8px;
-	}
-
 	.profile-about-clamp {
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
 		line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
+		font-size: 0.875rem;
+		line-height: 1.4;
+		color: var(--white66);
+		margin-bottom: 8px;
+	}
+
+	.profile-about-clamp :global(.short-text-renderer),
+	.profile-about-clamp :global(.short-text-text) {
+		color: var(--white66);
 	}
 
 	.profile-about-empty {
@@ -470,174 +406,98 @@ function getStackUrl(stack) {
 		color: var(--white33);
 	}
 
-	/* npub row */
-	.npub-row {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-	}
-
-	.npub-hover-wrap {
-		position: relative;
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		cursor: default;
-	}
-
-	.profile-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		border: 0.33px solid var(--white16);
+	.profile-details-btn {
+		align-self: flex-start;
 		flex-shrink: 0;
 	}
 
-	.npub-text { font-size: 0.875rem; color: var(--white66); white-space: nowrap; }
+	@media (max-width: 767px) {
+		.profile-details-btn {
+			height: auto;
+			padding: 0;
+			background: none;
+			border-radius: 0;
+			font-size: 0.875rem;
+			font-weight: 500;
+			color: var(--white33);
+			transform: none;
+		}
 
-	.npub-overlay {
-		display: none;
-		position: absolute;
-		top: calc(100% + 8px);
-		left: 0;
-		min-width: 300px;
-		max-width: min(380px, 90vw);
-		background: var(--gray66);
-		backdrop-filter: blur(24px);
-		-webkit-backdrop-filter: blur(24px);
-		border: 0.33px solid var(--white16);
-		border-radius: 16px;
-		overflow: hidden;
-		box-shadow: 0 8px 32px var(--black33);
-		z-index: 200;
-		pointer-events: auto;
+		.profile-details-btn:hover,
+		.profile-details-btn:active {
+			transform: none;
+			color: var(--white66);
+		}
 	}
 
-	.npub-overlay.open { display: block; }
-
-	.overlay-desc {
-		margin: 0;
-		padding: 10px 14px;
-		font-size: 0.8125rem;
-		line-height: 1.45;
-		color: var(--white66);
+	@media (min-width: 768px) {
+		.profile-details-btn {
+			color: var(--white66);
+		}
 	}
 
-	.overlay-divider {
-		height: 0.33px;
-		background: var(--white16);
-	}
-
-	.overlay-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 10px;
-		padding: 10px 14px;
-	}
-
-	.overlay-val {
-		font-size: 0.8125rem;
-		color: var(--white66);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		min-width: 0;
-	}
-
-	.npub-mono { font-family: ui-monospace, monospace; }
-	.color-hex { font-weight: 600; }
-
-	.overlay-copy {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 4px;
-		border: none;
-		background: none;
-		cursor: pointer;
-		flex-shrink: 0;
-	}
-
-	.npub-copy-btn {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 4px;
-		border: none;
-		background: none;
-		cursor: pointer;
-		transition: opacity 0.15s;
-	}
-
-	.npub-copy-btn:hover { opacity: 0.7; }
-
-	.check-pop { display: flex; animation: popIn 0.3s ease-out; }
-
-	@keyframes popIn {
-		0%   { transform: scale(0); }
-		50%  { transform: scale(1.2); }
-		100% { transform: scale(1); }
-	}
-
-	/* Full-width dividers framing tab pills */
-	.profile-tab-divider {
+	.profile-section-divider {
 		flex-shrink: 0;
 		height: 1.4px;
-		margin-left: calc(-1 * var(--page-content-pad-x, 0px));
-		margin-right: calc(-1 * var(--page-content-pad-x, 0px));
+		margin: 0 calc(-1 * var(--page-content-pad-x, 0px)) 0;
 		width: calc(100% + 2 * var(--page-content-pad-x, 0px));
 		background-color: var(--white11);
 		border: none;
 	}
 
-	.profile-header + .profile-tab-divider {
-		margin-top: 12px;
-		margin-bottom: 16px;
-	}
-
-	.tab-bar + .profile-tab-divider {
-		margin-top: 16px;
-		margin-bottom: 0;
-	}
-
-	/* ── Tab bar ──────────────────────────────────────────────────────────── */
-	.tab-bar {
-		display: flex;
-		gap: 8px;
-		overflow-x: auto;
-		scrollbar-width: none;
-		-ms-overflow-style: none;
-		padding: 4px 2px;
-		margin: -4px -2px;
-	}
-
-	.tab-bar::-webkit-scrollbar { display: none; }
-
-	.profile-tab-content {
-		padding-top: 16px;
-	}
-
-	.profile-tab-content--apps {
-		padding-top: 0;
+	.profile-browse-content {
 		margin-left: calc(-1 * var(--page-content-pad-x, 0px));
 		margin-right: calc(-1 * var(--page-content-pad-x, 0px));
 		width: calc(100% + 2 * var(--page-content-pad-x, 0px));
 	}
 
-	.profile-tab-content--activity {
-		padding-top: 0;
+	.profile-activity-section {
+		margin-top: 24px;
 		margin-left: calc(-1 * var(--page-content-pad-x, 0px));
 		margin-right: calc(-1 * var(--page-content-pad-x, 0px));
 		width: calc(100% + 2 * var(--page-content-pad-x, 0px));
 	}
 
-	.profile-tab-content--activity :global(.activity-feed-skeleton) {
+	.profile-activity-section :global(.section-header) {
+		padding-left: var(--detail-pad-x, 12px);
+		padding-right: var(--detail-pad-x, 12px);
+		margin: 0 0 12px;
+	}
+
+	@media (min-width: 768px) {
+		.profile-activity-section :global(.section-header) {
+			padding-left: 20px;
+			padding-right: 20px;
+		}
+	}
+
+	.profile-activity-content {
+		border-top: 1px solid var(--white16);
+	}
+
+	.profile-activity-sentinel {
+		height: 0;
+		margin: 0;
+		padding: 0;
+		pointer-events: none;
+		overflow: hidden;
+	}
+
+	.profile-activity-content :global(.activity-feed-skeleton) {
 		padding: 0;
 	}
 
-	/* ── Description modal ───────────────────────────────────────────────── */
-	.desc-modal { padding: 16px; }
-	@media (min-width: 768px) { .desc-modal { padding: 24px; } }
-	.desc-modal-text { font-size: 1rem; line-height: 1.5; color: var(--white66); }
+	.modal-sheet-body {
+		padding: 12px 12px 20px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	@media (min-width: 768px) {
+		.modal-sheet-body {
+			padding: 16px 16px max(20px, env(safe-area-inset-bottom, 0px));
+		}
+	}
+
 </style>
