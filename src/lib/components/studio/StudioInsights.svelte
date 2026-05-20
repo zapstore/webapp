@@ -110,7 +110,7 @@
 	const showEmpty = $derived(!studio.appsLoading && studio.userApps.length === 0);
 </script>
 
-<div class="insights-scroll">
+<div class="insights-scroll" data-main-scroll>
 
 {#if showEmpty}
 	<StudioInsightsEmptyPreview />

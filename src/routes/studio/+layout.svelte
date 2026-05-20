@@ -6,6 +6,7 @@
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import InsightsIcon from '$lib/components/icons/Insights.svelte';
 	import InboxIcon from '$lib/components/icons/Inbox.svelte';
+	import { Plus } from '$lib/components/icons';
 	import { queryEvents, liveQuery } from '$lib/purpleweb';
 	import { parseAppStack } from '$lib/nostr';
 	import { encodeStackNaddr, stackDisplayTitle, parseApp } from '$lib/nostr/models.js';
@@ -18,6 +19,7 @@
 	import { isOnline } from '$lib/stores/online.svelte.js';
 	import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
 	import { SITE_URL, ZAPSTORE_RELAY } from '$lib/config';
+	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 
 	let { children } = $props();
 
@@ -234,7 +236,7 @@
 		if (p === '/studio/apps') return 'apps';
 		if (p.startsWith('/studio/apps/')) return 'app';
 		if (p.startsWith('/studio/assets')) return 'assets';
-		if (p === '/studio/stacks') return 'stacks';
+		if (p === '/studio/stacks/new') return 'stack-new';
 		if (p.startsWith('/studio/stacks/')) return 'stack';
 		if (p.startsWith('/studio/migration')) return 'migration';
 		return 'insights'; // /studio and /studio/insights both map here
@@ -257,10 +259,13 @@
 		return $page.url.pathname.replace('/studio/stacks/', '').split('/')[0];
 	});
 
+	const isNewStackPage = $derived(activeSection === 'stack-new');
+	const stacksPlusIconColor = $derived(isNewStackPage ? 'var(--white33)' : 'var(--white16)');
+
 	const activeNavLabel = $derived.by(() => {
 		if (activeSection === 'inbox') return 'Inbox';
 		if (activeSection === 'assets') return 'Assets';
-		if (activeSection === 'stacks') return 'Stacks';
+		if (activeSection === 'stack-new') return 'New Stack';
 		if (activeSection === 'stack') return 'Edit Stack';
 		if (activeSection === 'migration') return 'Migration';
 		if (activeSection === 'app') {
@@ -284,6 +289,7 @@
 </svelte:head>
 
 {#if showDashboard}
+	<div class="dashboard-page-shell" use:wheelScrollPassthrough>
 	<div class="dashboard-outer container mx-auto px-0 sm:px-6 lg:px-8">
 		<div class="dashboard">
 
@@ -337,6 +343,14 @@
 						<div class="apps-section">
 							<div class="apps-section-head">
 								<span class="eyebrow-label apps-eyebrow">Apps</span>
+								<a
+									href="/docs/publish"
+									class="sidebar-section-plus"
+									aria-label="Publish an app"
+									onclick={closeMobile}
+								>
+									<Plus variant="outline" color="var(--white16)" size={12} strokeWidth={2.4} />
+								</a>
 							</div>
 							{#if !appsLoading && userApps.length === 0}
 								<button
@@ -363,12 +377,21 @@
 						<div class="stacks-section">
 							<div class="apps-section-head">
 								<span class="eyebrow-label apps-eyebrow">Stacks</span>
+								<button
+									type="button"
+									class="sidebar-section-plus"
+									class:sidebar-section-plus-active={isNewStackPage}
+									aria-label="New stack"
+									aria-current={isNewStackPage ? 'page' : undefined}
+									onclick={() => navTo('/studio/stacks/new')}
+								>
+									<Plus variant="outline" color={stacksPlusIconColor} size={12} strokeWidth={2.4} />
+								</button>
 							</div>
 							{#if !stacksLoading && userStacks.length === 0}
 								<button
 									class="nav-item no-apps-item"
-									class:active={activeSection === 'stacks'}
-									onclick={() => navTo('/studio/stacks')}
+									onclick={() => navTo('/studio/stacks/new')}
 								>
 									<span class="nav-label no-apps-label">No stacks yet</span>
 								</button>
@@ -461,10 +484,13 @@
 					</button>
 			</nav>
 
-			<div class="sidebar-mid">
+			<div class="sidebar-mid" data-sidebar-scroll>
 				<div class="apps-section">
 					<div class="apps-section-head">
 						<span class="eyebrow-label apps-eyebrow">Apps</span>
+						<a href="/docs/publish" class="sidebar-section-plus" aria-label="Publish an app">
+							<Plus variant="outline" color="var(--white16)" size={12} strokeWidth={2.4} />
+						</a>
 					</div>
 					{#if !appsLoading && userApps.length === 0}
 						<button
@@ -492,12 +518,21 @@
 				<div class="stacks-section">
 					<div class="apps-section-head">
 						<span class="eyebrow-label apps-eyebrow">Stacks</span>
+						<button
+							type="button"
+							class="sidebar-section-plus"
+							class:sidebar-section-plus-active={isNewStackPage}
+							aria-label="New stack"
+							aria-current={isNewStackPage ? 'page' : undefined}
+							onclick={() => goto('/studio/stacks/new')}
+						>
+							<Plus variant="outline" color={stacksPlusIconColor} size={12} strokeWidth={2.4} />
+						</button>
 					</div>
 					{#if !stacksLoading && userStacks.length === 0}
 						<button
 							class="nav-item no-apps-item"
-							class:active={activeSection === 'stacks'}
-							onclick={() => goto('/studio/stacks')}
+							onclick={() => goto('/studio/stacks/new')}
 						>
 							<span class="nav-label no-apps-label">No stacks yet</span>
 						</button>
@@ -555,6 +590,7 @@
 			</div>
 		</div>
 	</div>
+</div>
 {/if}
 <!--
 	When showDashboard is false, render nothing. The route guard above redirects
@@ -564,6 +600,21 @@
 
 
 <style>
+	:global(main.main-content:has(.dashboard-page-shell)) {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+
+	.dashboard-page-shell {
+		flex: 1;
+		min-height: 0;
+		width: 100%;
+		min-height: calc(100dvh - 64px);
+		display: flex;
+		flex-direction: column;
+	}
+
 	.dashboard {
 		display: flex;
 		height: calc(100dvh - 64px);
@@ -661,6 +712,7 @@
 		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
+		overscroll-behavior: contain;
 	}
 
 	.apps-section-head {
@@ -677,6 +729,33 @@
 		color: var(--white33);
 		display: block;
 		min-width: 0;
+	}
+
+	.sidebar-section-plus {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
+		flex-shrink: 0;
+		padding: 0;
+		border: none;
+		background: transparent;
+		border-radius: 6px;
+		cursor: pointer;
+		text-decoration: none;
+		color: inherit;
+		transition: background-color 0.15s ease;
+	}
+
+	.sidebar-section-plus:hover:not(.sidebar-section-plus-active) {
+		background: var(--white4);
+	}
+
+	.sidebar-section-plus-active {
+		background: transparent;
+		box-shadow: inset 0 0 0 0.33px var(--white16);
+		cursor: default;
 	}
 
 	.app-img {

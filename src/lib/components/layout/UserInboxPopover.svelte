@@ -67,7 +67,7 @@
 						openStudioInbox();
 					}}
 				>
-					<Expand variant="outline" size={17} strokeWidth={1.4} color="var(--white33)" />
+					<Expand variant="outline" size={15} strokeWidth={1.4} color="var(--white33)" />
 				</a>
 				{#if onClose}
 					<button
@@ -98,7 +98,7 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 12px;
-		padding: 10px 16px;
+		padding: 10px 12px 10px 16px;
 		border-bottom: 1px solid var(--white16);
 	}
 

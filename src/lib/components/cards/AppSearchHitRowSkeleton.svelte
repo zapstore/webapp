@@ -3,24 +3,31 @@
 	import { ChevronRight } from '$lib/components/icons';
 	import { appSearchHitSkeletonPreset } from './app-search-hit-skeleton-presets.js';
 
-	let { variant = 0, showChevron = true, showDescription = false } = $props();
+	let { variant = 0, showChevron = true, showDescription = false, iconSize = 'lg' } = $props();
 
 	const preset = $derived(appSearchHitSkeletonPreset(variant));
 	const titleWidth = $derived(`${preset.titleWidthPx}px`);
 	const profileNameWidth = $derived(`${preset.profileNameWidthPx}px`);
-	const descriptionLine1Width = $derived(`${preset.descriptionLineWidthsPx[0]}px`);
-	const descriptionLine2Width = $derived(`${preset.descriptionLineWidthsPx[1]}px`);
+	const descriptionWidth = $derived(`${preset.descriptionWidthPx}px`);
+	/** Match AppPic sizeMap (sm/md/lg). */
+	const iconPx = $derived(
+		({ sm: 38, md: 48, lg: 56, xl: 72 })[iconSize] ?? 56
+	);
+	const iconRadius = $derived(iconPx >= 48 ? 16 : iconPx === 28 ? 6 : 8);
 </script>
 
 <!--
   Search hit placeholder — shimmer on app icon + title only.
-  Publisher + description lines: static --white8 blocks.
+  Publisher + one description line: static --white8 blocks.
   Four fixed presets (app-search-hit-skeleton-presets.js).
 -->
 {#if showDescription}
 	<div class="app-search-hit-skeleton app-search-hit-skeleton--expanded" aria-hidden="true">
 		<div class="app-search-hit-skeleton-expanded-row">
-			<div class="app-search-hit-skeleton-icon">
+			<div
+				class="app-search-hit-skeleton-icon"
+				style="width: {iconPx}px; height: {iconPx}px; border-radius: {iconRadius}px;"
+			>
 				<SkeletonLoader />
 			</div>
 			<div class="app-search-hit-skeleton-text">
@@ -36,21 +43,22 @@
 				</div>
 			</div>
 		</div>
-		<div class="app-search-hit-skeleton-description">
-			<div
-				class="app-search-hit-skeleton-desc-line"
-				style="width: {descriptionLine1Width};"
-			></div>
-			<div
-				class="app-search-hit-skeleton-desc-line"
-				style="width: {descriptionLine2Width};"
-			></div>
-		</div>
+		<div
+			class="app-search-hit-skeleton-desc-line"
+			style="width: {descriptionWidth};"
+		></div>
 	</div>
 {:else}
-	<div class="app-search-hit-skeleton" aria-hidden="true">
+	<div
+		class="app-search-hit-skeleton"
+		class:app-search-hit-skeleton--compact={iconSize !== 'lg'}
+		aria-hidden="true"
+	>
 		<div class="app-search-hit-skeleton-main">
-			<div class="app-search-hit-skeleton-icon">
+			<div
+				class="app-search-hit-skeleton-icon"
+				style="width: {iconPx}px; height: {iconPx}px; border-radius: {iconRadius}px;"
+			>
 				<SkeletonLoader />
 			</div>
 			<div class="app-search-hit-skeleton-text">
@@ -116,13 +124,15 @@
 	}
 
 	.app-search-hit-skeleton-icon {
-		width: 56px;
-		height: 56px;
 		flex-shrink: 0;
-		border-radius: 16px;
 		overflow: hidden;
 		display: flex;
 		align-items: center;
+	}
+
+	.app-search-hit-skeleton--compact {
+		gap: 12px;
+		padding: 0;
 	}
 
 	.app-search-hit-skeleton-text {
@@ -167,15 +177,8 @@
 		max-width: 100%;
 	}
 
-	.app-search-hit-skeleton-description {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		width: 100%;
-		min-width: 0;
-	}
-
 	.app-search-hit-skeleton-desc-line {
+		width: 100%;
 		height: 12px;
 		border-radius: 6px;
 		background-color: var(--white8);

@@ -8,34 +8,37 @@
 	 */
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import AppPic from '$lib/components/common/AppPic.svelte';
-	import Modal from '$lib/components/common/Modal.svelte';
 	import InputLabel from '$lib/components/common/InputLabel.svelte';
 	import Label from '$lib/components/common/Label.svelte';
 	import { X } from 'lucide-svelte';
-	import { updateStack, deleteStack } from '$lib/purpleweb';
+	import { Plus } from '$lib/components/icons';
+	import AddAppModal from '$lib/components/modals/AddAppModal.svelte';
+	import { updateStack, deleteStack, publishStack } from '$lib/purpleweb';
 	import { encodeStackNaddr } from '$lib/nostr/models.js';
-	import { signEvent } from '$lib/stores/auth.svelte.js';
+	import { signEvent, getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 
 	let {
+		mode = 'edit',
 		stack = null,
 		apps = [],
 		appsLoading = false,
 		onBack = () => {},
 		onSaved = (_updated) => {},
+		onPublished = (_signed) => {},
 		onDeleted = () => {}
 	} = $props();
+
+	const isCreate = $derived(mode === 'create');
 
 	// ── Local edit state ───────────────────────────────────────────────────────
 	let editName = $state('');
 	let editDescription = $state('');
-	// eslint-disable-next-line svelte/prefer-writable-derived -- user-mutable (removeApp mutates it)
 	let editApps = $state([]);
 
 	let saving = $state(false);
 	let saveError = $state('');
 
 	// ── Delete state ───────────────────────────────────────────────────────────
-	let confirmingDelete = $state(false);
 	let deleting = $state(false);
 	let deleteError = $state('');
 
@@ -50,6 +53,7 @@
 	];
 	let editLabels = $state(/** @type {string[]} */ ([]));
 	let labelValue = $state('');
+	let addAppModalOpen = $state(false);
 
 	const labelChipsRow = $derived.by(() => {
 		const appliedSet = new Set(editLabels);
@@ -82,18 +86,30 @@
 	// NOTE: must NOT read `apps` here — apps load async and would re-trigger this
 	// effect, silently resetting any name/description the user has already typed.
 	$effect(() => {
+		if (isCreate) {
+			editName = '';
+			editDescription = '';
+			editLabels = [];
+			saveError = '';
+			deleting = false;
+			deleteError = '';
+			return;
+		}
 		if (!stack) return;
 		editName = stack.title || '';
 		editDescription = stack.description || '';
 		editLabels = (stack.event?.tags ?? []).filter((t) => t[0] === 't' && t[1]).map((t) => t[1]);
 		saveError = '';
-		confirmingDelete = false;
 		deleting = false;
 		deleteError = '';
 	});
 
 	// ── Sync apps list separately so it never resets name/description ─────────
 	$effect(() => {
+		if (isCreate) {
+			editApps = [];
+			return;
+		}
 		editApps = [...apps];
 	});
 
@@ -103,9 +119,17 @@
 		);
 	}
 
-	// ── Save ───────────────────────────────────────────────────────────────────
+	function handleAddApp(/** @type {{ app?: import('$lib/nostr/models').App }} */ payload) {
+		const app = payload?.app;
+		if (!app?.pubkey || !app?.dTag) return;
+		const exists = editApps.some((a) => a.pubkey === app.pubkey && a.dTag === app.dTag);
+		if (exists) return;
+		editApps = [...editApps, app];
+	}
+
+	// ── Save / publish ─────────────────────────────────────────────────────────
 	async function handleSave() {
-		if (saving || !stack) return;
+		if (saving || isCreate || !stack) return;
 		if (!editName.trim()) {
 			saveError = 'Stack name is required.';
 			return;
@@ -133,30 +157,48 @@
 		}
 	}
 
+	async function handlePublish() {
+		if (saving || !isCreate) return;
+		if (!editName.trim()) {
+			saveError = 'Stack name is required.';
+			return;
+		}
+		saving = true;
+		saveError = '';
+		try {
+			const signed = await publishStack(
+				editName.trim(),
+				editDescription.trim(),
+				editApps,
+				signEvent,
+				editLabels
+			);
+			onPublished(signed);
+		} catch (err) {
+			console.error('[StudioStackEdit] publish failed:', err);
+			saveError = err?.message ?? 'Failed to publish. Please try again.';
+		} finally {
+			saving = false;
+		}
+	}
+
 	// ── Delete ─────────────────────────────────────────────────────────────────
-	function openDeleteConfirm() {
-		if (deleting || saving) return;
+	async function handleDelete() {
+		if (deleting || saving || !stack) return;
 		deleteError = '';
-		confirmingDelete = true;
-	}
+		const confirmed = confirm(
+			'Delete this stack? This publishes a deletion request to the network. This cannot be undone.'
+		);
+		if (!confirmed) return;
 
-	function cancelDeleteConfirm() {
-		if (deleting) return;
-		confirmingDelete = false;
-	}
-
-	async function handleConfirmDelete() {
-		if (deleting || !stack) return;
 		const plainEvent = stack.event ? JSON.parse(JSON.stringify(stack.event)) : null;
 		if (!plainEvent) {
 			deleteError = 'Cannot delete — stack data is incomplete. Reload Studio and try again.';
 			return;
 		}
 		deleting = true;
-		deleteError = '';
 		try {
 			await deleteStack(plainEvent, signEvent);
-			confirmingDelete = false;
 			onDeleted();
 		} catch (err) {
 			console.error('[StudioStackEdit] delete failed:', err);
@@ -167,14 +209,14 @@
 	}
 </script>
 
-{#if stack}
+{#if isCreate || stack}
 	<div class="edit-wrap">
 		<!-- ── Sticky top bar ───────────────────────────────────────────────── -->
 		<div class="edit-topbar">
 			<BackButton {onBack} />
-			<span class="edit-topbar-title">Edit Your Stack</span>
+			<span class="edit-topbar-title">{isCreate ? 'New Stack' : 'Edit Your Stack'}</span>
 			<div class="topbar-actions">
-				{#if stack?.pubkey && stack?.dTag}
+				{#if !isCreate && stack?.pubkey && stack?.dTag}
 					<a
 						class="btn-secondary-xs btn-secondary-light topbar-view-btn"
 						href="/stacks/{encodeStackNaddr(stack.pubkey, stack.dTag)}"
@@ -185,10 +227,14 @@
 				<button
 					type="button"
 					class="btn-primary-small edit-save-btn"
-					onclick={handleSave}
+					onclick={isCreate ? handlePublish : handleSave}
 					disabled={saving}
 				>
-					{saving ? 'Saving…' : 'Save'}
+					{#if isCreate}
+						{saving ? 'Publishing…' : 'Publish'}
+					{:else}
+						{saving ? 'Saving…' : 'Save'}
+					{/if}
 				</button>
 			</div>
 		</div>
@@ -229,14 +275,29 @@
 			<section class="edit-section">
 				<span class="eyebrow-label section-eyebrow">Apps</span>
 
-				{#if appsLoading}
-					<div class="apps-skeleton">
-						<div class="skeleton-row"></div>
-						<div class="skeleton-row"></div>
-						<div class="skeleton-row"></div>
-					</div>
-				{:else if editApps.length > 0}
-					<div class="apps-list">
+				<div class="apps-list">
+					<button
+						type="button"
+						class="app-row add-app-row"
+						onclick={() => (addAppModalOpen = true)}
+					>
+						<div class="app-info">
+							<span class="add-app-icon-slot" aria-hidden="true">
+								<span class="add-app-action-btn">
+									<Plus variant="outline" color="var(--white33)" size={16} strokeWidth={2.8} />
+								</span>
+							</span>
+							<span class="add-app-label">Add App</span>
+						</div>
+					</button>
+
+					{#if appsLoading && !isCreate}
+						<div class="apps-skeleton-in-list" aria-hidden="true">
+							<div class="skeleton-row"></div>
+							<div class="skeleton-row"></div>
+							<div class="skeleton-row"></div>
+						</div>
+					{:else if editApps.length > 0}
 						{#each editApps as app (app.pubkey + ':' + app.dTag)}
 							<div class="app-row">
 								<div class="app-info">
@@ -253,12 +314,8 @@
 								</button>
 							</div>
 						{/each}
-					</div>
-				{:else}
-					<div class="empty-apps">
-						<p class="regular14">No apps in this stack yet.</p>
-					</div>
-				{/if}
+					{/if}
+				</div>
 			</section>
 
 			<!-- ── Full-width divider ────────────────────────────────────────── -->
@@ -292,64 +349,40 @@
 				</div>
 			</section>
 
-			<!-- ── Full-width divider ────────────────────────────────────────── -->
-			<div class="full-divider" aria-hidden="true"></div>
+			{#if isCreate}
+				<div class="full-divider" aria-hidden="true"></div>
+			{:else}
+				<!-- ── Full-width divider ────────────────────────────────────────── -->
+				<div class="full-divider" aria-hidden="true"></div>
 
-			<!-- ── DANGER ZONE ─────────────────────────────────────────────── -->
-			<section class="edit-section danger-section">
-				<span class="eyebrow-label section-eyebrow">Danger zone</span>
+				<!-- ── DANGER ZONE ─────────────────────────────────────────────── -->
+				<section class="edit-section danger-section">
+					<span class="eyebrow-label section-eyebrow">Danger zone</span>
 
-				<button
-					type="button"
-					class="btn-danger"
-					onclick={openDeleteConfirm}
-					disabled={deleting || saving}
-				>
-					{deleting ? 'Deleting…' : 'Delete this Stack'}
-				</button>
+					<button
+						type="button"
+						class="btn-danger"
+						onclick={handleDelete}
+						disabled={deleting || saving}
+					>
+						{deleting ? 'Deleting…' : 'Delete this Stack'}
+					</button>
 
-				{#if deleteError && !confirmingDelete}
-					<p class="save-error">{deleteError}</p>
-				{/if}
-			</section>
+					{#if deleteError}
+						<p class="save-error">{deleteError}</p>
+					{/if}
+				</section>
 
-			<div class="full-divider" aria-hidden="true"></div>
-		</div>
-	</div>
-
-	<Modal
-		bind:open={confirmingDelete}
-		align="center"
-		ariaLabel="Confirm stack deletion"
-		title="Delete stack"
-		description="This publishes a NIP-09 deletion request for the stack. Clients that honor it will remove it. This cannot be undone."
-		closeOnBackdropClick={!deleting}
-		closeOnEscape={!deleting}
-	>
-		<div class="confirm-body">
-			{#if deleteError}
-				<p class="confirm-error">{deleteError}</p>
+				<div class="full-divider" aria-hidden="true"></div>
 			{/if}
-			<div class="confirm-actions">
-				<button
-					type="button"
-					class="btn-secondary-large btn-secondary-modal confirm-cancel"
-					onclick={cancelDeleteConfirm}
-					disabled={deleting}
-				>
-					Cancel
-				</button>
-				<button
-					type="button"
-					class="btn-danger btn-danger-large"
-					onclick={handleConfirmDelete}
-					disabled={deleting}
-				>
-					{deleting ? 'Deleting…' : 'Delete'}
-				</button>
-			</div>
 		</div>
-	</Modal>
+
+		<AddAppModal
+			bind:isOpen={addAppModalOpen}
+			getCurrentPubkey={getCurrentPubkey}
+			onAdd={handleAddApp}
+		/>
+	</div>
 {/if}
 
 <style>
@@ -357,9 +390,12 @@
 	.edit-wrap {
 		display: flex;
 		flex-direction: column;
+		flex: 1;
 		height: 100%;
-		min-height: 0;
+		min-height: 100%;
 		overflow: hidden;
+		position: relative;
+		isolation: isolate;
 	}
 
 	/* ── Top bar ── */
@@ -501,6 +537,46 @@
 		overflow: hidden;
 	}
 
+	.add-app-row {
+		width: 100%;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.add-app-icon-slot {
+		width: 38px;
+		height: 38px;
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 2px;
+		box-sizing: border-box;
+	}
+
+	.add-app-action-btn {
+		width: 32px;
+		height: 32px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: var(--white8);
+		border-radius: 8px;
+		flex-shrink: 0;
+	}
+
+	.add-app-row:active .add-app-action-btn {
+		transform: scale(0.97);
+	}
+
+	.add-app-label {
+		font-size: 15px;
+		font-weight: 500;
+		color: var(--white33);
+	}
+
 	.app-row {
 		display: flex;
 		align-items: center;
@@ -553,18 +629,12 @@
 		background-color: color-mix(in srgb, var(--rougeColor) 10%, transparent);
 	}
 
-	.empty-apps {
-		margin-top: 12px;
-		padding: 20px 16px;
-		color: var(--white33);
-	}
-
 	/* ── Apps skeleton ── */
-	.apps-skeleton {
-		margin-top: 12px;
+	.apps-skeleton-in-list {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: 0;
+		padding: 8px 12px 12px;
 	}
 
 	.skeleton-row {
@@ -650,56 +720,5 @@
 	.btn-danger:disabled {
 		opacity: 0.55;
 		cursor: not-allowed;
-	}
-
-	.btn-danger-large {
-		padding: 12px 20px;
-		font-size: 15px;
-		border-radius: 16px;
-	}
-
-	/* ── Confirm modal ── */
-	.confirm-body {
-		display: flex;
-		flex-direction: column;
-		gap: 14px;
-		padding: 20px 16px 20px;
-	}
-
-	@media (min-width: 768px) {
-		.confirm-body {
-			padding: 20px 20px 24px;
-		}
-	}
-
-	.confirm-error {
-		margin: 0;
-		padding: 10px 14px;
-		font-size: 13px;
-		color: var(--rougeColor);
-		background: color-mix(in srgb, var(--rougeColor) 10%, transparent);
-		border: 0.33px solid color-mix(in srgb, var(--rougeColor) 40%, transparent);
-		border-radius: 12px;
-	}
-
-	.confirm-actions {
-		display: flex;
-		gap: 10px;
-		justify-content: flex-end;
-	}
-
-	@media (max-width: 639px) {
-		.confirm-actions {
-			flex-direction: column-reverse;
-		}
-
-		.confirm-actions :global(.btn-secondary-large),
-		.confirm-actions .btn-danger-large {
-			width: 100%;
-		}
-	}
-
-	.confirm-cancel {
-		min-width: 110px;
 	}
 </style>

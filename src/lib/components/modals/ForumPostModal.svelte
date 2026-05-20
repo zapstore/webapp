@@ -9,7 +9,7 @@ import { cubicOut } from 'svelte/easing';
 import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
 import ForumPostLabelsModal from '$lib/components/modals/ForumPostLabelsModal.svelte';
-import InsertModal from '$lib/components/modals/InsertModal.svelte';
+import AddModal from '$lib/components/modals/AddModal.svelte';
 import { Camera, EmojiFill, Plus } from '$lib/components/icons';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search';
 import { createSearchProfilesFunction } from '$lib/services/profile-search';
@@ -286,11 +286,11 @@ $effect(() => {
 	onclose={() => { labelsModalOpen = false; labelsPublishMode = false; }}
 />
 
-<InsertModal
-	title="Insert"
+<AddModal
+	title="Add App"
 	bind:isOpen={insertModalOpen}
 	{getCurrentPubkey}
-	onInsert={handleInsertNostrRef}
+	onAdd={handleInsertNostrRef}
 	onclose={() => { insertModalOpen = false; }}
 />
 

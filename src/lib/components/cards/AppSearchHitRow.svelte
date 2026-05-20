@@ -11,7 +11,10 @@
 		authorProfile = undefined,
 		onNavigate = () => {},
 		className = '',
-		showDescription = false
+		showDescription = false,
+		showChevron = true,
+		iconSize = 'lg',
+		noHover = false
 	} = $props();
 
 	function plainDescription(/** @type {typeof app} */ appData) {
@@ -78,13 +81,14 @@
 
 {#snippet iconCell()}
 	<div class="app-search-hit-icon">
-		<AppPic iconUrl={app.icon} name={app.name} identifier={app.dTag} size="lg" />
+		<AppPic iconUrl={app.icon} name={app.name} identifier={app.dTag} size={iconSize} />
 	</div>
 {/snippet}
 
 {#if showDescription}
 	<a
 		class="app-search-hit app-search-hit--expanded {className}"
+		class:app-search-hit--no-hover={noHover}
 		href="/apps/{app.dTag}"
 		onclick={onNavigate}
 		data-sveltekit-preload-data="hover"
@@ -105,6 +109,8 @@
 {:else}
 	<a
 		class="app-search-hit {className}"
+		class:app-search-hit--compact={iconSize !== 'lg'}
+		class:app-search-hit--no-hover={noHover}
 		href="/apps/{app.dTag}"
 		onclick={onNavigate}
 		data-sveltekit-preload-data="hover"
@@ -115,13 +121,15 @@
 				{@render titleMeta()}
 			</div>
 		</div>
-		<ChevronRight
-			variant="outline"
-			color="var(--white33)"
-			size={14}
-			strokeWidth={1.4}
-			className="app-search-hit-chevron flex-shrink-0"
-		/>
+		{#if showChevron}
+			<ChevronRight
+				variant="outline"
+				color="var(--white33)"
+				size={14}
+				strokeWidth={1.4}
+				className="app-search-hit-chevron flex-shrink-0"
+			/>
+		{/if}
 	</a>
 {/if}
 
@@ -148,8 +156,19 @@
 		gap: 16px;
 	}
 
-	.app-search-hit:hover {
+	.app-search-hit:not(.app-search-hit--expanded):not(.app-search-hit--no-hover):hover {
 		background-color: var(--white4);
+	}
+
+	.app-search-hit--no-hover,
+	.app-search-hit--no-hover:hover {
+		background-color: transparent;
+		cursor: default;
+	}
+
+	.app-search-hit--compact {
+		gap: 12px;
+		padding: 0;
 	}
 
 	.app-search-hit-icon {
@@ -240,16 +259,18 @@
 	}
 
 	/* ── Full-page search (/apps?q): plain rows, description as second horizontal band ── */
+	.app-search-hit--expanded,
+	.app-search-hit--expanded:hover {
+		background-color: transparent;
+	}
+
 	.app-search-hit--expanded {
 		flex-direction: column;
 		align-items: stretch;
 		gap: 10px;
 		padding: 0;
 		align-self: stretch;
-	}
-
-	.app-search-hit--expanded:hover {
-		background-color: transparent;
+		cursor: default;
 	}
 
 	.app-search-hit-expanded-row {

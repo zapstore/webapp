@@ -16,7 +16,8 @@ export const APPS_POLL_LIMIT = APPS_PAGE_SIZE * 3; // 144
 export const STACKS_POLL_LIMIT = 100;
 
 // Initial display counts for the /apps page (stacks + apps discover view)
-export const DISCOVER_APPS_INITIAL = 16;
+/** First paint on /apps — keep small for fast SSR seed + relay warm-up. */
+export const DISCOVER_APPS_INITIAL = 8;
 export const DISCOVER_STACKS_INITIAL = 8;
 
 /** `/studio`: when true, signed-in users see the StudioApp dashboard; when false, same marketing page as logged-out. */

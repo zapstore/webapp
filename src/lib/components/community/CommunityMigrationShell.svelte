@@ -293,7 +293,7 @@
 	}
 </script>
 
-<div class="migration-shell">
+<div class="migration-shell" data-main-scroll>
 	{#if !isSignedIn}
 		<div class="empty-state">
 			<p class="empty-text">Sign in to check for apps and stacks that need migration.</p>

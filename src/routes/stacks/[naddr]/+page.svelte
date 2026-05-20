@@ -36,6 +36,8 @@ import SpinKeyModal from "$lib/components/modals/SpinKeyModal.svelte";
 import GetStartedModal from "$lib/components/modals/GetStartedModal.svelte";
 import OnboardingBuildingModal from "$lib/components/modals/OnboardingBuildingModal.svelte";
 import Pen from "$lib/components/icons/Pen.svelte";
+import { wheelScrollPassthrough } from "$lib/actions/wheelScrollPassthrough.js";
+import "$lib/styles/bordered-detail-column.css";
 import {
     createStackDetailQuery,
     createStackSocialQuery
@@ -390,7 +392,7 @@ const displayDescription = $derived(
   type="product"
 />
 
-<section class="stack-page">
+<section class="stack-page" use:wheelScrollPassthrough>
   <div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">
     {#if loading && !error}
       <!-- Loading State -->

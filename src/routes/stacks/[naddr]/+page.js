@@ -25,7 +25,7 @@ export const load = async ({ params }) => {
 		if (seg && !seg.startsWith('naddr1')) {
 			redirect(302, `/apps/${seg}`);
 		}
-		return { stack: null, apps: [], error: 'Invalid stack URL', seedEvents: [] };
+		return { stack: null, apps: [], error: null, seedEvents: [] };
 	}
 
 	// `/stacks/naddr...` must be a stack (30267). App naddrs belong on `/apps/…`.
@@ -36,7 +36,7 @@ export const load = async ({ params }) => {
 	const { pubkey, identifier } = pointer;
 	const result = await fetchStack(pubkey, identifier);
 	if (!result) {
-		return { stack: null, apps: [], error: 'Stack not found', seedEvents: [] };
+		return { stack: null, apps: [], error: null, seedEvents: [] };
 	}
 
 	const creator = result.creator

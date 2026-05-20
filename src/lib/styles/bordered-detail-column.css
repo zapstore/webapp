@@ -1,0 +1,74 @@
+/**
+ * Shared bordered detail column (app detail, stack detail, etc.).
+ * Import in route/components that use this shell.
+ */
+.app-detail-page {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+	height: calc(100dvh - 64px);
+}
+
+:global(main.main-content:has(.app-detail-page)) {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.app-detail-outer {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+	position: relative;
+}
+
+.app-detail-frame {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+	border-left: 1px solid var(--white16);
+	border-right: 1px solid var(--white16);
+	margin-left: -16px;
+	margin-right: -16px;
+	overflow: hidden;
+}
+
+@media (max-width: 639px) {
+	.app-detail-frame {
+		margin-left: -4px;
+		margin-right: -4px;
+	}
+}
+
+@media (max-width: 767px) {
+	.app-detail-frame {
+		border-left: none;
+		border-right: none;
+		margin-left: 0;
+		margin-right: 0;
+	}
+}
+
+.app-detail-scroll {
+	--detail-pad-x: 12px;
+	--page-content-pad-x: var(--detail-pad-x);
+	flex: 1;
+	min-height: 0;
+	overflow-x: hidden;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	padding-left: var(--detail-pad-x);
+	padding-right: var(--detail-pad-x);
+	padding-top: 1rem;
+	padding-bottom: 6rem;
+}
+
+@media (min-width: 768px) {
+	.app-detail-scroll {
+		--detail-pad-x: 20px;
+		padding-top: 18px;
+	}
+}

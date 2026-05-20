@@ -604,7 +604,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 			<button type="button" class="forum-publish-error-dismiss" onclick={() => (publishError = '')} aria-label="Dismiss">×</button>
 		</div>
 	{/if}
-	<div class="forum-list-viewport">
+	<div class="forum-list-viewport" data-main-scroll>
 	<div class="forum-list">
 		{#if (!forumReady || postsLoading) && posts.length === 0}
 			<ForumFeedSkeleton rows={6} />

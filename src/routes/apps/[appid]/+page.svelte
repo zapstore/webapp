@@ -13,6 +13,7 @@
 	import { nip19 } from 'nostr-tools';
 	import { EVENT_KINDS } from '$lib/config';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
+	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import { SocialTabs, BottomBar } from '$lib/components/social';
@@ -44,6 +45,7 @@
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 	import { createAppDetailQuery } from '$lib/purpleweb/svelte/app-detail.svelte.js';
 	import { createAppSocialQuery } from '$lib/purpleweb/svelte/social.svelte.js';
+	import '$lib/styles/bordered-detail-column.css';
 let { data } = $props();
 const appid = $derived($page.params.appid ?? '');
 const detail = createAppDetailQuery(() => ({
@@ -99,6 +101,11 @@ let _refreshing = $state(false);
 	let landscapeImages = new SvelteSet();
 	// Screenshots horizontal scroll
 	let screenshotsScrollContainer = $state(null);
+	/** @type {HTMLDivElement | null} */
+	let screenshotsScrollWrap = $state(null);
+	let screenshotsControlsTop = $state(0);
+	let screenshotsControlsLeft = $state(0);
+	let screenshotsControlsRight = $state(0);
 	let screenshotsScrolledRight = $state(false);
 	let screenshotsCanScrollRight = $state(false);
 	const SCREENSHOTS_SCROLL_STEP = 260;
@@ -125,6 +132,37 @@ let _refreshing = $state(false);
 		const observer = new ResizeObserver(() => updateScreenshotsScrollState());
 		observer.observe(container);
 		return () => observer.disconnect();
+	});
+
+	function updateScreenshotsControlsPosition() {
+		const wrap = screenshotsScrollWrap;
+		const outer = wrap?.closest('.app-detail-outer');
+		const frame = wrap?.closest('.app-detail-frame');
+		if (!wrap || !outer || !frame) return;
+		const wrapRect = wrap.getBoundingClientRect();
+		const outerRect = outer.getBoundingClientRect();
+		screenshotsControlsTop = wrapRect.top - outerRect.top + wrapRect.height / 2;
+		// Position relative to outer's padding edge (absolute containing block), not viewport.
+		screenshotsControlsLeft = frame.offsetLeft;
+		screenshotsControlsRight = outer.clientWidth - frame.offsetLeft - frame.offsetWidth;
+	}
+
+	$effect(() => {
+		const wrap = screenshotsScrollWrap;
+		if (!wrap || !app?.images?.length) return;
+		const frame = wrap.closest('.app-detail-frame');
+		updateScreenshotsControlsPosition();
+		const scrollEl = wrap.closest('.app-detail-scroll');
+		const observer = new ResizeObserver(updateScreenshotsControlsPosition);
+		observer.observe(wrap);
+		if (frame) observer.observe(frame);
+		scrollEl?.addEventListener('scroll', updateScreenshotsControlsPosition, { passive: true });
+		window.addEventListener('resize', updateScreenshotsControlsPosition);
+		return () => {
+			observer.disconnect();
+			scrollEl?.removeEventListener('scroll', updateScreenshotsControlsPosition);
+			window.removeEventListener('resize', updateScreenshotsControlsPosition);
+		};
 	});
 	// Comments and zaps state (comments may have pending + npub for display)
 	let comments = $state([]);
@@ -506,7 +544,10 @@ let _refreshing = $state(false);
 {#if error}
 	<ZappyError message="this app wasn't found." />
 {:else if app}
-	<div class="container mx-auto px-3 sm:px-6 lg:px-8 pt-4 md:pt-[18px] pb-24">
+	<div class="app-detail-page" use:wheelScrollPassthrough>
+	<div class="app-detail-outer container mx-auto px-0 sm:px-6 lg:px-8">
+		<div class="app-detail-frame">
+			<div class="app-detail-scroll" data-main-scroll>
 		<!-- Mobile only: author + timestamp above the app icon -->
 		<div class="detail-publisher-row publisher-mobile-only">
 			{#if !isZapstorePublisher || isZapstoreOfficialAppId}
@@ -825,7 +866,7 @@ let _refreshing = $state(false);
 
 		<!-- Screenshots -->
 		{#if app.images && app.images.length > 0}
-			<div class="screenshots-scroll-wrap mb-4">
+			<div class="screenshots-scroll-wrap mb-4" bind:this={screenshotsScrollWrap}>
 				<div
 					class="screenshots-scroll"
 					bind:this={screenshotsScrollContainer}
@@ -868,24 +909,6 @@ let _refreshing = $state(false);
 					<div class="screenshots-fade screenshots-fade-right" aria-hidden="true"></div>
 				{/if}
 
-				{#if screenshotsScrolledRight}
-					<button
-						class="screenshots-btn screenshots-btn-left"
-						onclick={() => scrollScreenshots(-1)}
-						aria-label="Scroll left"
-					>
-						<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
-					</button>
-				{/if}
-				{#if screenshotsCanScrollRight}
-					<button
-						class="screenshots-btn screenshots-btn-right"
-						onclick={() => scrollScreenshots(1)}
-						aria-label="Scroll right"
-					>
-						<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
-					</button>
-				{/if}
 			</div>
 		{/if}
 
@@ -1085,6 +1108,39 @@ let _refreshing = $state(false);
 						: ''}
 			/>
 		</div>
+			</div>
+		</div>
+		{#if app.images && app.images.length > 0}
+			<div
+				class="screenshots-controls"
+				style="top: {screenshotsControlsTop}px"
+				aria-hidden={!screenshotsScrolledRight && !screenshotsCanScrollRight}
+			>
+				{#if screenshotsScrolledRight}
+					<button
+						type="button"
+						class="screenshots-btn screenshots-btn-left"
+						style="left: {screenshotsControlsLeft}px"
+						onclick={() => scrollScreenshots(-1)}
+						aria-label="Scroll screenshots left"
+					>
+						<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
+					</button>
+				{/if}
+				{#if screenshotsCanScrollRight}
+					<button
+						type="button"
+						class="screenshots-btn screenshots-btn-right"
+						style="right: {screenshotsControlsRight}px"
+						onclick={() => scrollScreenshots(1)}
+						aria-label="Scroll screenshots right"
+					>
+						<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
+					</button>
+				{/if}
+			</div>
+		{/if}
+	</div>
 
 		<!-- Screenshot Carousel Modal -->
 		{#if carouselOpen && app.images && app.images.length > 0}
@@ -1992,13 +2048,15 @@ let _refreshing = $state(false);
 	/* Screenshots */
 	.screenshots-scroll-wrap {
 		position: relative;
+		margin-left: calc(-1 * var(--detail-pad-x));
+		margin-right: calc(-1 * var(--detail-pad-x));
+		width: calc(100% + 2 * var(--detail-pad-x));
+		overflow: visible;
 	}
 
 	.screenshots-scroll {
-		margin-left: -1rem;
-		margin-right: -1rem;
-		padding-left: 1rem;
-		padding-right: 1rem;
+		padding-left: var(--detail-pad-x);
+		padding-right: var(--detail-pad-x);
 		overflow-x: auto;
 		overflow-y: hidden;
 		scrollbar-width: none;
@@ -2007,24 +2065,6 @@ let _refreshing = $state(false);
 
 	.screenshots-scroll::-webkit-scrollbar {
 		display: none;
-	}
-
-	@media (min-width: 640px) {
-		.screenshots-scroll {
-			margin-left: -1.5rem;
-			margin-right: -1.5rem;
-			padding-left: 1.5rem;
-			padding-right: 1.5rem;
-		}
-	}
-
-	@media (min-width: 1024px) {
-		.screenshots-scroll {
-			margin-left: -2rem;
-			margin-right: -2rem;
-			padding-left: 2rem;
-			padding-right: 2rem;
-		}
 	}
 
 	.screenshots-content {
@@ -2091,35 +2131,20 @@ let _refreshing = $state(false);
 	}
 
 	.screenshots-fade-left {
-		left: -1rem;
-		width: 1rem;
+		left: 0;
+		width: var(--detail-pad-x);
 		background: linear-gradient(to right, var(--black), transparent);
 	}
 
 	.screenshots-fade-right {
-		right: -1rem;
-		width: 1rem;
+		right: 0;
+		width: var(--detail-pad-x);
 		background: linear-gradient(to left, var(--black), transparent);
 	}
 
-	@media (min-width: 640px) {
-		.screenshots-fade-left {
-			left: -1.5rem;
-			width: 1.5rem;
-		}
+	@media (min-width: 768px) {
+		.screenshots-fade-left,
 		.screenshots-fade-right {
-			right: -1.5rem;
-			width: 1.5rem;
-		}
-	}
-
-	@media (min-width: 1024px) {
-		.screenshots-fade-left {
-			left: -2rem;
-			width: 2rem;
-		}
-		.screenshots-fade-right {
-			right: -2rem;
 			width: 2rem;
 		}
 	}
@@ -2127,6 +2152,20 @@ let _refreshing = $state(false);
 	/* Chevron scroll buttons — desktop + mouse only */
 	.screenshots-btn {
 		display: none;
+	}
+
+	/* Chevrons sit on .app-detail-outer (outside scroll/frame overflow) and track the screenshot row. */
+	.screenshots-controls {
+		position: absolute;
+		left: 0;
+		right: 0;
+		transform: translateY(-50%);
+		pointer-events: none;
+		z-index: 30;
+	}
+
+	.screenshots-controls .screenshots-btn {
+		pointer-events: auto;
 	}
 
 	@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
@@ -2141,36 +2180,45 @@ let _refreshing = $state(false);
 			height: 34px;
 			border-radius: 50%;
 			border: none;
-			background: var(--white16);
+			background: var(--gray66);
 			backdrop-filter: blur(var(--blur-sm));
 			-webkit-backdrop-filter: blur(var(--blur-sm));
 			cursor: pointer;
-			z-index: 10;
+			z-index: 20;
 			transition: transform 0.2s ease;
 		}
 
-		.screenshots-btn:hover {
-			transform: translateY(-60%) scale(1.08);
-		}
-
-		.screenshots-btn:active {
-			transform: translateY(-60%) scale(0.95);
-		}
-
-		.screenshots-btn-right {
-			right: -48px;
-		}
-
-		.screenshots-btn-right :global(svg) {
-			padding-left: 2px;
-		}
-
 		.screenshots-btn-left {
-			left: -48px;
+			transform: translate(-50%, -60%);
+		}
+
+		.screenshots-btn-left:hover {
+			transform: translate(-50%, -60%) scale(1.08);
+		}
+
+		.screenshots-btn-left:active {
+			transform: translate(-50%, -60%) scale(0.95);
 		}
 
 		.screenshots-btn-left :global(svg) {
 			padding-right: 2px;
+		}
+
+		.screenshots-btn-right {
+			left: auto;
+			transform: translate(50%, -60%);
+		}
+
+		.screenshots-btn-right:hover {
+			transform: translate(50%, -60%) scale(1.08);
+		}
+
+		.screenshots-btn-right:active {
+			transform: translate(50%, -60%) scale(0.95);
+		}
+
+		.screenshots-btn-right :global(svg) {
+			padding-left: 2px;
 		}
 	}
 

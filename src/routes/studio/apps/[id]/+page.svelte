@@ -189,7 +189,7 @@ const studio = ctx ?? { userApps: [], adminAccess: false, studioPubkey: null };
 	});
 </script>
 
-<div class="detail-scroll">
+<div class="detail-scroll" data-main-scroll>
 	{#if !app}
 		<div class="app-not-found">
 			{#if indexerLookupFailed}

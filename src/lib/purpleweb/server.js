@@ -21,6 +21,7 @@ import {
 	PROFILE_FETCH_RELAYS,
 	SAVED_APPS_STACK_D_TAG,
 	ZAPSTORE_COMMUNITY_NPUB,
+	ZAPSTORE_COMMUNITY_PUBKEY,
 	ZAPSTORE_COMMUNITY_RELAY
 } from '$lib/config';
 import { APPS_PAGE_SIZE } from '$lib/constants';
@@ -252,6 +253,36 @@ export async function fetchAppByIdentifier(identifier) {
  * Fetch stack seed events with their referenced app events.
  * Stacks are kind 30267; app preview icons are kind 32267.
  */
+/**
+ * Fetch stacks authored by the Zapstore community pubkey, with preview app events.
+ */
+export async function fetchZapstoreCommunityStacks(limit = 8, until) {
+	const author = COMMUNITY_PUBKEY_HEX || ZAPSTORE_COMMUNITY_PUBKEY;
+	const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+	const platformTag = PLATFORM_FILTER['#f']?.[0];
+	const filter = {
+		kinds: [EVENT_KINDS.APP_STACK],
+		authors: [author],
+		...(platformTag ? { '#f': [platformTag] } : {}),
+		limit: safeLimit
+	};
+	if (until !== undefined) filter.until = until;
+
+	const stackEvents = await queryRelay([RELAY], filter);
+
+	const publicStackEvents = stackEvents.filter(
+		(e) =>
+			e.pubkey === author &&
+			e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG &&
+			!e.content
+	);
+	const stacks = publicStackEvents.map(parseAppStack);
+
+	const { appEvents } = await resolveMultipleStackApps(stacks, 4);
+
+	return dedupeEventsById([...publicStackEvents, ...appEvents]);
+}
+
 export async function fetchStacks(limit = 20, until) {
 	const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
 	const platformTag = PLATFORM_FILTER['#f']?.[0];

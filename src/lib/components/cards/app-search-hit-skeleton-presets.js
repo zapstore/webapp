@@ -1,11 +1,11 @@
-/** @typedef {{ titleWidthPx: number, profileNameWidthPx: number, descriptionLineWidthsPx: [number, number] }} AppSearchHitSkeletonPreset */
+/** @typedef {{ titleWidthPx: number, profileNameWidthPx: number, descriptionWidthPx: number }} AppSearchHitSkeletonPreset */
 
-/** Four fixed skeleton layouts shared by SearchModal + /apps?q search. */
+/** Four fixed skeleton layouts for /apps?q search results. */
 export const APP_SEARCH_HIT_SKELETON_PRESETS = /** @type {const} */ ([
-	{ titleWidthPx: 104, profileNameWidthPx: 40, descriptionLineWidthsPx: [200, 132] },
-	{ titleWidthPx: 120, profileNameWidthPx: 56, descriptionLineWidthsPx: [220, 120] },
-	{ titleWidthPx: 96, profileNameWidthPx: 72, descriptionLineWidthsPx: [176, 108] },
-	{ titleWidthPx: 112, profileNameWidthPx: 80, descriptionLineWidthsPx: [240, 148] }
+	{ titleWidthPx: 104, profileNameWidthPx: 40, descriptionWidthPx: 200 },
+	{ titleWidthPx: 120, profileNameWidthPx: 56, descriptionWidthPx: 220 },
+	{ titleWidthPx: 96, profileNameWidthPx: 72, descriptionWidthPx: 176 },
+	{ titleWidthPx: 112, profileNameWidthPx: 80, descriptionWidthPx: 240 }
 ]);
 
 export const APP_SEARCH_HIT_SKELETON_VARIANT_COUNT = APP_SEARCH_HIT_SKELETON_PRESETS.length;

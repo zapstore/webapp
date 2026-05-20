@@ -12,7 +12,7 @@ import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
 import ActionsModal from '$lib/components/modals/ActionsModal.svelte';
 import ReportModal from '$lib/components/modals/ReportModal.svelte';
 import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
-import InsertModal from '$lib/components/modals/InsertModal.svelte';
+import AddModal from '$lib/components/modals/AddModal.svelte';
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from '$lib/services/upload-nostr-build';
 let { appName = '', publisherName = '', contentType = 'app', className = '', zapTarget = null, otherZaps = [], isSignedIn = true, onGetStarted, getCurrentPubkey = () => null, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, oncommentSubmit, onzapReceived, onZapPending, onZapPendingClear, onoptions, onLabelPublished = () => {}, onOwnContentDeleted = () => {} } = $props();
 let zapModalOpen = $state(false);
@@ -32,10 +32,10 @@ function handleEmojiSelect(/** @type {{ shortcode: string; url: string; source: 
 	commentInput?.insertEmoji?.(emoji.shortcode, emoji.url, emoji.source);
 	commentInput?.focus?.();
 }
-function handleInsertTap() {
+function handleAddTap() {
 	insertModalOpen = true;
 }
-function handleInsertNostrRef(/** @type {{ naddr: string; name?: string | null; iconUrl?: string | null }} */ payload) {
+function handleAddNostrRef(/** @type {{ naddr: string; name?: string | null; iconUrl?: string | null }} */ payload) {
 	commentInput?.insertNostrRef?.(payload);
 	commentInput?.focus?.();
 }
@@ -152,7 +152,7 @@ const bottomBarCommentPlaceholder = $derived(`Write to ${bottomBarRecipientLabel
 					onCameraTap={handleCameraTap}
 					onEmojiTap={handleEmojiTap}
 					onGifTap={() => {}}
-					onAddTap={handleInsertTap}
+					onAddTap={handleAddTap}
 					onChevronTap={() => {}}
 					onsubmit={handleCommentSubmit}
 				/>
@@ -228,10 +228,11 @@ const bottomBarCommentPlaceholder = $derived(`Write to ${bottomBarRecipientLabel
 	onSelectEmoji={handleEmojiSelect}
 	onclose={() => { emojiPickerOpen = false; }}
 />
-<InsertModal
+<AddModal
+	title="Add App"
 	bind:isOpen={insertModalOpen}
 	getCurrentPubkey={getCurrentPubkey}
-	onInsert={handleInsertNostrRef}
+	onAdd={handleAddNostrRef}
 	onclose={() => { insertModalOpen = false; }}
 />
 

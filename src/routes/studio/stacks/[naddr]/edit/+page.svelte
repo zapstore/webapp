@@ -125,15 +125,15 @@ function handleSaved(_result) {
 }
 
 function handleDeleted() {
-	goto('/studio/stacks', { replaceState: true });
+	goto('/studio/insights', { replaceState: true });
 }
 
 function handleBack() {
-	goto('/stacks/' + naddr);
+	goto('/studio/insights');
 }
 </script>
 
-<div class="detail-scroll">
+<div class="detail-scroll" data-main-scroll>
 	{#if loadError}
 		<ZappyError message="this stack wasn't found." />
 	{:else if stack}
@@ -158,6 +158,11 @@ function handleBack() {
 		-webkit-overflow-scrolling: touch;
 		display: flex;
 		flex-direction: column;
+	}
+
+	.detail-scroll :global(> *) {
+		flex: 1;
+		min-height: 100%;
 	}
 
 </style>
