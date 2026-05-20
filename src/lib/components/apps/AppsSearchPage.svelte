@@ -35,7 +35,10 @@
 	const searchQ = $derived($page.url.searchParams.get('q')?.trim() ?? '');
 
 	const appsListing = createAppsListingQuery(() => ({ seedEvents: seedEventsProp }));
-	const stacksListing = createStacksListingQuery(() => ({ seedEvents: seedEventsProp }));
+	const stacksListing = createStacksListingQuery(() => ({
+		seedEvents: seedEventsProp,
+		communityOnly: true
+	}));
 	const appsHasMore = $derived(appsListing.hasMore);
 	const appsLoadingMore = $derived(appsListing.loadingMore);
 
@@ -71,6 +74,7 @@
 	let releasesUi = $state({ top: 0, left: 0, right: 0, showLeft: false, showRight: false });
 	let stacksUi = $state({ top: 0, left: 0, right: 0, showLeft: false, showRight: false });
 
+	// appsHasMore / appsLoadingMore: see appsListing above (purpleweb — not legacy nostr store)
 	const apps = $derived((liveApps ?? []).slice(0, displayAppsLimit));
 	const communityLiveStacks = $derived(
 		(liveStacks ?? []).filter(({ stack }) => isZapstoreCommunityAuthorStack(stack))

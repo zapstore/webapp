@@ -15,17 +15,53 @@ import { createListingQuery } from './createListingQuery.svelte.js';
 const platformTag = PLATFORM_FILTER['#f']?.[0];
 
 /**
- * Page-session memory of (pubkey:identifier) keys we've already dispatched to
- * the relay for preview-app backfill. Kept module-scoped so multiple liveQuery
- * re-runs (or remounts via back-nav) don't refetch the same refs.
+ * Page-session memory of (pubkey:identifier) preview refs already sent to the relay.
+ * Must reset when Dexie is cleared — otherwise backfill is skipped while Dexie is empty.
  *
  * @type {SvelteSet<string>}
  */
 const fetchedPreviewKeys = new SvelteSet();
 
+/** @param {import('$lib/nostr/models').AppStack[]} stacks */
+async function resolvePreviewAppsInDexie(stacks) {
+	const appsByKey = new SvelteMap();
+	/** @type {SvelteMap<string, SvelteSet<string>>} */
+	const byAuthor = new SvelteMap();
+
+	for (const stack of stacks) {
+		for (const ref of (stack.appRefs ?? []).filter(
+			(r) => r.kind === EVENT_KINDS.APP && r.pubkey && r.identifier
+		)) {
+			if (!byAuthor.has(ref.pubkey)) byAuthor.set(ref.pubkey, new SvelteSet());
+			byAuthor.get(ref.pubkey).add(ref.identifier);
+		}
+	}
+
+	for (const [pubkey, dSet] of byAuthor) {
+		const dTags = [...dSet];
+		if (dTags.length === 0) continue;
+		const filter = {
+			kinds: [EVENT_KINDS.APP],
+			authors: [pubkey],
+			'#d': dTags,
+			limit: Math.max(dTags.length, 24)
+		};
+		if (platformTag) filter['#f'] = [platformTag];
+		const appEvents = await queryEvents(filter);
+		for (const ev of appEvents) {
+			const dTag = ev.tags?.find((t) => t[0] === 'd')?.[1];
+			if (!dTag) continue;
+			const key = `${ev.pubkey}:${dTag}`;
+			const existing = appsByKey.get(key);
+			if (!existing || ev.created_at > existing.created_at) appsByKey.set(key, ev);
+		}
+	}
+
+	return appsByKey;
+}
+
 /**
- * Fire-and-forget relay fetch for the given app refs. `fetchFromRelays`
- * writes results to Dexie, which re-fires the listing's liveQuery.
+ * Fire-and-forget relay fetch for preview app refs (authors + #d, same as SSR).
  *
  * @param {Array<{pubkey: string, identifier: string}>} refs
  */
@@ -40,20 +76,19 @@ async function backfillPreviewApps(refs) {
 			authors,
 			'#d': identifiers,
 			...PLATFORM_FILTER,
-			limit: refs.length + 5
+			limit: Math.max(refs.length + 10, 40)
 		},
-		{ feature: 'purpleweb-stacks-listing-preview-fill' }
+		{ feature: 'purpleweb-stacks-listing-preview-fill', immediateFlush: true }
 	);
 }
 
 /**
- * Dexie read for the stacks listing: latest public stack per (pubkey, dTag),
- * with up to 4 preview apps resolved per stack. Stacks with no resolved
- * preview apps yet AND no pending backfill are excluded (kept hidden until
- * something to show).
+ * @param {{ communityOnly?: boolean }} [input]
  */
-async function loadStacks() {
+async function loadStacks(input = {}) {
+	const communityOnly = !!input.communityOnly;
 	const stackFilter = { kinds: [EVENT_KINDS.APP_STACK] };
+	if (communityOnly) stackFilter.authors = [ZAPSTORE_COMMUNITY_PUBKEY];
 	if (platformTag) stackFilter['#f'] = [platformTag];
 	const stackEvents = await queryEvents(stackFilter);
 
@@ -63,7 +98,6 @@ async function loadStacks() {
 	for (const ev of stackEvents) {
 		const parsed = parseAppStack(ev);
 		if (!parsed?.pubkey || !parsed?.dTag) continue;
-		// Skip the private Saved Apps stack and private stacks (non-empty content).
 		if (parsed.dTag === SAVED_APPS_STACK_D_TAG || !!parsed.event?.content) continue;
 		const key = `${parsed.pubkey}:${parsed.dTag}`;
 		const existing = stacksByKey.get(key);
@@ -72,37 +106,19 @@ async function loadStacks() {
 		}
 	}
 
-	const stacks = [...stacksByKey.values()].sort((a, b) => {
+	let stacks = [...stacksByKey.values()].sort((a, b) => {
 		const aCommunity = a.pubkey === ZAPSTORE_COMMUNITY_PUBKEY ? 0 : 1;
 		const bCommunity = b.pubkey === ZAPSTORE_COMMUNITY_PUBKEY ? 0 : 1;
 		if (aCommunity !== bCommunity) return aCommunity - bCommunity;
 		return (b.createdAt ?? 0) - (a.createdAt ?? 0);
 	});
 
-	const previewIdentifiers = new SvelteSet();
-	for (const stack of stacks) {
-		const refs = (stack.appRefs ?? []).filter(
-			(r) => r.kind === EVENT_KINDS.APP && r.identifier
-		);
-		for (const ref of refs.slice(0, 4)) previewIdentifiers.add(ref.identifier);
+	if (communityOnly) {
+		stacks = stacks.filter((s) => s.pubkey === ZAPSTORE_COMMUNITY_PUBKEY);
 	}
 
-	const appsByKey = new SvelteMap();
-	if (previewIdentifiers.size > 0) {
-		const appFilter = { kinds: [EVENT_KINDS.APP], '#d': [...previewIdentifiers] };
-		if (platformTag) appFilter['#f'] = [platformTag];
-		const appEvents = await queryEvents(appFilter);
-		for (const ev of appEvents) {
-			const dTag = ev.tags?.find((t) => t[0] === 'd')?.[1];
-			if (!dTag) continue;
-			const key = `${ev.pubkey}:${dTag}`;
-			const existing = appsByKey.get(key);
-			if (!existing || ev.created_at > existing.created_at) appsByKey.set(key, ev);
-		}
-	}
+	const appsByKey = await resolvePreviewAppsInDexie(stacks);
 
-	// Queue any refs that didn't resolve so background hydration fetches them.
-	// `fetchedPreviewKeys` dedups across re-runs so we never double-fetch.
 	const pendingRefs = [];
 	const result = stacks.map((stack) => {
 		const apps = [];
@@ -126,9 +142,10 @@ async function loadStacks() {
 		backfillPreviewApps(pendingRefs).catch(() => {});
 	}
 
-	// Hide stacks that have neither resolved apps nor pending refs — there's
-	// nothing visual to show. (A pending stack stays in the list so it can
-	// appear once the backfill writes preview apps into Dexie.)
+	// /apps: always show Zapstore community stacks (icons fill in when backfill lands).
+	if (communityOnly) return result;
+
+	// /stacks browse: hide stacks with nothing to show until preview resolves.
 	return result.filter(({ stack, apps }) => {
 		if (apps.length > 0) return true;
 		const previewRefs = (stack.appRefs ?? [])
@@ -145,49 +162,62 @@ function publicStackEvents(events) {
 	return events.filter(
 		(e) =>
 			e.kind !== EVENT_KINDS.APP_STACK ||
-			((e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG) && !e.content)
+			(e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG && !e.content)
 	);
 }
 
+/** Call after clearLocalData() so preview backfill and listing cache restart clean. */
+export function resetStacksListingSession() {
+	fetchedPreviewKeys.clear();
+}
+
 /**
- * Stacks listing query — local-first reactive list + relay-backed pagination
- * with preview-app backfill.
- *
- * @param {() => { seedEvents?: import('nostr-tools').Event[] }} [getInput]
+ * @param {() => { seedEvents?: import('nostr-tools').Event[], communityOnly?: boolean }} [getInput]
  */
 export function createStacksListingQuery(getInput) {
 	const state = createListingQuery({
 		cacheKey: 'stacks',
-		load: loadStacks,
+		load: (input) => loadStacks(input ?? {}),
 		getInput,
 		getSeedEvents: (input) => publicStackEvents(input?.seedEvents ?? []),
-		hydrate: ({ input }) => {
-			// Initialise cursor from the oldest seeded stack so the first
-			// loadMore() call advances correctly.
+		hydrate: ({ input, hydrateOnce }) => {
 			const seed = publicStackEvents(input?.seedEvents ?? []).filter(
 				(e) => e.kind === EVENT_KINDS.APP_STACK
 			);
-			if (seed.length === 0 || state.cursor != null) return;
-			const oldest = seed.reduce(
-				(min, e) => (e.created_at < min ? e.created_at : min),
-				Infinity
-			);
-			if (Number.isFinite(oldest)) {
-				state.cursor = oldest - 1;
-				state.hasMore = seed.length >= STACKS_PAGE_SIZE;
+			if (seed.length > 0 && state.cursor == null) {
+				const oldest = seed.reduce(
+					(min, e) => (e.created_at < min ? e.created_at : min),
+					Infinity
+				);
+				if (Number.isFinite(oldest)) {
+					state.cursor = oldest - 1;
+					state.hasMore = seed.length >= STACKS_PAGE_SIZE;
+				}
+			}
+
+			if (input?.communityOnly) {
+				hydrateOnce(
+					'stacks-community-catalog',
+					[ZAPSTORE_RELAY],
+					{
+						kinds: [EVENT_KINDS.APP_STACK],
+						authors: [ZAPSTORE_COMMUNITY_PUBKEY],
+						...(platformTag ? { '#f': [platformTag] } : {}),
+						limit: 48
+					},
+					'purpleweb-stacks-listing-community-hydrate'
+				);
 			}
 		},
 		featurePrefix: 'purpleweb-stacks-listing'
 	});
 
-	/**
-	 * Fetch the next page of stacks from the catalog relay. The relay mixes
-	 * public and private stacks (capped at 100/request), so we paginate in
-	 * 100-event batches until we accumulate enough public events.
-	 */
 	async function loadMore() {
 		if (state.loadingMore || !state.hasMore) return;
 		if (typeof window === 'undefined' || !navigator.onLine) return;
+
+		const input = getInput?.() ?? {};
+		const communityOnly = !!input.communityOnly;
 
 		state.loadingMore = true;
 		const RELAY_BATCH = 100;
@@ -196,24 +226,37 @@ export function createStacksListingQuery(getInput) {
 		try {
 			let localCursor = state.cursor;
 			while (accumulated.length < STACKS_PAGE_SIZE) {
+				/** @type {import('$lib/nostr').NostrFilter} */
 				const filter = {
 					kinds: [EVENT_KINDS.APP_STACK],
 					limit: RELAY_BATCH
 				};
 				if (localCursor != null) filter.until = localCursor;
 				if (platformTag) filter['#f'] = [platformTag];
+				if (communityOnly) filter.authors = [ZAPSTORE_COMMUNITY_PUBKEY];
 
 				const events = await fetchFromRelays([ZAPSTORE_RELAY], filter, {
-					feature: 'purpleweb-stacks-listing-page'
+					feature: communityOnly
+						? 'purpleweb-stacks-listing-community-page'
+						: 'purpleweb-stacks-listing-page',
+					immediateFlush: true
 				});
 				if (events.length === 0) {
 					state.hasMore = false;
 					break;
 				}
 
-				accumulated.push(...publicStackEvents(events).filter((e) => e.kind === EVENT_KINDS.APP_STACK));
-				// Advance cursor across ALL events so we don't re-fetch the page,
-				// even when public events were a small fraction of the batch.
+				const publicStacks = publicStackEvents(events).filter(
+					(e) => e.kind === EVENT_KINDS.APP_STACK
+				);
+				if (communityOnly) {
+					accumulated.push(
+						...publicStacks.filter((e) => e.pubkey === ZAPSTORE_COMMUNITY_PUBKEY)
+					);
+				} else {
+					accumulated.push(...publicStacks);
+				}
+
 				localCursor = Math.min(...events.map((e) => e.created_at)) - 1;
 				if (events.length < RELAY_BATCH) {
 					state.hasMore = false;
@@ -223,8 +266,6 @@ export function createStacksListingQuery(getInput) {
 
 			if (accumulated.length > 0) {
 				state.cursor = localCursor;
-				// fetchFromRelays already wrote events to Dexie; trigger preview
-				// app backfill so newly-arrived stacks can populate their cards.
 				const previewRefs = [];
 				const seen = new SvelteSet();
 				for (const ev of accumulated) {

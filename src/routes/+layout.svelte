@@ -10,6 +10,8 @@ import { startProfileSearchBackground } from '$lib/services/profile-search';
 import {
 	startLiveSubscriptions,
 	stopLiveSubscriptions,
+	startUserInboxLiveUpdates,
+	stopUserInboxLiveUpdates,
 	syncDeletions,
 	installZapstoreDebugHooks,
 	evictOldEvents
@@ -18,6 +20,7 @@ import { ZAPSTORE_RELAY } from '$lib/config';
 import { IDB_NAME } from '$lib/config';
 import { setBackGoesHomeIfLandedFromOutside, clearBackGoesHome } from '$lib/utils/back.js';
 import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
+import { isOnline } from '$lib/stores/online.svelte.js';
 import SiteHeader from '$lib/components/layout/SiteHeader.svelte';
 import Footer from '$lib/components/layout/Footer.svelte';
 import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
@@ -30,6 +33,21 @@ let isClearingLocalData = $state(false);
 const isStudio = $derived(path === '/studio' || path.startsWith('/studio/'));
 const showingStudioDashboard = $derived(isStudio && getCurrentPubkey() !== null && SHOW_STUDIO_SIGNED_IN_DASHBOARD);
 const isAppsPage = $derived(path === '/apps');
+const signedInPubkey = $derived(getCurrentPubkey());
+const appOnline = $derived(browser && isOnline());
+
+/** Scoped inbox live subs → Dexie → SiteHeader dot (no polling). */
+$effect(() => {
+	if (!browser) return;
+	const pk = signedInPubkey;
+	if (!pk || !appOnline) {
+		stopUserInboxLiveUpdates();
+		return;
+	}
+	startUserInboxLiveUpdates(pk);
+	return () => stopUserInboxLiveUpdates();
+});
+
 let showFooter = $derived(
 	(path === '/' ||
 		path === '/apps' ||

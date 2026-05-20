@@ -205,9 +205,130 @@ export function startLiveSubscriptions() {
 	activeSubscriptions.push(
 		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.DELETION], '#k': [String(EVENT_KINDS.APP), String(EVENT_KINDS.APP_STACK)], since: Math.floor(Date.now() / 1000), limit: 50 }, { ...subParams, id: subId('deletions') })
 	);
-	// Kind 1111 / 9735: nak-shaped one-shot `fetchFromRelays` only — persistent SUB with bare kinds may be "too vague".
+	// Kind 1111 / 9735 (bare kinds): one-shot only — see `startUserInboxLiveUpdates` for scoped `#p` live subs.
 
-	nostrDebug('live subscriptions started (1111/9735 via one-shot reads)');
+	nostrDebug('live subscriptions started (global 1111/9735 via one-shot; inbox #p via startUserInboxLiveUpdates)');
+}
+
+/** @type {Array<{ close: () => void }>} */
+let activeInboxSubscriptions = [];
+/** @type {string | null} */
+let inboxLivePubkey = null;
+/** @type {Promise<void> | null} */
+let inboxBackfillFlight = null;
+
+/** Live stream: only events after sub opens (`since: now`). Backfill covers recent history for the header dot. */
+const INBOX_LIVE_LIMIT = 60;
+const INBOX_BACKFILL_COMMENT_LIMIT = 200;
+const INBOX_BACKFILL_ZAP_LIMIT = 150;
+
+/**
+ * Persistent relay subs for the signed-in user's inbox (`#p` on kind 1111 + 9735).
+ * Events → batched `putEvents` → Dexie → header `liveQuery` unread dot.
+ *
+ * - One-shot backfill (90d nak window, capped limits) when the pubkey changes
+ * - Then `since: now` subs for live updates (no polling)
+ * - No-op when offline; call again when online returns
+ *
+ * @param {string} pubkey
+ */
+export function startUserInboxLiveUpdates(pubkey) {
+	if (typeof window === 'undefined' || !pubkey) return;
+	if (inboxLivePubkey === pubkey && activeInboxSubscriptions.length > 0) return;
+
+	stopUserInboxLiveUpdates();
+	inboxLivePubkey = pubkey;
+
+	const p = getPool();
+	const sinceNow = Math.floor(Date.now() / 1000);
+	const subParams = {
+		onevent(event) {
+			bufferEvent(event);
+		},
+		oneose() {
+			/* stay open for live */
+		},
+		onclose(reasons) {
+			if (!isNostrDebug() || !reasons?.length) return;
+			const ignorable = reasons.every((r) => r === 'closed by caller');
+			if (!ignorable) console.warn('[Zapstore] Inbox live subscription closed', reasons);
+		}
+	};
+
+	const commentFilter = withZapstoreCommentZapReqBounds(
+		{ kinds: [EVENT_KINDS.COMMENT], '#p': [pubkey], since: sinceNow, limit: INBOX_LIVE_LIMIT },
+		{ since: sinceNow, defaultLimit: INBOX_LIVE_LIMIT }
+	);
+	const zapFilter = withZapstoreCommentZapReqBounds(
+		{ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#p': [pubkey], since: sinceNow, limit: INBOX_LIVE_LIMIT },
+		{ since: sinceNow, defaultLimit: INBOX_LIVE_LIMIT }
+	);
+
+	activeInboxSubscriptions.push(
+		p.subscribeMany([ZAPSTORE_RELAY], commentFilter, {
+			...subParams,
+			id: subId('inbox-comments-live')
+		}),
+		p.subscribeMany([ZAPSTORE_RELAY], zapFilter, {
+			...subParams,
+			id: subId('inbox-zaps-live')
+		})
+	);
+
+	nostrDebug('inbox live subs started', pubkey.slice(0, 8));
+	void backfillUserInboxOnce(pubkey);
+}
+
+/**
+ * @param {string} pubkey
+ */
+async function backfillUserInboxOnce(pubkey) {
+	if (inboxBackfillFlight) return inboxBackfillFlight;
+	inboxBackfillFlight = (async () => {
+		const sinceSec = commentZapNakReadSince();
+		try {
+			await fetchFromRelays(
+				[ZAPSTORE_RELAY],
+				[
+					withZapstoreCommentZapReqBounds(
+						{
+							kinds: [EVENT_KINDS.COMMENT],
+							'#p': [pubkey],
+							limit: INBOX_BACKFILL_COMMENT_LIMIT
+						},
+						{ since: sinceSec, defaultLimit: INBOX_BACKFILL_COMMENT_LIMIT }
+					),
+					withZapstoreCommentZapReqBounds(
+						{
+							kinds: [EVENT_KINDS.ZAP_RECEIPT],
+							'#p': [pubkey],
+							limit: INBOX_BACKFILL_ZAP_LIMIT
+						},
+						{ since: sinceSec, defaultLimit: INBOX_BACKFILL_ZAP_LIMIT }
+					)
+				],
+				{ timeout: 8000, feature: 'inbox-live-backfill' }
+			);
+		} catch (err) {
+			console.error('[Service] Inbox backfill failed:', err);
+		}
+	})().finally(() => {
+		inboxBackfillFlight = null;
+	});
+	return inboxBackfillFlight;
+}
+
+/** Stop inbox live subs (sign-out, offline, or pubkey change). */
+export function stopUserInboxLiveUpdates() {
+	for (const sub of activeInboxSubscriptions) {
+		try {
+			sub.close();
+		} catch {
+			/* noop */
+		}
+	}
+	activeInboxSubscriptions = [];
+	inboxLivePubkey = null;
 }
 
 /**
@@ -215,6 +336,7 @@ export function startLiveSubscriptions() {
  * Call on app unmount or cleanup.
  */
 export function stopLiveSubscriptions() {
+	stopUserInboxLiveUpdates();
 	for (const sub of activeSubscriptions) {
 		try {
 			sub.close();

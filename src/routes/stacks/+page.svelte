@@ -11,8 +11,10 @@
 	import { nip19 } from 'nostr-tools';
 	import { fetchProfilesBatch } from '$lib/purpleweb';
 	import { parseProfile, encodeStackNaddr } from '$lib/nostr/models';
+	import '$lib/styles/browse-grid.css';
 
 	const SCROLL_THRESHOLD = 800;
+	const SKELETON_COUNT = 8;
 
 	let { data } = $props();
 
@@ -28,6 +30,10 @@
 	let resolvedStacks = $state(getCached('stacks:resolved') ?? []);
 	let loading = $state(!getCached('stacks:resolved'));
 	let resolvedStackKeys = $state('');
+
+	const stacksGridTwoCol = $derived(
+		loading && resolvedStacks.length === 0 ? SKELETON_COUNT > 1 : resolvedStacks.length > 1
+	);
 
 	function isHexPubkey(value) {
 		return typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value.trim());
@@ -151,17 +157,7 @@
 		}
 	});
 
-	let filterPillOpen = $state(false);
-	let filterPillEl = $state(null);
-
-	function handleFilterOutside(e) {
-		if (filterPillOpen && filterPillEl && !filterPillEl.contains(e.target)) {
-			filterPillOpen = false;
-		}
-	}
 </script>
-
-<svelte:document onclick={handleFilterOutside} />
 
 <SeoHead
 	title="App Stacks — Zapstore"
@@ -170,73 +166,64 @@
 />
 
 <section class="stacks-page">
-	<div class="container mx-auto py-6 px-3 sm:px-6 lg:px-8">
-		<div class="filter-pill-wrap" bind:this={filterPillEl}>
-			<SectionHeader
-				title="Stacks"
-				filterText="Latest"
-				filterOpen={filterPillOpen}
-				onFilter={(e) => { e.stopPropagation(); filterPillOpen = !filterPillOpen; }}
-			/>
-			{#if filterPillOpen}
-				<div class="filter-pill-dropdown" role="tooltip">
-					More sort &amp; filter options are coming soon.
+	<div class="stacks-page-outer container mx-auto px-0 sm:px-6 lg:px-8">
+		<div class="stacks-page-frame">
+			<div class="stacks-page-header">
+				<SectionHeader title="Stacks" />
+			</div>
+
+			{#if loading && resolvedStacks.length === 0}
+				<ul
+					class="browse-grid"
+					class:browse-grid--two-col={stacksGridTwoCol}
+					role="list"
+					aria-hidden="true"
+				>
+					{#each Array(SKELETON_COUNT) as _, i (i)}
+						<li class="browse-grid-item">
+							<div class="stacks-browse-skeleton">
+								<div class="stacks-browse-skeleton-grid"><SkeletonLoader /></div>
+								<div class="stacks-browse-skeleton-info">
+									<div class="stacks-browse-skeleton-name"><SkeletonLoader /></div>
+									<div class="stacks-browse-skeleton-line"></div>
+								</div>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{:else if resolvedStacks.length > 0}
+				<ul class="browse-grid" class:browse-grid--two-col={stacksGridTwoCol} role="list">
+					{#each resolvedStacks as stack (`${stack.pubkey}:${stack.dTag}`)}
+						<li class="browse-grid-item">
+							<AppStackCard {stack} href={getStackUrl(stack)} />
+						</li>
+					{/each}
+					{#if loadingMore}
+						{#each Array(4) as _, i (`more-${i}`)}
+							<li class="browse-grid-item" aria-hidden="true">
+								<div class="stacks-browse-skeleton">
+									<div class="stacks-browse-skeleton-grid"><SkeletonLoader /></div>
+									<div class="stacks-browse-skeleton-info">
+										<div class="stacks-browse-skeleton-name"><SkeletonLoader /></div>
+										<div class="stacks-browse-skeleton-line"></div>
+									</div>
+								</div>
+							</li>
+						{/each}
+					{/if}
+				</ul>
+
+				{#if !hasMore}
+					<p class="stacks-end-message">You've reached the end</p>
+				{/if}
+			{:else}
+				<div class="stacks-empty-state">
+					<p class="text-muted-foreground">
+						No app stacks found yet. Create one in the Zapstore app!
+					</p>
 				</div>
 			{/if}
 		</div>
-
-		{#if loading && resolvedStacks.length === 0}
-			<div class="stacks-grid">
-			{#each [1, 2, 3] as _, i (i)}
-				<div class="skeleton-stack">
-						<div class="skeleton-stack-grid">
-							<SkeletonLoader />
-						</div>
-						<div class="skeleton-stack-info">
-							<div class="skeleton-stack-name"><SkeletonLoader /></div>
-							<div class="skeleton-stack-desc"></div>
-							<div class="skeleton-stack-creator">
-								<div class="skeleton-stack-avatar"><SkeletonLoader /></div>
-								<div class="skeleton-stack-creator-name"></div>
-							</div>
-						</div>
-					</div>
-				{/each}
-			</div>
-		{:else if resolvedStacks.length > 0}
-			<div class="stacks-grid">
-			{#each resolvedStacks as stack (`${stack.pubkey}:${stack.dTag}`)}
-				<AppStackCard {stack} href={getStackUrl(stack)} />
-				{/each}
-				{#if loadingMore}
-				{#each [1, 2, 3, 4, 5, 6] as _, i (i)}
-					<div class="skeleton-stack">
-							<div class="skeleton-stack-grid">
-								<SkeletonLoader />
-							</div>
-							<div class="skeleton-stack-info">
-								<div class="skeleton-stack-name"><SkeletonLoader /></div>
-								<div class="skeleton-stack-desc"></div>
-								<div class="skeleton-stack-creator">
-									<div class="skeleton-stack-avatar"><SkeletonLoader /></div>
-									<div class="skeleton-stack-creator-name"></div>
-								</div>
-							</div>
-						</div>
-					{/each}
-				{/if}
-			</div>
-
-			{#if !hasMore}
-				<p class="end-message">You've reached the end</p>
-			{/if}
-		{:else}
-			<div class="empty-state">
-				<p class="text-muted-foreground">
-					No app stacks found yet. Create one in the Zapstore app!
-				</p>
-			</div>
-		{/if}
 	</div>
 </section>
 
@@ -245,126 +232,100 @@
 		min-height: 100vh;
 	}
 
-	/* ── Filter dropdown anchor ── */
-	.filter-pill-wrap {
-		position: relative;
+	.stacks-page-outer {
+		padding-top: 24px;
+		padding-bottom: 24px;
 	}
 
-	.filter-pill-dropdown {
-		position: absolute;
-		top: calc(100% + 8px);
-		right: 0;
-		min-width: 220px;
-		padding: 12px 14px;
-		background: hsl(240, 8%, 13%);
-		border: 0.33px solid var(--white16);
-		border-radius: 12px;
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-		font-size: 0.8125rem;
-		line-height: 1.45;
-		color: var(--white66);
-		z-index: 200;
+	.stacks-page-frame {
+		--stacks-pad-x: 14px;
+		border-left: 1px solid var(--white16);
+		border-right: 1px solid var(--white16);
+		margin-left: -16px;
+		margin-right: -16px;
 	}
 
-	.stacks-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-		gap: 12px;
-	}
-	.stacks-grid :global(.app-stack-card) {
-		padding: 4px 0;
-	}
 	@media (min-width: 768px) {
-		.stacks-grid {
-			gap: 20px;
-		}
-		.stacks-grid :global(.app-stack-card) {
-			padding: 8px 0;
+		.stacks-page-frame {
+			--stacks-pad-x: 16px;
 		}
 	}
 
-	.end-message {
+	@media (max-width: 639px) {
+		.stacks-page-frame {
+			margin-left: -4px;
+			margin-right: -4px;
+		}
+	}
+
+	@media (max-width: 767px) {
+		.stacks-page-frame {
+			border-left: none;
+			border-right: none;
+			margin-left: 0;
+			margin-right: 0;
+		}
+	}
+
+	.stacks-page-header :global(.section-header) {
+		padding-left: var(--stacks-pad-x);
+		padding-right: var(--stacks-pad-x);
+		margin-bottom: 12px;
+	}
+
+	.stacks-end-message {
 		text-align: center;
-		padding: 2rem;
+		padding: 2rem var(--stacks-pad-x);
 		color: var(--white66);
 		font-size: 0.875rem;
+		margin: 0;
 	}
 
-	.empty-state {
-		padding: 48px 24px;
-		background-color: var(--gray66);
-		border-radius: 16px;
+	.stacks-empty-state {
+		padding: 48px var(--stacks-pad-x);
 		text-align: center;
 	}
 
-	/* Skeleton styles */
-	.skeleton-stack {
+	.stacks-browse-skeleton {
 		display: flex;
-		align-items: center;
 		gap: 16px;
-		padding: 8px 0;
+		align-items: stretch;
 	}
 
-	.skeleton-stack-grid {
-		width: 84px;
-		height: 84px;
+	.stacks-browse-skeleton-grid {
+		width: 86px;
+		height: 86px;
 		border-radius: 16px;
 		overflow: hidden;
 		flex-shrink: 0;
 	}
 
-	.skeleton-stack-info {
+	.stacks-browse-skeleton-info {
 		flex: 1;
-		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		justify-content: center;
+		gap: 8px;
 	}
 
-	.skeleton-stack-name {
+	.stacks-browse-skeleton-name {
 		width: 100px;
-		height: 16px;
-		border-radius: 6px;
+		height: 18px;
+		border-radius: 12px;
 		overflow: hidden;
 	}
 
-	.skeleton-stack-desc {
+	.stacks-browse-skeleton-line {
 		width: 140px;
 		height: 10px;
-		border-radius: 4px;
-		background-color: var(--gray33);
-	}
-
-	.skeleton-stack-creator {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin-top: 4px;
-	}
-
-	.skeleton-stack-avatar {
-		width: 20px;
-		height: 20px;
-		border-radius: 50%;
-		overflow: hidden;
-		flex-shrink: 0;
-	}
-
-	.skeleton-stack-creator-name {
-		width: 60px;
-		height: 12px;
-		border-radius: 4px;
-		background-color: var(--gray33);
+		border-radius: 12px;
+		background: var(--gray33);
 	}
 
 	@media (min-width: 768px) {
-		.skeleton-stack {
-			gap: 20px;
-		}
-		.skeleton-stack-grid {
+		.stacks-browse-skeleton-grid {
 			width: 104px;
 			height: 104px;
-			border-radius: 20px;
 		}
 	}
 </style>

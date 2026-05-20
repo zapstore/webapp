@@ -151,3 +151,8 @@ export function createListingQuery(config) {
 
 	return state;
 }
+
+/** Drop back-nav listing cache for one key (e.g. after clearLocalData). */
+export function clearListingCache(cacheKey) {
+	listingCache.delete(cacheKey);
+}

@@ -29,6 +29,15 @@
 // inside liveQuery or one-shot, goes through it.
 
 export {
+	activityRootKeyMetaFromComment,
+	addrTagFromComment,
+	batchResolveAddrRootsFromDexie,
+	batchResolveForumRootsByIdFromDexie,
+	buildActivityRootLookupMaps,
+	resolveActivityRootsFromDexie
+} from './core/activity-roots.js';
+
+export {
 	db,
 	putEvents,
 	queryEvents,
@@ -36,9 +45,19 @@ export {
 	liveQuery,
 	queryForumThreadCommentsByPostId,
 	queryZapReceiptsByTargetEventId,
-	evictOldEvents,
-	clearLocalData
+	evictOldEvents
 } from './storage/dexie.js';
+
+import { clearLocalData as clearDexieStorage } from './storage/dexie.js';
+
+/** Clears Dexie + session listing caches (preview backfill dedupe, etc.). */
+export async function clearLocalData() {
+	const { resetStacksListingSession } = await import('./svelte/stacks-listing.svelte.js');
+	resetStacksListingSession();
+	const { clearListingCache } = await import('./svelte/createListingQuery.svelte.js');
+	clearListingCache('stacks');
+	await clearDexieStorage();
+}
 
 export { persistEventsInBackground } from './storage/cache-writer.js';
 
@@ -59,6 +78,8 @@ export {
 	cleanup,
 	startLiveSubscriptions,
 	stopLiveSubscriptions,
+	startUserInboxLiveUpdates,
+	stopUserInboxLiveUpdates,
 	syncDeletions,
 	installZapstoreDebugHooks,
 	subscribeAddressableSocialRoot,
@@ -134,6 +155,7 @@ export {
 export { createAppDetailQuery } from './svelte/app-detail.svelte.js';
 export { createStackDetailQuery } from './svelte/stack-detail.svelte.js';
 export { createProfileDetailQuery } from './svelte/profile-detail.svelte.js';
+export { createProfileActivityQuery } from './svelte/profile-activity.svelte.js';
 export { createForumPostQuery } from './svelte/forum-post.svelte.js';
 
 // Listings — reactive page lists with relay-backed pagination.
