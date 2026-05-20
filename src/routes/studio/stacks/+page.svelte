@@ -6,7 +6,8 @@
  */
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
-import { queryEvents, parseAppStack, liveQuery } from '$lib/nostr';
+import { queryEvents, liveQuery } from '$lib/purpleweb';
+import { parseAppStack } from '$lib/nostr';
 import { getCurrentPubkey, getIsSignedIn } from '$lib/stores/auth.svelte.js';
 import { EVENT_KINDS } from '$lib/config.js';
 import { encodeStackNaddr, stackDisplayTitle } from '$lib/nostr/models.js';

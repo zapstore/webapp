@@ -17,11 +17,11 @@ import {
 	fetchZapsByEventIds,
 	fetchZapReceiptsByPubkeys,
 	fetchLabelEvents,
-	parseProfile,
 	parseComment,
 	parseZapReceipt,
 	publishComment
-} from '$lib/nostr';
+} from '$lib/purpleweb';
+import { parseProfile } from '$lib/nostr';
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import {

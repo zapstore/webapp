@@ -14,11 +14,11 @@
 		queryEvents,
 		queryEvent,
 		liveQuery,
-		encodeAppNaddr,
 		parseComment,
 		parseZapReceipt,
 		publishComment
-	} from '$lib/nostr';
+	} from '$lib/purpleweb';
+	import { encodeAppNaddr } from '$lib/nostr';
 	import {
 		walkAppDiscussionRootInMap,
 		resolveAppDiscussionRootCommentId,
@@ -257,7 +257,7 @@
 		}
 
 		try {
-			const { fetchFromRelays } = await import('$lib/nostr/service.js');
+			const { fetchFromRelays } = await import('$lib/purpleweb');
 			const arr = await fetchFromRelays(
 				[ZAPSTORE_RELAY],
 				{
@@ -313,7 +313,7 @@
 		activityError = '';
 		(async () => {
 			try {
-				const { fetchFromRelays } = await import('$lib/nostr/service.js');
+				const { fetchFromRelays } = await import('$lib/purpleweb');
 				const rs = commentZapRelayReadSince();
 				const [evs, zLo, zUp] = await Promise.all([
 					fetchCommentsByRootATags(appAddrs, { timeout: 8000 }),
@@ -597,7 +597,7 @@
 			let commThread = collectCommentsUnderParent(zLower, poolComments);
 			let zapThread = collectZapReceiptsUnderZap(zLower, poolZaps);
 
-			const { fetchFromRelays } = await import('$lib/nostr/service.js');
+			const { fetchFromRelays } = await import('$lib/purpleweb');
 			const rs = commentZapRelayReadSince();
 			Promise.all([
 				fetchFromRelays(
@@ -746,7 +746,7 @@
 			let subtree = collectCommentSubtree(rootId, poolArr);
 			let byId = new SvelteMap(subtree.map((e) => [e.id, e]));
 
-			const { fetchFromRelays } = await import('$lib/nostr/service.js');
+			const { fetchFromRelays } = await import('$lib/purpleweb');
 			const rs = commentZapRelayReadSince();
 			Promise.all([
 				fetchFromRelays(

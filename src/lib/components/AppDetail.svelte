@@ -2,7 +2,8 @@
 import { onMount } from 'svelte';
 import { browser } from '$app/environment';
 import { ReleaseCard } from '$lib/components';
-import { queryEvent, parseRelease } from '$lib/nostr';
+import { queryEvent } from '$lib/purpleweb';
+import { parseRelease } from '$lib/nostr';
 import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
 import { renderMarkdown } from '$lib/utils/markdown';
 import { ChevronDown, ChevronRight } from '$lib/components/icons';

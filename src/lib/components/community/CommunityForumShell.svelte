@@ -18,9 +18,9 @@
 	buildEventPublishRelayUrls,
 	queryEvents,
 	liveQuery,
-	parseForumPost,
 	parseZapReceipt
-} from '$lib/nostr';
+} from '$lib/purpleweb';
+import { parseForumPost } from '$lib/nostr';
 	import { parseProfile } from '$lib/nostr/models';
 import {
 	EVENT_KINDS,

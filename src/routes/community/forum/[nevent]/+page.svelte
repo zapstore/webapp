@@ -5,12 +5,9 @@
 	 */
 	import { page } from '$app/stores';
 	import SeoHead from '$lib/components/layout/SeoHead.svelte';
-	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
-	import { queryEvent, fetchFromRelays, parseForumPost, putEvents } from '$lib/nostr';
-	import { EVENT_KINDS, ZAPSTORE_COMMUNITY_PUBKEY, FORUM_RELAY } from '$lib/config';
-	import { getCached } from '$lib/stores/query-cache.js';
+	import { FORUM_RELAY } from '$lib/config';
+	import { createForumPostQuery } from '$lib/purpleweb';
 	import ForumPostDetail from '$lib/components/community/ForumPostDetail.svelte';
 	import ForumPostDetailSkeleton from '$lib/components/community/ForumPostDetailSkeleton.svelte';
 
@@ -29,86 +26,21 @@
 		return '';
 	});
 
-	/** Must match `#h` on forum posts — same as CommunityForumShell / server `fetchForumPostById`. */
-	const COMMUNITY_PUBKEY = ZAPSTORE_COMMUNITY_PUBKEY;
-
 	const RELAYS = [FORUM_RELAY];
 
 	/** When set (from Activity ?comment=id), open the thread modal that contains this comment */
 	const openCommentId = $derived($page.url.searchParams.get('comment') ?? null);
 
-	const ssrPost = $derived(data?.post ?? null);
-	let clientPost = $state(null);
-	const post = $derived(clientPost ?? ssrPost);
-	const loading = $derived(!!eventId && !post);
-	let notFound = $state(false);
-
-	/** Before first paint: restore post from forum-feed cache so we never block the detail on SSR/client-only gap. */
-	$effect.pre(() => {
-		if (!browser) return;
-		const id = eventId;
-		if (!id) return;
-		const cached = getCached(`forum_post:${id}`);
-		if (cached?.id === id) {
-			clientPost = cached;
-			notFound = false;
-		}
-	});
-
-	function hydrateFromFeedCache(id) {
-		if (!browser || !id) return;
-		const cached = getCached(`forum_post:${id}`);
-		if (cached?.id === id) {
-			clientPost = cached;
-			notFound = false;
-		}
-	}
-
-	async function loadPost() {
-		const id = eventId;
-		if (!browser || !id || !COMMUNITY_PUBKEY) return;
-
-		notFound = false;
-		hydrateFromFeedCache(id);
-
-		let ev = await queryEvent({
-			kinds: [EVENT_KINDS.FORUM_POST],
-			ids: [id],
-			'#h': [COMMUNITY_PUBKEY]
-		});
-
-		if (!ev) {
-			const [relayE, relayEUpper] = await Promise.all([
-				fetchFromRelays(RELAYS, { kinds: [EVENT_KINDS.FORUM_POST], ids: [id], '#h': [COMMUNITY_PUBKEY], limit: 1 }, { timeout: 5000 }),
-				fetchFromRelays(RELAYS, { kinds: [EVENT_KINDS.FORUM_POST], ids: [id], '#h': [COMMUNITY_PUBKEY], limit: 1 }, { timeout: 5000 })
-			]);
-			ev = relayE[0] ?? relayEUpper[0] ?? null;
-		}
-
-		if (ev) {
-			const parsed = parseForumPost(ev);
-			if (parsed) clientPost = { ...parsed, _raw: ev };
-		} else {
-			notFound = true;
-		}
-	}
-
-	$effect(() => {
-		eventId;
-		if (browser && !ssrPost) {
-			hydrateFromFeedCache(eventId);
-			loadPost();
-		}
-	});
-
-	onMount(async () => {
-		if (!browser) return;
-		hydrateFromFeedCache(eventId);
-		if (data?.seedEvents?.length) {
-			await putEvents(data.seedEvents).catch(() => {});
-		}
-		if (!ssrPost && eventId) loadPost();
-	});
+	// Local-first forum post via purpleweb. Owns Dexie liveQuery, SSR seed
+	// persistence, and one-shot relay hydration from FORUM_RELAY.
+	const detail = createForumPostQuery(() => ({
+		eventId,
+		seedPost: data?.post ?? null,
+		seedEvents: data?.seedEvents ?? []
+	}));
+	const post = $derived(detail.post);
+	const loading = $derived(!!eventId && !post && !detail.error);
+	const notFound = $derived(!!detail.error);
 
 	function onBack() {
 		history.back();

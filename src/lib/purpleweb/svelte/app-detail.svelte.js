@@ -5,7 +5,7 @@ import {
 	PROFILE_FETCH_RELAYS,
 	ZAPSTORE_BLOSSOM_URL
 } from '$lib/config.js';
-import { queryEvent, queryEvents } from '$lib/nostr/dexie.js';
+import { queryEvent, queryEvents } from '../storage/dexie.js';
 import { decodeNaddr, parseApp, parseProfile, parseRelease } from '$lib/nostr/models.js';
 import { createDetailQuery } from './createDetailQuery.svelte.js';
 

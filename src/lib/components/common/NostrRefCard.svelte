@@ -4,10 +4,9 @@
  * Supports app naddr, stack naddr, other addressable kinds, and forum/comment nevent cards.
  */
 import { onMount } from 'svelte';
-import { queryEvent } from '$lib/nostr/dexie';
+import { queryEvent, parseComment, resolveAppEventForNaddr, resolveStackEventForNaddr } from '$lib/purpleweb';
 import { nip19 } from 'nostr-tools';
 import { decodeNaddr, parseApp, parseAppStack, parseForumPost, parseProfile } from '$lib/nostr/models';
-import { parseComment, resolveAppEventForNaddr, resolveStackEventForNaddr } from '$lib/nostr/service';
 import { EVENT_KINDS } from '$lib/config';
 import Nostr from '$lib/components/icons/Nostr.svelte';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';

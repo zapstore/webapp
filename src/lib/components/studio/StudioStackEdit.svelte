@@ -12,7 +12,7 @@
 	import InputLabel from '$lib/components/common/InputLabel.svelte';
 	import Label from '$lib/components/common/Label.svelte';
 	import { X } from 'lucide-svelte';
-	import { updateStack, deleteStack } from '$lib/nostr';
+	import { updateStack, deleteStack } from '$lib/purpleweb';
 	import { encodeStackNaddr } from '$lib/nostr/models.js';
 	import { signEvent } from '$lib/stores/auth.svelte.js';
 

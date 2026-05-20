@@ -23,7 +23,7 @@ export async function load({ params }) {
 	if (browser) return { post: null, seedEvents: [] };
 	if (!eventId) return { post: null, seedEvents: [] };
 
-	const { fetchForumPostById } = await import('$lib/nostr/server.js');
+	const { fetchForumPostById } = await import('$lib/purpleweb/server.js');
 	const result = await fetchForumPostById(eventId);
 	if (!result) return { post: null, seedEvents: [] };
 

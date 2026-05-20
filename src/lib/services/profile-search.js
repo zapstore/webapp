@@ -10,7 +10,7 @@
  * Non-empty query: local scored results first; Vertexlab races 1s and new-to-local results appended
  */
 import { writable } from 'svelte/store';
-import { queryEvents, queryEvent, fetchProfilesBatch, fetchFromRelays } from '$lib/nostr';
+import { queryEvents, queryEvent, fetchProfilesBatch, fetchFromRelays } from '$lib/purpleweb';
 import { parseProfile } from '$lib/nostr/models';
 import { nip19 } from 'nostr-tools';
 import { ZAPSTORE_RELAY, VERTEXLAB_RELAY, SITE_ICON } from '$lib/config';

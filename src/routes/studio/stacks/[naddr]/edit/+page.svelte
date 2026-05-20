@@ -11,15 +11,9 @@ import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
 import StudioStackEdit from '$lib/components/studio/StudioStackEdit.svelte';
 import ZappyError from '$lib/components/common/ZappyError.svelte';
-import {
-	decodeNaddr,
-	parseAppStack,
-	parseApp,
-	queryEvent,
-	queryEvents,
-	putEvents
-} from '$lib/nostr';
-import { fetchFromRelays } from '$lib/nostr/service.js';
+import { queryEvent, queryEvents, putEvents } from '$lib/purpleweb';
+import { decodeNaddr, parseAppStack, parseApp } from '$lib/nostr';
+import { fetchFromRelays } from '$lib/purpleweb';
 import { EVENT_KINDS, PLATFORM_FILTER, DEFAULT_CATALOG_RELAYS, ZAPSTORE_RELAY } from '$lib/config.js';
 import { getCurrentPubkey, getIsSignedIn } from '$lib/stores/auth.svelte.js';
 import { isOnline } from '$lib/stores/online.svelte.js';

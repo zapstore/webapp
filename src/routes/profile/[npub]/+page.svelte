@@ -1,14 +1,14 @@
 <script lang="js">
-import { onMount } from 'svelte';
-import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 import { browser } from '$app/environment';
 import SeoHead from '$lib/components/layout/SeoHead.svelte';
-import { fetchProfile, queryEvents, encodeStackNaddr, parseApp, parseAppStack, fetchAppsByAuthorFromRelays, fetchAppFromRelays } from '$lib/nostr';
-import { ZAPSTORE_RELAY, SAVED_APPS_STACK_D_TAG, SITE_URL } from '$lib/config';
+import { fetchProfile } from '$lib/purpleweb';
+import { encodeStackNaddr } from '$lib/nostr';
+import { SITE_URL } from '$lib/config';
 import { nip19 } from 'nostr-tools';
 import { wheelScroll } from '$lib/actions/wheelScroll.js';
 import { parseShortText } from '$lib/utils/short-text-parser.js';
 import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
+import { createProfileDetailQuery } from '$lib/purpleweb';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
@@ -24,17 +24,32 @@ import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 let { data } = $props();
 const npub = $derived(data.npub ?? '');
 const pubkey = $derived(data.pubkey);
-let profile = $state(null);
-let profileLoading = $state(false);
-let apps = $state([]);
-let appsLoading = $state(true);
-let stacks = $state([]);
-let stacksLoading = $state(true);
+
+// Local-first profile data via purpleweb. Owns Dexie liveQuery for
+// profile/apps/stacks/resolvedStacks plus background hydration from the
+// catalog and profile relays.
+const detail = createProfileDetailQuery(() => ({
+	pubkey: pubkey ?? '',
+	appFilterPrefix: data.appFilterPrefix ?? null,
+	seedProfile: data.profile,
+	seedApps: data.apps,
+	seedStacks: data.stacks,
+	seedResolvedStacks: data.resolvedStacks,
+	seedEvents: data.seedEvents
+}));
+const profile = $derived(detail.profile);
+const apps = $derived(detail.apps);
+const resolvedStacks = $derived(detail.resolvedStacks);
+// Show skeleton only when we genuinely have nothing yet (no seed AND no
+// hydrated data). Once liveQuery emits a non-empty list, loading is false.
+const profileLoading = $derived(!profile && detail.loading);
+const appsLoading = $derived(apps.length === 0 && detail.loading);
+const stacksLoading = $derived(resolvedStacks.length === 0 && detail.loading);
+
 let descriptionModalOpen = $state(false);
 let colorCopied = $state(false);
 let activeTab = $state('apps');
 let mentionProfiles = $state({});
-let resolvedStacks = $state([]);
 
 const profileName = $derived(profile?.displayName || profile?.name || (npub ? `${npub.slice(0, 12)}...` : 'Anonymous'));
 const profileNameForPic = $derived(profile?.displayName || profile?.name || null);
@@ -45,23 +60,8 @@ const profileColorHex = $derived(
 	`#${profileColor.r.toString(16).padStart(2, '0')}${profileColor.g.toString(16).padStart(2, '0')}${profileColor.b.toString(16).padStart(2, '0')}`.toUpperCase()
 );
 
-async function loadProfile(pk) {
-	profileLoading = true;
-	try {
-		const event = await fetchProfile(pk);
-		if (event?.content) {
-			const c = JSON.parse(event.content);
-			profile = { name: c.name, displayName: c.display_name || c.name, picture: c.picture, about: c.about };
-		} else {
-			profile = {};
-		}
-	} catch {
-		profile = {};
-	} finally {
-		profileLoading = false;
-	}
-}
-
+// Mention profile resolution stays out of purpleweb — these are dynamic
+// lookups based on the rendered `about` text, not part of the profile detail.
 async function loadMentionProfiles(about) {
 	const segments = parseShortText({ text: about, emojiTags: [] });
 	const pubkeys = [...new Set(segments.filter((s) => s.type === 'mention').map((s) => s.pubkey))];
@@ -102,97 +102,6 @@ async function copyProfileColor() {
 		setTimeout(() => (colorCopied = false), 1500);
 	} catch { /* ignore */ }
 }
-
-onMount(async () => {
-	if (!pubkey || !browser) return;
-	profile = data.profile ?? null;
-	apps = data.apps ?? [];
-	stacks = data.stacks ?? [];
-	resolvedStacks = data.resolvedStacks ?? [];
-	if (!profile) await loadProfile(pubkey);
-	// Always fetch apps — local-first then relay update.
-	// Skip platform filter: profile pages show ALL apps a developer published,
-	// not just the platform the browser happens to be on.
-	// Query both catalog relays so apps on either relay are found.
-	appsLoading = true;
-	try {
-		const prefix = data.appFilterPrefix ?? null;
-		const applyPrefix = (evts) => {
-			const parsed = evts.map(parseApp);
-			return prefix ? parsed.filter((a) => a.dTag?.startsWith(prefix)) : parsed;
-		};
-
-		// Show whatever is already in Dexie immediately (may be empty on first visit).
-		const local = await queryEvents({ kinds: [32267], authors: [pubkey] });
-		if (local.length > 0) {
-			apps = applyPrefix(local);
-			appsLoading = false;
-		}
-
-		// Only zapstore relay has app events — vertexlab is profiles-only.
-		const fetched = await fetchAppsByAuthorFromRelays([ZAPSTORE_RELAY], pubkey, {
-			limit: 100,
-			skipPlatformFilter: true,
-			timeout: 6000
-		});
-
-		// fetchAppsByAuthorFromRelays writes to Dexie; re-query for a clean deduped list.
-		const fresh = fetched.length > 0
-			? await queryEvents({ kinds: [32267], authors: [pubkey] })
-			: local;
-		apps = applyPrefix(fresh);
-	} finally {
-		appsLoading = false;
-	}
-	if (stacks.length === 0) {
-		stacksLoading = true;
-		try {
-			const stackEvents = await queryEvents({ kinds: [30267], authors: [pubkey] });
-			const parsedStacks = stackEvents.map(parseAppStack).filter((s) => s.dTag !== SAVED_APPS_STACK_D_TAG);
-			stacks = parsedStacks;
-			const allIds = new SvelteSet();
-			for (const s of parsedStacks) {
-				for (const ref of s.appRefs || []) {
-					if (ref.kind === 32267) allIds.add(ref.identifier);
-				}
-			}
-			if (allIds.size > 0) {
-				const appEvents = await queryEvents({ kinds: [32267], '#d': [...allIds] });
-				const byPubkeyAndD = new SvelteMap();
-				for (const e of appEvents) {
-					const a = parseApp(e);
-					if (a.pubkey && a.dTag) byPubkeyAndD.set(`${a.pubkey}:${a.dTag}`, a);
-				}
-				const missingRefs = [];
-				for (const st of parsedStacks) {
-					for (const r of st.appRefs || []) {
-						if (r.kind === 32267 && r.pubkey && r.identifier && !byPubkeyAndD.get(`${r.pubkey}:${r.identifier}`))
-							missingRefs.push(r);
-					}
-				}
-				const seen = new SvelteSet();
-				for (const ref of missingRefs) {
-					const key = `${ref.pubkey}:${ref.identifier}`;
-					if (seen.has(key)) continue;
-					seen.add(key);
-					const ev = await fetchAppFromRelays([ZAPSTORE_RELAY], ref.pubkey, ref.identifier);
-					if (ev) {
-						const a = parseApp(ev);
-						if (a.pubkey && a.dTag) byPubkeyAndD.set(`${a.pubkey}:${a.dTag}`, a);
-					}
-				}
-				resolvedStacks = parsedStacks.map((s) => ({
-					stack: s,
-					apps: (s.appRefs || []).filter((r) => r.kind === 32267).map((r) => byPubkeyAndD.get(`${r.pubkey}:${r.identifier}`)).filter(Boolean)
-				}));
-			} else {
-				resolvedStacks = parsedStacks.map((s) => ({ stack: s, apps: [] }));
-			}
-		} finally {
-			stacksLoading = false;
-		}
-	}
-});
 
 $effect(() => {
 	const about = profile?.about?.trim();

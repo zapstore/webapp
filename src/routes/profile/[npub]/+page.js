@@ -28,21 +28,39 @@ export const load = async ({ params }) => {
 	}
 
 	if (!pubkey) {
-		return { npub, pubkey: null, profile: null, apps: [], stacks: [], resolvedStacks: [], appFilterPrefix: null };
+		return {
+			npub,
+			pubkey: null,
+			profile: null,
+			apps: [],
+			stacks: [],
+			resolvedStacks: [],
+			seedEvents: [],
+			appFilterPrefix: null
+		};
 	}
 
 	const appFilterPrefix = PROFILE_APP_FILTERS[npub] ?? null;
 
 	if (browser) {
-		return { npub, pubkey, profile: null, apps: [], stacks: [], resolvedStacks: [], appFilterPrefix };
+		return {
+			npub,
+			pubkey,
+			profile: null,
+			apps: [],
+			stacks: [],
+			resolvedStacks: [],
+			seedEvents: [],
+			appFilterPrefix
+		};
 	}
 
 	const { fetchProfilesServer, fetchAppsByAuthor, fetchStacksByAuthor } = await import(
-		'$lib/nostr/server.js'
+		'$lib/purpleweb/server.js'
 	);
 	const { parseProfile } = await import('$lib/nostr/models.js');
 
-	const [profileMap, apps, stacksResult] = await Promise.all([
+	const [profileMap, appsResult, stacksResult] = await Promise.all([
 		fetchProfilesServer([pubkey]),
 		fetchAppsByAuthor(pubkey, 50),
 		fetchStacksByAuthor(pubkey, 50)
@@ -51,7 +69,18 @@ export const load = async ({ params }) => {
 	const profileEvent = profileMap.get(pubkey) ?? null;
 	const profile = profileEvent ? parseProfile(profileEvent) : null;
 
-	const filteredApps = appFilterPrefix ? apps.filter((app) => app.dTag?.startsWith(appFilterPrefix)) : apps;
+	const filteredApps = appFilterPrefix
+		? appsResult.apps.filter((app) => app.dTag?.startsWith(appFilterPrefix))
+		: appsResult.apps;
+
+	// Seed events flow through to the client and get persisted to Dexie before
+	// the liveQuery subscription starts, so the first emission already shows
+	// SSR data instead of an empty list flash.
+	const seedEvents = [
+		...(profileEvent ? [profileEvent] : []),
+		...(appsResult.seedEvents ?? []),
+		...(stacksResult.seedEvents ?? [])
+	];
 
 	return {
 		npub,
@@ -60,6 +89,7 @@ export const load = async ({ params }) => {
 		apps: filteredApps,
 		stacks: stacksResult.stacks,
 		resolvedStacks: stacksResult.resolvedStacks,
+		seedEvents,
 		appFilterPrefix
 	};
 };

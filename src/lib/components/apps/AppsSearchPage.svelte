@@ -8,9 +8,8 @@
 	import AppSearchHitRow from '$lib/components/cards/AppSearchHitRow.svelte';
 	import AppSearchHitRowSkeleton from '$lib/components/cards/AppSearchHitRowSkeleton.svelte';
 	import { APP_SEARCH_HIT_SKELETON_VARIANT_COUNT } from '$lib/components/cards/app-search-hit-skeleton-presets.js';
-	import { createAppsQuery } from '$lib/stores/nostr.svelte.js';
-	import { getCached, setCached } from '$lib/stores/query-cache.js';
-	import { searchApps, fetchProfilesBatch } from '$lib/nostr/service';
+	import { createAppsListingQuery } from '$lib/purpleweb';
+	import { searchApps, fetchProfilesBatch } from '$lib/purpleweb';
 	import { ZAPSTORE_RELAY } from '$lib/config';
 	import { parseApp, parseProfile } from '$lib/nostr/models';
 	import {
@@ -29,7 +28,8 @@
 	const releasesBrowse = $derived($page.url.searchParams.get('view') === 'releases');
 	const isLocalBrowse = $derived(!searchQ);
 
-	let liveApps = $state(getCached('apps'));
+	const listing = createAppsListingQuery();
+	const liveApps = $derived(listing.items);
 	let searchParsedApps = $state(/** @type {ReturnType<typeof parseApp>[] | null} */ null);
 	let searchProfileByLc = $state(/** @type {Record<string, ReturnType<typeof parseProfile> | null>} */ ({}));
 	let browseProfileByLc = $state(
@@ -54,17 +54,6 @@
 	const toolbarDropdownLabel = $derived(
 		listMode === 'latest-releases' ? 'Latest Releases' : 'Relevance'
 	);
-
-	$effect(() => {
-		const sub = createAppsQuery().subscribe({
-			next: (value) => {
-				liveApps = value;
-				setCached('apps', value);
-			},
-			error: (err) => console.error('[AppsSearch] apps liveQuery error:', err)
-		});
-		return () => sub.unsubscribe();
-	});
 
 	$effect.pre(() => {
 		if (!searchQ) {

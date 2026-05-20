@@ -7,8 +7,7 @@
 	import CodeBlock from '$lib/components/common/CodeBlock.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import { highlightJson } from '$lib/utils/highlight.js';
-	import { queryEvents, putEvents } from '$lib/nostr/dexie.js';
-	import { fetchFromRelays } from '$lib/nostr/service.js';
+	import { queryEvents, putEvents, fetchFromRelays } from '$lib/purpleweb';
 	import { ZAPSTORE_RELAY, EVENT_KINDS } from '$lib/config.js';
 	import { nip19 } from 'nostr-tools';
 	import { parseFileMetadata } from '$lib/nostr/models.js';

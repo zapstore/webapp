@@ -5,7 +5,7 @@
  * Serializes to content as a line "nostr:naddr...".
  */
 import { Node, mergeAttributes } from '@tiptap/core';
-import { queryEvent } from '$lib/nostr/dexie';
+import { queryEvent } from '$lib/purpleweb';
 import { decodeNaddr, parseApp } from '$lib/nostr/models';
 import { EVENT_KINDS } from '$lib/config';
 

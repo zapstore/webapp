@@ -12,8 +12,8 @@
  */
 import { SimplePool } from 'nostr-tools';
 import { resolveLightningAddress, fetchInvoiceFromCallback, validateZapSupport } from '$lib/lnurl';
-import { fetchProfile, fetchRecipientInboxRelayUrls } from './service';
-import { putEvents } from './dexie';
+import { fetchProfile, fetchRecipientInboxRelayUrls } from './service.js';
+import { putEvents } from '../storage/dexie.js';
 import { SUB_PREFIX, ZAPSTORE_RELAY } from '$lib/config';
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;

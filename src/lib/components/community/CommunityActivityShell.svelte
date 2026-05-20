@@ -22,7 +22,7 @@
 		parseComment,
 		parseZapReceipt,
 		publishComment
-	} from '$lib/nostr';
+	} from '$lib/purpleweb';
 	import {
 		resolveForumDiscussionRootCommentId,
 		resolveAppDiscussionRootCommentId,

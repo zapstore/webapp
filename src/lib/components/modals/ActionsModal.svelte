@@ -20,11 +20,10 @@
 		publishLabelDeletion,
 		publishDeletionRequest,
 		queryEvents,
-		parseAppStack,
-		parseApp,
 		liveQuery,
 		updateStackApps
-	} from '$lib/nostr';
+	} from '$lib/purpleweb';
+	import { parseAppStack, parseApp } from '$lib/nostr';
 	import { signEvent, getIsSignedIn, getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import {
 		EVENT_KINDS,

@@ -7,7 +7,7 @@
  * SIGTERM handler: closes the relay pool so the process exits quickly
  * instead of waiting for open WebSocket connections to drain.
  */
-import { destroyServerPool } from '$lib/nostr/server.js';
+import { destroyServerPool } from '$lib/purpleweb/server.js';
 
 process.on('SIGTERM', () => {
 	destroyServerPool();

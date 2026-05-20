@@ -20,13 +20,15 @@ import {
 	queryEvents,
 	queryEvent,
 	putEvents,
+	parseComment,
+	publishComment,
+	fetchProfilesBatch
+} from '$lib/purpleweb';
+import {
 	parseApp,
 	parseAppStack,
-	parseComment,
 	parseProfile,
-	publishComment,
-	getEventOneliner,
-	fetchProfilesBatch
+	getEventOneliner
 } from '$lib/nostr';
 import { resolveAppDiscussionRootCommentId, collectCommentSubtree } from '$lib/nostr/thread-discussion.js';
 import {

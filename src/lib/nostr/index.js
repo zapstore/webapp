@@ -1,69 +1,12 @@
 /**
- * Nostr module exports
+ * Nostr protocol helpers — pure, no I/O.
  *
- * Main entry point for Nostr functionality.
+ * Event parsing, NIP-19 encoding, and other protocol-level utilities live here.
+ * Everything that touches IndexedDB or a relay belongs in `$lib/purpleweb` —
+ * `import { queryEvents, fetchFromRelays, ... } from '$lib/purpleweb'`.
  */
 
-// Dexie database and helpers
-export {
-	db,
-	putEvents,
-	queryEvents,
-	queryEvent,
-	liveQuery,
-	queryForumThreadCommentsByPostId,
-	queryZapReceiptsByTargetEventId
-} from './dexie';
-
-// Service layer (client-side)
-export {
-	searchApps,
-	searchForumPosts,
-	searchForumComments,
-	fetchAppsByAuthorFromRelays,
-	fetchAllAppsByAuthorFromRelays,
-	fetchAppFromRelays,
-	fetchStackFromRelays,
-	resolveAppEventForNaddr,
-	resolveStackEventForNaddr,
-	fetchReleasesFromRelays,
-	fetchFromRelays,
-	fetchProfile,
-	fetchProfilesBatch,
-	publishToRelays,
-	cleanup,
-	// Social features
-	fetchComments,
-	fetchCommentsByRootATags,
-	fetchCommentRepliesByE,
-	fetchKind1111ByTagRef,
-	fetchKind1111ReferencingEventIds,
-	fetchKind9735MatchingRefs,
-	fetchZapReceiptsByPubkeys,
-	fetchZaps,
-	fetchZapsByEventIds,
-	fetchLabelEvents,
-	parseZapReceipt,
-	parseComment,
-	parseZapFromCommentWrapper,
-	publishComment,
-	publishZapCommentWrapper,
-	buildEventPublishRelayUrls,
-	publishAddressableLabel,
-	publishForumPostLabel,
-	publishTopicLabelOnEvent,
-	publishLabelDeletion,
-	publishDeletionRequest,
-	fetchLabelsForAddressable,
-	groupLabelEventsToEntries,
-	publishStack,
-	updateStackApps,
-	updateStack,
-	deleteStack,
-	updateAppMetadata
-} from './service';
-
-// Models (event parsing)
+// Models (event parsing — pure transforms, no I/O)
 export {
 	parseApp,
 	parseRelease,
@@ -75,7 +18,4 @@ export {
 	encodeAppNaddr,
 	encodeStackNaddr,
 	decodeNaddr
-} from './models';
-
-// Zap utilities
-export { createZap, subscribeToZapReceipt, fetchZapReceiptFallback } from './zap';
+} from './models.js';

@@ -25,7 +25,7 @@ import { Reply } from '$lib/components/icons';
 		fetchProfilesBatch,
 		searchForumPosts,
 		searchForumComments
-	} from '$lib/nostr';
+	} from '$lib/purpleweb';
 	import { parseForumPost, parseProfile } from '$lib/nostr/models';
 	import { EVENT_KINDS, ZAPSTORE_RELAY } from '$lib/config';
 

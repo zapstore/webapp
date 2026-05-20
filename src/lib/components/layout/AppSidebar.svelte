@@ -8,7 +8,7 @@
 	import { LogOut, User, Search } from 'lucide-svelte';
 	import { nip19 } from 'nostr-tools';
 	import { getCurrentPubkey, signOut } from '$lib/stores/auth.svelte.js';
-	import { queryEvent, fetchProfile } from '$lib/nostr';
+	import { queryEvent, fetchProfile } from '$lib/purpleweb';
 	import { parseProfile } from '$lib/nostr/models';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import {

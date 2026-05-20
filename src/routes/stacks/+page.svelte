@@ -6,42 +6,22 @@
 	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
-	import {
-		createStacksQuery,
-		seedStackEvents,
-		getStacksHasMore,
-		isStacksLoadingMore,
-		loadMoreStacks
-	} from '$lib/stores/stacks.svelte.js';
+	import { createStacksListingQuery } from '$lib/purpleweb';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { nip19 } from 'nostr-tools';
-	import { fetchProfilesBatch, fetchFromRelays } from '$lib/nostr/service';
-	import { ZAPSTORE_RELAY } from '$lib/config';
+	import { fetchProfilesBatch } from '$lib/purpleweb';
 	import { parseProfile, encodeStackNaddr } from '$lib/nostr/models';
 
 	const SCROLL_THRESHOLD = 800;
 
 	let { data } = $props();
 
-	// liveQuery-driven stacks from Dexie (local-first, auto-updates)
-	// Initialize from cache to avoid skeleton flash on back navigation.
-	let liveStacks = $state(getCached('stacks'));
-
-	// Pagination state
-	const hasMore = $derived(getStacksHasMore());
-	const loadingMore = $derived(isStacksLoadingMore());
-
-	// Subscribe to Dexie liveQuery for reactive stacks
-	$effect(() => {
-		const sub = createStacksQuery().subscribe({
-			next: (value) => {
-				liveStacks = value;
-				setCached('stacks', value);
-			},
-			error: (err) => console.error('[StacksPage] liveQuery error:', err)
-		});
-		return () => sub.unsubscribe();
-	});
+	// Local-first stacks listing via purpleweb. Owns liveQuery, SSR seed,
+	// back-nav cache, pagination state, and `loadMore`.
+	const listing = createStacksListingQuery(() => ({ seedEvents: data.seedEvents ?? [] }));
+	const liveStacks = $derived(listing.items);
+	const hasMore = $derived(listing.hasMore);
+	const loadingMore = $derived(listing.loadingMore);
 
 	// Resolved stacks with creator profiles
 	// Initialize from cache so back navigation shows content instantly.
@@ -126,11 +106,13 @@
 
 	// Re-resolve creators when liveQuery stacks change
 	$effect(() => {
-		if (!browser || liveStacks === null) return;
-		const key = liveStacks.map((s) => s.stack.id).join(',');
+		if (!browser) return;
+		const items = liveStacks;
+		if (!items) return;
+		const key = items.map((s) => s.stack.id).join(',');
 		if (key !== resolvedStackKeys) {
 			resolvedStackKeys = key;
-			resolveCreators(liveStacks);
+			resolveCreators(items);
 		}
 	});
 
@@ -146,17 +128,17 @@
 
 	function handleScroll() {
 		if (hasMore && !loadingMore && shouldLoadMore()) {
-			loadMoreStacks(fetchFromRelays, [ZAPSTORE_RELAY]);
+			listing.loadMore();
 		}
 	}
 
 	onMount(async () => {
 		if (!browser) return;
-		// Seed prerendered events into Dexie → liveQuery picks them up
-		seedStackEvents(data.seedEvents ?? []);
-		// If no seed (client-side nav), fetch first page from relays
+		// On a cold cache (no SSR seed, e.g. client-side nav) prime the first
+		// page from relays. Seeded loads handle themselves via the listing
+		// query's seed-persist path.
 		if ((!data.seedEvents || data.seedEvents.length === 0) && navigator.onLine) {
-			await loadMoreStacks(fetchFromRelays, [ZAPSTORE_RELAY]);
+			await listing.loadMore();
 		}
 		// Use the app shell's scroll container, fall back to window
 		scrollContainer = document.querySelector('[data-scroll-container]') ?? window;

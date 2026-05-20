@@ -7,12 +7,8 @@
 	import { page } from '$app/stores';
 	import { X } from 'lucide-svelte';
 	import ZappyError from '$lib/components/common/ZappyError.svelte';
-	import {
-		parseZapReceipt,
-		encodeAppNaddr,
-		publishComment,
-		decodeNaddr
-	} from '$lib/nostr';
+	import { parseZapReceipt, publishComment } from '$lib/purpleweb';
+	import { encodeAppNaddr, decodeNaddr } from '$lib/nostr';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import { nip19 } from 'nostr-tools';
 	import { EVENT_KINDS } from '$lib/config';

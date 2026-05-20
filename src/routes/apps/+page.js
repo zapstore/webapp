@@ -15,7 +15,7 @@ export const prerender = false;
 export const load = async () => {
 	if (browser) return { seedEvents: [] };
 
-	const { fetchApps, fetchStacks } = await import('$lib/nostr/server.js');
+	const { fetchApps, fetchStacks } = await import('$lib/purpleweb/server.js');
 	const [appEvents, stackEvents] = await Promise.all([
 		fetchApps(DISCOVER_APPS_INITIAL),
 		fetchStacks(DISCOVER_STACKS_INITIAL)

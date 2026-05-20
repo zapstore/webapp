@@ -11,10 +11,10 @@ import {
 	startLiveSubscriptions,
 	stopLiveSubscriptions,
 	syncDeletions,
-	installZapstoreDebugHooks
-} from '$lib/nostr/service';
+	installZapstoreDebugHooks,
+	evictOldEvents
+} from '$lib/purpleweb';
 import { ZAPSTORE_RELAY } from '$lib/config';
-import { evictOldEvents } from '$lib/nostr/dexie';
 import { IDB_NAME } from '$lib/config';
 import { setBackGoesHomeIfLandedFromOutside, clearBackGoesHome } from '$lib/utils/back.js';
 import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';

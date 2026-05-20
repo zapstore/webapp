@@ -22,7 +22,7 @@ import {
 	parseComment,
 	parseZapReceipt,
 	parseZapFromCommentWrapper
-} from '$lib/nostr/service.js';
+} from '../sync/service.js';
 import { defineModel, registerModels } from '../core/registry.js';
 import { tagValues, uniqueStrings } from '../core/refs.js';
 

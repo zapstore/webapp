@@ -13,7 +13,7 @@ import Checkbox from "$lib/components/common/Checkbox.svelte";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import { SvelteSet } from "svelte/reactivity";
 import { signEvent } from "$lib/stores/auth.svelte.js";
-import { publishToRelays } from "$lib/nostr/service.js";
+import { publishToRelays } from "$lib/purpleweb";
 import { ACTIONS_DELETABLE_CONTENT_LABELS, ZAPSTORE_RELAY } from "$lib/config.js";
 
 // Zapstore receives all reports so the team can act on them.

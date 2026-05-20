@@ -27,7 +27,7 @@
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
 	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED, SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
 	import { SITE_GITHUB, EVENT_KINDS } from '$lib/config.js';
-	import { liveQuery, queryEvent, queryEvents, parseZapReceipt, fetchProfile } from '$lib/nostr';
+	import { liveQuery, queryEvent, queryEvents, parseZapReceipt, fetchProfile } from '$lib/purpleweb';
 	import UserInboxPopover from '$lib/components/layout/UserInboxPopover.svelte';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 	import {

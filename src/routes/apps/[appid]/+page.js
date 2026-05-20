@@ -18,7 +18,7 @@ export const prerender = false;
 export const load = async ({ params }) => {
 	if (browser) return { app: null, error: null, seedEvents: [] };
 
-	const { fetchApp, fetchAppByIdentifier } = await import('$lib/nostr/server.js');
+	const { fetchApp, fetchAppByIdentifier } = await import('$lib/purpleweb/server.js');
 
 	const appid = params.appid;
 	const pointer = decodeNaddr(appid);

@@ -5,7 +5,7 @@
  * No more Web Worker — Dexie handles IndexedDB writes efficiently.
  */
 import { browser } from '$app/environment';
-import { putEvents } from './dexie';
+import { putEvents } from './dexie.js';
 
 /**
  * Persist events to Dexie in the background.

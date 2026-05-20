@@ -6,7 +6,7 @@
 import Modal from "$lib/components/common/Modal.svelte";
 import AppPic from "$lib/components/common/AppPic.svelte";
 import { X } from "lucide-svelte";
-import { updateStack, deleteStack } from "$lib/nostr";
+import { updateStack, deleteStack } from "$lib/purpleweb";
 import { signEvent } from "$lib/stores/auth.svelte.js";
 import { goto } from "$app/navigation";
 

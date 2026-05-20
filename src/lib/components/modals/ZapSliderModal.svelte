@@ -7,7 +7,7 @@ import { onDestroy } from "svelte";
 import { Loader2, AlertCircle, Copy } from "lucide-svelte";
 import { Check as CheckIcon } from "$lib/components/icons";
 import { generateSecretKey, finalizeEvent } from "nostr-tools/pure";
-import { createZap, subscribeToZapReceipt, fetchZapReceiptFallback, putEvents, publishZapCommentWrapper } from "$lib/nostr";
+import { createZap, subscribeToZapReceipt, fetchZapReceiptFallback, putEvents, publishZapCommentWrapper } from "$lib/purpleweb";
 import { getIsSignedIn, signEvent } from "$lib/stores/auth.svelte.js";
 import { EVENT_KINDS } from "$lib/config";
 import Modal from "$lib/components/common/Modal.svelte";

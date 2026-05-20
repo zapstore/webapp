@@ -11,7 +11,7 @@ import {
 	searchApps,
 	queryEvents,
 	fetchAppsByAuthorFromRelays
-} from '$lib/nostr/service';
+} from '$lib/purpleweb';
 import { parseApp } from '$lib/nostr/models';
 import { ZAPSTORE_RELAY, PLATFORM_FILTER } from '$lib/config';
 

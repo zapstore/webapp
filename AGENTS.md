@@ -4,10 +4,6 @@ Local-first, Nostr-native web app for discovering and browsing apps distributed 
 
 Behavioral authority lives in `spec/`. If this file conflicts, those guidelines win.
 
-## Current Phase
-
-**Phase 1: Apps** — Browse, discover, search.
-
 All UI MUST follow the design system in `spec/DESIGN_SYSTEM.md`. For component APIs (ProfilePic, AppPic, Modal, etc.), see `spec/DESIGN_COMPONENTS.md`.
 
 ## Quick Reference

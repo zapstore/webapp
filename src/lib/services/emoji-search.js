@@ -8,7 +8,7 @@
  *
  * Based on Grimoire's implementation
  */
-import { queryEvents, fetchFromRelays } from '$lib/nostr';
+import { queryEvents, fetchFromRelays } from '$lib/purpleweb';
 import { ZAPSTORE_RELAY } from '$lib/config';
 const KIND_USER_EMOJI_LIST = 10030;
 const KIND_EMOJI_SET = 30030;

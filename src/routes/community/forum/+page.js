@@ -13,7 +13,7 @@ export const prerender = false;
 export async function load() {
 	if (browser) return { seedEvents: [] };
 
-	const { fetchForumPosts } = await import('$lib/nostr/server.js');
+	const { fetchForumPosts } = await import('$lib/purpleweb/server.js');
 	const seedEvents = await fetchForumPosts(FORUM_FEED_LIMIT);
 	return { seedEvents };
 }

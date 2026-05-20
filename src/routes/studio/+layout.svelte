@@ -6,10 +6,11 @@
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import InsightsIcon from '$lib/components/icons/Insights.svelte';
 	import InboxIcon from '$lib/components/icons/Inbox.svelte';
-	import { queryEvents, parseAppStack, liveQuery } from '$lib/nostr';
+	import { queryEvents, liveQuery } from '$lib/purpleweb';
+	import { parseAppStack } from '$lib/nostr';
 	import { encodeStackNaddr, stackDisplayTitle, parseApp } from '$lib/nostr/models.js';
 	import { getIsSignedIn, getIsConnecting, isAuthInitialized } from '$lib/stores/auth.svelte.js';
-	import { fetchAppsByAuthorFromRelays } from '$lib/nostr/service.js';
+	import { fetchAppsByAuthorFromRelays } from '$lib/purpleweb';
 	import { resolveStudioCatalogPubkey } from '$lib/studio/resolve-studio-catalog-pubkey.js';
 	import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import { npubToHex } from '$lib/studio/analytics-http.js';

@@ -11,7 +11,7 @@ import { Copy, Check } from '$lib/components/icons';
 import NpubDisplay from '$lib/components/common/NpubDisplay.svelte';
 import CodeBlock from '$lib/components/common/CodeBlock.svelte';
 import { highlightJson } from '$lib/utils/highlight.js';
-import { queryEvent, fetchProfile } from '$lib/nostr';
+import { queryEvent, fetchProfile } from '$lib/purpleweb';
 import { EVENT_KINDS } from '$lib/config.js';
 
 let { npub = '', pubkey = '' } = $props();

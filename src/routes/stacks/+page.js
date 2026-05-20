@@ -13,7 +13,7 @@ export const prerender = false;
 export const load = async () => {
 	if (browser) return { seedEvents: [] };
 
-	const { fetchStacks } = await import('$lib/nostr/server.js');
+	const { fetchStacks } = await import('$lib/purpleweb/server.js');
 	const seedEvents = await fetchStacks(STACKS_PAGE_SIZE);
 	return { seedEvents };
 };

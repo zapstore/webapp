@@ -2,7 +2,7 @@ import { browser } from '$app/environment';
 import { liveQuery } from 'dexie';
 import { untrack } from 'svelte';
 import { SvelteSet } from 'svelte/reactivity';
-import { putEvents } from '$lib/nostr/dexie.js';
+import { putEvents } from '../storage/dexie.js';
 import { hydrateFilters } from '../sync/hydrate.js';
 
 /**

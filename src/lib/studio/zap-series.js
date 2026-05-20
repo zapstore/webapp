@@ -3,8 +3,7 @@
  * Batch filters only (no N+1): one #a query, one #e batch per pubkey's app event ids.
  */
 import { ZAPSTORE_RELAY, EVENT_KINDS } from '$lib/config.js';
-import { queryEvents, putEvents } from '$lib/nostr/dexie.js';
-import { fetchFromRelays, parseZapReceipt } from '$lib/nostr/service.js';
+import { queryEvents, putEvents, fetchFromRelays, parseZapReceipt } from '$lib/purpleweb';
 import { buildIsoDateList } from '$lib/studio/analytics-http.js';
 
 const STUDIO_ZAP_RELAYS = [ZAPSTORE_RELAY];

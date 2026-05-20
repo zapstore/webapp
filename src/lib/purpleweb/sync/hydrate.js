@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { fetchFromRelays } from '$lib/nostr/service.js';
+import { fetchFromRelays } from './service.js';
 import { asFilterArray, filterKey } from '../core/refs.js';
 
 const inFlight = new Map();

@@ -24,7 +24,7 @@
 		Check
 	} from '$lib/components/icons';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
-	import { queryEvent, publishTopicLabelOnEvent, publishDeletionRequest } from '$lib/nostr';
+	import { queryEvent, publishTopicLabelOnEvent, publishDeletionRequest } from '$lib/purpleweb';
 	import { EVENT_KINDS, FORUM_CATEGORIES, SITE_URL, COMMENT_PUBLISH_RELAYS } from '$lib/config.js';
 	import { getIsSignedIn, getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 

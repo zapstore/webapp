@@ -2,7 +2,7 @@ import { browser } from '$app/environment';
 import {
 	subscribeAddressableSocialRoot,
 	subscribeZapReceiptsForEventIds
-} from '$lib/nostr/service.js';
+} from './service.js';
 
 /**
  * Open a persistent root-scoped social subscription for an app or stack.

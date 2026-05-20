@@ -112,8 +112,8 @@ The server runs an **in-memory Nostr event store** fed by **polling** two catalo
             (server-rendered at runtime)
 ```
 
-- **Catalog polling (every 60s):** Polls upstream relays for top 50 apps (kind 32267) and top 50 stacks (kind 30267) with platform filter. Uses `since: lastPollTimestamp` to fetch only new events. No releases (kind 30063) — those are fetched client-side.
-- **Profile polling (every 60min):** Polls `relay.vertexlab.io` for profiles (kind 0) of all pubkeys from cached apps and stacks. Profiles change infrequently.
+- **Catalog polling (every 60s):** Polls upstream relays for catalog kinds (apps, stacks) with platform filter and bounded limits. Uses `since: lastPollTimestamp` to fetch only new events. Releases are fetched client-side, not via server poll.
+- **Profile polling (less frequent):** Polls for kind-0 profiles of pubkeys referenced by cached catalog events.
 - **Cold start:** On server start, a full warm-up pull populates the cache. First request after startup gets fresh relay data.
 - **No persistent WebSocket subscriptions:** The server does not maintain long-lived relay connections. It connects, polls, disconnects.
 - **No SQLite / relay.db:** There is no server-side database. All server data lives in memory, fed by polling.
@@ -140,7 +140,7 @@ The client uses **Dexie.js** as its single reactive data layer. There is no sepa
 - **Dexie liveQuery:** Observable queries that automatically re-fire when underlying data changes. Any write to Dexie (from any code path — server seed, relay stream, one-shot fetch) triggers subscribers to re-query. No manual invalidation.
 - **Svelte integration:** Dexie's `liveQuery` returns an Observable. In Svelte 5, subscribe in a component `$effect` and assign to `$state`; the effect's cleanup return unsubscribes automatically.
 - **No EventStore:** Dexie replaces both persistence and in-memory reactive state.
-- **NIP-01 query engine:** `queryEvents(filter)` translates NIP-01 filters to efficient Dexie queries. This is the single query primitive used everywhere on the client — inside liveQuery, for one-shot reads, for joins. Higher-level modules (`purpleweb`, stores) call `queryEvents` internally; application code must not use raw Dexie `.where()` chains.
+- **NIP-01 query engine:** `queryEvents(filter)` translates NIP-01 filters to efficient Dexie queries. This is the single query primitive used everywhere on the client — inside liveQuery, for one-shot reads, for joins. Higher-level data modules call `queryEvents` internally; application code must not use raw Dexie `.where()` chains.
 
 ### Client: purpleweb (local-first runtime)
 
@@ -148,12 +148,12 @@ The client uses **Dexie.js** as its single reactive data layer. There is no sepa
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  purpleweb (page data boundary — expanding adoption)         │
+│  purpleweb (catalog page data boundary)                      │
 │                                                              │
 │  Models: registered specs + parsers (wraps nostr/models.js)  │
 │  Reads:  queryEvents / liveQuery via storage/query.js        │
 │  Writes: hydrateFilters (one-shot) → putEvents               │
-│  Svelte: createAppDetailQuery, createAppSocialQuery, etc.    │
+│  Svelte: model-centric query helpers (liveQuery-backed)      │
 └──────────────────────────────────────────────────────────────┘
          │ reads                          │ hydrates
          ▼                                ▼
@@ -165,24 +165,23 @@ The client uses **Dexie.js** as its single reactive data layer. There is no sepa
 - **Hydration is background-only.** `hydrateFilters` and social subscription helpers write relay results to Dexie; UI updates reactively from local storage.
 - **Batch relationships.** `queryModelGraph` and `queryAddressableSocial` collect keys first and issue batch queries — no query-in-loop for profiles, comments, zaps, or labels.
 - **Consumers describe models/roots**, not relay filters, hydration toggles, or subscription lifecycles.
-- **Current adoption:** app detail (`createAppDetailQuery`) and app/stack social (`createAppSocialQuery`, `createStackSocialQuery`). Catalog listings, stack detail entity resolution, profile, community, and studio still use `$lib/stores/` and `$lib/nostr/` directly — same invariants apply; migrate to purpleweb when touching those surfaces.
-- **Catalog live subscriptions** (apps, releases, stacks in the app shell) remain in `$lib/nostr/service.js` (`startLiveSubscriptions` in `+layout.svelte`). Addressable social subscriptions are opened by purpleweb and delegate to the same relay pool.
+- **Scope:** Catalog page reads (listings, detail, social on addressable entities) go through purpleweb. App-shell catalog relay subscriptions and cross-cutting UI state (auth, online, studio) stay in `nostr/` and `stores/` — same local-first invariants apply everywhere.
 
 ### Client: Persistent Relay Connections
 
-The client maintains **persistent WebSocket connections** to catalog and social relays for live event updates. This is the "updates" data flow.
+The client maintains **persistent WebSocket connections** to the catalog relays for live event updates. This is the "updates" data flow.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Client Relay Pool (persistent connections)                    │
 │                                                                │
 │  Catalog relays:   relay.zapstore.dev, relay.vertexlab.io     │
-│  Social relays:    relay.damus.io, relay.primal.net, nos.lol  │
+│  Forum relay:      relay.zapstore.dev (kind 11 + comments)    │
 │                                                                │
-│  Subscriptions (all with limit matching UI viewport):          │
-│    • Apps (kind 32267) with platform filter, limit 50         │
-│    • Releases (kind 30063), limit 50                          │
-│    • Stacks (kind 30267) with platform filter, limit 20       │
+│  Subscriptions (all with bounded limit — never unbounded):     │
+│    • Apps (kind 32267) with platform filter                   │
+│    • Releases (kind 30063)                                    │
+│    • Stacks (kind 30267) with platform filter                 │
 │                                                                │
 │  onevent → batch buffer (100ms) → putEvents → Dexie           │
 │  Reconnects automatically on disconnect.                       │
@@ -322,8 +321,8 @@ Catalog pages use **universal load functions** (`+page.js`), not server-only loa
 │    if (browser) return { seedEvents: [] };  // ← client path      │
 │                                                                    │
 │    // SSR path: dynamic-import server module, query cache          │
-│    const { fetchApps } = await import('$lib/nostr/server.js');    │
-│    return { seedEvents: fetchApps(24) };                          │
+│    // SSR only: import server module, query in-memory cache      │
+│    return { seedEvents: [...] };                                │
 │                                                                    │
 │  SSR (first visit / hard refresh):                                │
 │    browser = false → dynamic-import server.js → query cache       │
@@ -341,9 +340,9 @@ Catalog pages use **universal load functions** (`+page.js`), not server-only loa
 
 **Why not `+page.server.js`?** Server-only loads force SvelteKit to fetch `/__data.json` from the server on every client-side navigation. When offline, that fetch fails and the app breaks. Universal loads eliminate this — the load runs in the browser, returns empty, and Dexie handles the rest.
 
-**Dynamic imports for server modules:** The `await import('$lib/nostr/server.js')` is behind the `if (browser)` guard. Since `browser` is replaced at build time by Vite (`true` in client build, `false` in SSR build), the server import is dead-code-eliminated from the client bundle entirely.
+**Dynamic imports for server modules:** The `await import('$lib/purpleweb/server.js')` is behind the `if (browser)` guard. Since `browser` is replaced at build time by Vite (`true` in client build, `false` in SSR build), the server import is dead-code-eliminated from the client bundle entirely.
 
-**Detail pages (`apps/[appid]`, `stacks/[naddr]`, `profile/[npub]`):** Same pattern, but components also include **Dexie fallback queries** for when server data is null (client-side nav). They decode the URL param, query Dexie for the event, and parse it locally. App detail uses purpleweb (`createAppDetailQuery`); stack detail uses purpleweb for social only.
+**Detail pages (`apps/[appid]`, `stacks/[naddr]`, `profile/[npub]`):** Same pattern, but components also **fall back to Dexie** when seed data is empty (client-side nav). They decode the URL param, query local storage, and parse events locally.
 
 **SSR cache misses return empty, never an error.** If the server cache doesn't have the requested event, return `{ seedEvents: [] }` (not an error). The component always has a relay fallback — returning an error from the load function prevents that fallback from running.
 
@@ -398,13 +397,11 @@ No duplicate fetches, no server round-trips, no relay queries triggered by navig
 
 ### Build Time
 
-**Static content pages** (blog, docs, terms, enterprise, reachkit) are prerendered at build time as static HTML.
+**Static/marketing pages** are prerendered at build time as static HTML.
 
 **Dynamic catalog pages** (`/apps`, `/stacks`, app/stack/profile detail) are NOT prerendered. They use `export const prerender = false` and are server-rendered at runtime with fresh data from the in-memory RelayCache. During build, the RelayCache may do a one-time warmup (without starting polling timers) if any build-time logic requires it, but catalog pages themselves are rendered on-demand at runtime.
 
-**Client-only sections** (studio signed-in dashboard: `ssr = false` in `studio/+layout.js`) render in the browser; they are not prerendered and do not receive SSR seed data.
-
-**Legacy URL:** `/discover` redirects to `/apps` via `discover/+server.js` (301). The consolidated `/apps` page shows stacks and apps together.
+**Client-only sections** (e.g. studio signed-in dashboard with `ssr = false`) render in the browser; they are not prerendered and do not receive SSR seed data.
 
 ## URLs and routing
 
@@ -421,7 +418,6 @@ No duplicate fetches, no server round-trips, no relay queries triggered by navig
 Catalogs are Nostr relays that hold app events.
 
 - **Catalog relays:** `wss://relay.zapstore.dev`, `wss://relay.vertexlab.io`
-- **Custom catalogs:** Phase 2 feature
 
 ## Event Kinds
 
@@ -483,9 +479,9 @@ The app is a **full PWA** with a compliant service worker and manifest.
 
 Source layout is described by responsibility, not directory listing. Names below refer to logical modules; exact file paths may evolve.
 
-- **`lib/nostr/` — Nostr data layer.** Dexie schema and `queryEvents`/`putEvents` (client storage primitive); SimplePool-backed client relay pool with persistent catalog subscriptions and one-shot queries; in-memory server event store and polling loop; event parsers (`App`, `Release`, `Stack`, `Profile`, …).
-- **`lib/purpleweb/` — local-first page-data runtime.** Model registry and reference helpers; Dexie-backed query/relationship resolution; one-shot relay hydration and addressable social subscriptions; Svelte helpers that expose models, not filters.
-- **`lib/stores/` — UI-facing reactive state.** Listing liveQuery factories with load-more pagination; online/offline status; catalog relay config; auth state.
+- **`lib/nostr/` — Nostr data layer.** Dexie schema and `queryEvents`/`putEvents`; client relay pool (persistent catalog subscriptions and one-shot queries); in-memory server cache and polling; event parsers.
+- **`lib/purpleweb/` — local-first page-data runtime.** Model registry; Dexie-backed query/relationship resolution; relay hydration and social subscriptions; Svelte helpers that expose models, not filters.
+- **`lib/stores/` — UI-facing reactive state.** Cross-cutting concerns (auth, connectivity, preferences) and any catalog UI state not owned by purpleweb.
 - **`lib/components/` — Svelte components.** Presentation only; consume stores/purpleweb, never relays.
-- **`routes/` — pages and endpoints.** Catalog pages (`/apps`, `/stacks`, detail pages, profile) use universal `+page.js` loads. Static/marketing pages prerender. Studio dashboard is client-rendered. REST endpoints exist only for non-catalog concerns (file upload, studio backend bridges, legacy redirects).
+- **`routes/` — pages and endpoints.** Catalog pages use universal `+page.js` loads. Static/marketing pages prerender. Client-only areas (e.g. studio) opt out of SSR. REST endpoints exist only for non-catalog concerns (uploads, studio backends).
 - **`service-worker.js` — PWA shell.** Precache, cache-first assets, network-first documents.

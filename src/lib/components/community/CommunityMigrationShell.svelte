@@ -6,7 +6,7 @@
 	 */
 	import { browser } from '$app/environment';
 	import { getCurrentPubkey, getIsSignedIn, signEvent } from '$lib/stores/auth.svelte.js';
-	import { fetchFromRelays, putEvents, publishToRelays } from '$lib/nostr';
+	import { fetchFromRelays, putEvents, publishToRelays } from '$lib/purpleweb';
 	import { parseApp, parseAppStack } from '$lib/nostr/models.js';
 	import {
 		isLegacyRelease,

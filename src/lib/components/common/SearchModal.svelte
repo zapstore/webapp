@@ -9,7 +9,7 @@ import { wheelScroll } from '$lib/actions/wheelScroll.js';
 import { goto } from '$app/navigation';
 import { zapstoreProfileStore, ZAPSTORE_PUBKEY } from '$lib/services/profile-search';
 import { ZAPSTORE_RELAY } from '$lib/config';
-import { fetchProfilesBatch, searchApps } from '$lib/nostr/service';
+import { fetchProfilesBatch, searchApps } from '$lib/purpleweb';
 import { parseApp, parseProfile } from '$lib/nostr/models';
 import AppSearchHitRow from '$lib/components/cards/AppSearchHitRow.svelte';
 import AppSearchHitRowSkeleton from '$lib/components/cards/AppSearchHitRowSkeleton.svelte';

@@ -1,5 +1,5 @@
-import { queryEvents } from '$lib/nostr/dexie.js';
-import { groupLabelEventsToEntries } from '$lib/nostr/service.js';
+import { queryEvents } from './dexie.js';
+import { groupLabelEventsToEntries } from '../sync/service.js';
 import { EVENT_KINDS } from '$lib/config.js';
 import {
 	addressableId,

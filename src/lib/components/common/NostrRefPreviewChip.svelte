@@ -4,7 +4,7 @@
  * Resolves app/stack from Dexie + relays; other addressable kinds show a generic Nostr label.
  */
 import { decodeNaddr, parseApp, parseAppStack } from '$lib/nostr/models';
-import { resolveAppEventForNaddr, resolveStackEventForNaddr } from '$lib/nostr/service';
+import { resolveAppEventForNaddr, resolveStackEventForNaddr } from '$lib/purpleweb';
 import { EVENT_KINDS } from '$lib/config';
 import Nostr from '$lib/components/icons/Nostr.svelte';
 

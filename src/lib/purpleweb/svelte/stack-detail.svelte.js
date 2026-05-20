@@ -6,7 +6,7 @@ import {
 	PLATFORM_FILTER,
 	PROFILE_FETCH_RELAYS
 } from '$lib/config.js';
-import { queryEvent, queryEvents } from '$lib/nostr/dexie.js';
+import { queryEvent, queryEvents } from '../storage/dexie.js';
 import { decodeNaddr, parseApp, parseAppStack, parseProfile } from '$lib/nostr/models.js';
 import { createDetailQuery } from './createDetailQuery.svelte.js';
 

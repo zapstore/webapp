@@ -2,7 +2,7 @@
  * Collect thread items under a zap receipt (kind 9735) from pooled events.
  */
 import { EVENT_KINDS } from '$lib/config.js';
-import { parseZapReceipt } from './service.js';
+import { parseZapReceipt } from '$lib/purpleweb';
 import { getCommentParentEventId } from './thread-discussion.js';
 
 /**

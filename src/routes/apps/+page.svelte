@@ -15,22 +15,12 @@
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import {
-		createAppsQuery,
-		seedEvents,
-		loadMoreApps,
-		getHasMore,
-		isLoadingMore
-	} from '$lib/stores/nostr.svelte.js';
-	import {
-		createStacksQuery,
-		seedStackEvents,
-		getStacksHasMore,
-		isStacksLoadingMore,
-		loadMoreStacks
-	} from '$lib/stores/stacks.svelte.js';
+		createAppsListingQuery,
+		createStacksListingQuery
+	} from '$lib/purpleweb';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
-	import { fetchFromRelays, fetchProfilesBatch } from '$lib/nostr/service';
-	import { ZAPSTORE_RELAY, ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
+	import { fetchProfilesBatch } from '$lib/purpleweb';
+	import { ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
 	import { nip19 } from 'nostr-tools';
 	import { encodeStackNaddr, parseProfile } from '$lib/nostr/models';
 	import { DISCOVER_APPS_INITIAL, DISCOVER_STACKS_INITIAL } from '$lib/constants';
@@ -66,20 +56,22 @@
 	const releasesBrowse = $derived($page.url.searchParams.get('view') === 'releases');
 	const showSearchPanel = $derived(!!searchQ || releasesBrowse);
 
-	// liveQuery-driven data (local-first, auto-updates)
-	// Initialize from cache to avoid skeleton flash on back navigation.
-	let liveApps = $state(getCached('apps'));
-	let liveStacks = $state(getCached('stacks'));
+	// Local-first listings via purpleweb. Each query owns its Dexie liveQuery,
+	// SSR seed-persist, back-nav cache, pagination state, and `loadMore`.
+	const appsListing = createAppsListingQuery(() => ({ seedEvents: data.seedEvents ?? [] }));
+	const stacksListing = createStacksListingQuery(() => ({ seedEvents: data.seedEvents ?? [] }));
+	const liveApps = $derived(appsListing.items);
+	const liveStacks = $derived(stacksListing.items);
 
 	// Display limits — start small, grow on load-more
 	let displayAppsLimit = $state(DISCOVER_APPS_INITIAL);
 	let displayStacksLimit = $state(DISCOVER_STACKS_INITIAL);
 
 	// Pagination state
-	const appsHasMore = $derived(getHasMore());
-	const appsLoadingMore = $derived(isLoadingMore());
-	const stacksHasMore = $derived(getStacksHasMore());
-	const stacksLoadingMore = $derived(isStacksLoadingMore());
+	const appsHasMore = $derived(appsListing.hasMore);
+	const appsLoadingMore = $derived(appsListing.loadingMore);
+	const stacksHasMore = $derived(stacksListing.hasMore);
+	const stacksLoadingMore = $derived(stacksListing.loadingMore);
 
 	// Refs for horizontal scroll containers
 	let appsScrollContainer = $state(null);
@@ -104,30 +96,6 @@
 		stacksScrollContainer.scrollBy({ left: dir * SCROLL_STEP, behavior: 'smooth' });
 		if (dir > 0) setTimeout(handleStacksScroll, 350);
 	}
-
-	// Subscribe to liveQuery for reactive apps
-	$effect(() => {
-		const sub = createAppsQuery().subscribe({
-			next: (value) => {
-				liveApps = value;
-				setCached('apps', value);
-			},
-			error: (err) => console.error('[Apps] apps liveQuery error:', err)
-		});
-		return () => sub.unsubscribe();
-	});
-
-	// Subscribe to liveQuery for reactive stacks
-	$effect(() => {
-		const sub = createStacksQuery().subscribe({
-			next: (value) => {
-				liveStacks = value;
-				setCached('stacks', value);
-			},
-			error: (err) => console.error('[Apps] stacks liveQuery error:', err)
-		});
-		return () => sub.unsubscribe();
-	});
 
 	// Cap display to current limits — liveQuery always returns the full available set
 	const apps = $derived((liveApps ?? []).slice(0, displayAppsLimit));
@@ -228,14 +196,12 @@
 	// Load more: increase display limit AND fetch from relay if needed
 	function handleLoadMoreApps() {
 		displayAppsLimit += DISCOVER_APPS_INITIAL;
-		if (appsHasMore && !appsLoadingMore) loadMoreApps();
+		if (appsHasMore && !appsLoadingMore) appsListing.loadMore();
 	}
 
 	function handleLoadMoreStacks() {
 		displayStacksLimit += DISCOVER_STACKS_INITIAL;
-		if (stacksHasMore && !stacksLoadingMore) {
-			loadMoreStacks(fetchFromRelays, [ZAPSTORE_RELAY]);
-		}
+		if (stacksHasMore && !stacksLoadingMore) stacksListing.loadMore();
 	}
 
 	function handleAppsScroll() {
@@ -349,12 +315,12 @@
 	onMount(async () => {
 		if (!browser) return;
 
-		seedEvents(data.seedEvents ?? []);
-		seedStackEvents(data.seedEvents ?? []);
-
+		// On a cold cache (no SSR seed, e.g. client-side nav) prime the first
+		// page from relays. Seeded loads handle themselves via the listing
+		// queries' seed-persist path.
 		if ((!data.seedEvents || data.seedEvents.length === 0) && navigator.onLine) {
-			await loadMoreApps();
-			await loadMoreStacks(fetchFromRelays, [ZAPSTORE_RELAY]);
+			await appsListing.loadMore();
+			await stacksListing.loadMore();
 		}
 		restoreScrollPositions();
 	});

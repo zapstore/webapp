@@ -13,7 +13,7 @@ import WithZapstoreSection from '$lib/components/landing/WithZapstoreSection.sve
 import RoadmapSection from '$lib/components/landing/RoadmapSection.svelte';
 import TeamSection from '$lib/components/landing/TeamSection.svelte';
 import { SvelteMap } from 'svelte/reactivity';
-import { fetchProfilesBatch } from '$lib/nostr';
+import { fetchProfilesBatch } from '$lib/purpleweb';
 import SeoHead from '$lib/components/layout/SeoHead.svelte';
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_ICON, SITE_GITHUB } from '$lib/config';
 import { assets } from '$app/paths';

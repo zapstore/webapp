@@ -14,7 +14,7 @@ import {
 	parseAppStack,
 	parseProfile,
 	parseForumPost
-} from './models';
+} from '$lib/nostr/models.js';
 import {
 	EVENT_KINDS,
 	PLATFORM_FILTER,
@@ -364,7 +364,7 @@ export async function fetchAppsByAuthor(pubkey, limit = 50) {
 		limit: safeLimit
 	});
 
-	return events.map(parseApp);
+	return { apps: events.map(parseApp), seedEvents: dedupeEventsById(events) };
 }
 
 export async function fetchStacksByAuthor(pubkey, limit = 50) {
@@ -389,14 +389,23 @@ export async function fetchStacksByAuthor(pubkey, limit = 50) {
 	}
 	const stacks = [...stacksByKey.values()].map(({ event: _event, ...rest }) => rest);
 
-	const { appsByStackId } = await resolveMultipleStackApps(stacks);
+	const { appsByStackId, appEvents } = await resolveMultipleStackApps(stacks);
 	const resolvedStacks = [];
 	for (const stack of stacks) {
 		const apps = appsByStackId.get(stack.id) ?? [];
 		resolvedStacks.push({ stack, apps });
 	}
 
-	return { stacks, resolvedStacks };
+	// Seed events: raw stack events (so detail-page liveQuery can re-parse
+	// them with the `event` property intact) plus referenced app events.
+	const seedEvents = dedupeEventsById([
+		...stackEvents.filter(
+			(e) =>
+				e.tags?.find((t) => t[0] === 'd')?.[1] !== SAVED_APPS_STACK_D_TAG && !e.content
+		),
+		...appEvents
+	]);
+	return { stacks, resolvedStacks, seedEvents };
 }
 
 // ============================================================================

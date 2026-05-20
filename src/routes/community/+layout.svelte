@@ -13,7 +13,7 @@
 		EVENT_KINDS,
 		FORUM_RELAY
 	} from '$lib/config.js';
-	import { fetchFromRelays, queryEvents, putEvents } from '$lib/nostr';
+	import { fetchFromRelays, queryEvents, putEvents } from '$lib/purpleweb';
 	import CommunityForumShell from '$lib/components/community/CommunityForumShell.svelte';
 	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';

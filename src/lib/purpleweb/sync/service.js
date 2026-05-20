@@ -25,8 +25,8 @@ import {
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
-import { decodeNaddr } from './models.js';
-import { db, putEvents, queryEvents, queryEvent } from './dexie';
+import { decodeNaddr } from '$lib/nostr/models.js';
+import { db, putEvents, queryEvents, queryEvent } from '../storage/dexie.js';
 const ZAPSTORE_READ_RELAYS = [ZAPSTORE_RELAY];
 
 /** Set `localStorage.setItem('zapstore_debug','1')` + reload for relay/Dexie logs and `window.__zapstore`. */
@@ -485,9 +485,9 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
  * Query events from Dexie (async).
  * Use for one-shot reads. For reactive reads, use liveQuery in components.
  */
-export { queryEvents, queryEvent, putEvents } from './dexie';
+export { queryEvents, queryEvent, putEvents } from '../storage/dexie.js';
 export { liveQuery } from 'dexie';
-export { db } from './dexie';
+export { db } from '../storage/dexie.js';
 
 /**
  * Search apps using NIP-50 full-text search via relays.

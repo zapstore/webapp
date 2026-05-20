@@ -14,9 +14,9 @@
 		studioAnalytics
 	} from '$lib/stores/studio-analytics.svelte.js';
 	import { DEFAULT_CATALOG_RELAYS } from '$lib/config.js';
-	import { queryEvents } from '$lib/nostr/dexie.js';
+	import { queryEvents } from '$lib/purpleweb';
 	import { parseApp } from '$lib/nostr/models.js';
-	import { fetchFromRelays } from '$lib/nostr/service.js';
+	import { fetchFromRelays } from '$lib/purpleweb';
 
 	const ctx = getContext('studio');
 const studio = ctx ?? { userApps: [], adminAccess: false, studioPubkey: null };

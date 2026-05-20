@@ -11,7 +11,7 @@
 
 	async function handleClearLocalData() {
 		if (!browser) return;
-		const { clearLocalData } = await import('$lib/nostr/dexie.js');
+		const { clearLocalData } = await import('$lib/purpleweb');
 		await clearLocalData();
 		location.reload();
 	}

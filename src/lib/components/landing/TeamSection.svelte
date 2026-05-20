@@ -6,7 +6,7 @@
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import { Zap, Send } from '$lib/components/icons';
-	import { fetchZapReceiptsByPubkeys, parseZapReceipt, fetchProfile } from '$lib/nostr';
+	import { fetchZapReceiptsByPubkeys, parseZapReceipt, fetchProfile } from '$lib/purpleweb';
 	import {
 		hexToColor,
 		stringToColor,

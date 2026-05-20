@@ -19,7 +19,8 @@ import Spinner from "$lib/components/common/Spinner.svelte";
 import Label from "$lib/components/common/Label.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import { Zap } from "$lib/components/icons";
-import { queryEvent, queryEvents, parseRelease } from "$lib/nostr";
+import { queryEvent, queryEvents } from "$lib/purpleweb";
+import { parseRelease } from "$lib/nostr";
 import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
 import { nip19 } from "nostr-tools";
 let {

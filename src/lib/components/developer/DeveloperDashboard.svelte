@@ -4,18 +4,12 @@ import { Zap, Download, Home, Mail, List, ChevronDown } from "$lib/components/ic
 import AppPic from "$lib/components/common/AppPic.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import { getCurrentPubkey } from "$lib/stores/auth.svelte.js";
-import { createAppsQuery } from "$lib/stores/nostr.svelte.js";
+import { createAppsListingQuery } from "$lib/purpleweb";
 // Get current user's pubkey
 const userPubkey = $derived(getCurrentPubkey());
-// liveQuery-driven apps from Dexie
-let allApps = $state([]);
-$effect(() => {
-    const sub = createAppsQuery().subscribe({
-        next: (value) => { allApps = value; },
-        error: (err) => console.error('[Dashboard] liveQuery error:', err)
-    });
-    return () => sub.unsubscribe();
-});
+// Local-first apps listing via purpleweb (Dexie liveQuery + back-nav cache).
+const appsListing = createAppsListingQuery();
+const allApps = $derived(appsListing.items);
 // Filter apps by current user's pubkey
 const userApps = $derived(userPubkey
     ? allApps.filter(app => app.pubkey === userPubkey)

@@ -33,10 +33,21 @@ export function createAddressableSocialQuery(getRoot, options = {}) {
 		zapperProfiles: new SvelteMap()
 	});
 
-	$effect(() => {
+	// Depend ONLY on the stable identity key. Parent detail queries re-emit on
+	// every Dexie write (parseApp returns a new object each time) — without
+	// this guard the effect tore down + re-opened relay subscriptions in a
+	// loop, and each fresh subscription wrote more events into Dexie, feeding
+	// the loop. The key collapses identical roots to the same string so
+	// $derived's Object.is dedup skips the re-run.
+	const rootKey = $derived.by(() => {
 		const root = getRoot?.();
 		const enabled = options.enabled ? options.enabled() : true;
-		if (!browser || !enabled || !root?.kind || !root?.pubkey || !root?.identifier) {
+		if (!browser || !enabled || !root?.kind || !root?.pubkey || !root?.identifier) return null;
+		return `${root.kind}:${root.pubkey}:${root.identifier}:${(root.mainEventIds ?? []).slice().sort().join(',')}`;
+	});
+
+	$effect(() => {
+		if (rootKey === null) {
 			state.comments = [];
 			state.commentEvents = [];
 			state.zaps = [];
@@ -54,8 +65,9 @@ export function createAddressableSocialQuery(getRoot, options = {}) {
 			return;
 		}
 
-		const key = `${root.kind}:${root.pubkey}:${root.identifier}:${(root.mainEventIds ?? []).join(',')}`;
-		void key;
+		const root = /** @type {{ kind: number, pubkey: string, identifier: string, mainEventIds?: string[] }} */ (
+			untrack(() => getRoot())
+		);
 
 		const hasLocalSnapshot = untrack(
 			() => state.comments.length > 0 || state.zaps.length > 0 || state.labelEntries.length > 0

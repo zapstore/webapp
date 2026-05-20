@@ -16,7 +16,7 @@ export const load = async ({ params }) => {
 	if (browser) return { stack: null, apps: [], error: null, seedEvents: [] };
 
 	const { nip19 } = await import('nostr-tools');
-	const { fetchStack } = await import('$lib/nostr/server.js');
+	const { fetchStack } = await import('$lib/purpleweb/server.js');
 
 	const pointer = decodeNaddr(params.naddr);
 	if (!pointer) {
