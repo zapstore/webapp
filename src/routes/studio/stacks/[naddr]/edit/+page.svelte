@@ -131,7 +131,7 @@ function handleSaved(_result) {
 }
 
 function handleDeleted() {
-	goto('/studio/stacks', { replaceState: true });
+	goto('/studio/insights', { replaceState: true });
 }
 
 function handleBack() {
@@ -164,6 +164,11 @@ function handleBack() {
 		-webkit-overflow-scrolling: touch;
 		display: flex;
 		flex-direction: column;
+	}
+
+	.detail-scroll :global(> *) {
+		flex: 1;
+		min-height: 100%;
 	}
 
 </style>

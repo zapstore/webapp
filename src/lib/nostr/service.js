@@ -1787,7 +1787,7 @@ export async function publishLabelDeletion(signEvent, labelEventId, relays) {
  * Publish a kind 30267 App Stack.
  * Creates a new stack with the given apps as references.
  */
-export async function publishStack(name, description, apps, signEvent) {
+export async function publishStack(name, description, apps, signEvent, labels = []) {
 	if (!name?.trim()) throw new Error('Stack name is required');
 
 	// Generate a unique identifier from name + timestamp
@@ -1805,6 +1805,10 @@ export async function publishStack(name, description, apps, signEvent) {
 
 	if (descTrimmed) {
 		tags.push(['description', descTrimmed]);
+	}
+
+	for (const label of labels || []) {
+		if (label?.trim()) tags.push(['t', label.trim()]);
 	}
 
 	// Add app references as 'a' tags (format: "kind:pubkey:identifier")

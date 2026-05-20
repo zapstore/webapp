@@ -22,7 +22,7 @@
 	import InputButton from '$lib/components/common/InputButton.svelte';
 	import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 	import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
-	import InsertModal from '$lib/components/modals/InsertModal.svelte';
+	import AddModal from '$lib/components/modals/AddModal.svelte';
 	import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
 	import { Zap, Reply, Options } from '$lib/components/icons';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
@@ -241,7 +241,7 @@
 	function handleInsertTap() {
 		insertModalOpen = true;
 	}
-	function handleInsertNostrRef(
+	function handleAddNostrRef(
 		/** @type {{ naddr: string; name?: string | null; iconUrl?: string | null }} */ payload
 	) {
 		replyInput?.insertNostrRef?.(payload);
@@ -1314,11 +1314,11 @@
 	}}
 />
 
-<InsertModal
-	title="Insert"
+<AddModal
+	title="Add App"
 	bind:isOpen={insertModalOpen}
 	{getCurrentPubkey}
-	onInsert={handleInsertNostrRef}
+	onAdd={handleAddNostrRef}
 	onclose={() => {
 		insertModalOpen = false;
 	}}

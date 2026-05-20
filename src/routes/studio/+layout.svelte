@@ -6,6 +6,7 @@
 	import ChevronDownIcon from '$lib/components/icons/ChevronDown.svelte';
 	import InsightsIcon from '$lib/components/icons/Insights.svelte';
 	import InboxIcon from '$lib/components/icons/Inbox.svelte';
+	import { Plus } from '$lib/components/icons';
 	import { queryEvents, parseAppStack, liveQuery } from '$lib/nostr';
 	import { encodeStackNaddr, stackDisplayTitle, parseApp } from '$lib/nostr/models.js';
 	import { getIsSignedIn, getIsConnecting, isAuthInitialized } from '$lib/stores/auth.svelte.js';
@@ -234,7 +235,7 @@
 		if (p === '/studio/apps') return 'apps';
 		if (p.startsWith('/studio/apps/')) return 'app';
 		if (p.startsWith('/studio/assets')) return 'assets';
-		if (p === '/studio/stacks') return 'stacks';
+		if (p === '/studio/stacks/new') return 'stack-new';
 		if (p.startsWith('/studio/stacks/')) return 'stack';
 		if (p.startsWith('/studio/migration')) return 'migration';
 		return 'insights'; // /studio and /studio/insights both map here
@@ -257,10 +258,13 @@
 		return $page.url.pathname.replace('/studio/stacks/', '').split('/')[0];
 	});
 
+	const isNewStackPage = $derived(activeSection === 'stack-new');
+	const stacksPlusIconColor = $derived(isNewStackPage ? 'var(--white33)' : 'var(--white16)');
+
 	const activeNavLabel = $derived.by(() => {
 		if (activeSection === 'inbox') return 'Inbox';
 		if (activeSection === 'assets') return 'Assets';
-		if (activeSection === 'stacks') return 'Stacks';
+		if (activeSection === 'stack-new') return 'New Stack';
 		if (activeSection === 'stack') return 'Edit Stack';
 		if (activeSection === 'migration') return 'Migration';
 		if (activeSection === 'app') {
@@ -338,6 +342,14 @@
 						<div class="apps-section">
 							<div class="apps-section-head">
 								<span class="eyebrow-label apps-eyebrow">Apps</span>
+								<a
+									href="/docs/publish"
+									class="sidebar-section-plus"
+									aria-label="Publish an app"
+									onclick={closeMobile}
+								>
+									<Plus variant="outline" color="var(--white16)" size={12} strokeWidth={2.4} />
+								</a>
 							</div>
 							{#if !appsLoading && userApps.length === 0}
 								<button
@@ -364,12 +376,21 @@
 						<div class="stacks-section">
 							<div class="apps-section-head">
 								<span class="eyebrow-label apps-eyebrow">Stacks</span>
+								<button
+									type="button"
+									class="sidebar-section-plus"
+									class:sidebar-section-plus-active={isNewStackPage}
+									aria-label="New stack"
+									aria-current={isNewStackPage ? 'page' : undefined}
+									onclick={() => navTo('/studio/stacks/new')}
+								>
+									<Plus variant="outline" color={stacksPlusIconColor} size={12} strokeWidth={2.4} />
+								</button>
 							</div>
 							{#if !stacksLoading && userStacks.length === 0}
 								<button
 									class="nav-item no-apps-item"
-									class:active={activeSection === 'stacks'}
-									onclick={() => navTo('/studio/stacks')}
+									onclick={() => navTo('/studio/stacks/new')}
 								>
 									<span class="nav-label no-apps-label">No stacks yet</span>
 								</button>
@@ -466,6 +487,9 @@
 				<div class="apps-section">
 					<div class="apps-section-head">
 						<span class="eyebrow-label apps-eyebrow">Apps</span>
+						<a href="/docs/publish" class="sidebar-section-plus" aria-label="Publish an app">
+							<Plus variant="outline" color="var(--white16)" size={12} strokeWidth={2.4} />
+						</a>
 					</div>
 					{#if !appsLoading && userApps.length === 0}
 						<button
@@ -493,12 +517,21 @@
 				<div class="stacks-section">
 					<div class="apps-section-head">
 						<span class="eyebrow-label apps-eyebrow">Stacks</span>
+						<button
+							type="button"
+							class="sidebar-section-plus"
+							class:sidebar-section-plus-active={isNewStackPage}
+							aria-label="New stack"
+							aria-current={isNewStackPage ? 'page' : undefined}
+							onclick={() => goto('/studio/stacks/new')}
+						>
+							<Plus variant="outline" color={stacksPlusIconColor} size={12} strokeWidth={2.4} />
+						</button>
 					</div>
 					{#if !stacksLoading && userStacks.length === 0}
 						<button
 							class="nav-item no-apps-item"
-							class:active={activeSection === 'stacks'}
-							onclick={() => goto('/studio/stacks')}
+							onclick={() => goto('/studio/stacks/new')}
 						>
 							<span class="nav-label no-apps-label">No stacks yet</span>
 						</button>
@@ -695,6 +728,33 @@
 		color: var(--white33);
 		display: block;
 		min-width: 0;
+	}
+
+	.sidebar-section-plus {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
+		flex-shrink: 0;
+		padding: 0;
+		border: none;
+		background: transparent;
+		border-radius: 6px;
+		cursor: pointer;
+		text-decoration: none;
+		color: inherit;
+		transition: background-color 0.15s ease;
+	}
+
+	.sidebar-section-plus:hover:not(.sidebar-section-plus-active) {
+		background: var(--white4);
+	}
+
+	.sidebar-section-plus-active {
+		background: transparent;
+		box-shadow: inset 0 0 0 0.33px var(--white16);
+		cursor: default;
 	}
 
 	.app-img {

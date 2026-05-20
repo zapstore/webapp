@@ -529,6 +529,7 @@
 										app={row.app}
 										authorProfile={row.profile}
 										showDescription={true}
+										noHover={true}
 									/>
 								</li>
 							{/each}
@@ -857,14 +858,20 @@
 		z-index: 50;
 	}
 
+	/* Toolbar already has border-bottom — avoid double line with shared .browse-grid border-top */
+	.apps-search-results-list {
+		border-top: none;
+	}
+
+	.apps-search-results-list :global(.app-search-hit),
+	.apps-search-results-list :global(.app-search-hit:hover) {
+		background-color: transparent;
+	}
+
 	.apps-search-empty {
 		color: var(--white66);
 		margin: 0;
 		padding: var(--apps-pad-x);
-	}
-
-	.apps-search-result-row:hover {
-		background-color: var(--white4);
 	}
 
 	.apps-search-panel.hidden {

@@ -1,26 +1,39 @@
 <script lang="js">
 /**
- * InsertModal - Insert a Nostr reference (e.g. app) into forum post content.
- * Title param. Search bar; default state = EmptyState "No apps found". Search results in black33 list with full-width dividers.
+ * AddModal — search and pick an app (stack editor, comments, forum posts, etc.).
+ * Single-column browse-style results with an action button per row.
  */
-import { fly } from 'svelte/transition';
+import { fly, fade } from 'svelte/transition';
 import { cubicOut } from 'svelte/easing';
 import { Search } from 'lucide-svelte';
-import AppPic from '$lib/components/common/AppPic.svelte';
+import AppSearchHitRow from '$lib/components/cards/AppSearchHitRow.svelte';
+import AppSearchHitRowSkeleton from '$lib/components/cards/AppSearchHitRowSkeleton.svelte';
+import { APP_SEARCH_HIT_SKELETON_VARIANT_COUNT } from '$lib/components/cards/app-search-hit-skeleton-presets.js';
 import {
 	searchApps,
 	queryEvents,
-	fetchAppsByAuthorFromRelays
+	fetchAppsByAuthorFromRelays,
+	fetchProfilesBatch
 } from '$lib/nostr/service';
-import { parseApp } from '$lib/nostr/models';
+import { parseApp, parseProfile } from '$lib/nostr/models';
 import { ZAPSTORE_RELAY, PLATFORM_FILTER } from '$lib/config';
+import {
+	sortAppsDeveloperFirst,
+	sortAppsRelevanceDeveloperFirst
+} from '$lib/utils/app-search.js';
+import '$lib/styles/browse-grid.css';
 
 let {
-	title = 'Insert',
+	title = 'Add',
+	actionLabel = 'Add',
 	isOpen = $bindable(false),
 	getCurrentPubkey = () => null,
-	onInsert = () => {},
-	onclose = () => {}
+	onAdd = () => {},
+	onclose = () => {},
+	/** Dark backdrop (e.g. stack editor). */
+	dimOverlay = false,
+	/** Cover the nearest positioned panel (studio content) instead of the viewport. */
+	scopedInPanel = false
 } = $props();
 
 let query = $state('');
@@ -32,8 +45,11 @@ let myApps = $state([]);
 let myAppsLoading = $state(false);
 /** @type {HTMLInputElement | null} */
 let searchInputEl = $state(null);
+/** @type {Record<string, ReturnType<typeof parseProfile> | null | undefined>} */
+let profileByPubkey = $state({});
 
 const catalogRelays = [ZAPSTORE_RELAY, 'wss://relay.vertexlab.io'];
+const SKELETON_ROWS = 4;
 
 $effect(() => {
 	if (!isOpen) {
@@ -41,13 +57,13 @@ $effect(() => {
 		searchResults = [];
 		myApps = [];
 		myAppsLoading = false;
+		profileByPubkey = {};
 		return;
 	}
 	const t = setTimeout(() => searchInputEl?.focus(), 80);
 	return () => clearTimeout(t);
 });
 
-/** Signed-in, empty search: show your apps from Dexie first, relay fallback if empty (local-first). */
 $effect(() => {
 	if (!isOpen || query.trim()) {
 		if (!isOpen) {
@@ -125,22 +141,58 @@ $effect(() => {
 });
 
 const hasQuery = $derived(query.trim().length > 0);
-const displayResults = $derived(hasQuery ? searchResults : myApps);
+const displayResults = $derived.by(() => {
+	const raw = hasQuery ? searchResults : myApps;
+	if (raw.length === 0) return [];
+	const byId = new Map(raw.map((event) => [event.id, event]));
+	const apps = raw.map(parseApp);
+	const sorted = hasQuery
+		? sortAppsRelevanceDeveloperFirst(apps)
+		: sortAppsDeveloperFirst(apps);
+	return sorted.map((app) => byId.get(app.id)).filter(Boolean);
+});
 const listLoading = $derived(
 	(hasQuery && searchLoading) || (!hasQuery && !!getCurrentPubkey() && myAppsLoading)
 );
 
-function handleInsert(parsed) {
-	const naddr = parsed?.naddr;
-	if (naddr) {
-		onInsert({
-			naddr,
-			name: parsed?.name ?? null,
-			iconUrl: parsed?.icon ?? null
-		});
-		isOpen = false;
-		onclose?.();
+$effect(() => {
+	const results = displayResults;
+	if (!isOpen || results.length === 0) {
+		profileByPubkey = {};
+		return;
 	}
+	const controller = new AbortController();
+	const pubs = [...new Set(results.map((event) => event.pubkey))];
+	(async () => {
+		try {
+			const rawProfiles = await fetchProfilesBatch(pubs, { signal: controller.signal });
+			if (controller.signal.aborted) return;
+			const next = /** @type {Record<string, ReturnType<typeof parseProfile> | null>} */ ({});
+			for (const [pk, ev] of rawProfiles) {
+				next[String(pk).trim().toLowerCase()] = parseProfile(ev);
+			}
+			profileByPubkey = next;
+		} catch {
+			if (!controller.signal.aborted) {
+				profileByPubkey = {};
+			}
+		}
+	})();
+	return () => controller.abort();
+});
+
+/** @param {ReturnType<typeof parseApp>} parsed */
+function handleAdd(parsed) {
+	const naddr = parsed?.naddr;
+	if (!naddr) return;
+	onAdd({
+		naddr,
+		name: parsed?.name ?? null,
+		iconUrl: parsed?.icon ?? null,
+		app: parsed
+	});
+	isOpen = false;
+	onclose?.();
 }
 
 function handleOverlayClick() {
@@ -154,25 +206,43 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		onclose?.();
 	}
 }
+
+/** @param {ReturnType<typeof parseApp>} parsed */
+function profileForApp(parsed) {
+	return profileByPubkey[String(parsed.pubkey).trim().toLowerCase()];
+}
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
 {#if isOpen}
-	<div class="insert-overlay" onclick={handleOverlayClick} role="presentation"></div>
+	<div
+		class="add-overlay"
+		class:add-overlay-dim={dimOverlay}
+		class:add-overlay-scoped={scopedInPanel}
+		onclick={handleOverlayClick}
+		role="presentation"
+		transition:fade={{ duration: 180 }}
+	></div>
 
-	<div class="insert-wrapper" role="dialog" aria-modal="true" aria-label={title}>
-		<div class="insert-sheet" transition:fly={{ y: 80, duration: 200, easing: cubicOut }}>
-			<div class="insert-title-block">
-				<h2 class="insert-title">{title}</h2>
+	<div
+		class="add-wrapper"
+		class:add-wrapper-scoped={scopedInPanel}
+		role="dialog"
+		aria-modal="true"
+		aria-label={title}
+	>
+		<div class="add-sheet" transition:fly={{ y: 80, duration: 200, easing: cubicOut }}>
+			<div class="add-title-block">
+				<h2 class="add-title">{title}</h2>
 			</div>
 
-			<div class="insert-search-row">
-				<div class="insert-search-inner">
-					<span class="insert-search-icon" aria-hidden="true"><Search /></span>
+			<div class="add-search-row">
+				<div class="add-search-inner">
+					<span class="add-search-icon" aria-hidden="true"><Search /></span>
 					<input
 						type="search"
-						class="insert-search-input"
+						class="add-search-input"
 						placeholder="Search apps"
 						bind:value={query}
 						bind:this={searchInputEl}
@@ -181,37 +251,52 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 				</div>
 			</div>
 
-			<div class="insert-body-wrap">
-				<div
-					class="insert-body-inner"
-					class:insert-body-inner-scroll={listLoading || displayResults.length > 0}
-				>
+			<div class="add-body-wrap">
+				<div class="add-body-inner">
 					{#if listLoading}
-						<div class="insert-empty-state">
-							<div class="insert-spinner" aria-hidden="true">
-								<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<circle cx="12" cy="12" r="10" stroke-dasharray="47 15" stroke-linecap="round"/>
-								</svg>
-							</div>
-						</div>
+						<ul class="browse-grid add-modal-results" role="list" aria-hidden="true">
+							{#each Array(SKELETON_ROWS) as _, i (i)}
+								<li class="browse-grid-item browse-grid-item--app add-modal-row">
+									<div class="add-modal-hit">
+										<AppSearchHitRowSkeleton
+											variant={i % APP_SEARCH_HIT_SKELETON_VARIANT_COUNT}
+											showDescription={false}
+											showChevron={false}
+											iconSize="md"
+										/>
+									</div>
+								</li>
+							{/each}
+						</ul>
 					{:else if displayResults.length === 0}
-						<div class="insert-empty-state">
-							<p class="insert-empty-text">
+						<div class="add-empty-state">
+							<p class="add-empty-text">
 								{!hasQuery && !getCurrentPubkey() ? 'Search apps' : 'No apps found'}
 							</p>
 						</div>
 					{:else}
-						<ul class="insert-list">
+						<ul class="browse-grid add-modal-results" role="list">
 							{#each displayResults as event (event.id)}
 								{@const parsed = parseApp(event)}
-								<li class="insert-row">
-									<div class="insert-app-info">
-										<AppPic iconUrl={parsed.icon} name={parsed.name} identifier={parsed.dTag} size="sm" />
-										<span class="insert-name">{parsed.name || parsed.dTag}</span>
+								<li class="browse-grid-item browse-grid-item--app add-modal-row">
+									<div class="add-modal-hit">
+										<AppSearchHitRow
+											app={parsed}
+											authorProfile={profileForApp(parsed)}
+											showDescription={false}
+											showChevron={false}
+											iconSize="md"
+											noHover={true}
+											onNavigate={(e) => e.preventDefault()}
+										/>
+										<button
+											type="button"
+											class="btn-secondary-small btn-secondary-light add-modal-action"
+											onclick={() => handleAdd(parsed)}
+										>
+											{actionLabel}
+										</button>
 									</div>
-									<button type="button" class="btn-secondary btn-secondary-small btn-secondary-light" onclick={() => handleInsert(parsed)}>
-										Insert
-									</button>
 								</li>
 							{/each}
 						</ul>
@@ -223,14 +308,22 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 {/if}
 
 <style>
-	.insert-overlay {
+	.add-overlay {
 		position: fixed;
 		inset: 0;
 		z-index: 109;
 		background: transparent;
 	}
 
-	.insert-wrapper {
+	.add-overlay-dim {
+		background: color-mix(in srgb, var(--black) 65%, transparent);
+	}
+
+	.add-overlay-scoped {
+		position: absolute;
+	}
+
+	.add-wrapper {
 		position: fixed;
 		bottom: 0;
 		left: 0;
@@ -241,7 +334,11 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		pointer-events: none;
 	}
 
-	.insert-sheet {
+	.add-wrapper-scoped {
+		position: absolute;
+	}
+
+	.add-sheet {
 		width: 100%;
 		max-width: 100%;
 		margin: 0;
@@ -255,11 +352,14 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		-webkit-backdrop-filter: blur(24px);
 		display: flex;
 		flex-direction: column;
+		height: 50vh;
 		max-height: 50vh;
+		min-height: 0;
+		box-sizing: border-box;
 	}
 
 	@media (min-width: 768px) {
-		.insert-sheet {
+		.add-sheet {
 			max-width: 560px;
 			margin-bottom: 16px;
 			border-radius: 24px;
@@ -268,11 +368,12 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		}
 	}
 
-	.insert-title-block {
+	.add-title-block {
 		flex-shrink: 0;
 		padding: 0 0 8px;
 	}
-	.insert-title {
+
+	.add-title {
 		margin: 0;
 		font-size: 1.875rem;
 		font-weight: 600;
@@ -280,11 +381,12 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		text-align: center;
 	}
 
-	.insert-search-row {
+	.add-search-row {
 		flex-shrink: 0;
 		padding-bottom: 0;
 	}
-	.insert-search-inner {
+
+	.add-search-inner {
 		display: flex;
 		align-items: center;
 		gap: 10px;
@@ -295,7 +397,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		border-radius: 16px;
 	}
 
-	.insert-search-icon {
+	.add-search-icon {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -305,7 +407,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		color: var(--white33);
 	}
 
-	.insert-search-input {
+	.add-search-input {
 		flex: 1;
 		min-width: 0;
 		background: none;
@@ -316,11 +418,11 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		font-size: 16px;
 	}
 
-	.insert-search-input::placeholder {
+	.add-search-input::placeholder {
 		color: var(--white33);
 	}
 
-	.insert-body-wrap {
+	.add-body-wrap {
 		flex: 1;
 		min-height: 0;
 		display: flex;
@@ -328,36 +430,37 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		padding-top: 12px;
 	}
 
-	.insert-body-inner {
+	.add-body-inner {
+		flex: 1;
+		min-height: 0;
 		background: var(--black33);
 		border-radius: var(--radius-12);
-		min-height: 160px;
-		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-	}
-	.insert-body-inner-scroll {
-		max-height: 280px;
 		overflow-y: auto;
 		scrollbar-width: thin;
 		scrollbar-color: var(--white33) transparent;
 	}
-	.insert-body-inner-scroll::-webkit-scrollbar {
+
+	.add-body-inner::-webkit-scrollbar {
 		width: 4px;
 	}
-	.insert-body-inner-scroll::-webkit-scrollbar-thumb {
+
+	.add-body-inner::-webkit-scrollbar-thumb {
 		background: var(--white33);
 		border-radius: 2px;
 	}
 
-	.insert-empty-state {
+	.add-empty-state {
+		flex: 1;
+		min-height: 0;
 		width: 100%;
-		min-height: 160px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
-	.insert-empty-text {
+
+	.add-empty-text {
 		font-size: 1.5rem;
 		font-weight: 600;
 		color: var(--white16);
@@ -365,52 +468,31 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		margin: 0;
 		padding: 24px 16px;
 	}
-	.insert-spinner {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: var(--white33);
-	}
-	.insert-spinner svg {
-		animation: insert-spin 0.8s linear infinite;
-	}
-	@keyframes insert-spin {
-		to { transform: rotate(360deg); }
+
+	.add-modal-results {
+		border-top: none;
 	}
 
-	.insert-list {
-		list-style: none;
-		margin: 0;
+	.add-modal-row {
 		padding: 0;
-		display: flex;
-		flex-direction: column;
 	}
 
-	.insert-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 10px 12px;
-		border-bottom: 1px solid var(--white8);
-	}
-	.insert-row:last-child {
-		border-bottom: none;
-	}
-
-	.insert-app-info {
+	.add-modal-hit {
 		display: flex;
 		align-items: center;
 		gap: 12px;
+		width: 100%;
 		min-width: 0;
-		flex: 1;
+		padding: 16px;
+		box-sizing: border-box;
 	}
 
-	.insert-name {
-		font-size: 15px;
-		font-weight: 500;
-		color: var(--white);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+	.add-modal-hit :global(.app-search-hit) {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.add-modal-action {
+		flex-shrink: 0;
 	}
 </style>

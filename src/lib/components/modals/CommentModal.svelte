@@ -8,7 +8,7 @@ import { fly } from "svelte/transition";
 import { cubicOut } from "svelte/easing";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import EmojiPickerModal from "$lib/components/modals/EmojiPickerModal.svelte";
-import InsertModal from "$lib/components/modals/InsertModal.svelte";
+import AddModal from "$lib/components/modals/AddModal.svelte";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { createSearchProfilesFunction } from "$lib/services/profile-search";
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
@@ -198,11 +198,11 @@ $effect(() => {
   onclose={() => { emojiPickerOpen = false; }}
 />
 
-<InsertModal
-  title="Insert"
+<AddModal
+  title="Add App"
   bind:isOpen={insertModalOpen}
   {getCurrentPubkey}
-  onInsert={handleInsertNostrRef}
+  onAdd={handleInsertNostrRef}
   onclose={() => { insertModalOpen = false; }}
 />
 
