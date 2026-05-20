@@ -278,7 +278,7 @@
 	}
 
 	.apps-page-carousel-wrap :global(.screenshots-content > .apps-browse-grid:not(:last-child)) {
-		border-right: 1px solid var(--white16);
+		border-right: 1px solid var(--shell-border);
 	}
 
 	.apps-page-carousel-wrap :global(.screenshots-scroll) {
@@ -294,9 +294,13 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		border-top: 1px solid var(--white16);
-		border-bottom: 1px solid var(--white16);
+		border-top: 1px solid var(--shell-border);
+		border-bottom: 1px solid var(--shell-border);
 		box-sizing: border-box;
+	}
+
+	.apps-browse-grid :global(.browse-grid-item) {
+		border-bottom-color: var(--shell-border);
 	}
 
 	/* Row dividers come from items; panel bottom edge is the grid border only. */

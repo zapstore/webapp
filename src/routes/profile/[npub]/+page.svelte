@@ -278,7 +278,7 @@ function getStackUrl(stack) {
 	.profile-pic-cell {
 		flex-shrink: 0;
 		padding: var(--profile-pic-cell-pad);
-		border-right: 1px solid var(--white16);
+		border-right: 1px solid var(--shell-border);
 		box-sizing: border-box;
 	}
 
@@ -384,7 +384,7 @@ function getStackUrl(stack) {
 		height: 1.4px;
 		margin: 0 calc(-1 * var(--page-content-pad-x, 0px)) 0;
 		width: calc(100% + 2 * var(--page-content-pad-x, 0px));
-		background-color: var(--white11);
+		background-color: var(--shell-border);
 		border: none;
 	}
 
@@ -415,7 +415,7 @@ function getStackUrl(stack) {
 	}
 
 	.profile-activity-content {
-		border-top: 1px solid var(--white16);
+		border-top: 1px solid var(--shell-border);
 	}
 
 	.profile-activity-sentinel {

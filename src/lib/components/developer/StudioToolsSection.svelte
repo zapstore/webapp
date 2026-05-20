@@ -5,7 +5,7 @@
 
 </script>
 
-<section id="quickstart" class="studio-tools-section border-b border-border/50">
+<section id="quickstart" class="studio-tools-section border-b border-shell">
   <div class="studio-tools-container">
 		<h2 class="studio-quick-start-title section-title display-section section-title-gradient">Quickstart</h2>
 		<p class="section-description studio-quick-start-desc">Get started with the tools we currently have. Get excited about the ones that are coming.</p>
@@ -207,7 +207,7 @@
 		gap: 1.05rem;
 		margin: 0 -1.5rem 0 -1.5rem;
 		padding: 1.35rem 1.5rem 1rem 1.5rem;
-		border-bottom: 1.4px solid var(--white11);
+		border-bottom: 1.4px solid var(--shell-border);
 	}
 
 	.studio-panel-header-img {
@@ -245,7 +245,7 @@
 		padding: 0.9rem 1.5rem;
 		text-decoration: none;
 		color: inherit;
-		border-bottom: 1.4px solid var(--white11);
+		border-bottom: 1.4px solid var(--shell-border);
 	}
 
 	.studio-panel-row:last-child {

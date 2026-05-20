@@ -70,7 +70,7 @@
 	});
 </script>
 
-<section bind:this={sectionEl} class="border-t border-b border-white/[0.07] py-8 sm:py-10 lg:py-14">
+<section bind:this={sectionEl} class="border-t border-b border-shell py-8 sm:py-10 lg:py-14">
 	<!-- ── MOBILE ─────────────────────────────────────────────────────── -->
 	<div class="mobile-scroll lg:hidden">
 		<div class="mobile-scroll-inner">

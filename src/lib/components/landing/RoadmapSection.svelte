@@ -92,7 +92,7 @@
 	});
 </script>
 
-<section class="border-t border-border/50 py-8 sm:py-12 lg:py-16">
+<section class="border-t border-shell py-8 sm:py-12 lg:py-16">
 	<LandingSectionTitle
 		title="What's next?"
 		description="Here's what we're working on<span class='hidden sm:inline'> to make Zapstore even better.</span>"

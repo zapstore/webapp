@@ -77,6 +77,9 @@
   --white33Enforced: #FFFFFF54;
   --white11Enforced: #FFFFFF1C;
 
+  /* Semantic layout borders — page frames, sidebars, grids, feed row dividers */
+  --shell-border: var(--white11);
+
   /* Black variants - opacity baked into color definition */
   --black: #121212;
   --black66: #121212A8;
@@ -597,6 +600,7 @@ h5, h6 {
 
 .border-white16 { border-color: var(--white16); }
 .border-white8 { border-color: var(--white8); }
+.border-shell { border-color: var(--shell-border); }
 .border-blurple { border-color: var(--blurpleColor); }
 
 /* Legacy Tailwind compat */
@@ -2094,7 +2098,7 @@ a, button {
 .divider {
   width: 100%;
   height: 0.33px;
-  background-color: var(--white11);
+  background-color: var(--shell-border);
   border: none;
   margin: 0;
 }
@@ -2103,7 +2107,7 @@ a, button {
 .divider-vertical {
   width: 0.33px;
   height: 100%;
-  background-color: var(--white11);
+  background-color: var(--shell-border);
   border: none;
   margin: 0;
 }
@@ -2147,14 +2151,14 @@ a, button {
 .divider {
   width: 100%;
   height: 1.4px;
-  background-color: var(--white11);
+  background-color: var(--shell-border);
 }
 
 /* Vertical divider - use for inline separators */
 .divider-vertical {
   width: 1.4px;
   height: 100%;
-  background-color: var(--white11);
+  background-color: var(--shell-border);
 }
 
 /* Section title with gradient */

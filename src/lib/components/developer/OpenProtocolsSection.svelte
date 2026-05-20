@@ -85,7 +85,7 @@
 <style>
 	.open-protocols-section {
 		padding: 3rem 1rem 3rem;
-		border-bottom: 1.4px solid var(--white11);
+		border-bottom: 1.4px solid var(--shell-border);
 	}
 
 	.open-protocols-col-left {
@@ -193,7 +193,7 @@
 		gap: 1.5rem;
 		align-items: center;
 		padding: 1.5rem 1.5rem;
-		border-bottom: 1.4px solid var(--white11);
+		border-bottom: 1.4px solid var(--shell-border);
 	}
 
 	.open-protocols-row-link {

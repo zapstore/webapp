@@ -234,17 +234,17 @@
 						</a>
 					{/each}
 				</nav>
+			</div>
 
-				<!-- Community section — pinned to bottom of sidebar -->
-				<div class="sidebar-section">
-					<span class="eyebrow-label section-eyebrow">Community</span>
-					<button type="button" class="nav-item" onclick={() => (detailsModalOpen = true)}>
-						<span class="nav-label">Details</span>
-					</button>
-					<button type="button" class="nav-item" onclick={() => (termsModalOpen = true)}>
-						<span class="nav-label">Terms of Service</span>
-					</button>
-				</div>
+			<!-- Community section — pinned to bottom of sidebar (outside scroll, like /studio) -->
+			<div class="sidebar-section">
+				<span class="eyebrow-label section-eyebrow">Community</span>
+				<button type="button" class="nav-item" onclick={() => (detailsModalOpen = true)}>
+					<span class="nav-label">Details</span>
+				</button>
+				<button type="button" class="nav-item" onclick={() => (termsModalOpen = true)}>
+					<span class="nav-label">Terms of Service</span>
+				</button>
 			</div>
 		</aside>
 
@@ -338,8 +338,8 @@
 		height: calc(100dvh - 64px);
 		min-height: 0;
 		overflow: hidden;
-		border-left: 1px solid var(--white16);
-		border-right: 1px solid var(--white16);
+		border-left: 1px solid var(--shell-border);
+		border-right: 1px solid var(--shell-border);
 		margin-left: -16px;
 		margin-right: -16px;
 	}
@@ -382,7 +382,7 @@
 		padding: 10px 16px;
 		background: transparent;
 		border: none;
-		border-bottom: 1px solid var(--white16);
+		border-bottom: 1px solid var(--shell-border);
 		cursor: pointer;
 		color: var(--white);
 		font-size: 14px;
@@ -416,7 +416,7 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--black);
-		border-top: 1px solid var(--white16);
+		border-top: 1px solid var(--shell-border);
 		box-shadow: 0 12px 40px color-mix(in srgb, var(--black) 35%, transparent);
 		overflow: hidden;
 	}
@@ -483,8 +483,6 @@
 		min-height: 0;
 		overflow-y: auto;
 		overflow-x: hidden;
-		display: flex;
-		flex-direction: column;
 		overscroll-behavior: contain;
 		-webkit-overflow-scrolling: touch;
 	}
@@ -514,7 +512,7 @@
 		padding-top: 16px;
 		padding-left: 12px;
 		padding-right: 12px;
-		border-top: 1px solid var(--white16);
+		border-top: 1px solid var(--shell-border);
 	}
 
 	.section-eyebrow {
@@ -645,7 +643,7 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		border-left: 1px solid var(--white16);
+		border-left: 1px solid var(--shell-border);
 		min-height: 0;
 	}
 

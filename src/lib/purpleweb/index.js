@@ -89,6 +89,7 @@ export {
 	fetchAppsByAuthorFromRelays,
 	fetchAllAppsByAuthorFromRelays,
 	fetchAppFromRelays,
+	fetchStacksByAuthorFromRelays,
 	fetchStackFromRelays,
 	resolveAppEventForNaddr,
 	resolveStackEventForNaddr,

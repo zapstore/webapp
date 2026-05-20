@@ -239,8 +239,8 @@
 
 	.stacks-page-frame {
 		--stacks-pad-x: 14px;
-		border-left: 1px solid var(--white16);
-		border-right: 1px solid var(--white16);
+		border-left: 1px solid var(--shell-border);
+		border-right: 1px solid var(--shell-border);
 		margin-left: -16px;
 		margin-right: -16px;
 	}

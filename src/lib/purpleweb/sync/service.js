@@ -818,6 +818,27 @@ export async function fetchAppsByAuthorFromRelays(relayUrls, pubkey, options = {
 }
 
 /**
+ * Fetch stack events by author from relays (studio sidebar, profile hydration, etc.).
+ * Events are written to Dexie via fetchFromRelays. No platform filter — author's
+ * stacks include private studio stacks that may omit `#f`.
+ *
+ * @param {{ limit?: number, until?: number, timeout?: number, signal?: AbortSignal }} options
+ */
+export async function fetchStacksByAuthorFromRelays(relayUrls, pubkey, options = {}) {
+	const { limit = 50, until, timeout = 5000, signal } = options;
+	if (signal?.aborted || !pubkey) return [];
+	const filter = {
+		kinds: [EVENT_KINDS.APP_STACK],
+		authors: [pubkey],
+		limit
+	};
+	if (until != null && !Number.isNaN(Number(until))) {
+		filter.until = Number(until);
+	}
+	return fetchFromRelays(relayUrls, filter, { timeout, signal, feature: 'profile' });
+}
+
+/**
  * Paginate kind 32267 by author until a page returns fewer than `pageLimit` events or `maxPages`
  * is reached. Each page is persisted via fetchFromRelays. Use for large catalogs (e.g. Zapstore indexer).
  *

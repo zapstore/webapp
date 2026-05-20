@@ -16,7 +16,7 @@
 	}
 </script>
 
-<section class="relative border-t border-border/50 overflow-hidden">
+<section class="relative border-t border-shell overflow-hidden">
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 pt-12 lg:pt-16 pb-0">
 		<!-- Center text -->
 		<div class="relative z-20 text-center mb-6 sm:mb-12">

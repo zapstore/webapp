@@ -130,7 +130,7 @@
 		display: flex;
 		flex-direction: column;
 		padding: 16px;
-		border-bottom: 1.4px solid var(--white11);
+		border-bottom: 1.4px solid var(--shell-border);
 		box-sizing: border-box;
 	}
 

@@ -45,7 +45,7 @@
 	];
 </script>
 
-<section class="border-t border-border/50 py-12 sm:py-16 lg:py-20">
+<section class="border-t border-shell py-12 sm:py-16 lg:py-20">
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8">
 		<div class="mb-8 sm:mb-12 text-center">
 			<h2 class="display-section mb-4">

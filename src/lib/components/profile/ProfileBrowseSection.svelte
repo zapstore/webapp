@@ -211,8 +211,8 @@
 		text-align: center;
 		width: 100%;
 		box-sizing: border-box;
-		border-top: 1px solid var(--white16);
-		border-bottom: 1px solid var(--white16);
+		border-top: 1px solid var(--shell-border);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	/* Full-bleed is handled by `.profile-browse-content` on the profile page — no double negative margin here. */

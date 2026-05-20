@@ -14,7 +14,7 @@
 
 <!-- Fixed height: lower on mobile; higher on desktop -->
 <section
-	class="studio-hero relative h-[500px] sm:h-[640px] md:h-[700px] lg:h-[720px] xl:h-[760px] overflow-hidden flex flex-col border-b border-border/50"
+	class="studio-hero relative h-[500px] sm:h-[640px] md:h-[700px] lg:h-[720px] xl:h-[760px] overflow-hidden flex flex-col border-b border-shell"
 >
 	<!-- Header + CTA (desktop only); centered on mobile, left on desktop -->
 	<div
@@ -255,7 +255,7 @@
 		gap: 6px;
 		padding: 8px 12px;
 		background: hsl(240 8% 14% / 0.9);
-		border-bottom: 0.33px solid var(--white11);
+		border-bottom: 0.33px solid var(--shell-border);
 	}
 
 	.terminal-dot {

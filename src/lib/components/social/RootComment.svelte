@@ -1438,7 +1438,7 @@
 		align-items: center;
 		gap: 10px;
 		padding: 16px 16px 12px;
-		border-bottom: 1px solid var(--white16);
+		border-bottom: 1px solid var(--shell-border);
 		text-decoration: none;
 		color: var(--white66);
 		font-size: 0.8125rem;

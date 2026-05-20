@@ -399,7 +399,7 @@
 		justify-content: space-between;
 		gap: 14px;
 		padding: 20px;
-		border-bottom: 1px solid var(--white16);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	.app-info-left {
@@ -456,7 +456,7 @@
 	/* ── Counts row ────────────────────────────────────────────────────────── */
 	.counts-row {
 		display: flex;
-		border-bottom: 1px solid var(--white16);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	.count-item {
@@ -465,7 +465,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
-		border-right: 1px solid var(--white16);
+		border-right: 1px solid var(--shell-border);
 		position: relative;
 	}
 
@@ -525,7 +525,7 @@
 
 	/* ── Chart section ─────────────────────────────────────────────────────── */
 	.chart-section {
-		border-bottom: 1px solid var(--white16);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	.chart-stack {
@@ -685,7 +685,7 @@
 			width: 100%;
 			padding: 16px;
 			border-right: none;
-			border-bottom: 1px solid var(--white16);
+			border-bottom: 1px solid var(--shell-border);
 		}
 
 		.count-item--last {

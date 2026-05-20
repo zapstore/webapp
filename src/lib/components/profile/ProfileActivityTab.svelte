@@ -43,6 +43,16 @@ let threadContextEv = $state(/** @type {import('nostr-tools').NostrEvent | null}
 let threadAddrATag = $state(/** @type {string | null} */ (null));
 let threadExpandId = $state(/** @type {string | null} */ (null));
 let threadComments = $state(/** @type {any[]} */ ([]));
+let openReplyOnMount = $state(false);
+let threadOpenActionsOnMount = $state(false);
+let threadOpenFeedActionsOnly = $state(false);
+let threadOpenFeedZapOnly = $state(false);
+let standaloneActionsOpenKey = $state(0);
+let standaloneZapOpenKey = $state(0);
+let threadInitialActionsTarget = $state(/** @type {'root' | Record<string, unknown> | null} */ (null));
+let pendingActionsCommentEv = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
+let pendingZapCommentEv = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
+let initialReplyTargetForModal = $state(/** @type {Record<string, unknown> | null} */ (null));
 
 function getRootRef(event) {
 	const aTag =
@@ -53,6 +63,22 @@ function getRootRef(event) {
 	const eTag = event.tags?.find((t) => t[0] === 'E' && t[1])?.[1] ?? null;
 	if (eTag) return { type: 'id', value: eTag };
 	return null;
+}
+
+/** Link for thread modal root banner (forum / app / stack). */
+function hrefForThreadRootContext(ev) {
+	if (!ev?.id) return null;
+	try {
+		if (ev.kind === EVENT_KINDS.FORUM_POST) {
+			return `/community/forum/${nip19.neventEncode({ id: ev.id })}`;
+		}
+		const dTag = ev.tags?.find((t) => t[0] === 'd')?.[1] ?? '';
+		if (!dTag) return null;
+		const naddr = nip19.naddrEncode({ kind: ev.kind, pubkey: ev.pubkey, identifier: dTag });
+		return ev.kind === EVENT_KINDS.APP ? `/apps/${naddr}` : `/stacks/${naddr}`;
+	} catch {
+		return null;
+	}
 }
 
 /** Precompute per-row props once per displayed slice — avoids N× lookups on every map touch. */
@@ -102,6 +128,30 @@ function toThreadComment(e) {
 	};
 }
 
+function enrichReplyTargetForModal(commentEv) {
+	const c = parseComment(commentEv);
+	const p = activity.mentionProfiles.get(commentEv.pubkey);
+	let npub = '';
+	try {
+		npub = nip19.npubEncode(commentEv.pubkey);
+	} catch {
+		/* ignore */
+	}
+	return {
+		id: commentEv.id,
+		pubkey: commentEv.pubkey,
+		displayName:
+			p?.displayName ??
+			p?.name ??
+			(npub ? `npub1${npub.slice(5, 8)}…${npub.slice(-6)}` : commentEv.pubkey.slice(0, 8)),
+		avatarUrl: p?.picture ?? null,
+		content: commentEv.content ?? '',
+		createdAt: commentEv.created_at,
+		emojiTags: c.emojiTags,
+		mediaUrls: c.mediaUrls ?? []
+	};
+}
+
 $effect(() => {
 	if (!browser || activity.loading || !activity.likelyHasMore) return;
 	const el = loadSentinel;
@@ -131,9 +181,36 @@ async function fetchEvent(id) {
 	return fetched[0] ?? null;
 }
 
-async function openThread(commentEv) {
+async function openThread(commentEv, withReply = false, opts = {}) {
 	const ref = getRootRef(commentEv);
 	if (!ref) return;
+
+	const openActionsSheet = opts?.openActionsSheet === true;
+	const openZapOnly = opts?.openZapOnly === true;
+	if (openZapOnly) {
+		threadOpenFeedZapOnly = true;
+		standaloneZapOpenKey++;
+		threadOpenActionsOnMount = false;
+		threadOpenFeedActionsOnly = false;
+		pendingZapCommentEv = commentEv;
+		pendingActionsCommentEv = null;
+	} else if (openActionsSheet) {
+		threadOpenFeedZapOnly = false;
+		pendingZapCommentEv = null;
+		threadOpenActionsOnMount = true;
+		threadOpenFeedActionsOnly = true;
+		standaloneActionsOpenKey++;
+		pendingActionsCommentEv = commentEv;
+	} else {
+		threadOpenFeedZapOnly = false;
+		pendingZapCommentEv = null;
+		threadOpenActionsOnMount = false;
+		threadOpenFeedActionsOnly = false;
+		pendingActionsCommentEv = null;
+	}
+	threadInitialActionsTarget = null;
+	openReplyOnMount = withReply;
+	initialReplyTargetForModal = null;
 
 	const commentMap = new SvelteMap(activity.comments.map((c) => [c.id.toLowerCase(), c]));
 	const rootId = await resolveAppDiscussionRootCommentId(commentEv, commentMap, fetchEvent);
@@ -141,11 +218,26 @@ async function openThread(commentEv) {
 	const addrATag = ref.type === 'addr' ? ref.value : null;
 	let rootCommentEv = commentMap.get(rootId.toLowerCase()) ?? (await fetchEvent(rootId));
 
+	initialReplyTargetForModal =
+		withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
+			? enrichReplyTargetForModal(commentEv)
+			: null;
+
+	if (threadOpenActionsOnMount && pendingActionsCommentEv) {
+		const isRoot = pendingActionsCommentEv.id.toLowerCase() === rootId.toLowerCase();
+		threadInitialActionsTarget = isRoot
+			? 'root'
+			: enrichReplyTargetForModal(pendingActionsCommentEv);
+	} else {
+		threadInitialActionsTarget = null;
+	}
+
 	threadRootId = rootId;
 	threadRootCommentEv = rootCommentEv;
 	threadContextEv = contextEv;
 	threadAddrATag = addrATag;
-	threadExpandId = commentEv.id !== rootId ? commentEv.id : null;
+	threadExpandId =
+		!openActionsSheet && !openZapOnly && commentEv.id !== rootId ? commentEv.id : null;
 	threadComments = [];
 	loadThreadComments(rootId, addrATag);
 }
@@ -196,6 +288,14 @@ function closeThread() {
 	threadAddrATag = null;
 	threadExpandId = null;
 	threadComments = [];
+	openReplyOnMount = false;
+	threadOpenActionsOnMount = false;
+	threadOpenFeedActionsOnly = false;
+	threadOpenFeedZapOnly = false;
+	threadInitialActionsTarget = null;
+	pendingActionsCommentEv = null;
+	pendingZapCommentEv = null;
+	initialReplyTargetForModal = null;
 }
 
 async function handleThreadReply(e) {
@@ -267,11 +367,27 @@ async function handleThreadReply(e) {
 									identifier: row.rootInfo.identifier
 								}
 							: null}
-						onRootClick={row.rootInfo?.href ? () => goto(row.rootInfo.href) : null}
+						onRootClick={row.rootInfo?.href
+							? () => goto(row.rootInfo.href)
+							: row.rootEvent?.kind === EVENT_KINDS.FORUM_POST
+								? () => {
+										try {
+											const nevent = nip19.neventEncode({ id: row.rootEvent.id });
+											goto(`/community/forum/${nevent}`);
+										} catch {
+											/* ignore */
+										}
+									}
+								: null}
 						resolveMentionLabel={(pk) =>
 							activity.mentionProfiles.get(pk)?.displayName ??
 							activity.mentionProfiles.get(pk)?.name ??
 							null}
+						feedActions={{
+							onReply: () => openThread(row.event, true),
+							onZap: () => openThread(row.event, false, { openZapOnly: true }),
+							onOptions: () => openThread(row.event, false, { openActionsSheet: true })
+						}}
 					/>
 				</div>
 			{/each}
@@ -290,6 +406,11 @@ async function handleThreadReply(e) {
 {#if threadRootId}
 	{@const rootInfo = threadAddrATag ? activity.lookupRootInfo(threadAddrATag) : null}
 	{@const contextOneliner = getEventOneliner(threadContextEv)}
+	{@const threadBannerHref = threadContextEv ? hrefForThreadRootContext(threadContextEv) : null}
+	{@const forumPostTitle =
+		threadContextEv?.kind === EVENT_KINDS.FORUM_POST
+			? (threadContextEv.tags?.find((t) => t[0] === 'title' && t[1])?.[1] ?? contextOneliner.label)
+			: contextOneliner.label}
 	{@const rootContext = rootInfo
 		? {
 				label: rootInfo.name,
@@ -297,8 +418,14 @@ async function handleThreadReply(e) {
 				href: rootInfo.href ?? null,
 				isStack: rootInfo.isStack
 			}
-		: threadContextEv
-			? { label: contextOneliner.label, iconUrl: null, href: null }
+		: threadBannerHref && threadContextEv
+			? {
+					label: forumPostTitle,
+					iconUrl:
+						threadContextEv.kind === EVENT_KINDS.APP_STACK ? null : (contextOneliner.emoji ?? null),
+					href: threadBannerHref,
+					isStack: threadContextEv.kind === EVENT_KINDS.APP_STACK
+				}
 			: null}
 	{@const wrapperRoot = threadAddrATag
 		? (() => {
@@ -324,7 +451,17 @@ async function handleThreadReply(e) {
 	{#key threadRootId}
 		<RootComment
 			hideRoot={true}
-			openThreadOnMount={true}
+			openThreadOnMount={!threadOpenFeedActionsOnly && !threadOpenFeedZapOnly}
+			openActionsOnMount={threadOpenActionsOnMount}
+			initialActionsTarget={threadInitialActionsTarget}
+			{standaloneActionsOpenKey}
+			openZapOnMount={threadOpenFeedZapOnly}
+			{standaloneZapOpenKey}
+			feedInitialZapTarget={pendingZapCommentEv
+				? enrichReplyTargetForModal(pendingZapCommentEv)
+				: null}
+			{openReplyOnMount}
+			initialReplyTarget={initialReplyTargetForModal}
 			id={threadRootId}
 			pubkey={threadRootCommentEv?.pubkey ?? null}
 			content={threadRootCommentEv?.content ?? ''}
@@ -364,7 +501,7 @@ async function handleThreadReply(e) {
 
 	.activity-item {
 		padding: 12px 16px;
-		border-bottom: 1px solid var(--white11);
+		border-bottom: 1px solid var(--shell-border);
 		cursor: pointer;
 	}
 

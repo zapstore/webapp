@@ -315,7 +315,7 @@ async function copy(text, setCopied) {
 	.row-divider {
 		width: 100%;
 		height: 1.4px;
-		background-color: var(--white11);
+		background-color: var(--shell-border);
 	}
 
 	.copy-btn {

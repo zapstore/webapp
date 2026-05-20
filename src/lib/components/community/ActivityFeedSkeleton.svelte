@@ -76,7 +76,7 @@
 		gap: 8px;
 		align-items: stretch;
 		padding: 12px 16px;
-		border-bottom: 1px solid var(--white11);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	.sk-row:last-child {

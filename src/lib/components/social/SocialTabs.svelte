@@ -648,7 +648,7 @@ const zapsByTargetId = $derived.by(() => {
     margin-left: calc(-1 * var(--page-content-pad-x, 0px));
     margin-right: calc(-1 * var(--page-content-pad-x, 0px));
     width: calc(100% + 2 * var(--page-content-pad-x, 0px));
-    background-color: var(--white11);
+    background-color: var(--shell-border);
     border: none;
   }
 

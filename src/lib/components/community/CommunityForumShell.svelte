@@ -723,7 +723,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		display: flex;
 		align-items: center;
 		gap: 0;
-		border-bottom: 1px solid var(--white16);
+		border-bottom: 1px solid var(--shell-border);
 		/* Let .forum-latest-dropdown extend below the row; horizontal overflow stays in .forum-categories-scroll */
 		overflow: visible;
 		position: relative;

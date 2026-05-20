@@ -637,7 +637,7 @@ const displayDescription = $derived(
     margin-right: calc(-1 * var(--detail-pad-x));
     width: calc(100% + 2 * var(--detail-pad-x));
     height: 0;
-    border-bottom: 1px solid var(--white16);
+    border-bottom: 1px solid var(--shell-border);
     margin-top: 12px;
     margin-bottom: 16px;
   }
@@ -775,8 +775,8 @@ const displayDescription = $derived(
     margin-right: calc(-1 * var(--detail-pad-x));
     width: calc(100% + 2 * var(--detail-pad-x));
     margin-bottom: 16px;
-    border-top: 1px solid var(--white16);
-    border-bottom: 1px solid var(--white16);
+    border-top: 1px solid var(--shell-border);
+    border-bottom: 1px solid var(--shell-border);
   }
 
   @media (min-width: 768px) {
@@ -817,7 +817,7 @@ const displayDescription = $derived(
   .stack-apps-grid-item {
     min-width: 0;
     padding: 14px 14px 8px;
-    border-bottom: 1px solid var(--white16);
+    border-bottom: 1px solid var(--shell-border);
     box-sizing: border-box;
   }
 
@@ -827,7 +827,7 @@ const displayDescription = $derived(
     }
 
     .stack-apps-grid-item:nth-child(odd) {
-      border-right: 1px solid var(--white16);
+      border-right: 1px solid var(--shell-border);
     }
   }
 

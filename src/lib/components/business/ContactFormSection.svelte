@@ -83,7 +83,7 @@
 	}
 </script>
 
-<section id="contact" class="border-t border-border/50 py-12 sm:py-16 lg:py-20">
+<section id="contact" class="border-t border-shell py-12 sm:py-16 lg:py-20">
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8">
 		<div class="max-w-2xl mx-auto">
 			<div class="text-center mb-8 sm:mb-10">

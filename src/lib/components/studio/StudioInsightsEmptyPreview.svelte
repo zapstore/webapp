@@ -263,7 +263,7 @@
 	.content-section {
 		position: relative;
 		padding: 18px 26px 20px;
-		border-bottom: 1px solid var(--white16);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	.insights-chart-section .insights-metric-head {

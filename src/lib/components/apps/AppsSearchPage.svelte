@@ -645,8 +645,8 @@
 		flex-direction: column;
 		flex: 1;
 		min-height: 0;
-		border-left: 1px solid var(--white16);
-		border-right: 1px solid var(--white16);
+		border-left: 1px solid var(--shell-border);
+		border-right: 1px solid var(--shell-border);
 		margin-left: -16px;
 		margin-right: -16px;
 	}
@@ -679,7 +679,7 @@
 		align-items: stretch;
 		flex-shrink: 0;
 		padding: 0;
-		border-bottom: 1px solid var(--white16);
+		border-bottom: 1px solid var(--shell-border);
 		background-color: var(--background);
 		z-index: 2;
 	}
@@ -700,7 +700,7 @@
 		flex-shrink: 0;
 		width: 1px;
 		align-self: stretch;
-		background-color: var(--white16);
+		background-color: var(--shell-border);
 	}
 
 	.apps-search-toolbar-filters {
@@ -833,6 +833,24 @@
 	/* Toolbar already has border-bottom — avoid double line with shared .browse-grid border-top */
 	.apps-search-results-list {
 		border-top: none;
+	}
+
+	.apps-search-frame :global(.browse-grid) {
+		border-top-color: var(--shell-border);
+	}
+
+	.apps-search-frame :global(.browse-grid-item) {
+		border-bottom-color: var(--shell-border);
+	}
+
+	@media (min-width: 768px) {
+		.apps-search-frame :global(.browse-grid.browse-grid--two-col .browse-grid-item) {
+			border-right-color: var(--shell-border);
+		}
+
+		.apps-search-frame :global(.browse-grid-item:last-child) {
+			border-bottom-color: var(--shell-border);
+		}
 	}
 
 	.apps-search-results-list :global(.app-search-hit),

@@ -285,7 +285,7 @@
 			width: 100vw;
 			margin-left: calc(-50vw + 50%);
 			border: none;
-			border-top: 1px solid var(--white16);
+			border-top: 1px solid var(--shell-border);
 			margin-top: 1.5rem;
 			margin-bottom: 0;
 		}

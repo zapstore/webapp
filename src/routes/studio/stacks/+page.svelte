@@ -6,11 +6,12 @@
  */
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
-import { queryEvents, liveQuery } from '$lib/purpleweb';
+import { queryEvents, liveQuery, fetchStacksByAuthorFromRelays } from '$lib/purpleweb';
 import { parseAppStack } from '$lib/nostr';
-import { getCurrentPubkey, getIsSignedIn } from '$lib/stores/auth.svelte.js';
-import { EVENT_KINDS } from '$lib/config.js';
+import { getCurrentPubkey, getIsSignedIn, isAuthInitialized, getIsConnecting } from '$lib/stores/auth.svelte.js';
+import { EVENT_KINDS, ZAPSTORE_RELAY } from '$lib/config.js';
 import { encodeStackNaddr, stackDisplayTitle } from '$lib/nostr/models.js';
+import { isOnline } from '$lib/stores/online.svelte.js';
 import { Layers } from 'lucide-svelte';
 
 let stacks = $state([]);
@@ -18,12 +19,26 @@ let loading = $state(true);
 
 $effect(() => {
 	if (!browser) return;
+	if (!isAuthInitialized() || getIsConnecting()) {
+		loading = true;
+		return;
+	}
 	const pubkey = getCurrentPubkey();
 	if (!pubkey || !getIsSignedIn()) {
 		stacks = [];
-		loading = false;
+		loading = true;
 		return;
 	}
+
+	loading = true;
+
+	if (isOnline()) {
+		void fetchStacksByAuthorFromRelays([ZAPSTORE_RELAY], pubkey, {
+			limit: 50,
+			timeout: 5000
+		}).catch((err) => console.error('[StudioStacks] relay refresh failed:', err));
+	}
+
 	const sub = liveQuery(() =>
 		queryEvents({ kinds: [EVENT_KINDS.APP_STACK], authors: [pubkey] })
 	).subscribe({
@@ -144,7 +159,7 @@ function getStackEditUrl(stack) {
 		display: flex;
 		flex-direction: column;
 		background: var(--gray33);
-		border: 0.33px solid var(--white16);
+		border: 0.33px solid var(--shell-border);
 		border-radius: 16px;
 		overflow: hidden;
 	}

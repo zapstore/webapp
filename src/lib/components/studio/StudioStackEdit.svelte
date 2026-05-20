@@ -405,7 +405,7 @@
 		align-items: center;
 		gap: 10px;
 		padding: 10px 12px;
-		border-bottom: 1.4px solid var(--white11);
+		border-bottom: 1.4px solid var(--shell-border);
 	}
 
 	@media (min-width: 768px) {
@@ -471,7 +471,7 @@
 	.full-divider {
 		width: 100%;
 		height: 1.4px;
-		background: var(--white11);
+		background: var(--shell-border);
 		flex-shrink: 0;
 	}
 

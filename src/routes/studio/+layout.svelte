@@ -11,7 +11,7 @@
 	import { parseAppStack } from '$lib/nostr';
 	import { encodeStackNaddr, stackDisplayTitle, parseApp } from '$lib/nostr/models.js';
 	import { getIsSignedIn, getIsConnecting, isAuthInitialized } from '$lib/stores/auth.svelte.js';
-	import { fetchAppsByAuthorFromRelays } from '$lib/purpleweb';
+	import { fetchAppsByAuthorFromRelays, fetchStacksByAuthorFromRelays } from '$lib/purpleweb';
 	import { resolveStudioCatalogPubkey } from '$lib/studio/resolve-studio-catalog-pubkey.js';
 	import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import { npubToHex } from '$lib/studio/analytics-http.js';
@@ -185,11 +185,12 @@
 
 	// ── Stacks loading ─────────────────────────────────────────────────────────
 	let userStacks = $state([]);
-	let stacksLoading = $state(false);
+	let stacksLoading = $state(true);
 
 	$effect(() => {
 		if (!browser || !showDashboard) {
 			userStacks = [];
+			stacksLoading = false;
 			return;
 		}
 		// Inbox feed liveQuery + relay seed write heavily to Dexie — a second layout
@@ -197,12 +198,26 @@
 		if ($page.url.pathname.startsWith('/studio/inbox')) {
 			return;
 		}
+		if (!authReady || authConnecting) {
+			stacksLoading = true;
+			return;
+		}
 		const pubkey = getCurrentPubkey();
 		if (!pubkey) {
 			userStacks = [];
+			stacksLoading = true;
 			return;
 		}
+
 		stacksLoading = true;
+
+		if (isOnline()) {
+			void fetchStacksByAuthorFromRelays([ZAPSTORE_RELAY], pubkey, {
+				limit: 50,
+				timeout: 5000
+			}).catch((err) => console.error('[StudioLayout] stack relay refresh failed:', err));
+		}
+
 		const sub = liveQuery(() =>
 			queryEvents({ kinds: [30267], authors: [pubkey] })
 		).subscribe({
@@ -258,9 +273,6 @@
 		if (activeSection !== 'stack') return null;
 		return $page.url.pathname.replace('/studio/stacks/', '').split('/')[0];
 	});
-
-	const isNewStackPage = $derived(activeSection === 'stack-new');
-	const stacksPlusIconColor = $derived(isNewStackPage ? 'var(--white33)' : 'var(--white16)');
 
 	const activeNavLabel = $derived.by(() => {
 		if (activeSection === 'inbox') return 'Inbox';
@@ -380,12 +392,10 @@
 								<button
 									type="button"
 									class="sidebar-section-plus"
-									class:sidebar-section-plus-active={isNewStackPage}
 									aria-label="New stack"
-									aria-current={isNewStackPage ? 'page' : undefined}
 									onclick={() => navTo('/studio/stacks/new')}
 								>
-									<Plus variant="outline" color={stacksPlusIconColor} size={12} strokeWidth={2.4} />
+									<Plus variant="outline" color="var(--white16)" size={12} strokeWidth={2.4} />
 								</button>
 							</div>
 							{#if !stacksLoading && userStacks.length === 0}
@@ -521,12 +531,10 @@
 						<button
 							type="button"
 							class="sidebar-section-plus"
-							class:sidebar-section-plus-active={isNewStackPage}
 							aria-label="New stack"
-							aria-current={isNewStackPage ? 'page' : undefined}
 							onclick={() => goto('/studio/stacks/new')}
 						>
-							<Plus variant="outline" color={stacksPlusIconColor} size={12} strokeWidth={2.4} />
+							<Plus variant="outline" color="var(--white16)" size={12} strokeWidth={2.4} />
 						</button>
 					</div>
 					{#if !stacksLoading && userStacks.length === 0}
@@ -620,8 +628,8 @@
 		height: calc(100dvh - 64px);
 		min-height: 0;
 		overflow: hidden;
-		border-left: 1px solid var(--white16);
-		border-right: 1px solid var(--white16);
+		border-left: 1px solid var(--shell-border);
+		border-right: 1px solid var(--shell-border);
 		margin-left: -16px;
 		margin-right: -16px;
 	}
@@ -748,14 +756,8 @@
 		transition: background-color 0.15s ease;
 	}
 
-	.sidebar-section-plus:hover:not(.sidebar-section-plus-active) {
+	.sidebar-section-plus:hover {
 		background: var(--white4);
-	}
-
-	.sidebar-section-plus-active {
-		background: transparent;
-		box-shadow: inset 0 0 0 0.33px var(--white16);
-		cursor: default;
 	}
 
 	.app-img {
@@ -777,7 +779,7 @@
 		padding-top: 16px;
 		padding-left: 12px;
 		padding-right: 12px;
-		border-top: 1px solid var(--white16);
+		border-top: 1px solid var(--shell-border);
 	}
 
 	.stacks-section {
@@ -807,7 +809,7 @@
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		border-left: 1px solid var(--white16);
+		border-left: 1px solid var(--shell-border);
 		position: relative;
 		transform: translateZ(0);
 	}
@@ -839,7 +841,7 @@
 			padding: 10px 16px;
 			background: transparent;
 			border: none;
-			border-bottom: 1px solid var(--white16);
+			border-bottom: 1px solid var(--shell-border);
 			cursor: pointer;
 			color: var(--white);
 		}
@@ -859,7 +861,7 @@
 			display: flex;
 			flex-direction: column;
 			background: var(--black);
-			border-top: 1px solid var(--white16);
+			border-top: 1px solid var(--shell-border);
 			box-shadow: 0 12px 40px color-mix(in srgb, var(--black) 35%, transparent);
 			overflow: hidden;
 			overflow-x: hidden;

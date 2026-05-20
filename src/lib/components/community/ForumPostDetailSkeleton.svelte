@@ -84,7 +84,7 @@ import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 		align-items: center;
 		gap: 12px;
 		padding: 0 16px;
-		border-bottom: 1px solid var(--white11);
+		border-bottom: 1px solid var(--shell-border);
 		box-sizing: border-box;
 	}
 

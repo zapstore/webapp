@@ -45,7 +45,7 @@
 <CapabilitiesSection />
 <ContactFormSection />
 
-<section class="border-t border-border/50 py-10 sm:py-12">
+<section class="border-t border-shell py-10 sm:py-12">
 	<div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
 		<p class="cross-link-text">Building an app yourself?</p>
 		<a

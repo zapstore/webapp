@@ -215,7 +215,7 @@
 </script>
 
 {#if testimonials.length > 0}
-	<section class="border-t border-border/50 pt-8 sm:pt-12 lg:pt-16 pb-0 md:pb-10 relative">
+	<section class="border-t border-shell pt-8 sm:pt-12 lg:pt-16 pb-0 md:pb-10 relative">
 		<LandingSectionTitle
 			title="What people are saying"
 			description="<span class='hidden sm:inline'>4,000+ active users. </span>Real posts from around the web.<span class='sm:hidden'><br />4,000+ active users.</span>"

@@ -304,7 +304,7 @@
 		'header fixed top-0 left-0 right-0 transition-all duration-300 overflow-visible',
 		menuOpen ? 'z-[200]' : 'z-50',
 		scrolled
-			? 'bg-background/60 border-b border-border/50'
+			? 'bg-background/60 border-b border-shell'
 			: 'bg-transparent border-b border-transparent'
 	)}
 >
@@ -878,6 +878,14 @@
 									<span class="medium14 header-offline-pill-label">Offline</span>
 								</div>
 							{/if}
+							<button
+								type="button"
+								class="landing-nav-btn medium14 flex md:hidden transition-colors border-none bg-transparent cursor-pointer py-2 px-2 shrink-0"
+								style="color: var(--white66);"
+								onclick={() => (downloadModalOpen = true)}
+							>
+								Download
+							</button>
 							<button
 								type="button"
 								class="landing-menu-btn flex md:hidden items-center justify-center w-7 h-7 rounded-lg border-none bg-transparent cursor-pointer hover:opacity-80 transition-opacity"

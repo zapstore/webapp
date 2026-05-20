@@ -79,7 +79,7 @@
 	});
 </script>
 
-<section bind:this={sectionEl} class="border-t border-border/50 pt-0 pb-6 lg:pb-12">
+<section bind:this={sectionEl} class="border-t border-shell pt-0 pb-6 lg:pb-12">
 	<!-- ── MOBILE: eyebrow badge ── -->
 	<div class="lg:hidden">
 		<div class="eyebrow-badge-wrap">

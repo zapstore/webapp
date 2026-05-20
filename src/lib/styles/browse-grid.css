@@ -10,7 +10,7 @@
 	list-style: none;
 	margin: 0;
 	padding: 0;
-	border-top: 1px solid var(--white16);
+	border-top: 1px solid var(--shell-border);
 	box-sizing: border-box;
 }
 
@@ -27,7 +27,7 @@
 .browse-grid-item {
 	min-width: 0;
 	padding: var(--browse-grid-cell-pad);
-	border-bottom: 1px solid var(--white16);
+	border-bottom: 1px solid var(--shell-border);
 	box-sizing: border-box;
 }
 
@@ -44,7 +44,7 @@
 
 @media (min-width: 768px) {
 	.browse-grid.browse-grid--two-col .browse-grid-item {
-		border-right: 1px solid var(--white16);
+		border-right: 1px solid var(--shell-border);
 	}
 
 	.browse-grid.browse-grid--two-col .browse-grid-item:nth-child(2n) {
@@ -57,7 +57,7 @@
 }
 
 .browse-grid-item:last-child {
-	border-bottom: 1px solid var(--white16);
+	border-bottom: 1px solid var(--shell-border);
 }
 
 .browse-grid-item :global(.app-stack-card) {

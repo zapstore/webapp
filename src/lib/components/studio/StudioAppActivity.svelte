@@ -1292,7 +1292,7 @@
 
 	.activity-item {
 		padding: 12px 20px;
-		border-bottom: 1px solid var(--white11);
+		border-bottom: 1px solid var(--shell-border);
 		cursor: pointer;
 	}
 

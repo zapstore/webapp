@@ -7,7 +7,7 @@
 </script>
 
 <!-- Get The App Section -->
-<section class="relative h-[700px] lg:h-[660px] border-t border-border/50 overflow-hidden">
+<section class="relative h-[700px] lg:h-[660px] border-t border-shell overflow-hidden">
 	<div class="container mx-auto px-4 sm:px-6 md:px-8 lg:px-8 h-full relative z-10">
 		<div
 			class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start h-full pt-12 sm:pt-16 lg:pt-20"
