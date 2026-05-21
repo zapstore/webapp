@@ -75,7 +75,7 @@ let pool = null;
 
 function getPool() {
 	if (!pool) {
-		pool = new SimplePool();
+		pool = new SimplePool({ enableReconnect: true });
 		for (const url of ZAPSTORE_READ_RELAYS) {
 			try {
 				pool.trustedRelayURLs.add(utils.normalizeURL(url));
@@ -117,8 +117,20 @@ const EOSE_GRACE_MS = 300;
 // Persistent Relay Subscriptions (live updates)
 // ============================================================================
 
-/** @type {Array<{ close: () => void }>} */
+/** @type {Array<{ close: (reason?: string) => void }>} */
 let activeSubscriptions = [];
+
+/** Set by stopLiveSubscriptions — suppresses automatic catalog/inbox restart. */
+let intentionalShutdown = false;
+/** Catalog subs closed unexpectedly; ensureLiveSubscriptions should reopen them. */
+let catalogSubscribersNeedRestart = false;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let catalogRestartTimer = null;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let inboxRestartTimer = null;
+let relayRecoveryInitialized = false;
+
+const SUBSCRIPTION_RESTART_DEBOUNCE_MS = 500;
 
 /** Batched event buffer for persistent subscriptions */
 let pendingEvents = [];
@@ -160,20 +172,11 @@ async function flushEvents() {
 }
 
 /**
- * Start persistent relay subscriptions for live catalog updates.
- * Events stream directly into Dexie via the batched buffer.
- * Subscriptions stay open after EOSE — they receive new events as published.
- *
- * All subscriptions use `limit` to cap the initial backfill.
- * Progressive loading (load-more, pagination) handles deeper data.
- *
- * Call on app mount. Idempotent — subsequent calls are no-ops.
+ * @param {string} label
+ * @param {() => void} [onUnexpectedClose]
  */
-export function startLiveSubscriptions() {
-	if (activeSubscriptions.length > 0) return; // already started
-
-	const p = getPool();
-	const subParams = {
+function createPersistentSubCallbacks(label, onUnexpectedClose) {
+	return {
 		onevent(event) {
 			bufferEvent(event);
 		},
@@ -181,11 +184,77 @@ export function startLiveSubscriptions() {
 			// Don't close — keep connection open for live updates
 		},
 		onclose(reasons) {
-			if (!isNostrDebug() || !reasons?.length) return;
+			if (!reasons?.length) return;
 			const ignorable = reasons.every((r) => r === 'closed by caller');
-			if (!ignorable) console.warn('[Zapstore] Persistent subscription closed', reasons);
+			if (ignorable) return;
+			if (isNostrDebug()) console.warn(`[Zapstore] ${label} subscription closed`, reasons);
+			onUnexpectedClose?.(reasons);
 		}
 	};
+}
+
+function clearCatalogRestartTimer() {
+	if (catalogRestartTimer) {
+		clearTimeout(catalogRestartTimer);
+		catalogRestartTimer = null;
+	}
+}
+
+function clearInboxRestartTimer() {
+	if (inboxRestartTimer) {
+		clearTimeout(inboxRestartTimer);
+		inboxRestartTimer = null;
+	}
+}
+
+function closeCatalogSubscriptionHandles() {
+	for (const sub of activeSubscriptions) {
+		try {
+			sub.close('closed by caller');
+		} catch {
+			/* noop */
+		}
+	}
+	activeSubscriptions = [];
+}
+
+/** @param {string} [reason] */
+function scheduleCatalogSubscriptionsRestart(reason) {
+	if (intentionalShutdown) return;
+	if (typeof navigator !== 'undefined' && !navigator.onLine) {
+		catalogSubscribersNeedRestart = true;
+		return;
+	}
+	clearCatalogRestartTimer();
+	catalogRestartTimer = setTimeout(() => {
+		catalogRestartTimer = null;
+		restartCatalogSubscriptions(reason ?? 'scheduled');
+	}, SUBSCRIPTION_RESTART_DEBOUNCE_MS);
+}
+
+/** @param {string} [reason] */
+function restartCatalogSubscriptions(reason) {
+	if (intentionalShutdown) return;
+	if (typeof navigator !== 'undefined' && !navigator.onLine) {
+		catalogSubscribersNeedRestart = true;
+		return;
+	}
+	nostrDebug('restarting catalog live subscriptions', reason);
+	catalogSubscribersNeedRestart = false;
+	closeCatalogSubscriptionHandles();
+	openCatalogSubscriptions();
+}
+
+function handleCatalogSubUnexpectedClose() {
+	if (intentionalShutdown) return;
+	catalogSubscribersNeedRestart = true;
+	activeSubscriptions = [];
+	scheduleCatalogSubscriptionsRestart('unexpected close');
+}
+
+function openCatalogSubscriptions() {
+	const p = getPool();
+	const subParams = createPersistentSubCallbacks('Catalog live', handleCatalogSubUnexpectedClose);
 
 	// Separate subscriptions per filter (subscribeMany takes a single filter)
 	// Limits = POLL_LIMIT (3 × page size) — load-more handles deeper data
@@ -207,53 +276,126 @@ export function startLiveSubscriptions() {
 	);
 	// Kind 1111 / 9735 (bare kinds): one-shot only — see `startUserInboxLiveUpdates` for scoped `#p` live subs.
 
-	nostrDebug('live subscriptions started (global 1111/9735 via one-shot; inbox #p via startUserInboxLiveUpdates)');
+	nostrDebug('catalog live subscriptions started');
 }
 
-/** @type {Array<{ close: () => void }>} */
+/**
+ * Start persistent relay subscriptions for live catalog updates.
+ * Events stream directly into Dexie via the batched buffer.
+ * Subscriptions stay open after EOSE — they receive new events as published.
+ *
+ * All subscriptions use `limit` to cap the initial backfill.
+ * Progressive loading (load-more, pagination) handles deeper data.
+ *
+ * Call on app mount. Idempotent while healthy subs are open.
+ */
+export function startLiveSubscriptions() {
+	intentionalShutdown = false;
+	if (activeSubscriptions.length > 0 && !catalogSubscribersNeedRestart) return;
+	initRelayRecovery();
+	restartCatalogSubscriptions('start');
+}
+
+/**
+ * Re-open catalog live subs after reconnect or an unexpected subscription close.
+ * Safe to call when online returns or the tab becomes visible again.
+ */
+export function ensureLiveSubscriptions() {
+	if (typeof window === 'undefined') return;
+	if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+	if (intentionalShutdown) return;
+	if (!catalogSubscribersNeedRestart && activeSubscriptions.length > 0) return;
+	restartCatalogSubscriptions('ensure');
+}
+
+/**
+ * Browser lifecycle hooks: restart catalog subs when network or tab visibility returns.
+ * Idempotent — call from startLiveSubscriptions().
+ */
+export function initRelayRecovery() {
+	if (typeof window === 'undefined' || relayRecoveryInitialized) return;
+	relayRecoveryInitialized = true;
+
+	window.addEventListener('online', () => {
+		ensureLiveSubscriptions();
+		const pk = inboxLivePubkey;
+		if (pk) ensureUserInboxLiveUpdates(pk);
+	});
+
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState !== 'visible') return;
+		ensureLiveSubscriptions();
+		const pk = inboxLivePubkey;
+		if (pk) ensureUserInboxLiveUpdates(pk);
+	});
+}
+
+/** @type {Array<{ close: (reason?: string) => void }>} */
 let activeInboxSubscriptions = [];
 /** @type {string | null} */
 let inboxLivePubkey = null;
 /** @type {Promise<void> | null} */
 let inboxBackfillFlight = null;
+let inboxSubscribersNeedRestart = false;
 
 /** Live stream: only events after sub opens (`since: now`). Backfill covers recent history for the header dot. */
 const INBOX_LIVE_LIMIT = 60;
 const INBOX_BACKFILL_COMMENT_LIMIT = 200;
 const INBOX_BACKFILL_ZAP_LIMIT = 150;
 
-/**
- * Persistent relay subs for the signed-in user's inbox (`#p` on kind 1111 + 9735).
- * Events → batched `putEvents` → Dexie → header `liveQuery` unread dot.
- *
- * - One-shot backfill (90d nak window, capped limits) when the pubkey changes
- * - Then `since: now` subs for live updates (no polling)
- * - No-op when offline; call again when online returns
- *
- * @param {string} pubkey
- */
-export function startUserInboxLiveUpdates(pubkey) {
-	if (typeof window === 'undefined' || !pubkey) return;
-	if (inboxLivePubkey === pubkey && activeInboxSubscriptions.length > 0) return;
+function closeInboxSubscriptionHandles() {
+	for (const sub of activeInboxSubscriptions) {
+		try {
+			sub.close('closed by caller');
+		} catch {
+			/* noop */
+		}
+	}
+	activeInboxSubscriptions = [];
+}
 
-	stopUserInboxLiveUpdates();
-	inboxLivePubkey = pubkey;
+/** @param {string} pubkey @param {string} [reason] */
+function scheduleInboxSubscriptionsRestart(pubkey, reason) {
+	if (intentionalShutdown || !pubkey) return;
+	if (typeof navigator !== 'undefined' && !navigator.onLine) {
+		inboxSubscribersNeedRestart = true;
+		return;
+	}
+	clearInboxRestartTimer();
+	inboxRestartTimer = setTimeout(() => {
+		inboxRestartTimer = null;
+		restartInboxSubscriptions(pubkey, reason ?? 'scheduled');
+	}, SUBSCRIPTION_RESTART_DEBOUNCE_MS);
+}
 
+/** @param {string} pubkey @param {string} [reason] */
+function restartInboxSubscriptions(pubkey, reason) {
+	if (intentionalShutdown || !pubkey) return;
+	if (typeof navigator !== 'undefined' && !navigator.onLine) {
+		inboxSubscribersNeedRestart = true;
+		return;
+	}
+	if (inboxLivePubkey !== pubkey) return;
+	nostrDebug('restarting inbox live subscriptions', reason, pubkey.slice(0, 8));
+	inboxSubscribersNeedRestart = false;
+	closeInboxSubscriptionHandles();
+	openInboxSubscriptions(pubkey);
+}
+
+function handleInboxSubUnexpectedClose() {
+	if (intentionalShutdown) return;
+	const pubkey = inboxLivePubkey;
+	inboxSubscribersNeedRestart = true;
+	activeInboxSubscriptions = [];
+	if (!pubkey) return;
+	scheduleInboxSubscriptionsRestart(pubkey, 'unexpected close');
+}
+
+/** @param {string} pubkey */
+function openInboxSubscriptions(pubkey) {
 	const p = getPool();
 	const sinceNow = Math.floor(Date.now() / 1000);
-	const subParams = {
-		onevent(event) {
-			bufferEvent(event);
-		},
-		oneose() {
-			/* stay open for live */
-		},
-		onclose(reasons) {
-			if (!isNostrDebug() || !reasons?.length) return;
-			const ignorable = reasons.every((r) => r === 'closed by caller');
-			if (!ignorable) console.warn('[Zapstore] Inbox live subscription closed', reasons);
-		}
-	};
+	const subParams = createPersistentSubCallbacks('Inbox live', handleInboxSubUnexpectedClose);
 
 	const commentFilter = withZapstoreCommentZapReqBounds(
 		{ kinds: [EVENT_KINDS.COMMENT], '#p': [pubkey], since: sinceNow, limit: INBOX_LIVE_LIMIT },
@@ -277,6 +419,48 @@ export function startUserInboxLiveUpdates(pubkey) {
 
 	nostrDebug('inbox live subs started', pubkey.slice(0, 8));
 	void backfillUserInboxOnce(pubkey);
+}
+
+/**
+ * Persistent relay subs for the signed-in user's inbox (`#p` on kind 1111 + 9735).
+ * Events → batched `putEvents` → Dexie → header `liveQuery` unread dot.
+ *
+ * - One-shot backfill (90d nak window, capped limits) when the pubkey changes
+ * - Then `since: now` subs for live updates (no polling)
+ * - Restarts automatically after unexpected close or when online returns
+ *
+ * @param {string} pubkey
+ */
+export function startUserInboxLiveUpdates(pubkey) {
+	if (typeof window === 'undefined' || !pubkey) return;
+	if (
+		inboxLivePubkey === pubkey &&
+		activeInboxSubscriptions.length > 0 &&
+		!inboxSubscribersNeedRestart
+	) {
+		return;
+	}
+
+	closeInboxSubscriptionHandles();
+	inboxLivePubkey = pubkey;
+	inboxSubscribersNeedRestart = false;
+	openInboxSubscriptions(pubkey);
+}
+
+/**
+ * Re-open inbox live subs when they were closed unexpectedly.
+ * @param {string} pubkey
+ */
+export function ensureUserInboxLiveUpdates(pubkey) {
+	if (typeof window === 'undefined' || !pubkey) return;
+	if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+	if (intentionalShutdown) return;
+	if (inboxLivePubkey !== pubkey) {
+		startUserInboxLiveUpdates(pubkey);
+		return;
+	}
+	if (!inboxSubscribersNeedRestart && activeInboxSubscriptions.length > 0) return;
+	restartInboxSubscriptions(pubkey, 'ensure');
 }
 
 /**
@@ -320,15 +504,10 @@ async function backfillUserInboxOnce(pubkey) {
 
 /** Stop inbox live subs (sign-out, offline, or pubkey change). */
 export function stopUserInboxLiveUpdates() {
-	for (const sub of activeInboxSubscriptions) {
-		try {
-			sub.close();
-		} catch {
-			/* noop */
-		}
-	}
-	activeInboxSubscriptions = [];
+	clearInboxRestartTimer();
+	closeInboxSubscriptionHandles();
 	inboxLivePubkey = null;
+	inboxSubscribersNeedRestart = false;
 }
 
 /**
@@ -336,15 +515,13 @@ export function stopUserInboxLiveUpdates() {
  * Call on app unmount or cleanup.
  */
 export function stopLiveSubscriptions() {
+	intentionalShutdown = true;
+	catalogSubscribersNeedRestart = false;
+	inboxSubscribersNeedRestart = false;
+	clearCatalogRestartTimer();
+	clearInboxRestartTimer();
 	stopUserInboxLiveUpdates();
-	for (const sub of activeSubscriptions) {
-		try {
-			sub.close();
-		} catch {
-			/* noop */
-		}
-	}
-	activeSubscriptions = [];
+	closeCatalogSubscriptionHandles();
 
 	// Flush any remaining buffered events
 	if (flushTimer) {
@@ -356,7 +533,6 @@ export function stopLiveSubscriptions() {
 		pendingEvents = [];
 		putEvents(batch).catch(() => {});
 	}
-
 }
 
 /**
@@ -2692,4 +2868,5 @@ export function cleanup() {
 		pool.close([...new Set([ZAPSTORE_RELAY, VERTEXLAB_RELAY])]);
 		pool = null;
 	}
+	relayRecoveryInitialized = false;
 }

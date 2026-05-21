@@ -10,8 +10,9 @@ import { startProfileSearchBackground } from '$lib/services/profile-search';
 import {
 	startLiveSubscriptions,
 	stopLiveSubscriptions,
-	startUserInboxLiveUpdates,
+	ensureLiveSubscriptions,
 	stopUserInboxLiveUpdates,
+	ensureUserInboxLiveUpdates,
 	syncDeletions,
 	installZapstoreDebugHooks,
 	evictOldEvents
@@ -36,15 +37,16 @@ const isAppsPage = $derived(path === '/apps');
 const signedInPubkey = $derived(getCurrentPubkey());
 const appOnline = $derived(browser && isOnline());
 
-/** Scoped inbox live subs → Dexie → SiteHeader dot (no polling). */
+/** Catalog + inbox live subs → Dexie. Restart automatically after reconnect. */
 $effect(() => {
 	if (!browser) return;
-	const pk = signedInPubkey;
-	if (!pk || !appOnline) {
+	if (!appOnline) {
 		stopUserInboxLiveUpdates();
 		return;
 	}
-	startUserInboxLiveUpdates(pk);
+	ensureLiveSubscriptions();
+	const pk = signedInPubkey;
+	if (pk) ensureUserInboxLiveUpdates(pk);
 	return () => stopUserInboxLiveUpdates();
 });
 
