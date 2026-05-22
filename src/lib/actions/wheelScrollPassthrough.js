@@ -4,6 +4,8 @@
  *
  * Scrollable regions inside the root (including `[data-main-scroll]`) keep native
  * behavior. `[data-sidebar-scroll]` regions never chain scroll to main content.
+ * `[data-chrome-scroll]` horizontal strips (e.g. forum category labels) defer to
+ * `wheelScroll` until their horizontal scroll reaches an edge.
  *
  * @param {HTMLElement} node — Root shell (e.g. `.app-detail-page`, `.dashboard-outer`)
  * @param {{ scrollSelector?: string }} [params]
@@ -52,6 +54,25 @@ function canScrollX(el, delta) {
 	if (delta < 0) return el.scrollLeft > EDGE_EPS;
 	if (delta > 0) return el.scrollLeft + el.clientWidth < el.scrollWidth - EDGE_EPS;
 	return false;
+}
+
+/**
+ * Matches `wheelScroll` edge behavior so passthrough does not steal wheel events
+ * that the horizontal chrome scroller will consume.
+ * @param {HTMLElement} el @param {number} dy @param {number} dx
+ */
+function chromeScrollWouldConsume(el, dy, dx) {
+	if (!overflowXScrollable(el)) return false;
+	if (el.scrollWidth <= el.clientWidth + EDGE_EPS) return false;
+	const horizontalDelta = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
+	if (horizontalDelta === 0) return false;
+	const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+	const left = el.scrollLeft;
+	const atStart = left <= EDGE_EPS;
+	const atEnd = left >= maxScroll - EDGE_EPS;
+	if (atStart && horizontalDelta < 0) return false;
+	if (atEnd && horizontalDelta > 0) return false;
+	return true;
 }
 
 /**
@@ -112,6 +133,11 @@ export function wheelScrollPassthrough(node, params = {}) {
 				e.preventDefault();
 				return;
 			}
+		}
+
+		const chromeScrollEl = target.closest('[data-chrome-scroll]');
+		if (chromeScrollEl instanceof HTMLElement && node.contains(chromeScrollEl)) {
+			if (chromeScrollWouldConsume(chromeScrollEl, dy, dx)) return;
 		}
 
 		if (Math.abs(dx) > Math.abs(dy)) {

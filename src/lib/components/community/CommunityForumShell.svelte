@@ -423,7 +423,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 <div class="panel-content">
 	<header class="forum-feed-header">
 	<div class="forum-categories-wrap">
-		<div class="forum-categories-scroll" use:wheelScroll>
+		<div class="forum-categories-scroll" data-chrome-scroll use:wheelScroll>
 			<div class="forum-categories-inner">
 				{#each FORUM_CATEGORIES as category (category)}
 					<Label
