@@ -10,7 +10,11 @@
 	import AppSearchHitRow from '$lib/components/cards/AppSearchHitRow.svelte';
 	import AppSearchHitRowSkeleton from '$lib/components/cards/AppSearchHitRowSkeleton.svelte';
 	import { APP_SEARCH_HIT_SKELETON_VARIANT_COUNT } from '$lib/components/cards/app-search-hit-skeleton-presets.js';
-	import { createAppsListingQuery, createStacksListingQuery } from '$lib/purpleweb';
+	import {
+		createAppsListingQuery,
+		createStacksListingQuery,
+		stackListingPreviewKey
+	} from '$lib/purpleweb';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { searchApps, fetchProfilesBatch } from '$lib/purpleweb';
 	import { ZAPSTORE_RELAY, ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
@@ -150,7 +154,7 @@
 
 	$effect(() => {
 		if (!browser) return;
-		const key = rawStacks.map((s) => s.stack.id).join(',');
+		const key = stackListingPreviewKey(rawStacks);
 		if (rawStacks.length > 0 && key !== resolvedStackKeys) {
 			resolvedStackKeys = key;
 			resolveCreatorsForStacks(rawStacks);
@@ -349,6 +353,23 @@
 
 	async function resolveCreatorsForStacks(stacksWithApps) {
 		if (!browser || stacksWithApps.length === 0) return;
+
+		// Sync preview apps immediately when Dexie backfill lands; profiles follow async.
+		resolvedDisplayStacks = stacksWithApps.map(({ stack, apps: stackApps }) => {
+			const prev = resolvedDisplayStacks.find(
+				(s) => s.pubkey === stack.pubkey && s.dTag === stack.dTag
+			);
+			return {
+				name: stack.title,
+				description: stack.description,
+				apps: stackApps,
+				creator: prev?.creator,
+				pubkey: stack.pubkey,
+				dTag: stack.dTag
+			};
+		});
+		setCached('apps:resolvedStacks', resolvedDisplayStacks);
+
 		try {
 			const creatorPubkeys = [
 				...new Set(stacksWithApps.map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk)))

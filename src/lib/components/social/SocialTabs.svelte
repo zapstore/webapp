@@ -18,6 +18,7 @@ import EmptyState from "$lib/components/common/EmptyState.svelte";
 import Spinner from "$lib/components/common/Spinner.svelte";
 import Label from "$lib/components/common/Label.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
+import RelayLoadingBar from "$lib/components/common/RelayLoadingBar.svelte";
 import { Zap } from "$lib/components/icons";
 import { queryEvent, queryEvents } from "$lib/purpleweb";
 import { parseRelease } from "$lib/nostr";
@@ -442,6 +443,10 @@ const zapsByTargetId = $derived.by(() => {
     <div class="social-tabs-tab-divider" aria-hidden="true"></div>
   {/if}
 
+  <div class="social-tabs-relay-bar">
+    <RelayLoadingBar loading={commentsSyncing} />
+  </div>
+
   <div class="tab-content">
     {#if activeTab === "comments"}
       {#if commentsError}
@@ -650,6 +655,13 @@ const zapsByTargetId = $derived.by(() => {
     width: calc(100% + 2 * var(--page-content-pad-x, 0px));
     background-color: var(--shell-border);
     border: none;
+  }
+
+  .social-tabs-relay-bar {
+    flex-shrink: 0;
+    margin-left: calc(-1 * var(--page-content-pad-x, 0px));
+    margin-right: calc(-1 * var(--page-content-pad-x, 0px));
+    width: calc(100% + 2 * var(--page-content-pad-x, 0px));
   }
 
   .tab-row::-webkit-scrollbar {

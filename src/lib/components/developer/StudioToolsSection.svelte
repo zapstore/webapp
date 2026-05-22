@@ -6,7 +6,7 @@
 </script>
 
 <section id="quickstart" class="studio-tools-section border-b border-shell">
-  <div class="studio-tools-container">
+  <div class="studio-tools-container developer-marketing-inner">
 		<h2 class="studio-quick-start-title section-title display-section section-title-gradient">Quickstart</h2>
 		<p class="section-description studio-quick-start-desc">Get started with the tools we currently have. Get excited about the ones that are coming.</p>
 
@@ -81,7 +81,7 @@
 </section>
 
 <style>
-	/* Match SignedSection: section padding defines inset, inner container 1000px max */
+	/* Match SignedSection: section padding defines inset; width via .developer-marketing-inner */
 	.studio-tools-section {
 		padding: 2rem 1rem 2.5rem;
 	}
@@ -92,10 +92,6 @@
 		}
 	}
 
-	.studio-tools-container {
-		max-width: 1000px;
-		margin: 0 auto;
-	}
 
 	/* Landing-style section header */
 	.studio-quick-start-title {

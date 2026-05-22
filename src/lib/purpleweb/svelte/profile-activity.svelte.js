@@ -1,10 +1,10 @@
 import { browser } from '$app/environment';
+import { liveQuery } from 'dexie';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-import { EVENT_KINDS, ZAPSTORE_RELAY } from '$lib/config.js';
-import { parseProfile } from '$lib/nostr/models.js';
+import { EVENT_KINDS, ZAPSTORE_RELAY, PROFILE_FETCH_RELAYS } from '$lib/config.js';
 import { isOnline } from '$lib/stores/online.svelte.js';
 import { queryEvents } from '../storage/dexie.js';
-import { fetchProfilesBatch } from '../sync/service.js';
+import { queryProfilesForPubkeys } from '../storage/social.js';
 import { hydrateFilters } from '../sync/hydrate.js';
 import {
 	activityRootKeyMetaFromComment,
@@ -25,7 +25,6 @@ const VISIBLE_STEP = 15;
 const MAX_VISIBLE = 80;
 const DEXIE_QUERY_LIMIT = 150;
 const RELAY_PAGE = 50;
-const SCROLL_LOAD_GAP_MS = 1400;
 
 /** @param {import('nostr-tools').NostrEvent[]} events */
 function sortCommentsNewestFirst(events) {
@@ -42,6 +41,8 @@ export function createProfileActivityQuery(getPubkey) {
 		comments: /** @type {import('nostr-tools').NostrEvent[]} */ ([]),
 		loading: true,
 		loadingMore: false,
+		/** True while a background relay fetch is in flight (Dexie already shown). */
+		syncing: false,
 		/** Cards we promised to show; skeleton stays until displayed count reaches this. */
 		pendingRevealTarget: 0,
 		error: '',
@@ -71,14 +72,13 @@ export function createProfileActivityQuery(getPubkey) {
 	const parentFetchAttempted = new Set();
 	let enrichFlight = /** @type {Promise<void> | null} */ (null);
 	let relayRootsFlight = /** @type {Promise<void> | null} */ (null);
-	let scrollLoadLastAt = 0;
 
 	const displayedComments = $derived(state.comments.slice(0, state.visibleLimit));
 	const displayedCount = $derived(
 		Math.min(state.visibleLimit, state.comments.length)
 	);
 	const showLoadMoreSkeleton = $derived(
-		state.loadingMore || state.pendingRevealTarget > displayedCount
+		state.loadingMore || state.pendingRevealTarget > 0
 	);
 	const likelyHasMore = $derived(
 		state.visibleLimit < MAX_VISIBLE &&
@@ -109,6 +109,7 @@ export function createProfileActivityQuery(getPubkey) {
 		state.comments = [];
 		state.loading = true;
 		state.loadingMore = false;
+		state.syncing = false;
 		state.pendingRevealTarget = 0;
 		state.error = '';
 		state.visibleLimit = INITIAL_VISIBLE;
@@ -125,7 +126,6 @@ export function createProfileActivityQuery(getPubkey) {
 		parentFetchAttempted.clear();
 		enrichFlight = null;
 		relayRootsFlight = null;
-		scrollLoadLastAt = 0;
 	}
 
 	async function readCommentsFromDexie() {
@@ -214,22 +214,51 @@ export function createProfileActivityQuery(getPubkey) {
 				if (parent) state.parentCommentMap.set(commentId, parent);
 			}
 		}
-
-		const pubkeys = new SvelteSet();
-		for (const ev of evts) {
-			if (ev.pubkey) pubkeys.add(ev.pubkey);
-			for (const tag of ev.tags ?? []) {
-				if (tag[0] === 'p' && tag[1]) pubkeys.add(tag[1]);
-			}
-		}
-		const profileMissing = [...pubkeys].filter((pk) => !state.mentionProfiles.has(pk));
-		if (profileMissing.length > 0) {
-			const rawProfiles = await fetchProfilesBatch(profileMissing, { timeout: 4000 });
-			for (const [pk, event] of rawProfiles) {
-				if (event) state.mentionProfiles.set(pk, parseProfile(event));
-			}
-		}
 	}
+
+	const profilePubkeys = $derived.by(() => {
+		const pks = new SvelteSet();
+		for (const ev of state.comments) {
+			if (ev.pubkey) pks.add(ev.pubkey.toLowerCase());
+			for (const tag of ev.tags ?? []) {
+				if (tag[0] === 'p' && tag[1]) pks.add(String(tag[1]).toLowerCase());
+			}
+		}
+		for (const parent of state.parentCommentMap.values()) {
+			if (parent.pubkey) pks.add(parent.pubkey.toLowerCase());
+		}
+		return [...pks];
+	});
+
+	$effect(() => {
+		if (!browser) return;
+		const pubkeys = profilePubkeys;
+		if (pubkeys.length === 0) {
+			state.mentionProfiles = new SvelteMap();
+			return;
+		}
+		const hydrated = Object.create(null);
+		const observable = liveQuery(() => queryProfilesForPubkeys(pubkeys));
+		const sub = observable.subscribe({
+			next({ profiles, missingProfilePubkeys }) {
+				const m = new SvelteMap();
+				for (const [pk, profile] of Object.entries(profiles ?? {})) {
+					m.set(pk, profile);
+				}
+				state.mentionProfiles = m;
+				if (!isOnline()) return;
+				const missing = (missingProfilePubkeys ?? []).filter((pk) => !hydrated[pk]);
+				if (missing.length === 0) return;
+				for (const pk of missing) hydrated[pk] = true;
+				hydrateFilters(
+					PROFILE_FETCH_RELAYS,
+					{ kinds: [EVENT_KINDS.PROFILE], authors: missing, limit: missing.length * 2 },
+					{ timeout: 4000, feature: 'profile-activity-profiles' }
+				).catch(() => {});
+			}
+		});
+		return () => sub.unsubscribe();
+	});
 
 	async function fetchMissingRootsOnce(/** @type {import('nostr-tools').NostrEvent[]} */ evts) {
 		if (!browser || !isOnline() || evts.length === 0 || relayRootsFlight) return relayRootsFlight;
@@ -292,6 +321,7 @@ export function createProfileActivityQuery(getPubkey) {
 				runEnrichmentOnce();
 			}
 			if (isOnline()) {
+				state.syncing = true;
 				const fetched = await hydrateFilters(
 					[ZAPSTORE_RELAY],
 					{ kinds: [EVENT_KINDS.COMMENT], authors: [pubkey], limit: RELAY_PAGE },
@@ -310,6 +340,7 @@ export function createProfileActivityQuery(getPubkey) {
 			console.error('[profile-activity] load failed', e);
 			state.error = 'Could not load activity.';
 		} finally {
+			state.syncing = false;
 			state.loading = false;
 		}
 	}
@@ -341,6 +372,10 @@ export function createProfileActivityQuery(getPubkey) {
 				state.comments = fresh;
 				const added = fresh.slice(prevLen);
 				if (added.length > 0) await enrichComments(added);
+				state.visibleLimit = Math.min(
+					MAX_VISIBLE,
+					Math.max(state.visibleLimit, Math.min(state.pendingRevealTarget, fresh.length))
+				);
 				void fetchMissingRootsOnce(state.comments);
 			}
 		} catch (e) {
@@ -351,23 +386,30 @@ export function createProfileActivityQuery(getPubkey) {
 	}
 
 	function loadMoreVisible() {
-		const now = Date.now();
-		if (now - scrollLoadLastAt < SCROLL_LOAD_GAP_MS) return;
-		scrollLoadLastAt = now;
-
 		const prevLimit = state.visibleLimit;
-		state.visibleLimit = Math.min(MAX_VISIBLE, state.visibleLimit + VISIBLE_STEP);
-		if (state.visibleLimit === prevLimit) return;
+		const nextLimit = Math.min(MAX_VISIBLE, state.visibleLimit + VISIBLE_STEP);
 
-		const prevShown = Math.min(prevLimit, state.comments.length);
-		const nextShown = Math.min(state.visibleLimit, state.comments.length);
-		if (nextShown > prevShown) {
-			state.pendingRevealTarget = nextShown;
-		} else if (state.visibleLimit > state.comments.length && !state.relayExhausted) {
-			state.pendingRevealTarget = state.visibleLimit;
+		if (nextLimit === prevLimit) {
+			if (prevLimit >= state.comments.length - 5 && !state.relayExhausted) {
+				state.pendingRevealTarget = Math.max(
+					state.pendingRevealTarget,
+					Math.min(prevLimit + VISIBLE_STEP, MAX_VISIBLE)
+				);
+				void fetchOlderFromRelay();
+			}
+			return;
 		}
 
+		const prevShown = Math.min(prevLimit, state.comments.length);
+		const nextShown = Math.min(nextLimit, state.comments.length);
+		state.pendingRevealTarget = nextShown > prevShown ? nextShown : nextLimit;
+		state.visibleLimit = nextLimit;
+
 		if (state.visibleLimit >= state.comments.length - 5 && !state.relayExhausted) {
+			state.pendingRevealTarget = Math.max(
+				state.pendingRevealTarget,
+				Math.min(state.visibleLimit + VISIBLE_STEP, MAX_VISIBLE)
+			);
 			void fetchOlderFromRelay();
 		}
 	}
@@ -413,6 +455,9 @@ export function createProfileActivityQuery(getPubkey) {
 		},
 		get loadingMore() {
 			return state.loadingMore;
+		},
+		get syncing() {
+			return state.syncing;
 		},
 		get showLoadMoreSkeleton() {
 			return showLoadMoreSkeleton;

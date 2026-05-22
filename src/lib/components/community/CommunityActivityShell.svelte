@@ -15,13 +15,16 @@
 		fetchKind1111ReferencingEventIds,
 		fetchKind9735MatchingRefs,
 		fetchProfilesBatch,
+		hydrateFilters,
 		putEvents,
 		queryEvents,
 		queryEvent,
+		queryProfilesForPubkeys,
 		liveQuery,
 		parseComment,
 		parseZapReceipt,
-		publishComment
+		publishComment,
+		isUserInboxLiveUpdatesActive
 	} from '$lib/purpleweb';
 	import {
 		resolveForumDiscussionRootCommentId,
@@ -45,6 +48,7 @@
 		EVENT_KINDS,
 		SAVED_APPS_STACK_D_TAG,
 		COMMENT_PUBLISH_RELAYS,
+		PROFILE_FETCH_RELAYS,
 		commentZapRelayReadSince,
 		ZAPSTORE_COMMUNITY_PUBKEY,
 		ZAPSTORE_RELAY
@@ -649,6 +653,79 @@
 		return m;
 	});
 
+	const activityProfilePubkeys = $derived.by(() => {
+		const pks = new Set();
+		for (const item of activityFeedItems) {
+			if (item.kind === 'comment') {
+				const pk = item.ev.pubkey?.toLowerCase();
+				if (pk) pks.add(pk);
+				const parentTag = item.ev.tags?.find((t) => t[0] === 'e' && t[1]);
+				if (parentTag?.[1]) {
+					const parent =
+						activityCommentMap.get(parentTag[1]) ??
+						activityCommentMap.get(parentTag[1].toLowerCase());
+					if (parent?.pubkey) pks.add(parent.pubkey.toLowerCase());
+				}
+			} else if (item.kind === 'zap') {
+				const sp = item.row.parsed.senderPubkey?.toLowerCase();
+				if (sp) pks.add(sp);
+			}
+		}
+		for (const ev of activityThreadComments) {
+			if (ev.pubkey) pks.add(ev.pubkey.toLowerCase());
+		}
+		for (const ev of activityThreadZaps) {
+			const zw = parseZapWrapper(ev);
+			const sp =
+				zw?.senderPubkey ??
+				(() => {
+					try {
+						return parseZapReceipt(ev).senderPubkey;
+					} catch {
+						return null;
+					}
+				})();
+			if (sp) pks.add(sp.toLowerCase());
+		}
+		for (const ev of activityRootEvents.values()) {
+			if (ev.pubkey) pks.add(ev.pubkey.toLowerCase());
+		}
+		for (const ev of activityAddrRootEvents.values()) {
+			if (ev.pubkey) pks.add(ev.pubkey.toLowerCase());
+		}
+		return [...pks];
+	});
+
+	$effect(() => {
+		if (!browser) return;
+		const pubkeys = activityProfilePubkeys;
+		if (pubkeys.length === 0) {
+			activityProfiles = new Map();
+			return;
+		}
+		const hydrated = Object.create(null);
+		const observable = liveQuery(() => queryProfilesForPubkeys(pubkeys));
+		const sub = observable.subscribe({
+			next({ profiles, missingProfilePubkeys }) {
+				const m = new Map();
+				for (const [pk, profile] of Object.entries(profiles ?? {})) {
+					m.set(pk, profile);
+				}
+				activityProfiles = m;
+				if (!isOnline()) return;
+				const missing = (missingProfilePubkeys ?? []).filter((pk) => !hydrated[pk]);
+				if (missing.length === 0) return;
+				for (const pk of missing) hydrated[pk] = true;
+				hydrateFilters(
+					PROFILE_FETCH_RELAYS,
+					{ kinds: [EVENT_KINDS.PROFILE], authors: missing, limit: missing.length * 2 },
+					{ timeout: 4000, feature: 'activity-profiles' }
+				).catch(() => {});
+			}
+		});
+		return () => sub.unsubscribe();
+	});
+
 	/** Parsed zap events (both z-wrappers and raw kind 9735) for deleted-root logic and sorting. */
 	const activityZapsForFeed = $derived.by(() => {
 		const rows = [];
@@ -750,13 +827,15 @@
 	}
 
 	/**
-	 * One in-flight inbox seed at a time. Merged REQ: kind 1111 + kind 9735 by `#p` (Activity tab list omits 9735 only).
-	 * duplicate $effect runs / strict-mode double mounts must not stack them (relay rate limits).
+	 * Fallback inbox relay seed when background inbox live subs are not running (e.g. before
+	 * auth hydrates). While signed in + online, `ensureUserInboxLiveUpdates` backfills once and
+	 * streams new `#p` events — header popover reads Dexie via liveQuery instead of re-seeding.
 	 */
 	let _inboxSeedFlight = /** @type {Promise<void> | null} */ (null);
 
 	async function seedInboxFromRelay(pk) {
 		if (!browser || !pk) return;
+		if (isUserInboxLiveUpdatesActive(pk)) return;
 		if (_inboxSeedFlight) return _inboxSeedFlight;
 
 		_inboxSeedFlight = (async () => {
@@ -1057,16 +1136,7 @@
 				}
 				for (const it of feedItems) {
 					if (it.kind !== 'comment') continue;
-					const ev = it.ev;
-					resolveActivityRootEvent(ev);
-					scheduleActivityProfileFetch(ev.pubkey);
-					const parentTag = ev.tags?.find((t) => t[0] === 'e' && t[1]);
-					if (parentTag?.[1]) {
-						const parent =
-							threadCommentById.get(parentTag[1]) ??
-							threadCommentById.get(parentTag[1].toLowerCase());
-						if (parent?.pubkey) scheduleActivityProfileFetch(parent.pubkey);
-					}
+					resolveActivityRootEvent(it.ev);
 				}
 			// Collect all missing zapped-event IDs in one pass, then resolve in a
 			// single Dexie batch + one relay round-trip instead of N individual requests.
@@ -1074,7 +1144,6 @@
 			for (const it of feedItems) {
 				if (it.kind !== 'zap') continue;
 				const zp = it.row.parsed;
-				if (zp.senderPubkey) scheduleActivityProfileFetch(zp.senderPubkey);
 				const zapped = zp.zappedEventId;
 				if (
 					zapped &&
@@ -1197,23 +1266,6 @@
 		return () => obs.disconnect();
 	});
 
-	$effect(() => {
-		for (const ev of activityThreadComments) {
-			const parentTag = ev.tags?.find((t) => t[0] === 'e' && t[1]);
-			const pid = parentTag?.[1];
-			if (!pid) continue;
-			if (activityCommentMap.get(pid) ?? activityCommentMap.get(pid.toLowerCase())) continue;
-		const z = activityZapMap.get(pid) ?? activityZapMap.get(pid.toLowerCase());
-		if (!z) continue;
-		// z may be a kind 1111 z-wrapper or a raw kind 9735 receipt — try both parsers.
-		const zw = parseZapWrapper(z);
-		const senderPk = zw?.senderPubkey ?? (() => {
-			try { return parseZapReceipt(z).senderPubkey; } catch { return null; }
-		})();
-		if (senderPk) scheduleActivityProfileFetch(senderPk);
-		}
-	});
-
 	/**
 	 * Inbox: fetch parent comments that weren't in Dexie when liveQuery ran.
 	 * These are older events outside the relay subscription's `since` window.
@@ -1273,32 +1325,6 @@
 		} catch {
 			// non-fatal
 		}
-	}
-
-	let _activityProfileTimer = null;
-	const _activityPendingProfiles = new Set();
-	function scheduleActivityProfileFetch(pubkey) {
-		if (!pubkey || activityProfiles.get(pubkey)) return;
-		_activityPendingProfiles.add(pubkey);
-		if (_activityProfileTimer) return;
-		_activityProfileTimer = setTimeout(async () => {
-			_activityProfileTimer = null;
-			const keys = [..._activityPendingProfiles];
-			_activityPendingProfiles.clear();
-			if (!keys.length) return;
-			try {
-				const results = await fetchProfilesBatch(keys, { timeout: 4000 });
-				for (const [pk, event] of results) {
-					try {
-						activityProfiles = new Map(activityProfiles).set(pk, parseProfile(event));
-					} catch {
-						/* skip */
-					}
-				}
-			} catch {
-				/* non-fatal */
-			}
-		}, 200);
 	}
 
 	const ACTIVITY_BACKFILL_REF_COMMENT_CAP = 300;
@@ -1688,7 +1714,6 @@
 					!openActionsSheet && !openZapOnly && commentEv.id.toLowerCase() !== rootId.toLowerCase()
 						? commentEv.id
 						: null;
-				scheduleActivityProfileFetch(rootEv.pubkey);
 				initialReplyTargetForModal =
 					withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
 						? enrichReplyTargetForModal(commentEv)
@@ -1783,7 +1808,6 @@
 				!openActionsSheet && !openZapOnly && commentEv.id.toLowerCase() !== rootId.toLowerCase()
 					? commentEv.id
 					: null;
-			scheduleActivityProfileFetch(rootEv.pubkey);
 			initialReplyTargetForModal =
 				withReply && commentEv.id.toLowerCase() !== rootId.toLowerCase()
 					? enrichReplyTargetForModal(commentEv)

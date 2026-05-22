@@ -10,9 +10,11 @@
 	import {
 		fetchCommentsByRootATags,
 		fetchProfilesBatch,
+		hydrateFilters,
 		putEvents,
 		queryEvents,
 		queryEvent,
+		queryProfilesForPubkeys,
 		liveQuery,
 		parseComment,
 		parseZapReceipt,
@@ -29,8 +31,9 @@
 		collectZapReceiptsUnderZap,
 		findEnclosingZapReceiptForComment
 	} from '$lib/nostr/zap-thread.js';
-	import { parseApp, parseProfile } from '$lib/nostr/models';
-	import { EVENT_KINDS, ZAPSTORE_RELAY, commentZapRelayReadSince } from '$lib/config';
+	import { parseApp } from '$lib/nostr/models';
+	import { EVENT_KINDS, ZAPSTORE_RELAY, PROFILE_FETCH_RELAYS, commentZapRelayReadSince } from '$lib/config';
+	import { isOnline } from '$lib/stores/online.svelte.js';
 	import { goto } from '$app/navigation';
 	import CommentCard from '$lib/components/community/CommentCard.svelte';
 	import ZapActivityCard from '$lib/components/community/ZapActivityCard.svelte';
@@ -141,12 +144,6 @@
 				activityComments = (val ?? []).filter((ev) => ev.pubkey !== devPubkey);
 				for (const ev of activityComments) {
 					resolveRootAppEvent(ev);
-					scheduleActivityProfileFetch(ev.pubkey);
-					const parentTag = ev.tags?.find((t) => t[0] === 'e' && t[1]);
-					if (parentTag?.[1]) {
-						const parent = val?.find((c) => c.id === parentTag[1]);
-						if (parent?.pubkey) scheduleActivityProfileFetch(parent.pubkey);
-					}
 				}
 			},
 			error: (e) => {
@@ -168,12 +165,6 @@
 						ev.tags?.find((t) => t[0] === 'a' && t[1])?.[1] ??
 						null;
 					if (aRoot) resolveRootAppEvent({ tags: [['A', aRoot]] });
-					try {
-						const p = parseZapReceipt(ev);
-						if (p.senderPubkey) scheduleActivityProfileFetch(p.senderPubkey);
-					} catch {
-						/* ignore */
-					}
 				}
 			},
 			error: (e) => {
@@ -181,23 +172,6 @@
 			}
 		});
 		return () => sub.unsubscribe();
-	});
-
-	$effect(() => {
-		for (const ev of activityComments) {
-			const parentTag = ev.tags?.find((t) => t[0] === 'e' && t[1]);
-			const pid = parentTag?.[1];
-			if (!pid) continue;
-			if (activityCommentMap.get(pid) ?? activityCommentMap.get(pid.toLowerCase())) continue;
-			const z = activityZapMap.get(pid) ?? activityZapMap.get(pid.toLowerCase());
-			if (!z) continue;
-			try {
-				const p = parseZapReceipt(z);
-				if (p.senderPubkey) scheduleActivityProfileFetch(p.senderPubkey);
-			} catch {
-				/* ignore */
-			}
-		}
 	});
 
 	const activityZapsForFeed = $derived.by(() => {
@@ -230,6 +204,65 @@
 		for (const row of activityZapsForFeed)
 			items.push({ kind: 'zap', ts: row.event.created_at, row });
 		return items.sort((a, b) => b.ts - a.ts);
+	});
+
+	const activityProfilePubkeys = $derived.by(() => {
+		const pks = new SvelteSet();
+		for (const item of inboxFeedItems) {
+			if (item.kind === 'comment') {
+				const pk = item.ev.pubkey?.toLowerCase();
+				if (pk) pks.add(pk);
+				const parentTag = item.ev.tags?.find((t) => t[0] === 'e' && t[1]);
+				if (parentTag?.[1]) {
+					const parent =
+						activityCommentMap.get(parentTag[1]) ??
+						activityCommentMap.get(parentTag[1].toLowerCase());
+					if (parent?.pubkey) pks.add(parent.pubkey.toLowerCase());
+				}
+			} else if (item.kind === 'zap') {
+				const sp = item.row.parsed.senderPubkey?.toLowerCase();
+				if (sp) pks.add(sp);
+			}
+		}
+		for (const ev of activityZapEvents) {
+			try {
+				const sp = parseZapReceipt(ev).senderPubkey?.toLowerCase();
+				if (sp) pks.add(sp);
+			} catch {
+				/* ignore */
+			}
+		}
+		return [...pks];
+	});
+
+	$effect(() => {
+		if (!browser) return;
+		const pubkeys = activityProfilePubkeys;
+		if (pubkeys.length === 0) {
+			activityProfiles = new SvelteMap();
+			return;
+		}
+		const hydrated = Object.create(null);
+		const observable = liveQuery(() => queryProfilesForPubkeys(pubkeys));
+		const sub = observable.subscribe({
+			next({ profiles, missingProfilePubkeys }) {
+				const m = new SvelteMap();
+				for (const [pk, profile] of Object.entries(profiles ?? {})) {
+					m.set(pk, profile);
+				}
+				activityProfiles = m;
+				if (!isOnline()) return;
+				const missing = (missingProfilePubkeys ?? []).filter((pk) => !hydrated[pk]);
+				if (missing.length === 0) return;
+				for (const pk of missing) hydrated[pk] = true;
+				hydrateFilters(
+					PROFILE_FETCH_RELAYS,
+					{ kinds: [EVENT_KINDS.PROFILE], authors: missing, limit: missing.length * 2 },
+					{ timeout: 4000, feature: 'studio-activity-profiles' }
+				).catch(() => {});
+			}
+		});
+		return () => sub.unsubscribe();
 	});
 
 	async function resolveRootAppEvent(commentEvent) {
@@ -276,32 +309,6 @@
 		} catch {
 			/* non-fatal */
 		}
-	}
-
-	let _activityProfileTimer = null;
-	const _activityPendingProfiles = new SvelteSet();
-	function scheduleActivityProfileFetch(pubkey) {
-		if (!pubkey || activityProfiles.get(pubkey)) return;
-		_activityPendingProfiles.add(pubkey);
-		if (_activityProfileTimer) return;
-		_activityProfileTimer = setTimeout(async () => {
-			_activityProfileTimer = null;
-			const keys = [..._activityPendingProfiles];
-			_activityPendingProfiles.clear();
-			if (!keys.length) return;
-			try {
-				const results = await fetchProfilesBatch(keys, { timeout: 4000 });
-				for (const [pk, event] of results) {
-					try {
-						activityProfiles = new SvelteMap(activityProfiles).set(pk, parseProfile(event));
-					} catch {
-						/* skip */
-					}
-				}
-			} catch {
-				/* non-fatal */
-			}
-		}, 200);
 	}
 
 	$effect(() => {

@@ -89,7 +89,7 @@
 </script>
 
 <section class="signed-section">
-	<div class="signed-container">
+	<div class="signed-container developer-marketing-inner">
 		<!-- Left: code in gray66 wrapper at top, fixed height, scroll at bottom -->
 		<div class="signed-code-col">
 			<div class="signed-code-outer">
@@ -145,8 +145,6 @@
 	}
 
 	.signed-container {
-		max-width: 1000px;
-		margin: 0 auto;
 		display: grid;
 		grid-template-columns: 1fr;
 		gap: 2rem;

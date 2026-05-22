@@ -1,0 +1,16 @@
+.profile-section-empty {
+	margin: 0;
+	padding: 40px var(--detail-pad-x, 12px);
+	font-size: 1.5rem;
+	font-weight: 600;
+	color: var(--white16);
+	text-align: center;
+	width: 100%;
+	box-sizing: border-box;
+	border-top: 1px solid var(--shell-border);
+	border-bottom: 1px solid var(--shell-border);
+}
+
+.profile-section-empty--no-top-border {
+	border-top: none;
+}

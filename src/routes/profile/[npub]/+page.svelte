@@ -17,6 +17,9 @@ import Modal from '$lib/components/common/Modal.svelte';
 import ProfileActivityTab from '$lib/components/profile/ProfileActivityTab.svelte';
 import ProfileDetailsTab from '$lib/components/profile/ProfileDetailsTab.svelte';
 import ActivityFeedSkeleton from '$lib/components/community/ActivityFeedSkeleton.svelte';
+import { ChevronLeft, ChevronRight } from '$lib/components/icons';
+
+/** @typedef {{ top: number, left: number, right: number, showLeft: boolean, showRight: boolean }} CarouselUi */
 
 let { data } = $props();
 const npub = $derived(data.npub ?? '');
@@ -43,6 +46,25 @@ let detailsModalOpen = $state(false);
 let activityMounted = $state(false);
 let activitySentinel = $state(/** @type {HTMLElement | null} */ (null));
 let mentionProfiles = $state({});
+let appsCarousel = $state(/** @type {{ scroll: (direction: number) => void } | null} */ (null));
+let stacksCarousel = $state(/** @type {{ scroll: (direction: number) => void } | null} */ (null));
+let appsCarouselUi = $state(
+	/** @type {CarouselUi} */ ({ top: 0, left: 0, right: 0, showLeft: false, showRight: false })
+);
+let stacksCarouselUi = $state(
+	/** @type {CarouselUi} */ ({ top: 0, left: 0, right: 0, showLeft: false, showRight: false })
+);
+
+/** @param {CarouselUi} current @param {CarouselUi} next */
+function carouselUiChanged(current, next) {
+	return (
+		current.showLeft === next.showLeft &&
+		current.showRight === next.showRight &&
+		current.top === next.top &&
+		current.left === next.left &&
+		current.right === next.right
+	);
+}
 
 const profileName = $derived(
 	profile?.displayName || profile?.name || (npub ? `${npub.slice(0, 12)}...` : 'Anonymous')
@@ -89,6 +111,8 @@ $effect(() => {
 	if (pk !== lastActivityPubkey) {
 		lastActivityPubkey = pk;
 		activityMounted = false;
+		appsCarouselUi = { top: 0, left: 0, right: 0, showLeft: false, showRight: false };
+		stacksCarouselUi = { top: 0, left: 0, right: 0, showLeft: false, showRight: false };
 	}
 });
 
@@ -179,16 +203,18 @@ function getStackUrl(stack) {
 						<div class="profile-info">
 							<h1 class="profile-name">{profileName}</h1>
 
-							{#if profile?.about?.trim()}
-								<div class="profile-about-clamp">
-									<ShortTextRenderer
-										content={profile.about}
-										resolveMentionLabel={(pk) => mentionProfiles[pk]}
-									/>
-								</div>
-							{:else if !profileLoading}
-								<p class="profile-about-empty">No description</p>
-							{/if}
+							<div class="profile-about-slot">
+								{#if profile?.about?.trim()}
+									<div class="profile-about-clamp">
+										<ShortTextRenderer
+											content={profile.about}
+											resolveMentionLabel={(pk) => mentionProfiles[pk]}
+										/>
+									</div>
+								{:else if !profileLoading}
+									<p class="profile-about-empty">No description</p>
+								{/if}
+							</div>
 
 							<button
 								type="button"
@@ -200,8 +226,6 @@ function getStackUrl(stack) {
 						</div>
 					</div>
 
-					<div class="profile-section-divider" aria-hidden="true"></div>
-
 					<div class="profile-browse-content">
 						<ProfileAppsBrowseSections
 							{apps}
@@ -210,6 +234,16 @@ function getStackUrl(stack) {
 							{stacksLoading}
 							{getAppUrl}
 							{getStackUrl}
+							bind:appsCarousel
+							bind:stacksCarousel
+							onAppsUiChange={(ui) => {
+								if (carouselUiChanged(appsCarouselUi, ui)) return;
+								appsCarouselUi = ui;
+							}}
+							onStacksUiChange={(ui) => {
+								if (carouselUiChanged(stacksCarouselUi, ui)) return;
+								stacksCarouselUi = ui;
+							}}
 						/>
 					</div>
 
@@ -234,6 +268,67 @@ function getStackUrl(stack) {
 					</section>
 				</div>
 			</div>
+
+			{#if appsCarouselUi.showLeft || appsCarouselUi.showRight}
+				<div
+					class="profile-carousel-controls"
+					style="top: {appsCarouselUi.top}px"
+					aria-hidden={!appsCarouselUi.showLeft && !appsCarouselUi.showRight}
+				>
+					{#if appsCarouselUi.showLeft}
+						<button
+							type="button"
+							class="profile-carousel-btn profile-carousel-btn-left"
+							style="left: {appsCarouselUi.left}px"
+							onclick={() => appsCarousel?.scroll(-1)}
+							aria-label="Scroll published apps left"
+						>
+							<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
+						</button>
+					{/if}
+					{#if appsCarouselUi.showRight}
+						<button
+							type="button"
+							class="profile-carousel-btn profile-carousel-btn-right"
+							style="right: {appsCarouselUi.right}px"
+							onclick={() => appsCarousel?.scroll(1)}
+							aria-label="Scroll published apps right"
+						>
+							<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
+						</button>
+					{/if}
+				</div>
+			{/if}
+			{#if stacksCarouselUi.showLeft || stacksCarouselUi.showRight}
+				<div
+					class="profile-carousel-controls"
+					style="top: {stacksCarouselUi.top}px"
+					aria-hidden={!stacksCarouselUi.showLeft && !stacksCarouselUi.showRight}
+				>
+					{#if stacksCarouselUi.showLeft}
+						<button
+							type="button"
+							class="profile-carousel-btn profile-carousel-btn-left"
+							style="left: {stacksCarouselUi.left}px"
+							onclick={() => stacksCarousel?.scroll(-1)}
+							aria-label="Scroll stacks left"
+						>
+							<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
+						</button>
+					{/if}
+					{#if stacksCarouselUi.showRight}
+						<button
+							type="button"
+							class="profile-carousel-btn profile-carousel-btn-right"
+							style="right: {stacksCarouselUi.right}px"
+							onclick={() => stacksCarousel?.scroll(1)}
+							aria-label="Scroll stacks right"
+						>
+							<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
+						</button>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</div>
 
@@ -266,6 +361,7 @@ function getStackUrl(stack) {
 		margin-left: calc(-1 * var(--page-content-pad-x, 0px));
 		margin-right: calc(-1 * var(--page-content-pad-x, 0px));
 		width: calc(100% + 2 * var(--page-content-pad-x, 0px));
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	@media (min-width: 768px) {
@@ -326,16 +422,22 @@ function getStackUrl(stack) {
 		}
 	}
 
+	.profile-about-slot {
+		--profile-about-font-size: 0.875rem;
+		--profile-about-line-height: 1.4;
+		min-height: calc(var(--profile-about-font-size) * var(--profile-about-line-height) * 2);
+		margin-bottom: 8px;
+	}
+
 	.profile-about-clamp {
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
 		line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
-		font-size: 0.875rem;
-		line-height: 1.4;
+		font-size: var(--profile-about-font-size);
+		line-height: var(--profile-about-line-height);
 		color: var(--white66);
-		margin-bottom: 8px;
 	}
 
 	.profile-about-clamp :global(.short-text-renderer),
@@ -344,8 +446,9 @@ function getStackUrl(stack) {
 	}
 
 	.profile-about-empty {
-		margin: 0 0 8px;
-		font-size: 0.875rem;
+		margin: 0;
+		font-size: var(--profile-about-font-size);
+		line-height: var(--profile-about-line-height);
 		color: var(--white33);
 	}
 
@@ -377,15 +480,6 @@ function getStackUrl(stack) {
 		.profile-details-btn {
 			color: var(--white66);
 		}
-	}
-
-	.profile-section-divider {
-		flex-shrink: 0;
-		height: 1.4px;
-		margin: 0 calc(-1 * var(--page-content-pad-x, 0px)) 0;
-		width: calc(100% + 2 * var(--page-content-pad-x, 0px));
-		background-color: var(--shell-border);
-		border: none;
 	}
 
 	.profile-browse-content {
@@ -437,6 +531,77 @@ function getStackUrl(stack) {
 
 	.profile-activity-skeleton-wrap :global(.activity-feed-skeleton) {
 		padding: 0;
+	}
+
+	.profile-carousel-controls {
+		position: absolute;
+		left: 0;
+		right: 0;
+		transform: translateY(-50%);
+		pointer-events: none;
+		z-index: 30;
+	}
+
+	.profile-carousel-controls .profile-carousel-btn {
+		pointer-events: auto;
+	}
+
+	.profile-carousel-btn {
+		display: none;
+	}
+
+	@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+		.profile-carousel-btn {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			position: absolute;
+			top: 50%;
+			transform: translateY(-60%) scale(1);
+			width: 34px;
+			height: 34px;
+			border-radius: 50%;
+			border: none;
+			background: var(--gray66);
+			backdrop-filter: blur(var(--blur-sm));
+			-webkit-backdrop-filter: blur(var(--blur-sm));
+			cursor: pointer;
+			z-index: 20;
+			transition: transform 0.2s ease;
+		}
+
+		.profile-carousel-btn-left {
+			transform: translate(-50%, -60%);
+		}
+
+		.profile-carousel-btn-left:hover {
+			transform: translate(-50%, -60%) scale(1.08);
+		}
+
+		.profile-carousel-btn-left:active {
+			transform: translate(-50%, -60%) scale(0.95);
+		}
+
+		.profile-carousel-btn-left :global(svg) {
+			padding-right: 2px;
+		}
+
+		.profile-carousel-btn-right {
+			left: auto;
+			transform: translate(50%, -60%);
+		}
+
+		.profile-carousel-btn-right:hover {
+			transform: translate(50%, -60%) scale(1.08);
+		}
+
+		.profile-carousel-btn-right:active {
+			transform: translate(50%, -60%) scale(0.95);
+		}
+
+		.profile-carousel-btn-right :global(svg) {
+			padding-left: 2px;
+		}
 	}
 
 	.modal-sheet-body {

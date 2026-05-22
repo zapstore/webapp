@@ -172,6 +172,23 @@ export function resetStacksListingSession() {
 }
 
 /**
+ * Dependency key for stack card resolution — must change when preview apps backfill into Dexie,
+ * not only when the stack list identity changes.
+ *
+ * @param {Array<{ stack: { id: string }, apps?: Array<{ pubkey?: string, dTag?: string }> }>} items
+ */
+export function stackListingPreviewKey(items) {
+	return items
+		.map(({ stack, apps }) => {
+			const resolved = (apps ?? [])
+				.map((a) => `${a.pubkey ?? ''}:${a.dTag ?? ''}`)
+				.join('|');
+			return `${stack.id}:${resolved}`;
+		})
+		.join(';');
+}
+
+/**
  * @param {() => { seedEvents?: import('nostr-tools').Event[], communityOnly?: boolean }} [getInput]
  */
 export function createStacksListingQuery(getInput) {

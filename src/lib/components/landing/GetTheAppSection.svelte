@@ -47,7 +47,7 @@
 
 			<!-- Right: App Image -->
 			<div class="flex justify-center lg:justify-end h-full lg:order-1">
-				<div class="relative w-full max-w-md lg:max-w-lg h-full px-6 lg:px-8">
+				<div class="get-the-app-image relative w-full max-w-md lg:max-w-lg h-full px-6 lg:px-8">
 					<img
 						src={`${assets}/images/android-app-screenshot.png`}
 						alt="Zapstore Android app screenshot"
@@ -80,3 +80,12 @@
 		</div>
 	</div>
 </section>
+
+<style>
+	/* lg:max-w-lg = 512px; +240px on extra-wide viewports (matches .container bump at 1600px) */
+	@media (min-width: 1600px) {
+		.get-the-app-image {
+			max-width: 752px;
+		}
+	}
+</style>

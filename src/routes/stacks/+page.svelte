@@ -6,7 +6,7 @@
 	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
-	import { createStacksListingQuery } from '$lib/purpleweb';
+	import { createStacksListingQuery, stackListingPreviewKey } from '$lib/purpleweb';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { nip19 } from 'nostr-tools';
 	import { fetchProfilesBatch } from '$lib/purpleweb';
@@ -74,6 +74,21 @@
 			return;
 		}
 		loading = true;
+
+		// Sync preview apps immediately when Dexie backfill lands; profiles follow async.
+		resolvedStacks = stacksWithApps.map(({ stack, apps: stackApps }) => {
+			const prev = resolvedStacks.find((s) => s.pubkey === stack.pubkey && s.dTag === stack.dTag);
+			return {
+				name: stack.title,
+				description: stack.description,
+				apps: stackApps,
+				creator: prev?.creator,
+				pubkey: stack.pubkey,
+				dTag: stack.dTag
+			};
+		});
+		setCached('stacks:resolved', resolvedStacks);
+
 		try {
 			const creatorPubkeys = [
 				...new Set(stacksWithApps.map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk)))
@@ -115,7 +130,7 @@
 		if (!browser) return;
 		const items = liveStacks;
 		if (!items) return;
-		const key = items.map((s) => s.stack.id).join(',');
+		const key = stackListingPreviewKey(items);
 		if (key !== resolvedStackKeys) {
 			resolvedStackKeys = key;
 			resolveCreators(items);

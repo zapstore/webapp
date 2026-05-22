@@ -29,7 +29,7 @@
 </script>
 
 <section class="open-protocols-section">
-	<div class="open-protocols-container">
+	<div class="open-protocols-container developer-marketing-inner">
 		<!-- Left: header + description, no panel -->
 		<div class="open-protocols-col-left">
 			<h2 class="open-protocols-title section-title display-section">
@@ -104,8 +104,6 @@
 	}
 
 	.open-protocols-container {
-		max-width: 1000px;
-		margin: 0 auto;
 		display: grid;
 		grid-template-columns: 1fr;
 		gap: 2rem;

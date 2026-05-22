@@ -6,7 +6,7 @@
 	import AppSmallCard from '$lib/components/cards/AppSmallCard.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 	import AppSearchHitRowSkeleton from '$lib/components/cards/AppSearchHitRowSkeleton.svelte';
-	import { ChevronLeft, ChevronRight } from '$lib/components/icons';
+	import '$lib/styles/profile-section-empty.css';
 
 	const MOBILE_GRID_MAX = 2;
 	const DESKTOP_GRID_MAX = 4;
@@ -22,7 +22,9 @@
 	 *   loading?: boolean,
 	 *   emptyMessage?: string,
 	 *   getAppUrl?: (app: import('$lib/nostr/models').App) => string,
-	 *   getStackUrl?: (stack: Record<string, unknown>) => string
+	 *   getStackUrl?: (stack: Record<string, unknown>) => string,
+	 *   carousel?: { scroll: (direction: number) => void } | null,
+	 *   onUiChange?: (ui: CarouselUi) => void
 	 * }} */
 	let {
 		title = '',
@@ -31,20 +33,12 @@
 		loading = false,
 		emptyMessage = 'Nothing here yet',
 		getAppUrl = () => '#',
-		getStackUrl = () => '#'
+		getStackUrl = () => '#',
+		carousel = $bindable(/** @type {{ scroll: (direction: number) => void } | null} */ (null)),
+		onUiChange = () => {}
 	} = $props();
 
 	let viewportDesktop = $state(false);
-	let carousel = $state(/** @type {{ scroll: (direction: number) => void } | null} */ (null));
-	let carouselUi = $state(
-		/** @type {CarouselUi} */ ({
-			top: 0,
-			left: 0,
-			right: 0,
-			showLeft: false,
-			showRight: false
-		})
-	);
 
 	$effect(() => {
 		if (!browser) return;
@@ -72,19 +66,11 @@
 
 	const panels = $derived(getColumns(items, ITEMS_PER_PANEL));
 
-	/** @param {CarouselUi} next */
-	function handleCarouselUi(next) {
-		if (
-			carouselUi.showLeft === next.showLeft &&
-			carouselUi.showRight === next.showRight &&
-			carouselUi.top === next.top &&
-			carouselUi.left === next.left &&
-			carouselUi.right === next.right
-		) {
-			return;
+	$effect(() => {
+		if (!useCarousel) {
+			onUiChange({ top: 0, left: 0, right: 0, showLeft: false, showRight: false });
 		}
-		carouselUi = next;
-	}
+	});
 </script>
 
 <section class="profile-browse-section">
@@ -111,7 +97,7 @@
 				/>
 			{/if}
 		{:else if items.length === 0}
-			<p class="profile-browse-empty">{emptyMessage}</p>
+			<p class="profile-section-empty">{emptyMessage}</p>
 		{:else if useCarousel}
 			<AppsPageCarousel
 				bind:this={carousel}
@@ -123,7 +109,7 @@
 				skeletonItemsPerPanel={ITEMS_PER_PANEL}
 				getAppHref={getAppUrl}
 				getStackHref={getStackUrl}
-				onUiChange={handleCarouselUi}
+				{onUiChange}
 			/>
 		{:else}
 			<ul class="browse-grid profile-browse-grid" class:browse-grid--two-col={gridTwoCol} role="list">
@@ -144,37 +130,6 @@
 					{/each}
 				{/if}
 			</ul>
-		{/if}
-
-		{#if useCarousel && (carouselUi.showLeft || carouselUi.showRight)}
-			<div
-				class="screenshots-controls"
-				style="top: {carouselUi.top}px"
-				aria-hidden={!carouselUi.showLeft && !carouselUi.showRight}
-			>
-				{#if carouselUi.showLeft}
-					<button
-						type="button"
-						class="screenshots-btn screenshots-btn-left"
-						style="left: {carouselUi.left}px"
-						onclick={() => carousel?.scroll(-1)}
-						aria-label="Scroll {title} left"
-					>
-						<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
-					</button>
-				{/if}
-				{#if carouselUi.showRight}
-					<button
-						type="button"
-						class="screenshots-btn screenshots-btn-right"
-						style="right: {carouselUi.right}px"
-						onclick={() => carousel?.scroll(1)}
-						aria-label="Scroll {title} right"
-					>
-						<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
-					</button>
-				{/if}
-			</div>
 		{/if}
 	</div>
 </section>
@@ -202,94 +157,9 @@
 		}
 	}
 
-	.profile-browse-empty {
-		margin: 0;
-		padding: 40px var(--detail-pad-x, 12px);
-		font-size: 1.5rem;
-		font-weight: 600;
-		color: var(--white16);
-		text-align: center;
-		width: 100%;
-		box-sizing: border-box;
-		border-top: 1px solid var(--shell-border);
-		border-bottom: 1px solid var(--shell-border);
-	}
-
-	/* Full-bleed is handled by `.profile-browse-content` on the profile page — no double negative margin here. */
-	.profile-apps-browse-outer :global(.apps-page-carousel-wrap) {
+	.profile-apps-browse-outer {
 		margin-left: 0;
 		margin-right: 0;
 		width: 100%;
-	}
-
-	.screenshots-controls {
-		position: absolute;
-		left: 0;
-		right: 0;
-		transform: translateY(-50%);
-		pointer-events: none;
-		z-index: 30;
-	}
-
-	.screenshots-controls .screenshots-btn {
-		pointer-events: auto;
-	}
-
-	.screenshots-btn {
-		display: none;
-	}
-
-	@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
-		.screenshots-btn {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			position: absolute;
-			top: 50%;
-			transform: translateY(-60%) scale(1);
-			width: 34px;
-			height: 34px;
-			border-radius: 50%;
-			border: none;
-			background: var(--gray66);
-			backdrop-filter: blur(var(--blur-sm));
-			-webkit-backdrop-filter: blur(var(--blur-sm));
-			cursor: pointer;
-			z-index: 20;
-			transition: transform 0.2s ease;
-		}
-
-		.screenshots-btn-left {
-			transform: translate(-50%, -60%);
-		}
-
-		.screenshots-btn-left:hover {
-			transform: translate(-50%, -60%) scale(1.08);
-		}
-
-		.screenshots-btn-left:active {
-			transform: translate(-50%, -60%) scale(0.95);
-		}
-
-		.screenshots-btn-left :global(svg) {
-			padding-right: 2px;
-		}
-
-		.screenshots-btn-right {
-			left: auto;
-			transform: translate(50%, -60%);
-		}
-
-		.screenshots-btn-right:hover {
-			transform: translate(50%, -60%) scale(1.08);
-		}
-
-		.screenshots-btn-right:active {
-			transform: translate(50%, -60%) scale(0.95);
-		}
-
-		.screenshots-btn-right :global(svg) {
-			padding-left: 2px;
-		}
 	}
 </style>

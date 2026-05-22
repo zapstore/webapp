@@ -325,14 +325,15 @@
 							(bySender[parsed.senderPubkey] ?? 0) + parsed.amountSats;
 					}
 				}
-				const sorted = Object.entries(bySender)
+				const sortedPubkeys = Object.entries(bySender)
 					.sort((a, b) => b[1] - a[1])
 					.filter(([pubkey]) => !excludedPubkeys.has(pubkey))
-					.slice(0, ZAPPER_SLOT_COUNT)
 					.map(([pubkey]) => pubkey);
 
 				const list = [];
-				for (const pubkey of sorted) {
+				for (const pubkey of sortedPubkeys) {
+					if (list.length >= ZAPPER_SLOT_COUNT) break;
+
 					let name = '';
 					let image = null;
 					try {
@@ -346,14 +347,15 @@
 							image = c.picture && String(c.picture).trim() ? c.picture : null;
 						}
 					} catch {
-						// keep name empty; we still show this zapper with pubkey-derived initial
+						// skip profile fetch failures and try next candidate
 					}
-					list.push({ name, image, pubkey });
+
+					// Only include zappers with real identity (name or picture), no anons/empty
+					if ((name && name.trim() && name !== 'Supporter') || image) {
+						list.push({ name, image, pubkey });
+					}
 				}
-				// Only include zappers with real identity (name or picture), no anons/empty
-				topZappers = list.filter(
-					(z) => (z.name && z.name.trim() && z.name !== 'Supporter') || z.image
-				);
+				topZappers = list;
 			} catch (err) {
 				console.error('[TeamSection] Failed to load top zappers:', err);
 			} finally {

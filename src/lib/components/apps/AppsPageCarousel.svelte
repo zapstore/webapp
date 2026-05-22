@@ -59,18 +59,19 @@
 
 	function emitUiIfChanged(nextLeft, nextRight) {
 		const wrap = scrollWrap;
-		const outer = wrap?.closest('.apps-search-outer, .profile-apps-browse-outer');
+		const outer = wrap?.closest('.apps-search-outer, .app-detail-outer');
 		const frame = wrap?.closest('.apps-search-frame, .app-detail-frame');
 		if (!wrap || !outer || !frame) return;
 		const wrapRect = wrap.getBoundingClientRect();
 		const outerRect = outer.getBoundingClientRect();
+		const frameRect = frame.getBoundingClientRect();
 		/** @type {CarouselUi} */
 		const ui = {
 			showLeft: nextLeft,
 			showRight: nextRight,
 			top: Math.round(wrapRect.top - outerRect.top + wrapRect.height / 2),
-			left: frame.offsetLeft,
-			right: outer.clientWidth - frame.offsetLeft - frame.offsetWidth
+			left: Math.round(frameRect.left - outerRect.left),
+			right: Math.round(outerRect.right - frameRect.right)
 		};
 		if (
 			lastEmittedUi &&

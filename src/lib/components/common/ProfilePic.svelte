@@ -6,8 +6,8 @@
 		getProfileTextColor,
 		rgbToCssString
 	} from '$lib/utils/color.js';
-	import { nip19 } from 'nostr-tools';
-	import SkeletonLoader from './SkeletonLoader.svelte';
+import { nip19 } from 'nostr-tools';
+import SkeletonLoader from './SkeletonLoader.svelte';
 
 	/**
 	 * ProfilePic - A profile picture component with fallback states

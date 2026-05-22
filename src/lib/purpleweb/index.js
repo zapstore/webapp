@@ -28,6 +28,8 @@
 // `queryEvents` is the universal NIP-01 → Dexie query engine. Every read,
 // inside liveQuery or one-shot, goes through it.
 
+export { queryProfilesForPubkeys } from './storage/social.js';
+
 export {
 	activityRootKeyMetaFromComment,
 	addrTagFromComment,
@@ -60,6 +62,7 @@ export async function clearLocalData() {
 }
 
 export { persistEventsInBackground } from './storage/cache-writer.js';
+export { hydrateFilters } from './sync/hydrate.js';
 
 // ============================================================================
 // Sync — Relay I/O
@@ -83,6 +86,7 @@ export {
 	startUserInboxLiveUpdates,
 	stopUserInboxLiveUpdates,
 	ensureUserInboxLiveUpdates,
+	isUserInboxLiveUpdatesActive,
 	syncDeletions,
 	installZapstoreDebugHooks,
 	subscribeAddressableSocialRoot,
@@ -164,7 +168,7 @@ export { createForumPostQuery } from './svelte/forum-post.svelte.js';
 
 // Listings — reactive page lists with relay-backed pagination.
 export { createAppsListingQuery } from './svelte/apps-listing.svelte.js';
-export { createStacksListingQuery } from './svelte/stacks-listing.svelte.js';
+export { createStacksListingQuery, stackListingPreviewKey } from './svelte/stacks-listing.svelte.js';
 
 // Social tabs (comments / zaps / labels) shared by detail pages.
 export {

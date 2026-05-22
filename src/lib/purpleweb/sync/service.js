@@ -463,6 +463,16 @@ export function ensureUserInboxLiveUpdates(pubkey) {
 	restartInboxSubscriptions(pubkey, 'ensure');
 }
 
+/** True when persistent inbox relay subs are open for this pubkey (see `startUserInboxLiveUpdates`). */
+export function isUserInboxLiveUpdatesActive(pubkey) {
+	if (typeof window === 'undefined' || !pubkey) return false;
+	return (
+		inboxLivePubkey === pubkey &&
+		activeInboxSubscriptions.length > 0 &&
+		!inboxSubscribersNeedRestart
+	);
+}
+
 /**
  * @param {string} pubkey
  */
@@ -1234,7 +1244,6 @@ export async function fetchProfilesBatch(pubkeys, options = {}) {
 		)
 	];
 
-	// First pass: batch check Dexie — single query for all pubkeys
 	const cachedProfiles = await queryEvents({ kinds: [0], authors: uniquePubkeys });
 	for (const event of cachedProfiles) {
 		const pk = event.pubkey?.toLowerCase();

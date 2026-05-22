@@ -12,25 +12,27 @@
 	fetchFromRelays,
 	fetchKind1111ReferencingEventIds,
 	fetchZapsByEventIds,
-	fetchProfilesBatch,
+	hydrateFilters,
 	putEvents,
 	publishToRelays,
 	buildEventPublishRelayUrls,
 	queryEvents,
+	queryProfilesForPubkeys,
 	liveQuery,
 	parseZapReceipt
 } from '$lib/purpleweb';
 import { parseForumPost } from '$lib/nostr';
-	import { parseProfile } from '$lib/nostr/models';
 import {
 	EVENT_KINDS,
 	ZAPSTORE_COMMUNITY_NPUB,
 	FORUM_RELAY,
 	ZAPSTORE_RELAY,
 	FORUM_CATEGORIES,
+	PROFILE_FETCH_RELAYS,
 	commentZapRelayReadSince
 } from '$lib/config';
 import { relayLoading } from '$lib/stores/relay-loading.svelte.js';
+import { isOnline } from '$lib/stores/online.svelte.js';
 import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
@@ -77,8 +79,6 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	/* eslint-enable svelte/no-unnecessary-state-wrap */
 	/** True after the first commentCountsQuery emission — drives ForumPostCard skeleton state. */
 	let commentCountsSettled = $state(false);
-	/** Non-reactive cache for commenter profiles; used by the reactive comment liveQuery. */
-	let commentProfileCache = new SvelteMap();
 	let addPostModalOpen = $state(false);
 	let searchModalOpen = $state(false);
 	let getStartedModalOpen = $state(false);
@@ -189,18 +189,24 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 					]);
 					const all = new SvelteMap();
 					for (const e of [...lo, ...hi]) all.set(e.id, e);
-					return Array.from(all.values());
+					const commentEvs = Array.from(all.values());
+					const pks = [
+						...new SvelteSet([
+							...posts.map((p) => String(p.pubkey).toLowerCase()),
+							...commentEvs.map((c) => String(c.pubkey).toLowerCase())
+						])
+					];
+					const profileData = await queryProfilesForPubkeys(pks);
+					return { commentEvs, ...profileData };
 				})
 			: null
 	);
 
 	$effect(() => {
 		if (!commentCountsQuery) return;
+		const hydrated = Object.create(null);
 		const sub = commentCountsQuery.subscribe({
-			next: (commentEvs) => {
-				// Dexie fired — mark settled immediately so cached data is shown without
-				// waiting for relay. The relay fetch runs in the background and updates
-				// commentersByPostId reactively via liveQuery when it writes to Dexie.
+			next: ({ commentEvs, profiles, missingProfilePubkeys }) => {
 				commentCountsSettled = true;
 				const evs = commentEvs ?? [];
 				const byPost = new SvelteMap();
@@ -214,7 +220,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 					entry.count += 1;
 					const pk = c.pubkey;
 					if (!entry.profiles.some((p) => p.pubkey === pk)) {
-						const p = commentProfileCache.get(pk);
+						const p = profiles?.[String(pk).toLowerCase()] ?? profiles?.[pk];
 						entry.profiles.push({
 							pubkey: pk,
 							displayName: p?.displayName ?? p?.name ?? '',
@@ -223,6 +229,29 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 					}
 				}
 				commentersByPostId = byPost;
+
+				const authorMap = new SvelteMap();
+				for (const post of posts) {
+					const pk = String(post.pubkey).toLowerCase();
+					const p = profiles?.[pk];
+					if (p) authorMap.set(post.pubkey, p);
+				}
+				feedProfiles = authorMap;
+
+				if (!isOnline()) return;
+				const missing = (missingProfilePubkeys ?? []).filter((pk) => !hydrated[pk]);
+				if (missing.length === 0) return;
+				for (const pk of missing) hydrated[pk] = true;
+				hydrateFilters(
+					RELAYS,
+					{ kinds: [EVENT_KINDS.PROFILE], authors: missing, limit: missing.length * 2 },
+					{ timeout: 3000, feature: 'forum-profiles' }
+				).catch(() => {});
+				hydrateFilters(
+					PROFILE_FETCH_RELAYS,
+					{ kinds: [EVENT_KINDS.PROFILE], authors: missing, limit: missing.length * 2 },
+					{ timeout: 4000, feature: 'forum-profiles-catalog' }
+				).catch(() => {});
 			}
 		});
 		return () => sub.unsubscribe();
@@ -297,179 +326,28 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 
 	$effect(() => {
 		if (!browser || posts.length === 0 || !isForumFeedRoute) return;
-		// Only show skeleton when Dexie has no comment data at all for the visible posts.
-		// On a return visit the liveQuery already populated commentersByPostId so we skip
-		// the skeleton entirely and go straight to showing cached data.
 		const anyPostHasDexieData = posts.some((p) => commentersByPostId.has(p.id));
 		if (!anyPostHasDexieData) commentCountsSettled = false;
-		const pks = [...new SvelteSet(posts.map((p) => p.pubkey))];
 		const postIds = posts.map((p) => p.id);
 		let cancelled = false;
 
 		(async () => {
-		  try {
-			relayLoading.forum = true;
-			// Run profile fetch and Dexie comment fetch in parallel — don't let the
-			// 4s profile relay timeout block comment counts from appearing quickly.
-			const [pEvs, evsE, evsEUpper] = await Promise.all([
-				fetchProfilesBatch(pks, { timeout: 4000 }),
-				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': postIds, limit: 300 }),
-				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': postIds, limit: 300 })
-			]);
-			if (cancelled) return;
-
-			const m = new SvelteMap();
-			for (const [pk, event] of pEvs) {
-				try {
-					m.set(pk, { ...parseProfile(event), content: event.content });
-				} catch {
-					/* skip */
+			try {
+				relayLoading.forum = true;
+				const rs = commentZapRelayReadSince();
+				await fetchKind1111ReferencingEventIds(
+					[ZAPSTORE_RELAY],
+					postIds,
+					{ since: rs, limit: 500, timeout: 6000, feature: 'forum-feed-comment-counts' }
+				);
+			} catch {
+				/* non-fatal */
+			} finally {
+				if (!cancelled) {
+					commentCountsSettled = true;
+					relayLoading.forum = false;
 				}
 			}
-			// Fetch missing profiles from forum relay (authors may only be there)
-			const missing = pks.filter((pk) => !m.has(pk));
-			if (missing.length > 0) {
-				try {
-					const fromForum = await fetchFromRelays(
-						RELAYS,
-						{ kinds: [0], authors: missing, limit: missing.length * 2 },
-						{ timeout: 3000 }
-					);
-					for (const event of fromForum) {
-						const pk = event.pubkey?.toLowerCase();
-						if (pk && !m.has(pk)) {
-							try {
-								m.set(pk, { ...parseProfile(event), content: event.content });
-							} catch {
-								/* skip */
-							}
-						}
-					}
-				} catch {
-					/* keep partial */
-				}
-			}
-			feedProfiles = m;
-
-			const byId = new SvelteMap();
-			for (const e of [...evsE, ...evsEUpper]) {
-				if (!byId.has(e.id)) byId.set(e.id, e);
-			}
-			const commentEvs = Array.from(byId.values());
-
-			const byPost = new SvelteMap();
-			for (const c of commentEvs) {
-				const rootE = c.tags?.find((t) => t[0] === 'E')?.[1] ?? c.tags?.find((t) => t[0] === 'e')?.[1];
-				if (!rootE) continue;
-				if (!byPost.has(rootE)) byPost.set(rootE, { profiles: [], count: 0 });
-				const entry = byPost.get(rootE);
-				entry.count += 1;
-				const pk = c.pubkey;
-				if (!entry.profiles.some((p) => p.pubkey === pk)) {
-					entry.profiles.push({ pubkey: pk, displayName: '', avatarUrl: '' });
-				}
-			}
-
-			const allCommenterPks = [...new SvelteSet(commentEvs.map((e) => e.pubkey))];
-			const commenterProfiles =
-				allCommenterPks.length > 0 ? await fetchProfilesBatch(allCommenterPks, { timeout: 3000 }) : [];
-			if (cancelled) return;
-			const profileMap = new SvelteMap();
-			for (const [pk, event] of commenterProfiles) {
-				try {
-					profileMap.set(pk, parseProfile(event));
-				} catch {
-					/* skip */
-				}
-			}
-			// Populate cache so the reactive liveQuery can enrich profiles on next tick.
-			for (const [pk, p] of profileMap.entries()) commentProfileCache.set(pk, p);
-			for (const entry of byPost.values()) {
-				entry.profiles = entry.profiles.map((r) => {
-					const p = profileMap.get(r.pubkey);
-					return {
-						pubkey: r.pubkey,
-						displayName: p?.displayName ?? p?.name ?? '',
-						avatarUrl: p?.picture ?? ''
-					};
-				});
-			}
-			commentersByPostId = byPost;
-
-			const rs = commentZapRelayReadSince();
-			const allRelay = await fetchKind1111ReferencingEventIds(
-				[ZAPSTORE_RELAY],
-				postIds,
-				{ since: rs, limit: 500, timeout: 6000, feature: 'forum-feed-comment-counts' }
-			);
-			if (cancelled) return;
-			const newEvs = allRelay.filter((e) => !byId.has(e.id));
-			if (newEvs.length > 0) {
-				for (const c of newEvs) {
-					const rootE = c.tags?.find((t) => t[0] === 'E')?.[1] ?? c.tags?.find((t) => t[0] === 'e')?.[1];
-					if (!rootE) continue;
-					if (!byPost.has(rootE)) byPost.set(rootE, { profiles: [], count: 0 });
-					const entry = byPost.get(rootE);
-					entry.count += 1;
-					const pk = c.pubkey;
-					if (!entry.profiles.some((p) => p.pubkey === pk)) {
-						entry.profiles.push({ pubkey: pk, displayName: '', avatarUrl: '' });
-					}
-				}
-				const extraPks = [...new SvelteSet(newEvs.map((e) => e.pubkey))].filter((pk) => !profileMap.has(pk));
-				const extraProfiles = extraPks.length > 0 ? await fetchProfilesBatch(extraPks, { timeout: 3000 }) : [];
-				for (const [pk, event] of extraProfiles) {
-					try {
-						profileMap.set(pk, parseProfile(event));
-					} catch {
-						/* skip */
-					}
-				}
-				// Fetch any still-missing from forum relay
-				const stillMissing = extraPks.filter((pk) => !profileMap.has(pk));
-				if (stillMissing.length > 0) {
-					try {
-						const fromForum = await fetchFromRelays(
-							RELAYS,
-							{ kinds: [0], authors: stillMissing, limit: stillMissing.length * 2 },
-							{ timeout: 2000 }
-						);
-						for (const event of fromForum) {
-							const pk = event.pubkey?.toLowerCase();
-							if (pk && !profileMap.has(pk)) {
-								try {
-									profileMap.set(pk, parseProfile(event));
-								} catch {
-									/* skip */
-								}
-							}
-						}
-					} catch {
-						/* keep partial */
-					}
-				}
-				// Merge new profiles into cache so the reactive liveQuery picks them up.
-				for (const [pk, p] of profileMap.entries()) commentProfileCache.set(pk, p);
-				for (const entry of byPost.values()) {
-					entry.profiles = entry.profiles.map((r) => {
-						const p = profileMap.get(r.pubkey);
-						return {
-							pubkey: r.pubkey,
-							displayName: p?.displayName ?? p?.name ?? '',
-							avatarUrl: p?.picture ?? ''
-						};
-					});
-				}
-				commentersByPostId = byPost;
-			}
-		  } finally {
-			// Only mark settled / clear relay indicator when this run completed (not cancelled).
-			// A cancelled run means posts changed and a fresh run is already underway.
-			if (!cancelled) {
-				commentCountsSettled = true;
-				relayLoading.forum = false;
-			}
-		  }
 		})();
 
 		return () => {

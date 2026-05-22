@@ -103,8 +103,19 @@ async function copy(text, setCopied) {
 </script>
 
 <div class="profile-details-tab">
+	<h3 class="eyebrow-label section-title">DESCRIPTION</h3>
+	<div class="panel {panelBgClass} panel-p-16 description-panel">
+		{#if description}
+			<div class="description-body">
+				<ShortTextRenderer content={description} {resolveMentionLabel} />
+			</div>
+		{:else}
+			<p class="description-empty">No description</p>
+		{/if}
+	</div>
+
 	<h3 class="eyebrow-label section-title">IDENTIFIERS</h3>
-	<div class="panel {panelBgClass}">
+	<div class="panel {panelBgClass} identifiers-panel">
 		<div class="identifier-row">
 			<span class="identifier-label">Profile</span>
 			<div class="identifier-value-right">
@@ -199,17 +210,6 @@ async function copy(text, setCopied) {
 		{/if}
 	</div>
 
-	<h3 class="eyebrow-label section-title description-title">DESCRIPTION</h3>
-	<div class="panel {panelBgClass} description-panel">
-		{#if description}
-			<div class="description-body">
-				<ShortTextRenderer content={description} {resolveMentionLabel} />
-			</div>
-		{:else}
-			<p class="description-empty">No description</p>
-		{/if}
-	</div>
-
 	{#if rawEvent}
 		<h3 class="eyebrow-label section-title raw-data-title">RAW DATA</h3>
 		<CodeBlock
@@ -234,13 +234,8 @@ async function copy(text, setCopied) {
 		margin-bottom: 8px;
 	}
 
-	.raw-data-title,
-	.description-title {
+	.section-title:not(:first-child) {
 		margin-top: 12px;
-	}
-
-	.description-panel {
-		padding: 12px 14px;
 	}
 
 	.description-body {
@@ -259,6 +254,9 @@ async function copy(text, setCopied) {
 	.panel {
 		border-radius: 16px;
 		overflow: hidden;
+	}
+
+	.identifiers-panel {
 		padding: 0;
 	}
 

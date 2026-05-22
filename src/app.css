@@ -1994,9 +1994,24 @@ h5, h6 {
    ======================================== */
 
 /* Full width below large (1024px) - no max-width constraint */
-/* Apply max-width only from large screens and up */
+/* Laptop / MacBook Air: 1100px from 1024px; extra-wide monitors: +240px from 1600px */
 @media (min-width: 1024px) {
   .container { max-width: 1100px; }
+}
+@media (min-width: 1600px) {
+  .container { max-width: 1340px; }
+}
+
+/* Developer marketing inner columns (SignedSection, StudioTools, OpenProtocols) */
+.developer-marketing-inner {
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+@media (min-width: 1600px) {
+  .developer-marketing-inner {
+    max-width: 1240px;
+  }
 }
 
 /* ========================================

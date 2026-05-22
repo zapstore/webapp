@@ -41,6 +41,47 @@ async function queryCommentsForAddressable(kind, pubkey, identifier) {
  * @param {import('nostr-tools').Event[]} zapEvents
  * @param {import('nostr-tools').Event[]} labelEvents
  */
+/**
+ * Read latest kind-0 profiles for pubkeys from Dexie only (liveQuery-friendly).
+ *
+ * @param {unknown[]} pubkeys
+ */
+export async function queryProfilesForPubkeys(pubkeys) {
+	const normalized = uniqueStrings(pubkeys)
+		.map((pk) => pk.toLowerCase())
+		.filter((pk) => /^[a-f0-9]{64}$/.test(pk));
+
+	if (normalized.length === 0) {
+		return { profiles: {}, missingProfilePubkeys: [] };
+	}
+
+	const profileEvents = await queryEvents({
+		kinds: [EVENT_KINDS.PROFILE],
+		authors: normalized,
+		limit: normalized.length
+	});
+
+	/** @type {Map<string, import('nostr-tools').Event>} */
+	const latestByPubkey = new Map();
+	for (const event of profileEvents) {
+		const pk = event.pubkey?.toLowerCase();
+		if (!pk) continue;
+		const existing = latestByPubkey.get(pk);
+		if (!existing || event.created_at > existing.created_at) {
+			latestByPubkey.set(pk, event);
+		}
+	}
+
+	const profiles = {};
+	for (const event of latestByPubkey.values()) {
+		const [profile] = parseModels([event], Profile);
+		if (profile?.pubkey) profiles[profile.pubkey.toLowerCase()] = profile;
+	}
+
+	const missingProfilePubkeys = normalized.filter((pk) => !profiles[pk]);
+	return { profiles, missingProfilePubkeys };
+}
+
 async function queryProfilesForSocial(commentEvents, zapEvents, labelEvents) {
 	const commentModels = parseModels(commentEvents, Comment);
 	const zapModels = parseModels(zapEvents, Zap);
@@ -55,22 +96,13 @@ async function queryProfilesForSocial(commentEvents, zapEvents, labelEvents) {
 		return { profiles: {}, zapperProfiles: new Map(), profilePubkeys: [], missingProfilePubkeys: [] };
 	}
 
-	const profileEvents = await queryEvents({
-		kinds: [EVENT_KINDS.PROFILE],
-		authors: pubkeys,
-		limit: pubkeys.length
-	});
-	const profileModels = parseModels(profileEvents, Profile);
-	const profiles = {};
-	for (const profile of profileModels) {
-		profiles[profile.pubkey] = profile;
-	}
-	const missingProfilePubkeys = pubkeys.filter((pubkey) => !profiles[pubkey]);
+	const { profiles, missingProfilePubkeys } = await queryProfilesForPubkeys(pubkeys);
 
 	const zapperProfiles = new Map();
 	for (const zap of zapModels) {
-		if (zap.senderPubkey && profiles[zap.senderPubkey]) {
-			zapperProfiles.set(zap.senderPubkey, profiles[zap.senderPubkey]);
+		const sender = zap.senderPubkey?.toLowerCase();
+		if (sender && profiles[sender]) {
+			zapperProfiles.set(sender, profiles[sender]);
 		}
 	}
 
