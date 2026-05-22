@@ -56,7 +56,13 @@ let lastCommentThreadPostId = $state('');
 
 let post = $derived.by(() => postProp ? { ...postProp } : null);
 /** Stable id for thread effects — avoids re-fetch when other post fields change. */
-const threadPostId = $derived(post?.id ?? '');
+const threadPostId = $derived(postProp?.id ?? '');
+/** Stable thread identity — relay hydrate must not re-run when parent re-parses `post`. */
+const threadKey = $derived.by(() => {
+	const id = postProp?.id ?? '';
+	const pk = postProp?.pubkey ?? '';
+	return id && pk ? `${id}:${pk}` : '';
+});
 let authorProfile = $state(null);
 let comments = $state([]);
 /** False when there is no thread yet; true only until the first Dexie snapshot for the active `threadPostId`. */
@@ -210,18 +216,39 @@ $effect(() => {
 
 /** Relay NIP-22 thread refresh — puts events into Dexie; liveQuery picks them up. */
 $effect(() => {
-	const pk = post?.pubkey;
-	const id = post?.id;
-	if (!pk || !id) return;
-	commentsSyncing = true;
+	const key = threadKey;
+	if (!key) {
+		commentsSyncing = false;
+		return;
+	}
+
+	const id = untrack(() => postProp?.id);
+	const pk = untrack(() => postProp?.pubkey);
+	if (!id || !pk) return;
+
+	const hadLocal = untrack(() => comments.length > 0);
+	let cancelled = false;
+	let syncTimeout = /** @type {ReturnType<typeof setTimeout> | null} */ (null);
+
+	function stopSyncing() {
+		if (!cancelled && !hadLocal) commentsSyncing = false;
+		if (syncTimeout) clearTimeout(syncTimeout);
+		syncTimeout = null;
+	}
+
+	if (!hadLocal) commentsSyncing = true;
 	const rs = commentZapRelayReadSince();
+	syncTimeout = setTimeout(stopSyncing, 6000);
 	void fetchComments(pk, null, { eventId: id, since: rs, timeout: 6000 })
 		.catch((err) => {
 			console.warn('[ForumPostDetail] Relay comment fetch:', err);
 		})
-		.finally(() => {
-			commentsSyncing = false;
-		});
+		.finally(stopSyncing);
+
+	return () => {
+		cancelled = true;
+		stopSyncing();
+	};
 });
 
 const npub = $derived(post?.pubkey ? (() => { try { return nip19.npubEncode(post.pubkey); } catch { return ''; } })() : '');
@@ -361,8 +388,8 @@ async function mergeProfilesFromDexie(pubkeys) {
 }
 
 $effect(() => {
-	const pid = post?.id;
-	const ppk = post?.pubkey;
+	const pid = threadPostId;
+	const ppk = untrack(() => postProp?.pubkey);
 	const pars = comments;
 	if (!pid) return;
 
@@ -419,8 +446,8 @@ $effect(() => {
 });
 
 $effect(() => {
-	const pid = post?.id;
-	const ppk = post?.pubkey;
+	const pid = threadPostId;
+	const ppk = untrack(() => postProp?.pubkey);
 	if (!pid) return;
 	let cancelled = false;
 	/** @type {ReturnType<typeof setTimeout> | number} */
