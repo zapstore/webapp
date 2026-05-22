@@ -96,6 +96,8 @@ let labelEntries = $state([]);
 let labelsLoading = $state(false);
 /** Bumped when ActionsModal publishes/removes a label so the labels effect re-fetches */
 let labelFetchNonce = $state(0);
+/** Last thread we hydrated labels for — clears entries on navigation. */
+let lastLabelsThreadKey = $state('');
 let lightboxOpen = $state(false);
 let lightboxUrls = $state([]);
 let lightboxIndex = $state(0);
@@ -541,18 +543,33 @@ $effect(() => {
 	};
 });
 
-// Labels: merge self-labels (t tags) with kind 1985 events from relay
+// Labels: merge self-labels (t tags) with kind 1985 events from relay — once per thread (+ after publish).
 $effect(() => {
-	labelFetchNonce;
-	const pid = post?.id;
-	const postPubkey = post?.pubkey;
-	const selfLabels = post?.labels ?? [];
+	const key = threadKey;
+	void labelFetchNonce;
 	const cpk = communityPubkey;
-	if (!pid || !cpk) {
+	if (!key || !cpk) {
 		labelEntries = [];
+		labelsLoading = false;
+		lastLabelsThreadKey = '';
 		return;
 	}
-	labelsLoading = true;
+
+	if (key !== lastLabelsThreadKey) {
+		lastLabelsThreadKey = key;
+		labelEntries = [];
+	}
+
+	const pid = untrack(() => postProp?.id);
+	const postPubkey = untrack(() => postProp?.pubkey);
+	const selfLabels = untrack(() => postProp?.labels ?? []);
+	const relayList = untrack(() => relays ?? []);
+	if (!pid) return;
+
+	const hadLocal = untrack(() => labelEntries.length > 0);
+	let cancelled = false;
+	if (!hadLocal) labelsLoading = true;
+
 	(async () => {
 		try {
 			/** @type {SvelteMap<string, SvelteSet<string>>} */
@@ -561,8 +578,9 @@ $effect(() => {
 				if (!labelMap.has(label)) labelMap.set(label, new SvelteSet());
 				if (postPubkey) labelMap.get(label)?.add(postPubkey);
 			}
-			const labelRelays = [...new Set([...(relays ?? []), ZAPSTORE_RELAY])];
+			const labelRelays = [...new Set([...relayList, ZAPSTORE_RELAY])];
 			const labelEvents = await fetchLabelEvents(labelRelays, pid, cpk, { enforced: true });
+			if (cancelled || threadKey !== key) return;
 			for (const ev of labelEvents) {
 				const lTags = ev.tags.filter((t) => t[0] === 'l' && t[1]);
 				for (const lt of lTags) {
@@ -574,6 +592,7 @@ $effect(() => {
 			const allLabelerPubkeys = [...new Set([...labelMap.values()].flatMap((s) => [...s]))];
 			if (allLabelerPubkeys.length > 0) {
 				const batch = await fetchProfilesBatch(allLabelerPubkeys, { timeout: 3000 });
+				if (cancelled || threadKey !== key) return;
 				const next = { ...profiles };
 				for (const [pk, ev] of batch) {
 					if (ev?.content) {
@@ -601,9 +620,13 @@ $effect(() => {
 		} catch (err) {
 			console.error('[ForumPostDetail] Labels failed:', err);
 		} finally {
-			labelsLoading = false;
+			if (!cancelled && threadKey === key) labelsLoading = false;
 		}
 	})();
+
+	return () => {
+		cancelled = true;
+	};
 });
 
 async function handleCommentSubmit(e) {
