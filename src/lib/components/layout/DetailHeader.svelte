@@ -200,8 +200,8 @@ async function _handleSignIn() {
 	class={cn(
 		'page-header sticky top-0 left-0 right-0 w-full z-50 transition-all duration-300',
 		scrolled
-			? 'bg-background/60 border-b border-border/50'
-			: 'bg-transparent border-b border-transparent'
+			? 'bg-background/60 border-b border-shell'
+			: 'bg-transparent border-b border-shell'
 	)}
 >
 	<nav class="w-full h-full px-4 sm:px-6 md:px-[38px]">
@@ -301,8 +301,8 @@ async function _handleSignIn() {
 		'detail-header sticky top-0 left-0 right-0 w-full z-50 transition-all duration-300',
 		!headerVisible && 'detail-header-hidden',
 		scrolled
-			? 'bg-background/60 border-b border-border/50'
-			: 'bg-transparent border-b border-transparent'
+			? 'bg-background/60 border-b border-shell'
+			: 'bg-transparent border-b border-shell'
 	)}
 >
 	<nav class={cn('w-full h-full', compactPadding ? 'nav-compact' : 'px-4 sm:px-6 md:px-[38px]')}>

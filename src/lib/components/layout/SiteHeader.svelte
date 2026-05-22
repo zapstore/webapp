@@ -305,7 +305,7 @@
 		menuOpen ? 'z-[200]' : 'z-50',
 		scrolled
 			? 'bg-background/60 border-b border-shell'
-			: 'bg-transparent border-b border-transparent'
+			: 'bg-transparent border-b border-shell'
 	)}
 >
 	<nav class={cn('container mx-auto h-full', 'px-3 sm:px-6 lg:px-8')}>

@@ -102,8 +102,8 @@
 		height: calc(100dvh - 64px);
 		min-height: 0;
 		overflow: hidden;
-		border-left: 1px solid var(--white16);
-		border-right: 1px solid var(--white16);
+		border-left: 1px solid var(--shell-border);
+		border-right: 1px solid var(--shell-border);
 		margin-left: -16px;
 		margin-right: -16px;
 	}
@@ -154,7 +154,7 @@
 			padding: 10px 16px;
 			background: transparent;
 			border: none;
-			border-bottom: 1px solid var(--white16);
+			border-bottom: 1px solid var(--shell-border);
 			cursor: pointer;
 			color: var(--white);
 		}
@@ -184,7 +184,7 @@
 			display: flex;
 			flex-direction: column;
 			background: var(--black);
-			border-top: 1px solid var(--white16);
+			border-top: 1px solid var(--shell-border);
 			box-shadow: 0 12px 40px color-mix(in srgb, var(--black) 35%, transparent);
 			overflow: hidden;
 		}
@@ -239,7 +239,7 @@
 
 	@media (min-width: 768px) {
 		.content {
-			border-left: 1px solid var(--white16);
+			border-left: 1px solid var(--shell-border);
 		}
 	}
 

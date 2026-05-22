@@ -84,6 +84,15 @@ function appKey(pubkeyHex, dTag) {
 	return `${pubkeyHex.toLowerCase()}|${dTag.toLowerCase()}`;
 }
 
+/** Stable identity for the app list — layout passes a new array ref on every liveQuery tick. */
+/** @param {StudioApp[]} appList */
+function appListSignature(appList) {
+	return appList
+		.map((a) => String(a.id ?? '').toLowerCase())
+		.sort()
+		.join('\n');
+}
+
 export const studioAnalytics = {
 	get pubkey() { return pubkey; },
 	get apps() { return apps; },
@@ -126,7 +135,7 @@ export function loadIfNeeded(nextPubkey, nextApps) {
 
 	// Pubkey switch invalidates the cache entirely.
 	const pubkeyChanged = nextPubkey !== pubkey;
-	const appsChanged = nextApps !== apps;
+	const appsChanged = appListSignature(nextApps) !== appListSignature(apps);
 
 	if (!pubkeyChanged && !appsChanged) return;
 
@@ -148,9 +157,14 @@ export function loadIfNeeded(nextPubkey, nextApps) {
 	const gen = loadGen;
 	const range = buildIsoDateRange(MAX_TIMEFRAME_DAYS);
 
-	impressionsLoading = true;
-	downloadsLoading = true;
-	zapsLoading = true;
+	// Only show chart loading overlays on first load or account switch — not when
+	// liveQuery re-emits the same apps with a new array reference (relay/Dexie writes).
+	const showLoadingOverlays = pubkeyChanged || impressionsSeries === null;
+	if (showLoadingOverlays) {
+		impressionsLoading = true;
+		downloadsLoading = true;
+		zapsLoading = true;
+	}
 
 	void (async () => {
 		try {

@@ -160,7 +160,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		border-left: 1px solid var(--white16);
+		border-left: 1px solid var(--shell-border);
 		margin-left: 12px;
 	}
 </style>
