@@ -4,7 +4,8 @@
 	 * Forum feed (persists in community layout when switching Activity ↔ Forum).
 	 */
 	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { page } from '$app/stores';
 	import { nip19 } from 'nostr-tools';
@@ -90,12 +91,73 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	let forumFeedLimit = $state(45);
 	const FORUM_FEED_CAP = 320;
 
+	/** Scroll container — saved before leaving feed, restored on return. */
+	let forumListViewport = $state(/** @type {HTMLDivElement | null} */ (null));
+	let savedFeedScrollTop = $state(/** @type {number} */ (getCached('forum_feed_scroll') ?? 0));
+	let pendingScrollRestore = $state(false);
+	let restoreInFlight = false;
+
+	function isForumFeedPath(pathname) {
+		return pathname === '/community/forum' || pathname === '/community/forum/';
+	}
+
+	function persistFeedScroll(top) {
+		savedFeedScrollTop = top;
+		setCached('forum_feed_scroll', top);
+	}
+
+	function captureFeedScroll() {
+		if (!forumListViewport) return;
+		persistFeedScroll(forumListViewport.scrollTop);
+	}
+
+	function onFeedScroll() {
+		if (!isForumFeedRoute || !forumListViewport) return;
+		persistFeedScroll(forumListViewport.scrollTop);
+	}
+
+	async function restoreFeedScroll() {
+		if (restoreInFlight) return;
+		const top = savedFeedScrollTop || getCached('forum_feed_scroll') || 0;
+		if (top <= 0 || !forumListViewport || !isForumFeedRoute) {
+			pendingScrollRestore = false;
+			return;
+		}
+		restoreInFlight = true;
+		try {
+			for (let i = 0; i < 12; i++) {
+				await tick();
+				await new Promise((r) => requestAnimationFrame(r));
+				if (!forumListViewport || !isForumFeedRoute) return;
+				forumListViewport.scrollTop = top;
+				if (Math.abs(forumListViewport.scrollTop - top) <= 3) {
+					pendingScrollRestore = false;
+					return;
+				}
+			}
+		} finally {
+			restoreInFlight = false;
+			pendingScrollRestore = false;
+		}
+	}
+
+	beforeNavigate(({ from }) => {
+		if (!browser || !forumListViewport || !from) return;
+		if (isForumFeedPath(from.url.pathname)) captureFeedScroll();
+	});
+
+	afterNavigate(({ to, from }) => {
+		if (!browser || !to || !from) return;
+		if (isForumFeedPath(to.url.pathname) && !isForumFeedPath(from.url.pathname)) {
+			pendingScrollRestore = true;
+			void restoreFeedScroll();
+		}
+	});
+
 	const isSignedIn = $derived(getIsSignedIn());
 
 	/** Forum list only — post detail is a separate route; avoid relay work while user is on Activity. */
-	const isForumFeedRoute = $derived(
-		$page.url.pathname === '/community/forum' || $page.url.pathname === '/community/forum/'
-	);
+	const isForumFeedRoute = $derived(isForumFeedPath($page.url.pathname));
 
 	const forumQuery = $derived(
 		browser && COMMUNITY_PUBKEY && forumReady
@@ -306,6 +368,14 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		fetchZapsByEventIds(ids, { timeout: 5000, limit: 2000 }).catch(() => {});
 	});
 
+	/** Retry scroll restore after feed becomes visible and card layout settles. */
+	$effect(() => {
+		if (!pendingScrollRestore || !isForumFeedRoute || !forumListViewport) return;
+		void filteredPosts.length;
+		void commentCountsSettled;
+		void restoreFeedScroll();
+	});
+
 	async function syncForumFromRelay() {
 		if (!COMMUNITY_PUBKEY || !browser) return;
 		postsLoading = true;
@@ -357,6 +427,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	});
 
 	function openPost(post) {
+		captureFeedScroll();
 		const nevent = post?.id ? (() => { try { return nip19.neventEncode({ id: post.id }); } catch { return ''; } })() : '';
 		if (post?.id) {
 			setCached(`forum_post:${post.id}`, post);
@@ -482,7 +553,12 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 			<button type="button" class="forum-publish-error-dismiss" onclick={() => (publishError = '')} aria-label="Dismiss">×</button>
 		</div>
 	{/if}
-	<div class="forum-list-viewport" data-main-scroll>
+	<div
+		class="forum-list-viewport"
+		data-main-scroll
+		bind:this={forumListViewport}
+		onscroll={onFeedScroll}
+	>
 	<div class="forum-list">
 		{#if (!forumReady || postsLoading) && posts.length === 0}
 			<ForumFeedSkeleton rows={6} />
