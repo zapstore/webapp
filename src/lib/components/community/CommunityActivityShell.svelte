@@ -931,9 +931,13 @@
 	const activityAddrRelayAttempted = new Set();
 	let activityAddrRelayInFlight = false;
 
-	/** Blurple relay bar: stays on for initial seed, thread backfill, or addr-root fetch (matches skeleton/footer loaders). */
+	/**
+	 * Top shimmer bar — only while the feed has nothing to show yet (first load / empty Dexie).
+	 * Background thread backfill and app-badge addr fetches keep running silently once cards are visible.
+	 */
 	const activityRelayBarLoading = $derived(
-		activityLoading || activityBackfillInFlight || activityAddrRelayInFlight
+		activityFeedItems.length === 0 &&
+			(activityLoading || activityBackfillInFlight || !activityFeedQuerySettled)
 	);
 
 	// Inbox popover bar: seed only — not addr-root/backfill (those can run continuously).
@@ -2374,7 +2378,7 @@
 					? !!threadModalZapId
 					: false}
 		>
-			<!-- Relay sync bar: on until seed, backfill, or addr-root fetch completes (never hides early while skeleton/footer spinners run). -->
+			<!-- Relay sync bar: first paint only — bg backfill/badge fetches do not show the top bar. -->
 		{#if !inboxEmbed}
 			<RelayLoadingBar loading={activityRelayBarLoading} />
 		{/if}
