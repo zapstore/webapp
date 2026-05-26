@@ -381,7 +381,9 @@ function resolveMentionLabel(pk) {
 							? null
 							: (_bannerBadge?.iconUrl ?? _bannerOneliner.emoji ?? null),
 						href: _bannerHref,
-						isStack: !!_bannerIsStack
+						isStack: !!_bannerIsStack,
+						isApp: !!(_bannerBadge && !_bannerIsStack),
+						identifier: _bannerBadge?.identifier ?? null
 					}
 				: _bannerDeletedKind
 					? { label: activityDeletedRootLabel(_bannerDeletedKind), deleted: true }
@@ -482,7 +484,9 @@ function resolveMentionLabel(pk) {
 							? null
 							: (_zapBadgeZ?.iconUrl ?? _bannerOnelinerZ.emoji ?? null),
 						href: _bannerHrefZ,
-						isStack: !!_bannerIsStackZ
+						isStack: !!_bannerIsStackZ,
+						isApp: !!(_zapBadgeZ && !_bannerIsStackZ),
+						identifier: _zapBadgeZ?.identifier ?? null
 					}
 				: _zapBannerDeletedKind
 					? { label: activityDeletedRootLabel(_zapBannerDeletedKind), deleted: true }

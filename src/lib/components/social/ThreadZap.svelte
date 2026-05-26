@@ -9,7 +9,7 @@ import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
 import { Zap } from "$lib/components/icons";
-let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", version: _version = "", className = "", loading = false, pending = false, content = "", emojiTags = [], resolveMentionLabel } = $props();
+let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, content = "", emojiTags = [], resolveMentionLabel, headerActions, profilePicSize = "smMd", } = $props();
 function formatNpubDisplay(npubStr) {
     const s = String(npubStr || "").trim();
     if (!s)
@@ -41,17 +41,17 @@ function formatAmount(val) {
 </svg>
 
 <div class="thread-zap {className}">
-  <div class="row-author">
+  <div class="thread-zap-layout">
     <div class="profile-column">
       {#if profileUrl}
         <a href={profileUrl} class="profile-link">
-          <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
+          <ProfilePic {pictureUrl} {name} {pubkey} {loading} size={profilePicSize} />
         </a>
       {:else}
-        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
+        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size={profilePicSize} />
       {/if}
     </div>
-    <div class="author-info">
+    <div class="thread-zap-main">
       <div class="author-top">
         <div class="author-name-and-time">
           {#if profileUrl}
@@ -66,24 +66,28 @@ function formatAmount(val) {
               <Loader2 class="h-3.5 w-3.5 animate-spin" style="color: var(--blurpleLightColor);" />
             </span>
           {/if}
+          {#if headerActions}
+            <div class="thread-zap-header-actions">
+              {@render headerActions()}
+            </div>
+          {/if}
         </div>
         <div class="top-right-amount">
           <Zap variant="fill" size={20} color="url(#thread-zap-gold-gradient)" />
           <span class="zap-amount">{formatAmount(amount)}</span>
         </div>
       </div>
+      {#if content?.trim()}
+        <div class="content">
+          <ShortTextRenderer
+            content={content}
+            {emojiTags}
+            {resolveMentionLabel}
+          />
+        </div>
+      {/if}
     </div>
   </div>
-
-  {#if content?.trim()}
-    <div class="content">
-      <ShortTextRenderer
-        content={content}
-        {emojiTags}
-        {resolveMentionLabel}
-      />
-    </div>
-  {/if}
 </div>
 
 <style>
@@ -92,10 +96,10 @@ function formatAmount(val) {
     flex-direction: column;
   }
 
-  .row-author {
+  .thread-zap-layout {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    align-items: flex-start;
+    gap: 12px;
   }
 
   .profile-column {
@@ -111,13 +115,12 @@ function formatAmount(val) {
     opacity: 0.8;
   }
 
-  .author-info {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+  .thread-zap-main {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .author-top {
@@ -125,7 +128,6 @@ function formatAmount(val) {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    flex: 1;
     min-width: 0;
   }
 
@@ -175,6 +177,12 @@ function formatAmount(val) {
     align-items: center;
   }
 
+  .thread-zap-header-actions {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+
   :global(.animate-spin) {
     animation: thread-zap-spin 1s linear infinite;
   }
@@ -186,7 +194,6 @@ function formatAmount(val) {
   }
 
   .content {
-    margin-top: 8px;
     font-size: 0.9375rem;
     line-height: 1.5;
     color: color-mix(in srgb, var(--white) 85%, transparent);

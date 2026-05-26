@@ -5,6 +5,7 @@
 	 */
 	import MessageBubble from './MessageBubble.svelte';
 	import ThreadComment from './ThreadComment.svelte';
+	import ThreadRootEvent from './ThreadRootEvent.svelte';
 	import ZapBubble from './ZapBubble.svelte';
 	import ZapPillRow from './ZapPillRow.svelte';
 	import ThreadZap from './ThreadZap.svelte';
@@ -17,14 +18,12 @@
 	import Modal from '$lib/components/common/Modal.svelte';
 	import MediaLightboxModal from '$lib/components/modals/MediaLightboxModal.svelte';
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
-	import DeletedRootBadge from '$lib/components/community/DeletedRootBadge.svelte';
-	import ActivityStackMiniBadge from '$lib/components/community/ActivityStackMiniBadge.svelte';
 	import InputButton from '$lib/components/common/InputButton.svelte';
 	import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 	import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
 	import AddModal from '$lib/components/modals/AddModal.svelte';
 	import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
-	import { Zap, Reply, Options } from '$lib/components/icons';
+	import { Reply, Options } from '$lib/components/icons';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import { getIsSignedIn, getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from '$lib/services/upload-nostr-build';
@@ -226,6 +225,17 @@
 	let insertModalOpen = $state(false);
 	/** @type {HTMLInputElement | null} */
 	let replyFileInputEl = $state(null);
+	/** @type {HTMLDivElement | null} */
+	let threadScrollEl = $state(null);
+	let threadScrollTopFade = $state(false);
+
+	function syncThreadScrollEdgeFade() {
+		threadScrollTopFade = (threadScrollEl?.scrollTop ?? 0) > 4;
+	}
+
+	function handleThreadScroll() {
+		syncThreadScrollEdgeFade();
+	}
 	function handleReplyCameraTap() {
 		replyFileInputEl?.click();
 	}
@@ -438,11 +448,30 @@
 			root: wrapperRoot
 		};
 	});
-	/** Show Zap + Comment (or "Get started to comment" for guests) in thread modal when we have handlers and a root id. */
+	/** Show Comment in thread modal footer when we have handlers and a root id. */
 	const showThreadActions = $derived(
 		(onReplySubmit != null || onZapReceived != null || onGetStarted != null) &&
 			(id != null || pubkey != null)
 	);
+
+	/** Root app/stack/forum context for the thread modal header — from explicit prop or app detail fields. */
+	const effectiveRootContext = $derived.by(() => {
+		if (rootContext) return rootContext;
+		const label = String(appName ?? '').trim();
+		const iconUrl = appIconUrl ?? null;
+		const identifier = appIdentifier ?? null;
+		if (!label && !iconUrl) return null;
+		return {
+			label: label || 'App',
+			iconUrl,
+			href: null,
+			isStack: false,
+			isApp: true,
+			identifier
+		};
+	});
+
+	const showRootOptions = $derived(showThreadActions || showOptionsOnly);
 	function openActionsModal(target) {
 		actionsModalTarget = target;
 		actionsModalOpen = true;
@@ -613,6 +642,12 @@
 		}
 	});
 	$effect(() => {
+		modalOpen;
+		feedItems.length;
+		commentExpanded;
+		tick().then(() => syncThreadScrollEdgeFade());
+	});
+	$effect(() => {
 		if (openThreadOnMount) {
 			modalOpen = true;
 			if (openReplyOnMount) {
@@ -765,6 +800,73 @@
 	/>
 {/snippet}
 
+{#snippet threadRootHeaderActions()}
+	<button
+		type="button"
+		class="thread-root-options-btn"
+		aria-label="More options"
+		onclick={(e) => {
+			e.stopPropagation();
+			handleOptions();
+		}}
+	>
+		<Options variant="fill" size={14} color="var(--white33)" />
+	</button>
+{/snippet}
+
+{#snippet threadRootBubble()}
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<div
+		class="thread-bubble-click-wrap"
+		class:clickable={showThreadActions}
+		role={showThreadActions ? 'button' : undefined}
+		tabindex={showThreadActions ? 0 : undefined}
+		onclick={showThreadActions ? (e) => onBubbleClick(e, 'root') : undefined}
+		onkeydown={showThreadActions ? (e) => onBubbleKeydown(e, 'root') : undefined}
+	>
+		{#if isZapRoot}
+			<ThreadZap
+				{pictureUrl}
+				{name}
+				{pubkey}
+				amount={zapAmount}
+				{timestamp}
+				{profileUrl}
+				{pending}
+				content={content ?? ''}
+				{emojiTags}
+				{resolveMentionLabel}
+				headerActions={showRootOptions ? threadRootHeaderActions : undefined}
+			/>
+		{:else}
+			<ThreadComment
+				{pictureUrl}
+				{name}
+				{pubkey}
+				{timestamp}
+				{profileUrl}
+				{loading}
+				{pending}
+				headerActions={showRootOptions ? threadRootHeaderActions : undefined}
+			>
+				{#if (content !== undefined && content !== null) || (mediaUrls?.length ?? 0) > 0}
+					<ShortTextContent
+						content={content ?? ''}
+						emojiTags={emojiTags ?? []}
+						mediaUrls={mediaUrls ?? []}
+						{resolveMentionLabel}
+						onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
+						class="root-comment-body"
+						disableTruncation={true}
+					/>
+				{:else}
+					{@render children?.()}
+				{/if}
+			</ThreadComment>
+		{/if}
+	</div>
+{/snippet}
+
 {#if !hideRoot}
 	<div
 		class="root-comment {className}"
@@ -870,96 +972,37 @@
 	scopedInPanel={modalScopedInPanel}
 	class="thread-modal {childModalOpen ? 'thread-modal-child-open' : ''}"
 >
-	<div class="thread-content-wrap">
-		<div class="thread-content">
-			{#if rootContext}
-				{#if rootContext.deleted || !String(rootContext.href ?? '').trim()}
-					<div class="thread-root-context thread-root-context--deleted" role="status">
-						<DeletedRootBadge />
-						<span class="thread-root-context-label">{rootContext.label}</span>
+	<div
+		class="thread-content-wrap"
+		class:thread-content-wrap--has-footer={showThreadActions && getIsSignedIn()}
+		class:thread-content-wrap--top-fade={threadScrollTopFade}
+	>
+		<div class="thread-scroll-host">
+			<div
+				class="thread-scroll"
+				bind:this={threadScrollEl}
+				onscroll={handleThreadScroll}
+			>
+			<div class="thread-content">
+			{#if effectiveRootContext}
+				<div class="thread-root-block">
+					<ThreadRootEvent
+						context={effectiveRootContext}
+						{version}
+						{appIconUrl}
+						{appName}
+						{appIdentifier}
+						onNavigate={handleRootContextNav}
+					/>
+					<div class="thread-root">
+						{@render threadRootBubble()}
 					</div>
-				{:else}
-					<a href={rootContext.href} class="thread-root-context" onclick={handleRootContextNav}>
-						{#if rootContext.isStack}
-							<span class="thread-root-context-stack-badge" aria-hidden="true">
-								<ActivityStackMiniBadge />
-							</span>
-						{:else if rootContext.iconUrl}
-							<img src={rootContext.iconUrl} alt="" class="thread-root-context-icon" />
-						{/if}
-						<span class="thread-root-context-label">{rootContext.label}</span>
-						<svg
-							class="thread-root-context-chevron"
-							width="21"
-							height="21"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
-						>
-							<polyline points="9 18 15 12 9 6"></polyline>
-						</svg>
-					</a>
-				{/if}
-			{/if}
-			<div class="thread-root">
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-				<div
-					class="thread-bubble-click-wrap"
-					class:clickable={showThreadActions}
-					role={showThreadActions ? 'button' : undefined}
-					tabindex={showThreadActions ? 0 : undefined}
-					onclick={showThreadActions ? (e) => onBubbleClick(e, 'root') : undefined}
-					onkeydown={showThreadActions ? (e) => onBubbleKeydown(e, 'root') : undefined}
-				>
-					{#if isZapRoot}
-						<ThreadZap
-							{pictureUrl}
-							{name}
-							{pubkey}
-							amount={zapAmount}
-							{timestamp}
-							{profileUrl}
-							{version}
-							{pending}
-							content={content ?? ''}
-							{emojiTags}
-							{resolveMentionLabel}
-						/>
-					{:else}
-						<ThreadComment
-							{appIconUrl}
-							{appName}
-							{appIdentifier}
-							{version}
-							{pictureUrl}
-							{name}
-							{pubkey}
-							{timestamp}
-							{profileUrl}
-							{loading}
-							{pending}
-						>
-							{#if (content !== undefined && content !== null) || (mediaUrls?.length ?? 0) > 0}
-								<ShortTextContent
-									content={content ?? ''}
-									emojiTags={emojiTags ?? []}
-									mediaUrls={mediaUrls ?? []}
-									{resolveMentionLabel}
-									onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
-									class="root-comment-body"
-									disableTruncation={true}
-								/>
-							{:else}
-								{@render children?.()}
-							{/if}
-						</ThreadComment>
-					{/if}
 				</div>
-			</div>
+			{:else}
+				<div class="thread-root thread-root--solo">
+					{@render threadRootBubble()}
+				</div>
+			{/if}
 
 			{#if zapsOnThis.length > 0}
 				<div class="thread-divider"></div>
@@ -967,8 +1010,6 @@
 					<ZapPillRow zaps={zapsOnThis} />
 				</div>
 			{/if}
-
-			<div class="thread-divider"></div>
 
 			<div class="thread-replies">
 				{#if feedItems.length > 0}
@@ -1118,42 +1159,19 @@
 				{/if}
 			</div>
 		</div>
-	</div>
+		</div>
+		</div>
 
-	{#snippet footer()}
 		{#if showThreadActions && getIsSignedIn()}
 			<div class="thread-footer-wrap">
 				<div class="thread-bottom-bar" class:expanded={commentExpanded}>
 					{#if !commentExpanded}
-						<div class="thread-bottom-bar-content">
-							<button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
-								<Zap variant="fill" size={18} color="var(--whiteEnforced)" />
-								<span>Zap</span>
-							</button>
-
-							{#if getIsSignedIn()}
-								<InputButton placeholder="Comment" onclick={handleReply}>
-									{#snippet icon()}
-										<Reply variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
-									{/snippet}
-								</InputButton>
-							{:else}
-								<button
-									type="button"
-									class="thread-get-started-comment-btn"
-									onclick={() => onGetStarted?.()}
-								>
-									<span class="get-started-text">Sign in to comment</span>
-								</button>
-							{/if}
-
-							<button
-								type="button"
-								class="btn-secondary-large btn-secondary-dark options-button"
-								onclick={handleOptions}
-							>
-								<Options variant="fill" size={20} color="var(--white33)" />
-							</button>
+						<div class="thread-bottom-bar-content thread-bottom-bar-content--comment-only">
+							<InputButton placeholder="Comment" onclick={handleReply}>
+								{#snippet icon()}
+									<Reply variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
+								{/snippet}
+							</InputButton>
 						</div>
 					{:else}
 						<div class="thread-reply-form">
@@ -1221,7 +1239,7 @@
 				</div>
 			</div>
 		{/if}
-	{/snippet}
+	</div>
 </Modal>
 
 <CommentActionsModal
@@ -1376,10 +1394,56 @@
 
 	.thread-content-wrap {
 		position: relative;
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	/* Top edge mask when scrolled — mask on feed, not a paint overlay */
+	.thread-content-wrap--top-fade:not(.thread-content-wrap--has-footer) .thread-scroll {
+		mask-image: linear-gradient(to bottom, transparent 0, black 40px, black 100%);
+		-webkit-mask-image: linear-gradient(to bottom, transparent 0, black 40px, black 100%);
+	}
+
+	/* Bottom edge mask above comment bar — fixed 16px */
+	.thread-content-wrap--has-footer:not(.thread-content-wrap--top-fade) .thread-scroll {
+		mask-image: linear-gradient(to bottom, black 0, black calc(100% - 16px), transparent 100%);
+		-webkit-mask-image: linear-gradient(to bottom, black 0, black calc(100% - 16px), transparent 100%);
+	}
+
+	.thread-content-wrap--has-footer.thread-content-wrap--top-fade .thread-scroll {
+		mask-image: linear-gradient(
+			to bottom,
+			transparent 0,
+			black 40px,
+			black calc(100% - 16px),
+			transparent 100%
+		);
+		-webkit-mask-image: linear-gradient(
+			to bottom,
+			transparent 0,
+			black 40px,
+			black calc(100% - 16px),
+			transparent 100%
+		);
+	}
+
+	.thread-scroll-host {
+		position: relative;
 		flex: 1;
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
+	}
+
+	.thread-scroll {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		scrollbar-width: thin;
+		scrollbar-color: var(--white16) transparent;
 	}
 
 	/**
@@ -1402,8 +1466,13 @@
 		opacity: 1;
 	}
 
-	:global(.thread-modal .modal-content),
-	:global(.thread-modal > .thread-footer-wrap) {
+	:global(.thread-modal.modal-fill-height .modal-content) {
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+	}
+
+	:global(.thread-modal .modal-content) {
 		position: relative;
 		z-index: 0;
 	}
@@ -1416,85 +1485,58 @@
 	}
 
 	.thread-footer-wrap {
-		position: relative;
 		flex-shrink: 0;
+		padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px));
+		background: transparent;
+	}
+
+	.thread-footer-wrap .thread-bottom-bar {
+		background: transparent;
 	}
 
 	.thread-content {
 		display: flex;
 		flex-direction: column;
-		flex: 1;
-		min-height: 0;
 	}
 
-	.thread-root-context {
+	.thread-root-block {
 		display: flex;
-		align-items: center;
-		gap: 10px;
-		padding: 16px 16px 12px;
-		border-bottom: 1px solid var(--shell-border);
-		text-decoration: none;
-		color: var(--white66);
-		font-size: 0.8125rem;
-		font-weight: 500;
-		transition:
-			background 0.15s,
-			color 0.15s;
+		flex-direction: column;
 		flex-shrink: 0;
-	}
-
-	.thread-root-context:hover {
-		background: color-mix(in srgb, var(--white) 2.5%, transparent);
-	}
-
-	.thread-root-context--deleted {
-		cursor: default;
-		color: var(--white33);
-	}
-
-	.thread-root-context--deleted:hover {
-		background: transparent;
-	}
-
-	.thread-root-context-icon {
-		width: 18px;
-		height: 18px;
-		border-radius: 4px;
-		object-fit: cover;
-		flex-shrink: 0;
-	}
-
-	/* Mini stack grid (28px) scaled to align with 18px icons in this row */
-	.thread-root-context-stack-badge {
-		flex-shrink: 0;
-		width: 18px;
-		height: 18px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.thread-root-context-stack-badge :global(.stack-mini-badge) {
-		transform: scale(calc(18 / 28));
-		transform-origin: center center;
-	}
-
-	.thread-root-context-label {
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.thread-root-context-chevron {
-		flex-shrink: 0;
-		opacity: 0.5;
 	}
 
 	.thread-root {
-		padding: 16px;
-		padding-bottom: 12px;
+		padding: 0 16px 12px;
+		min-width: 0;
+	}
+
+	.thread-root--solo {
+		padding: 16px 16px 12px;
+	}
+
+	.thread-root-options-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		margin: 0;
+		border: none;
+		border-radius: 50%;
+		background: var(--white4);
+		color: inherit;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+
+	.thread-root-options-btn:hover {
+		background: var(--white8);
+	}
+
+	.thread-root-options-btn:focus-visible {
+		outline: 2px solid var(--blurpleColor);
+		outline-offset: 2px;
 	}
 
 	.thread-bubble-click-wrap {
@@ -1547,6 +1589,7 @@
 		flex-direction: column;
 		gap: 12px;
 		padding: 12px 16px 16px;
+		border-top: 1.4px solid var(--white11);
 	}
 
 	.thread-reply-row {
@@ -1555,23 +1598,27 @@
 	}
 
 	.thread-bottom-bar {
-		background: var(--gray66);
-		border-top: 0.33px solid var(--white16);
-		padding: 16px 6px 16px 16px;
-		max-height: 88px;
+		border-top: none;
+		padding: 0;
+		max-height: 56px;
 		overflow: hidden;
 		transition: max-height 0.3s cubic-bezier(0.33, 1, 0.68, 1);
 	}
 
 	.thread-bottom-bar.expanded {
 		max-height: 50vh;
-		padding: 12px;
+		padding: 0;
 	}
 
 	.thread-bottom-bar-content {
 		display: flex;
 		align-items: center;
 		gap: 12px;
+	}
+
+	.thread-bottom-bar-content--comment-only :global(.input-button) {
+		flex: 1;
+		min-width: 0;
 	}
 
 	.thread-reply-form {
@@ -1604,75 +1651,9 @@
 		pointer-events: none;
 	}
 
-	.zap-button {
-		gap: 8px;
-		padding: 0 20px 0 14px;
-		flex-shrink: 0;
-	}
-
-	/* Same look as Comment InputButton: border, bg, height, radius */
-	.thread-get-started-comment-btn {
-		display: flex;
-		align-items: center;
-		flex: 1;
-		min-width: 0;
-		height: 42px;
-		padding: 0 16px;
-		background-color: var(--black33);
-		border-radius: 16px;
-		border: 0.33px solid var(--white33);
-		cursor: pointer;
-		justify-content: flex-start;
-	}
-	.thread-get-started-comment-btn .get-started-text {
-		color: var(--white33);
-		font-size: 16px;
-		font-weight: 500;
-	}
 	@media (max-width: 767px) {
-		.thread-get-started-comment-btn {
-			height: 38px;
-		}
-		.thread-get-started-comment-btn .get-started-text {
-			font-size: 14px;
-		}
-	}
-
-	.options-button {
-		width: 42px;
-		padding: 0;
-		flex-shrink: 0;
-		background: transparent !important;
-		border: none !important;
-		margin-left: -12px;
-	}
-
-	.options-button :global(svg) {
-		width: 24px;
-		height: 24px;
-	}
-
-	@media (max-width: 767px) {
-		.options-button {
-			width: 38px;
-		}
-
-		.zap-button span {
-			font-size: 14px;
-		}
-
 		.thread-bottom-bar.expanded {
-			padding: 16px;
-		}
-	}
-
-	@media (min-width: 768px) {
-		.thread-bottom-bar {
-			padding: 12px 2px 12px 12px;
-		}
-
-		.thread-bottom-bar.expanded {
-			padding: 12px;
+			padding: 0;
 		}
 	}
 </style>

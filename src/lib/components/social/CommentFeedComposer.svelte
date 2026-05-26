@@ -24,7 +24,6 @@ let {
 	onZapReceived,
 	onZapPending,
 	onZapPendingClear,
-	onGetStarted = () => {},
 } = $props();
 
 let commentModalOpen = $state(false);
@@ -71,10 +70,6 @@ $effect(() => {
 });
 
 function openComposer() {
-	if (!isSignedIn) {
-		onGetStarted?.();
-		return;
-	}
 	commentModalOpen = true;
 }
 
@@ -90,17 +85,16 @@ function handleCommentSubmit(event) {
 }
 </script>
 
+{#if isSignedIn}
 <div class="comment-feed-composer {className}">
-	{#if isSignedIn}
-		<div class="comment-feed-pic">
-			<ProfilePic
-				pictureUrl={userProfile?.picture}
-				name={userProfile?.displayName || userProfile?.name}
-				pubkey={getCurrentPubkey?.()}
-				size="smMd"
-			/>
-		</div>
-	{/if}
+	<div class="comment-feed-pic">
+		<ProfilePic
+			pictureUrl={userProfile?.picture}
+			name={userProfile?.displayName || userProfile?.name}
+			pubkey={getCurrentPubkey?.()}
+			size="smMd"
+		/>
+	</div>
 	<button type="button" class="comment-feed-bubble" onclick={openComposer}>
 		<span class="comment-feed-bubble-text">{ctaLabel}</span>
 	</button>
@@ -121,6 +115,7 @@ function handleCommentSubmit(event) {
 	{onZapPending}
 	{onZapPendingClear}
 />
+{/if}
 
 <style>
 	.comment-feed-composer {

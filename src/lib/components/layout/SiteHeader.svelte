@@ -302,7 +302,7 @@
 <header
 	class={cn(
 		'header fixed top-0 left-0 right-0 transition-all duration-300 overflow-visible',
-		menuOpen ? 'z-[200]' : 'z-50',
+		menuOpen || inboxOpen ? 'z-[200]' : 'z-50',
 		scrolled
 			? 'bg-background/60 border-b border-shell'
 			: 'bg-transparent border-b border-shell'

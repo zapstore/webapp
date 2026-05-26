@@ -15,6 +15,7 @@ import ZapBubble from "./ZapBubble.svelte";
 import BubbleSkeleton from "./BubbleSkeleton.svelte";
 import DetailsTab from "./DetailsTab.svelte";
 import EmptyState from "$lib/components/common/EmptyState.svelte";
+import "$lib/styles/profile-section-empty.css";
 import Spinner from "$lib/components/common/Spinner.svelte";
 import Label from "$lib/components/common/Label.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
@@ -77,7 +78,39 @@ let {
     otherZaps = [],
     isSignedIn = true,
     getCurrentPubkey = () => null,
+    /**
+     * Optional root context for thread modals (forum posts, etc.). When omitted, derived from stack/app.
+     * @type {{ label: string, iconUrl?: string | null, href?: string | null, deleted?: boolean, isStack?: boolean, isApp?: boolean, identifier?: string | null } | null}
+     */
+    rootContext = null,
 } = $props();
+
+/** Root event row in opened comment threads — unified across app, stack, and forum detail pages. */
+const resolvedRootContext = $derived.by(() => {
+    if (rootContext) return rootContext;
+    if (stack?.pubkey && stack?.dTag) {
+        const slug = getStackSlug?.(stack.pubkey, stack.dTag);
+        const label = String(stack.title ?? stack.name ?? "").trim() || "Stack";
+        return {
+            label,
+            iconUrl: stack.image ?? stack.picture ?? null,
+            href: slug ? `/stacks/${slug}` : null,
+            isStack: true,
+        };
+    }
+    const appLabel = String(app?.name ?? "").trim();
+    if (appLabel || app?.icon) {
+        const slug = app?.pubkey && app?.dTag ? getAppSlug?.(app.pubkey, app.dTag) : "";
+        return {
+            label: appLabel || app.dTag || "App",
+            iconUrl: app.icon ?? null,
+            href: slug ? `/apps/${slug}` : null,
+            isApp: true,
+            identifier: app.dTag ?? null,
+        };
+    }
+    return null;
+});
 
 /** Root comment id whose thread contains openCommentId; used to open that thread modal on load */
 const openThreadRootId = $derived.by(() => {
@@ -457,7 +490,7 @@ const zapsByTargetId = $derived.by(() => {
 
   <div class="tab-content">
     {#if activeTab === "comments"}
-      {#if commentTarget}
+      {#if commentTarget && isSignedIn}
         <CommentFeedComposer
           target={commentTarget}
           recipientName={commentRecipientName}
@@ -472,7 +505,6 @@ const zapsByTargetId = $derived.by(() => {
           {onZapReceived}
           {onZapPending}
           {onZapPendingClear}
-          {onGetStarted}
         />
       {/if}
 
@@ -486,7 +518,7 @@ const zapsByTargetId = $derived.by(() => {
       {#if commentsLoading && combinedFeed.length === 0}
         <BubbleSkeleton />
       {:else if combinedFeed.length === 0 && comments.length === 0}
-        <EmptyState message="No comments yet" minHeight={300} topAlign={true} />
+        <p class="profile-section-empty profile-section-empty--no-top-border profile-section-empty--no-bottom-border" role="status">No comments yet</p>
       {:else if combinedFeed.length === 0}
         <BubbleSkeleton />
       {:else}
@@ -514,6 +546,7 @@ const zapsByTargetId = $derived.by(() => {
                 appIconUrl={app?.icon}
                 appName={app?.name}
                 appIdentifier={app?.dTag}
+                rootContext={resolvedRootContext}
                 wrapperRoot={item.isWrapper ? wrapperRoot : null}
                 zapsOnThis={zapsByTargetId.get(String(item.id ?? '').toLowerCase()) ?? []}
                 {zapsByTargetId}
@@ -562,6 +595,7 @@ const zapsByTargetId = $derived.by(() => {
                 appIconUrl={app?.icon}
                 appName={app?.name}
                 appIdentifier={app?.dTag}
+                rootContext={resolvedRootContext}
                 {wrapperRoot}
                 zapsOnThis={zapsByTargetId.get(String(item.id ?? '').toLowerCase()) ?? []}
                 {zapsByTargetId}

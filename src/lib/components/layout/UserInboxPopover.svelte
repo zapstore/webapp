@@ -41,7 +41,7 @@
 
 {#if open && pubkey}
 	<div
-		class="user-inbox-popover border border-border shadow-xl flex flex-col"
+		class="user-inbox-popover flex flex-col"
 		role="dialog"
 		aria-label="Inbox"
 	>
@@ -189,6 +189,7 @@
 		width: min(480px, calc(100vw - 24px));
 		max-height: min(90vh, calc(100dvh - 16px));
 		overflow: visible;
+		border: 0.33px solid var(--white16);
 		border-radius: 24px 8px 24px 24px;
 		--inbox-modal-top-reserve: 20%;
 		background-color: var(--black);
@@ -204,6 +205,7 @@
 	@media (max-width: 767px) {
 		.user-inbox-close-mobile {
 			display: inline-flex;
+			margin-left: 6px;
 		}
 
 		.user-inbox-popover {
@@ -218,6 +220,7 @@
 			height: 100dvh;
 			max-height: 100dvh;
 			min-height: 100dvh;
+			border: none;
 			border-radius: 0;
 			z-index: 115;
 			padding-top: env(safe-area-inset-top, 0px);

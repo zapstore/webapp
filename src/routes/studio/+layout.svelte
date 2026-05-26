@@ -812,7 +812,6 @@
 		.mobile-nav {
 			display: block;
 			position: relative;
-			z-index: 90;
 			overflow-x: hidden;
 			max-width: 100%;
 		}

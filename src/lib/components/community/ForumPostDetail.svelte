@@ -300,6 +300,16 @@ const postEmojiTags = $derived(
 		.filter((t) => t[0] === 'emoji' && t[1] && t[2])
 		.map((t) => ({ shortcode: t[1], url: t[2] }))
 );
+const forumRootContext = $derived(
+	post
+		? {
+				label: (post.title ?? '').trim() || 'Forum Post',
+				iconUrl: postEmojiTags[0]?.url ?? null,
+				href: postNevent ? `/community/forum/${postNevent}` : null,
+				isForum: true
+			}
+		: null
+);
 
 function parseZapRows(events, postId) {
 	const pid = String(postId ?? '').toLowerCase();
@@ -839,6 +849,7 @@ function handleForumBottomBarZap(event) {
 				<div class="social-tabs-wrap">
 					<SocialTabs
 						app={{}}
+						rootContext={forumRootContext}
 						includeReceiptZapsInCommentsFeed={false}
 						mainEventIds={[post.id]}
 						openCommentId={openCommentId}

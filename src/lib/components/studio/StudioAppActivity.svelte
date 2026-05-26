@@ -1157,7 +1157,9 @@
 				? {
 						label: _appMeta?.name ?? _appDTag,
 						iconUrl: _appMeta?.icon ?? null,
-						href: _appNaddr ? `/apps/${_appNaddr}` : ''
+						href: _appNaddr ? `/apps/${_appNaddr}` : '',
+						isApp: true,
+						identifier: _appMeta?.id ?? _appDTag ?? null
 					}
 				: null}
 			onModalClose={() => {
@@ -1243,7 +1245,9 @@
 				? {
 						label: _appMetaZ?.name ?? _appDTagZ,
 						iconUrl: _appMetaZ?.icon ?? null,
-						href: _appNaddrZ ? `/apps/${_appNaddrZ}` : ''
+						href: _appNaddrZ ? `/apps/${_appNaddrZ}` : '',
+						isApp: true,
+						identifier: _appMetaZ?.id ?? _appDTagZ ?? null
 					}
 				: null}
 			onModalClose={() => {

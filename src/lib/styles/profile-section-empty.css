@@ -14,3 +14,7 @@
 .profile-section-empty--no-top-border {
 	border-top: none;
 }
+
+.profile-section-empty--no-bottom-border {
+	border-bottom: none;
+}

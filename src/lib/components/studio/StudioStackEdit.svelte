@@ -212,11 +212,13 @@
 	<div class="edit-wrap">
 		<!-- ── Sticky top bar ───────────────────────────────────────────────── -->
 		<div class="edit-topbar">
-			<span class="edit-topbar-title">{isCreate ? 'New Stack' : 'Edit Your Stack'}</span>
+			<span class="edit-topbar-title semibold16">{isCreate ? 'New Stack' : 'Edit Your Stack'}</span>
 			<div class="topbar-actions">
-				<button type="button" class="btn-secondary-xs btn-secondary-light topbar-cancel-btn" onclick={onBack}>
-					Cancel
-				</button>
+				{#if isCreate}
+					<button type="button" class="btn-secondary-xs btn-secondary-light topbar-cancel-btn" onclick={onBack}>
+						Cancel
+					</button>
+				{/if}
 				{#if !isCreate && stack?.pubkey && stack?.dTag}
 					<a
 						class="btn-secondary-xs btn-secondary-light topbar-secondary-btn"
@@ -417,8 +419,6 @@
 
 	.edit-topbar-title {
 		flex: 1;
-		font-size: 14px;
-		font-weight: 500;
 		color: var(--white);
 		white-space: nowrap;
 		overflow: hidden;
@@ -437,7 +437,7 @@
 	}
 
 	.topbar-cancel-btn {
-		color: var(--white33);
+		color: var(--white66);
 	}
 
 	.topbar-secondary-btn {

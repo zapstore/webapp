@@ -4,7 +4,7 @@
  *
  * Replaces the StudioAppDetail content area; scrolls inside .detail-scroll.
  * Layout:
- *   - Sticky top bar: "Edit Your App" + Cancel + Save
+ *   - Sticky top bar: "Edit Your App" + Save
  *   - GENERAL section: eyebrow + (AppPic with camera btn) + form box (name / desc / website)
  *   - Full-width divider
  *   - IMAGES section: eyebrow + screenshots row (Add Image card + existing with ✕)
@@ -264,11 +264,8 @@ async function handleConfirmDelete() {
 
 	<!-- ── Sticky top bar ───────────────────────────────────────────────── -->
 	<div class="edit-topbar">
-		<span class="edit-topbar-title">Edit Your App</span>
+		<span class="edit-topbar-title semibold16">Edit Your App</span>
 		<div class="topbar-actions">
-			<button type="button" class="btn-secondary-xs btn-secondary-light topbar-cancel-btn" onclick={onBack}>
-				Cancel
-			</button>
 			<button
 				type="button"
 				class="btn-primary-small edit-save-btn"
@@ -557,8 +554,6 @@ async function handleConfirmDelete() {
 
 	.edit-topbar-title {
 		flex: 1;
-		font-size: 14px;
-		font-weight: 500;
 		color: var(--white);
 		white-space: nowrap;
 		overflow: hidden;
@@ -574,10 +569,6 @@ async function handleConfirmDelete() {
 		align-items: center;
 		gap: 16px;
 		flex-shrink: 0;
-	}
-
-	.topbar-cancel-btn {
-		color: var(--white33);
 	}
 
 	/* ── Body: independent scroll container under the topbar ── */

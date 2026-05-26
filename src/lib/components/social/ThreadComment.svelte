@@ -7,7 +7,7 @@ import * as nip19 from "nostr-tools/nip19";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString, } from "$lib/utils/color.js";
-let { version = "", pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending: _pending = false, className = "", appIconUrl: _appIconUrl = null, appName: _appName = "", appIdentifier: _appIdentifier = null, children, headerActions, } = $props();
+let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending: _pending = false, className = "", children, headerActions, profilePicSize = "smMd", } = $props();
 function formatNpubDisplay(npubStr) {
     const s = String(npubStr || "").trim();
     if (!s)
@@ -43,17 +43,17 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
 </script>
 
 <div class="thread-comment {className}">
-  <div class="author-row">
+  <div class="thread-comment-layout">
     <div class="profile-column">
       {#if profileUrl}
         <a href={profileUrl} class="profile-link">
-          <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
+          <ProfilePic {pictureUrl} {name} {pubkey} {loading} size={profilePicSize} />
         </a>
       {:else}
-        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
+        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size={profilePicSize} />
       {/if}
     </div>
-    <div class="author-info">
+    <div class="thread-comment-main">
       <div class="author-top">
         <div class="author-name-wrap">
           {#if profileUrl}
@@ -68,22 +68,17 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
         </div>
         <div class="author-right">
           <Timestamp {timestamp} size="xs" className="author-timestamp" />
-          {#if version}
-            <span class="version-dot" aria-hidden="true"></span>
-            <span class="version-tag">v{version}</span>
+          {#if headerActions}
+            <div class="thread-comment-actions">
+              {@render headerActions()}
+            </div>
           {/if}
         </div>
       </div>
-      {#if headerActions}
-        <div class="thread-comment-actions">
-          {@render headerActions()}
-        </div>
-      {/if}
+      <div class="content">
+        {@render children?.()}
+      </div>
     </div>
-  </div>
-
-  <div class="content">
-    {@render children?.()}
   </div>
 </div>
 
@@ -93,9 +88,9 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     flex-direction: column;
   }
 
-  .author-row {
+  .thread-comment-layout {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
   }
 
@@ -112,13 +107,12 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     opacity: 0.8;
   }
 
-  .author-info {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+  .thread-comment-main {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .author-top {
@@ -126,7 +120,6 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    flex: 1;
     min-width: 0;
   }
 
@@ -160,30 +153,13 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     flex-shrink: 0;
   }
 
-  .version-dot {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: var(--white16);
-    flex-shrink: 0;
-    padding-top: 3px;
-  }
-
-  .version-tag {
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--white66);
-    white-space: nowrap;
-    line-height: 1.4;
-    flex-shrink: 0;
-  }
-
   .thread-comment-actions {
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
   }
 
   .content {
-    margin-top: 8px;
     font-size: 0.9375rem;
     line-height: 1.5;
     color: color-mix(in srgb, var(--white) 85%, transparent);

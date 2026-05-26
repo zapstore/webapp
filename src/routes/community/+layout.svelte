@@ -370,7 +370,6 @@
 			display: block;
 			flex-shrink: 0;
 			position: relative;
-			z-index: 90;
 		}
 	}
 
