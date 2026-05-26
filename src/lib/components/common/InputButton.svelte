@@ -26,6 +26,12 @@ let { placeholder = "", className = "", onclick, icon, trailing, } = $props();
     cursor: pointer;
   }
 
+  .input-button:hover,
+  .input-button:active,
+  .input-button:focus-visible {
+    background-color: var(--black33);
+  }
+
   @media (max-width: 767px) {
     .input-button {
       height: 38px;

@@ -144,7 +144,12 @@ function handleCommentSubmit(event) {
 		border-radius: 16px 16px 16px 4px;
 		cursor: pointer;
 		text-align: left;
-		transition: opacity 0.15s ease, transform 0.15s ease;
+	}
+
+	.comment-feed-bubble:hover,
+	.comment-feed-bubble:active,
+	.comment-feed-bubble:focus-visible {
+		background: var(--gray33);
 	}
 
 	@media (min-width: 768px) {
@@ -152,14 +157,6 @@ function handleCommentSubmit(event) {
 			/* Inset for hover action rail beside feed bubbles */
 			padding-right: 68px;
 		}
-	}
-
-	.comment-feed-bubble:hover {
-		opacity: 0.92;
-	}
-
-	.comment-feed-bubble:active {
-		transform: scale(0.99);
 	}
 
 	.comment-feed-bubble-text {
