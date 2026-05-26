@@ -250,7 +250,6 @@
 		if (p.startsWith('/studio/inbox')) return 'inbox';
 		if (p === '/studio/apps') return 'apps';
 		if (p.startsWith('/studio/apps/')) return 'app';
-		if (p.startsWith('/studio/assets')) return 'assets';
 		if (p === '/studio/stacks/new') return 'stack-new';
 		if (p.startsWith('/studio/stacks/')) return 'stack';
 		if (p.startsWith('/studio/migration')) return 'migration';
@@ -276,7 +275,6 @@
 
 	const activeNavLabel = $derived.by(() => {
 		if (activeSection === 'inbox') return 'Inbox';
-		if (activeSection === 'assets') return 'Assets';
 		if (activeSection === 'stack-new') return 'New Stack';
 		if (activeSection === 'stack') return 'Edit Stack';
 		if (activeSection === 'migration') return 'Migration';
@@ -423,13 +421,6 @@
 						</div>
 						<div class="sidebar-section">
 							<span class="eyebrow-label section-eyebrow">Docs &amp; Tools</span>
-							<button
-								class="nav-item"
-								class:active={activeSection === 'assets'}
-								onclick={() => navTo('/studio/assets')}
-							>
-								<span class="nav-label">Assets</span>
-							</button>
 							<a href="/docs" class="nav-item" onclick={closeMobile}>
 								<span class="nav-label">Documentation</span>
 							</a>
@@ -564,13 +555,6 @@
 
 				<div class="sidebar-section">
 					<span class="eyebrow-label section-eyebrow">Docs &amp; Tools</span>
-					<button
-						class="nav-item"
-						class:active={activeSection === 'assets'}
-						onclick={() => goto('/studio/assets')}
-					>
-						<span class="nav-label">Assets</span>
-					</button>
 					<a href="/docs" class="nav-item">
 						<span class="nav-label">Documentation</span>
 					</a>

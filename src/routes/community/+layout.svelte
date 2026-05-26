@@ -615,15 +615,25 @@
 	}
 
 	.community-shell-panel {
-		display: none;
+		display: flex;
 		flex: 1;
 		min-height: 0;
 		flex-direction: column;
 		overflow: hidden;
+		/* Keep scroll position when switching to post detail (display:none resets scrollTop). */
+		visibility: hidden;
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		pointer-events: none;
+		z-index: 0;
 	}
 
 	.community-shell-panel--active {
-		display: flex;
+		visibility: visible;
+		position: relative;
+		pointer-events: auto;
+		z-index: 1;
 	}
 
 	.community-route-outlet {
@@ -632,6 +642,8 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		position: relative;
+		z-index: 2;
 	}
 
 	.community-route-outlet--hidden {
