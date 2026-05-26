@@ -6,6 +6,7 @@
 	import MessageBubble from './MessageBubble.svelte';
 	import ThreadComment from './ThreadComment.svelte';
 	import ThreadRootEvent from './ThreadRootEvent.svelte';
+	import ThreadRootBadge from './ThreadRootBadge.svelte';
 	import ZapBubble from './ZapBubble.svelte';
 	import ZapPillRow from './ZapPillRow.svelte';
 	import ThreadZap from './ThreadZap.svelte';
@@ -18,6 +19,7 @@
 	import Modal from '$lib/components/common/Modal.svelte';
 	import MediaLightboxModal from '$lib/components/modals/MediaLightboxModal.svelte';
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
+	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import InputButton from '$lib/components/common/InputButton.svelte';
 	import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 	import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
@@ -814,6 +816,18 @@
 	</button>
 {/snippet}
 
+{#snippet threadRootRailAvatar()}
+	<div class="thread-root-rail-avatar">
+		{#if profileUrl}
+			<a href={profileUrl} class="thread-root-rail-avatar-link">
+				<ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
+			</a>
+		{:else}
+			<ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
+		{/if}
+	</div>
+{/snippet}
+
 {#snippet threadRootBubble()}
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<div
@@ -826,7 +840,6 @@
 	>
 		{#if isZapRoot}
 			<ThreadZap
-				{pictureUrl}
 				{name}
 				{pubkey}
 				amount={zapAmount}
@@ -840,12 +853,10 @@
 			/>
 		{:else}
 			<ThreadComment
-				{pictureUrl}
 				{name}
 				{pubkey}
 				{timestamp}
 				{profileUrl}
-				{loading}
 				{pending}
 				headerActions={showRootOptions ? threadRootHeaderActions : undefined}
 			>
@@ -984,25 +995,34 @@
 				onscroll={handleThreadScroll}
 			>
 			<div class="thread-content">
-			{#if effectiveRootContext}
-				<div class="thread-root-block">
-					<ThreadRootEvent
-						context={effectiveRootContext}
-						{version}
-						{appIconUrl}
-						{appName}
-						{appIdentifier}
-						onNavigate={handleRootContextNav}
-					/>
-					<div class="thread-root">
-						{@render threadRootBubble()}
+			<div class="thread-root-block">
+				<div class="thread-root-unified">
+					<div class="thread-root-rail">
+						{#if effectiveRootContext}
+							<ThreadRootBadge
+								context={effectiveRootContext}
+								{appIconUrl}
+								{appName}
+								{appIdentifier}
+							/>
+							<div class="thread-root-rail-line" aria-hidden="true"></div>
+						{/if}
+						{@render threadRootRailAvatar()}
+					</div>
+					<div class="thread-root-unified-main">
+						{#if effectiveRootContext}
+							<ThreadRootEvent
+								context={effectiveRootContext}
+								{version}
+								onNavigate={handleRootContextNav}
+							/>
+						{/if}
+						<div class="thread-root" class:thread-root--with-context={!!effectiveRootContext}>
+							{@render threadRootBubble()}
+						</div>
 					</div>
 				</div>
-			{:else}
-				<div class="thread-root thread-root--solo">
-					{@render threadRootBubble()}
-				</div>
-			{/if}
+			</div>
 
 			{#if zapsOnThis.length > 0}
 				<div class="thread-divider"></div>
@@ -1401,19 +1421,19 @@
 		overflow: hidden;
 	}
 
-	/* Top edge mask when scrolled — mask on feed, not a paint overlay */
-	.thread-content-wrap--top-fade:not(.thread-content-wrap--has-footer) .thread-scroll {
+	/* Top edge mask when scrolled — on viewport host (mask on scroll breaks ProfilePic layers). */
+	.thread-content-wrap--top-fade:not(.thread-content-wrap--has-footer) .thread-scroll-host {
 		mask-image: linear-gradient(to bottom, transparent 0, black 40px, black 100%);
 		-webkit-mask-image: linear-gradient(to bottom, transparent 0, black 40px, black 100%);
 	}
 
 	/* Bottom edge mask above comment bar — fixed 16px */
-	.thread-content-wrap--has-footer:not(.thread-content-wrap--top-fade) .thread-scroll {
+	.thread-content-wrap--has-footer:not(.thread-content-wrap--top-fade) .thread-scroll-host {
 		mask-image: linear-gradient(to bottom, black 0, black calc(100% - 16px), transparent 100%);
 		-webkit-mask-image: linear-gradient(to bottom, black 0, black calc(100% - 16px), transparent 100%);
 	}
 
-	.thread-content-wrap--has-footer.thread-content-wrap--top-fade .thread-scroll {
+	.thread-content-wrap--has-footer.thread-content-wrap--top-fade .thread-scroll-host {
 		mask-image: linear-gradient(
 			to bottom,
 			transparent 0,
@@ -1436,6 +1456,11 @@
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
+		mask-size: 100% 100%;
+		mask-repeat: no-repeat;
+		-webkit-mask-size: 100% 100%;
+		-webkit-mask-repeat: no-repeat;
 	}
 
 	.thread-scroll {
@@ -1444,6 +1469,12 @@
 		overflow-y: auto;
 		scrollbar-width: thin;
 		scrollbar-color: var(--white16) transparent;
+	}
+
+	/* backdrop-filter on ProfilePic escapes mask when applied to the scroller — disable in feed */
+	.thread-scroll-host :global(.profile-pic-inner) {
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
 	}
 
 	/**
@@ -1505,33 +1536,83 @@
 		flex-shrink: 0;
 	}
 
+	.thread-root-unified {
+		display: flex;
+		align-items: flex-start;
+		gap: 12px;
+		padding: 16px 16px 0;
+	}
+
+	.thread-root-rail {
+		width: 36px;
+		flex-shrink: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		align-self: flex-start;
+	}
+
+	.thread-root-rail-line {
+		width: 2px;
+		height: 12px;
+		flex-shrink: 0;
+		background: var(--white16);
+	}
+
+	.thread-root-rail-avatar {
+		flex-shrink: 0;
+		line-height: 0;
+	}
+
+	.thread-root-rail-avatar-link {
+		display: block;
+		line-height: 0;
+		transition: opacity 0.15s ease;
+	}
+
+	.thread-root-rail-avatar-link:hover {
+		opacity: 0.8;
+	}
+
+	.thread-root-unified-main {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
 	.thread-root {
-		padding: 0 16px 12px;
+		padding: 0 0 12px;
 		min-width: 0;
 	}
 
-	.thread-root--solo {
-		padding: 16px 16px 12px;
+	.thread-root :global(.author-top) {
+		padding-top: 5px;
+	}
+
+	.thread-root :global(.thread-comment),
+	.thread-root :global(.thread-zap) {
+		gap: 4px;
 	}
 
 	.thread-root-options-btn {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
+		justify-content: flex-end;
+		width: 16px;
+		height: 14px;
 		padding: 0;
 		margin: 0;
 		border: none;
-		border-radius: 50%;
-		background: var(--white4);
+		border-radius: 0;
+		background: transparent;
 		color: inherit;
 		cursor: pointer;
 		flex-shrink: 0;
 	}
 
 	.thread-root-options-btn:hover {
-		background: var(--white8);
+		opacity: 0.75;
 	}
 
 	.thread-root-options-btn:focus-visible {

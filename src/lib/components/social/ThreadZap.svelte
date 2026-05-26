@@ -1,15 +1,14 @@
 <script lang="js">
 /**
- * ThreadZap - Thread-style zap display for the top of opened comment threads on a zap.
- * Same layout as ThreadComment; only difference is amount (zap icon + sats) in the top right.
+ * ThreadZap - Root zap body for opened comment threads (author row + amount + content).
+ * Profile pic lives on RootComment's left rail.
  */
 import { Loader2 } from "lucide-svelte";
 import * as nip19 from "nostr-tools/nip19";
-import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
 import { Zap } from "$lib/components/icons";
-let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, content = "", emojiTags = [], resolveMentionLabel, headerActions, profilePicSize = "smMd", } = $props();
+let { name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", className = "", pending = false, content = "", emojiTags = [], resolveMentionLabel, headerActions, } = $props();
 function formatNpubDisplay(npubStr) {
     const s = String(npubStr || "").trim();
     if (!s)
@@ -41,178 +40,141 @@ function formatAmount(val) {
 </svg>
 
 <div class="thread-zap {className}">
-  <div class="thread-zap-layout">
-    <div class="profile-column">
-      {#if profileUrl}
-        <a href={profileUrl} class="profile-link">
-          <ProfilePic {pictureUrl} {name} {pubkey} {loading} size={profilePicSize} />
-        </a>
-      {:else}
-        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size={profilePicSize} />
-      {/if}
-    </div>
-    <div class="thread-zap-main">
-      <div class="author-top">
-        <div class="author-name-and-time">
-          {#if profileUrl}
-            <a href={profileUrl} class="author-name">{displayAuthorName}</a>
-          {:else}
-            <span class="author-name">{displayAuthorName}</span>
-          {/if}
-          {#if !pending}
-            <Timestamp {timestamp} size="xs" className="author-timestamp" />
-          {:else}
-            <span class="publish-spinner" aria-label="Confirming zap">
-              <Loader2 class="h-3.5 w-3.5 animate-spin" style="color: var(--blurpleLightColor);" />
-            </span>
-          {/if}
-          {#if headerActions}
-            <div class="thread-zap-header-actions">
-              {@render headerActions()}
-            </div>
-          {/if}
-        </div>
-        <div class="top-right-amount">
-          <Zap variant="fill" size={20} color="url(#thread-zap-gold-gradient)" />
-          <span class="zap-amount">{formatAmount(amount)}</span>
-        </div>
-      </div>
-      {#if content?.trim()}
-        <div class="content">
-          <ShortTextRenderer
-            content={content}
-            {emojiTags}
-            {resolveMentionLabel}
-          />
-        </div>
-      {/if}
-    </div>
-  </div>
+	<div class="author-top">
+		<div class="author-name-and-time">
+			{#if profileUrl}
+				<a href={profileUrl} class="author-name">{displayAuthorName}</a>
+			{:else}
+				<span class="author-name">{displayAuthorName}</span>
+			{/if}
+			{#if !pending}
+				<Timestamp {timestamp} size="xs" className="author-timestamp" />
+			{:else}
+				<span class="publish-spinner" aria-label="Confirming zap">
+					<Loader2 class="h-3.5 w-3.5 animate-spin" style="color: var(--blurpleLightColor);" />
+				</span>
+			{/if}
+			{#if headerActions}
+				<div class="thread-zap-header-actions">
+					{@render headerActions()}
+				</div>
+			{/if}
+		</div>
+		<div class="top-right-amount">
+			<Zap variant="fill" size={20} color="url(#thread-zap-gold-gradient)" />
+			<span class="zap-amount">{formatAmount(amount)}</span>
+		</div>
+	</div>
+	{#if content?.trim()}
+		<div class="content">
+			<ShortTextRenderer
+				content={content}
+				{emojiTags}
+				{resolveMentionLabel}
+			/>
+		</div>
+	{/if}
 </div>
 
 <style>
-  .thread-zap {
-    display: flex;
-    flex-direction: column;
-  }
+	.thread-zap {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		min-width: 0;
+	}
 
-  .thread-zap-layout {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-  }
+	.author-top {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 10px;
+		min-width: 0;
+		width: 100%;
+	}
 
-  .profile-column {
-    flex-shrink: 0;
-  }
+	.author-name-and-time {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 0;
+		flex: 1;
+	}
 
-  .profile-link {
-    display: block;
-    transition: opacity 0.15s ease;
-  }
+	.author-name {
+		font-weight: 600;
+		font-size: 0.875rem;
+		line-height: 1.2;
+		text-decoration: none;
+		transition: opacity 0.15s ease;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		background: var(--gradient-gold);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+	}
 
-  .profile-link:hover {
-    opacity: 0.8;
-  }
+	a.author-name:hover {
+		opacity: 0.8;
+	}
 
-  .thread-zap-main {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
+	.top-right-amount {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex-shrink: 0;
+	}
 
-  .author-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    min-width: 0;
-  }
+	.top-right-amount .zap-amount {
+		font-weight: 600;
+		font-size: 1.25rem;
+		line-height: 1.2;
+		color: var(--white);
+	}
 
-  .author-name-and-time {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    flex: 1;
-  }
+	.publish-spinner {
+		display: inline-flex;
+		align-items: center;
+	}
 
-  .author-name {
-    font-weight: 600;
-    font-size: 0.875rem;
-    line-height: 1.2;
-    text-decoration: none;
-    transition: opacity 0.15s ease;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    background: var(--gradient-gold);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+	.thread-zap-header-actions {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+	}
 
-  a.author-name:hover {
-    opacity: 0.8;
-  }
+	:global(.animate-spin) {
+		animation: thread-zap-spin 1s linear infinite;
+	}
 
-  .top-right-amount {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-  }
+	@keyframes thread-zap-spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
 
-  .top-right-amount .zap-amount {
-    font-weight: 600;
-    font-size: 1.25rem;
-    line-height: 1.2;
-    color: var(--white);
-  }
+	.content {
+		font-size: 0.9375rem;
+		line-height: 1.5;
+		color: color-mix(in srgb, var(--white) 85%, transparent);
+	}
 
-  .publish-spinner {
-    display: inline-flex;
-    align-items: center;
-  }
+	.content :global(p) {
+		margin: 0;
+	}
 
-  .thread-zap-header-actions {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-  }
+	.content :global(p + p) {
+		margin-top: 0.5rem;
+	}
 
-  :global(.animate-spin) {
-    animation: thread-zap-spin 1s linear infinite;
-  }
+	.content :global(a) {
+		color: var(--blurpleColor);
+		text-decoration: none;
+	}
 
-  @keyframes thread-zap-spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  .content {
-    font-size: 0.9375rem;
-    line-height: 1.5;
-    color: color-mix(in srgb, var(--white) 85%, transparent);
-  }
-
-  .content :global(p) {
-    margin: 0;
-  }
-
-  .content :global(p + p) {
-    margin-top: 0.5rem;
-  }
-
-  .content :global(a) {
-    color: var(--blurpleColor);
-    text-decoration: none;
-  }
-
-  .content :global(a:hover) {
-    text-decoration: underline;
-  }
+	.content :global(a:hover) {
+		text-decoration: underline;
+	}
 </style>

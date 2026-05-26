@@ -1,13 +1,7 @@
 <script lang="js">
 /**
- * ThreadRootEvent — root app/stack/forum row at the top of opened comment thread modals.
- * Same presentation everywhere: badge, short connector line, label (+ optional version).
- * Clickable when `href` is set; no chevron or hover background treatment.
+ * ThreadRootEvent — root app/stack/forum label row (badge lives on unified left rail).
  */
-import DeletedRootBadge from '$lib/components/community/DeletedRootBadge.svelte';
-import ActivityStackMiniBadge from '$lib/components/community/ActivityStackMiniBadge.svelte';
-import AppPic from '$lib/components/common/AppPic.svelte';
-
 let {
 	/**
 	 * @type {{
@@ -23,178 +17,60 @@ let {
 	 */
 	context,
 	version = '',
-	appIconUrl = null,
-	appName = '',
-	appIdentifier = null,
 	onNavigate = null,
 } = $props();
 
 const href = $derived(String(context?.href ?? '').trim());
 const isNavigable = $derived(!context?.deleted && href.length > 0);
-const showVersion = $derived(
-	!!version && !context?.isStack && !context?.deleted
-);
+const showVersion = $derived(!!version && !context?.isStack && !context?.deleted);
 </script>
 
 <div class="thread-root-event">
-	<div class="thread-root-event-rail">
-		<div
-			class="thread-root-badge"
-			class:thread-root-badge--app={!!context?.isApp && !context?.isStack && !context?.deleted}
-			class:thread-root-badge--stack={!!context?.isStack && !context?.deleted}
-			aria-hidden="true"
-		>
-			{#if context?.deleted}
-				<DeletedRootBadge embedded />
-			{:else if context?.isStack}
-				<ActivityStackMiniBadge />
-			{:else if context?.isApp || context?.identifier}
-				<div class="thread-root-app-pic-wrap">
-					<AppPic
-						iconUrl={context?.iconUrl ?? appIconUrl ?? null}
-						name={context?.label ?? appName ?? null}
-						identifier={context?.identifier ?? appIdentifier ?? null}
-						size="xxs"
-						className="thread-root-app-pic"
-						onClick={() => {}}
-					/>
-				</div>
-			{:else if context?.isForum}
-				<img
-					src={context?.iconUrl ?? '/images/emoji/forum.png'}
-					alt=""
-					width="14"
-					height="14"
-				/>
-			{:else if context?.iconUrl}
-				<img src={context.iconUrl} alt="" width="14" height="14" />
-			{/if}
-		</div>
-		<div class="thread-root-line-solid" aria-hidden="true"></div>
-	</div>
-
-	<div class="thread-root-event-main">
-		{#if isNavigable}
-			<a
-				{href}
-				class="thread-root-label-row thread-root-label-row--link"
-				onclick={onNavigate}
-			>
-				<div class="thread-root-label-main">
-					<span class="thread-root-label" class:thread-root-label--split={!!context?.isStack}>
-						{#if context?.isStack}
-							<span class="thread-root-label-kind">Stack</span>
-							<span class="thread-root-label-ellipsis">{context.label}</span>
-						{:else}
-							{context.label}
-						{/if}
-					</span>
-					{#if showVersion}
-						<span class="thread-root-version-tag">v{version}</span>
+	{#if isNavigable}
+		<a {href} class="thread-root-label-row thread-root-label-row--link" onclick={onNavigate}>
+			<div class="thread-root-label-main">
+				<span class="thread-root-label" class:thread-root-label--split={!!context?.isStack}>
+					{#if context?.isStack}
+						<span class="thread-root-label-kind">Stack</span>
+						<span class="thread-root-label-ellipsis">{context.label}</span>
+					{:else}
+						{context.label}
 					{/if}
-				</div>
-			</a>
-		{:else}
-			<div
-				class="thread-root-label-row"
-				class:thread-root-label-row--deleted={context?.deleted}
-				role={context?.deleted ? 'status' : undefined}
-			>
-				<div class="thread-root-label-main">
-					<span
-						class="thread-root-label"
-						class:thread-root-label--deleted={context?.deleted}
-						class:thread-root-label--split={!!context?.isStack}
-					>
-						{#if context?.isStack}
-							<span class="thread-root-label-kind">Stack</span>
-							<span class="thread-root-label-ellipsis">{context.label}</span>
-						{:else}
-							{context.label}
-						{/if}
-					</span>
-					{#if showVersion}
-						<span class="thread-root-version-tag">v{version}</span>
-					{/if}
-				</div>
+				</span>
+				{#if showVersion}
+					<span class="thread-root-version-tag">v{version}</span>
+				{/if}
 			</div>
-		{/if}
-	</div>
+		</a>
+	{:else}
+		<div
+			class="thread-root-label-row"
+			class:thread-root-label-row--deleted={context?.deleted}
+			role={context?.deleted ? 'status' : undefined}
+		>
+			<div class="thread-root-label-main">
+				<span
+					class="thread-root-label"
+					class:thread-root-label--deleted={context?.deleted}
+					class:thread-root-label--split={!!context?.isStack}
+				>
+					{#if context?.isStack}
+						<span class="thread-root-label-kind">Stack</span>
+						<span class="thread-root-label-ellipsis">{context.label}</span>
+					{:else}
+						{context.label}
+					{/if}
+				</span>
+				{#if showVersion}
+					<span class="thread-root-version-tag">v{version}</span>
+				{/if}
+			</div>
+		</div>
+	{/if}
 </div>
 
 <style>
 	.thread-root-event {
-		display: flex;
-		gap: 8px;
-		align-items: flex-start;
-		padding: 16px 16px 0;
-	}
-
-	.thread-root-event-rail {
-		width: 36px;
-		flex-shrink: 0;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-	}
-
-	.thread-root-badge {
-		width: 28px;
-		height: 28px;
-		border-radius: 6px;
-		background: var(--white8);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-	}
-
-	.thread-root-badge--app,
-	.thread-root-badge--stack {
-		width: 28px;
-		height: 28px;
-		padding: 0;
-		overflow: hidden;
-		background: transparent;
-		border: none;
-		border-radius: 6px;
-	}
-
-	.thread-root-app-pic-wrap {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		min-width: 0;
-		min-height: 0;
-		flex-shrink: 0;
-		pointer-events: none;
-		border-radius: 6px;
-		overflow: hidden;
-		isolation: isolate;
-		contain: strict;
-	}
-
-	.thread-root-app-pic-wrap :global(.thread-root-app-pic) {
-		cursor: inherit;
-	}
-
-	.thread-root-app-pic-wrap :global(.thread-root-app-pic:hover),
-	.thread-root-app-pic-wrap :global(.thread-root-app-pic:active) {
-		transform: none;
-	}
-
-	.thread-root-line-solid {
-		width: 2px;
-		height: 9px;
-		flex-shrink: 0;
-		margin-top: -2px;
-		background: var(--white16);
-	}
-
-	.thread-root-event-main {
-		flex: 1;
 		min-width: 0;
 	}
 

@@ -6,8 +6,8 @@
 		getProfileTextColor,
 		rgbToCssString
 	} from '$lib/utils/color.js';
-import { nip19 } from 'nostr-tools';
-import SkeletonLoader from './SkeletonLoader.svelte';
+	import { nip19 } from 'nostr-tools';
+	import SkeletonLoader from './SkeletonLoader.svelte';
 
 	/**
 	 * ProfilePic - A profile picture component with fallback states
@@ -52,7 +52,9 @@ import SkeletonLoader from './SkeletonLoader.svelte';
 		const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 		isDarkMode = mediaQuery.matches;
 
-		const handleChange = /** @type {(e: MediaQueryListEvent) => void} */ ((e) => (isDarkMode = e.matches));
+		const handleChange = /** @type {(e: MediaQueryListEvent) => void} */ (
+			(e) => (isDarkMode = e.matches)
+		);
 		mediaQuery.addEventListener('change', handleChange);
 		return () => mediaQuery.removeEventListener('change', handleChange);
 	});
@@ -120,7 +122,8 @@ import SkeletonLoader from './SkeletonLoader.svelte';
 	$: isHexPubkey = name && typeof name === 'string' && /^[a-f0-9]{64}$/i.test(name.trim());
 
 	// Get initial letter from name only when it's a real name (not npub, not hex)
-	$: initial = name && name.trim() && !isNpub && !isHexPubkey ? (name.trim()[0]?.toUpperCase() ?? '') : '';
+	$: initial =
+		name && name.trim() && !isNpub && !isHexPubkey ? (name.trim()[0]?.toUpperCase() ?? '') : '';
 	$: hasInitial = initial.length > 0;
 
 	// Color styles - use getProfileTextColor for text/icon readability

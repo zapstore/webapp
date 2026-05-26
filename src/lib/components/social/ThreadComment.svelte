@@ -1,13 +1,13 @@
 <script lang="js">
 /**
- * ThreadComment - Thread-style comment display for modals
+ * ThreadComment - Root comment body for opened thread modals (author row + content).
+ * Profile pic lives on RootComment's left rail.
  */
 import { onMount } from "svelte";
 import * as nip19 from "nostr-tools/nip19";
-import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString, } from "$lib/utils/color.js";
-let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", loading = false, pending: _pending = false, className = "", children, headerActions, profilePicSize = "smMd", } = $props();
+let { name = "", pubkey = null, timestamp = null, profileUrl = "", pending: _pending = false, className = "", children, headerActions, } = $props();
 function formatNpubDisplay(npubStr) {
     const s = String(npubStr || "").trim();
     if (!s)
@@ -43,142 +43,105 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
 </script>
 
 <div class="thread-comment {className}">
-  <div class="thread-comment-layout">
-    <div class="profile-column">
-      {#if profileUrl}
-        <a href={profileUrl} class="profile-link">
-          <ProfilePic {pictureUrl} {name} {pubkey} {loading} size={profilePicSize} />
-        </a>
-      {:else}
-        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size={profilePicSize} />
-      {/if}
-    </div>
-    <div class="thread-comment-main">
-      <div class="author-top">
-        <div class="author-name-wrap">
-          {#if profileUrl}
-            <a href={profileUrl} class="author-name" style="color: {nameColorStyle};">
-              {displayAuthorName}
-            </a>
-          {:else}
-            <span class="author-name" style="color: {nameColorStyle};">
-              {displayAuthorName}
-            </span>
-          {/if}
-        </div>
-        <div class="author-right">
-          <Timestamp {timestamp} size="xs" className="author-timestamp" />
-          {#if headerActions}
-            <div class="thread-comment-actions">
-              {@render headerActions()}
-            </div>
-          {/if}
-        </div>
-      </div>
-      <div class="content">
-        {@render children?.()}
-      </div>
-    </div>
-  </div>
+	<div class="author-top">
+		<div class="author-name-wrap">
+			{#if profileUrl}
+				<a href={profileUrl} class="author-name" style="color: {nameColorStyle};">
+					{displayAuthorName}
+				</a>
+			{:else}
+				<span class="author-name" style="color: {nameColorStyle};">
+					{displayAuthorName}
+				</span>
+			{/if}
+		</div>
+		<div class="author-right">
+			<Timestamp {timestamp} size="xs" className="author-timestamp" />
+			{#if headerActions}
+				<div class="thread-comment-actions">
+					{@render headerActions()}
+				</div>
+			{/if}
+		</div>
+	</div>
+	<div class="content">
+		{@render children?.()}
+	</div>
 </div>
 
 <style>
-  .thread-comment {
-    display: flex;
-    flex-direction: column;
-  }
+	.thread-comment {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		min-width: 0;
+	}
 
-  .thread-comment-layout {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-  }
+	.author-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		min-width: 0;
+		width: 100%;
+	}
 
-  .profile-column {
-    flex-shrink: 0;
-  }
+	.author-name-wrap {
+		min-width: 0;
+	}
 
-  .profile-link {
-    display: block;
-    transition: opacity 0.15s ease;
-  }
+	.author-name {
+		font-weight: 600;
+		font-size: 0.875rem;
+		line-height: 1.2;
+		text-decoration: none;
+		transition: opacity 0.15s ease;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
 
-  .profile-link:hover {
-    opacity: 0.8;
-  }
+	a.author-name:hover {
+		opacity: 0.8;
+	}
 
-  .thread-comment-main {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
+	.author-right {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		flex-shrink: 0;
+	}
 
-  .author-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    min-width: 0;
-  }
+	.author-timestamp {
+		flex-shrink: 0;
+	}
 
-  .author-name-wrap {
-    min-width: 0;
-  }
+	.thread-comment-actions {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+	}
 
-  .author-name {
-    font-weight: 600;
-    font-size: 0.875rem;
-    line-height: 1.2;
-    text-decoration: none;
-    transition: opacity 0.15s ease;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+	.content {
+		font-size: 0.9375rem;
+		line-height: 1.5;
+		color: color-mix(in srgb, var(--white) 85%, transparent);
+	}
 
-  a.author-name:hover {
-    opacity: 0.8;
-  }
+	.content :global(p) {
+		margin: 0;
+	}
 
-  .author-right {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    flex-shrink: 0;
-  }
+	.content :global(p + p) {
+		margin-top: 0.5rem;
+	}
 
-  .author-timestamp {
-    flex-shrink: 0;
-  }
+	.content :global(a) {
+		color: var(--blurpleColor);
+		text-decoration: none;
+	}
 
-  .thread-comment-actions {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-  }
-
-  .content {
-    font-size: 0.9375rem;
-    line-height: 1.5;
-    color: color-mix(in srgb, var(--white) 85%, transparent);
-  }
-
-  .content :global(p) {
-    margin: 0;
-  }
-
-  .content :global(p + p) {
-    margin-top: 0.5rem;
-  }
-
-  .content :global(a) {
-    color: var(--blurpleColor);
-    text-decoration: none;
-  }
-
-  .content :global(a:hover) {
-    text-decoration: underline;
-  }
+	.content :global(a:hover) {
+		text-decoration: underline;
+	}
 </style>
