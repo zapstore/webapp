@@ -58,8 +58,7 @@ let showFooter = $derived(
 		path === '/studio' ||
 		path.startsWith('/studio/') ||
 		path === '/blog' ||
-		path.startsWith('/blog/') ||
-		path === '/terms') &&
+		path.startsWith('/blog/')) &&
 		!showingStudioDashboard &&
 		!isAppsPage
 );
