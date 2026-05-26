@@ -14,11 +14,11 @@
 		title = 'Zapstore Badge & Logo'
 	} = $props();
 
-	const badgeUrl = `${SITE_URL}/images/get-it-on-zapstore.png`;
+	const badgeSvgUrl = `${SITE_URL}/images/get-it-on-zapstore.svg`;
 	const badgeLink = `${SITE_URL}`;
 
-	const badgeHtml = `<a href="${badgeLink}">\n  <img src="${badgeUrl}" alt="Get it on Zapstore" height="60">\n</a>`;
-	const badgeMd = `[![Get it on Zapstore](${badgeUrl})](${badgeLink})`;
+	const badgeHtml = `<a href="${badgeLink}">\n  <img src="${badgeSvgUrl}" alt="Get it on Zapstore" height="60">\n</a>`;
+	const badgeMd = `[![Get it on Zapstore](${badgeSvgUrl})](${badgeLink})`;
 
 	let badgeCodeOpen = $state(false);
 </script>
@@ -39,7 +39,7 @@
 			<div class="asset-row">
 				<div class="asset-cell asset-cell-media">
 					<img
-						src={`${assets}/images/get-it-on-zapstore.png`}
+						src={`${assets}/images/get-it-on-zapstore.svg`}
 						alt="Get it on Zapstore"
 						class="badge-img"
 					/>
@@ -54,12 +54,20 @@
 					</div>
 				<div class="asset-actions badge-actions">
 					<a
+						href={`${assets}/images/get-it-on-zapstore.svg`}
+						download="get-it-on-zapstore.svg"
+						class="btn-secondary-small action-btn"
+					>
+						<Download variant="fill" size={15} color="var(--white33)" />
+						Download SVG
+					</a>
+					<a
 						href={`${assets}/images/get-it-on-zapstore.png`}
 						download="get-it-on-zapstore.png"
 						class="btn-secondary-small action-btn"
 					>
 						<Download variant="fill" size={15} color="var(--white33)" />
-						Download
+						Download PNG
 					</a>
 					<button
 						type="button"
