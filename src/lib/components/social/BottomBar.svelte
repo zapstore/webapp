@@ -148,6 +148,7 @@ const bottomBarCommentPlaceholder = $derived(`Write to ${bottomBarRecipientLabel
 					{searchEmojis}
 					autoFocus={true}
 					showActionRow={true}
+					onTipTap={handleZap}
 					onClose={closeComment}
 					onCameraTap={handleCameraTap}
 					onEmojiTap={handleEmojiTap}

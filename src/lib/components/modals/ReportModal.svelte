@@ -235,6 +235,7 @@ $effect(() => {
 						{searchProfiles}
 						{searchEmojis}
 						showActionRow={true}
+						hideTipButton={true}
 						{allowEmptySubmit}
 						onCameraTap={() => {}}
 						onEmojiTap={() => {}}

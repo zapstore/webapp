@@ -203,7 +203,7 @@ const childModalOpen = $derived(emojiPickerOpen || insertModalOpen || zapModalOp
           {searchEmojis}
           autoFocus={true}
           showActionRow={true}
-          showTipButton={true}
+          hideTipButton={false}
           onTipTap={handleTipTap}
           onCameraTap={handleCameraTap}
           onEmojiTap={handleEmojiTap}

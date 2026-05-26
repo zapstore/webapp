@@ -400,6 +400,7 @@ export function getSerializedContent() {
       {searchEmojis}
       size="small"
       showActionRow={true}
+      hideTipButton={true}
       showCloseWhen="focusedOrContent"
       onCameraTap={() => {}}
       onEmojiTap={() => {}}

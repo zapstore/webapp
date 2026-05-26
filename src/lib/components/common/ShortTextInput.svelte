@@ -17,7 +17,7 @@ import { getEmojiSearch } from "$lib/services/emoji-search.js";
 import * as nip19 from "nostr-tools/nip19";
 import { Camera, EmojiFill, Plus, Send, ChevronDown, Cross, Zap } from "$lib/components/icons";
 import { SvelteSet } from "svelte/reactivity";
-let { placeholder = "Write something...", searchProfiles = async () => [], searchEmojis = async () => [], getCurrentPubkey = () => null, autoFocus = false, size = "small", className = "", showActionRow = true, showTipButton = false, onTipTap = () => { }, onCameraTap = () => { }, onEmojiTap = () => { }, onAddTap = () => { }, onChevronTap: _onChevronTap = () => { }, onchange, onsubmit, allowEmptySubmit = false, onClose, showCloseWhen = 'always', aboveEditor, } = $props();
+let { placeholder = "Write something...", searchProfiles = async () => [], searchEmojis = async () => [], getCurrentPubkey = () => null, autoFocus = false, size = "small", className = "", showActionRow = true, hideTipButton = false, onTipTap = () => { }, onCameraTap = () => { }, onEmojiTap = () => { }, onAddTap = () => { }, onChevronTap: _onChevronTap = () => { }, onchange, onsubmit, allowEmptySubmit = false, onClose, showCloseWhen = 'always', aboveEditor, } = $props();
 /** Getters so suggestion plugins always receive current search functions (called when editor is created in onMount). */
 function getSearchProfiles() { return searchProfiles; }
 function getSearchEmojis() { return searchEmojis; }
@@ -842,9 +842,9 @@ export { getContent, getSerializedContent, isEmpty };
   {#if showActionRow}
     <div class="action-row">
       <div class="action-buttons-left">
-        {#if showTipButton}
-          <button type="button" class="action-btn tip-btn" onclick={onTipTap} aria-label="Add tip">
-            <Zap variant="fill" color="var(--goldColor66)" size={16} />
+        {#if !hideTipButton}
+          <button type="button" class="action-btn" onclick={onTipTap} aria-label="Add tip">
+            <Zap variant="fill" color="var(--white33)" size={16} />
           </button>
         {/if}
         <button type="button" class="action-btn" onclick={onCameraTap} aria-label="Add photo">
@@ -1394,12 +1394,6 @@ export { getContent, getSerializedContent, isEmpty };
     cursor: pointer;
   }
   .action-btn:active {
-    transform: scale(0.97);
-  }
-  .tip-btn {
-    background: var(--gradient-gold16);
-  }
-  .tip-btn:active {
     transform: scale(0.97);
   }
   .send-button-container {

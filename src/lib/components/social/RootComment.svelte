@@ -546,6 +546,15 @@
 		zapPresetSats = null;
 		zapModalOpen = true;
 	}
+	function handleTipTap() {
+		zapPresetSats = null;
+		if (replyingToComment) {
+			handleZapComment(replyingToComment);
+		} else {
+			zapTargetOverride = null;
+			zapModalOpen = true;
+		}
+	}
 	function handleReply() {
 		replyingToComment = null;
 		commentExpanded = true;
@@ -1215,6 +1224,7 @@
 								{searchEmojis}
 								autoFocus={true}
 								showActionRow={true}
+								onTipTap={handleTipTap}
 								onClose={closeReply}
 									onCameraTap={handleReplyCameraTap}
 									onEmojiTap={handleEmojiTap}
