@@ -8,6 +8,12 @@
 	import Code2 from '$lib/components/icons/Code2.svelte';
 	import { SITE_URL } from '$lib/config.js';
 
+	let {
+		showTopbar = true,
+		backHref = '/studio/insights',
+		title = 'Zapstore Badge & Logo'
+	} = $props();
+
 	const badgeUrl = `${SITE_URL}/images/get-it-on-zapstore.png`;
 	const badgeLink = `${SITE_URL}`;
 
@@ -17,12 +23,14 @@
 	let badgeCodeOpen = $state(false);
 </script>
 
-<div class="assets-scroll">
+<div class="assets-scroll" class:assets-embedded={!showTopbar}>
 
-	<div class="assets-topbar">
-		<BackButton onBack={() => goto('/studio/insights')} />
-		<span class="assets-topbar-title">Assets</span>
-	</div>
+	{#if showTopbar}
+		<div class="assets-topbar">
+			<BackButton onBack={() => goto(backHref)} />
+			<span class="assets-topbar-title">{title}</span>
+		</div>
+	{/if}
 
 	<div class="assets-body">
 
@@ -110,6 +118,18 @@
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
+	}
+
+	.assets-embedded {
+		height: auto;
+		overflow: visible;
+	}
+
+	.assets-embedded .assets-body {
+		flex: none;
+		min-height: auto;
+		overflow: visible;
+		padding: 0;
 	}
 
 	/* ── Top bar (non-scrolling, no bg needed — nothing scrolls behind it) ── */

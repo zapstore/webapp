@@ -4,6 +4,6 @@
 	let { data, children } = $props();
 </script>
 
-<DocsDashboardShell navigation={data.navigation}>
+<DocsDashboardShell navigation={data.navigation} contentProse={false}>
 	{@render children()}
 </DocsDashboardShell>
