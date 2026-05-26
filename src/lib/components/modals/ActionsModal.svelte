@@ -1,7 +1,7 @@
 <script lang="js">
 	/**
 	 * ActionsModal - Actions sheet for content (add labels, add to stacks, report).
-	 * Opened from BottomBar when signed in. Content type (app, stack, etc.) drives report label.
+	 * Opened from detail author rows when signed in. Content type (app, stack, etc.) drives report label.
 	 */
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
@@ -993,7 +993,7 @@
 
 	.stack-form-divider {
 		width: 100%;
-		height: 1.4px;
+		height: 1px;
 		background-color: var(--white8);
 	}
 

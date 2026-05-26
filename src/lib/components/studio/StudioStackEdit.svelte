@@ -6,7 +6,6 @@
 	 * saved together with name/description via the main Save button.
 	 * Same pattern as StudioAppEdit (no immediate relay publishing).
 	 */
-	import BackButton from '$lib/components/common/BackButton.svelte';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import InputLabel from '$lib/components/common/InputLabel.svelte';
 	import Label from '$lib/components/common/Label.svelte';
@@ -213,12 +212,14 @@
 	<div class="edit-wrap">
 		<!-- ── Sticky top bar ───────────────────────────────────────────────── -->
 		<div class="edit-topbar">
-			<BackButton {onBack} />
 			<span class="edit-topbar-title">{isCreate ? 'New Stack' : 'Edit Your Stack'}</span>
 			<div class="topbar-actions">
+				<button type="button" class="btn-secondary-xs btn-secondary-light topbar-cancel-btn" onclick={onBack}>
+					Cancel
+				</button>
 				{#if !isCreate && stack?.pubkey && stack?.dTag}
 					<a
-						class="btn-secondary-xs btn-secondary-light topbar-view-btn"
+						class="btn-secondary-xs btn-secondary-light topbar-secondary-btn"
 						href="/stacks/{encodeStackNaddr(stack.pubkey, stack.dTag)}"
 					>
 						View
@@ -405,7 +406,7 @@
 		align-items: center;
 		gap: 10px;
 		padding: 10px 12px;
-		border-bottom: 1.4px solid var(--shell-border);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	@media (min-width: 768px) {
@@ -416,7 +417,7 @@
 
 	.edit-topbar-title {
 		flex: 1;
-		font-size: 15px;
+		font-size: 14px;
 		font-weight: 500;
 		color: var(--white);
 		white-space: nowrap;
@@ -435,7 +436,11 @@
 		flex-shrink: 0;
 	}
 
-	.topbar-view-btn {
+	.topbar-cancel-btn {
+		color: var(--white33);
+	}
+
+	.topbar-secondary-btn {
 		text-decoration: none;
 		color: var(--white66);
 	}
@@ -470,7 +475,7 @@
 	/* ── Full-width divider ── */
 	.full-divider {
 		width: 100%;
-		height: 1.4px;
+		height: 1px;
 		background: var(--shell-border);
 		flex-shrink: 0;
 	}
@@ -522,7 +527,7 @@
 
 	.form-divider {
 		width: 100%;
-		height: 1.4px;
+		height: 1px;
 		background: var(--white8);
 		flex-shrink: 0;
 	}

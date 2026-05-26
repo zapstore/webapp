@@ -308,7 +308,7 @@
 			: 'bg-transparent border-b border-shell'
 	)}
 >
-	<nav class={cn('container mx-auto h-full', 'px-3 sm:px-6 lg:px-8')}>
+	<nav class={cn('container mx-auto h-full', 'px-3 sm:px-6 md:px-[29px] lg:px-[37px]')}>
 		<div class="flex items-center justify-between h-full">
 			<!-- Left: Logo (landing: + menu icon on mobile) or Back + Page Title (browse/studio) -->
 			<div class="flex items-center flex-shrink-0">
@@ -1422,7 +1422,7 @@
 	}
 
 	.menu-divider {
-		height: 1.4px;
+		height: 1px;
 		background-color: var(--white11);
 		margin: 6px 0;
 	}
@@ -1545,7 +1545,7 @@
 		-webkit-backdrop-filter: blur(24px);
 		border: 0.33px solid var(--white16);
 		border-radius: 16px;
-		border-top: 1.4px solid var(--white11);
+		border-top: 1px solid var(--white11);
 	}
 
 	.landing-nav-panel-centered {

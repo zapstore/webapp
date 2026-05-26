@@ -32,8 +32,11 @@ let {
     title = '',            // page variant: header title
     showBack: _showBack = false,      // page variant: show back button
     rightContent,          // page variant: optional snippet rendered right of title
+    detailTrailing,        // detail variant: optional snippet rendered before timestamp
     publisherPic = null, publisherName = null, publisherNameForPic = undefined, publisherPubkey = null, publisherUrl = '#', timestamp = null, catalogs = [], catalogText: _catalogText = 'In Zapstore', showPublisher = true, scrollThreshold, getStartedModalOpen = $bindable(false),
-    showBackButton = false, onBack, compactPadding = false, catalogDisplayOnly: _catalogDisplayOnly = false
+    showBackButton = false, onBack, compactPadding = false, catalogDisplayOnly: _catalogDisplayOnly = false,
+    /** When false, omits the bottom shell border under the header row (e.g. forum post detail). */
+    showBottomBorder = true,
 } = $props();
 const nameForPic = $derived(publisherNameForPic !== undefined ? publisherNameForPic : publisherName);
 function formatNpubDisplay(npubStr) {
@@ -301,15 +304,18 @@ async function _handleSignIn() {
 		'detail-header sticky top-0 left-0 right-0 w-full z-50 transition-all duration-300',
 		!headerVisible && 'detail-header-hidden',
 		scrolled
-			? 'bg-background/60 border-b border-shell'
-			: 'bg-transparent border-b border-shell'
+			? 'bg-background/60'
+			: 'bg-transparent',
+		showBottomBorder ? 'border-b border-shell' : ''
 	)}
 >
 	<nav class={cn('w-full h-full', compactPadding ? 'nav-compact' : 'px-4 sm:px-6 md:px-[38px]')}>
 		<div class="flex items-center justify-between gap-3 h-full">
 			<!-- Left: Back button (when showBackButton) + Publisher info -->
 		<div class="flex items-center gap-2 min-w-0 flex-1">
-			<BackButton onBack={effectiveBackHandler} />
+			{#if showBackButton}
+				<BackButton onBack={effectiveBackHandler} />
+			{/if}
 
 			{#if showPublisher}
 					<!-- Publisher link -->
@@ -321,19 +327,24 @@ async function _handleSignIn() {
 							pictureUrl={publisherPic}
 							name={nameForPic}
 							pubkey={publisherPubkey}
-							size="sm"
+							size="bubble"
 						/>
 						<span class="publisher-name">
-							By {publisherDisplayName}
+							{publisherDisplayName}
 						</span>
 					</a>
 				{/if}
 			</div>
 
-			<!-- Right: timestamp (catalog ProfilePicStack commented out for now) -->
-			{#if timestamp}
-				<Timestamp {timestamp} size="xs" className="publisher-timestamp" />
-			{/if}
+			<!-- Right: optional actions + timestamp -->
+			<div class="detail-header-trailing">
+				{#if timestamp}
+					<Timestamp {timestamp} size="xs" className="publisher-timestamp" />
+				{/if}
+				{#if detailTrailing}
+					{@render detailTrailing()}
+				{/if}
+			</div>
 			<!-- Catalog ProfilePicStack commented out for now
 			{#if catalogs.length > 0}
 				<div class="catalog-dropdown-wrap" bind:this={catalogDropdownContainer} class:catalog-display-only={_catalogDisplayOnly}>
@@ -365,7 +376,7 @@ async function _handleSignIn() {
 ></div>
 
 <!-- Floating back button (same position as header) when header is hidden due to scrollThreshold -->
-{#if scrollThreshold != null && !headerVisible}
+{#if showBackButton && scrollThreshold != null && !headerVisible}
 	<div class="floating-menu-bar" role="banner">
 		<nav class="floating-menu-nav">
 			<BackButton onBack={effectiveBackHandler} />
@@ -478,12 +489,19 @@ async function _handleSignIn() {
 	}
 
 	/* ── Detail variant ────────────────────────────────────────────────────── */
-	/* Compact nav: 16px horizontal padding (forum post detail, etc.) */
+	/* Compact nav: forum post detail — matches app/stack detail-pad-x (12px mobile, 20px desktop) */
 	nav.nav-compact {
 		width: 100%;
 		box-sizing: border-box;
-		padding-left: 16px;
-		padding-right: 16px;
+		padding-left: 12px;
+		padding-right: 12px;
+	}
+
+	@media (min-width: 768px) {
+		nav.nav-compact {
+			padding-left: 20px;
+			padding-right: 20px;
+		}
 	}
 	/* Fixed header height - exactly 64px to match main header */
 	:global(.detail-header) {
@@ -744,7 +762,7 @@ async function _handleSignIn() {
 
 	/* Menu divider */
 	.menu-divider {
-		height: 1.4px;
+		height: 1px;
 		background-color: var(--white11);
 		margin: 12px 0;
 	}
@@ -817,6 +835,13 @@ async function _handleSignIn() {
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.detail-header-trailing {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		flex-shrink: 0;
 	}
 
 	:global(.publisher-timestamp) {

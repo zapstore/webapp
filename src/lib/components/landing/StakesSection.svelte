@@ -73,7 +73,7 @@
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
 		padding-bottom: 0.75rem;
-		border-bottom: 1.4px solid var(--white11);
+		border-bottom: 1px solid var(--white11);
 	}
 
 	.col-head-old {
@@ -87,7 +87,7 @@
 		background-clip: text;
 		color: transparent;
 		padding-left: 2rem;
-		border-left: 1.4px solid var(--white11);
+		border-left: 1px solid var(--white11);
 	}
 
 	.row-cell {
@@ -95,7 +95,7 @@
 		align-items: baseline;
 		gap: 0.5rem;
 		padding: 0.875rem 0;
-		border-bottom: 1.4px solid var(--white7);
+		border-bottom: 1px solid var(--white7);
 		font-size: 0.9375rem;
 	}
 
@@ -109,7 +109,7 @@
 
 	.row-cell-new {
 		padding-left: 2rem;
-		border-left: 1.4px solid var(--white11);
+		border-left: 1px solid var(--white11);
 	}
 
 	.x-icon {

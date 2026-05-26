@@ -752,10 +752,6 @@
 			modalOpen = true;
 			handleReply();
 		}}
-		onZap={() => {
-			modalOpen = true;
-			handleZap();
-		}}
 		onOptions={() => {
 			openActionsModal('root');
 		}}
@@ -1073,7 +1069,6 @@
 									{#if showThreadActions}
 										<CommentBubbleActionRail
 											onReply={() => openReplyToComment(reply)}
-											onZap={() => handleZapComment(reply)}
 											onOptions={() => openActionsModal(reply)}
 										/>
 									{/if}
@@ -1111,7 +1106,6 @@
 									{#if showThreadActions}
 										<CommentBubbleActionRail
 											onReply={() => openReplyToZap(zap)}
-											onZap={() => handleZapComment(zap)}
 											onOptions={() => openActionsModal(zap)}
 										/>
 									{/if}
@@ -1539,7 +1533,7 @@
 	}
 
 	.thread-divider {
-		height: 1.4px;
+		height: 1px;
 		background-color: var(--white11);
 		margin: 0;
 	}

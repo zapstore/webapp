@@ -36,7 +36,7 @@ import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
 import DetailHeader from '$lib/components/layout/DetailHeader.svelte';
 import SocialTabs from '$lib/components/social/SocialTabs.svelte';
-import BottomBar from '$lib/components/social/BottomBar.svelte';
+import DetailContentActions from '$lib/components/social/DetailContentActions.svelte';
 import EmptyState from '$lib/components/common/EmptyState.svelte';
 import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
 import MediaLightboxModal from '$lib/components/modals/MediaLightboxModal.svelte';
@@ -272,6 +272,18 @@ const zapTarget = $derived(
 				id: post.id,
 				pictureUrl: authorProfile?.picture,
 				communityPubkey
+			}
+		: null
+);
+/** Comment composer target — always available when post exists (zap tip still needs communityPubkey on target when present). */
+const commentTarget = $derived(
+	post
+		? {
+				name: publisherName,
+				pubkey: post.pubkey,
+				id: post.id,
+				pictureUrl: authorProfile?.picture,
+				...(communityPubkey ? { communityPubkey } : {})
 			}
 		: null
 );
@@ -779,13 +791,31 @@ function handleForumBottomBarZap(event) {
 				catalogText="Zapstore"
 				showPublisher={true}
 				showMenu={false}
-				showBackButton={true}
-				{onBack}
 				scrollThreshold={undefined}
 				compactPadding={true}
 				catalogDisplayOnly={true}
+				showBottomBorder={false}
 				bind:getStartedModalOpen
-			/>
+			>
+				{#snippet detailTrailing()}
+					{#if zapTarget}
+						<DetailContentActions
+							contentType="forum"
+							target={zapTarget}
+							appName={post.title || ''}
+							{publisherName}
+							{searchProfiles}
+							{searchEmojis}
+							onLabelPublished={() => {
+								labelFetchNonce += 1;
+							}}
+							onOwnContentDeleted={() => {
+								goto(resolve('/community/forum'));
+							}}
+						/>
+					{/if}
+				{/snippet}
+			</DetailHeader>
 		</div>
 
 		<div class="content-scroll" data-main-scroll>
@@ -839,6 +869,12 @@ function handleForumBottomBarZap(event) {
 						onZapPendingClear={handleForumZapPendingClear}
 						onZapReceived={handleForumBottomBarZap}
 						onGetStarted={() => (getStartedModalOpen = true)}
+						commentTarget={commentTarget}
+						commentRecipientName={publisherName}
+						contentType="forum"
+						{otherZaps}
+						isSignedIn={getIsSignedIn()}
+						getCurrentPubkey={getCurrentPubkey}
 						{labelEntries}
 						{labelsLoading}
 					/>
@@ -846,33 +882,6 @@ function handleForumBottomBarZap(event) {
 			</div>
 		</div>
 
-	{#if post && zapTarget}
-		<BottomBar
-			publisherName={publisherName}
-			contentType="forum"
-			{zapTarget}
-			{otherZaps}
-			isSignedIn={getIsSignedIn()}
-			isMember={true}
-			onJoinRequired={() => {}}
-			onGetStarted={() => { getStartedModalOpen = true; }}
-			getCurrentPubkey={getCurrentPubkey}
-			signEvent={signEvent}
-			{searchProfiles}
-			{searchEmojis}
-			oncommentSubmit={handleCommentSubmit}
-			onzapReceived={handleForumBottomBarZap}
-			onZapPending={handleForumZapPending}
-			onZapPendingClear={handleForumZapPendingClear}
-			onoptions={() => {}}
-			onLabelPublished={() => {
-				labelFetchNonce += 1;
-			}}
-			onOwnContentDeleted={() => {
-				goto(resolve('/community/forum'));
-			}}
-		/>
-	{/if}
 	{/if}
 </div>
 
@@ -894,12 +903,13 @@ function handleForumBottomBarZap(event) {
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
-		padding-top: 16px;
-		padding-bottom: 120px;
+		margin-top: -4px;
+		padding-top: 0;
+		padding-bottom: 32px;
 	}
 	@media (min-width: 768px) {
 		.content-scroll {
-			--page-content-pad-x: 16px;
+			--page-content-pad-x: 20px;
 		}
 	}
 	.content-inner {

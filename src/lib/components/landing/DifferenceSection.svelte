@@ -149,18 +149,18 @@
 
 	/* Header row */
 	thead tr {
-		border-bottom: 1.4px solid var(--white11);
+		border-bottom: 1px solid var(--white11);
 	}
 
 	.criteria-header {
 		padding: 1rem 1.25rem;
-		border-right: 1.4px solid var(--white11);
+		border-right: 1px solid var(--white11);
 	}
 
 	.store-header {
 		padding: 1rem 0.5rem;
 		text-align: center;
-		border-right: 1.4px solid var(--white11);
+		border-right: 1px solid var(--white11);
 		vertical-align: middle;
 	}
 
@@ -233,7 +233,7 @@
 
 	/* Data rows */
 	tbody tr {
-		border-bottom: 1.4px solid var(--white11);
+		border-bottom: 1px solid var(--white11);
 	}
 
 	tbody tr.last-row {
@@ -247,13 +247,13 @@
 		font-weight: 500;
 		color: var(--white66);
 		white-space: nowrap;
-		border-right: 1.4px solid var(--white11);
+		border-right: 1px solid var(--white11);
 	}
 
 	.value-cell {
 		padding: 0.875rem 0.5rem;
 		text-align: center;
-		border-right: 1.4px solid var(--white11);
+		border-right: 1px solid var(--white11);
 		vertical-align: middle;
 	}
 

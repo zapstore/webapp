@@ -7,3 +7,5 @@ export { default as RootComment } from './RootComment.svelte';
 export { default as DetailsTab } from './DetailsTab.svelte';
 export { default as SocialTabs } from './SocialTabs.svelte';
 export { default as BottomBar } from './BottomBar.svelte';
+export { default as CommentFeedComposer } from './CommentFeedComposer.svelte';
+export { default as DetailContentActions } from './DetailContentActions.svelte';

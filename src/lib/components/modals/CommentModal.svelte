@@ -9,6 +9,7 @@ import { cubicOut } from "svelte/easing";
 import ShortTextInput from "$lib/components/common/ShortTextInput.svelte";
 import EmojiPickerModal from "$lib/components/modals/EmojiPickerModal.svelte";
 import AddModal from "$lib/components/modals/AddModal.svelte";
+import ZapSliderModal from "$lib/components/modals/ZapSliderModal.svelte";
 import { createSearchEmojisFunction } from "$lib/services/emoji-search";
 import { createSearchProfilesFunction } from "$lib/services/profile-search";
 import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from "$lib/services/upload-nostr-build";
@@ -36,6 +37,9 @@ let {
     isOpen = $bindable(false),
     target = null,
     placeholder = undefined,
+    recipientName = '',
+    contentType = 'app',
+    otherZaps = [],
     getCurrentPubkey = () => null,
     searchProfiles: searchProfilesProp = null,
     searchEmojis: searchEmojisProp = null,
@@ -47,17 +51,23 @@ let {
      */
     threadPubkeys = [],
     onsubmit,
+    onzapReceived,
+    onZapPending,
+    onZapPendingClear,
     onclose,
 } = $props();
 const searchProfiles = $derived(
     searchProfilesProp ?? createSearchProfilesFunction(getCurrentPubkey, () => threadPubkeys)
 );
 const searchEmojis = $derived(searchEmojisProp ?? createSearchEmojisFunction(getCurrentPubkey));
-const effectivePlaceholder = $derived(placeholder ?? `Write to ${recipientLabel(target)}`);
+const effectivePlaceholder = $derived(
+    placeholder ?? `Write to ${recipientName?.trim() || recipientLabel(target)}`
+);
 let textInput = $state(null);
 let submitting = $state(false);
 let emojiPickerOpen = $state(false);
 let insertModalOpen = $state(false);
+let zapModalOpen = $state(false);
 /** @type {HTMLInputElement | null} */
 let fileInputEl = $state(null);
 let _mediaUploading = $state(false);
@@ -81,6 +91,18 @@ function handleInsertNostrRef(/** @type {{ naddr: string; name?: string | null; 
 }
 function handleCameraTap() {
     fileInputEl?.click();
+}
+function handleTipTap() {
+    zapModalOpen = true;
+}
+function handleZapClose(event) {
+    zapModalOpen = false;
+    if (event?.success) {
+        onzapReceived?.({ zapReceipt: {} });
+    }
+}
+function handleZapReceived(event) {
+    onzapReceived?.(event);
 }
 async function handleFileChange(e) {
     const files = /** @type {HTMLInputElement} */ (e.target).files;
@@ -142,8 +164,10 @@ $effect(() => {
     if (!isOpen) {
         emojiPickerOpen = false;
         insertModalOpen = false;
+        zapModalOpen = false;
     }
 });
+const childModalOpen = $derived(emojiPickerOpen || insertModalOpen || zapModalOpen);
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -157,7 +181,7 @@ $effect(() => {
     aria-modal="true"
     aria-label="Write a comment"
   >
-    <div class="comment-sheet" class:child-modal-open={emojiPickerOpen || insertModalOpen} transition:fly={{ y: 100, duration: 200, easing: cubicOut }}>
+    <div class="comment-sheet" class:child-modal-open={childModalOpen} transition:fly={{ y: 100, duration: 200, easing: cubicOut }}>
       <div class="child-overlay" aria-hidden="true"></div>
       <div class="input-container">
         <input
@@ -179,6 +203,8 @@ $effect(() => {
           {searchEmojis}
           autoFocus={true}
           showActionRow={true}
+          showTipButton={true}
+          onTipTap={handleTipTap}
           onCameraTap={handleCameraTap}
           onEmojiTap={handleEmojiTap}
           onGifTap={() => {}}
@@ -204,6 +230,22 @@ $effect(() => {
   {getCurrentPubkey}
   onAdd={handleInsertNostrRef}
   onclose={() => { insertModalOpen = false; }}
+/>
+
+<ZapSliderModal
+  bind:isOpen={zapModalOpen}
+  target={target}
+  publisherName={recipientName?.trim() || recipientLabel(target)}
+  {contentType}
+  {otherZaps}
+  nestedModal={true}
+  lockBodyScroll={false}
+  {searchProfiles}
+  {searchEmojis}
+  onclose={handleZapClose}
+  onzapReceived={handleZapReceived}
+  {onZapPending}
+  {onZapPendingClear}
 />
 
 <style>

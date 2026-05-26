@@ -124,7 +124,7 @@
 	.signed-section {
 		overflow: hidden;
 		padding: 0 1rem 3rem;
-		border-bottom: 1.4px solid var(--white11);
+		border-bottom: 1px solid var(--white11);
 	}
 
 	.signed-text-col,

@@ -2,8 +2,8 @@
 /**
  * ForumPostDetailSkeleton — tasteful shimmer placeholder for an opening forum post.
  * Mirrors the three-zone layout of ForumPostDetail:
- *   1. Header bar  (64 px — back chevron, avatar, name/timestamp, catalog label)
- *   2. Content     (padding 16 px — title block, body lines)
+ *   1. Header bar  (64 px — avatar, name/timestamp, actions)
+ *   2. Content     (title block, body lines — flush under header)
  *   3. Tab strip   (three pill buttons)
  */
 import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
@@ -14,14 +14,6 @@ import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 
 	<!-- ── Header ─────────────────────────────────────────────────────── -->
 	<div class="sk-header">
-		<!-- Back chevron (static, non-shimmer) -->
-		<div class="sk-back" aria-hidden="true">
-			<svg viewBox="0 0 10 16" fill="none" width="10" height="16">
-				<path d="M8 2 L2 8 L8 14" stroke="var(--white33)" stroke-width="1.8"
-					stroke-linecap="round" stroke-linejoin="round"/>
-			</svg>
-		</div>
-
 		<!-- Avatar + name / timestamp -->
 		<div class="sk-publisher">
 			<div class="sk-avatar">
@@ -83,18 +75,16 @@ import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 		display: flex;
 		align-items: center;
 		gap: 12px;
-		padding: 0 16px;
+		padding: 0 12px;
 		border-bottom: 1px solid var(--shell-border);
 		box-sizing: border-box;
 	}
 
-	.sk-back {
-		width: 28px;
-		flex-shrink: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		opacity: 0.7;
+	@media (min-width: 768px) {
+		.sk-header {
+			padding-left: 20px;
+			padding-right: 20px;
+		}
 	}
 
 	.sk-publisher {
@@ -145,10 +135,18 @@ import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 
 	/* ── Content (mirrors .content-inner padding) ────────────────────────── */
 	.sk-content {
-		padding: 20px 16px 0;
+		margin-top: -4px;
+		padding: 0 12px 0;
 		display: flex;
 		flex-direction: column;
 		gap: 0;
+	}
+
+	@media (min-width: 768px) {
+		.sk-content {
+			padding-left: 20px;
+			padding-right: 20px;
+		}
 	}
 
 	/* Title — 1.5 rem / 700 / line-height 1.3 → ~30 px actual render height */

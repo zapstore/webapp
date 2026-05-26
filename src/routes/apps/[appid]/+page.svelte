@@ -16,7 +16,7 @@
 	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
-	import { SocialTabs, BottomBar } from '$lib/components/social';
+	import { SocialTabs, DetailContentActions } from '$lib/components/social';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
 	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
@@ -351,6 +351,17 @@ let _refreshing = $state(false);
 		publisherProfile?.displayName || publisherProfile?.name || null
 	);
 	const publisherPictureUrl = $derived(publisherProfile?.picture || '');
+	const zapTarget = $derived(
+		app
+			? {
+					name: app.name,
+					pubkey: app.pubkey,
+					dTag: app.dTag,
+					ownContentEventId: app.id,
+					pictureUrl: publisherPictureUrl
+				}
+			: null
+	);
 	const publisherUrl = $derived(app?.npub ? `/profile/${app.npub}` : '#');
 	const platforms = $derived(app?.platform ? [app.platform] : ['Android']);
 	const hasRepository = $derived(!!app?.repository);
@@ -556,9 +567,9 @@ let _refreshing = $state(false);
 						pictureUrl={publisherPictureUrl}
 						name={publisherNameForPic}
 						pubkey={app.pubkey}
-						size="sm"
+						size="bubble"
 					/>
-					<span class="detail-publisher-name">By {publisherName}</span>
+					<span class="detail-publisher-name">{publisherName}</span>
 				</a>
 			{/if}
 			{#if !publishedByDeveloper}
@@ -567,8 +578,18 @@ let _refreshing = $state(false);
 					<span class="detail-publisher-name">Indexed</span>
 				</div>
 			{/if}
-			{#if app.createdAt}
-				<Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
+			{#if zapTarget}
+				<DetailContentActions
+					contentType="app"
+					target={zapTarget}
+					appName={app.name || ''}
+					{publisherName}
+					{searchProfiles}
+					{searchEmojis}
+					onOwnContentDeleted={() => {
+						goto(resolve('/apps'));
+					}}
+				/>
 			{/if}
 		</div>
 
@@ -846,9 +867,9 @@ let _refreshing = $state(false);
 								pictureUrl={publisherPictureUrl}
 								name={publisherNameForPic}
 								pubkey={app.pubkey}
-								size="sm"
+								size="bubble"
 							/>
-							<span class="detail-publisher-name">By {publisherName}</span>
+							<span class="detail-publisher-name">{publisherName}</span>
 						</a>
 					{/if}
 					{#if !publishedByDeveloper}
@@ -857,8 +878,18 @@ let _refreshing = $state(false);
 							<span class="detail-publisher-name">Indexed</span>
 						</div>
 					{/if}
-					{#if app.createdAt}
-						<Timestamp timestamp={app.createdAt} size="xs" className="detail-publisher-timestamp" />
+					{#if zapTarget}
+						<DetailContentActions
+							contentType="app"
+							target={zapTarget}
+							appName={app.name || ''}
+							{publisherName}
+							{searchProfiles}
+							{searchEmojis}
+							onOwnContentDeleted={() => {
+								goto(resolve('/apps'));
+							}}
+						/>
 					{/if}
 				</div>
 			</div>
@@ -1101,6 +1132,12 @@ let _refreshing = $state(false);
 				onZapPendingClear={handleZapPendingClear}
 				onZapReceived={handleBottomBarZapUpdate}
 				onGetStarted={() => (getStartedModalOpen = true)}
+				commentTarget={zapTarget}
+				commentRecipientName={publisherName}
+				contentType="app"
+				{otherZaps}
+				isSignedIn={getIsSignedIn()}
+				getCurrentPubkey={getCurrentPubkey}
 				detailsShareLink={app?.dTag
 					? `${SITE_URL}/apps/${app.dTag}`
 					: app?.naddr
@@ -1343,7 +1380,7 @@ let _refreshing = $state(false);
 									>
 									<Timestamp
 										timestamp={release.createdAt}
-										size="sm"
+										size="xs"
 										className="release-timestamp"
 									/>
 								</div>
@@ -1555,47 +1592,7 @@ let _refreshing = $state(false);
 		{/if}
 	</div>
 
-	<!-- Bottom Bar: shown for everyone; guests see "Get started to comment" and can zap with anon keypair. -->
-	{#if app}
-		{@const zapTarget = app
-			? {
-					name: app.name,
-					pubkey: app.pubkey,
-					dTag: app.dTag,
-					ownContentEventId: app.id,
-					pictureUrl: publisherPictureUrl
-				}
-			: null}
-		<BottomBar
-			appName={app.name || ''}
-			{publisherName}
-			contentType="app"
-			{zapTarget}
-			{otherZaps}
-			isSignedIn={getIsSignedIn()}
-			onGetStarted={() => (getStartedModalOpen = true)}
-			{getCurrentPubkey}
-			{searchProfiles}
-			{searchEmojis}
-			{signEvent}
-			oncommentSubmit={(e) =>
-				handleCommentSubmit({
-					text: e.text,
-					emojiTags: e.emojiTags,
-					mentions: e.mentions,
-					mediaUrls: e.mediaUrls,
-					parentId: undefined
-				})}
-			onzapReceived={handleBottomBarZapUpdate}
-			onZapPending={handleZapPending}
-			onZapPendingClear={handleZapPendingClear}
-			onOwnContentDeleted={() => {
-				goto(resolve('/apps'));
-			}}
-		/>
-	{/if}
-
-	<!-- Onboarding modals (for Get Started flow from BottomBar) -->
+	<!-- Onboarding modals (for Get Started flow from comment composer) -->
 	<GetStartedModal bind:open={getStartedModalOpen} onconnected={handleGetStartedConnected} />
 	<SpinKeyModal
 		bind:open={spinKeyModalOpen}
@@ -1617,6 +1614,10 @@ let _refreshing = $state(false);
 		padding-bottom: 1.25rem;
 	}
 
+	.detail-publisher-row :global(.detail-content-actions-btn) {
+		margin-right: 0;
+	}
+
 	/* Mobile-only publisher row (above app icon) */
 	.publisher-mobile-only {
 		padding-bottom: 0.875rem;
@@ -1635,11 +1636,15 @@ let _refreshing = $state(false);
 	@media (min-width: 768px) {
 		.detail-publisher-row-in-app {
 			display: flex;
-			justify-content: flex-start;
+			align-items: center;
+			justify-content: space-between;
 			gap: 1rem;
 		}
 		.detail-publisher-row-in-app .detail-publisher-link {
 			flex: 0 0 auto;
+		}
+		.detail-publisher-row-in-app .detail-indexed-by {
+			margin-right: auto;
 		}
 	}
 
@@ -2617,7 +2622,7 @@ let _refreshing = $state(false);
 		transform: scale(0.98);
 	}
 
-	/* Same gap/alignment as .detail-publisher-link; icon slightly under ProfilePic sm (28px) */
+	/* Same gap/alignment as .detail-publisher-link; icon slightly under ProfilePic bubble (32px) */
 	.detail-indexed-by {
 		display: flex;
 		align-items: center;

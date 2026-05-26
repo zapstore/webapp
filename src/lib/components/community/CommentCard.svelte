@@ -359,7 +359,6 @@ const contentText = $derived(event?.content ?? '');
 				<div class="bubble-action-rail-host">
 					<CommentBubbleActionRail
 						onReply={() => feedActions?.onReply?.()}
-						onZap={() => feedActions?.onZap?.()}
 						onOptions={() => feedActions?.onOptions?.()}
 					/>
 				</div>

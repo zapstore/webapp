@@ -154,7 +154,7 @@
 	/* ── Panel ────────────────────────────────────────────────────────────── */
 	.asset-panel {
 		background: var(--gray33);
-		border: 1.4px solid var(--shell-border);
+		border: 1px solid var(--shell-border);
 		border-radius: 16px;
 		overflow: hidden;
 	}
@@ -180,7 +180,7 @@
 
 	@media (min-width: 560px) {
 		.asset-cell-media {
-			border-right: 1.4px solid var(--shell-border);
+			border-right: 1px solid var(--shell-border);
 		}
 		.asset-cell-info {
 			flex: 1.618;
@@ -189,7 +189,7 @@
 
 	@media (max-width: 559px) {
 		.asset-cell-media {
-			border-bottom: 1.4px solid var(--shell-border);
+			border-bottom: 1px solid var(--shell-border);
 		}
 	}
 

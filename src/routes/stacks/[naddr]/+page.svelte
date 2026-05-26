@@ -30,8 +30,8 @@ import { nip19 } from "nostr-tools";
 
 import AppSmallCard from "$lib/components/cards/AppSmallCard.svelte";
 import SocialTabs from "$lib/components/social/SocialTabs.svelte";
+import DetailContentActions from "$lib/components/social/DetailContentActions.svelte";
 import { resolve } from "$app/paths";
-import BottomBar from "$lib/components/social/BottomBar.svelte";
 import SkeletonLoader from "$lib/components/common/SkeletonLoader.svelte";
 import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import ZappyError from "$lib/components/common/ZappyError.svelte";
@@ -382,6 +382,19 @@ const displayDescription = $derived(
         ? stackDisplayDescription({ title: stack.title, description: stack.description }, displayTitle)
         : ""
 );
+const stackPublisherName = $derived(stack?.creator?.name || "");
+const zapTarget = $derived(
+    stack
+        ? {
+              name: stack.title || displayTitle,
+              pubkey: stack.pubkey,
+              dTag: stack.dTag,
+              id: stack.id,
+              pictureUrl: stack.creator?.picture,
+              aTag: `${EVENT_KINDS.APP_STACK}:${stack.pubkey}:${stack.dTag}`,
+          }
+        : null
+);
 </script>
 
 <SeoHead
@@ -410,7 +423,6 @@ const displayDescription = $derived(
           <div class="skeleton-name-small"></div>
         </div>
       </div>
-      <div class="stack-header-divider" aria-hidden="true"></div>
       <div class="stack-header-skeleton">
         <div class="skeleton-title"><SkeletonLoader /></div>
         <div class="skeleton-desc"></div>
@@ -443,18 +455,46 @@ const displayDescription = $derived(
               pictureUrl={stack.creator.picture}
               name={stack.creator.name}
               pubkey={stack.creator.pubkey}
-              size="sm"
+              size="bubble"
             />
-            <span class="detail-publisher-name">By {stack.creator.name || stack.creator.npub?.slice(0, 12) + '...'}</span>
+            <span class="detail-publisher-name">{stack.creator.name || stack.creator.npub?.slice(0, 12) + '...'}</span>
           </a>
         {:else}
           <div></div>
         {/if}
         {#if stack?.createdAt}
-          <Timestamp timestamp={stack.createdAt} size="xs" className="detail-publisher-timestamp" />
+          <div class="detail-publisher-trailing">
+            <Timestamp timestamp={stack.createdAt} size="xs" className="detail-publisher-timestamp" />
+            {#if zapTarget}
+              <DetailContentActions
+                contentType="stack"
+                target={zapTarget}
+                appName={displayTitle}
+                publisherName={stackPublisherName}
+                searchProfiles={searchProfiles}
+                searchEmojis={searchEmojis}
+                onOwnContentDeleted={() => {
+                  goto(resolve("/stacks"));
+                }}
+              />
+            {/if}
+          </div>
+        {:else if zapTarget}
+          <div class="detail-publisher-trailing">
+            <DetailContentActions
+              contentType="stack"
+              target={zapTarget}
+              appName={displayTitle}
+              publisherName={stackPublisherName}
+              searchProfiles={searchProfiles}
+              searchEmojis={searchEmojis}
+              onOwnContentDeleted={() => {
+                goto(resolve("/stacks"));
+              }}
+            />
+          </div>
         {/if}
       </div>
-      <div class="stack-header-divider" aria-hidden="true"></div>
       <!-- Stack Header: title row, then description row -->
       <div class="stack-header">
         <div class="stack-title-row">
@@ -547,6 +587,12 @@ const displayDescription = $derived(
           onZapPendingClear={handleStackZapPendingClear}
           onZapReceived={handleStackBottomBarZap}
           onGetStarted={() => (getStartedModalOpen = true)}
+          commentTarget={zapTarget}
+          commentRecipientName={stackPublisherName}
+          contentType="stack"
+          {otherZaps}
+          isSignedIn={getIsSignedIn()}
+          getCurrentPubkey={getCurrentPubkey}
         />
       </div>
     {/if}
@@ -556,40 +602,7 @@ const displayDescription = $derived(
 </div>
 {/if}
 
-<!-- Bottom Bar: shown for everyone; guests see "Get started to comment" and can zap with anon keypair. -->
-{#if stack}
-  {@const zapTarget = stack ? {
-    name: stack.title || displayTitle,
-    pubkey: stack.pubkey,
-    dTag: stack.dTag,
-    id: stack.id,
-    pictureUrl: stack.creator?.picture,
-    aTag: `${EVENT_KINDS.APP_STACK}:${stack.pubkey}:${stack.dTag}`,
-  } : null}
-  <BottomBar
-    publisherName={stack?.creator?.name || ""}
-    contentType="stack"
-    {zapTarget}
-    {otherZaps}
-    isSignedIn={getIsSignedIn()}
-    onGetStarted={() => (getStartedModalOpen = true)}
-    getCurrentPubkey={getCurrentPubkey}
-    signEvent={signEvent}
-    searchProfiles={searchProfiles}
-    searchEmojis={searchEmojis}
-    oncommentSubmit={(e) =>
-      handleCommentSubmit({ text: e.text, emojiTags: e.emojiTags, mentions: e.mentions, mediaUrls: e.mediaUrls, parentId: undefined })}
-    onzapReceived={handleStackBottomBarZap}
-    onZapPending={handleStackZapPending}
-    onZapPendingClear={handleStackZapPendingClear}
-    onLabelPublished={() => {}}
-    onOwnContentDeleted={() => {
-      goto(resolve("/stacks"));
-    }}
-  />
-{/if}
-
-<!-- Onboarding modals (for Get Started flow from BottomBar) -->
+<!-- Onboarding modals (for Get Started flow from comment composer) -->
 <GetStartedModal
   bind:open={getStartedModalOpen}
   onconnected={handleGetStartedConnected}
@@ -612,14 +625,14 @@ const displayDescription = $derived(
     padding: 2rem;
   }
 
-  /* 8px less top inset than shared app-detail-scroll (stacks only) */
+  /* Top inset above publisher row (stacks detail) */
   .app-detail-scroll.stack-detail-scroll {
-    padding-top: 8px;
+    padding-top: 12px;
   }
 
   @media (min-width: 768px) {
     .app-detail-scroll.stack-detail-scroll {
-      padding-top: 10px;
+      padding-top: 18px;
     }
   }
 
@@ -630,16 +643,6 @@ const displayDescription = $derived(
     justify-content: space-between;
     gap: 12px;
     padding-bottom: 0;
-  }
-
-  .stack-header-divider {
-    margin-left: calc(-1 * var(--detail-pad-x));
-    margin-right: calc(-1 * var(--detail-pad-x));
-    width: calc(100% + 2 * var(--detail-pad-x));
-    height: 0;
-    border-bottom: 1px solid var(--shell-border);
-    margin-top: 12px;
-    margin-bottom: 16px;
   }
 
   .detail-publisher-link {
@@ -671,12 +674,20 @@ const displayDescription = $derived(
     flex-shrink: 0;
   }
 
+  .detail-publisher-trailing {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
   /* Stack Header: column with title, then row with description + count */
   .stack-header {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    margin-top: 0;
+    margin-top: 12px;
     margin-bottom: 16px;
   }
 

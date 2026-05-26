@@ -241,7 +241,7 @@
 						</div>
 						<!-- Vertical Divider - Hidden on mobile -->
 						<div
-							class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"
+							class="hidden md:block w-px flex-shrink-0 self-stretch"
 							style="background-color: var(--white16);"
 						></div>
 						<!-- Left Column (Android info) - Only on mobile -->
@@ -267,7 +267,7 @@
 						</div>
 						<!-- Vertical Divider - Only on mobile -->
 						<div
-							class="md:hidden w-[1.4px] flex-shrink-0 self-stretch"
+							class="md:hidden w-px flex-shrink-0 self-stretch"
 							style="background-color: var(--white16);"
 						></div>
 						<div class="flex-1 flex flex-col">
@@ -295,7 +295,7 @@
 
 							<!-- Horizontal Divider - Hidden on mobile -->
 							<div
-								class="hidden md:block w-full h-[1.4px] flex-shrink-0"
+								class="hidden md:block w-full h-px flex-shrink-0"
 								style="background-color: var(--white16);"
 							></div>
 
@@ -317,7 +317,7 @@
 
 							<!-- Horizontal Divider -->
 							<div
-								class="w-full h-[1.4px] flex-shrink-0"
+								class="w-full h-px flex-shrink-0"
 								style="background-color: var(--white16);"
 							></div>
 
@@ -459,7 +459,7 @@
 						</div>
 					</div>
 					<div
-						class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"
+						class="hidden md:block w-px flex-shrink-0 self-stretch"
 						style="background-color: var(--white16);"
 					></div>
 					<div class="flex-1 flex flex-col justify-start pl-5 pr-4 py-4">
@@ -515,7 +515,7 @@
 						</div>
 					</div>
 					<div
-						class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"
+						class="hidden md:block w-px flex-shrink-0 self-stretch"
 						style="background-color: var(--white16);"
 					></div>
 					<div class="flex-1 flex flex-col justify-start pl-5 pr-4 py-4">
@@ -706,7 +706,7 @@
 		align-items: center;
 		gap: 10px;
 		padding: 12px 16px;
-		border-bottom: 1.4px solid var(--white16);
+		border-bottom: 1px solid var(--white16);
 	}
 
 	.step-num {

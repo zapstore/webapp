@@ -19,6 +19,7 @@ import Spinner from "$lib/components/common/Spinner.svelte";
 import Label from "$lib/components/common/Label.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import RelayLoadingBar from "$lib/components/common/RelayLoadingBar.svelte";
+import CommentFeedComposer from "./CommentFeedComposer.svelte";
 import { Zap } from "$lib/components/icons";
 import { queryEvent, queryEvents } from "$lib/purpleweb";
 import { parseRelease } from "$lib/nostr";
@@ -69,6 +70,13 @@ let {
     includeReceiptZapsInCommentsFeed = true,
     /** Full-width divider under tab pills; spans `--page-content-pad-x` breakout when set on an ancestor. */
     showTabDivider = true,
+    /** Root-level comment/zap target (app, stack, or forum post). Enables composer above comments feed. */
+    commentTarget = null,
+    commentRecipientName = '',
+    contentType = 'app',
+    otherZaps = [],
+    isSignedIn = true,
+    getCurrentPubkey = () => null,
 } = $props();
 
 /** Root comment id whose thread contains openCommentId; used to open that thread modal on load */
@@ -449,6 +457,25 @@ const zapsByTargetId = $derived.by(() => {
 
   <div class="tab-content">
     {#if activeTab === "comments"}
+      {#if commentTarget}
+        <CommentFeedComposer
+          target={commentTarget}
+          recipientName={commentRecipientName}
+          {contentType}
+          {otherZaps}
+          {isSignedIn}
+          {getCurrentPubkey}
+          {searchProfiles}
+          {searchEmojis}
+          {signEvent}
+          onCommentSubmit={onCommentSubmit}
+          {onZapReceived}
+          {onZapPending}
+          {onZapPendingClear}
+          {onGetStarted}
+        />
+      {/if}
+
       {#if commentsError}
         <div class="mb-4 flex items-start gap-2 rounded border border-destructive/40 bg-destructive/10 p-3 regular14 text-destructive">
           <AlertCircle class="h-4 w-4 mt-0.5" />
@@ -647,8 +674,8 @@ const zapsByTargetId = $derived.by(() => {
    */
   .social-tabs-tab-divider {
     flex-shrink: 0;
-    height: 1.4px;
-		margin-top: 16px;
+    height: 1px;
+    margin-top: 16px;
     margin-bottom: 0;
     margin-left: calc(-1 * var(--page-content-pad-x, 0px));
     margin-right: calc(-1 * var(--page-content-pad-x, 0px));

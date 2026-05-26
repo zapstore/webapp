@@ -575,7 +575,7 @@ export function getSerializedContent() {
     background-clip: text;
   }
   .divider {
-    height: 1.4px;
+    height: 1px;
     background: var(--white8);
     margin: 0;
   }

@@ -203,7 +203,7 @@
 		gap: 1.05rem;
 		margin: 0 -1.5rem 0 -1.5rem;
 		padding: 1.35rem 1.5rem 1rem 1.5rem;
-		border-bottom: 1.4px solid var(--shell-border);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	.studio-panel-header-img {
@@ -241,7 +241,7 @@
 		padding: 0.9rem 1.5rem;
 		text-decoration: none;
 		color: inherit;
-		border-bottom: 1.4px solid var(--shell-border);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	.studio-panel-row:last-child {

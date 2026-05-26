@@ -540,7 +540,7 @@ function handleLabelTap(label) {
 	}
 
 	.divider-line {
-		border-top: 1.4px solid var(--white11);
+		border-top: 1px solid var(--white11);
 	}
 
 	.recent-search-item {
@@ -605,7 +605,7 @@ function handleLabelTap(label) {
 	}
 
 	.live-results-item {
-		border-bottom: 1.4px solid var(--white11);
+		border-bottom: 1px solid var(--white11);
 	}
 
 	.live-results-item:last-child {

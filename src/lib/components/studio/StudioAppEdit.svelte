@@ -4,13 +4,12 @@
  *
  * Replaces the StudioAppDetail content area; scrolls inside .detail-scroll.
  * Layout:
- *   - Sticky top bar: BackButton + "Edit Your App" + Save
+ *   - Sticky top bar: "Edit Your App" + Cancel + Save
  *   - GENERAL section: eyebrow + (AppPic with camera btn) + form box (name / desc / website)
  *   - Full-width divider
  *   - IMAGES section: eyebrow + screenshots row (Add Image card + existing with ✕)
  */
 import { SvelteSet } from 'svelte/reactivity';
-import BackButton from '$lib/components/common/BackButton.svelte';
 import AppPic from '$lib/components/common/AppPic.svelte';
 import Modal from '$lib/components/common/Modal.svelte';
 import InputLabel from '$lib/components/common/InputLabel.svelte';
@@ -265,16 +264,20 @@ async function handleConfirmDelete() {
 
 	<!-- ── Sticky top bar ───────────────────────────────────────────────── -->
 	<div class="edit-topbar">
-		<BackButton onBack={onBack} />
 		<span class="edit-topbar-title">Edit Your App</span>
-		<button
-			type="button"
-			class="btn-primary-small edit-save-btn"
-			onclick={handleSave}
-			disabled={saving}
-		>
-			{saving ? 'Saving…' : 'Save'}
-		</button>
+		<div class="topbar-actions">
+			<button type="button" class="btn-secondary-xs btn-secondary-light topbar-cancel-btn" onclick={onBack}>
+				Cancel
+			</button>
+			<button
+				type="button"
+				class="btn-primary-small edit-save-btn"
+				onclick={handleSave}
+				disabled={saving}
+			>
+				{saving ? 'Saving…' : 'Save'}
+			</button>
+		</div>
 	</div>
 
 	<div class="edit-body">
@@ -543,7 +546,7 @@ async function handleConfirmDelete() {
 		align-items: center;
 		gap: 10px;
 		padding: 10px 12px;
-		border-bottom: 1.4px solid var(--shell-border);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	@media (min-width: 768px) {
@@ -554,7 +557,7 @@ async function handleConfirmDelete() {
 
 	.edit-topbar-title {
 		flex: 1;
-		font-size: 15px;
+		font-size: 14px;
 		font-weight: 500;
 		color: var(--white);
 		white-space: nowrap;
@@ -564,6 +567,17 @@ async function handleConfirmDelete() {
 
 	.edit-save-btn {
 		flex-shrink: 0;
+	}
+
+	.topbar-actions {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		flex-shrink: 0;
+	}
+
+	.topbar-cancel-btn {
+		color: var(--white33);
 	}
 
 	/* ── Body: independent scroll container under the topbar ── */
@@ -596,7 +610,7 @@ async function handleConfirmDelete() {
 	/* ── Full-width divider (bleeds to container edges) ── */
 	.full-divider {
 		width: 100%;
-		height: 1.4px;
+		height: 1px;
 		background: var(--shell-border);
 		flex-shrink: 0;
 	}
@@ -730,7 +744,7 @@ async function handleConfirmDelete() {
 
 	.form-divider {
 		width: 100%;
-		height: 1.4px;
+		height: 1px;
 		background: var(--white8);
 		flex-shrink: 0;
 	}

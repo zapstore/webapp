@@ -134,7 +134,7 @@
 
   /* Standardized border widths */
   --border-thick: 2.8px;   /* For prominent borders */
-  --border-base: 1.4px;    /* For standard borders (replaces most 1px) */
+  --border-base: 1px;      /* Dividers, grid lines, shell borders (--shell-border) */
   --border-subtle: 0.33px; /* For very subtle borders */
 
   /* Overlay backdrop color (for modals, dialogs, etc.) */
@@ -2105,22 +2105,23 @@ a, button {
 }
 
 /* Spin animation for loading states */
+
 /* ========================================
-   DIVIDERS - Thin separators for UI elements
+   DIVIDER UTILITIES
    ======================================== */
 
-/* Horizontal divider - use for separating content sections */
+/* Standard horizontal divider — content separation, tab underlines, feed rows */
 .divider {
   width: 100%;
-  height: 0.33px;
+  height: 1px;
   background-color: var(--shell-border);
   border: none;
   margin: 0;
 }
 
-/* Vertical divider - use for separating inline elements */
+/* Vertical divider — grid columns, inline separators */
 .divider-vertical {
-  width: 0.33px;
+  width: 1px;
   height: 100%;
   background-color: var(--shell-border);
   border: none;
@@ -2157,24 +2158,6 @@ a, button {
   animation: shimmer 1.5s infinite;
 }
 
-
-/* ========================================
-   DIVIDER UTILITIES
-   ======================================== */
-
-/* Standard horizontal divider - use for content separation */
-.divider {
-  width: 100%;
-  height: 1.4px;
-  background-color: var(--shell-border);
-}
-
-/* Vertical divider - use for inline separators */
-.divider-vertical {
-  width: 1.4px;
-  height: 100%;
-  background-color: var(--shell-border);
-}
 
 /* Section title with gradient */
 .section-title-gradient {

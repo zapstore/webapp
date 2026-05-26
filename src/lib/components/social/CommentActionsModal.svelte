@@ -936,7 +936,7 @@
 
 	.cam-share-divider {
 		width: 100%;
-		height: 1.4px;
+		height: 1px;
 		background-color: var(--white11);
 	}
 

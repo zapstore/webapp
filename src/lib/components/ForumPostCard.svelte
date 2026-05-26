@@ -202,7 +202,7 @@
 		background: transparent;
 		border: none;
 		border-radius: 0;
-		border-bottom: 1.4px solid var(--shell-border);
+		border-bottom: 1px solid var(--shell-border);
 		cursor: pointer;
 		overflow: visible;
 		padding: 16px;

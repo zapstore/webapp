@@ -142,10 +142,13 @@ Special exceptions: `.split-button-*`, `.search-bar-btn`, `.profile-avatar-btn`
 
 Panels and panel-like containers have NO border.
 
-## Dividers
+## Dividers & grid lines
 
-- Thickness: `1.4px` (never 1px) — Color: `white11` (never white16)
+- Thickness: **`1px`** — use for horizontal/vertical dividers, feed row separators, page-frame grid lines, tab underlines
+- Color: **`--shell-border`** (`white11`) — never `white16` for dividers
+- Token: `--border-base` (1px) for divider/grid border-width
 - Classes: `.divider` (horizontal), `.divider-vertical`
+- Icon outline strokes stay **`1.4px`** (see `DESIGN_COMPONENTS.md`) — do not apply divider thickness to SVG strokes
 
 ## Responsive Sizing
 

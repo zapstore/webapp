@@ -639,7 +639,7 @@
 
 	.section-divider {
 		width: 100%;
-		height: 1.4px;
+		height: 1px;
 		background-color: var(--white11);
 		margin: 12px 0;
 	}
@@ -705,7 +705,7 @@
 		width: 100%;
 		margin: 0;
 		padding: 0;
-		height: 1.4px;
+		height: 1px;
 		background-color: var(--white11);
 	}
 
@@ -864,13 +864,13 @@
 	}
 
 	.ri-divider {
-		height: 1.4px;
+		height: 1px;
 		background: var(--white11);
 		margin: 0;
 	}
 
 	.ri-artifact-divider {
-		height: 1.4px;
+		height: 1px;
 		background: var(--white16);
 		margin: 8px 0;
 	}
