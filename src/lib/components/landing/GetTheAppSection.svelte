@@ -82,10 +82,10 @@
 </section>
 
 <style>
-	/* lg:max-w-lg = 512px; +240px on extra-wide viewports (matches .container bump at 1600px) */
+	/* lg:max-w-lg = 512px; +160px on extra-wide viewports (matches .container bump at 1600px) */
 	@media (min-width: 1600px) {
 		.get-the-app-image {
-			max-width: 752px;
+			max-width: 672px;
 		}
 	}
 </style>

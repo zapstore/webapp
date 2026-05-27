@@ -40,13 +40,12 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	import { goto } from '$app/navigation';
 	import ForumPostCard from '$lib/components/ForumPostCard.svelte';
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
-	import CommunityBottomBar from '$lib/components/community/CommunityBottomBar.svelte';
 	import ForumPostModal from '$lib/components/modals/ForumPostModal.svelte';
 	import ForumSearchModal from '$lib/components/modals/ForumSearchModal.svelte';
 	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 	import ForumFeedSkeleton from '$lib/components/community/ForumFeedSkeleton.svelte';
 	import Label from '$lib/components/common/Label.svelte';
-	import { ChevronDown } from '$lib/components/icons';
+	import { ChevronDown, Plus, Search } from '$lib/components/icons';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 
@@ -481,6 +480,14 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	}).catch(() => {});
 	}
 
+	function openNewPost() {
+		if (isSignedIn) {
+			addPostModalOpen = true;
+		} else {
+			getStartedModalOpen = true;
+		}
+	}
+
 	onMount(() => {
 		if (!browser) return;
 		forumReady = true;
@@ -494,6 +501,16 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 <div class="panel-content">
 	<header class="forum-feed-header">
 	<div class="forum-categories-wrap">
+		<button
+			type="button"
+			class="forum-search-btn"
+			onclick={() => {
+				searchModalOpen = true;
+			}}
+			aria-label="Search Forum"
+		>
+			<Search variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
+		</button>
 		<div class="forum-categories-scroll" data-chrome-scroll use:wheelScroll>
 			<div class="forum-categories-inner">
 				{#each FORUM_CATEGORIES as category (category)}
@@ -615,15 +632,16 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	</div>
 </div>
 
-<CommunityBottomBar
-	showFeedBar={true}
-	selectedSection="forum"
-	modalOpen={addPostModalOpen || searchModalOpen}
-	{isSignedIn}
-	onAdd={() => { addPostModalOpen = true; }}
-	onSearch={() => { searchModalOpen = true; }}
-	onGetStarted={() => { getStartedModalOpen = true; }}
-/>
+{#if isForumFeedRoute}
+<div
+	class="forum-fab-wrap"
+	class:modal-open={addPostModalOpen || searchModalOpen}
+>
+	<button type="button" class="forum-fab" onclick={openNewPost} aria-label="New Post">
+		<Plus variant="outline" size={22} strokeWidth={2.4} color="var(--whiteEnforced)" />
+	</button>
+</div>
+{/if}
 
 <ForumPostModal
 	bind:isOpen={addPostModalOpen}
@@ -676,12 +694,13 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
-		gap: 0;
+		gap: 8px;
 		border-bottom: 1px solid var(--shell-border);
 		/* Let .forum-latest-dropdown extend below the row; horizontal overflow stays in .forum-categories-scroll */
 		overflow: visible;
 		position: relative;
 		isolation: isolate;
+		padding-left: 16px;
 	}
 
 	.forum-categories-scroll {
@@ -709,8 +728,32 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		display: flex;
 		flex-wrap: nowrap;
 		gap: 8px;
-		padding: 12px 0 12px 16px;
+		padding: 12px 0;
 		align-items: center;
+	}
+
+	.forum-search-btn {
+		flex-shrink: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		background: var(--gray33);
+		border: none;
+		border-radius: 12px;
+		cursor: pointer;
+		transition: transform 0.2s ease, filter 0.15s ease;
+	}
+
+	.forum-search-btn:hover {
+		transform: scale(1.02);
+		filter: brightness(1.08);
+	}
+
+	.forum-search-btn:active {
+		transform: scale(0.98);
 	}
 
 	.forum-all-btn {
@@ -768,7 +811,63 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		overflow-y: auto;
 		overflow-x: hidden;
 		-webkit-overflow-scrolling: touch;
-		padding-bottom: 100px;
+		padding-bottom: 72px;
+	}
+
+	.forum-fab-wrap {
+		position: fixed;
+		right: 16px;
+		bottom: max(16px, env(safe-area-inset-bottom, 0px));
+		z-index: 40;
+		pointer-events: none;
+		transition:
+			transform 0.25s cubic-bezier(0.33, 1, 0.68, 1),
+			opacity 0.2s ease;
+	}
+
+	.forum-fab-wrap.modal-open {
+		transform: translateY(calc(100% + 24px));
+		opacity: 0;
+	}
+
+	.forum-fab {
+		pointer-events: auto;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 52px;
+		height: 52px;
+		padding: 0;
+		border: none;
+		border-radius: 50%;
+		background: var(--gradient-blurple);
+		cursor: pointer;
+		color: var(--whiteEnforced);
+		box-shadow: 0 4px 24px color-mix(in srgb, var(--black) 50%, transparent);
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
+	}
+
+	.forum-fab:hover {
+		transform: scale(1.04);
+		box-shadow:
+			0 0 20px color-mix(in srgb, var(--blurpleColor) 40%, transparent),
+			0 10px 40px -20px color-mix(in srgb, var(--blurpleColor) 60%, transparent);
+	}
+
+	.forum-fab:active {
+		transform: scale(0.96);
+	}
+
+	@media (min-width: 768px) {
+		.forum-fab-wrap {
+			right: 24px;
+			bottom: max(24px, env(safe-area-inset-bottom, 0px));
+		}
+
+		.forum-fab {
+			width: 56px;
+			height: 56px;
+		}
 	}
 
 	:global(.forum-sort-dropdown) {

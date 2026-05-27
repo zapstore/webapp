@@ -1994,12 +1994,12 @@ h5, h6 {
    ======================================== */
 
 /* Full width below large (1024px) - no max-width constraint */
-/* Laptop / MacBook Air: 1100px from 1024px; extra-wide monitors: +240px from 1600px */
+/* Laptop / MacBook Air: 1100px from 1024px; extra-wide monitors: +160px from 1600px */
 @media (min-width: 1024px) {
   .container { max-width: 1100px; }
 }
 @media (min-width: 1600px) {
-  .container { max-width: 1340px; }
+  .container { max-width: 1260px; }
 }
 
 /* Developer marketing inner columns (SignedSection, StudioTools, OpenProtocols) */
@@ -2010,7 +2010,7 @@ h5, h6 {
 }
 @media (min-width: 1600px) {
   .developer-marketing-inner {
-    max-width: 1240px;
+    max-width: 1160px;
   }
 }
 
