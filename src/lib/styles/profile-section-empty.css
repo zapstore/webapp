@@ -18,3 +18,10 @@
 .profile-section-empty--no-bottom-border {
 	border-bottom: none;
 }
+
+/** Inside thread modals — flat text, no panel; horizontal inset comes from the parent. */
+.profile-section-empty--thread {
+	border-top: none;
+	border-bottom: none;
+	padding: 16px 0;
+}

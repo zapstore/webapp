@@ -745,6 +745,17 @@ onDestroy(() => {
 export function clear() {
     clearContent();
 }
+/** Snapshot for in-memory comment drafts (TipTap JSON). */
+export function getEditorJson() {
+    return editor?.getJSON() ?? null;
+}
+/** Restore a draft snapshot; no-op until editor is mounted. */
+export function setEditorJson(json) {
+    if (!editor || !json) return;
+    editor.commands.setContent(json);
+    hasContent = !editor.isEmpty;
+    checkScrollable();
+}
 export function focus() {
     focusEditor();
 }
@@ -844,7 +855,7 @@ export { getContent, getSerializedContent, isEmpty };
       <div class="action-buttons-left">
         {#if !hideTipButton}
           <button type="button" class="action-btn" onclick={onTipTap} aria-label="Add tip">
-            <Zap variant="fill" color="var(--white33)" size={16} />
+            <Zap variant="fill" color="var(--white33)" size={18} />
           </button>
         {/if}
         <button type="button" class="action-btn" onclick={onCameraTap} aria-label="Add photo">

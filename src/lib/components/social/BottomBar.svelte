@@ -1,193 +1,113 @@
 <script lang="js">
 /**
  * BottomBar - Fixed bottom action bar for detail pages.
- * Morphs in place into the comment form when Comment is tapped (no separate modal).
- * Slides out only when ZapSliderModal is open.
- * Camera: pick file → placeholder in editor → upload to nostr.build → embed; requires signEvent.
+ * Comment opens CommentModal; bar slides out when modals are open.
  */
 import { Zap, Reply, Options } from '$lib/components/icons';
 import InputButton from '$lib/components/common/InputButton.svelte';
-import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
 import ActionsModal from '$lib/components/modals/ActionsModal.svelte';
-import ReportModal from '$lib/components/modals/ReportModal.svelte';
-import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
-import AddModal from '$lib/components/modals/AddModal.svelte';
-import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from '$lib/services/upload-nostr-build';
-let { appName = '', publisherName = '', contentType = 'app', className = '', zapTarget = null, otherZaps = [], isSignedIn = true, onGetStarted, getCurrentPubkey = () => null, searchProfiles = async () => [], searchEmojis = async () => [], signEvent = null, oncommentSubmit, onzapReceived, onZapPending, onZapPendingClear, onoptions, onLabelPublished = () => {}, onOwnContentDeleted = () => {} } = $props();
+import CommentModal from '$lib/components/modals/CommentModal.svelte';
+
+let {
+	appName = '',
+	publisherName = '',
+	contentType = 'app',
+	className = '',
+	zapTarget = null,
+	otherZaps = [],
+	isSignedIn = true,
+	onGetStarted,
+	getCurrentPubkey = () => null,
+	searchProfiles = async () => [],
+	searchEmojis = async () => [],
+	signEvent = null,
+	oncommentSubmit,
+	onzapReceived,
+	onZapPending,
+	onZapPendingClear,
+	onoptions,
+	onLabelPublished = () => {},
+	onOwnContentDeleted = () => {},
+	version = '',
+	rootContext = null
+} = $props();
+
 let zapModalOpen = $state(false);
 let actionsModalOpen = $state(false);
-let reportModalOpen = $state(false);
-let emojiPickerOpen = $state(false);
-let insertModalOpen = $state(false);
-let commentExpanded = $state(false);
-let commentInput = $state(null);
-let submitting = $state(false);
-/** @type {HTMLInputElement | null} */
-let fileInputEl = $state(null);
-function handleEmojiTap() {
-	emojiPickerOpen = true;
-}
-function handleEmojiSelect(/** @type {{ shortcode: string; url: string; source: string }} */ emoji) {
-	commentInput?.insertEmoji?.(emoji.shortcode, emoji.url, emoji.source);
-	commentInput?.focus?.();
-}
-function handleAddTap() {
-	insertModalOpen = true;
-}
-function handleAddNostrRef(/** @type {{ naddr: string; name?: string | null; iconUrl?: string | null }} */ payload) {
-	commentInput?.insertNostrRef?.(payload);
-	commentInput?.focus?.();
-}
-function handleCameraTap() {
-	fileInputEl?.click();
-}
-async function handleFileChange(e) {
-	const files = /** @type {HTMLInputElement} */ (e.target).files;
-	if (!files?.length || !signEvent || !commentInput) return;
-	const inputEl = /** @type {HTMLInputElement} */ (e.target);
-	for (let i = 0; i < files.length; i++) {
-		const file = files[i];
-		const type = file.type.startsWith('video') ? 'video' : 'image';
-		const placeholderUrl = URL.createObjectURL(file);
-		const id = commentInput.insertMediaBlock?.({ placeholderUrl, type });
-		if (!id) {
-			URL.revokeObjectURL(placeholderUrl);
-			continue;
-		}
-		try {
-			const url = await uploadFileToNostrBuild(file, signEvent);
-			commentInput.setMediaBlockUrl?.(id, url);
-		} catch (err) {
-			console.error('BottomBar media upload failed:', err);
-			commentInput.deleteMediaBlock?.(id);
-		}
-		URL.revokeObjectURL(placeholderUrl);
-	}
-	inputEl.value = '';
-}
-/** Bar slides out when zap, actions, report, emoji, or insert modal is open */
-const barSlidesOut = $derived(zapModalOpen || actionsModalOpen || reportModalOpen || emojiPickerOpen || insertModalOpen);
+let commentModalOpen = $state(false);
+
+/** Bar slides out when zap, actions, or comment modal is open */
+const barSlidesOut = $derived(zapModalOpen || actionsModalOpen || commentModalOpen);
+
 function handleZap() {
-    zapModalOpen = true;
+	zapModalOpen = true;
 }
+
 function handleZapClose(event) {
-    zapModalOpen = false;
-    if (event?.success) {
-        onzapReceived?.({ zapReceipt: {} });
-    }
-}
-function handleZapReceived(event) {
-    onzapReceived?.(event);
-}
-function handleComment() {
-    commentExpanded = true;
-}
-function closeComment() {
-	commentExpanded = false;
-	emojiPickerOpen = false;
-	insertModalOpen = false;
-}
-async function handleCommentSubmit(event) {
-	if (submitting || !event.text?.trim()) return;
-	submitting = true;
-	try {
-		oncommentSubmit?.({ ...event, target: zapTarget });
-		commentInput?.clear?.();
-		closeComment();
-	} catch (err) {
-		console.error('Failed to submit comment:', err);
-	} finally {
-		submitting = false;
+	zapModalOpen = false;
+	if (event?.success) {
+		onzapReceived?.({ zapReceipt: {} });
 	}
 }
-function handleCommentKeydown(e) {
-    if (!commentExpanded)
-        return;
-    if (e.key === 'Escape') {
-        closeComment();
-        e.preventDefault();
-        e.stopPropagation();
-    }
+
+function handleZapReceived(event) {
+	onzapReceived?.(event);
 }
-$effect(() => {
-    if (commentExpanded && commentInput) {
-        const t = setTimeout(() => commentInput?.focus?.(), 120);
-        return () => clearTimeout(t);
-    }
-});
+
+function openCommentModal() {
+	commentModalOpen = true;
+}
+
+function handleCommentSubmit(event) {
+	oncommentSubmit?.({ ...event, target: zapTarget });
+}
+
 const bottomBarRecipientLabel = $derived.by(() => {
-    const raw = publisherName?.trim() || zapTarget?.name?.trim?.() || appName?.trim?.();
-    return raw || 'Creator';
+	const raw = publisherName?.trim() || zapTarget?.name?.trim?.() || appName?.trim?.();
+	return raw || 'Creator';
 });
-const bottomBarCommentPlaceholder = $derived(`Write to ${bottomBarRecipientLabel}`);
 </script>
 
-<svelte:window onkeydown={handleCommentKeydown} />
-
-<div class="bottom-bar-wrapper {className}" class:modal-open={barSlidesOut} class:guest-wrapper={!isSignedIn}>
-	{#if commentExpanded && isSignedIn}
-		<div class="bottom-bar-comment-only">
-			<div class="comment-input-wrap">
-				<input
-					type="file"
-					accept={ACCEPTED_MEDIA_TYPES}
-					multiple
-					class="sr-only"
-					bind:this={fileInputEl}
-					onchange={handleFileChange}
-					aria-hidden="true"
-					tabindex="-1"
-				/>
-				<ShortTextInput
-					bind:this={commentInput}
-					placeholder={bottomBarCommentPlaceholder}
-					size="medium"
-					{getCurrentPubkey}
-					{searchProfiles}
-					{searchEmojis}
-					autoFocus={true}
-					showActionRow={true}
-					onTipTap={handleZap}
-					onClose={closeComment}
-					onCameraTap={handleCameraTap}
-					onEmojiTap={handleEmojiTap}
-					onGifTap={() => {}}
-					onAddTap={handleAddTap}
-					onChevronTap={() => {}}
-					onsubmit={handleCommentSubmit}
-				/>
-			</div>
+<div
+	class="bottom-bar-wrapper {className}"
+	class:modal-open={barSlidesOut}
+	class:guest-wrapper={!isSignedIn}
+>
+	<div class="bottom-bar" class:guest={!isSignedIn}>
+		<div class="bottom-bar-content">
+			{#if isSignedIn}
+				<button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
+					<Zap variant="fill" size={18} color="var(--whiteEnforced)" />
+					<span>Zap</span>
+				</button>
+				<InputButton className="comment-btn" placeholder="Comment" onclick={openCommentModal}>
+					{#snippet icon()}
+						<Reply variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
+					{/snippet}
+				</InputButton>
+				<button
+					type="button"
+					class="btn-secondary-large btn-secondary-dark options-button"
+					onclick={() => {
+						actionsModalOpen = true;
+						onoptions?.();
+					}}
+				>
+					<Options variant="fill" size={20} color="var(--white33)" />
+				</button>
+			{:else}
+				<button
+					type="button"
+					onclick={() => onGetStarted?.()}
+					class="btn-primary-small h-10 px-4 flex-shrink-0"
+				>
+					<span>Sign in</span>
+				</button>
+				<span class="guest-tagline">Join the conversation</span>
+			{/if}
 		</div>
-	{:else if !commentExpanded}
-		<div class="bottom-bar" class:guest={!isSignedIn} class:expanded={false}>
-			<div class="bottom-bar-content">
-				{#if isSignedIn}
-					<button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
-						<Zap variant="fill" size={18} color="var(--whiteEnforced)" />
-						<span>Zap</span>
-					</button>
-					<InputButton className="comment-btn" placeholder="Comment" onclick={handleComment}>
-						{#snippet icon()}
-							<Reply variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
-						{/snippet}
-					</InputButton>
-					<button
-						type="button"
-						class="btn-secondary-large btn-secondary-dark options-button"
-						onclick={() => { actionsModalOpen = true; onoptions?.(); }}
-					>
-						<Options variant="fill" size={20} color="var(--white33)" />
-					</button>
-				{:else}
-					<button type="button" onclick={() => onGetStarted?.()} class="btn-primary-small h-10 px-4 flex-shrink-0">
-						<span>Sign in</span>
-					</button>
-					<span class="guest-tagline">Join the conversation</span>
-				{/if}
-			</div>
-		</div>
-	{/if}
+	</div>
 </div>
 
 <ZapSliderModal
@@ -203,38 +123,50 @@ const bottomBarCommentPlaceholder = $derived(`Write to ${bottomBarRecipientLabel
 	{onZapPending}
 	{onZapPendingClear}
 />
-<ActionsModal
-	bind:isOpen={actionsModalOpen}
-	{contentType}
-	targetApp={zapTarget}
-	onReport={() => { reportModalOpen = true; }}
-	onLabelPublished={() => { onLabelPublished?.(); }}
-	onOwnContentDeleted={() => { onOwnContentDeleted?.(); }}
-/>
 
-<ReportModal
-	bind:isOpen={reportModalOpen}
-	appName={appName}
-	authorName={publisherName}
+<CommentModal
+	bind:isOpen={commentModalOpen}
+	target={zapTarget}
+	recipientName={bottomBarRecipientLabel}
 	{contentType}
-	eventId={zapTarget?.id ?? ''}
-	authorPubkey={zapTarget?.pubkey ?? ''}
+	{rootContext}
+	{version}
+	{otherZaps}
+	{getCurrentPubkey}
 	{searchProfiles}
 	{searchEmojis}
+	{signEvent}
+	onsubmit={handleCommentSubmit}
+	onzapReceived={handleZapReceived}
+	{onZapPending}
+	{onZapPendingClear}
 />
 
-<EmojiPickerModal
-	bind:isOpen={emojiPickerOpen}
-	getCurrentPubkey={getCurrentPubkey}
-	onSelectEmoji={handleEmojiSelect}
-	onclose={() => { emojiPickerOpen = false; }}
-/>
-<AddModal
-	title="Add App"
-	bind:isOpen={insertModalOpen}
-	getCurrentPubkey={getCurrentPubkey}
-	onAdd={handleAddNostrRef}
-	onclose={() => { insertModalOpen = false; }}
+<ActionsModal
+	bind:open={actionsModalOpen}
+	{contentType}
+	targetApp={zapTarget}
+	{rootContext}
+	{version}
+	authorName={publisherName}
+	authorPubkey={zapTarget?.pubkey ?? null}
+	contentPreview={zapTarget?.description?.trim?.() || zapTarget?.name?.trim?.() || appName?.trim?.() || ''}
+	recipientName={publisherName}
+	{otherZaps}
+	{getCurrentPubkey}
+	{signEvent}
+	onCommentSubmit={handleCommentSubmit}
+	onZapReceived={handleZapReceived}
+	{onZapPending}
+	{onZapPendingClear}
+	onLabelPublished={() => {
+		onLabelPublished?.();
+	}}
+	onOwnContentDeleted={() => {
+		onOwnContentDeleted?.();
+	}}
+	{searchProfiles}
+	{searchEmojis}
 />
 
 <style>
@@ -273,24 +205,13 @@ const bottomBarCommentPlaceholder = $derived(`Write to ${bottomBarRecipientLabel
 			opacity 0.2s ease,
 			max-height 0.3s cubic-bezier(0.33, 1, 0.68, 1);
 	}
+
 	.bottom-bar.guest {
 		padding: 18px 16px 18px 20px;
 		min-height: 56px;
 		box-shadow: 0 -6px 28px color-mix(in srgb, var(--black) 50%, transparent);
 	}
 
-	/* Morph: expand to show comment form */
-	.bottom-bar.expanded {
-		max-height: 70vh;
-		padding: 12px 16px 16px;
-	}
-	@media (max-width: 767px) {
-		.bottom-bar.expanded {
-			padding: 16px;
-		}
-	}
-
-	/* Slide out when zap modal is open */
 	.modal-open .bottom-bar {
 		transform: translateY(100%);
 		opacity: 0;
@@ -302,11 +223,13 @@ const bottomBarCommentPlaceholder = $derived(`Write to ${bottomBarRecipientLabel
 		align-items: center;
 		gap: 12px;
 	}
+
 	.bottom-bar-content:has(.guest-tagline) {
 		justify-content: flex-start;
 		width: 100%;
 		gap: 16px;
 	}
+
 	.guest-tagline {
 		font-size: 0.9375rem;
 		font-weight: 500;
@@ -316,59 +239,6 @@ const bottomBarCommentPlaceholder = $derived(`Write to ${bottomBarRecipientLabel
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-	}
-	/* 12px desktop, 16px mobile (match zap/actions modal padding) */
-	.bottom-bar-comment-only {
-		align-self: center;
-		width: 100%;
-		max-width: 100%;
-		background: var(--gray66);
-		border-radius: var(--radius-32) var(--radius-32) 0 0;
-		border: 0.33px solid var(--white8);
-		border-bottom: none;
-		box-shadow: 0 -4px 24px var(--black);
-		padding: 12px;
-		pointer-events: auto;
-		backdrop-filter: blur(24px);
-		-webkit-backdrop-filter: blur(24px);
-		max-height: 70vh;
-	}
-	@media (max-width: 767px) {
-		.bottom-bar-comment-only {
-			padding: 16px;
-		}
-	}
-	@media (min-width: 768px) {
-		.bottom-bar-comment-only {
-			max-width: 560px;
-			margin-bottom: 16px;
-			border-radius: 24px;
-			border-bottom: 0.33px solid var(--white8);
-			box-shadow: 0 40px 64px 12px var(--black);
-		}
-	}
-
-	.bottom-bar-comment {
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-		flex: 1;
-	}
-
-	.comment-input-wrap {
-		position: relative;
-		background: var(--black33);
-		border-radius: var(--radius-16);
-		border: 0.33px solid var(--white33);
-		min-height: 0;
-		flex: 1;
-	}
-	.comment-input-wrap .sr-only {
-		position: absolute;
-		width: 0;
-		height: 0;
-		opacity: 0;
-		pointer-events: none;
 	}
 
 	.zap-button {
@@ -398,10 +268,10 @@ const bottomBarCommentPlaceholder = $derived(`Write to ${bottomBarRecipientLabel
 	}
 
 	@media (min-width: 768px) {
-		/* Hide the guest "get started" bar on desktop — sidebar has Get Started CTA */
 		.bottom-bar-wrapper.guest-wrapper {
 			display: none;
 		}
+
 		.bottom-bar {
 			max-width: 560px;
 			margin-bottom: 16px;
@@ -410,13 +280,11 @@ const bottomBarCommentPlaceholder = $derived(`Write to ${bottomBarRecipientLabel
 			padding: 12px 2px 12px 12px;
 			box-shadow: 0 40px 64px 12px var(--black);
 		}
+
 		.bottom-bar.guest {
 			padding: 18px 16px 18px 20px;
 			min-height: 64px;
 			box-shadow: 0 48px 72px 16px color-mix(in srgb, var(--black) 50%, transparent);
-		}
-		.bottom-bar.expanded {
-			padding: 12px;
 		}
 	}
 </style>

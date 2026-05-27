@@ -1554,7 +1554,7 @@
 	let openReplyOnMount = $state(false);
 	/** Feed three-dots: open actions sheet when thread modal mounts */
 	let threadOpenActionsOnMount = $state(false);
-	/** Feed ⋯: show only CommentActionsModal first (no thread modal behind it). */
+	/** Feed ⋯: show only ActionsModal first (no thread modal behind it). */
 	let threadOpenFeedActionsOnly = $state(false);
 	/** Feed zap icon: load thread data but show zap slider only (no thread modal). */
 	let threadOpenFeedZapOnly = $state(false);

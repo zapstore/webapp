@@ -142,6 +142,23 @@ Special exceptions: `.split-button-*`, `.search-bar-btn`, `.profile-avatar-btn`
 
 Panels and panel-like containers have NO border.
 
+## Social interaction modals
+
+Commenting, zapping, thread replies, and related compose surfaces share one inset system. Import `src/lib/styles/comment-modal-inset.css` and use the tokens — do not hardcode ad-hoc padding.
+
+| Token | Value |
+|-------|--------|
+| `--comment-modal-inset` | `14px` — left/right inset around thread content and the black33 comment editor shell; desktop bottom inset |
+| `--comment-modal-bottom-inset` | `14px` on desktop; on mobile (`<768px`), `14px + env(safe-area-inset-bottom)` |
+
+**Where this applies:** `CommentModal`, `RootComment` thread modal (including inbox popover / scoped panel), and any new comment or zap compose sheet that wraps `ShortTextInput`.
+
+**Rules:**
+- **14px** on left, right, and bottom around the black33 editor and around root/deeper comment content in open thread modals.
+- **Mobile only:** add device safe-area to bottom inset via `--comment-modal-bottom-inset` — never stack safe-area on desktop.
+- Thread modals must **not** add extra `modal-content` bottom padding; the footer/sheet inset is the single source of truth.
+- Thread empty states use flat `profile-section-empty--thread` (no panel background or rounded corners).
+
 ## Dividers & grid lines
 
 - Thickness: **`1px`** — use for horizontal/vertical dividers, feed row separators, page-frame grid lines, tab underlines

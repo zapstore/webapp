@@ -26,6 +26,8 @@ lockBodyScroll = true,
 scopedInPanel = false,
 /** Extra cap for scoped sheets: min(available space, this many vh). */
 scopedPanelMaxVh = 90,
+/** Skip backdrop/sheet motion (e.g. swap to CommentModal without overlay flash). */
+instantTransition = false,
 children, footer, } = $props();
 let modalElement = $state(null);
 let _isBottomAligned = $state(false);
@@ -127,7 +129,7 @@ function handleResize() {
     class:items-center={actualAlignment === "center"}
     class:items-end={actualAlignment === "bottom"}
     style="z-index: {zIndex};"
-    transition:fade={{ duration: 200 }}
+    transition:fade={{ duration: instantTransition ? 0 : 200 }}
     onclick={handleBackdropClick}
     role="dialog"
     aria-modal="true"
@@ -149,7 +151,7 @@ function handleResize() {
         : ""}"
       transition:fly={{
         y: actualAlignment === "bottom" ? 50 : actualAlignment === "top" ? -50 : 0,
-        duration: 200,
+        duration: instantTransition ? 0 : 200,
         easing: cubicOut,
       }}
       onclick={(e) => e.stopPropagation()}

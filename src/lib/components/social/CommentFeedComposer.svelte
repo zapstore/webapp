@@ -14,6 +14,8 @@ let {
 	target = null,
 	recipientName = '',
 	contentType = 'app',
+	rootContext = null,
+	version = '',
 	otherZaps = [],
 	isSignedIn = true,
 	getCurrentPubkey = () => null,
@@ -23,7 +25,7 @@ let {
 	onCommentSubmit,
 	onZapReceived,
 	onZapPending,
-	onZapPendingClear,
+	onZapPendingClear
 } = $props();
 
 let commentModalOpen = $state(false);
@@ -35,38 +37,42 @@ $effect(() => {
 		userProfile = null;
 		return;
 	}
-	queryEvent({ kinds: [0], authors: [pk], limit: 1 }).then((ev) => {
-		if (ev?.content) {
-			try {
-				const p = parseProfile(ev);
-				userProfile = {
-					displayName: p.displayName ?? p.name ?? '',
-					name: p.name ?? '',
-					picture: p.picture ?? null,
-				};
-			} catch {
+	queryEvent({ kinds: [0], authors: [pk], limit: 1 })
+		.then((ev) => {
+			if (ev?.content) {
+				try {
+					const p = parseProfile(ev);
+					userProfile = {
+						displayName: p.displayName ?? p.name ?? '',
+						name: p.name ?? '',
+						picture: p.picture ?? null
+					};
+				} catch {
+					userProfile = null;
+				}
+			} else {
 				userProfile = null;
 			}
-		} else {
+		})
+		.catch(() => {
 			userProfile = null;
-		}
-	}).catch(() => {
-		userProfile = null;
-	});
-	fetchProfile(pk).then((ev) => {
-		if (ev?.content) {
-			try {
-				const p = parseProfile(ev);
-				userProfile = {
-					displayName: p.displayName ?? p.name ?? '',
-					name: p.name ?? '',
-					picture: p.picture ?? null,
-				};
-			} catch {
-				/* keep cached */
+		});
+	fetchProfile(pk)
+		.then((ev) => {
+			if (ev?.content) {
+				try {
+					const p = parseProfile(ev);
+					userProfile = {
+						displayName: p.displayName ?? p.name ?? '',
+						name: p.name ?? '',
+						picture: p.picture ?? null
+					};
+				} catch {
+					/* keep cached */
+				}
 			}
-		}
-	}).catch(() => {});
+		})
+		.catch(() => {});
 });
 
 function openComposer() {
@@ -80,41 +86,43 @@ function handleCommentSubmit(event) {
 		mentions: event.mentions,
 		mediaUrls: event.mediaUrls,
 		parentId: undefined,
-		target: event.target ?? target,
+		target: event.target ?? target
 	});
 }
 </script>
 
 {#if isSignedIn}
-<div class="comment-feed-composer {className}">
-	<div class="comment-feed-pic">
-		<ProfilePic
-			pictureUrl={userProfile?.picture}
-			name={userProfile?.displayName || userProfile?.name}
-			pubkey={getCurrentPubkey?.()}
-			size="smMd"
-		/>
+	<div class="comment-feed-composer {className}">
+		<div class="comment-feed-pic">
+			<ProfilePic
+				pictureUrl={userProfile?.picture}
+				name={userProfile?.displayName || userProfile?.name}
+				pubkey={getCurrentPubkey?.()}
+				size="smMd"
+			/>
+		</div>
+		<button type="button" class="comment-feed-bubble" onclick={openComposer}>
+			<span class="comment-feed-bubble-text">{ctaLabel}</span>
+		</button>
 	</div>
-	<button type="button" class="comment-feed-bubble" onclick={openComposer}>
-		<span class="comment-feed-bubble-text">{ctaLabel}</span>
-	</button>
-</div>
 
-<CommentModal
-	bind:isOpen={commentModalOpen}
-	{target}
-	recipientName={recipientName}
-	{contentType}
-	{otherZaps}
-	{getCurrentPubkey}
-	{searchProfiles}
-	{searchEmojis}
-	{signEvent}
-	onsubmit={handleCommentSubmit}
-	onzapReceived={onZapReceived}
-	{onZapPending}
-	{onZapPendingClear}
-/>
+	<CommentModal
+		bind:isOpen={commentModalOpen}
+		{target}
+		recipientName={recipientName}
+		{contentType}
+		{rootContext}
+		{version}
+		{otherZaps}
+		{getCurrentPubkey}
+		{searchProfiles}
+		{searchEmojis}
+		{signEvent}
+		onsubmit={handleCommentSubmit}
+		onzapReceived={onZapReceived}
+		{onZapPending}
+		{onZapPendingClear}
+	/>
 {/if}
 
 <style>

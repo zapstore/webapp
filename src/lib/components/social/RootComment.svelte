@@ -12,13 +12,14 @@
 	import ThreadZap from './ThreadZap.svelte';
 	import QuotedMessage from './QuotedMessage.svelte';
 	import QuotedZapMessage from './QuotedZapMessage.svelte';
-	import CommentActionsModal from './CommentActionsModal.svelte';
+	import ActionsModal from '$lib/components/modals/ActionsModal.svelte';
 	import CommentBubbleActionRail from './CommentBubbleActionRail.svelte';
 	import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
 	import ProfilePicStack from '$lib/components/common/ProfilePicStack.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import MediaLightboxModal from '$lib/components/modals/MediaLightboxModal.svelte';
-	import EmptyState from '$lib/components/common/EmptyState.svelte';
+	import '$lib/styles/comment-modal-inset.css';
+	import '$lib/styles/profile-section-empty.css';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import InputButton from '$lib/components/common/InputButton.svelte';
 	import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
@@ -214,7 +215,7 @@
 	}
 	let modalOpen = $state(false);
 	let zapModalOpen = $state(false);
-	/** Preset sats when opening {@link ZapSliderModal} from CommentActionsModal chips */
+	/** Preset sats when opening {@link ZapSliderModal} */
 	let zapPresetSats = $state(/** @type {number | null} */ (null));
 	let commentExpanded = $state(false);
 	/** When set, we're replying to this comment (show QuotedMessage above input) */
@@ -514,11 +515,6 @@
 		else if (actionsModalTarget && typeof actionsModalTarget === 'object')
 			openReplyToComment(actionsModalTarget);
 	}
-	function actionsModalOnZap() {
-		zapPresetSats = null;
-		if (actionsModalTarget === 'root') handleZap();
-		else if (actionsModalTarget) handleZapComment(actionsModalTarget);
-	}
 	function openReplyToZap(zap) {
 		replyingToComment = {
 			id: zap.id,
@@ -541,10 +537,6 @@
 		if (typeof window !== 'undefined' && (window.getSelection()?.toString().length ?? 0) > 0)
 			return;
 		modalOpen = true;
-	}
-	function handleZap() {
-		zapPresetSats = null;
-		zapModalOpen = true;
 	}
 	function handleTipTap() {
 		zapPresetSats = null;
@@ -586,16 +578,6 @@
 			parentKind
 		};
 		zapModalOpen = true;
-	}
-	/** Quick zap amount from actions sheet chips — same target as full zap, keeps {@link zapPresetSats}. */
-	function handleActionsZapPreset(sats) {
-		zapPresetSats = sats;
-		if (actionsModalTarget === 'root') {
-			zapTargetOverride = null;
-			zapModalOpen = true;
-		} else if (actionsModalTarget) {
-			handleZapComment(actionsModalTarget);
-		}
 	}
 	function handleZapClose(event) {
 		zapModalOpen = false;
@@ -741,8 +723,10 @@
 		return isActionsTargetThreadZap(actionsModalTarget);
 	});
 
-	/** Thread modal + root ⋯: actions sheet without Comment/Zap sections. */
-	const actionsModalCompact = $derived(showOptionsOnly || (modalOpen && actionsModalTarget === 'root'));
+	const actionsModalContentType = $derived.by(() => {
+		if (actionsModalIsZapPreview) return 'zap';
+		return 'comment';
+	});
 
 	/** Thread visible first, then actions (legacy bundled open). */
 	let didApplyBundledActions = $state(false);
@@ -1184,7 +1168,7 @@
 						{/if}
 					{/each}
 				{:else}
-					<EmptyState message="No comments yet" compact />
+					<p class="profile-section-empty profile-section-empty--thread" role="status">No comments yet</p>
 				{/if}
 			</div>
 		</div>
@@ -1272,14 +1256,14 @@
 	</div>
 </Modal>
 
-<CommentActionsModal
+<ActionsModal
 	bind:open={actionsModalOpen}
 	bind:nestedChildOpen={actionsNestedOpen}
-	sheetBackdrop={!modalOpen}
+	sheetBackdrop={true}
 	lockBodyScroll={modalLockBodyScroll}
 	scopedInPanel={modalScopedInPanel}
 	zIndex={modalZIndex + 5}
-	compactMode={actionsModalCompact}
+	contentType={actionsModalContentType}
 	authorName={actionsModalTarget === 'root'
 		? displayNameOrNpubShort(name, pubkey)
 		: displayNameOrNpubShort(
@@ -1323,8 +1307,6 @@
 	{searchEmojis}
 	signEvent={showOptionsOnly ? null : signEvent}
 	onComment={actionsModalOnComment}
-	onZap={actionsModalOnZap}
-	onZapPreset={handleActionsZapPreset}
 />
 
 <ZapSliderModal
@@ -1437,10 +1419,10 @@
 		-webkit-mask-image: linear-gradient(to bottom, transparent 0, black 40px, black 100%);
 	}
 
-	/* Bottom edge mask above comment bar — fixed 16px */
+	/* Bottom edge mask above comment bar — matches --comment-modal-inset */
 	.thread-content-wrap--has-footer:not(.thread-content-wrap--top-fade) .thread-scroll-host {
-		mask-image: linear-gradient(to bottom, black 0, black calc(100% - 16px), transparent 100%);
-		-webkit-mask-image: linear-gradient(to bottom, black 0, black calc(100% - 16px), transparent 100%);
+		mask-image: linear-gradient(to bottom, black 0, black calc(100% - var(--comment-modal-inset)), transparent 100%);
+		-webkit-mask-image: linear-gradient(to bottom, black 0, black calc(100% - var(--comment-modal-inset)), transparent 100%);
 	}
 
 	.thread-content-wrap--has-footer.thread-content-wrap--top-fade .thread-scroll-host {
@@ -1448,14 +1430,14 @@
 			to bottom,
 			transparent 0,
 			black 40px,
-			black calc(100% - 16px),
+			black calc(100% - var(--comment-modal-inset)),
 			transparent 100%
 		);
 		-webkit-mask-image: linear-gradient(
 			to bottom,
 			transparent 0,
 			black 40px,
-			black calc(100% - 16px),
+			black calc(100% - var(--comment-modal-inset)),
 			transparent 100%
 		);
 	}
@@ -1513,9 +1495,10 @@
 		flex-direction: column;
 	}
 
-	:global(.thread-modal .modal-content) {
+	:global(.thread-modal.modal-bottom .modal-content) {
 		position: relative;
 		z-index: 0;
+		padding-bottom: 0 !important;
 	}
 
 	/* Whole thread modal scales and moves down when Zap or options modal opens (class is on Modal’s container) */
@@ -1527,7 +1510,7 @@
 
 	.thread-footer-wrap {
 		flex-shrink: 0;
-		padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px));
+		padding: 0 var(--comment-modal-inset) var(--comment-modal-bottom-inset);
 		background: transparent;
 	}
 
@@ -1550,7 +1533,7 @@
 		display: flex;
 		align-items: flex-start;
 		gap: 12px;
-		padding: 16px 16px 0;
+		padding: var(--comment-modal-inset) var(--comment-modal-inset) 0;
 	}
 
 	.thread-root-rail {
@@ -1672,14 +1655,14 @@
 	}
 
 	.thread-pills {
-		padding: 6px 16px 12px;
+		padding: 6px var(--comment-modal-inset) 12px;
 	}
 
 	.thread-replies {
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		padding: 12px 16px 16px;
+		padding: 12px var(--comment-modal-inset) var(--comment-modal-inset);
 		border-top: 1.4px solid var(--white11);
 	}
 

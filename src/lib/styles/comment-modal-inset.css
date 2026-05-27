@@ -1,0 +1,16 @@
+/**
+ * Shared inset for comment modals and thread sheets
+ * (RootComment thread modal, CommentModal, inbox-scoped thread modals).
+ *
+ * Bottom: 14px everywhere; on mobile only, add device safe-area inset.
+ */
+:root {
+	--comment-modal-inset: 14px;
+	--comment-modal-bottom-inset: var(--comment-modal-inset);
+}
+
+@media (max-width: 767px) {
+	:root {
+		--comment-modal-bottom-inset: calc(var(--comment-modal-inset) + env(safe-area-inset-bottom, 0px));
+	}
+}

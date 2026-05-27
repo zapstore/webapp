@@ -813,9 +813,17 @@ function handleForumBottomBarZap(event) {
 							contentType="forum"
 							target={zapTarget}
 							appName={post.title || ''}
+							contentSummary={post.content?.trim?.() || post.title || ''}
 							{publisherName}
 							{searchProfiles}
 							{searchEmojis}
+							{signEvent}
+							getCurrentPubkey={getCurrentPubkey}
+							onCommentSubmit={handleCommentSubmit}
+							{otherZaps}
+							onZapReceived={handleForumBottomBarZap}
+							onZapPending={handleForumZapPending}
+							onZapPendingClear={handleForumZapPendingClear}
 							onLabelPublished={() => {
 								labelFetchNonce += 1;
 							}}

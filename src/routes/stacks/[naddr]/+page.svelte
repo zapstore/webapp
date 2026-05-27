@@ -470,9 +470,17 @@ const zapTarget = $derived(
                 contentType="stack"
                 target={zapTarget}
                 appName={displayTitle}
+                contentSummary={displayDescription ?? ''}
                 publisherName={stackPublisherName}
                 searchProfiles={searchProfiles}
                 searchEmojis={searchEmojis}
+                signEvent={signEvent}
+                getCurrentPubkey={getCurrentPubkey}
+                onCommentSubmit={handleCommentSubmit}
+                otherZaps={otherZaps}
+                onZapReceived={handleStackBottomBarZap}
+                onZapPending={handleStackZapPending}
+                onZapPendingClear={handleStackZapPendingClear}
                 onOwnContentDeleted={() => {
                   goto(resolve("/stacks"));
                 }}
@@ -485,9 +493,17 @@ const zapTarget = $derived(
               contentType="stack"
               target={zapTarget}
               appName={displayTitle}
+              contentSummary={displayDescription ?? ''}
               publisherName={stackPublisherName}
               searchProfiles={searchProfiles}
               searchEmojis={searchEmojis}
+              signEvent={signEvent}
+              getCurrentPubkey={getCurrentPubkey}
+              onCommentSubmit={handleCommentSubmit}
+              otherZaps={otherZaps}
+              onZapReceived={handleStackBottomBarZap}
+              onZapPending={handleStackZapPending}
+              onZapPendingClear={handleStackZapPendingClear}
               onOwnContentDeleted={() => {
                 goto(resolve("/stacks"));
               }}

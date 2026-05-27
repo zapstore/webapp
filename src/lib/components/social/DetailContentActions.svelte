@@ -1,53 +1,95 @@
 <script lang="js">
 /**
  * DetailContentActions - Round options button for app/stack/forum detail author rows.
- * Opens ActionsModal (labels, stacks, report, delete own content).
+ * Opens ActionsModal (comment, stacks, labels, report, delete own content).
  */
 import { Options } from '$lib/components/icons';
 import ActionsModal from '$lib/components/modals/ActionsModal.svelte';
-import ReportModal from '$lib/components/modals/ReportModal.svelte';
 
 let {
 	contentType = 'app',
 	target = null,
 	appName = '',
 	publisherName = '',
+	iconUrl = null,
+	contentSummary = '',
+	version = '',
 	searchProfiles = async () => [],
 	searchEmojis = async () => [],
+	getCurrentPubkey = () => null,
+	signEvent = null,
+	onCommentSubmit = null,
+	otherZaps = [],
+	onZapReceived = null,
+	onZapPending = null,
+	onZapPendingClear = null,
 	onLabelPublished = () => {},
 	onOwnContentDeleted = () => {},
-	className = '',
+	className = ''
 } = $props();
 
 let actionsModalOpen = $state(false);
-let reportModalOpen = $state(false);
+
+const rootContext = $derived.by(() => {
+	if (contentType === 'app') {
+		return {
+			label: appName || target?.name || '',
+			iconUrl: iconUrl ?? target?.icon ?? null,
+			identifier: target?.dTag ?? null,
+			isApp: true
+		};
+	}
+	if (contentType === 'stack') {
+		return {
+			label: appName || target?.name || '',
+			isStack: true
+		};
+	}
+	if (contentType === 'forum') {
+		return {
+			label: appName || 'Forum Post',
+			isForum: true,
+			iconUrl: '/images/emoji/forum.png'
+		};
+	}
+	return null;
+});
+
+const contentPreview = $derived(
+	contentSummary?.trim() || appName?.trim() || target?.name?.trim() || ''
+);
 </script>
 
 <button
 	type="button"
 	class="detail-content-actions-btn {className}"
-	onclick={() => { actionsModalOpen = true; }}
+	onclick={() => {
+		actionsModalOpen = true;
+	}}
 	aria-label="Actions"
 >
 	<Options variant="fill" size={16} color="var(--white33)" />
 </button>
 
 <ActionsModal
-	bind:isOpen={actionsModalOpen}
+	bind:open={actionsModalOpen}
 	{contentType}
 	targetApp={target}
-	onReport={() => { reportModalOpen = true; }}
+	{rootContext}
+	{version}
+	authorName={publisherName}
+	authorPubkey={target?.pubkey ?? null}
+	{contentPreview}
+	recipientName={publisherName}
+	{otherZaps}
+	{getCurrentPubkey}
+	{signEvent}
+	{onCommentSubmit}
+	{onZapReceived}
+	{onZapPending}
+	{onZapPendingClear}
 	{onLabelPublished}
 	{onOwnContentDeleted}
-/>
-
-<ReportModal
-	bind:isOpen={reportModalOpen}
-	{appName}
-	authorName={publisherName}
-	{contentType}
-	eventId={target?.id ?? ''}
-	authorPubkey={target?.pubkey ?? ''}
 	{searchProfiles}
 	{searchEmojis}
 />

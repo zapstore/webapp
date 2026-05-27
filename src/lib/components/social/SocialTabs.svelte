@@ -495,6 +495,8 @@ const zapsByTargetId = $derived.by(() => {
           target={commentTarget}
           recipientName={commentRecipientName}
           {contentType}
+          rootContext={resolvedRootContext}
+          {version}
           {otherZaps}
           {isSignedIn}
           {getCurrentPubkey}

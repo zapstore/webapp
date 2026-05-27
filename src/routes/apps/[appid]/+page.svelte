@@ -583,9 +583,19 @@ let _refreshing = $state(false);
 					contentType="app"
 					target={zapTarget}
 					appName={app.name || ''}
+					iconUrl={app.icon ?? null}
+					contentSummary={markdownToPlainTextLine(app.description ?? '').slice(0, 160)}
+					version={latestRelease?.version ?? ''}
 					{publisherName}
 					{searchProfiles}
 					{searchEmojis}
+					{signEvent}
+					getCurrentPubkey={getCurrentPubkey}
+					onCommentSubmit={handleCommentSubmit}
+					{otherZaps}
+					onZapReceived={handleBottomBarZapUpdate}
+					onZapPending={handleZapPending}
+					onZapPendingClear={handleZapPendingClear}
 					onOwnContentDeleted={() => {
 						goto(resolve('/apps'));
 					}}
@@ -883,9 +893,19 @@ let _refreshing = $state(false);
 							contentType="app"
 							target={zapTarget}
 							appName={app.name || ''}
+							iconUrl={app.icon ?? null}
+							contentSummary={markdownToPlainTextLine(app.description ?? '').slice(0, 160)}
+							version={latestRelease?.version ?? ''}
 							{publisherName}
 							{searchProfiles}
 							{searchEmojis}
+							{signEvent}
+							getCurrentPubkey={getCurrentPubkey}
+							onCommentSubmit={handleCommentSubmit}
+							{otherZaps}
+							onZapReceived={handleBottomBarZapUpdate}
+							onZapPending={handleZapPending}
+							onZapPendingClear={handleZapPendingClear}
 							onOwnContentDeleted={() => {
 								goto(resolve('/apps'));
 							}}
