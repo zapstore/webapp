@@ -432,6 +432,7 @@ import { Reply } from '$lib/components/icons';
 		display: flex;
 		flex-direction: column;
 		height: 45vh;
+		overscroll-behavior: contain;
 	}
 
 	@media (min-width: 768px) {
@@ -501,6 +502,7 @@ import { Reply } from '$lib/components/icons';
 		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
+		overscroll-behavior: contain;
 		scrollbar-width: thin;
 		scrollbar-color: var(--white33) transparent;
 	}

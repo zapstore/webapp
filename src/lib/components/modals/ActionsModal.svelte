@@ -922,7 +922,7 @@
 			{/if}
 
 			{#if showStacksSection && subPanel === 'main'}
-				<div class="am-section">
+				<div class="am-section am-stacks-section">
 					<h3 class="eyebrow-label am-eyebrow">Add to stacks</h3>
 					{#if !stacksLoaded}
 						<SkeletonLoader
@@ -1284,7 +1284,7 @@
 		flex-direction: column;
 		align-items: stretch;
 		width: 100%;
-		margin: 0;
+		margin: 0 0 4px;
 		padding: 8px;
 		text-align: left;
 		cursor: pointer;
@@ -1329,6 +1329,10 @@
 		flex-direction: column;
 		gap: 8px;
 		min-width: 0;
+	}
+
+	.am-stacks-section {
+		margin-bottom: 4px;
 	}
 
 	.am-comment-card-label {
