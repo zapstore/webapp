@@ -6,7 +6,7 @@
 	import { SITE_URL } from '$lib/config';
 
 	const faqUrl = `${SITE_URL}/community/faq`;
-	const seoTitle = 'Zapstore user FAQ: install, safety, F-Droid, Obtainium & troubleshooting';
+	const seoTitle = 'Zapstore FAQ: install, safety, F-Droid, Obtainium & troubleshooting';
 	const seoDescription =
 		'How to install Zapstore, stay safe with Web of Trust, compare with Google Play, F-Droid and Obtainium, use Stacks and zaps, and fix common update errors.';
 
@@ -17,7 +17,7 @@
 
 <div class="community-faq-scroll" data-main-scroll>
 	<div class="community-faq-page">
-		<h1 class="community-faq-title">User FAQ</h1>
+		<h1 class="community-faq-title">FAQ</h1>
 		<p class="community-faq-lead text-muted-foreground">
 			Install, safety, comparisons, and everyday use. Publishing an app?
 			<a href="/docs/faq" class="community-faq-crosslink">See the Developer FAQ</a>.
