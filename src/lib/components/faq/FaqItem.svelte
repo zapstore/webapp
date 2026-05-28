@@ -1,6 +1,6 @@
 <script lang="js">
-	/** @type {{ question: string, answer: string }} */
-	let { question, answer } = $props();
+	/** @type {{ id: string, question: string, answer: string }} */
+	let { id, question, answer } = $props();
 
 	let detailsEl = $state(/** @type {HTMLDetailsElement | null} */ (null));
 
@@ -13,9 +13,9 @@
 	}
 </script>
 
-<details class="faq-item panel panel-gray33" bind:this={detailsEl} ontoggle={onToggle}>
+<details id={id} class="faq-item panel panel-gray33" bind:this={detailsEl} ontoggle={onToggle}>
 	<summary class="faq-q">
-		<span class="faq-q-text">{question}</span>
+		<h3 class="faq-q-heading">{question}</h3>
 		<span class="faq-chevron" aria-hidden="true">
 			<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 				<polyline points="6 9 12 15 18 9" />
@@ -31,6 +31,7 @@
 	.faq-item {
 		border-radius: 12px;
 		overflow: hidden;
+		scroll-margin-top: 5rem;
 	}
 
 	.faq-q {
@@ -51,9 +52,12 @@
 		display: none;
 	}
 
-	.faq-q-text {
+	.faq-q-heading {
 		flex: 1;
 		min-width: 0;
+		margin: 0;
+		font: inherit;
+		font-weight: 600;
 		text-align: left;
 	}
 

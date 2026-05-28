@@ -1,6 +1,6 @@
 ---
 title: Developer FAQ
-description: Publishing, signing, verification, and troubleshooting for developers on Zapstore.
+description: Developer FAQ for publishing apps on Zapstore with zsp, APK signing, Nostr verification, relay publishing, and troubleshooting.
 weight: 99
 ---
 

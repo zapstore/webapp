@@ -11,7 +11,7 @@
 			<h2 id="faq-section-{section.id}" class="faq-section-label">{section.label}</h2>
 			<div class="faq-list">
 				{#each section.items as item (item.id)}
-					<FaqItem question={item.question} answer={item.answer} />
+					<FaqItem id={item.id} question={item.question} answer={item.answer} />
 				{/each}
 			</div>
 		</section>

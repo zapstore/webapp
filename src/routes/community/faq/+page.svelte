@@ -2,18 +2,22 @@
 	import SeoHead from '$lib/components/layout/SeoHead.svelte';
 	import FaqPage from '$lib/components/faq/FaqPage.svelte';
 	import { COMMUNITY_FAQ_SECTIONS } from '$lib/data/community-faq-content.js';
+	import { buildCommunityFaqJsonLd } from '$lib/utils/community-faq-seo.js';
 	import { SITE_URL } from '$lib/config';
+
+	const faqUrl = `${SITE_URL}/community/faq`;
+	const seoTitle = 'Zapstore user FAQ: install, safety, F-Droid, Obtainium & troubleshooting';
+	const seoDescription =
+		'How to install Zapstore, stay safe with Web of Trust, compare with Google Play, F-Droid and Obtainium, use Stacks and zaps, and fix common update errors.';
+
+	const faqJsonLd = buildCommunityFaqJsonLd(COMMUNITY_FAQ_SECTIONS, faqUrl);
 </script>
 
-<SeoHead
-	title="FAQ — Zapstore"
-	description="Answers about installing Zapstore, app safety, trust signals, comparisons with other stores, features, and troubleshooting."
-	url="{SITE_URL}/community/faq"
-/>
+<SeoHead title={seoTitle} description={seoDescription} url={faqUrl} jsonld={faqJsonLd} />
 
 <div class="community-faq-scroll" data-main-scroll>
 	<div class="community-faq-page">
-		<h1 class="community-faq-title">FAQ</h1>
+		<h1 class="community-faq-title">User FAQ</h1>
 		<p class="community-faq-lead text-muted-foreground">
 			Install, safety, comparisons, and everyday use. Publishing an app?
 			<a href="/docs/faq" class="community-faq-crosslink">See the Developer FAQ</a>.
