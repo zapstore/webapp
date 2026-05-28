@@ -20,10 +20,7 @@ import Label from "$lib/components/common/Label.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import RelayLoadingBar from "$lib/components/common/RelayLoadingBar.svelte";
 import { Zap } from "$lib/components/icons";
-import { queryEvent, queryEvents } from "$lib/purpleweb";
-import { parseRelease } from "$lib/nostr";
-import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
-import { nip19 } from "nostr-tools";
+import { loadSocialDetailsData } from "$lib/purpleweb";
 let {
     app = {}, stack = null, version = "", publisherProfile: _publisherProfile = null,
     zaps = [], zapperProfiles = new SvelteMap(), className = "",
@@ -105,21 +102,8 @@ $effect(() => {
         autoFetchedDetails = null;
         return;
     }
-    const target = stack ?? app;
-    if (!target?.pubkey || !target?.dTag) {
-        autoFetchedDetails = null;
-        return;
-    }
-    // Always fetch from Dexie — no rawEvent embedded in models
-    const kind = stack ? EVENT_KINDS.APP_STACK : EVENT_KINDS.APP;
-    const filter = {
-        kinds: [kind],
-        authors: [target.pubkey],
-        "#d": [target.dTag],
-        ...(kind === EVENT_KINDS.APP ? PLATFORM_FILTER : {}),
-    };
-    queryEvent(filter).then((fromStore) => {
-        autoFetchedDetails = fromStore ?? null;
+    loadSocialDetailsData({ app, stack, includeReleases: false }).then(({ rawEvent }) => {
+        autoFetchedDetails = rawEvent ?? null;
     });
 });
 /** Resolved details data: explicit prop wins over Dexie auto-fetch. */
@@ -131,29 +115,8 @@ $effect(() => {
         autoFetchedReleases = [];
         return;
     }
-    const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-    Promise.all([
-        queryEvents({ kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue], limit: 50 }),
-        queryEvents({ kinds: [EVENT_KINDS.RELEASE], "#i": [app.dTag], limit: 50 }),
-    ]).then(([byA, byI]) => {
-        const seen = new SvelteSet();
-        const merged = [];
-        for (const e of [...byA, ...byI]) {
-            if (!seen.has(e.id)) { seen.add(e.id); merged.push(e); }
-        }
-        merged.sort((a, b) => b.created_at - a.created_at);
-        autoFetchedReleases = merged.slice(0, 50).map((e) => {
-            const parsed = parseRelease(e);
-            let naddr = '';
-            try {
-                naddr = nip19.naddrEncode({
-                    kind: EVENT_KINDS.RELEASE,
-                    pubkey: e.pubkey,
-                    identifier: parsed.dTag,
-                });
-            } catch { /* ignore encoding errors */ }
-            return { ...parsed, naddr, rawEvent: e };
-        });
+    loadSocialDetailsData({ app, stack: null, includeReleases: true }).then(({ releases }) => {
+        autoFetchedReleases = releases;
     });
 });
 const totalZapAmount = $derived(zaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0));

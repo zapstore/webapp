@@ -6,53 +6,18 @@
  */
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
-import { queryEvents, liveQuery, fetchStacksByAuthorFromRelays } from '$lib/purpleweb';
-import { parseAppStack } from '$lib/nostr';
+import { createStudioStacksQuery } from '$lib/purpleweb';
 import { getCurrentPubkey, getIsSignedIn, isAuthInitialized, getIsConnecting } from '$lib/stores/auth.svelte.js';
-import { EVENT_KINDS, ZAPSTORE_RELAY } from '$lib/config.js';
 import { encodeStackNaddr, stackDisplayTitle } from '$lib/nostr/models.js';
-import { isOnline } from '$lib/stores/online.svelte.js';
 import { Layers } from 'lucide-svelte';
 
-let stacks = $state([]);
-let loading = $state(true);
-
-$effect(() => {
-	if (!browser) return;
-	if (!isAuthInitialized() || getIsConnecting()) {
-		loading = true;
-		return;
-	}
+const stacksQuery = createStudioStacksQuery(() => {
+	if (!browser || !isAuthInitialized() || getIsConnecting()) return null;
 	const pubkey = getCurrentPubkey();
-	if (!pubkey || !getIsSignedIn()) {
-		stacks = [];
-		loading = true;
-		return;
-	}
-
-	loading = true;
-
-	if (isOnline()) {
-		void fetchStacksByAuthorFromRelays([ZAPSTORE_RELAY], pubkey, {
-			limit: 50,
-			timeout: 5000
-		}).catch((err) => console.error('[StudioStacks] relay refresh failed:', err));
-	}
-
-	const sub = liveQuery(() =>
-		queryEvents({ kinds: [EVENT_KINDS.APP_STACK], authors: [pubkey] })
-	).subscribe({
-		next: (events) => {
-			stacks = (events ?? []).map(parseAppStack).sort((a, b) => b.createdAt - a.createdAt);
-			loading = false;
-		},
-		error: (err) => {
-			console.error('[StudioStacks] query failed:', err);
-			loading = false;
-		}
-	});
-	return () => sub.unsubscribe();
+	return pubkey && getIsSignedIn() ? pubkey : null;
 });
+const stacks = $derived(stacksQuery.items);
+const loading = $derived(stacksQuery.loading);
 
 function getStackEditUrl(stack) {
 	return '/studio/stacks/' + encodeStackNaddr(stack.pubkey, stack.dTag);

@@ -7,8 +7,8 @@
 	import CodeBlock from '$lib/components/common/CodeBlock.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import { highlightJson } from '$lib/utils/highlight.js';
-	import { queryEvents, putEvents, fetchFromRelays } from '$lib/purpleweb';
-	import { ZAPSTORE_RELAY, EVENT_KINDS } from '$lib/config.js';
+	import { loadArtifactMetadataEvents } from '$lib/purpleweb';
+	import { ZAPSTORE_RELAY } from '$lib/config.js';
 	import { nip19 } from 'nostr-tools';
 	import { parseFileMetadata } from '$lib/nostr/models.js';
 	let {
@@ -248,7 +248,6 @@
 			return;
 		}
 		const artifactIds = eTagData.map((t) => t.id);
-		// Use only the Zapstore relay + any relay hints from the #e tags (NOT the profile relay)
 		const extraRelays = [
 			...new Set(
 				eTagData
@@ -256,7 +255,6 @@
 					.filter(/** @type {(r: string|null) => r is string} */ (r) => !!r)
 			)
 		];
-		const relaysToSearch = [...new Set([ZAPSTORE_RELAY, ...extraRelays])];
 		console.log(
 			`[DetailsTab] Fetching ${artifactIds.length} asset event(s) (kind 3063/1063):`,
 			artifactIds
@@ -271,29 +269,10 @@
 			url: null,
 			relayHint: relay
 		}));
-		// Both modern (3063) and legacy (1063) asset kinds
-		const assetKinds = [EVENT_KINDS.ASSET, EVENT_KINDS.FILE_METADATA];
 		try {
-			// 1. Check Dexie first
-			let fileEvents = await queryEvents({ kinds: assetKinds, ids: artifactIds });
-			console.log(`[DetailsTab] Dexie hit: ${fileEvents.length} / ${artifactIds.length}`);
-			const have = new Set(fileEvents.map((e) => e.id));
-			const missing = artifactIds.filter((id) => !have.has(id));
-			// 2. Fetch missing from Zapstore relay only — asset events don't live on the profile relay
-			if (missing.length > 0) {
-				console.log(`[DetailsTab] Fetching ${missing.length} from relay:`, relaysToSearch);
-				const fetched = await fetchFromRelays(
-					relaysToSearch,
-					{ kinds: assetKinds, ids: missing, limit: missing.length },
-					{ timeout: 10000, feature: 'details-tab-files' }
-				);
-				console.log(`[DetailsTab] Relay returned ${fetched.length} event(s)`);
-				if (fetched.length > 0) {
-					await putEvents(fetched);
-					fileEvents = [...fileEvents, ...fetched];
-				}
-			}
-			// 3. Extract hash — same logic as collect-blob-hashes
+			const fileEvents = await loadArtifactMetadataEvents(artifactIds, extraRelays);
+			console.log(`[DetailsTab] Loaded asset metadata: ${fileEvents.length} / ${artifactIds.length}`);
+			// Extract hash — same logic as collect-blob-hashes
 			const HEX64 = /^[a-f0-9]{64}$/i;
 			for (const fe of fileEvents) {
 				const parsed = parseFileMetadata(fe);

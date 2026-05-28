@@ -192,8 +192,9 @@ export function stackListingPreviewKey(items) {
  * @param {() => { seedEvents?: import('nostr-tools').Event[], communityOnly?: boolean }} [getInput]
  */
 export function createStacksListingQuery(getInput) {
+	const initialInput = getInput?.() ?? {};
 	const state = createListingQuery({
-		cacheKey: 'stacks',
+		cacheKey: initialInput.communityOnly ? 'stacks:community' : 'stacks:all',
 		load: (input) => loadStacks(input ?? {}),
 		getInput,
 		getSeedEvents: (input) => publicStackEvents(input?.seedEvents ?? []),

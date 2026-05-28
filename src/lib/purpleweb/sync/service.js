@@ -24,7 +24,7 @@ import {
 } from '$lib/config';
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
-import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
+import { APPS_SUBSCRIPTION_LIMIT, STACKS_SUBSCRIPTION_LIMIT } from '$lib/constants';
 import { decodeNaddr } from '$lib/nostr/models.js';
 import { db, putEvents, queryEvents, queryEvent } from '../storage/dexie.js';
 const ZAPSTORE_READ_RELAYS = [ZAPSTORE_RELAY];
@@ -129,6 +129,8 @@ let catalogRestartTimer = null;
 /** @type {ReturnType<typeof setTimeout> | null} */
 let inboxRestartTimer = null;
 let relayRecoveryInitialized = false;
+let relayRecoveryOnlineHandler = null;
+let relayRecoveryVisibilityHandler = null;
 
 const SUBSCRIPTION_RESTART_DEBOUNCE_MS = 500;
 
@@ -257,9 +259,9 @@ function openCatalogSubscriptions() {
 	const subParams = createPersistentSubCallbacks('Catalog live', handleCatalogSubUnexpectedClose);
 
 	// Separate subscriptions per filter (subscribeMany takes a single filter)
-	// Limits = POLL_LIMIT (3 × page size) — load-more handles deeper data
+	// Limits cap initial backfill — load-more handles deeper data.
 	activeSubscriptions.push(
-		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: APPS_POLL_LIMIT }, { ...subParams, id: subId('apps') })
+		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: APPS_SUBSCRIPTION_LIMIT }, { ...subParams, id: subId('apps') })
 	);
 	// Releases: needed for app detail pages + liveQuery reactivity
 	// since:now — live sub only needs future events; also raises relay specificity score to 3
@@ -268,7 +270,7 @@ function openCatalogSubscriptions() {
 	);
 	// Stacks
 	activeSubscriptions.push(
-		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER, limit: STACKS_POLL_LIMIT }, { ...subParams, id: subId('stacks') })
+		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER, limit: STACKS_SUBSCRIPTION_LIMIT }, { ...subParams, id: subId('stacks') })
 	);
 	// NIP-09 deletions for apps and stacks — live updates only (past deletions handled by syncDeletions)
 	activeSubscriptions.push(
@@ -316,18 +318,20 @@ export function initRelayRecovery() {
 	if (typeof window === 'undefined' || relayRecoveryInitialized) return;
 	relayRecoveryInitialized = true;
 
-	window.addEventListener('online', () => {
+	relayRecoveryOnlineHandler = () => {
 		ensureLiveSubscriptions();
 		const pk = inboxLivePubkey;
 		if (pk) ensureUserInboxLiveUpdates(pk);
-	});
+	};
+	window.addEventListener('online', relayRecoveryOnlineHandler);
 
-	document.addEventListener('visibilitychange', () => {
+	relayRecoveryVisibilityHandler = () => {
 		if (document.visibilityState !== 'visible') return;
 		ensureLiveSubscriptions();
 		const pk = inboxLivePubkey;
 		if (pk) ensureUserInboxLiveUpdates(pk);
-	});
+	};
+	document.addEventListener('visibilitychange', relayRecoveryVisibilityHandler);
 }
 
 /** @type {Array<{ close: (reason?: string) => void }>} */
@@ -433,6 +437,11 @@ function openInboxSubscriptions(pubkey) {
  */
 export function startUserInboxLiveUpdates(pubkey) {
 	if (typeof window === 'undefined' || !pubkey) return;
+	if (typeof navigator !== 'undefined' && !navigator.onLine) {
+		inboxLivePubkey = pubkey;
+		inboxSubscribersNeedRestart = true;
+		return;
+	}
 	if (
 		inboxLivePubkey === pubkey &&
 		activeInboxSubscriptions.length > 0 &&
@@ -697,12 +706,13 @@ export function subscribeZapReceiptsForEventIds(eventIds, options = {}) {
  *
  * @param {string[]} relayUrls
  * @param {object | object[]} filter
- * @param {{ timeout?: number, signal?: AbortSignal }} options
+ * @param {{ timeout?: number, signal?: AbortSignal, feature?: string, immediateFlush?: boolean, onFinish?: ({ completed: boolean, events: import('nostr-tools').Event[] }) => void }} options
  * @returns {Promise<import('nostr-tools').Event[]>}
  */
 export async function fetchFromRelays(relayUrls, filter, options = {}) {
-	const { timeout = 5000, signal, feature = 'q', immediateFlush = false } = options;
+	const { timeout = 5000, signal, feature = 'q', immediateFlush = false, onFinish } = options;
 	if (signal?.aborted) return [];
+	if (typeof navigator !== 'undefined' && !navigator.onLine) return [];
 
 	const filterList = /** @type {object[]} */ (
 		Array.isArray(filter) &&
@@ -743,6 +753,8 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 			return persistChain;
 		};
 
+		let completedByEose = false;
+
 		const finish = async () => {
 			if (settled) return;
 			settled = true;
@@ -760,6 +772,7 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 					console.warn('[Zapstore] fetchFromRelays returned 0 events', { feature, filterList, relays: relayUrls });
 				}
 			}
+			onFinish?.({ completed: completedByEose, events });
 			resolve(events);
 		};
 
@@ -773,7 +786,12 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 				if (immediateFlush || pendingPersist.length >= STREAM_PERSIST_BATCH) void queuePersist();
 			},
 			oneose() {
-				if (!eoseTimer) eoseTimer = setTimeout(finish, EOSE_GRACE_MS);
+				if (!eoseTimer) {
+					eoseTimer = setTimeout(() => {
+						completedByEose = true;
+						finish();
+					}, EOSE_GRACE_MS);
+				}
 			},
 			onclose() {
 				if (!settled) finish();
@@ -829,7 +847,7 @@ export async function searchApps(relays, query, options = {}) {
 			try { sub?.close(); } catch { /* noop */ }
 			searchPool.close(relays);
 			if (events.length > 0) {
-				await putEvents(events).catch((err) =>
+				void putEvents(events).catch((err) =>
 					console.error('[Search] Failed to persist events:', err)
 				);
 			}
@@ -892,7 +910,7 @@ export async function searchForumComments(relays, query, options = {}) {
 			try { sub?.close(); } catch { /* noop */ }
 			searchPool.close(relays);
 			if (events.length > 0) {
-				await putEvents(events).catch((err) =>
+				void putEvents(events).catch((err) =>
 					console.error('[ForumCommentSearch] Failed to persist events:', err)
 				);
 			}
@@ -955,7 +973,7 @@ export async function searchForumPosts(relays, communityPubkeyHex, query, option
 			try { sub?.close(); } catch { /* noop */ }
 			searchPool.close(relays);
 			if (events.length > 0) {
-				await putEvents(events).catch((err) =>
+				void putEvents(events).catch((err) =>
 					console.error('[ForumSearch] Failed to persist events:', err)
 				);
 			}
@@ -2195,14 +2213,7 @@ export async function publishDeletionRequest(signEvent, opts) {
 	};
 	const signed = await signEvent(template);
 	await publishToRelays(relayUrls, signed);
-	// Don't store the kind 5 in Dexie — only the relay needs it. Removing the target id
-	// from local cache is what reactively updates the UI; keeping the deletion request
-	// would just bloat IndexedDB.
-	try {
-		await db.events.delete(id);
-	} catch (dexieErr) {
-		console.error('[publishDeletionRequest] Dexie delete failed:', dexieErr);
-	}
+	await putEvents([signed]);
 	return signed;
 }
 
@@ -2262,8 +2273,7 @@ export async function publishStack(name, description, apps, signEvent, labels = 
 	};
 
 	const signed = await signEvent(template);
-	const p = getPool();
-	await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
+	await publishToRelays(DEFAULT_CATALOG_RELAYS, signed);
 	await putEvents([signed]);
 
 	return signed;
@@ -2330,14 +2340,7 @@ export async function updateStackApps(stackEvent, app, action, signEvent) {
 	}
 	if (!signed?.id) throw new Error('Signing failed - no valid event returned');
 
-	const p = getPool();
-	try {
-		const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-		const failed = results.filter(r => r.status === 'rejected');
-		if (failed.length > 0) console.warn('[updateStackApps] some publishes failed:', failed.map(f => f.reason));
-	} catch (pubErr) {
-		console.error('[updateStackApps] publish failed:', pubErr);
-	}
+	await publishToRelays(DEFAULT_CATALOG_RELAYS, signed);
 
 	try {
 		await putEvents([signed]);
@@ -2414,14 +2417,7 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
 	}
 	if (!signed?.id) throw new Error('Signing failed - no valid event returned');
 
-	const p = getPool();
-	try {
-		const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-		const failed = results.filter(r => r.status === 'rejected');
-		if (failed.length > 0) console.warn('[updateStack] some publishes failed:', failed.map(f => f.reason));
-	} catch (pubErr) {
-		console.error('[updateStack] publish failed:', pubErr);
-	}
+	await publishToRelays(DEFAULT_CATALOG_RELAYS, signed);
 
 	try {
 		await putEvents([signed]);
@@ -2508,14 +2504,7 @@ export async function updateAppMetadata(appEvent, updates, signEvent) {
 	}
 	if (!signed?.id) throw new Error('Signing failed - no valid event returned');
 
-	const p = getPool();
-	try {
-		const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-		const failed = results.filter((r) => r.status === 'rejected');
-		if (failed.length > 0) console.warn('[updateAppMetadata] some publishes failed:', failed.map((f) => f.reason));
-	} catch (pubErr) {
-		console.error('[updateAppMetadata] publish failed:', pubErr);
-	}
+	await publishToRelays(DEFAULT_CATALOG_RELAYS, signed);
 
 	try {
 		await putEvents([signed]);
@@ -2558,18 +2547,8 @@ export async function deleteStack(stackEvent, signEvent) {
 	}
 	if (!signed?.id) throw new Error('Signing failed - no valid event returned');
 
-	const p = getPool();
-	try {
-		await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-	} catch (pubErr) {
-		console.error('[deleteStack] publish failed:', pubErr);
-	}
-
-	try {
-		await db.events.delete(stackEvent.id);
-	} catch (dexieErr) {
-		console.error('[deleteStack] Dexie delete failed:', dexieErr);
-	}
+	await publishToRelays(DEFAULT_CATALOG_RELAYS, signed);
+	await putEvents([signed]);
 
 	return signed;
 }
@@ -2864,8 +2843,17 @@ export async function syncDeletions(relayUrls) {
 	});
 	if (since !== undefined) filter.since = since;
 
-	await fetchFromRelays(relayUrls, filter, { timeout: 5000, feature: 'deletions' });
-	localStorage.setItem(DELETION_CHECK_KEY, String(now));
+	let completed = false;
+	await fetchFromRelays(relayUrls, filter, {
+		timeout: 5000,
+		feature: 'deletions',
+		onFinish(result) {
+			completed = !!result.completed;
+		}
+	});
+	if (completed) {
+		localStorage.setItem(DELETION_CHECK_KEY, String(now));
+	}
 }
 
 /**
@@ -2873,6 +2861,14 @@ export async function syncDeletions(relayUrls) {
  */
 export function cleanup() {
 	stopLiveSubscriptions();
+	if (typeof window !== 'undefined' && relayRecoveryOnlineHandler) {
+		window.removeEventListener('online', relayRecoveryOnlineHandler);
+		relayRecoveryOnlineHandler = null;
+	}
+	if (typeof document !== 'undefined' && relayRecoveryVisibilityHandler) {
+		document.removeEventListener('visibilitychange', relayRecoveryVisibilityHandler);
+		relayRecoveryVisibilityHandler = null;
+	}
 	if (pool) {
 		pool.close([...new Set([ZAPSTORE_RELAY, VERTEXLAB_RELAY])]);
 		pool = null;

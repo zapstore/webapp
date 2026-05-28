@@ -15,8 +15,6 @@ import SeoHead from "$lib/components/layout/SeoHead.svelte";
 import { browser } from "$app/environment";
 import { beforeNavigate, goto } from "$app/navigation";
 import {
-	fetchProfilesBatch,
-	queryEvent,
 	parseComment,
 	publishComment,
 	parseZapReceipt,
@@ -343,25 +341,6 @@ async function handleCommentSubmit(event) {
         parsed.npub = nip19.npubEncode(signed.pubkey);
         comments = comments.filter((c) => c.id !== tempId);
         comments = [...comments, parsed];
-        // Ensure current user's profile is loaded for the new comment
-        if (!profiles[userPubkey]) {
-            try {
-                const existing = await queryEvent({ kinds: [0], authors: [userPubkey], limit: 1 });
-                if (existing?.content) {
-                    const c = JSON.parse(existing.content);
-                    profiles = { ...profiles, [userPubkey]: { displayName: c.display_name ?? c.displayName, name: c.name, picture: c.picture } };
-                } else {
-                    const batch = await fetchProfilesBatch([userPubkey], { timeout: 3000 });
-                    const ev = batch.get(userPubkey);
-                    if (ev?.content) {
-                        const c = JSON.parse(ev.content);
-                        profiles = { ...profiles, [userPubkey]: { displayName: c.display_name ?? c.displayName, name: c.name, picture: c.picture } };
-                    }
-                }
-            } catch (_err) {
-                /* ignore parse errors */
-            }
-        }
     }
     catch (err) {
         console.error("Failed to publish comment:", err);

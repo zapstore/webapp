@@ -13,7 +13,7 @@
 		EVENT_KINDS,
 		FORUM_RELAY
 	} from '$lib/config.js';
-	import { fetchFromRelays, queryEvents, putEvents } from '$lib/purpleweb';
+	import { loadZapstoreCommunityEvent } from '$lib/purpleweb';
 	import CommunityForumShell from '$lib/components/community/CommunityForumShell.svelte';
 	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
@@ -46,20 +46,7 @@
 
 		(async () => {
 			try {
-				let [ev] = await queryEvents({
-					kinds: [EVENT_KINDS.COMMUNITY],
-					authors: [ZAPSTORE_COMMUNITY_PUBKEY],
-					limit: 1
-				});
-				if (!ev) {
-					const evs = await fetchFromRelays(
-						[FORUM_RELAY],
-						{ kinds: [EVENT_KINDS.COMMUNITY], authors: [ZAPSTORE_COMMUNITY_PUBKEY], limit: 1 },
-						{ timeout: 5000, feature: 'community-details' }
-					);
-					ev = evs[0] ?? null;
-					if (ev) await putEvents([ev]);
-				}
+				const ev = await loadZapstoreCommunityEvent();
 				if (!cancelled) communityEvent = ev ?? null;
 			} catch (e) {
 				console.warn('[Community] Details modal load failed:', e);

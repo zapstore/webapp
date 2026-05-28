@@ -15,8 +15,7 @@ import { handleBack } from '$lib/utils/back.js';
 import { cn } from '$lib/utils';
 import { nip19 } from 'nostr-tools';
 import { getCurrentPubkey, connect } from '$lib/stores/auth.svelte.js';
-import { queryEvent, fetchProfile } from '$lib/purpleweb';
-import { parseProfile } from '$lib/nostr/models';
+import { createProfileQuery } from '$lib/purpleweb';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import Timestamp from '$lib/components/common/Timestamp.svelte';
 import { zapstoreProfileStore, ZAPSTORE_PUBKEY, startProfileSearchBackground } from '$lib/services/profile-search';
@@ -78,44 +77,11 @@ let onboardingProfileName = $state('');
 const pubkey = $derived(getCurrentPubkey());
 const _profileHref = $derived(pubkey ? '/profile/' + nip19.npubEncode(pubkey) : '#');
 const isConnected = $derived(pubkey !== null);
-// Current user profile (local-first: EventStore then background fetch) for menu avatar
-let _currentUserProfile = $state(null);
-$effect(() => {
-    const pk = getCurrentPubkey();
-    if (!pk) {
-        _currentUserProfile = null;
-        return;
-    }
-    queryEvent({ kinds: [0], authors: [pk], limit: 1 }).then((ev) => {
-        if (ev?.content) {
-            try {
-                const p = parseProfile(ev);
-                _currentUserProfile = {
-                    picture: p.picture ?? '',
-                    name: p.displayName ?? p.name ?? ''
-                };
-            }
-            catch {
-                _currentUserProfile = null;
-            }
-        } else {
-            _currentUserProfile = null;
-        }
-    }).catch(() => { _currentUserProfile = null; });
-    fetchProfile(pk).then((e) => {
-        if (e?.content) {
-            try {
-                const p = parseProfile(e);
-                _currentUserProfile = {
-                    picture: p.picture ?? '',
-                    name: p.displayName ?? p.name ?? ''
-                };
-            }
-            catch {
-                // keep existing
-            }
-        }
-    });
+// Current user profile (Dexie liveQuery + purpleweb background hydration) for menu avatar
+const currentUserProfileQuery = createProfileQuery(() => pubkey);
+const _currentUserProfile = $derived.by(() => {
+    const p = currentUserProfileQuery.profile;
+    return p ? { picture: p.picture ?? '', name: p.displayName ?? p.name ?? '' } : null;
 });
 function handleClickOutside(event) {
     const target = event.target;

@@ -24,7 +24,7 @@
 		Check
 	} from '$lib/components/icons';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
-	import { queryEvent, publishTopicLabelOnEvent, publishDeletionRequest } from '$lib/purpleweb';
+	import { loadEventWithAuthorProfile, publishTopicLabelOnEvent, publishDeletionRequest } from '$lib/purpleweb';
 	import { EVENT_KINDS, FORUM_CATEGORIES, SITE_URL, COMMENT_PUBLISH_RELAYS } from '$lib/config.js';
 	import { getIsSignedIn, getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 
@@ -287,7 +287,7 @@
 		if (isZapPreview) {
 			// Could be a z-wrapper (kind 1111 + z-tag) or a real zap receipt (kind 9735).
 			// Look up the event from Dexie to decide.
-			const ev = await queryEvent({ ids: [id] });
+			const { event: ev } = await loadEventWithAuthorProfile(id);
 			const zTag = ev?.tags?.find((t) => t[0] === 'z' && typeof t[1] === 'string' && t[1]);
 			if (zTag) {
 				// Z-wrapper comment: delete both the wrapper (1111) and the underlying receipt (9735).
@@ -349,9 +349,9 @@
 		detailsLoading = true;
 		detailsEvent = null;
 		let cancelled = false;
-		queryEvent({ ids: [targetEventId.trim()] })
-			.then((ev) => {
-				if (!cancelled) detailsEvent = ev ?? null;
+		loadEventWithAuthorProfile(targetEventId.trim())
+			.then(({ event }) => {
+				if (!cancelled) detailsEvent = event ?? null;
 			})
 			.catch(() => {
 				if (!cancelled) detailsEvent = null;

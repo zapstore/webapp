@@ -6,7 +6,7 @@
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import { Zap, Send } from '$lib/components/icons';
-	import { fetchZapReceiptsByPubkeys, parseZapReceipt, fetchProfile } from '$lib/purpleweb';
+	import { createProfilesQuery, fetchZapReceiptsByPubkeys, parseZapReceipt } from '$lib/purpleweb';
 	import {
 		hexToColor,
 		stringToColor,
@@ -305,6 +305,34 @@
 		})()
 	);
 
+	let candidateZapperPubkeys = $state(/** @type {string[]} */ ([]));
+	const candidateZapperProfiles = createProfilesQuery(() => candidateZapperPubkeys);
+
+	function buildTopZappersFromProfiles() {
+		const list = [];
+		for (const pubkey of candidateZapperPubkeys) {
+			if (list.length >= ZAPPER_SLOT_COUNT) break;
+			const profile = candidateZapperProfiles.profiles[pubkey.toLowerCase()];
+			const name =
+				(profile?.displayName ?? profile?.name ?? '').trim() ||
+				(profile?.nip05 ? String(profile.nip05).split('@')[0] : '') ||
+				'';
+			const image = profile?.picture && String(profile.picture).trim() ? profile.picture : null;
+			// Only include zappers with real identity (name or picture), no anons/empty
+			if ((name && name.trim() && name !== 'Supporter') || image) {
+				list.push({ name, image, pubkey });
+			}
+		}
+		return list;
+	}
+
+	$effect(() => {
+		if (candidateZapperPubkeys.length === 0) return;
+		void candidateZapperProfiles.profileMap;
+		topZappers = buildTopZappersFromProfiles();
+		if (!candidateZapperProfiles.loading) isLoading = false;
+	});
+
 	if (browser) {
 		onMount(async () => {
 			isLoading = true;
@@ -330,36 +358,12 @@
 					.filter(([pubkey]) => !excludedPubkeys.has(pubkey))
 					.map(([pubkey]) => pubkey);
 
-				const list = [];
-				for (const pubkey of sortedPubkeys) {
-					if (list.length >= ZAPPER_SLOT_COUNT) break;
-
-					let name = '';
-					let image = null;
-					try {
-						const ev = await fetchProfile(pubkey);
-						if (ev?.content) {
-							const c = JSON.parse(ev.content);
-							name =
-								(c.display_name ?? c.name ?? '').trim() ||
-								(c.nip05 ? String(c.nip05).split('@')[0] : '') ||
-								'';
-							image = c.picture && String(c.picture).trim() ? c.picture : null;
-						}
-					} catch {
-						// skip profile fetch failures and try next candidate
-					}
-
-					// Only include zappers with real identity (name or picture), no anons/empty
-					if ((name && name.trim() && name !== 'Supporter') || image) {
-						list.push({ name, image, pubkey });
-					}
-				}
-				topZappers = list;
+				candidateZapperPubkeys = sortedPubkeys.slice(0, Math.max(ZAPPER_SLOT_COUNT * 4, ZAPPER_SLOT_COUNT));
 			} catch (err) {
 				console.error('[TeamSection] Failed to load top zappers:', err);
-			} finally {
 				isLoading = false;
+			} finally {
+				if (candidateZapperPubkeys.length === 0) isLoading = false;
 			}
 		});
 	} else {

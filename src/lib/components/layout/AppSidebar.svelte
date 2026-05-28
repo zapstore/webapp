@@ -8,8 +8,7 @@
 	import { LogOut, User, Search } from 'lucide-svelte';
 	import { nip19 } from 'nostr-tools';
 	import { getCurrentPubkey, signOut } from '$lib/stores/auth.svelte.js';
-	import { queryEvent, fetchProfile } from '$lib/purpleweb';
-	import { parseProfile } from '$lib/nostr/models';
+	import { createProfileQuery } from '$lib/purpleweb';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import {
 		SIGNAL_DEV_SUPPORT_GROUP_URL,
@@ -23,36 +22,12 @@
 	const isConnected = $derived(pubkey !== null);
 	const profileHref = $derived(pubkey ? '/profile/' + nip19.npubEncode(pubkey) : null);
 
-	let userProfile = $state(null);
-	let profileDropdownOpen = $state(false);
-
-	$effect(() => {
-		const pk = getCurrentPubkey();
-		if (!pk) {
-			userProfile = null;
-			return;
-		}
-		queryEvent({ kinds: [0], authors: [pk], limit: 1 }).then((ev) => {
-			if (ev?.content) {
-				try {
-					const p = parseProfile(ev);
-					userProfile = { picture: p.picture ?? '', name: p.displayName ?? p.name ?? '' };
-				} catch {
-					userProfile = null;
-				}
-			}
-		});
-		fetchProfile(pk).then((e) => {
-			if (e?.content) {
-				try {
-					const p = parseProfile(e);
-					userProfile = { picture: p.picture ?? '', name: p.displayName ?? p.name ?? '' };
-				} catch {
-					// keep existing
-				}
-			}
-		});
+	const userProfileQuery = createProfileQuery(() => pubkey);
+	const userProfile = $derived.by(() => {
+		const p = userProfileQuery.profile;
+		return p ? { picture: p.picture ?? '', name: p.displayName ?? p.name ?? '' } : null;
 	});
+	let profileDropdownOpen = $state(false);
 
 	function toggleProfileDropdown(e) {
 		e.stopPropagation();

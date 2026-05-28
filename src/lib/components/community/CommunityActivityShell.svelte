@@ -1,4 +1,5 @@
 <script lang="js">
+	/* eslint-disable svelte/prefer-svelte-reactivity -- this file uses many local Map/Set workspaces for batch event resolution, not component state */
 	/**
 	 * Activity: local-first from Dexie. Relay `since` is unified via {@link activityRelaySince}.
 	 * **Activity tab** list: kind **1111** only (plain comments + z-wrappers); no bulk 9735 in the feed.
@@ -38,7 +39,6 @@
 		findEnclosingZapReceiptForComment
 	} from '$lib/nostr/zap-thread.js';
 	import {
-		parseProfile,
 		parseApp,
 		parseAppStack,
 		parseForumPost,
@@ -359,7 +359,6 @@
 
 	/** First-seen time per root key while event still missing (not reactive UI state). */
 	/** @type {Map<string, number>} */
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- module-local timer bookkeeping
 	const activityRootWaitSince = new Map();
 
 	/**
@@ -426,7 +425,6 @@
 	) {
 		const now = Date.now();
 		/** @type {Map<string, 'forum' | 'app' | 'stack'>} */
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- ephemeral merge set
 		const needed = new Map();
 		for (const c of comments) {
 			const meta = activityRootKeyMetaFromComment(c);
@@ -464,7 +462,6 @@
 			if (!needed.has(k)) activityRootWaitSince.delete(k);
 		}
 		/** @type {Map<string, 'forum' | 'app' | 'stack'>} */
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- ephemeral result
 		const out = new Map();
 		for (const [k, kind] of needed) {
 			const since = activityRootWaitSince.get(k) ?? now;
@@ -2488,7 +2485,6 @@
 								? (activityRootDeletedByKey.get(rootMeta.key) ?? null)
 								: null}
 							{@const rootBadgeSkeleton = !rootEvent && expectsActivityRoot && !deletedRootKind}
-							<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 							<div
 								class="activity-item"
 								role="button"
@@ -2645,7 +2641,6 @@
 								? (activityRootDeletedByKey.get(rootMetaZap.key) ?? null)
 								: null}
 							{@const rootBadgeSkeletonZap = !rootEventZ && zapExpectsRoot && !deletedRootKindZap}
-							<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 							<div
 								class="activity-item"
 								role="button"
