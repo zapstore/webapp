@@ -1,84 +1,162 @@
 ---
-title: FAQ
+title: Developer FAQ
+description: Developer FAQ for publishing apps on Zapstore with zsp, APK signing, Nostr verification, relay publishing, and troubleshooting.
 weight: 99
 ---
 
-## General
+Looking for install, safety, and everyday use? See the [Community FAQ](/community/faq).
+
+## Basics
 
 ### What is Zapstore?
 
-Zapstore is an open Android app store built on Nostr. Apps are discovered through your social graph, releases are cryptographically verified, and developers can receive Bitcoin payments directly from users.
+Zapstore is an open Android app store built on Nostr. Developers publish signed release metadata to relays; users discover apps, verify publishers, and install APKs from the original sources.
 
-### How is Zapstore different from Google Play?
+New to the project? Start with the [quickstart](/docs/quickstart).
 
-Zapstore has no central gatekeeper. Trust comes from cryptographic signatures, social context, and reputation instead of a single platform operator.
-Developers receive payments directly. No ads, no forced tracking, and no platform cut.
+### Who is Zapstore for?
 
-### Is Zapstore open source?
+Anyone shipping Android APKs outside Google Play: indie developers, FOSS projects, and teams that want permissionless distribution with cryptographic identity and community curation.
 
-Yes. The app and publishing tooling are open source. You can review the code on [GitHub](https://github.com/zapstore/zapstore).
+### Is Zapstore only for Nostr apps?
 
----
-
-## For Users
-
-### How do I install Zapstore?
-
-Download the APK from [zapstore.dev](/) and install it on Android (10+, arm64). You may need to allow installs from unknown sources.
-
-### How does social discovery work?
-
-Zapstore uses your Nostr social graph. While browsing, you can see usage and recommendations from people you follow, which helps surface useful apps without paid ranking systems.
-
-### Are apps on Zapstore safe?
-
-Apps are signed by developers, and signatures are verified before install, so you can confirm who published a release.
-Zapstore is still permissionless, so use normal software safety habits: check developer reputation, read community feedback, and prefer developers you trust.
-
-### How do I suggest an app for the store?
-
-Search for the full repository URL (e.g. `https://github.com/user/repo`). If the app is in the store it will be returned, otherwise search miss is recorded and the repository is queued for background indexing. The repository **must have releases with APK files**, make sure you check `/releases` or similar before requesting it. If it has valid APK releases, it should appear shortly. Otherwise it will be ignored.
-
-### How do I support developers?
-
-You can send Bitcoin directly via Lightning zaps through your Nostr identity. No separate account or payment processor is required.
+No. Many listed apps have nothing to do with Nostr. Nostr is the identity and metadata layer; the catalog is for Android apps broadly.
 
 ---
 
-## For Developers
+## Publishing
 
 ### How do I publish an app?
 
-See the [publishing guide](/docs/publish) — the interactive wizard handles source, metadata, signing, and publishing.
+Use [`zsp`](https://github.com/zapstore/zsp), the Zapstore publishing CLI. The full flow is in the [publishing guide](/docs/publish).
 
-### Do I need to pay or register?
+Typical steps:
 
-No. Publishing is free and requires no registration. You need a Nostr keypair to sign your releases. See [getting whitelisted](/docs/publish#getting-whitelisted) for how the relay verifies new developers.
+1. Install `zsp` (see the publish doc).
+2. Add `zapstore.yaml` at your repo root.
+3. Configure signing in `.env` (`SIGN_WITH` as nsec, bunker URL, NIP-07, etc.).
+4. Run `zsp publish` or `zsp publish --wizard`.
+
+Indexed apps from GitHub can also appear when users search for your repo URL, but self-publishing with your own key is the path for full publisher identity and trust signals.
+
+### Does publishing cost money?
+
+No listing fees, no revenue share, no registration fee. Users can zap you over Lightning when your profile supports it; Zapstore does not take a cut today.
+
+### How often can I push updates?
+
+As often as you like. There is no review queue or approval wait. Push a new release when you are ready; users see it after relays index the event.
+
+### Why publish on Zapstore instead of only hosting the APK?
+
+You keep direct distribution, and you gain discovery (search, stacks, community), update notifications for Zapstore users, a link between your Nostr identity and your APK signing key, and optional Lightning tips from the app page.
+
+### Can I publish an app that is already on GitHub, Play, or F-Droid?
+
+Yes. Many apps are indexed from GitHub releases or self-published with `zsp`. Play and F-Droid are separate channels; Zapstore is another distribution path, not a replacement you must choose exclusively.
+
+### What is the difference between self-published and indexed apps?
+
+**Self-published** means you (or your project) signed and published the catalog event with your Nostr key.
+
+**Indexed** means Zapstore’s indexer signed an event pointing at an APK on an upstream source (often GitHub). The APK is still downloaded from that original URL, which the app page should show.
+
+Both are valid. Self-publishing gives the strongest publisher identity; indexing helps apps appear before the developer has run `zsp`.
+
+---
+
+## Signing and trust
+
+### How does verification work?
+
+Developers sign release metadata with a Nostr key. Zapstore checks those signatures and, where available, compares APK signing certificates to declarations on the catalog (including linked identity events).
+
+On install, the client uses publisher data and OS-level certificate rules. See the [trust model](/docs/trust-model) for relay rules, rejection cases, and certificate linking (NIP-C1).
+
+### What does my Nostr key sign?
+
+Your key signs Nostr catalog events (app metadata, releases, stacks, etc.). It does not replace the APK’s Android signing certificate. Both matter: Nostr for who published the listing, Android for what can update on the device.
+
+### What happens if my app signing key changes?
+
+Android will refuse updates signed with a different key than the installed app. If you rotate keys, users may need to uninstall and reinstall, and you should update certificate linking in `zsp` so metadata matches the new APK.
+
+### How does Zapstore handle impersonation or duplicate listings?
+
+Open catalogs can have name collisions. Zapstore surfaces publisher identity, source URLs, and social trust signals. Users should compare pubkey, source, and whether the real developer self-published.
+
+If you published from the wrong key, you can delete the bad event with [NIP-09](https://github.com/nostr-protocol/nips/blob/master/09.md) and republish from the correct npub.
+
+### What relays does Zapstore use?
+
+Apps are published to Zapstore’s relay set (configurable in tooling). Clients read from those relays plus any you add. Details and rejection behavior are in the [trust model](/docs/trust-model).
+
+---
+
+## Publishing issues
+
+### My npub was rejected when publishing. What do I do?
+
+New npubs are sometimes flagged automatically. Add a `pubkey` field with your npub to `zapstore.yaml` at the repository root (committed to the repo). You should not need manual whitelisting for that case.
+
+See [getting whitelisted](/docs/publish#getting-whitelisted) for how the relay verifies developers.
 
 ### What if the relay rejects my event?
 
-See [What happens if your event is rejected](/docs/trust-model#what-happens-if-your-event-is-rejected) in the Trust model.
+Check signature, kind, required tags, APK URL, and whitelist rules. The [trust model](/docs/trust-model#what-happens-if-your-event-is-rejected) walks through common rejection reasons.
 
-### How do I receive payments?
+### I published from the wrong npub. Can I delete it?
 
-Add a Lightning address to your Nostr profile. Users can zap you in the app, and you receive 100% of each payment.
+Yes. Send a NIP-09 deletion event for the incorrect release from that pubkey, then publish again from the correct key.
+
+### My app does not appear in search. What should I check?
+
+Confirm the event reached relays, the app is not deleted, and metadata (name, package id) is correct. For GitHub indexing, ensure releases include a valid APK asset. Allow a few minutes after publish.
+
+### My APK was not detected. What should I check?
+
+Release must attach an `.apk` (or pattern your `zapstore.yaml` assets cover). Private repos need tokens configured in `zsp`. Wrong repo URL or empty releases are the usual causes.
+
+### My metadata looks wrong. How do I fix it?
+
+Republish with corrected `zapstore.yaml` and release tags. If you linked the wrong signing certificate, use `zsp identity` flows described in `zsp` release notes and the trust model doc.
+
+---
+
+## Growth and payments
+
+### How do users find my app?
+
+Search, stacks, social graph signals, deep links to your app page, and badges on your site pointing to Zapstore.
+
+### Can I add a “Get it on Zapstore” badge?
+
+Yes. Use assets and guidelines on the [assets page](/assets).
+
+### How do zaps work for developers?
+
+Add a Lightning address to your Nostr profile. Users with a wallet connected via NWC can zap from the app page. Payments go to you directly.
+
+### Can I see download or impression stats?
+
+Check current studio and docs for analytics features as they ship; this FAQ does not list every metric. Ask on developer support channels if you need something specific.
 
 ---
 
 ## Technical
 
-### What is Nostr?
+### What is Nostr’s role?
 
-Nostr is an open protocol for decentralized social networking. Zapstore uses it for identity, app metadata distribution via relays, and social features like follows and zaps.
+Identity, signed catalog events, relays, follows, and zaps. [nostr.com](https://nostr.com) explains the protocol.
 
-Learn more at [nostr.com](https://nostr.com).
+### How do I receive payments?
 
-### How does verification work?
+Lightning address on your profile; users zap in the client. No Zapstore payment processor in the middle.
 
-Developers sign releases with their Nostr key, and that signature is published with release metadata. On install, Zapstore verifies the signature against the developer pubkey.
-This confirms provenance and helps detect tampering.
+---
 
-### What relays does Zapstore use?
+## Developer support
 
-Zapstore reads from and publishes to a default relay set, and you can configure additional relays.
-Because relay infrastructure is decentralized, there is no single point of failure.
+### Where do I get help?
+
+[Developer support on Signal](/community/support) (developer group), [GitHub issues](https://github.com/zapstore/zapstore/issues), and Nostr. For end-user install and safety questions, point people to the [Community FAQ](/community/faq).

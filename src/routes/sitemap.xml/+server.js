@@ -39,6 +39,7 @@ const STATIC_ROUTES = [
 	{ path: '/community', priority: '0.7', changefreq: 'weekly' },
 	{ path: '/community/forum', priority: '0.7', changefreq: 'daily' },
 	{ path: '/community/support', priority: '0.5', changefreq: 'monthly' },
+	{ path: '/community/faq', priority: '0.7', changefreq: 'monthly' },
 	{ path: '/blog', priority: '0.7', changefreq: 'weekly' },
 	{ path: '/docs', priority: '0.8', changefreq: 'weekly' },
 	{ path: '/assets', priority: '0.5', changefreq: 'yearly' },
