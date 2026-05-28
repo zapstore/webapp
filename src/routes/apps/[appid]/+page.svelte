@@ -43,8 +43,7 @@
 		ChevronDown
 	} from '$lib/components/icons';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
-	import { createAppDetailQuery } from '$lib/purpleweb/svelte/app-detail.svelte.js';
-	import { createAppSocialQuery } from '$lib/purpleweb/svelte/social.svelte.js';
+	import { createAppDetailQuery, createAppSocialQuery } from '$lib/purpleweb';
 	import '$lib/styles/bordered-detail-column.css';
 let { data } = $props();
 const appid = $derived($page.params.appid ?? '');

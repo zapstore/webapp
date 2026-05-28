@@ -173,6 +173,7 @@
 		.mobile-nav {
 			display: block;
 			position: relative;
+			z-index: 90;
 			flex-shrink: 0;
 		}
 

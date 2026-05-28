@@ -6,11 +6,10 @@
 	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
-	import { createStacksListingQuery, stackListingPreviewKey } from '$lib/purpleweb';
+	import { createProfilesQuery, createStacksListingQuery, stackListingPreviewKey } from '$lib/purpleweb';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { nip19 } from 'nostr-tools';
-	import { fetchProfilesBatch } from '$lib/purpleweb';
-	import { parseProfile, encodeStackNaddr } from '$lib/nostr/models';
+	import { encodeStackNaddr } from '$lib/nostr/models';
 	import '$lib/styles/browse-grid.css';
 
 	const SCROLL_THRESHOLD = 800;
@@ -30,6 +29,10 @@
 	let resolvedStacks = $state(getCached('stacks:resolved') ?? []);
 	let loading = $state(!getCached('stacks:resolved'));
 	let resolvedStackKeys = $state('');
+	const creatorPubkeys = $derived(
+		[...new Set((liveStacks ?? []).map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk)))]
+	);
+	const creatorProfiles = createProfilesQuery(() => creatorPubkeys);
 
 	const stacksGridTwoCol = $derived(
 		loading && resolvedStacks.length === 0 ? SKELETON_COUNT > 1 : resolvedStacks.length > 1
@@ -66,63 +69,42 @@
 		return naddr ? `/stacks/${naddr}` : '#';
 	}
 
-	// Fetch creator profiles when liveQuery stacks change
-	async function resolveCreators(stacksWithApps) {
+	function stackRows(stacksWithApps) {
+		return stacksWithApps.map(({ stack, apps: stackApps }) => {
+			let creator = undefined;
+			if (isHexPubkey(stack.pubkey)) {
+				const profile = creatorProfiles.profiles[stack.pubkey.toLowerCase()];
+				if (profile) {
+					creator = {
+						name: profile.displayName || profile.name,
+						picture: profile.picture,
+						pubkey: stack.pubkey,
+						npub: safeNpub(stack.pubkey)
+					};
+				}
+			}
+			return {
+				name: stack.title,
+				description: stack.description,
+				apps: stackApps,
+				creator,
+				pubkey: stack.pubkey,
+				dTag: stack.dTag
+			};
+		});
+	}
+
+	// Resolve creator profiles reactively from Dexie via purpleweb.
+	function resolveCreators(stacksWithApps) {
 		if (!browser) return;
 		if (stacksWithApps.length === 0) {
 			loading = false;
 			return;
 		}
 		loading = true;
-
-		// Sync preview apps immediately when Dexie backfill lands; profiles follow async.
-		resolvedStacks = stacksWithApps.map(({ stack, apps: stackApps }) => {
-			const prev = resolvedStacks.find((s) => s.pubkey === stack.pubkey && s.dTag === stack.dTag);
-			return {
-				name: stack.title,
-				description: stack.description,
-				apps: stackApps,
-				creator: prev?.creator,
-				pubkey: stack.pubkey,
-				dTag: stack.dTag
-			};
-		});
+		resolvedStacks = stackRows(stacksWithApps);
 		setCached('stacks:resolved', resolvedStacks);
-
-		try {
-			const creatorPubkeys = [
-				...new Set(stacksWithApps.map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk)))
-			];
-			const creatorEvents = await fetchProfilesBatch(creatorPubkeys);
-			resolvedStacks = stacksWithApps.map(({ stack, apps: stackApps }) => {
-				let creator = undefined;
-				if (isHexPubkey(stack.pubkey)) {
-					const profileEvent = creatorEvents.get(stack.pubkey);
-					if (profileEvent) {
-						const profile = parseProfile(profileEvent);
-						creator = {
-							name: profile.displayName || profile.name,
-							picture: profile.picture,
-							pubkey: stack.pubkey,
-							npub: safeNpub(stack.pubkey)
-						};
-					}
-				}
-				return {
-					name: stack.title,
-					description: stack.description,
-					apps: stackApps,
-					creator,
-					pubkey: stack.pubkey,
-					dTag: stack.dTag
-				};
-			});
-			setCached('stacks:resolved', resolvedStacks);
-		} catch (err) {
-			console.error('Error resolving stacks:', err);
-		} finally {
-			loading = false;
-		}
+		loading = false;
 	}
 
 	// Re-resolve creators when liveQuery stacks change
@@ -135,6 +117,12 @@
 			resolvedStackKeys = key;
 			resolveCreators(items);
 		}
+	});
+
+	$effect(() => {
+		if (!browser || !liveStacks) return;
+		void creatorProfiles.profileMap;
+		resolveCreators(liveStacks);
 	});
 
 	let scrollContainer = null;

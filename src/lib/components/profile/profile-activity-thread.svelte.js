@@ -2,6 +2,7 @@
  * Activity thread modals for profile pages — same openThread / zap-thread behavior as
  * CommunityActivityShell (forum E-tag roots, app/stack A-tag roots, zap modals).
  */
+/* eslint-disable svelte/prefer-svelte-reactivity -- local Set workspaces here are short-lived batch/dedupe helpers, not component state */
 import { SvelteMap } from 'svelte/reactivity';
 import { nip19 } from 'nostr-tools';
 import {
@@ -216,7 +217,7 @@ export function createProfileActivityThreadModal(getActivity, getSignEvent) {
 		return fetched[0] ?? null;
 	}
 
-	async function buildZapMap(postId, aRoot, commentMap) {
+	async function buildZapMap(postId, aRoot, _commentMap) {
 		const zmap = new SvelteMap();
 		if (postId) {
 			const [lo, up] = await Promise.all([

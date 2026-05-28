@@ -12,14 +12,15 @@
 	import { APP_SEARCH_HIT_SKELETON_VARIANT_COUNT } from '$lib/components/cards/app-search-hit-skeleton-presets.js';
 	import {
 		createAppsListingQuery,
+		createProfilesQuery,
 		createStacksListingQuery,
 		stackListingPreviewKey
 	} from '$lib/purpleweb';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
-	import { searchApps, fetchProfilesBatch } from '$lib/purpleweb';
+	import { searchApps } from '$lib/purpleweb';
 	import { ZAPSTORE_RELAY, ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
 	import { nip19 } from 'nostr-tools';
-	import { isZapstoreCommunityAuthorStack, parseApp, parseProfile, encodeStackNaddr } from '$lib/nostr/models';
+	import { isZapstoreCommunityAuthorStack, parseApp, encodeStackNaddr } from '$lib/nostr/models';
 	import { sortAppsRelevanceDeveloperFirst } from '$lib/utils/app-search.js';
 	import { isOnline } from '$lib/stores/online.svelte.js';
 	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
@@ -49,7 +50,6 @@
 	let sortDropdownOpen = $state(false);
 	let sortDropdownWrap = $state(/** @type {HTMLDivElement | null} */ (null));
 	let searchParsedApps = $state(/** @type {ReturnType<typeof parseApp>[] | null} */ null);
-	let searchProfileByLc = $state(/** @type {Record<string, ReturnType<typeof parseProfile> | null>} */ ({}));
 	let searchLoading = $state(false);
 	let searchError = $state(/** @type {string|null} */ (null));
 	let lastSyncedUrlQ = $state('');
@@ -70,6 +70,15 @@
 	let resolvedDisplayStacks = $state(getCached('apps:resolvedStacks') ?? []);
 	let stacksSettled = $state((getCached('apps:resolvedStacks') ?? []).length > 0);
 	let resolvedStackKeys = $state('');
+	let resolvedDisplayStacksKey = $state('');
+	const stackCreatorPubkeys = $derived(
+		[
+			...new Set(
+				(stacksListing.items ?? []).map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk))
+			)
+		]
+	);
+	const stackCreatorProfiles = createProfilesQuery(() => stackCreatorPubkeys);
 
 	/** @type {{ scroll: (direction: number) => void } | null} */
 	let releasesCarousel = $state(null);
@@ -162,6 +171,12 @@
 	});
 
 	$effect(() => {
+		if (!browser || rawStacks.length === 0) return;
+		void stackCreatorProfiles.profileMap;
+		resolveCreatorsForStacks(rawStacks);
+	});
+
+	$effect(() => {
 		if (!browser || showSearchResults) return;
 		sortDropdownOpen = false;
 		const t = window.setTimeout(focusSearchInput, 50);
@@ -188,6 +203,18 @@
 		const apps = searchParsedApps;
 		if (apps === null) return null;
 		return sortAppsRelevanceDeveloperFirst(apps);
+	});
+	const searchProfilePubkeys = $derived(
+		orderedApps ? [...new Set(orderedApps.map((app) => app.pubkey).filter(Boolean))] : []
+	);
+	const searchProfiles = createProfilesQuery(() => searchProfilePubkeys);
+	const searchProfileByLc = $derived.by(() => {
+		const out = /** @type {Record<string, unknown | null>} */ ({});
+		for (const pk of searchProfilePubkeys) {
+			out[String(pk).trim().toLowerCase()] =
+				searchProfiles.profiles[String(pk).trim().toLowerCase()] ?? null;
+		}
+		return out;
 	});
 
 	const resultRows = $derived.by(() => {
@@ -227,13 +254,11 @@
 		if (!q) {
 			searchLoading = false;
 			searchParsedApps = null;
-			searchProfileByLc = {};
 			return;
 		}
 
 		searchLoading = true;
 		searchParsedApps = null;
-		searchProfileByLc = {};
 
 		if (!isOnline()) {
 			searchLoading = false;
@@ -253,22 +278,11 @@
 					});
 					if (aborted || ac.signal.aborted) return;
 					const apps = events.map(parseApp);
-					const pubs = [...new Set(apps.map((a) => a.pubkey))];
-					const rawProfiles = await fetchProfilesBatch(pubs, { signal: ac.signal });
-					if (aborted || ac.signal.aborted) return;
-					const byLc = /** @type {Record<string, ReturnType<typeof parseProfile> | null>} */ ({});
-					for (const [pk, ev] of rawProfiles) {
-						byLc[String(pk).trim().toLowerCase()] = parseProfile(ev);
-					}
-					searchProfileByLc = Object.fromEntries(
-						pubs.map((pk) => [String(pk).trim().toLowerCase(), byLc[String(pk).trim().toLowerCase()] ?? null])
-					);
 					searchParsedApps = apps;
 				} catch {
 					if (!aborted && !ac.signal.aborted) {
 						searchError = 'Search failed. Try again.';
 						searchParsedApps = [];
-						searchProfileByLc = {};
 					}
 				} finally {
 					if (!aborted && !ac.signal.aborted) searchLoading = false;
@@ -351,59 +365,60 @@
 		return naddr ? `/stacks/${naddr}` : '#';
 	}
 
-	async function resolveCreatorsForStacks(stacksWithApps) {
-		if (!browser || stacksWithApps.length === 0) return;
-
-		// Sync preview apps immediately when Dexie backfill lands; profiles follow async.
-		resolvedDisplayStacks = stacksWithApps.map(({ stack, apps: stackApps }) => {
-			const prev = resolvedDisplayStacks.find(
-				(s) => s.pubkey === stack.pubkey && s.dTag === stack.dTag
-			);
+	function rowsForStacks(stacksWithApps) {
+		return stacksWithApps.map(({ stack, apps: stackApps }) => {
+			let creator = undefined;
+			if (isHexPubkey(stack.pubkey)) {
+				const profile = stackCreatorProfiles.profiles[stack.pubkey.toLowerCase()];
+				if (profile) {
+					creator = {
+						name: profile.displayName || profile.name,
+						picture: profile.picture,
+						pubkey: stack.pubkey,
+						npub: safeNpub(stack.pubkey)
+					};
+				}
+			}
 			return {
 				name: stack.title,
 				description: stack.description,
 				apps: stackApps,
-				creator: prev?.creator,
+				creator,
 				pubkey: stack.pubkey,
 				dTag: stack.dTag
 			};
 		});
-		setCached('apps:resolvedStacks', resolvedDisplayStacks);
+	}
 
-		try {
-			const creatorPubkeys = [
-				...new Set(stacksWithApps.map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk)))
-			];
-			const creatorEvents = await fetchProfilesBatch(creatorPubkeys);
-			resolvedDisplayStacks = stacksWithApps.map(({ stack, apps: stackApps }) => {
-				let creator = undefined;
-				if (isHexPubkey(stack.pubkey)) {
-					const profileEvent = creatorEvents.get(stack.pubkey);
-					if (profileEvent) {
-						const profile = parseProfile(profileEvent);
-						creator = {
-							name: profile.displayName || profile.name,
-							picture: profile.picture,
-							pubkey: stack.pubkey,
-							npub: safeNpub(stack.pubkey)
-						};
-					}
-				}
-				return {
-					name: stack.title,
-					description: stack.description,
-					apps: stackApps,
-					creator,
-					pubkey: stack.pubkey,
-					dTag: stack.dTag
-				};
-			});
-			setCached('apps:resolvedStacks', resolvedDisplayStacks);
-		} catch (err) {
-			console.error('[AppsPage] Error resolving stack creators:', err);
-		} finally {
-			stacksSettled = true;
-		}
+	function resolvedStacksKey(rows) {
+		return rows
+			.map((row) => {
+				const appsKey = (row.apps ?? [])
+					.map((app) => app.id ?? app.dTag ?? app.name ?? '')
+					.join(',');
+				return [
+					row.pubkey ?? '',
+					row.dTag ?? '',
+					row.name ?? '',
+					row.description ?? '',
+					appsKey,
+					row.creator?.name ?? '',
+					row.creator?.picture ?? '',
+					row.creator?.npub ?? ''
+				].join(':');
+			})
+			.join('|');
+	}
+
+	function resolveCreatorsForStacks(stacksWithApps) {
+		if (!browser || stacksWithApps.length === 0) return;
+		const nextRows = rowsForStacks(stacksWithApps);
+		const nextKey = resolvedStacksKey(nextRows);
+		if (stacksSettled && nextKey === resolvedDisplayStacksKey) return;
+		resolvedDisplayStacksKey = nextKey;
+		resolvedDisplayStacks = nextRows;
+		setCached('apps:resolvedStacks', nextRows);
+		stacksSettled = true;
 	}
 
 	onMount(async () => {

@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import { liveQuery } from 'dexie';
+import { untrack } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { putEvents } from '../storage/dexie.js';
 import { hydrateFilters } from '../sync/hydrate.js';
@@ -114,9 +115,10 @@ export function createListingQuery(config) {
 				: Promise.resolve();
 
 		try {
+			const items = untrack(() => state.items);
 			hydrate?.({
 				input,
-				items: /** @type {any} */ (state.items),
+				items: /** @type {any} */ (items),
 				hydrateOnce
 			});
 		} catch (err) {

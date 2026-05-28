@@ -58,6 +58,8 @@ export async function clearLocalData() {
 	resetStacksListingSession();
 	const { clearListingCache } = await import('./svelte/createListingQuery.svelte.js');
 	clearListingCache('stacks');
+	clearListingCache('stacks:all');
+	clearListingCache('stacks:community');
 	await clearDexieStorage();
 }
 
@@ -154,6 +156,23 @@ export {
 	subscribeToZapReceipt,
 	fetchZapReceiptFallback
 } from './sync/zap.js';
+export { loadZapAppData } from './sync/studio-zaps.js';
+export {
+	clearProfileSearchCache,
+	createProfileSearch,
+	createSearchProfilesFunction,
+	getProfileSearch,
+	startProfileSearchBackground,
+	ZAPSTORE_PUBKEY,
+	zapstoreProfileStore
+} from './sync/profile-search.js';
+export {
+	KIND_EMOJI_SET,
+	KIND_USER_EMOJI_LIST,
+	loadCustomEmojiEventsForUser
+} from './sync/emoji-search.js';
+export { loadArtifactMetadataEvents } from './sync/artifacts.js';
+export { loadEventWithAuthorProfile, loadSocialDetailsData } from './sync/details.js';
 
 // ============================================================================
 // Svelte query primitives & per-kind page wrappers
@@ -164,7 +183,17 @@ export { createAppDetailQuery } from './svelte/app-detail.svelte.js';
 export { createStackDetailQuery } from './svelte/stack-detail.svelte.js';
 export { createProfileDetailQuery } from './svelte/profile-detail.svelte.js';
 export { createProfileActivityQuery } from './svelte/profile-activity.svelte.js';
+export { createProfileQuery, createProfilesQuery } from './svelte/profile.svelte.js';
 export { createForumPostQuery } from './svelte/forum-post.svelte.js';
+export { createInboxUnreadQuery } from './svelte/inbox.svelte.js';
+export {
+	createStudioAppsQuery,
+	createStudioStacksQuery,
+	loadStudioIndexerApp,
+	loadStudioStackApps,
+	loadStudioStackForEdit
+} from './svelte/studio.svelte.js';
+export { loadZapstoreCommunityEvent } from './svelte/community.svelte.js';
 
 // Listings — reactive page lists with relay-backed pagination.
 export { createAppsListingQuery } from './svelte/apps-listing.svelte.js';

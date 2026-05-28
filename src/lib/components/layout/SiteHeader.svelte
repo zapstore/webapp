@@ -17,7 +17,6 @@
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
 	import { getCurrentPubkey, getIsConnecting, signOut } from '$lib/stores/auth.svelte.js';
-	import { parseProfile } from '$lib/nostr/models';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 	import SignInModal from '$lib/components/modals/SignInModal.svelte';
@@ -25,8 +24,8 @@
 	import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
 	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED, SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
-	import { SITE_GITHUB, EVENT_KINDS } from '$lib/config.js';
-	import { liveQuery, queryEvent, queryEvents, parseZapReceipt, fetchProfile } from '$lib/purpleweb';
+	import { SITE_GITHUB } from '$lib/config.js';
+	import { createInboxUnreadQuery, createProfileQuery } from '$lib/purpleweb';
 	import UserInboxPopover from '$lib/components/layout/UserInboxPopover.svelte';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 	import {
@@ -56,8 +55,6 @@
 	let onboardingProfileName = $state('');
 	let signInModalOpen = $state(false);
 	let inboxOpen = $state(false);
-	/** Boolean only — never show a numeric badge on the inbox icon. */
-	let headerInboxShowDot = $state(false);
 	// Reactive auth state
 	const pubkey = $derived(getCurrentPubkey());
 	const profileHref = $derived(pubkey ? '/profile/' + nip19.npubEncode(pubkey) : '#');
@@ -80,8 +77,20 @@
 	const isAppsActive = $derived($page.url.pathname === '/apps');
 	const isCommunityActive = $derived($page.url.pathname.startsWith('/community'));
 	const offline = $derived(browser && !isOnline());
-	// Current user profile (local-first: EventStore then background fetch) for header avatar
-	let currentUserProfile = $state(null);
+	// Current user profile (Dexie liveQuery + purpleweb background hydration) for header avatar
+	const currentUserProfileQuery = createProfileQuery(() => pubkey);
+	const currentUserProfile = $derived.by(() => {
+		const p = currentUserProfileQuery.profile;
+		return p ? { picture: p.picture ?? '', name: p.displayName ?? p.name ?? '' } : null;
+	});
+	const inboxUnread = createInboxUnreadQuery(
+		() => pubkey,
+		() => inboxSeenSignal.count,
+		getInboxHeaderOpenedAtSec,
+		readInboxSeenIds
+	);
+	/** Boolean only — never show a numeric badge on the inbox icon. */
+	const headerInboxShowDot = $derived(inboxUnread.hasUnread);
 	// Close Studio/Developers dropdown when landing on the respective page
 	$effect(() => {
 		const p = $page.url.pathname;
@@ -90,64 +99,6 @@
 		}
 	});
 	$effect(() => {
-		if (!browser || !pubkey) {
-			headerInboxShowDot = false;
-			return;
-		}
-		void inboxSeenSignal.count;
-		const obs = liveQuery(async () => {
-			const [c, z] = await Promise.all([
-				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#p': [pubkey], limit: 250 }),
-				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#p': [pubkey], limit: 250 })
-			]);
-			const headerOpenedAt = getInboxHeaderOpenedAtSec(pubkey);
-			const seen = readInboxSeenIds(pubkey);
-			let n = 0;
-			if (headerOpenedAt != null) {
-				for (const ev of c) {
-					if (ev.pubkey === pubkey) continue;
-					if (ev.created_at > headerOpenedAt) n++;
-				}
-				for (const ev of z) {
-					if (!ev.tags?.some((t) => t[0] === 'p' && t[1] === pubkey)) continue;
-					try {
-						const p = parseZapReceipt(ev);
-						if (p.senderPubkey === pubkey) continue;
-						if (ev.created_at > headerOpenedAt) n++;
-					} catch {
-						/* skip */
-					}
-				}
-			} else {
-				for (const ev of c) {
-					if (ev.pubkey === pubkey) continue;
-					if (!seen.has(ev.id)) n++;
-				}
-				for (const ev of z) {
-					if (!ev.tags?.some((t) => t[0] === 'p' && t[1] === pubkey)) continue;
-					try {
-						const p = parseZapReceipt(ev);
-						if (p.senderPubkey === pubkey) continue;
-						if (!seen.has(ev.id)) n++;
-					} catch {
-						/* skip */
-					}
-				}
-			}
-			return n;
-		});
-		const sub = obs.subscribe({
-			next: (v) => {
-				headerInboxShowDot = (v ?? 0) > 0;
-			},
-			error: () => {
-				headerInboxShowDot = false;
-			}
-		});
-		return () => sub.unsubscribe();
-	});
-
-	$effect(() => {
 		if (!browser) return;
 		const link = document.querySelector("link[rel='icon']");
 		if (link) {
@@ -155,42 +106,6 @@
 		}
 	});
 
-	$effect(() => {
-		const pk = getCurrentPubkey();
-		if (!pk) {
-			currentUserProfile = null;
-			return;
-		}
-		// queryEvent is async (Dexie) — check local cache first, then fetch from relays
-		queryEvent({ kinds: [0], authors: [pk], limit: 1 }).then((ev) => {
-			if (ev?.content) {
-				try {
-					const p = parseProfile(ev);
-					currentUserProfile = {
-						picture: p.picture ?? '',
-						name: p.displayName ?? p.name ?? ''
-					};
-				} catch {
-					currentUserProfile = null;
-				}
-			} else {
-				currentUserProfile = null;
-			}
-		});
-		fetchProfile(pk).then((e) => {
-			if (e?.content) {
-				try {
-					const p = parseProfile(e);
-					currentUserProfile = {
-						picture: p.picture ?? '',
-						name: p.displayName ?? p.name ?? ''
-					};
-				} catch {
-					// keep existing
-				}
-			}
-		});
-	});
 	function handleClickOutside(event) {
 		const target = event.target;
 		if (dropdownOpen && !target.closest('.profile-dropdown')) {

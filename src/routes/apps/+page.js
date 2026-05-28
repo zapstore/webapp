@@ -15,9 +15,9 @@ export const prerender = false;
 export const load = async () => {
 	if (browser) return { seedEvents: [] };
 
-	const { fetchApps, fetchZapstoreCommunityStacks } = await import('$lib/purpleweb/server.js');
+	const { fetchAppListingSeedEvents, fetchZapstoreCommunityStacks } = await import('$lib/purpleweb/server.js');
 	const [appEvents, stackEvents] = await Promise.all([
-		fetchApps(DISCOVER_APPS_INITIAL),
+		fetchAppListingSeedEvents(DISCOVER_APPS_INITIAL),
 		fetchZapstoreCommunityStacks(DISCOVER_STACKS_INITIAL)
 	]);
 

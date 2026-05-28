@@ -9,8 +9,8 @@ import { wheelScroll } from '$lib/actions/wheelScroll.js';
 import { goto } from '$app/navigation';
 import { zapstoreProfileStore, ZAPSTORE_PUBKEY } from '$lib/services/profile-search';
 import { ZAPSTORE_RELAY } from '$lib/config';
-import { fetchProfilesBatch, searchApps } from '$lib/purpleweb';
-import { parseApp, parseProfile } from '$lib/nostr/models';
+import { createProfilesQuery, searchApps } from '$lib/purpleweb';
+import { parseApp } from '$lib/nostr/models';
 import AppSearchHitRow from '$lib/components/cards/AppSearchHitRow.svelte';
 import AppSearchHitRowSkeleton from '$lib/components/cards/AppSearchHitRowSkeleton.svelte';
 import { SEARCH_PREVIEW_SKELETON_VARIANTS } from '$lib/components/cards/app-search-hit-skeleton-presets.js';
@@ -83,8 +83,16 @@ const typedQuery = $derived(searchQuery.trim());
 const showLiveResults = $derived(typedQuery.length > 0);
 const offlineForSearch = $derived(browser && !isOnline());
 
-let previewHits = $state(
-	/** @type {{ app: ReturnType<typeof parseApp>; profile: ReturnType<typeof parseProfile> | null | undefined }[]} */ ([])
+let previewApps = $state(/** @type {ReturnType<typeof parseApp>[]} */ ([]));
+const previewProfilePubkeys = $derived([...new Set(previewApps.map((app) => app.pubkey).filter(Boolean))]);
+const previewProfiles = createProfilesQuery(() => previewProfilePubkeys);
+const previewHits = $derived(
+	/** @type {{ app: ReturnType<typeof parseApp>; profile: unknown | null | undefined }[]} */ (
+		previewApps.map((app) => ({
+			app,
+			profile: previewProfiles.profiles[String(app.pubkey).trim().toLowerCase()] ?? null
+		}))
+	)
 );
 let previewLoading = $state(false);
 let previewError = $state(/** @type {string|null} */ (null));
@@ -101,7 +109,7 @@ $effect(() => {
 	}
 	if (!open) {
 		searchQuery = '';
-		previewHits = [];
+		previewApps = [];
 		previewLoading = false;
 		previewError = null;
 	}
@@ -113,13 +121,13 @@ $effect(() => {
 	previewError = null;
 
 	if (!q) {
-		previewHits = [];
+		previewApps = [];
 		previewLoading = false;
 		return;
 	}
 
 	if (offlineForSearch) {
-		previewHits = [];
+		previewApps = [];
 		previewLoading = false;
 		return;
 	}
@@ -127,7 +135,7 @@ $effect(() => {
 	let aborted = false;
 	const ac = new AbortController();
 	previewLoading = true;
-	previewHits = [];
+	previewApps = [];
 
 	const timer = window.setTimeout(() => {
 		void (async () => {
@@ -138,22 +146,11 @@ $effect(() => {
 				});
 				if (aborted || ac.signal.aborted) return;
 				const apps = sortAppsRelevanceDeveloperFirst(events.map(parseApp));
-				const pubs = [...new Set(apps.map((a) => a.pubkey))];
-				const rawProfiles = await fetchProfilesBatch(pubs, { signal: ac.signal });
-				if (aborted || ac.signal.aborted) return;
-				const byLc = /** @type {Record<string, ReturnType<typeof parseProfile> | null>} */ ({});
-				for (const [pk, ev] of rawProfiles) {
-					const key = String(pk).trim().toLowerCase();
-					byLc[key] = parseProfile(ev);
-				}
-				previewHits = apps.map((app) => ({
-					app,
-					profile: byLc[String(app.pubkey).trim().toLowerCase()] ?? null
-				}));
+				previewApps = apps;
 			} catch {
 				if (!aborted && !ac.signal.aborted) {
 					previewError = 'Search failed. Try again.';
-					previewHits = [];
+					previewApps = [];
 				}
 			} finally {
 				if (!aborted && !ac.signal.aborted) previewLoading = false;

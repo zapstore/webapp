@@ -7,18 +7,15 @@
 	import InsightsIcon from '$lib/components/icons/Insights.svelte';
 	import InboxIcon from '$lib/components/icons/Inbox.svelte';
 	import { Plus } from '$lib/components/icons';
-	import { queryEvents, liveQuery } from '$lib/purpleweb';
-	import { parseAppStack } from '$lib/nostr';
-	import { encodeStackNaddr, stackDisplayTitle, parseApp } from '$lib/nostr/models.js';
+	import { createStudioAppsQuery, createStudioStacksQuery } from '$lib/purpleweb';
+	import { encodeStackNaddr, stackDisplayTitle } from '$lib/nostr/models.js';
 	import { getIsSignedIn, getIsConnecting, isAuthInitialized } from '$lib/stores/auth.svelte.js';
-	import { fetchAppsByAuthorFromRelays, fetchStacksByAuthorFromRelays } from '$lib/purpleweb';
 	import { resolveStudioCatalogPubkey } from '$lib/studio/resolve-studio-catalog-pubkey.js';
 	import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import { npubToHex } from '$lib/studio/analytics-http.js';
 	import { loadIfNeeded as loadStudioAnalytics, resetStudioAnalytics } from '$lib/stores/studio-analytics.svelte.js';
-	import { isOnline } from '$lib/stores/online.svelte.js';
 	import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
-	import { SITE_URL, ZAPSTORE_RELAY } from '$lib/config';
+	import { SITE_URL } from '$lib/config';
 	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 
 	let { children } = $props();
@@ -98,21 +95,6 @@
 		}
 	}
 
-	/** @param {import('nostr-tools').NostrEvent[]} events */
-	function mapEventsToStudioApps(events, catalogPubkey) {
-		return events.map(parseApp).map((a) => ({
-			id: a.dTag,
-			name: a.name,
-			icon: a.icon ?? '',
-			description: a.description ?? '',
-			url: a.url ?? '',
-			images: a.images ?? [],
-			eventId: a.id,
-			event: a.event,
-			pubkey: catalogPubkey
-		}));
-	}
-
 	$effect(() => {
 		if (!browser || !showDashboard) {
 			appsCatalogPubkey = null;
@@ -145,13 +127,6 @@
 				studioPubkey = policy.catalogPubkey;
 				adminAccess = policy.adminAccess;
 				appsCatalogPubkey = policy.catalogPubkey;
-
-				if (isOnline()) {
-					void fetchAppsByAuthorFromRelays([ZAPSTORE_RELAY], policy.catalogPubkey, {
-						limit: 50,
-						timeout: 5000
-					}).catch((err) => console.error('[StudioLayout] app relay refresh failed:', err));
-				}
 			} catch (err) {
 				console.error('[StudioLayout] app catalog resolve failed:', err);
 			}
@@ -162,21 +137,12 @@
 		};
 	});
 
-	$effect(() => {
-		if (!browser || !showDashboard || !appsCatalogPubkey) return;
+	const studioAppsQuery = createStudioAppsQuery(() => (showDashboard ? appsCatalogPubkey : null));
 
-		const catalogPk = appsCatalogPubkey;
-		const sub = liveQuery(() => queryEvents({ kinds: [32267], authors: [catalogPk] })).subscribe({
-			next: (events) => {
-				userApps = mapEventsToStudioApps(events ?? [], catalogPk);
-				appsLoading = false;
-			},
-			error: (err) => {
-				console.error('[StudioLayout] apps liveQuery failed:', err);
-				appsLoading = false;
-			}
-		});
-		return () => sub.unsubscribe();
+	$effect(() => {
+		userApps = studioAppsQuery.items;
+		appsLoading = studioAppsQuery.loading;
+		if (studioAppsQuery.error) console.error('[StudioLayout] apps query failed:', studioAppsQuery.error);
 	});
 
 	$effect(() => {
@@ -187,50 +153,16 @@
 	let userStacks = $state([]);
 	let stacksLoading = $state(true);
 
+	const studioStacksQuery = createStudioStacksQuery(() => {
+		if (!showDashboard || $page.url.pathname.startsWith('/studio/inbox')) return null;
+		if (!authReady || authConnecting) return null;
+		return getCurrentPubkey();
+	});
+
 	$effect(() => {
-		if (!browser || !showDashboard) {
-			userStacks = [];
-			stacksLoading = false;
-			return;
-		}
-		// Inbox feed liveQuery + relay seed write heavily to Dexie — a second layout
-		// liveQuery here re-runs on every write and freezes the tab.
-		if ($page.url.pathname.startsWith('/studio/inbox')) {
-			return;
-		}
-		if (!authReady || authConnecting) {
-			stacksLoading = true;
-			return;
-		}
-		const pubkey = getCurrentPubkey();
-		if (!pubkey) {
-			userStacks = [];
-			stacksLoading = true;
-			return;
-		}
-
-		stacksLoading = true;
-
-		if (isOnline()) {
-			void fetchStacksByAuthorFromRelays([ZAPSTORE_RELAY], pubkey, {
-				limit: 50,
-				timeout: 5000
-			}).catch((err) => console.error('[StudioLayout] stack relay refresh failed:', err));
-		}
-
-		const sub = liveQuery(() =>
-			queryEvents({ kinds: [30267], authors: [pubkey] })
-		).subscribe({
-			next: (events) => {
-				userStacks = (events ?? []).map(parseAppStack).sort((a, b) => b.createdAt - a.createdAt);
-				stacksLoading = false;
-			},
-			error: (err) => {
-				console.error('[StudioLayout] stacks query failed:', err);
-				stacksLoading = false;
-			}
-		});
-		return () => sub.unsubscribe();
+		userStacks = studioStacksQuery.items;
+		stacksLoading = studioStacksQuery.loading;
+		if (studioStacksQuery.error) console.error('[StudioLayout] stacks query failed:', studioStacksQuery.error);
 	});
 
 	// Kick off the per-publisher analytics fetch as soon as we know who the user is

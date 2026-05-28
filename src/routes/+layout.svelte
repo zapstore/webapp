@@ -10,7 +10,6 @@ import { startProfileSearchBackground } from '$lib/services/profile-search';
 import {
 	startLiveSubscriptions,
 	stopLiveSubscriptions,
-	ensureLiveSubscriptions,
 	stopUserInboxLiveUpdates,
 	ensureUserInboxLiveUpdates,
 	syncDeletions,
@@ -41,10 +40,10 @@ const appOnline = $derived(browser && isOnline());
 $effect(() => {
 	if (!browser) return;
 	if (!appOnline) {
-		stopUserInboxLiveUpdates();
+		stopLiveSubscriptions();
 		return;
 	}
-	ensureLiveSubscriptions();
+	startLiveSubscriptions();
 	const pk = signedInPubkey;
 	if (pk) ensureUserInboxLiveUpdates(pk);
 	return () => stopUserInboxLiveUpdates();
@@ -71,14 +70,14 @@ onMount(() => {
         void (async () => {
             await restoreNostrConnectSession();
             if (cancelled) return;
-            startLiveSubscriptions();
+            if (isOnline()) startLiveSubscriptions();
             installZapstoreDebugHooks();
             if (import.meta.env.DEV) {
                 console.info(
                     '[Zapstore] Nostr client started. For relay/Dexie logs: localStorage.setItem("zapstore_debug","1"); location.reload() — then check [Zapstore] lines and globalThis.__zapstore'
                 );
             }
-            syncDeletions([ZAPSTORE_RELAY]);
+            if (isOnline()) syncDeletions([ZAPSTORE_RELAY]);
             evictOldEvents();
             startProfileSearchBackground();
             initCatalogs();

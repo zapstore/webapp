@@ -13,10 +13,7 @@
 		slice2x,
 		studioAnalytics
 	} from '$lib/stores/studio-analytics.svelte.js';
-	import { DEFAULT_CATALOG_RELAYS } from '$lib/config.js';
-	import { queryEvents } from '$lib/purpleweb';
-	import { parseApp } from '$lib/nostr/models.js';
-	import { fetchFromRelays } from '$lib/purpleweb';
+	import { loadStudioIndexerApp } from '$lib/purpleweb';
 
 	const ctx = getContext('studio');
 const studio = ctx ?? { userApps: [], adminAccess: false, studioPubkey: null };
@@ -47,36 +44,12 @@ const studio = ctx ?? { userApps: [], adminAccess: false, studioPubkey: null };
 	async function loadIndexerApp(/** @type {string} */ id) {
 		indexerLookupFailed = false;
 		try {
-			let events = await queryEvents({ kinds: [32267], '#d': [id] });
-			if (events.length === 0) {
-				// Direct relay lookup — `fetchFromRelays` persists hits to Dexie automatically.
-				events = await fetchFromRelays(
-					DEFAULT_CATALOG_RELAYS,
-					{ kinds: [32267], '#d': [id], limit: 1 },
-					{ timeout: 5000, feature: 'studio-app' }
-				);
-			}
-			const match = events.find(
-				(e) => (e.tags.find((t) => t[0] === 'd')?.[1] ?? '').toLowerCase() === id.toLowerCase()
-			);
-			if (!match) {
+			const found = await loadStudioIndexerApp(id);
+			if (!found) {
 				indexerLookupFailed = true;
 				return;
 			}
-			const parsed = parseApp(match);
-			indexerApp = {
-				id: parsed.dTag,
-				name: parsed.name,
-				icon: parsed.icon ?? '',
-				description: parsed.description ?? '',
-				url: parsed.url ?? '',
-				images: parsed.images ?? [],
-				eventId: parsed.id,
-				event: parsed.event,
-				pubkey: parsed.pubkey,
-				/** Marks this app as outside the signer's own catalog — disables edit, swaps analytics source. */
-				external: true
-			};
+			indexerApp = found;
 		} catch (err) {
 			console.warn('[Studio] indexer lookup failed:', err);
 			indexerLookupFailed = true;

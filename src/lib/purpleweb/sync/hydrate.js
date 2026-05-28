@@ -15,6 +15,7 @@ const inFlight = new Map();
  */
 export async function hydrateFilters(relays, filters, options = {}) {
 	if (!browser || options.enabled === false || options.signal?.aborted) return [];
+	if (typeof navigator !== 'undefined' && !navigator.onLine) return [];
 	const relayList = [...new Set((relays ?? []).filter(Boolean))];
 	if (relayList.length === 0) return [];
 

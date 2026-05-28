@@ -5,15 +5,12 @@
  * Lazy-fetches the kind:0 event from Dexie/relay when mounted.
  * Mirrors the structure of DetailsTab.svelte but tailored for profile metadata.
  */
-import { onMount } from 'svelte';
-import { browser } from '$app/environment';
 import { Copy, Check } from '$lib/components/icons';
 import NpubDisplay from '$lib/components/common/NpubDisplay.svelte';
 import CodeBlock from '$lib/components/common/CodeBlock.svelte';
 import ShortTextRenderer from '$lib/components/common/ShortTextRenderer.svelte';
 import { highlightJson } from '$lib/utils/highlight.js';
-import { queryEvent, fetchProfile } from '$lib/purpleweb';
-import { EVENT_KINDS } from '$lib/config.js';
+import { createProfileQuery } from '$lib/purpleweb';
 
 let {
 	npub = '',
@@ -23,9 +20,10 @@ let {
 	resolveMentionLabel = () => null
 } = $props();
 
-/** Raw kind:0 Nostr event */
-let rawEvent = $state(/** @type {import('nostr-tools').NostrEvent | null} */ (null));
-let loading = $state(true);
+/** Raw kind:0 Nostr event, read from Dexie via purpleweb liveQuery. */
+const profileQuery = createProfileQuery(() => pubkey);
+const rawEvent = $derived(profileQuery.event);
+const loading = $derived(profileQuery.loading);
 
 let npubCopied = $state(false);
 let websiteCopied = $state(false);
@@ -63,25 +61,6 @@ $effect(() => {
 		highlightJson(formattedJson).then((html) => { highlightedJson = html; });
 	} else {
 		highlightedJson = '';
-	}
-});
-
-onMount(async () => {
-	if (!browser || !pubkey) { loading = false; return; }
-
-	try {
-		const local = await queryEvent({ kinds: [EVENT_KINDS.PROFILE], authors: [pubkey] });
-		if (local) {
-			rawEvent = local;
-			loading = false;
-		}
-
-		const fetched = await fetchProfile(pubkey, { timeout: 5000 });
-		if (fetched) rawEvent = fetched;
-	} catch (e) {
-		console.error('[ProfileDetailsTab] fetch error', e);
-	} finally {
-		loading = false;
 	}
 });
 

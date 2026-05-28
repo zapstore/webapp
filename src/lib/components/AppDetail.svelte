@@ -2,9 +2,7 @@
 import { onMount } from 'svelte';
 import { browser } from '$app/environment';
 import { ReleaseCard } from '$lib/components';
-import { queryEvent } from '$lib/purpleweb';
-import { parseRelease } from '$lib/nostr';
-import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
+import { loadSocialDetailsData } from '$lib/purpleweb';
 import { renderMarkdown } from '$lib/utils/markdown';
 import { ChevronDown, ChevronRight } from '$lib/components/icons';
 import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
@@ -31,11 +29,8 @@ onMount(async () => {
     if (!browser || !app)
         return;
     latestRelease = initialRelease ?? null;
-    const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-    const cachedRelease = await queryEvent({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], ...PLATFORM_FILTER });
-    if (cachedRelease) {
-        latestRelease = parseRelease(cachedRelease);
-    }
+    const { releases } = await loadSocialDetailsData({ app, includeReleases: true });
+    if (releases[0]) latestRelease = releases[0];
 });
 
 $effect(() => {

@@ -8,10 +8,11 @@
  *
  * Based on Grimoire's implementation
  */
-import { queryEvents, fetchFromRelays } from '$lib/purpleweb';
-import { ZAPSTORE_RELAY } from '$lib/config';
-const KIND_USER_EMOJI_LIST = 10030;
-const KIND_EMOJI_SET = 30030;
+import {
+	KIND_EMOJI_SET,
+	KIND_USER_EMOJI_LIST,
+	loadCustomEmojiEventsForUser
+} from '$lib/purpleweb';
 // Common Unicode emojis with shortcode mappings
 // Based on common shortcodes used across platforms (Slack, Discord, GitHub)
 export const UNICODE_EMOJIS = [
@@ -285,64 +286,14 @@ export function createEmojiSearch(userPubkey = null) {
         initPromise = (async () => {
             try {
                 console.log('[EmojiSearch] Initializing for user:', userPubkey);
-                // Fetch user's emoji list (kind 10030) — local-first, relay fallback
-                const emojiListFilter = {
-                    kinds: [KIND_USER_EMOJI_LIST],
-                    authors: [userPubkey],
-                    limit: 1
-                };
-                let userEmojiListEvents = await queryEvents(emojiListFilter);
-                if ((!userEmojiListEvents || userEmojiListEvents.length === 0) && typeof window !== 'undefined') {
-                    userEmojiListEvents = await fetchFromRelays([ZAPSTORE_RELAY], emojiListFilter, { timeout: 5000, feature: 'emoji-search' });
-                }
-                // Fetch user's emoji sets (kind 30030) — local-first, relay fallback
-                const emojiSetFilter = {
-                    kinds: [KIND_EMOJI_SET],
-                    authors: [userPubkey],
-                    limit: 50
-                };
-                let userEmojiSets = await queryEvents(emojiSetFilter);
-                if ((!userEmojiSets || userEmojiSets.length === 0) && typeof window !== 'undefined') {
-                    userEmojiSets = await fetchFromRelays([ZAPSTORE_RELAY], emojiSetFilter, { timeout: 5000, feature: 'emoji-search' });
-                }
+                const { userEmojiListEvents, userEmojiSets, referencedEmojiSets } =
+                    await loadCustomEmojiEventsForUser(userPubkey);
                 // Process user emoji list
                 if (userEmojiListEvents && userEmojiListEvents.length > 0) {
                     const userEmojiList = userEmojiListEvents[0];
                     addUserEmojiList(userEmojiList);
-                    // Also fetch referenced emoji sets from "a" tags
-                    const aTags = userEmojiList.tags.filter((t) => t[0] === 'a' && t[1]?.startsWith('30030:'));
-                    if (aTags.length > 0) {
-                        console.log('[EmojiSearch] Found', aTags.length, 'referenced emoji sets');
-                        // Fetch referenced emoji sets
-                        const setCoordinates = aTags
-                            .map((t) => {
-                            const coordinate = t[1];
-                            const parts = coordinate.split(':');
-                            return { kind: parseInt(parts[0]), pubkey: parts[1], identifier: parts[2] };
-                        })
-                            .filter((c) => c.kind && c.pubkey && c.identifier !== undefined);
-                        // Fetch each referenced set
-                        for (const coord of setCoordinates) {
-                            try {
-                                const setFilter = {
-                                    kinds: [coord.kind],
-                                    authors: [coord.pubkey],
-                                    '#d': [coord.identifier],
-                                    limit: 1
-                                };
-                                // Local-first: try Dexie, then relay fallback
-                                let setEvents = await queryEvents(setFilter);
-                                if ((!setEvents || setEvents.length === 0) && typeof window !== 'undefined') {
-                                    setEvents = await fetchFromRelays([ZAPSTORE_RELAY], setFilter, { timeout: 5000, feature: 'emoji-search' });
-                                }
-                                if (setEvents && setEvents.length > 0) {
-                                    addEmojiSet(setEvents[0]);
-                                }
-                            }
-                            catch (e) {
-                                console.warn('[EmojiSearch] Failed to fetch emoji set:', coord, e);
-                            }
-                        }
+                    for (const setEvent of referencedEmojiSets) {
+                        addEmojiSet(setEvent);
                     }
                 }
                 // Process user's own emoji sets

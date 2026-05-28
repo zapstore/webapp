@@ -20,7 +20,7 @@ import { EVENT_KINDS } from '$lib/config';
 // Schema — bump this to nuke the database on next load
 // ============================================================================
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 const SCHEMA_KEY = 'zapstore_schema_version';
 
 /**
@@ -43,7 +43,8 @@ if (browser) {
 export const db = new Dexie('zapstore');
 
 db.version(SCHEMA_VERSION).stores({
-	events: 'id, kind, pubkey, created_at, [kind+created_at], [kind+pubkey], *_tags'
+	events: 'id, kind, pubkey, created_at, [kind+created_at], [kind+pubkey], *_tags',
+	deletionTombstones: 'key, created_at'
 });
 
 // ============================================================================
@@ -125,6 +126,24 @@ function findSelectiveTagFilter(filter) {
 // Write
 // ============================================================================
 
+function isReplaceableKind(kind) {
+	return kind === 0 || kind === 3 || (kind >= 10000 && kind < 20000) || kind >= 30000;
+}
+
+function replaceableKeyForEvent(event) {
+	const dTag = event.kind >= 30000 ? (event.tags?.find((t) => t[0] === 'd')?.[1] ?? '') : '';
+	return `${event.kind}:${event.pubkey}:${dTag}`;
+}
+
+function deletionKeysForEvent(event) {
+	const keys = [`e:${event.id}:${event.pubkey}`];
+	if (event.kind >= 30000) {
+		const dTag = event.tags?.find((t) => t[0] === 'd')?.[1] ?? '';
+		keys.push(`a:${event.kind}:${event.pubkey}:${dTag}`);
+	}
+	return keys;
+}
+
 /**
  * Process NIP-09 deletion events (kind 5).
  * Removes targeted events from Dexie where the deletor's pubkey matches the target's pubkey.
@@ -135,54 +154,79 @@ function findSelectiveTagFilter(filter) {
 async function applyDeletions(deletionEvents) {
 	if (deletionEvents.length === 0) return;
 
-	const eRefs = /** @type {{ id: string, deletorPubkey: string }[]} */ ([]);
-	const aRefs = /** @type {{ kind: number, pubkey: string, dTag: string }[]} */ ([]);
+	const eRefs = /** @type {{ id: string, deletorPubkey: string, created_at: number }[]} */ ([]);
+	const aRefs = /** @type {{ kind: number, pubkey: string, dTag: string, created_at: number }[]} */ ([]);
 
 	for (const del of deletionEvents) {
+		const deletedAt = Number(del.created_at) || 0;
 		for (const tag of del.tags ?? []) {
 			if (tag[0] === 'e' && tag[1]) {
-				eRefs.push({ id: tag[1], deletorPubkey: del.pubkey });
+				eRefs.push({ id: String(tag[1]).trim().toLowerCase(), deletorPubkey: del.pubkey, created_at: deletedAt });
 			} else if (tag[0] === 'a' && tag[1]) {
 				const parts = tag[1].split(':');
 				if (parts.length < 3) continue;
 				const kind = parseInt(parts[0], 10);
-				const pubkey = parts[1];
+				const pubkey = parts[1]?.trim().toLowerCase();
 				const dTag = parts.slice(2).join(':');
 				// Only honor if the deletor authored the target
 				if (isNaN(kind) || !pubkey || pubkey !== del.pubkey) continue;
-				aRefs.push({ kind, pubkey, dTag });
+				aRefs.push({ kind, pubkey, dTag, created_at: deletedAt });
 			}
 		}
 	}
 
 	if (eRefs.length === 0 && aRefs.length === 0) return;
 
-	await db.transaction('rw', db.events, async () => {
+	await db.transaction('rw', db.events, db.deletionTombstones, async () => {
 		const idsToDelete = new Set();
+		const tombstonesByKey = new Map();
+
+		function addTombstone(key, created_at) {
+			const existing = tombstonesByKey.get(key);
+			if (!existing || created_at > existing.created_at) {
+				tombstonesByKey.set(key, { key, created_at });
+			}
+		}
 
 		if (eRefs.length > 0) {
 			const deletorById = new Map(eRefs.map((r) => [r.id, r.deletorPubkey]));
+			const deletedAtById = new Map(eRefs.map((r) => [r.id, r.created_at]));
+			for (const ref of eRefs) {
+				addTombstone(`e:${ref.id}:${ref.deletorPubkey}`, ref.created_at);
+			}
 			const targets = await db.events.where('id').anyOf([...deletorById.keys()]).toArray();
 			for (const target of targets) {
-				if (target.pubkey === deletorById.get(target.id)) {
+				const deletedAt = deletedAtById.get(target.id) ?? 0;
+				if (target.pubkey === deletorById.get(target.id) && (target.created_at ?? 0) <= deletedAt) {
 					idsToDelete.add(target.id);
 				}
 			}
 		}
 
 		if (aRefs.length > 0) {
+			for (const ref of aRefs) {
+				addTombstone(`a:${ref.kind}:${ref.pubkey}:${ref.dTag}`, ref.created_at);
+			}
 			const kindPubkeyPairs = aRefs.map((r) => [r.kind, r.pubkey]);
 			const candidates = await db.events
 				.where('[kind+pubkey]')
 				.anyOf(kindPubkeyPairs)
 				.toArray();
-			const refSet = new Set(aRefs.map((r) => `${r.kind}:${r.pubkey}:${r.dTag}`));
+			const deletedAtByRef = new Map(
+				aRefs.map((r) => [`${r.kind}:${r.pubkey}:${r.dTag}`, r.created_at])
+			);
 			for (const event of candidates) {
 				const dTag = event.tags?.find((t) => t[0] === 'd')?.[1] ?? '';
-				if (refSet.has(`${event.kind}:${event.pubkey}:${dTag}`)) {
+				const ref = `${event.kind}:${event.pubkey}:${dTag}`;
+				const deletedAt = deletedAtByRef.get(ref);
+				if (deletedAt !== undefined && (event.created_at ?? 0) <= deletedAt) {
 					idsToDelete.add(event.id);
 				}
 			}
+		}
+
+		if (tombstonesByKey.size > 0) {
+			await db.deletionTombstones.bulkPut([...tombstonesByKey.values()]);
 		}
 
 		if (idsToDelete.size > 0) {
@@ -222,6 +266,18 @@ export async function putEvents(events) {
 	}
 	if (contentEvents.length === 0) return;
 
+	let liveContentEvents = contentEvents;
+	const tombstoneKeys = [...new Set(contentEvents.flatMap(deletionKeysForEvent))];
+	if (tombstoneKeys.length > 0) {
+		const tombstones = await db.deletionTombstones.where('key').anyOf(tombstoneKeys).toArray();
+		const deletedAtByKey = new Map(tombstones.map((t) => [t.key, t.created_at ?? 0]));
+		liveContentEvents = contentEvents.filter((event) => {
+			const createdAt = Number(event.created_at) || 0;
+			return !deletionKeysForEvent(event).some((key) => (deletedAtByKey.get(key) ?? -1) >= createdAt);
+		});
+	}
+	if (liveContentEvents.length === 0) return;
+
 	// Separate replaceable and non-replaceable per NIP-01:
 	//   kind 0, 3        → replaceable (one per pubkey, no dTag)
 	//   kind 10000-19999  → replaceable (one per kind+pubkey, no dTag)
@@ -229,19 +285,12 @@ export async function putEvents(events) {
 	const nonReplaceable = [];
 	const replaceableByKey = new Map();
 
-	for (const event of contentEvents) {
-		const isReplaceable =
-			event.kind === 0 ||
-			event.kind === 3 ||
-			(event.kind >= 10000 && event.kind < 20000) ||
-			event.kind >= 30000;
+	for (const event of liveContentEvents) {
+		const isReplaceable = isReplaceableKind(event.kind);
 
 		if (isReplaceable) {
 			// kind 0 and 3 have no dTag — key by kind+pubkey only
-			const dTag = event.kind >= 30000
-				? (event.tags?.find((t) => t[0] === 'd')?.[1] ?? '')
-				: '';
-			const key = `${event.kind}:${event.pubkey}:${dTag}`;
+			const key = replaceableKeyForEvent(event);
 			const existing = replaceableByKey.get(key);
 			if (!existing || event.created_at > existing.created_at) {
 				replaceableByKey.set(key, event);
@@ -251,14 +300,9 @@ export async function putEvents(events) {
 		}
 	}
 
-	// Compute _tags for all events
-	const toPut = [...nonReplaceable, ...replaceableByKey.values()].map((event) => ({
-		...event,
-		_tags: computeTags(event)
-	}));
-
 	// For replaceable events, remove older versions before inserting
 	await db.transaction('rw', db.events, async () => {
+		let replaceableToPut = [...replaceableByKey.values()];
 		if (replaceableByKey.size > 0) {
 			// Collect unique (kind, pubkey) pairs
 			const kindPubkeyPairs = new Map();
@@ -276,12 +320,24 @@ export async function putEvents(events) {
 				.toArray();
 
 			// Find IDs to delete: events that match a replaceable key but are not the new version
-			const newEventIds = new Set([...replaceableByKey.values()].map((e) => e.id));
+			const winnerByKey = new Map(replaceableByKey);
+			for (const existing of existingEvents) {
+				const key = replaceableKeyForEvent(existing);
+				const incoming = winnerByKey.get(key);
+				if (!incoming) continue;
+				if ((existing.created_at ?? 0) > (incoming.created_at ?? 0)) {
+					winnerByKey.set(key, existing);
+				}
+			}
+			replaceableToPut = [...replaceableByKey.entries()]
+				.filter(([key, event]) => winnerByKey.get(key)?.id === event.id)
+				.map(([, event]) => event);
+			const newEventIds = new Set(replaceableToPut.map((e) => e.id));
 			const idsToDelete = [];
 			for (const existing of existingEvents) {
-				const dTag = existing.tags?.find((t) => t[0] === 'd')?.[1] ?? '';
-				const key = `${existing.kind}:${existing.pubkey}:${dTag}`;
-				if (replaceableByKey.has(key) && !newEventIds.has(existing.id)) {
+				const key = replaceableKeyForEvent(existing);
+				const winner = winnerByKey.get(key);
+				if (winner?.id !== existing.id && newEventIds.has(winner?.id)) {
 					idsToDelete.push(existing.id);
 				}
 			}
@@ -290,6 +346,11 @@ export async function putEvents(events) {
 				await db.events.bulkDelete(idsToDelete);
 			}
 		}
+		const toPut = [...nonReplaceable, ...replaceableToPut].map((event) => ({
+			...event,
+			_tags: computeTags(event)
+		}));
+		if (toPut.length === 0) return;
 		await db.events.bulkPut(toPut);
 	});
 }
@@ -364,7 +425,7 @@ export async function queryEvents(filter) {
 	// Filter by kinds (if not already handled by index)
 	if (filter.kinds?.length > 0) {
 		// If we used tag index or pubkey index, kinds weren't filtered
-		if (usedTagIndex || (!filter.ids && filter.authors?.length !== 1)) {
+		if (filter.ids || usedTagIndex || filter.authors?.length !== 1) {
 			const kindSet = new Set(filter.kinds.map((x) => Number(x)));
 			results = results.filter((e) => kindSet.has(Number(e.kind)));
 		}
@@ -374,7 +435,7 @@ export async function queryEvents(filter) {
 	// Filter by authors (if not already handled by index)
 	if (filter.authors?.length > 0) {
 		const alreadyFiltered =
-			filter.kinds?.length === 1 && filter.authors.length === 1 && !usedTagIndex;
+			!filter.ids && filter.kinds?.length === 1 && filter.authors.length === 1 && !usedTagIndex;
 		if (!alreadyFiltered) {
 			const authorSet = new Set(filter.authors);
 			results = results.filter((e) => authorSet.has(e.pubkey));

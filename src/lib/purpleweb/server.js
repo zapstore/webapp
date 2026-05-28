@@ -31,11 +31,10 @@ const RELAY = 'wss://relay.zapstore.dev';
 const EOSE_GRACE_MS = 300;
 const QUERY_TIMEOUT_MS = 4000;
 
-const pool = new SimplePool();
 let subCounter = 0;
 
 export function destroyServerPool() {
-	try { pool.destroy(); } catch { /* noop */ }
+	// Server relay queries use per-request pools and close them in queryRelay().
 }
 const subId = () => `ssr-${++subCounter}-${Math.floor(Math.random() * 1e6)}`;
 
@@ -54,6 +53,7 @@ try {
  */
 function queryRelay(relayUrls, filter, timeoutMs = QUERY_TIMEOUT_MS) {
 	return new Promise((resolve) => {
+		const queryPool = new SimplePool();
 		const events = [];
 		let settled = false;
 		let eoseTimer = null;
@@ -65,12 +65,13 @@ function queryRelay(relayUrls, filter, timeoutMs = QUERY_TIMEOUT_MS) {
 			if (eoseTimer) clearTimeout(eoseTimer);
 			if (timeoutTimer) clearTimeout(timeoutTimer);
 			try { sub?.close(); } catch { /* noop */ }
+			try { queryPool.close(relayUrls); } catch { /* noop */ }
 			resolve(events);
 		};
 
 		let sub;
 		try {
-			sub = pool.subscribeMany(relayUrls, filter, {
+			sub = queryPool.subscribeMany(relayUrls, filter, {
 				id: subId(),
 				onevent(event) { if (event?.id) events.push(event); },
 				oneose() { if (!eoseTimer) eoseTimer = setTimeout(finish, EOSE_GRACE_MS); },
@@ -118,14 +119,7 @@ function getReleaseIdentifier(event) {
 // Public API — async relay queries
 // ============================================================================
 
-/**
- * Fetch apps ordered by latest release (for listing pages).
- *
- * Pattern: query releases (30063) to determine order, then batch-query
- * apps (32267) by identifier. Returns ONLY app events — releases are
- * used server-side for ranking only.
- */
-export async function fetchApps(limit = APPS_PAGE_SIZE) {
+async function fetchAppsOrderedByLatestRelease(limit = APPS_PAGE_SIZE) {
 	const platformTag = PLATFORM_FILTER['#f']?.[0];
 
 	const releases = await queryRelay([RELAY], {
@@ -140,7 +134,7 @@ export async function fetchApps(limit = APPS_PAGE_SIZE) {
 			...(platformTag ? { '#f': [platformTag] } : {}),
 			limit
 		});
-		return dedupeEventsById(apps);
+		return { releases: [], apps: dedupeEventsById(apps) };
 	}
 
 	const seen = new Set();
@@ -151,6 +145,10 @@ export async function fetchApps(limit = APPS_PAGE_SIZE) {
 		seen.add(identifier);
 		orderedIdentifiers.push(identifier);
 		if (orderedIdentifiers.length >= limit) break;
+	}
+
+	if (orderedIdentifiers.length === 0) {
+		return { releases: dedupeEventsById(releases), apps: [] };
 	}
 
 	const appEvents = await queryRelay([RELAY], {
@@ -176,7 +174,27 @@ export async function fetchApps(limit = APPS_PAGE_SIZE) {
 		if (app) result.push(app);
 	}
 
-	return dedupeEventsById(result);
+	return { releases: dedupeEventsById(releases), apps: dedupeEventsById(result) };
+}
+
+/**
+ * Fetch apps ordered by latest release (for listing pages).
+ *
+ * Pattern: query releases (30063) to determine order, then batch-query
+ * apps (32267) by identifier. Returns only app events.
+ */
+export async function fetchApps(limit = APPS_PAGE_SIZE) {
+	const { apps } = await fetchAppsOrderedByLatestRelease(limit);
+	return apps;
+}
+
+/**
+ * Fetch app listing seed events, including releases so the client-side
+ * Dexie listing can preserve latest-release ordering reactively.
+ */
+export async function fetchAppListingSeedEvents(limit = APPS_PAGE_SIZE) {
+	const { releases, apps } = await fetchAppsOrderedByLatestRelease(limit);
+	return dedupeEventsById([...releases, ...apps]);
 }
 
 /**
