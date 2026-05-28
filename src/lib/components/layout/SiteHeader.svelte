@@ -76,6 +76,7 @@
 	/** Apps browse/search listing only — not app detail (`/apps/…`) or stacks. */
 	const isAppsActive = $derived($page.url.pathname === '/apps');
 	const isCommunityActive = $derived($page.url.pathname.startsWith('/community'));
+	const isPricingActive = $derived($page.url.pathname.startsWith('/pricing'));
 	const offline = $derived(browser && !isOnline());
 	// Current user profile (Dexie liveQuery + purpleweb background hydration) for header avatar
 	const currentUserProfileQuery = createProfileQuery(() => pubkey);
@@ -337,6 +338,10 @@
 									</nav>
 								</div>
 
+								<div class="menu-section">
+									<a href="/pricing" class="menu-section-link" onclick={closeMenu}>Pricing</a>
+								</div>
+
 							<div class="menu-section">
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
 								<nav class="menu-subnav">
@@ -555,6 +560,10 @@
 									</nav>
 								</div>
 
+								<div class="menu-section">
+									<a href="/pricing" class="menu-section-link" onclick={closeMenu}>Pricing</a>
+								</div>
+
 							<div class="menu-section">
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
 								<nav class="menu-subnav">
@@ -625,6 +634,14 @@
 								style="color: var(--white66);"
 							>
 								{primaryDevStudioLabel}
+							</a>
+							<a
+								href="/pricing"
+								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+								class:landing-nav-studio-selected={isPricingActive}
+								style="color: var(--white66);"
+							>
+								Pricing
 							</a>
 							<a
 								href="/community"

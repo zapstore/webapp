@@ -54,6 +54,7 @@ let showFooter = $derived(
 		path === '/apps' ||
 		path === '/developers' ||
 		path === '/enterprise' ||
+		path === '/pricing' ||
 		path === '/studio' ||
 		path.startsWith('/studio/') ||
 		path === '/blog' ||
