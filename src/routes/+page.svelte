@@ -15,7 +15,7 @@ import TeamSection from '$lib/components/landing/TeamSection.svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import { fetchProfilesBatch } from '$lib/purpleweb';
 import SeoHead from '$lib/components/layout/SeoHead.svelte';
-import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_ICON, SITE_GITHUB } from '$lib/config';
+import { SITE_URL, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION, SITE_ICON, SITE_GITHUB } from '$lib/config';
 import { assets } from '$app/paths';
 
 /** Preload Zapstore download modal hero so opening the dialog does not shift layout. */
@@ -37,6 +37,7 @@ const homeJsonLd = {
 			'@id': `${SITE_URL}/#website`,
 			url: SITE_URL,
 			name: SITE_NAME,
+			alternateName: 'The Open App Store',
 			description: SITE_DESCRIPTION,
 			publisher: { '@id': `${SITE_URL}/#organization` },
 			potentialAction: {
@@ -94,6 +95,8 @@ $effect(() => {
 </script>
 
 <SeoHead
+	title={SITE_TITLE}
+	description={SITE_DESCRIPTION}
 	url={SITE_URL}
 	image="{SITE_URL}/images/og-landing.png"
 	imageWidth={1200}

@@ -1,6 +1,6 @@
 <script lang="js">
 import { page } from '$app/stores';
-import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_ICON, SITE_TWITTER } from '$lib/config';
+import { SITE_URL, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION, SITE_ICON, SITE_TWITTER } from '$lib/config';
 
 /**
  * @typedef {Object} Props
@@ -20,7 +20,7 @@ import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_ICON, SITE_TWITTER } from '
 
 /** @type {Props} */
 let {
-	title = SITE_NAME,
+	title = SITE_TITLE,
 	description = SITE_DESCRIPTION,
 	image = SITE_ICON,
 	imageAlt = undefined,

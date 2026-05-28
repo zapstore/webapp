@@ -8,7 +8,7 @@
 
 <SeoHead
 	title="Apps — Zapstore"
-	description="Discover apps and stacks on Zapstore"
+	description="Browse Android apps on the open app store. Curated by communities."
 	url="{SITE_URL}/apps"
 />
 

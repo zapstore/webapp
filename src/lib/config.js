@@ -6,7 +6,9 @@ import { nip19 } from 'nostr-tools';
 // Site identity — single source of truth for all meta tags, manifest, JSON-LD, llms.txt
 export const SITE_URL = 'https://zapstore.dev';
 export const SITE_NAME = 'Zapstore';
-export const SITE_DESCRIPTION = 'Discover apps on Nostr. Open source, decentralized app store.';
+export const SITE_TITLE = 'Zapstore — The Open App Store';
+export const SITE_DESCRIPTION =
+	'The open app store where users meet builders. Curated by communities. Android apps.';
 export const SITE_ICON = `${SITE_URL}/zapstore-icon.png`;
 export const SITE_THEME_COLOR = '#7c3aed';
 export const SITE_TWITTER = '@zapstore_';

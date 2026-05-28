@@ -47,7 +47,12 @@
 			class="btn-glass-large btn-glass-with-chevron group inline-flex items-center gap-3 dev-crosslink-btn"
 		>
 			Zapstore for organizations
-			<ChevronRight variant="outline" color="var(--white33)" size={18} className="transition-transform group-hover:translate-x-0.5" />
+			<ChevronRight
+				variant="outline"
+				color="var(--white33)"
+				size={18}
+				className="transition-transform group-hover:translate-x-0.5"
+			/>
 		</a>
 	</div>
 </section>

@@ -171,7 +171,6 @@
 			scrollContainer?.removeEventListener('scroll', handleScroll);
 		}
 	});
-
 </script>
 
 <SeoHead
