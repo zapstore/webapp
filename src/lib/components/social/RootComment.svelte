@@ -25,6 +25,8 @@
 	import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 	import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
 	import AddModal from '$lib/components/modals/AddModal.svelte';
+	import TipAmountModal from '$lib/components/modals/TipAmountModal.svelte';
+	import TipAmountRow from '$lib/components/social/TipAmountRow.svelte';
 	import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
 	import { Reply, Options } from '$lib/components/icons';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
@@ -215,8 +217,13 @@
 	}
 	let modalOpen = $state(false);
 	let zapModalOpen = $state(false);
+	let tipAmountModalOpen = $state(false);
 	/** Preset sats when opening {@link ZapSliderModal} */
 	let zapPresetSats = $state(/** @type {number | null} */ (null));
+	/** Tip amount chosen in {@link TipAmountModal}, shown above the reply editor until send. */
+	let pendingTipSats = $state(/** @type {number | null} */ (null));
+	/** @type {{ amount: number, message?: string, emojiTags?: { shortcode: string, url: string }[], mentions?: string[] } | null} */
+	let immediateZap = $state(null);
 	let commentExpanded = $state(false);
 	/** When set, we're replying to this comment (show QuotedMessage above input) */
 	let replyingToComment = $state(null);
@@ -290,7 +297,12 @@
 	let actionsNestedOpen = $state(false);
 	/** True when any modal is open on top of the thread (Zap, Comment/Zap options, emoji, insert) – drives overlay + scale animation */
 	const childModalOpen = $derived(
-		zapModalOpen || actionsModalOpen || actionsNestedOpen || emojiPickerOpen || insertModalOpen
+		zapModalOpen ||
+			tipAmountModalOpen ||
+			actionsModalOpen ||
+			actionsNestedOpen ||
+			emojiPickerOpen ||
+			insertModalOpen
 	);
 	// Replies only: threadComments excluding the root itself (threadComments includes root as first element)
 	const threadReplies = $derived(threadComments.filter((c) => c.id !== id));
@@ -540,12 +552,17 @@
 	}
 	function handleTipTap() {
 		zapPresetSats = null;
-		if (replyingToComment) {
-			handleZapComment(replyingToComment);
-		} else {
-			zapTargetOverride = null;
-			zapModalOpen = true;
-		}
+		prepareZapTargetForTip(replyingToComment);
+		tipAmountModalOpen = true;
+	}
+
+	function openTipAmountModal() {
+		prepareZapTargetForTip(replyingToComment);
+		tipAmountModalOpen = true;
+	}
+
+	function handleTipAmountConfirm(/** @type {{ amount: number }} */ event) {
+		pendingTipSats = event.amount;
 	}
 	function handleReply() {
 		replyingToComment = null;
@@ -558,15 +575,20 @@
 	function closeReply() {
 		commentExpanded = false;
 		replyingToComment = null;
+		pendingTipSats = null;
 	}
-	/** Zap target: e-tag = comment or zap receipt id; p-tag = Lightning recipient (zapper when zapping a zap, comment author when zapping a comment). No a-tag so wallet sees a standard profile/event zap (p+e only). */
-	function handleZapComment(commentOrZap) {
+	/** Set zap target override for thread-level tips (reply composer or feed zap icon). */
+	function prepareZapTargetForTip(/** @type {typeof replyingToComment} */ commentOrZap) {
+		if (!commentOrZap) {
+			zapTargetOverride = null;
+			return;
+		}
 		const isZap = 'senderPubkey' in commentOrZap;
 		const recipientPubkey = isZap ? (commentOrZap.senderPubkey ?? '') : (commentOrZap.pubkey ?? '');
-		if (!recipientPubkey) return;
-		// Parent kind for NIP-22 wrapper:
-		//   • Real kind 9735 zap (root-level zap, not isWrapper) → 9735
-		//   • Comment (kind 1111) or z-wrapper kind 1111 → 1111
+		if (!recipientPubkey) {
+			zapTargetOverride = null;
+			return;
+		}
 		const isRealReceipt = isZap && commentOrZap.isWrapper !== true;
 		const parentKind = isRealReceipt ? EVENT_KINDS.ZAP_RECEIPT : EVENT_KINDS.COMMENT;
 		zapTargetOverride = {
@@ -577,17 +599,45 @@
 			aTag: undefined,
 			parentKind
 		};
+	}
+	/** Zap target: e-tag = comment or zap receipt id; p-tag = Lightning recipient (zapper when zapping a zap, comment author when zapping a comment). No a-tag so wallet sees a standard profile/event zap (p+e only). */
+	function handleZapComment(commentOrZap) {
+		prepareZapTargetForTip(commentOrZap);
+		if (!zapTargetOverride?.pubkey) return;
 		zapModalOpen = true;
 	}
 	function handleZapClose(event) {
 		zapModalOpen = false;
 		zapTargetOverride = null;
 		zapPresetSats = null;
-		if (event.success) onZapReceived?.({ zapReceipt: {} });
+		immediateZap = null;
+		if (event?.success) {
+			onZapReceived?.({ zapReceipt: {} });
+			closeReply();
+		}
 		if (openZapOnMount) onModalClose?.();
 	}
 	async function handleReplySubmit(event) {
 		if (submitting || !id) return;
+		const hasText = Boolean(event.text?.trim());
+		const hasTip = pendingTipSats != null && pendingTipSats >= 1;
+		if (!hasText && !hasTip) return;
+
+		if (hasTip) {
+			prepareZapTargetForTip(replyingToComment);
+			if (!zapTarget?.pubkey) return;
+			immediateZap = {
+				amount: pendingTipSats,
+				message: event.text ?? '',
+				emojiTags: event.emojiTags ?? [],
+				mentions: event.mentions ?? []
+			};
+			pendingTipSats = null;
+			replyInput?.clear?.();
+			zapModalOpen = true;
+			return;
+		}
+
 		const parentId = replyingToComment ? replyingToComment.id : id;
 		/** @type {number} */
 		let parentKind = EVENT_KINDS.COMMENT;
@@ -682,7 +732,7 @@
 		if (actionsModalOpen) {
 			_didOpenStandaloneActions = true;
 		} else if (_didOpenStandaloneActions) {
-			if (modalOpen || zapModalOpen || actionsNestedOpen || emojiPickerOpen || insertModalOpen)
+			if (modalOpen || zapModalOpen || tipAmountModalOpen || actionsNestedOpen || emojiPickerOpen || insertModalOpen)
 				return;
 			_didOpenStandaloneActions = false;
 			onModalClose?.();
@@ -1204,12 +1254,13 @@
 									placeholder={threadReplyPlaceholder}
 									size="medium"
 									{getCurrentPubkey}
-								searchProfiles={_threadSearchProfiles}
-								{searchEmojis}
-								autoFocus={true}
-								showActionRow={true}
-								onTipTap={handleTipTap}
-								onClose={closeReply}
+									searchProfiles={_threadSearchProfiles}
+									{searchEmojis}
+									autoFocus={true}
+									showActionRow={true}
+									allowEmptySubmit={pendingTipSats != null && pendingTipSats >= 1}
+									onTipTap={handleTipTap}
+									onClose={closeReply}
 									onCameraTap={handleReplyCameraTap}
 									onEmojiTap={handleEmojiTap}
 									onGifTap={() => {}}
@@ -1243,6 +1294,11 @@
 														{resolveMentionLabel}
 													/>
 												{/if}
+											</div>
+										{/if}
+										{#if pendingTipSats}
+											<div class="thread-reply-tip-inset">
+												<TipAmountRow amountSats={pendingTipSats} onedit={openTipAmountModal} />
 											</div>
 										{/if}
 									{/snippet}
@@ -1309,6 +1365,19 @@
 	onComment={actionsModalOnComment}
 />
 
+<TipAmountModal
+	bind:isOpen={tipAmountModalOpen}
+	target={zapTarget}
+	publisherName={displayNameOrNpubShort(zapTarget?.name ?? name, zapTarget?.pubkey ?? pubkey)}
+	contentType="comment"
+	presetAmount={pendingTipSats}
+	nestedModal={modalOpen}
+	lockBodyScroll={modalLockBodyScroll}
+	scopedInPanel={modalScopedInPanel}
+	zIndex={modalZIndex + 10}
+	onconfirm={handleTipAmountConfirm}
+/>
+
 <ZapSliderModal
 	bind:isOpen={zapModalOpen}
 	target={zapTarget}
@@ -1320,6 +1389,10 @@
 	scopedInPanel={modalScopedInPanel}
 	zIndex={modalZIndex + 10}
 	presetZapSats={zapPresetSats}
+	{immediateZap}
+	onImmediateZapClear={() => {
+		immediateZap = null;
+	}}
 	wrapperParent={zapWrapperParent}
 	searchProfiles={_threadSearchProfiles}
 	{searchEmojis}
@@ -1342,6 +1415,10 @@
 	title="Add App"
 	bind:isOpen={insertModalOpen}
 	{getCurrentPubkey}
+	nestedModal={modalOpen}
+	lockBodyScroll={modalLockBodyScroll}
+	scopedInPanel={modalScopedInPanel}
+	zIndex={modalZIndex + 10}
 	onAdd={handleAddNostrRef}
 	onclose={() => {
 		insertModalOpen = false;
@@ -1707,6 +1784,16 @@
 		padding-left: 4px;
 		box-sizing: border-box;
 		min-width: 0;
+	}
+
+	/* Full-bleed tip row inside above-editor; tight to quote above, breathing room below divider */
+	.thread-reply-tip-inset {
+		margin: 0 -8px;
+		padding-bottom: 6px;
+	}
+
+	.thread-reply-tip-inset:not(:first-child) {
+		margin-top: -2px;
 	}
 
 	.thread-reply-input-wrap {

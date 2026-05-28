@@ -854,7 +854,7 @@ export { getContent, getSerializedContent, isEmpty };
     <div class="action-row">
       <div class="action-buttons-left">
         {#if !hideTipButton}
-          <button type="button" class="action-btn" onclick={onTipTap} aria-label="Add tip">
+          <button type="button" class="action-btn" onclick={onTipTap} aria-label="Add a tip">
             <Zap variant="fill" color="var(--white33)" size={18} />
           </button>
         {/if}

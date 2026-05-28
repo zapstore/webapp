@@ -290,6 +290,9 @@ $effect(() => {
 	title="Add App"
 	bind:isOpen={insertModalOpen}
 	{getCurrentPubkey}
+	nestedModal={true}
+	lockBodyScroll={false}
+	zIndex={110}
 	onAdd={handleInsertNostrRef}
 	onclose={() => { insertModalOpen = false; }}
 />

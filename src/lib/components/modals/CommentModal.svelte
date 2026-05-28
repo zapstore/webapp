@@ -12,6 +12,8 @@ import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 import CommentModalRootRow from '$lib/components/social/CommentModalRootRow.svelte';
 import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
 import AddModal from '$lib/components/modals/AddModal.svelte';
+import TipAmountModal from '$lib/components/modals/TipAmountModal.svelte';
+import TipAmountRow from '$lib/components/social/TipAmountRow.svelte';
 import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search';
 import { createSearchProfilesFunction } from '$lib/services/profile-search';
@@ -91,7 +93,12 @@ let textInput = $state(null);
 let submitting = $state(false);
 let emojiPickerOpen = $state(false);
 let insertModalOpen = $state(false);
+let tipAmountModalOpen = $state(false);
 let zapModalOpen = $state(false);
+/** @type {number | null} */
+let pendingTipSats = $state(null);
+/** @type {{ amount: number, message?: string, emojiTags?: { shortcode: string, url: string }[], mentions?: string[] } | null} */
+let immediateZap = $state(null);
 /** @type {HTMLInputElement | null} */
 let fileInputEl = $state(null);
 let _mediaUploading = $state(false);
@@ -148,13 +155,23 @@ function handleCameraTap() {
 }
 
 function handleTipTap() {
-	zapModalOpen = true;
+	tipAmountModalOpen = true;
+}
+
+function handleTipAmountConfirm(/** @type {{ amount: number }} */ event) {
+	pendingTipSats = event.amount;
+}
+
+function openTipAmountModal() {
+	tipAmountModalOpen = true;
 }
 
 function handleZapClose(event) {
 	zapModalOpen = false;
+	immediateZap = null;
 	if (event?.success) {
 		onzapReceived?.({ zapReceipt: {} });
+		close();
 	}
 }
 
@@ -191,9 +208,25 @@ async function handleFileChange(e) {
 }
 
 async function handleSubmit(event) {
-	if (submitting || !event.text?.trim()) return;
+	if (submitting) return;
+	const hasText = Boolean(event.text?.trim());
+	const hasTip = pendingTipSats != null && pendingTipSats >= 1;
+	if (!hasText && !hasTip) return;
 	submitting = true;
 	try {
+		if (hasTip) {
+			immediateZap = {
+				amount: pendingTipSats,
+				message: event.text ?? '',
+				emojiTags: event.emojiTags ?? [],
+				mentions: event.mentions ?? []
+			};
+			pendingTipSats = null;
+			if (draftKey) clearCommentDraft(draftKey);
+			textInput?.clear?.();
+			zapModalOpen = true;
+			return;
+		}
 		onsubmit?.({
 			text: event.text ?? '',
 			emojiTags: event.emojiTags ?? [],
@@ -259,7 +292,10 @@ $effect(() => {
 	if (!isOpen) {
 		emojiPickerOpen = false;
 		insertModalOpen = false;
+		tipAmountModalOpen = false;
 		zapModalOpen = false;
+		pendingTipSats = null;
+		immediateZap = null;
 		draftLoadedForKey = null;
 	}
 });
@@ -274,7 +310,9 @@ $effect(() => {
 	}
 });
 
-const childModalOpen = $derived(emojiPickerOpen || insertModalOpen || zapModalOpen);
+const childModalOpen = $derived(
+	emojiPickerOpen || insertModalOpen || tipAmountModalOpen || zapModalOpen
+);
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -303,6 +341,9 @@ const childModalOpen = $derived(emojiPickerOpen || insertModalOpen || zapModalOp
 					<CommentModalRootRow {rootContext} {version} showConnector={true} />
 				{/if}
 				<div class="input-container">
+				{#if pendingTipSats}
+					<TipAmountRow amountSats={pendingTipSats} onedit={openTipAmountModal} />
+				{/if}
 				<input
 					type="file"
 					accept={ACCEPTED_MEDIA_TYPES}
@@ -323,6 +364,7 @@ const childModalOpen = $derived(emojiPickerOpen || insertModalOpen || zapModalOp
 					autoFocus={true}
 					showActionRow={true}
 					hideTipButton={false}
+					allowEmptySubmit={pendingTipSats != null && pendingTipSats >= 1}
 					onTipTap={handleTipTap}
 					onCameraTap={handleCameraTap}
 					onEmojiTap={handleEmojiTap}
@@ -351,10 +393,26 @@ const childModalOpen = $derived(emojiPickerOpen || insertModalOpen || zapModalOp
 	title="Add App"
 	bind:isOpen={insertModalOpen}
 	{getCurrentPubkey}
+	nestedModal={true}
+	lockBodyScroll={false}
+	zIndex={110}
 	onAdd={handleInsertNostrRef}
 	onclose={() => {
 		insertModalOpen = false;
 	}}
+/>
+
+<TipAmountModal
+	bind:isOpen={tipAmountModalOpen}
+	{target}
+	publisherName={recipientName?.trim() || recipientLabel(target)}
+	{contentType}
+	{otherZaps}
+	presetAmount={pendingTipSats}
+	nestedModal={true}
+	lockBodyScroll={false}
+	zIndex={110}
+	onconfirm={handleTipAmountConfirm}
 />
 
 <ZapSliderModal
@@ -363,8 +421,13 @@ const childModalOpen = $derived(emojiPickerOpen || insertModalOpen || zapModalOp
 	publisherName={recipientName?.trim() || recipientLabel(target)}
 	{contentType}
 	{otherZaps}
+	{immediateZap}
+	onImmediateZapClear={() => {
+		immediateZap = null;
+	}}
 	nestedModal={true}
 	lockBodyScroll={false}
+	zIndex={110}
 	{searchProfiles}
 	{searchEmojis}
 	onclose={handleZapClose}

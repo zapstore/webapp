@@ -501,18 +501,18 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 <div class="panel-content">
 	<header class="forum-feed-header">
 	<div class="forum-categories-wrap">
-		<button
-			type="button"
-			class="forum-search-btn"
-			onclick={() => {
-				searchModalOpen = true;
-			}}
-			aria-label="Search Forum"
-		>
-			<Search variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
-		</button>
 		<div class="forum-categories-scroll" data-chrome-scroll use:wheelScroll>
 			<div class="forum-categories-inner">
+				<button
+					type="button"
+					class="forum-search-btn"
+					onclick={() => {
+						searchModalOpen = true;
+					}}
+					aria-label="Search Forum"
+				>
+					<Search variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
+				</button>
 				{#each FORUM_CATEGORIES as category (category)}
 					<Label
 						text={category}
@@ -694,13 +694,12 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: 0;
 		border-bottom: 1px solid var(--shell-border);
 		/* Let .forum-latest-dropdown extend below the row; horizontal overflow stays in .forum-categories-scroll */
 		overflow: visible;
 		position: relative;
 		isolation: isolate;
-		padding-left: 16px;
 	}
 
 	.forum-categories-scroll {
@@ -728,7 +727,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		display: flex;
 		flex-wrap: nowrap;
 		gap: 8px;
-		padding: 12px 0;
+		padding: 12px 0 12px 16px;
 		align-items: center;
 	}
 
@@ -835,8 +834,8 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 52px;
-		height: 52px;
+		width: 48px;
+		height: 48px;
 		padding: 0;
 		border: none;
 		border-radius: 50%;
@@ -865,8 +864,8 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		}
 
 		.forum-fab {
-			width: 56px;
-			height: 56px;
+			width: 52px;
+			height: 52px;
 		}
 	}
 

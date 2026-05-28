@@ -58,7 +58,13 @@ let { target = null, publisherName = "", contentType = "app", otherZaps = [], is
  */
 wrapperParent = null,
 /** When set, opening the modal pre-fills this amount on the slider (e.g. quick chips). */
-presetZapSats = null, } = $props();
+presetZapSats = null,
+/**
+ * When set while opening, skip the slider step and start the invoice flow immediately
+ * (comment composers attach tip amount + message from the editor).
+ */
+immediateZap = null,
+onImmediateZapClear = null, } = $props();
 let sliderComponent = $state(null);
 let zapValue = $state(1000);
 let message = $state("");
@@ -82,12 +88,16 @@ let lastEmojiTags = $state([]);
 let _pendingWrapperComment = $state('');
 let _pendingWrapperEmojiTags = $state(/** @type {{ shortcode: string, url: string }[]} */ ([]));
 let _pendingWrapperMentions = $state(/** @type {string[]} */ ([]));
+/** True when invoice step was entered from a comment composer tip send (skip slider on back). */
+let _fromComposerTip = $state(false);
 /** Optimistic UI: temp row id until receipt or cancel */
 let pendingTempId = $state(null);
 const isConnected = $derived(getIsSignedIn());
 const qrCodeUrl = $derived(invoice
     ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&bgcolor=ffffff&color=000000&data=${encodeURIComponent("lightning:" + invoice.toUpperCase())}`
     : null);
+const modalStepTitle = $derived(step === 'slider' ? 'Zap' : step === 'invoice' ? 'Invoice' : step === 'success' ? 'Success' : '');
+const modalStepDescription = $derived(step === 'slider' ? zapDescription() : '');
 const targetProfile = $derived(target
     ? { pictureUrl: target.pictureUrl, name: target.name, pubkey: target.pubkey }
     : null);
@@ -127,6 +137,7 @@ function resetZapFormState() {
     _pendingWrapperComment = '';
     _pendingWrapperEmojiTags = [];
     _pendingWrapperMentions = [];
+    _fromComposerTip = false;
 }
 /** Successful close after receipt (pending row already cleared in parent). */
 function closeAfterSuccess() {
@@ -145,9 +156,10 @@ function handleSendZap(e) {
     lastEmojiTags = e.emojiTags ?? [];
     handleZap();
 }
-async function handleZap() {
+async function handleZap(/** @type {{ commentText?: string, emojiTags?: { shortcode: string, url: string }[], mentions?: string[] } | undefined} */ overrides) {
     if (loading || zapValue < 1)
         return;
+    _fromComposerTip = Boolean(overrides);
     // Record before createZap so subscribeToZapReceipt gets the full time window.
     zapStartedAt = Math.floor(Date.now() / 1000);
     // Show invoice step immediately with skeleton; createZap runs in background
@@ -160,12 +172,16 @@ async function handleZap() {
     try {
         const serialized = sliderComponent?.getSerializedContent?.();
         // Use || (not ??) so we fall back to message if serialized.text is an empty string.
-        const commentText = serialized?.text?.trim() || message;
-        const emojiTagsToSend = (serialized?.emojiTags?.length ? serialized.emojiTags : lastEmojiTags) ?? [];
+        const commentText = overrides?.commentText?.trim() || serialized?.text?.trim() || message;
+        const emojiTagsToSend = (overrides?.emojiTags?.length
+            ? overrides.emojiTags
+            : serialized?.emojiTags?.length
+                ? serialized.emojiTags
+                : lastEmojiTags) ?? [];
         // Stash for z-wrapper publishing after the receipt lands.
         _pendingWrapperComment = commentText;
         _pendingWrapperEmojiTags = emojiTagsToSend;
-        _pendingWrapperMentions = serialized?.mentions ?? [];
+        _pendingWrapperMentions = overrides?.mentions ?? serialized?.mentions ?? [];
         const signer = isConnected
             ? signEvent
             : signWithAnonymousKey;
@@ -320,6 +336,10 @@ async function openInWallet(bolt11) {
     }
 }
 function goBack() {
+    if (_fromComposerTip) {
+        handleManualDone();
+        return;
+    }
     const temp = pendingTempId;
     pendingTempId = null;
     if (temp)
@@ -344,6 +364,18 @@ $effect(() => {
         if (Number.isFinite(p) && p >= 1) {
             zapValue = Math.round(p);
         }
+        if (immediateZap?.amount != null && Number(immediateZap.amount) >= 1) {
+            zapValue = Math.round(Number(immediateZap.amount));
+            message = immediateZap.message ?? '';
+            lastEmojiTags = immediateZap.emojiTags ?? [];
+            const payload = {
+                commentText: immediateZap.message ?? '',
+                emojiTags: immediateZap.emojiTags ?? [],
+                mentions: immediateZap.mentions ?? [],
+            };
+            onImmediateZapClear?.();
+            void handleZap(payload);
+        }
     }
     if (_prevIsOpen && !isOpen) {
         if (pendingTempId) {
@@ -360,6 +392,8 @@ $effect(() => {
 <Modal
   bind:open={isOpen}
   ariaLabel="Zap {target?.name ?? 'Content'}"
+  title={modalStepTitle}
+  description={modalStepDescription}
   wide={true}
   align="bottom"
   noBackdrop={nestedModal}
@@ -377,13 +411,6 @@ $effect(() => {
     {/if}
 
     {#if step === "slider"}
-      <!-- Same zap flow for guest (anon keypair) and signed-in users -->
-      <div class="pt-4">
-        <h2 class="modal-title modal-heading mb-2">Zap</h2>
-        <p class="regular16 text-muted-foreground text-center mb-4">
-          {zapDescription()}
-        </p>
-      </div>
       <div class="slider-wrapper">
         <ZapSlider
           bind:this={sliderComponent}
@@ -399,7 +426,6 @@ $effect(() => {
       </div>
     {:else if step === "invoice"}
       <div class="invoice-view">
-        <h2 class="modal-title invoice-title modal-heading">Invoice</h2>
         <div class="invoice-qr-block">
           {#if invoiceLoading || !qrCodeUrl}
             <div class="invoice-qr-skeleton" aria-hidden="true"></div>
@@ -450,7 +476,6 @@ $effect(() => {
       </div>
     {:else if step === "success"}
       <div class="invoice-view">
-        <h2 class="modal-title invoice-title modal-heading">Success</h2>
         <div class="success-icon-circle">
           <CheckIcon variant="outline" size={56} strokeWidth={2.5} color="var(--blurpleColor)" />
         </div>
@@ -465,16 +490,12 @@ $effect(() => {
     padding-bottom: 0;
   }
 
-  .modal-title {
-    font-size: 1.875rem;
-  }
-
   .zap-modal-content {
-    padding: 16px;
+    padding: 0 16px 16px;
   }
   @media (min-width: 768px) {
     .zap-modal-content {
-      padding: 12px;
+      padding: 0 12px 12px;
     }
   }
   .error-message {
@@ -494,11 +515,7 @@ $effect(() => {
     flex-direction: column;
     align-items: center;
     gap: 16px;
-  }
-  .invoice-title {
-    font-size: 1.875rem;
-    color: var(--white);
-    margin: 0 0 8px;
+    padding-top: 8px;
   }
   .invoice-qr-block {
     flex-shrink: 0;

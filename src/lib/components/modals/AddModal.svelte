@@ -3,9 +3,8 @@
  * AddModal — search and pick an app (stack editor, comments, forum posts, etc.).
  * Single-column browse-style results with an action button per row.
  */
-import { fly, fade } from 'svelte/transition';
-import { cubicOut } from 'svelte/easing';
 import { Search } from 'lucide-svelte';
+import Modal from '$lib/components/common/Modal.svelte';
 import AppSearchHitRow from '$lib/components/cards/AppSearchHitRow.svelte';
 import AppSearchHitRowSkeleton from '$lib/components/cards/AppSearchHitRowSkeleton.svelte';
 import { APP_SEARCH_HIT_SKELETON_VARIANT_COUNT } from '$lib/components/cards/app-search-hit-skeleton-presets.js';
@@ -24,7 +23,7 @@ import {
 import '$lib/styles/browse-grid.css';
 
 let {
-	title = 'Add',
+	title = 'Add App',
 	actionLabel = 'Add',
 	isOpen = $bindable(false),
 	getCurrentPubkey = () => null,
@@ -32,8 +31,12 @@ let {
 	onclose = () => {},
 	/** Dark backdrop (e.g. stack editor). */
 	dimOverlay = false,
+	/** Stacked over another sheet — transparent backdrop, parent provides dim. */
+	nestedModal = false,
 	/** Cover the nearest positioned panel (studio content) instead of the viewport. */
-	scopedInPanel = false
+	scopedInPanel = false,
+	lockBodyScroll = true,
+	zIndex = 110
 } = $props();
 
 let query = $state('');
@@ -50,6 +53,7 @@ let profileByPubkey = $state({});
 
 const catalogRelays = [ZAPSTORE_RELAY, 'wss://relay.vertexlab.io'];
 const SKELETON_ROWS = 4;
+const noBackdrop = $derived(nestedModal || !dimOverlay);
 
 $effect(() => {
 	if (!isOpen) {
@@ -192,193 +196,129 @@ function handleAdd(parsed) {
 		app: parsed
 	});
 	isOpen = false;
-	onclose?.();
-}
-
-function handleOverlayClick() {
-	isOpen = false;
-	onclose?.();
-}
-
-function handleKeydown(/** @type {KeyboardEvent} */ e) {
-	if (e.key === 'Escape') {
-		isOpen = false;
-		onclose?.();
-	}
 }
 
 /** @param {ReturnType<typeof parseApp>} parsed */
 function profileForApp(parsed) {
 	return profileByPubkey[String(parsed.pubkey).trim().toLowerCase()];
 }
+
+let _prevOpen = $state(false);
+$effect(() => {
+	if (_prevOpen && !isOpen) onclose?.();
+	_prevOpen = isOpen;
+});
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-{#if isOpen}
-	<div
-		class="add-overlay"
-		class:add-overlay-dim={dimOverlay}
-		class:add-overlay-scoped={scopedInPanel}
-		onclick={handleOverlayClick}
-		role="presentation"
-		transition:fade={{ duration: 180 }}
-	></div>
-
-	<div
-		class="add-wrapper"
-		class:add-wrapper-scoped={scopedInPanel}
-		role="dialog"
-		aria-modal="true"
-		aria-label={title}
-	>
-		<div class="add-sheet" transition:fly={{ y: 80, duration: 200, easing: cubicOut }}>
-			<div class="add-title-block">
-				<h2 class="add-title">{title}</h2>
+<Modal
+	bind:open={isOpen}
+	ariaLabel={title}
+	{title}
+	wide={true}
+	align="bottom"
+	{noBackdrop}
+	{zIndex}
+	{lockBodyScroll}
+	{scopedInPanel}
+	maxHeight={50}
+	fillHeight={true}
+	class="add-modal"
+>
+	<div class="add-modal-content">
+		<div class="add-search-row">
+			<div class="add-search-inner">
+				<span class="add-search-icon" aria-hidden="true"><Search /></span>
+				<input
+					type="search"
+					class="add-search-input"
+					placeholder="Search apps"
+					bind:value={query}
+					bind:this={searchInputEl}
+					aria-label="Search apps"
+				/>
 			</div>
+		</div>
 
-			<div class="add-search-row">
-				<div class="add-search-inner">
-					<span class="add-search-icon" aria-hidden="true"><Search /></span>
-					<input
-						type="search"
-						class="add-search-input"
-						placeholder="Search apps"
-						bind:value={query}
-						bind:this={searchInputEl}
-						aria-label="Search apps"
-					/>
-				</div>
-			</div>
-
-			<div class="add-body-wrap">
-				<div class="add-body-inner">
-					{#if listLoading}
-						<ul class="browse-grid add-modal-results" role="list" aria-hidden="true">
-							{#each Array(SKELETON_ROWS) as _, i (i)}
-								<li class="browse-grid-item browse-grid-item--app add-modal-row">
-									<div class="add-modal-hit">
-										<AppSearchHitRowSkeleton
-											variant={i % APP_SEARCH_HIT_SKELETON_VARIANT_COUNT}
-											showDescription={false}
-											showChevron={false}
-											iconSize="md"
-										/>
-									</div>
-								</li>
-							{/each}
-						</ul>
-					{:else if displayResults.length === 0}
-						<div class="add-empty-state">
-							<p class="add-empty-text">
-								{!hasQuery && !getCurrentPubkey() ? 'Search apps' : 'No apps found'}
-							</p>
-						</div>
-					{:else}
-						<ul class="browse-grid add-modal-results" role="list">
-							{#each displayResults as event (event.id)}
-								{@const parsed = parseApp(event)}
-								<li class="browse-grid-item browse-grid-item--app add-modal-row">
-									<div class="add-modal-hit">
-										<AppSearchHitRow
-											app={parsed}
-											authorProfile={profileForApp(parsed)}
-											showDescription={false}
-											showChevron={false}
-											iconSize="md"
-											noHover={true}
-											onNavigate={(e) => e.preventDefault()}
-										/>
-										<button
-											type="button"
-											class="btn-secondary-small btn-secondary-light add-modal-action"
-											onclick={() => handleAdd(parsed)}
-										>
-											{actionLabel}
-										</button>
-									</div>
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</div>
+		<div class="add-body-wrap">
+			<div class="add-body-inner">
+				{#if listLoading}
+					<ul class="browse-grid add-modal-results" role="list" aria-hidden="true">
+						{#each Array(SKELETON_ROWS) as _, i (i)}
+							<li class="browse-grid-item browse-grid-item--app add-modal-row">
+								<div class="add-modal-hit">
+									<AppSearchHitRowSkeleton
+										variant={i % APP_SEARCH_HIT_SKELETON_VARIANT_COUNT}
+										showDescription={false}
+										showChevron={false}
+										iconSize="md"
+									/>
+								</div>
+							</li>
+						{/each}
+					</ul>
+				{:else if displayResults.length === 0}
+					<div class="add-empty-state">
+						<p class="add-empty-text">
+							{!hasQuery && !getCurrentPubkey() ? 'Search apps' : 'No apps found'}
+						</p>
+					</div>
+				{:else}
+					<ul class="browse-grid add-modal-results" role="list">
+						{#each displayResults as event (event.id)}
+							{@const parsed = parseApp(event)}
+							<li class="browse-grid-item browse-grid-item--app add-modal-row">
+								<div class="add-modal-hit">
+									<AppSearchHitRow
+										app={parsed}
+										authorProfile={profileForApp(parsed)}
+										showDescription={false}
+										showChevron={false}
+										iconSize="md"
+										noHover={true}
+										onNavigate={(e) => e.preventDefault()}
+									/>
+									<button
+										type="button"
+										class="btn-secondary-small btn-secondary-light add-modal-action"
+										onclick={() => handleAdd(parsed)}
+									>
+										{actionLabel}
+									</button>
+								</div>
+							</li>
+						{/each}
+					</ul>
+				{/if}
 			</div>
 		</div>
 	</div>
-{/if}
+</Modal>
 
 <style>
-	.add-overlay {
-		position: fixed;
-		inset: 0;
-		z-index: 109;
-		background: transparent;
-	}
-
-	.add-overlay-dim {
-		background: color-mix(in srgb, var(--black) 65%, transparent);
-	}
-
-	.add-overlay-scoped {
-		position: absolute;
-	}
-
-	.add-wrapper {
-		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		z-index: 110;
-		display: flex;
-		justify-content: center;
-		pointer-events: none;
-	}
-
-	.add-wrapper-scoped {
-		position: absolute;
-	}
-
-	.add-sheet {
-		width: 100%;
-		max-width: 100%;
-		margin: 0;
-		background: var(--gray66);
-		border-radius: var(--radius-32) var(--radius-32) 0 0;
-		border: 0.33px solid var(--white8);
-		border-bottom: none;
-		padding: 16px;
-		pointer-events: auto;
-		backdrop-filter: blur(24px);
-		-webkit-backdrop-filter: blur(24px);
-		display: flex;
-		flex-direction: column;
+	:global(.add-modal.modal-fill-height) {
 		height: 50vh;
 		max-height: 50vh;
+	}
+
+	:global(.add-modal.modal-fill-height .modal-content) {
+		display: flex;
+		flex-direction: column;
 		min-height: 0;
+	}
+
+	.add-modal-content {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+		padding: 0 16px 16px;
 		box-sizing: border-box;
 	}
 
 	@media (min-width: 768px) {
-		.add-sheet {
-			max-width: 560px;
-			margin-bottom: 16px;
-			border-radius: 24px;
-			border-bottom: 0.33px solid var(--white8);
-			padding: 12px;
+		.add-modal-content {
+			padding: 0 12px 12px;
 		}
-	}
-
-	.add-title-block {
-		flex-shrink: 0;
-		padding: 0 0 8px;
-	}
-
-	.add-title {
-		margin: 0;
-		font-size: 1.875rem;
-		font-weight: 600;
-		color: var(--white);
-		text-align: center;
 	}
 
 	.add-search-row {
