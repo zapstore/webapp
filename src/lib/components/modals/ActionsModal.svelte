@@ -108,7 +108,7 @@
 		onZapPendingClear = null,
 		recipientName = '',
 		otherZaps = [],
-		getCurrentPubkey = () => null,
+		getCurrentPubkey = null,
 		searchProfiles = async () => [],
 		searchEmojis = async () => [],
 		signEvent = null,
@@ -183,17 +183,18 @@
 
 	const currentPubkey = $derived(effectiveGetCurrentPubkey?.() ?? null);
 	const isOwnEvent = $derived.by(() => {
+		if (!currentPubkey) return false;
 		if (isCatalogContent) {
-			return Boolean(
-				currentPubkey &&
-					targetApp?.pubkey &&
-					String(currentPubkey).trim().toLowerCase() ===
-						String(targetApp.pubkey).trim().toLowerCase()
+			return (
+				Boolean(targetApp?.pubkey) &&
+				String(currentPubkey).trim().toLowerCase() ===
+					String(targetApp.pubkey).trim().toLowerCase()
 			);
 		}
-		const mine = getCurrentPubkey();
-		if (!mine || !authorPubkey) return false;
-		return String(mine).trim().toLowerCase() === String(authorPubkey).trim().toLowerCase();
+		if (!authorPubkey) return false;
+		return (
+			String(currentPubkey).trim().toLowerCase() === String(authorPubkey).trim().toLowerCase()
+		);
 	});
 
 	const reportContentType = $derived(

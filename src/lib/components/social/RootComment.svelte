@@ -1361,6 +1361,7 @@
 	{labelCommunityPubkey}
 	searchProfiles={_threadSearchProfiles}
 	{searchEmojis}
+	getCurrentPubkey={getCurrentPubkey}
 	signEvent={showOptionsOnly ? null : signEvent}
 	onComment={actionsModalOnComment}
 />
