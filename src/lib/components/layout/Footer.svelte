@@ -154,7 +154,7 @@
 						<a
 							href="/community/faq"
 							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
-							>User FAQ</a
+							>FAQ</a
 						>
 					</li>
 					<li>
