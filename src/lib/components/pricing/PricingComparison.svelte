@@ -114,7 +114,7 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 12px;
-		padding: 20px var(--pricing-pad-x) 16px;
+		padding: 20px var(--pricing-pad-x) 10px;
 	}
 
 	.pricing-compare-page-title {
@@ -157,7 +157,7 @@
 
 	.pricing-compare-section-title {
 		margin: 0;
-		padding: 14px var(--pricing-pad-x);
+		padding: 20px var(--pricing-pad-x) 10px;
 		border-bottom: 1px solid var(--shell-border);
 		font-size: 14px;
 		font-weight: 600;
@@ -165,8 +165,8 @@
 
 	@media (min-width: 768px) {
 		.pricing-compare-section-title {
-			padding-top: 18px;
-			padding-bottom: 18px;
+			padding-top: 24px;
+			padding-bottom: 12px;
 		}
 	}
 
@@ -238,6 +238,18 @@
 		min-height: 48px;
 		padding: 12px 14px;
 		border-right: 1px solid var(--shell-border);
+	}
+
+	.pricing-compare-grid-feature {
+		padding-left: var(--pricing-pad-x);
+		padding-right: var(--pricing-pad-x);
+	}
+
+	.pricing-compare-grid-tier {
+		padding-left: var(--pricing-pad-x);
+		padding-right: var(--pricing-pad-x);
+		justify-content: center;
+		text-align: center;
 	}
 
 	.pricing-compare-grid-cell:last-child {

@@ -204,7 +204,7 @@
 
 	@media (min-width: 768px) {
 		.pricing-hero-title.display-hero {
-			margin-bottom: 1.25rem;
+			margin-bottom: calc(1.25rem + 12px);
 		}
 	}
 
