@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./lib/styles/comment-modal-inset.css";
 
 /* ========================================
    FONT FACE DECLARATIONS
@@ -129,6 +130,9 @@
   --radius-16: 16px;
   --radius-24: 24px;
   --radius-32: 32px;
+  /* Modal shells (Modal.svelte + custom bottom/center sheets) — same on mobile and desktop */
+  --modal-sheet-radius: 28px;
+  --modal-center-radius: 36px;
   /* Default radius token (used by Tailwind lg) */
   --radius: var(--radius-16);
 
@@ -1486,7 +1490,7 @@ h5, h6 {
 /* Modal container width: slightly wider than the inner search on >= sm */
 @media (min-width: 640px) {
   .search-modal-width {
-    width: 584px; /* 560px search + ~24px visual breathing room */
+    width: calc(var(--modal-max-width-wide) + 24px);
   }
 }
 
@@ -1498,7 +1502,7 @@ h5, h6 {
   }
 
   .search-bar-width {
-    width: 560px;
+    width: var(--modal-max-width-wide);
   }
 }
 
@@ -1987,6 +1991,25 @@ h5, h6 {
 ::selection {
   background-color: color-mix(in srgb, var(--blurpleColor) 30%, transparent);
   color: white;
+}
+
+/* ========================================
+   MODAL / SHEET WIDTH (desktop bottom sheets)
+   ======================================== */
+
+:root {
+  /* Default Modal `max-w-lg` (32rem) and `wide` sheets (560px) share one bump at 1600px. */
+  --modal-max-width-default: 32rem;
+  --modal-max-width-wide: 560px;
+  --modal-max-width-xl: 36rem;
+}
+
+@media (min-width: 1600px) {
+  :root {
+    --modal-max-width-default: 40rem; /* 512px + 128px */
+    --modal-max-width-wide: 688px; /* 560px + 128px */
+    --modal-max-width-xl: 44rem; /* 576px + 128px */
+  }
 }
 
 /* ========================================

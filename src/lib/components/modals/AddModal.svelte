@@ -21,9 +21,10 @@ import {
 	sortAppsRelevanceDeveloperFirst
 } from '$lib/utils/app-search.js';
 import '$lib/styles/browse-grid.css';
+import '$lib/styles/comment-modal-inset.css';
 
 let {
-	title = 'Add App',
+	title = 'Add an App',
 	actionLabel = 'Add',
 	isOpen = $bindable(false),
 	getCurrentPubkey = () => null,
@@ -221,6 +222,7 @@ $effect(() => {
 	{lockBodyScroll}
 	{scopedInPanel}
 	maxHeight={50}
+	scopedPanelMaxVh={50}
 	fillHeight={true}
 	class="add-modal"
 >
@@ -295,9 +297,24 @@ $effect(() => {
 </Modal>
 
 <style>
+	:global(.add-modal .modal-title-block) {
+		padding-bottom: 14px;
+	}
+
 	:global(.add-modal.modal-fill-height) {
 		height: 50vh;
 		max-height: 50vh;
+	}
+
+	:global(.add-modal.modal-scoped-in-panel.modal-fill-height) {
+		height: min(
+			calc(100% - var(--inbox-modal-top-reserve, 0px)),
+			50vh
+		);
+		max-height: min(
+			calc(100% - var(--inbox-modal-top-reserve, 0px)),
+			50vh
+		);
 	}
 
 	:global(.add-modal.modal-fill-height .modal-content) {
@@ -311,14 +328,8 @@ $effect(() => {
 		flex-direction: column;
 		flex: 1;
 		min-height: 0;
-		padding: 0 16px 16px;
+		padding: 0 var(--comment-modal-inset) var(--comment-modal-bottom-inset);
 		box-sizing: border-box;
-	}
-
-	@media (min-width: 768px) {
-		.add-modal-content {
-			padding: 0 12px 12px;
-		}
 	}
 
 	.add-search-row {

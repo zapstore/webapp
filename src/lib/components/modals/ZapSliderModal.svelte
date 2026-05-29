@@ -491,12 +491,8 @@ $effect(() => {
   }
 
   .zap-modal-content {
-    padding: 0 16px 16px;
-  }
-  @media (min-width: 768px) {
-    .zap-modal-content {
-      padding: 0 12px 12px;
-    }
+    padding: 0 var(--comment-modal-inset) var(--comment-modal-bottom-inset);
+    box-sizing: border-box;
   }
   .error-message {
     display: flex;

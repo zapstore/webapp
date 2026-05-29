@@ -1033,6 +1033,8 @@
 	fillHeight={true}
 	wide={true}
 	zIndex={modalZIndex}
+	closeOnEscape={!childModalOpen}
+	closeOnBackdropClick={!childModalOpen}
 	lockBodyScroll={modalLockBodyScroll}
 	scopedInPanel={modalScopedInPanel}
 	class="thread-modal {childModalOpen ? 'thread-modal-child-open' : ''}"
@@ -1417,6 +1419,7 @@
 <EmojiPickerModal
 	bind:isOpen={emojiPickerOpen}
 	{getCurrentPubkey}
+	zIndex={modalZIndex + 15}
 	onSelectEmoji={handleEmojiSelect}
 	onclose={() => {
 		emojiPickerOpen = false;
@@ -1424,7 +1427,7 @@
 />
 
 <AddModal
-	title="Add App"
+	title="Add an App"
 	bind:isOpen={insertModalOpen}
 	{getCurrentPubkey}
 	nestedModal={modalOpen}
@@ -1751,7 +1754,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		padding: 12px var(--comment-modal-inset) var(--comment-modal-inset);
+		padding: var(--comment-modal-inset) var(--comment-modal-inset) var(--comment-modal-inset);
 		border-top: 1.4px solid var(--white11);
 	}
 

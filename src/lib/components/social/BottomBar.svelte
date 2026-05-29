@@ -7,8 +7,9 @@ import { Zap, Reply, Options } from '$lib/components/icons';
 import InputButton from '$lib/components/common/InputButton.svelte';
 import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
 import ActionsModal from '$lib/components/modals/ActionsModal.svelte';
-import CommentModal from '$lib/components/modals/CommentModal.svelte';
-import { registerCommentCompose } from '$lib/keyboard/shortcuts.js';
+	import CommentModal from '$lib/components/modals/CommentModal.svelte';
+	import { registerCommentCompose } from '$lib/keyboard/shortcuts.js';
+	import '$lib/styles/comment-modal-inset.css';
 
 let {
 	appName = '',
@@ -196,11 +197,11 @@ const bottomBarRecipientLabel = $derived.by(() => {
 		max-width: 100%;
 		margin: 0;
 		background: var(--gray66);
-		border-radius: var(--radius-32) var(--radius-32) 0 0;
+		border-radius: var(--modal-sheet-radius) var(--modal-sheet-radius) 0 0;
 		border: 0.33px solid var(--white8);
 		border-bottom: none;
 		box-shadow: 0 -4px 24px var(--black);
-		padding: 16px 6px 16px 16px;
+		padding: var(--comment-modal-inset) 6px var(--comment-modal-inset) var(--comment-modal-inset);
 		pointer-events: auto;
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
@@ -279,11 +280,11 @@ const bottomBarRecipientLabel = $derived.by(() => {
 		}
 
 		.bottom-bar {
-			max-width: 560px;
+			max-width: var(--modal-max-width-wide);
 			margin-bottom: 16px;
-			border-radius: 24px;
+			border-radius: var(--modal-sheet-radius);
 			border-bottom: 0.33px solid var(--white8);
-			padding: 12px 2px 12px 12px;
+			padding: var(--comment-modal-inset) 2px var(--comment-modal-inset) var(--comment-modal-inset);
 			box-shadow: 0 40px 64px 12px var(--black);
 		}
 

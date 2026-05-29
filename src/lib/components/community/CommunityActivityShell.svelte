@@ -78,6 +78,8 @@
 	let {
 		inboxUserPubkey = null,
 		inboxEmbed = false,
+		/** True only for header inbox popover — scoped sheets flush to panel bottom on desktop. */
+		inboxPopover = false,
 		inboxActive = true,
 		/** Called when user taps "Mark All as Read"; parent can use this to update UI. */
 		onMarkAllRead = null,
@@ -2776,7 +2778,7 @@
 			initialReplyTarget={initialReplyTargetForModal}
 			modalLockBodyScroll={!inboxEmbed}
 			modalZIndex={inboxEmbed ? 130 : 110}
-			modalScopedInPanel={inboxEmbed}
+			modalScopedInPanel={inboxPopover}
 			disableMediaLightbox={inboxEmbed}
 			id={_rootEv.id}
 			content={_rootEv.content ?? ''}
@@ -2894,7 +2896,7 @@
 			initialReplyTarget={initialReplyTargetForModal}
 			modalLockBodyScroll={!inboxEmbed}
 			modalZIndex={inboxEmbed ? 130 : 110}
-			modalScopedInPanel={inboxEmbed}
+			modalScopedInPanel={inboxPopover}
 			disableMediaLightbox={inboxEmbed}
 			isZapRoot={true}
 			id={_zEv.id}

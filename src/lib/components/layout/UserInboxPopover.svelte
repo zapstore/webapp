@@ -88,7 +88,7 @@
 				{/if}
 			</div>
 		</div>
-		<UserInboxFeed bind:shellRef {pubkey} inboxActive={open} />
+		<UserInboxFeed bind:shellRef {pubkey} inboxActive={open} inboxPopover={true} />
 	</div>
 {/if}
 

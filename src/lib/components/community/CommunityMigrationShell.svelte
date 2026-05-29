@@ -561,7 +561,7 @@
 
 	.nothing-zsp {
 		width: 100%;
-		max-width: 560px;
+		max-width: var(--modal-max-width-wide);
 		margin-top: 8px;
 	}
 
@@ -820,7 +820,7 @@
 
 	.success-state .zsp-section {
 		margin-top: 32px;
-		max-width: 560px;
+		max-width: var(--modal-max-width-wide);
 		width: 100%;
 	}
 

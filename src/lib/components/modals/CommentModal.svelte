@@ -246,7 +246,28 @@ async function handleSubmit(event) {
 }
 
 function handleKeydown(e) {
-	if (e.key === 'Escape') close();
+	if (e.key !== 'Escape' || !isOpen) return;
+	if (emojiPickerOpen) {
+		emojiPickerOpen = false;
+		e.preventDefault();
+		return;
+	}
+	if (insertModalOpen) {
+		insertModalOpen = false;
+		e.preventDefault();
+		return;
+	}
+	if (tipAmountModalOpen) {
+		tipAmountModalOpen = false;
+		e.preventDefault();
+		return;
+	}
+	if (zapModalOpen) {
+		zapModalOpen = false;
+		e.preventDefault();
+		return;
+	}
+	close();
 }
 
 function applyBodyScrollLock() {
@@ -389,6 +410,7 @@ const childModalOpen = $derived(
 <EmojiPickerModal
 	bind:isOpen={emojiPickerOpen}
 	{getCurrentPubkey}
+	zIndex={111}
 	onSelectEmoji={handleEmojiSelect}
 	onclose={() => {
 		emojiPickerOpen = false;
@@ -396,7 +418,7 @@ const childModalOpen = $derived(
 />
 
 <AddModal
-	title="Add App"
+	title="Add an App"
 	bind:isOpen={insertModalOpen}
 	{getCurrentPubkey}
 	nestedModal={true}
@@ -465,7 +487,7 @@ const childModalOpen = $derived(
 		max-width: 100%;
 		margin: 0;
 		background: var(--gray66);
-		border-radius: var(--radius-32) var(--radius-32) 0 0;
+		border-radius: var(--modal-sheet-radius) var(--modal-sheet-radius) 0 0;
 		border: 0.33px solid var(--white8);
 		border-bottom: none;
 		padding: var(--comment-modal-inset) var(--comment-modal-inset) var(--comment-modal-bottom-inset);
@@ -477,13 +499,13 @@ const childModalOpen = $derived(
 		transform-origin: top center;
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 0;
 	}
 
 	.comment-compose-column {
 		display: flex;
 		flex-direction: column;
-		gap: 0;
+		gap: 8px;
 		min-width: 0;
 		width: 100%;
 	}
@@ -509,9 +531,9 @@ const childModalOpen = $derived(
 
 	@media (min-width: 768px) {
 		.comment-sheet {
-			max-width: 560px;
+			max-width: var(--modal-max-width-wide);
 			margin-bottom: 16px;
-			border-radius: 24px;
+			border-radius: var(--modal-sheet-radius);
 			border-bottom: 0.33px solid var(--white8);
 		}
 	}

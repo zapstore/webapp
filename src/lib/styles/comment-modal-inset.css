@@ -1,16 +1,40 @@
 /**
- * Shared inset for comment modals and thread sheets
- * (RootComment thread modal, CommentModal, inbox-scoped thread modals).
+ * Shared outer gutter for social compose sheets (CommentModal, thread modal,
+ * ActionsModal body, Add App when nested, tip/zap nested sheets).
  *
- * Bottom: 14px everywhere; on mobile only, add device safe-area inset.
+ * 14px on all breakpoints — padding around the gray sheet / around black33
+ * shells, never inside black33 composer chrome.
  */
 :root {
 	--comment-modal-inset: 14px;
-	--comment-modal-bottom-inset: var(--comment-modal-inset);
+	--comment-modal-bottom-inset: 14px;
 }
 
 @media (max-width: 767px) {
 	:root {
-		--comment-modal-bottom-inset: calc(var(--comment-modal-inset) + env(safe-area-inset-bottom, 0px));
+		--comment-modal-bottom-inset: calc(14px + env(safe-area-inset-bottom, 0px));
 	}
+}
+
+/**
+ * Nested bottom sheets over comment composers: body owns bottom inset only.
+ */
+:global(.add-modal.modal-bottom .modal-content),
+:global(.tip-amount-modal.modal-bottom .modal-content),
+:global(.zap-slider-modal.modal-bottom .modal-content) {
+	padding-bottom: 0 !important;
+}
+
+:global(.add-modal.modal-scoped-in-panel.modal-bottom .modal-content),
+:global(.tip-amount-modal.modal-scoped-in-panel.modal-bottom .modal-content),
+:global(.zap-slider-modal.modal-scoped-in-panel.modal-bottom .modal-content) {
+	padding-bottom: 0 !important;
+}
+
+/* Social Modal shells: title + body share the same horizontal gutter */
+:global(.add-modal .modal-title-block),
+:global(.actions-modal .modal-title-block),
+:global(.tip-amount-modal .modal-title-block) {
+	padding-left: var(--comment-modal-inset);
+	padding-right: var(--comment-modal-inset);
 }

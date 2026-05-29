@@ -165,8 +165,7 @@
 	bind:open
 	ariaLabel="Download {isZapstore ? 'Zapstore' : app?.name || 'App'}"
 	maxWidth="max-w-lg"
-	maxHeight={90}
-	class={isZapstore ? 'download-modal-bg' : ''}
+	class={isZapstore ? 'download-modal download-modal-bg' : ''}
 >
 	{#if isZapstore}
 		<!-- Zapstore: Fancy header image -->
@@ -175,7 +174,7 @@
 			alt="Download Zapstore"
 			width={DOWNLOAD_HERO_WIDTH}
 			height={DOWNLOAD_HERO_HEIGHT}
-			class="w-full h-auto object-cover"
+			class="download-hero-img w-full h-auto object-cover"
 			loading="eager"
 			fetchpriority="high"
 			decoding="sync"
@@ -652,6 +651,19 @@
 	/* Gradient background for Zapstore download modal */
 	:global(.download-modal-bg) {
 		background: linear-gradient(to bottom, var(--black66), var(--gray66)) !important;
+	}
+
+	.download-hero-img {
+		width: 100%;
+		height: auto;
+		object-fit: cover;
+	}
+
+	/* ≥1600px modal is wider — cap hero at intrinsic height so the sheet does not balloon */
+	@media (min-width: 1600px) {
+		.download-hero-img {
+			max-height: 636px;
+		}
 	}
 
 	/* Zapstore content overlap with image - less overlap on smaller screens */

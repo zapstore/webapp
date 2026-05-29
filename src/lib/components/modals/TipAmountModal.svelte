@@ -5,6 +5,7 @@
 import Modal from '$lib/components/common/Modal.svelte';
 import ZapSlider from '$lib/components/modals/ZapSlider.svelte';
 import { Zap } from '$lib/components/icons';
+import '$lib/styles/comment-modal-inset.css';
 
 /** @param {string} contentType */
 function tipTargetNoun(contentType) {
@@ -95,6 +96,7 @@ const confirmAriaLabel = $derived(`Add a ${confirmAmountLabel} Tip`);
 	{zIndex}
 	{lockBodyScroll}
 	{scopedInPanel}
+	compactTitleSpacing={true}
 	class="tip-amount-modal"
 >
 	<div class="tip-amount-modal-content">
@@ -123,13 +125,8 @@ const confirmAriaLabel = $derived(`Add a ${confirmAmountLabel} Tip`);
 
 <style>
 	.tip-amount-modal-content {
-		padding: 0 16px 16px;
-	}
-
-	@media (min-width: 768px) {
-		.tip-amount-modal-content {
-			padding: 0 12px 12px;
-		}
+		padding: 0 var(--comment-modal-inset) var(--comment-modal-bottom-inset);
+		box-sizing: border-box;
 	}
 
 	.confirm-btn {

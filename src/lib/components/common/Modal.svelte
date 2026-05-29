@@ -32,7 +32,11 @@ children, footer, } = $props();
 let modalElement = $state(null);
 let _isBottomAligned = $state(false);
 let isMobile = $state(false);
-const effectiveMaxWidth = $derived(wide ? "modal-wide" : maxWidth);
+const modalWidthClass = $derived.by(() => {
+    if (wide) return "modal-max-wide";
+    if (maxWidth === "max-w-xl") return "modal-max-xl";
+    return "modal-max-default";
+});
 const actualAlignment = $derived(align === "top"
     ? "top"
     : align === "bottom" || isMobile
@@ -140,7 +144,7 @@ function handleResize() {
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
       bind:this={modalElement}
-      class="modal-container relative w-full {effectiveMaxWidth} {className} border-subtle overflow-hidden backdrop-blur-lg"
+      class="modal-container relative w-full {modalWidthClass} {className} border-subtle overflow-hidden backdrop-blur-lg"
       class:modal-top={actualAlignment === "top"}
       class:modal-center={actualAlignment === "center"}
       class:modal-bottom={actualAlignment === "bottom"}
@@ -207,7 +211,7 @@ function handleResize() {
   .modal-top {
     margin: 0;
     margin-bottom: auto;
-    border-radius: 0 0 var(--radius-32) var(--radius-32);
+    border-radius: 0 0 var(--modal-sheet-radius) var(--modal-sheet-radius);
     max-height: var(--modal-max-height);
     background: var(--gray66);
     border: 0.33px solid var(--white8);
@@ -216,7 +220,8 @@ function handleResize() {
 
   .modal-center {
     margin: 1rem;
-    border-radius: var(--radius-32);
+    border-radius: var(--modal-center-radius);
+    /* Center sheets hug content; cap at viewport only (maxHeight prop is for bottom/top sheets). */
     max-height: calc(100vh - 2rem);
     background: var(--gray66);
     border: 0.33px solid var(--white8);
@@ -225,7 +230,7 @@ function handleResize() {
   .modal-bottom {
     margin: 0;
     padding: 0;
-    border-radius: var(--radius-32) var(--radius-32) 0 0;
+    border-radius: var(--modal-sheet-radius) var(--modal-sheet-radius) 0 0;
     max-height: var(--modal-max-height);
     background: var(--gray66);
     border: 0.33px solid var(--white8);
@@ -241,13 +246,13 @@ function handleResize() {
   @media (min-width: 768px) {
     .modal-bottom {
       margin-bottom: 16px;
-      border-radius: 24px;
+      border-radius: var(--modal-sheet-radius);
       border-bottom: 0.33px solid var(--white8);
     }
 
     .modal-bottom.modal-scoped-in-panel {
       margin-bottom: 0 !important;
-      border-radius: 24px;
+      border-radius: var(--modal-sheet-radius);
       border-bottom: 0.33px solid var(--white8);
     }
   }
@@ -258,7 +263,7 @@ function handleResize() {
       calc(var(--modal-scoped-panel-vh, 90) * 1vh)
     );
     margin-bottom: 0;
-    border-radius: 24px;
+    border-radius: var(--modal-sheet-radius);
     border-bottom: 0.33px solid var(--white8);
   }
 
@@ -303,13 +308,21 @@ function handleResize() {
     padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 
-  .modal-wide {
+  .modal-container {
     max-width: 100%;
   }
 
   @media (min-width: 768px) {
-    .modal-wide {
-      max-width: 560px;
+    .modal-container.modal-max-default {
+      max-width: var(--modal-max-width-default);
+    }
+
+    .modal-container.modal-max-wide {
+      max-width: var(--modal-max-width-wide);
+    }
+
+    .modal-container.modal-max-xl {
+      max-width: var(--modal-max-width-xl);
     }
   }
 
