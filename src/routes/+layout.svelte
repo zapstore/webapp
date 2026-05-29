@@ -24,6 +24,7 @@ import { isOnline } from '$lib/stores/online.svelte.js';
 import SiteHeader from '$lib/components/layout/SiteHeader.svelte';
 import Footer from '$lib/components/layout/Footer.svelte';
 import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
+import CommentShortcutListener from '$lib/keyboard/CommentShortcutListener.svelte';
 import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
 import '../app.css';
 let { children } = $props();
@@ -159,6 +160,7 @@ async function _clearAllLocalCaches() {
 
 	<div class="relative z-10 app-root-inner">
 		<NavigationProgress />
+		<CommentShortcutListener />
 
 		<SiteHeader variant="landing" />
 

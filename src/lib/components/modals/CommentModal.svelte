@@ -25,6 +25,7 @@ import {
 	catalogCommentDraftKey
 } from '$lib/stores/comment-drafts.js';
 import '$lib/styles/comment-modal-inset.css';
+import { registerCommentCompose } from '$lib/keyboard/shortcuts.js';
 import * as nip19 from 'nostr-tools/nip19';
 
 /** Label for zap/comment target when building “Write to …” placeholder. */
@@ -308,6 +309,11 @@ $effect(() => {
 	if (draft?.json) {
 		textInput.setEditorJson?.(draft.json);
 	}
+});
+
+$effect(() => {
+	if (!isOpen) return;
+	return registerCommentCompose(() => textInput?.focus?.(), { priority: 20 });
 });
 
 const childModalOpen = $derived(

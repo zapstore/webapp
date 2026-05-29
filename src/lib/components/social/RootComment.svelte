@@ -33,6 +33,7 @@
 	import { getIsSignedIn, getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from '$lib/services/upload-nostr-build';
 	import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
+	import { registerCommentCompose } from '$lib/keyboard/shortcuts.js';
 	import { EVENT_KINDS } from '$lib/config.js';
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
@@ -568,6 +569,11 @@
 		replyingToComment = null;
 		commentExpanded = true;
 	}
+
+	function activateThreadReply() {
+		if (!commentExpanded) handleReply();
+		else replyInput?.focus?.();
+	}
 	function openReplyToComment(comment) {
 		replyingToComment = comment;
 		commentExpanded = true;
@@ -677,6 +683,11 @@
 			const t = setTimeout(() => replyInput?.focus?.(), 120);
 			return () => clearTimeout(t);
 		}
+	});
+
+	$effect(() => {
+		if (!modalOpen || !showThreadActions || !getIsSignedIn()) return;
+		return registerCommentCompose(activateThreadReply, { priority: 25 });
 	});
 	$effect(() => {
 		if (!commentExpanded) {

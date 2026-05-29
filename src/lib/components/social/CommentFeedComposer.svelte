@@ -7,6 +7,7 @@ import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import CommentModal from '$lib/components/modals/CommentModal.svelte';
 import { queryEvent, fetchProfile } from '$lib/purpleweb';
 import { parseProfile } from '$lib/nostr/models';
+import { registerCommentCompose } from '$lib/keyboard/shortcuts.js';
 
 let {
 	className = '',
@@ -89,6 +90,11 @@ function handleCommentSubmit(event) {
 		target: event.target ?? target
 	});
 }
+
+$effect(() => {
+	if (!isSignedIn || commentModalOpen) return;
+	return registerCommentCompose(() => openComposer(), { priority: 5 });
+});
 </script>
 
 {#if isSignedIn}

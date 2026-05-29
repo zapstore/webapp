@@ -8,6 +8,7 @@ import InputButton from '$lib/components/common/InputButton.svelte';
 import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
 import ActionsModal from '$lib/components/modals/ActionsModal.svelte';
 import CommentModal from '$lib/components/modals/CommentModal.svelte';
+import { registerCommentCompose } from '$lib/keyboard/shortcuts.js';
 
 let {
 	appName = '',
@@ -62,6 +63,11 @@ function openCommentModal() {
 function handleCommentSubmit(event) {
 	oncommentSubmit?.({ ...event, target: zapTarget });
 }
+
+$effect(() => {
+	if (!isSignedIn || commentModalOpen) return;
+	return registerCommentCompose(() => openCommentModal(), { priority: 5 });
+});
 
 const bottomBarRecipientLabel = $derived.by(() => {
 	const raw = publisherName?.trim() || zapTarget?.name?.trim?.() || appName?.trim?.();
