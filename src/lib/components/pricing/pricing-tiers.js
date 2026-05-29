@@ -49,12 +49,12 @@ export const PRICING_TIERS = [
 		name: 'Community',
 		priceLabel: '$4.99',
 		priceSuffix: '/ month',
-		description: 'Hosted server for your community: forums, tasks, and stacks.',
+		description: 'Community hosting with apps, forum, chat, and tasks.',
 		features: [
 			'Everything in Free',
-			'Managed community server',
-			'Forums, tasks, and curated app stacks',
-			'Interoperable with other Zapstore communities',
+			'Apps, forum, chat, and project management for your community',
+			'Curated app stacks for your members',
+			'Open standard, usable from other apps beyond Zapstore',
 			`${COMMUNITY_STORAGE_INCLUDED_GB} GB storage included`,
 			`Additional storage from $${COMMUNITY_STORAGE_ADDON_USD_PER_GB.toFixed(2)} / GB`
 		],
@@ -69,9 +69,9 @@ export const PRICING_TIERS = [
 		nameAccent: 'pro',
 		priceLabel: '$49.90',
 		priceSuffix: '/ month',
-		description: 'Reliable app updates, developer analytics, and human support.',
+		description: 'Maximum apps via paid indexer, analytics, and support.',
 		features: [
-			'Paid indexer catalog for fast, reliable app updates',
+			'Paid indexer catalog with maximum apps, beyond builder-published releases',
 			'Community server hosting included',
 			'Publish and manage your apps',
 			'Download and reach analytics',

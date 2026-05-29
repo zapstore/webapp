@@ -38,7 +38,11 @@ export const PRICING_COMPARISON_SECTIONS = [
 				values: { free: true, community: true, pro: true, enterprise: true }
 			},
 			{
-				label: 'Paid indexer catalog (reliable app updates)',
+				label: 'Paid indexer catalog (maximum apps)',
+				values: { free: false, community: false, pro: true, enterprise: true }
+			},
+			{
+				label: 'Apps beyond builder-published releases',
 				values: { free: false, community: false, pro: true, enterprise: true }
 			},
 			{
@@ -56,15 +60,19 @@ export const PRICING_COMPARISON_SECTIONS = [
 		title: 'Community server',
 		rows: [
 			{
-				label: 'Hosted community server',
+				label: 'Community hosting (apps, forum, chat, tasks)',
 				values: { free: false, community: true, pro: true, enterprise: true }
 			},
 			{
-				label: 'Forums and discussions',
+				label: 'Forum',
 				values: { free: false, community: true, pro: true, enterprise: true }
 			},
 			{
-				label: 'Project management (tasks)',
+				label: 'Community chat',
+				values: { free: false, community: true, pro: true, enterprise: true }
+			},
+			{
+				label: 'Project management',
 				values: { free: false, community: true, pro: true, enterprise: true }
 			},
 			{
@@ -72,7 +80,7 @@ export const PRICING_COMPARISON_SECTIONS = [
 				values: { free: false, community: true, pro: true, enterprise: true }
 			},
 			{
-				label: 'Interoperable with other communities',
+				label: 'Open standard, usable from other apps',
 				values: { free: false, community: true, pro: true, enterprise: true }
 			},
 			{

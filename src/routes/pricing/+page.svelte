@@ -26,7 +26,7 @@
 
 	const title = 'Pricing | Zapstore';
 	const description =
-		'Enjoy builder-published apps and social features for free. Community hosting from $4.99/month. Pro adds a paid indexer, developer analytics, and support.';
+		'Enjoy builder-published apps and social features for free. Community hosting from $4.99/month with apps, forum, chat, and project management. Pro adds a paid indexer for maximum catalog reach, publishing, analytics, and support.';
 </script>
 
 <SeoHead {title} {description} url="{SITE_URL}/pricing" />

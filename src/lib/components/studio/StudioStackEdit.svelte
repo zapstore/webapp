@@ -256,7 +256,7 @@
 						maxlength="80"
 						autocomplete="off"
 					/>
-					<div class="form-divider"></div>
+					<hr class="divider" />
 					<textarea
 						class="form-input form-textarea"
 						bind:value={editDescription}
@@ -270,9 +270,6 @@
 					<p class="save-error">{saveError}</p>
 				{/if}
 			</section>
-
-			<!-- ── Full-width divider ────────────────────────────────────────── -->
-			<div class="full-divider" aria-hidden="true"></div>
 
 			<!-- ── APPS ─────────────────────────────────────────────────────── -->
 			<section class="edit-section">
@@ -321,9 +318,6 @@
 				</div>
 			</section>
 
-			<!-- ── Full-width divider ────────────────────────────────────────── -->
-			<div class="full-divider" aria-hidden="true"></div>
-
 			<!-- ── LABELS ────────────────────────────────────────────────────── -->
 			<section class="edit-section">
 				<span class="eyebrow-label section-eyebrow">Labels</span>
@@ -352,12 +346,7 @@
 				</div>
 			</section>
 
-			{#if isCreate}
-				<div class="full-divider" aria-hidden="true"></div>
-			{:else}
-				<!-- ── Full-width divider ────────────────────────────────────────── -->
-				<div class="full-divider" aria-hidden="true"></div>
-
+			{#if !isCreate}
 				<!-- ── DANGER ZONE ─────────────────────────────────────────────── -->
 				<section class="edit-section danger-section">
 					<span class="eyebrow-label section-eyebrow">Danger zone</span>
@@ -375,8 +364,6 @@
 						<p class="save-error">{deleteError}</p>
 					{/if}
 				</section>
-
-				<div class="full-divider" aria-hidden="true"></div>
 			{/if}
 		</div>
 
@@ -472,12 +459,8 @@
 		color: var(--white33);
 	}
 
-	/* ── Full-width divider ── */
-	.full-divider {
-		width: 100%;
-		height: 1px;
-		background: var(--shell-border);
-		flex-shrink: 0;
+	.edit-body > .edit-section + .edit-section {
+		border-top: 1px solid var(--shell-border);
 	}
 
 	/* ── Form box ── */
@@ -486,9 +469,13 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--gray33);
-		border: 0.33px solid var(--white33);
+		border: 0.33px solid var(--white16);
 		border-radius: 16px;
 		overflow: hidden;
+	}
+
+	.form-box :global(.divider) {
+		flex-shrink: 0;
 	}
 
 	.form-input {
@@ -523,13 +510,6 @@
 		min-height: 72px;
 		display: block;
 		overflow-y: auto;
-	}
-
-	.form-divider {
-		width: 100%;
-		height: 1px;
-		background: var(--white8);
-		flex-shrink: 0;
 	}
 
 	/* ── Apps list ── */
@@ -587,7 +567,7 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 12px 12px;
-		border-bottom: 1px solid var(--white8);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	.app-row:last-child {

@@ -324,7 +324,7 @@ async function handleConfirmDelete() {
 						maxlength="60"
 						autocomplete="off"
 					/>
-					<div class="form-divider"></div>
+					<hr class="divider" />
 					<textarea
 						class="form-input form-textarea"
 						bind:value={editDescription}
@@ -332,7 +332,7 @@ async function handleConfirmDelete() {
 						rows="3"
 						autocomplete="off"
 					></textarea>
-					<div class="form-divider"></div>
+					<hr class="divider" />
 					<div class="form-row-website">
 						<Link variant="outline" size={15} strokeWidth={1.4} color="var(--white33)" />
 						<input
@@ -347,9 +347,6 @@ async function handleConfirmDelete() {
 
 			</div>
 		</section>
-
-		<!-- ── Full-width divider ────────────────────────────────────────── -->
-		<div class="full-divider" aria-hidden="true"></div>
 
 		<!-- ── IMAGES ───────────────────────────────────────────────────── -->
 		<section class="edit-section">
@@ -435,9 +432,6 @@ async function handleConfirmDelete() {
 			{/if}
 		</section>
 
-		<!-- ── Divider under IMAGES ──────────────────────────────────────── -->
-		<div class="full-divider" aria-hidden="true"></div>
-
 		<!-- ── LABELS ──────────────────────────────────────────────────── -->
 		<section class="edit-section">
 			<span class="eyebrow-label section-eyebrow">Labels</span>
@@ -465,9 +459,6 @@ async function handleConfirmDelete() {
 			</div>
 		</section>
 
-		<!-- ── Divider under LABELS ──────────────────────────────────────── -->
-		<div class="full-divider" aria-hidden="true"></div>
-
 		<!-- ── DANGER ZONE ─────────────────────────────────────────────── -->
 		<section class="edit-section danger-section">
 			<span class="eyebrow-label section-eyebrow">Danger zone</span>
@@ -485,8 +476,6 @@ async function handleConfirmDelete() {
 				<p class="save-error">{deleteError}</p>
 			{/if}
 		</section>
-
-		<div class="full-divider" aria-hidden="true"></div>
 
 	</div>
 </div>
@@ -598,12 +587,8 @@ async function handleConfirmDelete() {
 		color: var(--white33);
 	}
 
-	/* ── Full-width divider (bleeds to container edges) ── */
-	.full-divider {
-		width: 100%;
-		height: 1px;
-		background: var(--shell-border);
-		flex-shrink: 0;
+	.edit-body > .edit-section + .edit-section {
+		border-top: 1px solid var(--shell-border);
 	}
 
 	/* ── GENERAL row: icon + form box ── */
@@ -676,9 +661,13 @@ async function handleConfirmDelete() {
 		display: flex;
 		flex-direction: column;
 		background: var(--gray33);
-		border: 0.33px solid var(--white33);
+		border: 0.33px solid var(--white16);
 		border-radius: 16px;
 		overflow: hidden;
+	}
+
+	.form-box :global(.divider) {
+		flex-shrink: 0;
 	}
 
 	.form-input {
@@ -731,13 +720,6 @@ async function handleConfirmDelete() {
 		font-size: 14px;
 		font-weight: 400;
 		padding-left: 0;
-	}
-
-	.form-divider {
-		width: 100%;
-		height: 1px;
-		background: var(--white8);
-		flex-shrink: 0;
 	}
 
 	/* ── Screenshots ── */

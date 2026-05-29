@@ -229,6 +229,23 @@
 		}
 	}
 
+	/* Match app.css .container wide breakpoint (1260px max content). */
+	@media (min-width: 1600px) {
+		.pricing-carousel-scroll {
+			overflow-x: hidden;
+		}
+
+		.pricing-carousel-track {
+			width: 100%;
+		}
+
+		.pricing-tier-card {
+			flex: 1 1 0;
+			width: auto;
+			min-width: 0;
+		}
+	}
+
 	.pricing-tier-header {
 		display: flex;
 		flex-direction: column;
@@ -266,6 +283,13 @@
 
 	.pricing-tier-description-slot {
 		min-height: 2.75rem;
+	}
+
+	@media (min-width: 768px) {
+		/* Reserve two body lines so header dividers align across tier cards. */
+		.pricing-tier-description-slot {
+			min-height: 2.875rem;
+		}
 	}
 
 	.pricing-tier-description-slot :global(p) {

@@ -136,7 +136,7 @@ function getStackEditUrl(stack) {
 		padding: 12px 14px;
 		background: transparent;
 		border: none;
-		border-bottom: 1px solid var(--white8);
+		border-bottom: 1px solid var(--shell-border);
 		cursor: pointer;
 		text-align: left;
 		width: 100%;
