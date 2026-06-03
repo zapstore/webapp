@@ -25,6 +25,7 @@
 	import { isOnline } from '$lib/stores/online.svelte.js';
 	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 	import { DISCOVER_APPS_INITIAL, DISCOVER_STACKS_INITIAL } from '$lib/constants';
+	import { pinZapstoreAppFirst } from '$lib/utils/featured-apps.js';
 	import '$lib/styles/browse-grid.css';
 
 	const APPS_SEARCH_SKELETON_ROW_COUNT = APP_SEARCH_HIT_SKELETON_VARIANT_COUNT * 3;
@@ -88,7 +89,7 @@
 	let stacksUi = $state({ top: 0, left: 0, right: 0, showLeft: false, showRight: false });
 
 	// appsHasMore / appsLoadingMore: see appsListing above (purpleweb — not legacy nostr store)
-	const apps = $derived((liveApps ?? []).slice(0, displayAppsLimit));
+	const apps = $derived(pinZapstoreAppFirst(liveApps ?? []).slice(0, displayAppsLimit));
 	const communityLiveStacks = $derived(
 		(liveStacks ?? []).filter(({ stack }) => isZapstoreCommunityAuthorStack(stack))
 	);
@@ -605,7 +606,7 @@
 							class="screenshots-btn screenshots-btn-left"
 							style="left: {releasesUi.left}px"
 							onclick={() => releasesCarousel?.scroll(-1)}
-							aria-label="Scroll releases left"
+							aria-label="Scroll featured apps left"
 						>
 							<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
 						</button>
@@ -616,7 +617,7 @@
 							class="screenshots-btn screenshots-btn-right"
 							style="right: {releasesUi.right}px"
 							onclick={() => releasesCarousel?.scroll(1)}
-							aria-label="Scroll releases right"
+							aria-label="Scroll featured apps right"
 						>
 							<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
 						</button>

@@ -54,7 +54,7 @@
 
 <div class="apps-home-sections" class:hidden={hidden} aria-hidden={hidden}>
 	<section class="apps-home-section">
-		<SectionHeader title="Latest Releases" />
+		<SectionHeader title="Featured" />
 		<AppsPageCarousel
 			bind:this={releasesCarousel}
 			active={browseActive}

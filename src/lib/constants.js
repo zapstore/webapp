@@ -20,6 +20,9 @@ export const STACKS_SUBSCRIPTION_LIMIT = 100;
 export const DISCOVER_APPS_INITIAL = 8;
 export const DISCOVER_STACKS_INITIAL = 8;
 
+/** Progressive render batch on `/stacks` (SSR seed uses the same size). */
+export const STACKS_BROWSE_INITIAL = 12;
+
 /** `/studio`: when true, signed-in users see the StudioApp dashboard; when false, same marketing page as logged-out. */
 export const SHOW_STUDIO_SIGNED_IN_DASHBOARD = true;
 

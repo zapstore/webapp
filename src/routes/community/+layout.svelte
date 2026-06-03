@@ -62,7 +62,7 @@
 
 	const FAQ_SECTION = {
 		id: 'faq',
-		label: 'FAQ',
+		label: 'User FAQ',
 		href: '/community/faq'
 	};
 
@@ -164,7 +164,7 @@
 	{:else if path.startsWith('/community/search')}
 		<title>Search — Zapstore Community</title>
 	{:else if path.startsWith('/community/faq')}
-		<title>FAQ — Zapstore</title>
+		<title>User FAQ — Zapstore Community</title>
 	{/if}
 </svelte:head>
 
@@ -229,7 +229,11 @@
 							class="nav-item"
 							class:active={activeSection === section.id}
 						>
-							<span class="icon-wrap" class:icon-emoji={!!section.icon}>
+							<span
+								class="icon-wrap"
+								class:icon-emoji={!!section.icon}
+								class:icon-wrap-faq={section.id === 'faq'}
+							>
 								{#if section.icon}
 									<img src={section.icon} alt="" class="section-icon" />
 								{:else if section.id === 'search'}
@@ -239,20 +243,12 @@
 										strokeWidth={1.6}
 										color={activeSection === section.id ? 'var(--white66)' : 'var(--white33)'}
 									/>
-								{:else}
-									<svg
-										width="18"
-										height="18"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="1.8"
-										stroke-linecap="round"
-										stroke-linejoin="round"
+								{:else if section.id === 'faq'}
+									<span
+										class="nav-faq-mark"
+										class:active={activeSection === section.id}
 										aria-hidden="true"
-									>
-										<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-									</svg>
+									>?</span>
 								{/if}
 							</span>
 							<span class="nav-label">{section.label}</span>
@@ -581,6 +577,26 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+	}
+
+	.icon-wrap-faq {
+		overflow: visible;
+	}
+
+	.icon-wrap-faq .nav-faq-mark {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+		font-size: 1.3125rem;
+		font-weight: 700;
+		line-height: 1;
+		color: var(--blurpleColor66);
+	}
+
+	.icon-wrap-faq .nav-faq-mark.active {
+		color: var(--blurpleColor);
 	}
 
 	.icon-wrap.icon-emoji {

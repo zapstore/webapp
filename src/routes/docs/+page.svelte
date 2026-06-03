@@ -9,14 +9,14 @@ let Content = $derived(data.content);
 <SeoHead title="{title} — Zapstore Documentation" {description} />
 
 {#if Content}
-	<article class="prose max-w-none">
+	<article class="prose prose-docs max-w-none">
 		{#if data.metadata?.title}
 			<h1>{data.metadata.title}</h1>
 		{/if}
 		<Content />
 	</article>
 {:else}
-	<article class="prose max-w-none">
+	<article class="prose prose-docs max-w-none">
 		<h1>Documentation</h1>
 		<p>
 			Welcome to the Zapstore documentation. Here you'll find everything you need to get started

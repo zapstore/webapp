@@ -20,6 +20,7 @@ import {
 	PLATFORM_FILTER,
 	PROFILE_FETCH_RELAYS,
 	SAVED_APPS_STACK_D_TAG,
+	ZAPSTORE_APP_DTAG,
 	ZAPSTORE_COMMUNITY_NPUB,
 	ZAPSTORE_COMMUNITY_PUBKEY,
 	ZAPSTORE_COMMUNITY_RELAY
@@ -193,8 +194,12 @@ export async function fetchApps(limit = APPS_PAGE_SIZE) {
  * Dexie listing can preserve latest-release ordering reactively.
  */
 export async function fetchAppListingSeedEvents(limit = APPS_PAGE_SIZE) {
-	const { releases, apps } = await fetchAppsOrderedByLatestRelease(limit);
-	return dedupeEventsById([...releases, ...apps]);
+	const [{ releases, apps }, zapstoreFeatured] = await Promise.all([
+		fetchAppsOrderedByLatestRelease(limit),
+		fetchAppByIdentifier(ZAPSTORE_APP_DTAG)
+	]);
+	const zapstoreSeed = zapstoreFeatured?.seedEvents ?? [];
+	return dedupeEventsById([...zapstoreSeed, ...releases, ...apps]);
 }
 
 /**
@@ -370,7 +375,11 @@ export async function fetchStack(pubkey, identifier) {
 /**
  * Fetch profiles from relays. Returns Map<pubkey, profileEvent>.
  */
-export async function fetchProfilesServer(pubkeys) {
+/**
+ * @param {string[]} pubkeys
+ * @param {{ relays?: string[] }} [options]
+ */
+export async function fetchProfilesServer(pubkeys, options = {}) {
 	const results = new Map();
 	if (!pubkeys || pubkeys.length === 0) return results;
 
@@ -383,15 +392,18 @@ export async function fetchProfilesServer(pubkeys) {
 	];
 	if (normalized.length === 0) return results;
 
-	const events = await queryRelay(PROFILE_FETCH_RELAYS, {
+	const relays = options.relays?.length ? options.relays : PROFILE_FETCH_RELAYS;
+	const events = await queryRelay(relays, {
 		kinds: [EVENT_KINDS.PROFILE],
 		authors: normalized,
-		limit: normalized.length
+		limit: normalized.length * 2
 	});
 
 	for (const event of events) {
 		const pk = event.pubkey?.toLowerCase();
-		if (pk && !results.has(pk)) {
+		if (!pk) continue;
+		const existing = results.get(pk);
+		if (!existing || event.created_at > existing.created_at) {
 			results.set(pk, event);
 		}
 	}

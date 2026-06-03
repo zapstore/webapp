@@ -138,9 +138,9 @@
 					</li>
 					<li>
 						<a
-							href="/community/activity"
+							href="/community/faq"
 							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
-							>Activity</a
+							>User FAQ</a
 						>
 					</li>
 				</ul>
@@ -150,13 +150,6 @@
 			<div class="footer-link-col">
 				<h3 class="semibold16 text-foreground mb-4">Resources</h3>
 				<ul class="space-y-3">
-					<li>
-						<a
-							href="/community/faq"
-							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
-							>FAQ</a
-						>
-					</li>
 					<li>
 						<a
 							href="/blog"

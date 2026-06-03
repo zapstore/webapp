@@ -43,6 +43,8 @@ async function getHljs() {
         hljs.registerLanguage('bash', langBash.default);
         hljs.registerLanguage('sh', langBash.default);
         hljs.registerLanguage('shell', langBash.default);
+        hljs.registerLanguage('zsh', langBash.default);
+        hljs.registerLanguage('console', langBash.default);
         hljs.registerLanguage('python', langPython.default);
         hljs.registerLanguage('py', langPython.default);
         hljs.registerLanguage('rust', langRust.default);
@@ -63,6 +65,40 @@ async function getHljs() {
     return hljsPromise;
 }
 
+/** Fence info-string → highlight.js language id */
+const LANG_ALIASES = {
+    bash: 'bash',
+    sh: 'bash',
+    shell: 'bash',
+    zsh: 'bash',
+    console: 'bash',
+    yaml: 'yaml',
+    yml: 'yaml',
+    javascript: 'javascript',
+    js: 'javascript',
+    typescript: 'typescript',
+    ts: 'typescript',
+    json: 'json',
+    python: 'python',
+    py: 'python',
+    rust: 'rust',
+    rs: 'rust',
+    markdown: 'markdown',
+    md: 'markdown',
+    css: 'css',
+    html: 'html',
+    xml: 'xml'
+};
+
+/**
+ * @param {string} lang Raw language from fenced code block (e.g. "bash", "YAML")
+ */
+function normalizeHighlightLang(lang) {
+    const raw = (lang ?? '').toLowerCase().trim().replace(/^language-/, '');
+    if (!raw) return '';
+    return LANG_ALIASES[raw] ?? raw;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -75,18 +111,58 @@ async function getHljs() {
  * @returns {Promise<string>} HTML string
  */
 export async function highlightCode(code, lang) {
-    if (!code) return '';
-    const l = (lang ?? '').toLowerCase().trim();
-    try {
-        const hljs = await getHljs();
-        if (!hljs) return escapeHtml(code); // SSR fallback
-        if (l && hljs.getLanguage(l)) {
-            return hljs.highlight(code, { language: l, ignoreIllegals: true }).value;
-        }
-        return hljs.highlightAuto(code).value;
-    } catch {
-        return escapeHtml(code);
-    }
+	if (!code) return '';
+	const l = normalizeHighlightLang(lang);
+	const trimmed = code.trimStart();
+
+	if (l === 'bash') {
+		return simpleBashHighlight(code);
+	}
+
+	try {
+		const hljs = await getHljs();
+		if (!hljs) return escapeHtml(code);
+
+		if (l && hljs.getLanguage(l)) {
+			return hljs.highlight(code, { language: l, ignoreIllegals: true }).value;
+		}
+
+		if (trimmed.startsWith('#!/bin/bash') || trimmed.startsWith('#!/usr/bin/env bash')) {
+			return simpleBashHighlight(code);
+		}
+		if (/^[\w.-]+:\s/m.test(code) && !code.includes('{')) {
+			return hljs.highlight(code, { language: 'yaml', ignoreIllegals: true }).value;
+		}
+
+		const auto = hljs.highlightAuto(code);
+		if (auto.language === 'bash' || auto.language === 'shell') {
+			return simpleBashHighlight(code);
+		}
+		return auto.value;
+	} catch {
+		if (l === 'bash') return simpleBashHighlight(code);
+		return escapeHtml(code);
+	}
+}
+
+/**
+ * Minimal bash/shell highlight: first token on each line (the command) in blurple.
+ * @param {string} code
+ */
+export function simpleBashHighlight(code) {
+	return (code ?? '')
+		.split('\n')
+		.map((line) => {
+			const match = line.match(/^(\s*)([A-Za-z0-9_.-]+)([\s\S]*)$/);
+			if (!match) return escapeHtml(line);
+			const [, indent, command, rest] = match;
+			return (
+				escapeHtml(indent) +
+				`<span class="hljs-keyword">${escapeHtml(command)}</span>` +
+				escapeHtml(rest)
+			);
+		})
+		.join('\n');
 }
 
 /** Escape HTML special chars. */

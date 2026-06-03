@@ -245,7 +245,7 @@
 					...zapperSlots.slice(0, ZAPPER_PLACEHOLDER_COUNT).map((slot) => ({
 						...slot,
 						name: null,
-						role: 'Top Zapper',
+						role: 'Top Tipper',
 						image: null,
 						isZapperSlot: true,
 						nameLoading: true,
@@ -260,7 +260,7 @@
 							return {
 								...slot,
 								name: 'Anon',
-								role: 'Top Zapper',
+								role: 'Top Tipper',
 								image: null,
 								isZapperSlot: true,
 								nameLoading: false,
@@ -276,7 +276,7 @@
 						return {
 							...slot,
 							name: displayName,
-							role: 'Top Zapper',
+							role: 'Top Tipper',
 							image: z.image ?? null,
 							isZapperSlot: true,
 							nameLoading: false,

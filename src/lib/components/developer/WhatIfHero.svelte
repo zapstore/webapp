@@ -99,7 +99,7 @@
 			</span>
 		</h1>
 
-		<p class="what-if-tagline">
+		<p class="what-if-tagline display-tagline">
 			On Zapstore, that doesn't have<br class="sm:hidden" /> to be a question.
 		</p>
 
@@ -192,10 +192,6 @@
 	.what-if-tagline {
 		margin: 2rem auto 0;
 		max-width: 40ch;
-		color: var(--white66);
-		font-weight: 400;
-		font-size: 20px;
-		line-height: 2.25rem;
 		white-space: nowrap;
 	}
 
@@ -207,8 +203,6 @@
 
 	@media (min-width: 640px) {
 		.what-if-tagline {
-			font-size: 24px;
-			line-height: 2.5rem;
 			margin-top: 1.25rem; /* 16px + 4px = 20px */
 		}
 	}

@@ -9,29 +9,42 @@
  *   const tokens = $derived(tokenizeNostrMarkdown(text, { wikiLinkFn, emojiMap }));
  *   <MarkdownBody {tokens} />
  */
-import { SvelteMap } from 'svelte/reactivity';
 import MarkdownInline from './MarkdownInline.svelte';
 import MarkdownBody from './MarkdownBody.svelte';
 import CodeBlock from './CodeBlock.svelte';
 import { highlightCode } from '$lib/utils/highlight.js';
 
-let { tokens = [] } = $props();
+	let {
+		tokens = [],
+		codeBlockBackground = 'gray33',
+		codeBlockShowLanguage = true,
+		codeBlockShowCopy = true,
+		/** @type {string[]} langs without a copy button (e.g. yaml, yml) */
+		codeBlockNoCopyLangs = []
+	} = $props();
 
-// Pre-highlight code blocks (SvelteMap mutations are reactive)
-const highlightedCode = new SvelteMap();
+	/** @param {string | undefined} lang */
+	function codeBlockShowCopyForLang(lang) {
+		if (!codeBlockShowCopy) return false;
+		const normalized = (lang ?? '').toLowerCase().trim();
+		return !codeBlockNoCopyLangs.some((l) => l.toLowerCase() === normalized);
+	}
 
-$effect(() => {
-	highlightedCode.clear();
+	/** @type {Record<number, string>} */
+	let highlights = $state({});
 
-	// Highlight all code blocks
-	for (const token of tokens) {
-		if (token.type === 'code') {
+	$effect(() => {
+		highlights = {};
+		for (let ti = 0; ti < tokens.length; ti++) {
+			const token = tokens[ti];
+			if (token.type !== 'code') continue;
 			highlightCode(token.text, token.lang ?? '').then((html) => {
-				highlightedCode.set(token, html);
+				if (tokens[ti] === token) {
+					highlights = { ...highlights, [ti]: html };
+				}
 			});
 		}
-	}
-});
+	});
 </script>
 
 {#each tokens as token, ti (ti)}
@@ -41,9 +54,12 @@ $effect(() => {
 	{:else if token.type === 'code'}
 		<div class="code-block-wrap">
 			<CodeBlock
-				html={highlightedCode.get(token) ?? ''}
+				html={highlights[ti] ?? ''}
 				code={token.text}
-				language={token.lang ? token.lang.toUpperCase() : ''}
+				language={codeBlockShowLanguage && token.lang ? token.lang.toUpperCase() : ''}
+				background={codeBlockBackground}
+				showCopy={codeBlockShowCopyForLang(token.lang)}
+				showLanguage={codeBlockShowLanguage}
 			/>
 		</div>
 
@@ -208,11 +224,8 @@ $effect(() => {
 	}
 
 	.table-wrap {
-		border-radius: 12px;
 		overflow-x: auto;
 		-webkit-overflow-scrolling: touch;
-		border: 1px solid var(--white16);
-		margin: 1em 0;
 	}
 	table {
 		width: max-content;
@@ -239,10 +252,6 @@ $effect(() => {
 		border-bottom: 1px solid var(--white11);
 		color: var(--white);
 	}
-	tr:last-child td {
-		border-bottom: none;
-	}
-
 	.code-block-wrap {
 		margin: 1em 0;
 	}

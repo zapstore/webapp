@@ -231,11 +231,8 @@
 
 		<hr class="hero-divider" />
 
-		<p
-			class="hero-description mx-auto mt-2 sm:mt-8 mb-10"
-			style="color: var(--white66);"
-		>
-		Finally, a truly open app store.
+		<p class="hero-description display-tagline mx-auto mt-2 sm:mt-8 mb-10">
+			Try out a truly open app store. Stop missing out.
 		</p>
 
 		<!-- Browse CTA: stacked app pics + glass pill -->
@@ -300,19 +297,12 @@
 		}
 	}
 
-	.hero-description {
-		font-size: 20px;
-		line-height: 2.25rem;
-	}
-
 	/* Desktop: hide divider, natural order */
 	@media (min-width: 640px) {
 		.hero-divider {
 			display: none;
 		}
 		.hero-description {
-			font-size: 28px;
-			line-height: 2.75rem;
 			margin-bottom: 36px;
 		}
 	}

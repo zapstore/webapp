@@ -1,6 +1,7 @@
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-import { EVENT_KINDS, PLATFORM_FILTER, ZAPSTORE_RELAY } from '$lib/config.js';
+import { EVENT_KINDS, PLATFORM_FILTER, ZAPSTORE_APP_DTAG, ZAPSTORE_RELAY } from '$lib/config.js';
 import { APPS_PAGE_SIZE } from '$lib/constants.js';
+import { pinZapstoreAppFirst } from '$lib/utils/featured-apps.js';
 import { queryEvents } from '../storage/dexie.js';
 import { parseApp } from '$lib/nostr/models.js';
 import { fetchFromRelays } from '../sync/service.js';
@@ -78,7 +79,7 @@ async function loadApps() {
 		});
 	}
 
-	return [...byKey.values()]
+	const sorted = [...byKey.values()]
 		.sort((a, b) => {
 			const aDTag = a.tags?.find((t) => t[0] === 'd')?.[1];
 			const bDTag = b.tags?.find((t) => t[0] === 'd')?.[1];
@@ -90,6 +91,8 @@ async function loadApps() {
 			return b.created_at - a.created_at;
 		})
 		.map(parseApp);
+
+	return pinZapstoreAppFirst(sorted);
 }
 
 /**
@@ -107,7 +110,20 @@ export function createAppsListingQuery(getInput) {
 		load: loadApps,
 		getInput,
 		getSeedEvents: (input) => input?.seedEvents,
-		featurePrefix: 'purpleweb-apps-listing'
+		featurePrefix: 'purpleweb-apps-listing',
+		hydrate: ({ hydrateOnce }) => {
+			hydrateOnce(
+				'zapstore-featured',
+				[ZAPSTORE_RELAY],
+				{
+					kinds: [EVENT_KINDS.APP],
+					'#d': [ZAPSTORE_APP_DTAG],
+					...PLATFORM_FILTER,
+					limit: 1
+				},
+				'purpleweb-apps-zapstore-featured'
+			);
+		}
 	});
 
 	/**

@@ -48,7 +48,7 @@ const homeJsonLd = {
 let { data } = $props();
 const initialTestimonials = $derived(data?.testimonials ?? []);
 const testimonialPubkeys = $derived(
-	[...new Set(initialTestimonials.map((t) => t.pubkey).filter(Boolean))].slice(0, 30)
+	[...new Set(initialTestimonials.map((t) => t.pubkey).filter(Boolean))]
 );
 const testimonialProfiles = createProfilesQuery(() => testimonialPubkeys);
 const testimonials = $derived(
@@ -96,7 +96,7 @@ let showDownloadModal = $state(false);
 <ReleaseYourAppsSection />
 
 <!-- Testimonials Section -->
-<TestimonialsSection {testimonials} />
+<TestimonialsSection {testimonials} profilesLoading={testimonialProfiles.loading} />
 
 <!-- Zap The App Section (commented out for now) -->
 <!-- <ZapTheAppSection /> -->

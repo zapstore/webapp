@@ -53,6 +53,8 @@ export const EVENT_KINDS = {
 export const ZAPSTORE_NPUB = 'npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8';
 /** Hex form of {@link ZAPSTORE_NPUB} — author of indexer-catalog kind 32267 events used for indexer-access lookups. */
 export const ZAPSTORE_INDEXER_PUBKEY = /** @type {string} */ (nip19.decode(ZAPSTORE_NPUB).data);
+/** Official Zapstore Android app — pinned first on /apps Featured. */
+export const ZAPSTORE_APP_DTAG = 'dev.zapstore.app';
 // Hex pubkey for the zapstore community — used in h/p tags on public stacks and forum posts.
 export const ZAPSTORE_COMMUNITY_NPUB = 'npub14nl2afh9zsswsp5043zxe2w304afaa496gxe8z2w2rlw84ys92zqlnjx5u';
 export const ZAPSTORE_COMMUNITY_PUBKEY = /** @type {string} */ (nip19.decode(ZAPSTORE_COMMUNITY_NPUB).data);
