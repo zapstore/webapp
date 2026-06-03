@@ -60,6 +60,12 @@
 
 	let { children } = $props();
 
+	const FAQ_SECTION = {
+		id: 'faq',
+		label: 'FAQ',
+		href: '/community/faq'
+	};
+
 	const SECTIONS = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED
 		? [
 				{
@@ -74,20 +80,22 @@
 					icon: '/images/emoji/activity.png',
 					href: '/community/activity'
 				},
+				FAQ_SECTION,
 				{
 					id: 'search',
 					label: 'Search',
 					href: '/community/search'
 				}
-		]
-	: [
-			{
-				id: 'support',
-				label: 'Support',
-				icon: '/images/emoji/activity.png',
-				href: '/community/support'
-			}
-		];
+			]
+		: [
+				{
+					id: 'support',
+					label: 'Support',
+					icon: '/images/emoji/activity.png',
+					href: '/community/support'
+				},
+				FAQ_SECTION
+			];
 
 	const defaultSectionId = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? 'forum' : 'support';
 
@@ -109,13 +117,15 @@
 	const activeSection = $derived(
 		path.startsWith('/community/search')
 			? 'search'
-			: path.startsWith('/community/forum')
-				? 'forum'
-				: path.startsWith('/community/support')
-					? 'support'
-					: path.startsWith('/community/activity')
-						? 'activity'
-						: defaultSectionId
+			: path.startsWith('/community/faq')
+				? 'faq'
+				: path.startsWith('/community/forum')
+					? 'forum'
+					: path.startsWith('/community/support')
+						? 'support'
+						: path.startsWith('/community/activity')
+							? 'activity'
+							: defaultSectionId
 	);
 	const activeSectionLabel = $derived(
 		SECTIONS.find((s) => s.id === activeSection)?.label ??
@@ -153,6 +163,8 @@
 		<title>Support — Zapstore</title>
 	{:else if path.startsWith('/community/search')}
 		<title>Search — Zapstore Community</title>
+	{:else if path.startsWith('/community/faq')}
+		<title>FAQ — Zapstore</title>
 	{/if}
 </svelte:head>
 
@@ -191,11 +203,8 @@
 							>
 								{#if section.icon}
 									<img src={section.icon} alt="" class="section-item-icon" />
-									{section.label}
-								{:else}
-									<Search variant="outline" size={16} strokeWidth={1.6} color="var(--white33)" />
-									{section.label}
 								{/if}
+								{section.label}
 							</a>
 						{/each}
 					</div>
@@ -223,13 +232,27 @@
 							<span class="icon-wrap" class:icon-emoji={!!section.icon}>
 								{#if section.icon}
 									<img src={section.icon} alt="" class="section-icon" />
-								{:else}
+								{:else if section.id === 'search'}
 									<Search
 										variant="outline"
 										size={18}
 										strokeWidth={1.6}
 										color={activeSection === section.id ? 'var(--white66)' : 'var(--white33)'}
 									/>
+								{:else}
+									<svg
+										width="18"
+										height="18"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.8"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										aria-hidden="true"
+									>
+										<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+									</svg>
 								{/if}
 							</span>
 							<span class="nav-label">{section.label}</span>
@@ -372,6 +395,7 @@
 			display: block;
 			flex-shrink: 0;
 			position: relative;
+			z-index: 90;
 		}
 	}
 
