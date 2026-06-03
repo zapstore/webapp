@@ -39,13 +39,13 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { goto } from '$app/navigation';
 	import ForumPostCard from '$lib/components/ForumPostCard.svelte';
+	import { profileNameForPic } from '$lib/utils/npub-display.js';
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
 	import ForumPostModal from '$lib/components/modals/ForumPostModal.svelte';
-	import ForumSearchModal from '$lib/components/modals/ForumSearchModal.svelte';
 	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 	import ForumFeedSkeleton from '$lib/components/community/ForumFeedSkeleton.svelte';
 	import Label from '$lib/components/common/Label.svelte';
-	import { ChevronDown, Plus, Search } from '$lib/components/icons';
+	import { ChevronDown, Plus } from '$lib/components/icons';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 
@@ -80,7 +80,6 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	/** True after the first commentCountsQuery emission — drives ForumPostCard skeleton state. */
 	let commentCountsSettled = $state(false);
 	let addPostModalOpen = $state(false);
-	let searchModalOpen = $state(false);
 	let getStartedModalOpen = $state(false);
 	/** Shown when a post was saved locally but relay publish failed (so other browsers won't see it) */
 	let publishError = $state('');
@@ -503,16 +502,6 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	<div class="forum-categories-wrap">
 		<div class="forum-categories-scroll" data-chrome-scroll use:wheelScroll>
 			<div class="forum-categories-inner">
-				<button
-					type="button"
-					class="forum-search-btn"
-					onclick={() => {
-						searchModalOpen = true;
-					}}
-					aria-label="Search Forum"
-				>
-					<Search variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
-				</button>
 				{#each FORUM_CATEGORIES as category (category)}
 					<Label
 						text={category}
@@ -597,8 +586,10 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 				{@const postCommenters = commentersByPostId.get(post.id)}
 				<ForumPostCard
 					author={{
-						name: authorProfile?.displayName ?? authorProfile?.name,
+						name: profileNameForPic(authorProfile),
+						displayName: authorProfile?.displayName,
 						picture: authorProfile?.picture,
+						pubkey: post.pubkey,
 						npub: (() => {
 							try {
 								return nip19.npubEncode(post.pubkey);
@@ -635,7 +626,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 {#if isForumFeedRoute}
 <div
 	class="forum-fab-wrap"
-	class:modal-open={addPostModalOpen || searchModalOpen}
+	class:modal-open={addPostModalOpen}
 >
 	<button type="button" class="forum-fab" onclick={openNewPost} aria-label="New Post">
 		<Plus variant="outline" size={22} strokeWidth={2.4} color="var(--whiteEnforced)" />
@@ -651,14 +642,6 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	onsubmit={handleForumPostSubmit}
 	onclose={() => {
 		addPostModalOpen = false;
-	}}
-/>
-
-<ForumSearchModal
-	bind:isOpen={searchModalOpen}
-	communityPubkeyHex={COMMUNITY_PUBKEY}
-	onclose={() => {
-		searchModalOpen = false;
 	}}
 />
 
@@ -729,30 +712,6 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		gap: 8px;
 		padding: 12px 0 12px 16px;
 		align-items: center;
-	}
-
-	.forum-search-btn {
-		flex-shrink: 0;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 32px;
-		height: 32px;
-		padding: 0;
-		background: var(--gray33);
-		border: none;
-		border-radius: 12px;
-		cursor: pointer;
-		transition: transform 0.2s ease, filter 0.15s ease;
-	}
-
-	.forum-search-btn:hover {
-		transform: scale(1.02);
-		filter: brightness(1.08);
-	}
-
-	.forum-search-btn:active {
-		transform: scale(0.98);
 	}
 
 	.forum-all-btn {

@@ -96,7 +96,6 @@ const confirmAriaLabel = $derived(`Add a ${confirmAmountLabel} Tip`);
 	{zIndex}
 	{lockBodyScroll}
 	{scopedInPanel}
-	compactTitleSpacing={true}
 	class="tip-amount-modal"
 >
 	<div class="tip-amount-modal-content">

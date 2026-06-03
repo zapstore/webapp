@@ -86,7 +86,7 @@ const bottomBarRecipientLabel = $derived.by(() => {
 			{#if isSignedIn}
 				<button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
 					<Zap variant="fill" size={18} color="var(--whiteEnforced)" />
-					<span>Zap</span>
+					<span>Tip</span>
 				</button>
 				<InputButton className="comment-btn" placeholder="Comment" onclick={openCommentModal}>
 					{#snippet icon()}

@@ -22,7 +22,7 @@ function formatWithCommas(val) {
 	</div>
 	{#if showTopBadge}
 		<div class="top-zap-badge">
-			<span>Top Zap</span>
+			<span>Top Tip</span>
 		</div>
 	{/if}
 </button>

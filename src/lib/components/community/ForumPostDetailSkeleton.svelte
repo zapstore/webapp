@@ -187,7 +187,7 @@ import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 		opacity: 0.45;
 	}
 
-	/* Widths approximate real tab labels ("Comments" / "Zaps" / "Details") */
+	/* Widths approximate real tab labels ("Comments" / "Tips" / "Details") */
 	.sk-tab:nth-child(1) { width: 108px; }
 	.sk-tab:nth-child(2) { width: 70px; }
 	.sk-tab:nth-child(3) { width: 80px; }

@@ -96,7 +96,7 @@ const isConnected = $derived(getIsSignedIn());
 const qrCodeUrl = $derived(invoice
     ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&bgcolor=ffffff&color=000000&data=${encodeURIComponent("lightning:" + invoice.toUpperCase())}`
     : null);
-const modalStepTitle = $derived(step === 'slider' ? 'Zap' : step === 'invoice' ? 'Invoice' : step === 'success' ? 'Success' : '');
+const modalStepTitle = $derived(step === 'slider' ? 'Tip' : step === 'invoice' ? 'Invoice' : step === 'success' ? 'Success' : '');
 const modalStepDescription = $derived(step === 'slider' ? zapDescription() : '');
 const targetProfile = $derived(target
     ? { pictureUrl: target.pictureUrl, name: target.name, pubkey: target.pubkey }
@@ -391,7 +391,7 @@ $effect(() => {
 
 <Modal
   bind:open={isOpen}
-  ariaLabel="Zap {target?.name ?? 'Content'}"
+  ariaLabel="Tip {target?.name ?? 'content'}"
   title={modalStepTitle}
   description={modalStepDescription}
   wide={true}

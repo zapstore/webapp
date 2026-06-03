@@ -14,6 +14,7 @@ import { fade, fly } from "svelte/transition";
 import { cubicOut } from "svelte/easing";
 import { browser } from "$app/environment";
 import { onDestroy } from "svelte";
+import "$lib/styles/comment-modal-inset.css";
 let { open = $bindable(false), ariaLabel = "Modal dialog", ariaLabelledby = null, align = "center", zIndex = 100, maxWidth = "max-w-lg", wide = false, class: className = "", maxHeight = 80, fillHeight = false, closeOnBackdropClick = true, closeOnEscape = true, noBackdrop = false, title = "", description = "", closeButtonMobile = false,
 /** Tighter padding under title/description (e.g. Sign In matching Donate-style density). */
 compactTitleSpacing = false,
@@ -28,10 +29,34 @@ scopedInPanel = false,
 scopedPanelMaxVh = 90,
 /** Skip backdrop/sheet motion (e.g. swap to CommentModal without overlay flash). */
 instantTransition = false,
+/**
+ * Fade top/bottom edges of scrollable `.modal-content` when overflow is clipped.
+ * Off for thread modal (RootComment) which uses its own scroll-host masks.
+ */
+scrollEdgeFade = true,
 children, footer, } = $props();
 let modalElement = $state(null);
+/** @type {HTMLDivElement | null} */
+let modalContentEl = $state(null);
+let scrollFadeTop = $state(false);
+let scrollFadeBottom = $state(false);
 let _isBottomAligned = $state(false);
 let isMobile = $state(false);
+const SCROLL_FADE_THRESHOLD = 4;
+function syncScrollEdgeFade() {
+    if (!scrollEdgeFade || !modalContentEl) {
+        scrollFadeTop = false;
+        scrollFadeBottom = false;
+        return;
+    }
+    const { scrollTop, scrollHeight, clientHeight } = modalContentEl;
+    scrollFadeTop = scrollTop > SCROLL_FADE_THRESHOLD;
+    scrollFadeBottom =
+        scrollTop + clientHeight < scrollHeight - SCROLL_FADE_THRESHOLD;
+}
+function handleModalContentScroll() {
+    syncScrollEdgeFade();
+}
 const modalWidthClass = $derived.by(() => {
     if (wide) return "modal-max-wide";
     if (maxWidth === "max-w-xl") return "modal-max-xl";
@@ -104,6 +129,17 @@ $effect(() => {
 onDestroy(() => {
     if (_scrollLockHeld) releaseBodyScrollLock();
 });
+$effect(() => {
+    if (!browser || !open || !scrollEdgeFade)
+        return;
+    void modalContentEl;
+    const el = modalContentEl;
+    const run = () => syncScrollEdgeFade();
+    queueMicrotask(run);
+    const ro = el ? new ResizeObserver(run) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+});
 function handleBackdropClick(e) {
     if (closeOnBackdropClick && e.target === e.currentTarget) {
         open = false;
@@ -163,7 +199,14 @@ function handleResize() {
       role="document"
       tabindex="-1"
     >
-      <div class="modal-content">
+      <div
+        class="modal-content"
+        class:modal-content--scroll-edge-fade={scrollEdgeFade}
+        class:modal-content--fade-top={scrollEdgeFade && scrollFadeTop}
+        class:modal-content--fade-bottom={scrollEdgeFade && scrollFadeBottom}
+        bind:this={modalContentEl}
+        onscroll={scrollEdgeFade ? handleModalContentScroll : undefined}
+      >
         {#if title}
           <div class="modal-title-block" class:modal-title-block--compact={compactTitleSpacing}>
             <h2 class="modal-title modal-heading">{title}</h2>
@@ -327,46 +370,24 @@ function handleResize() {
   }
 
   .modal-title-block {
-    flex-shrink: 0;
-    padding: 36px 16px 0;
+    padding: calc(var(--comment-modal-inset) + 6px) var(--comment-modal-inset) var(--comment-modal-inset);
   }
   .modal-title {
     margin: 0;
   }
   .modal-title-block:has(.modal-description) .modal-title {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
   .modal-description {
-    margin: 0 0 8px 0;
+    margin: 0;
     font-size: 0.9375rem;
     text-align: center;
     color: var(--white66);
   }
-  @media (min-width: 768px) {
-    .modal-title-block {
-      padding: 32px 20px 0;
-    }
-    .modal-title-block:has(.modal-description) .modal-description {
-      margin-bottom: 10px;
-    }
-  }
 
-  .modal-title-block.modal-title-block--compact {
-    padding: 16px 16px 0;
-  }
-  .modal-title-block--compact:has(.modal-description) .modal-title {
+  /* Sign In and other dense headers — same inset, slightly tighter title/description gap */
+  .modal-title-block.modal-title-block--compact:has(.modal-description) .modal-title {
     margin-bottom: 6px;
-  }
-  .modal-title-block--compact:has(.modal-description) .modal-description {
-    margin: 0 0 2px 0;
-  }
-  @media (min-width: 768px) {
-    .modal-title-block.modal-title-block--compact {
-      padding: 16px 20px 0;
-    }
-    .modal-title-block--compact:has(.modal-description) .modal-description {
-      margin: 0 0 4px 0;
-    }
   }
 
   .modal-mobile-close-wrap {
@@ -400,6 +421,69 @@ function handleResize() {
     max-height: inherit;
     scrollbar-width: thin;
     scrollbar-color: var(--white16) transparent;
+  }
+
+  /* Scroll edge fade — same pattern as thread modal (RootComment .thread-scroll-host) */
+  .modal-content--scroll-edge-fade {
+    --modal-scroll-fade-top: 40px;
+    --modal-scroll-fade-bottom: 40px;
+    mask-size: 100% 100%;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+  }
+
+  .modal-content--scroll-edge-fade.modal-content--fade-top:not(.modal-content--fade-bottom) {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      black var(--modal-scroll-fade-top),
+      black 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      black var(--modal-scroll-fade-top),
+      black 100%
+    );
+  }
+
+  .modal-content--scroll-edge-fade.modal-content--fade-bottom:not(.modal-content--fade-top) {
+    mask-image: linear-gradient(
+      to bottom,
+      black 0,
+      black calc(100% - var(--modal-scroll-fade-bottom)),
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      black 0,
+      black calc(100% - var(--modal-scroll-fade-bottom)),
+      transparent 100%
+    );
+  }
+
+  .modal-content--scroll-edge-fade.modal-content--fade-top.modal-content--fade-bottom {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      black var(--modal-scroll-fade-top),
+      black calc(100% - var(--modal-scroll-fade-bottom)),
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      black var(--modal-scroll-fade-top),
+      black calc(100% - var(--modal-scroll-fade-bottom)),
+      transparent 100%
+    );
+  }
+
+  /* backdrop-filter on ProfilePic escapes mask when applied inside the scroller */
+  .modal-content--scroll-edge-fade :global(.profile-pic-inner) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .modal-content::-webkit-scrollbar {

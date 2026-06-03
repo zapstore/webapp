@@ -1,5 +1,5 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import {
 		hexToColor,
 		stringToColor,
@@ -146,6 +146,23 @@
 		imageLoaded = false;
 		imageError = false;
 	}
+
+	// Stuck image requests should fall back to icon/initial, not shimmer forever
+	// (use hasValidUrl here — not showImage — to avoid showImage ↔ imageError cycle)
+	let imageLoadTimeout = null;
+	$: {
+		if (imageLoadTimeout) clearTimeout(imageLoadTimeout);
+		imageLoadTimeout = null;
+		if (hasValidUrl && !imageLoaded && !imageError && resolvedPictureUrl) {
+			const url = resolvedPictureUrl;
+			imageLoadTimeout = setTimeout(() => {
+				if (resolvedPictureUrl === url && !imageLoaded) imageError = true;
+			}, 8000);
+		}
+	}
+	onDestroy(() => {
+		if (imageLoadTimeout) clearTimeout(imageLoadTimeout);
+	});
 </script>
 
 <button

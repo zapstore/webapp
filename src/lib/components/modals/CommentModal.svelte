@@ -368,40 +368,40 @@ const childModalOpen = $derived(
 					<CommentModalRootRow {rootContext} {version} showConnector={true} />
 				{/if}
 				<div class="input-container">
-				{#if pendingTipSats}
-					<TipAmountRow amountSats={pendingTipSats} onedit={openTipAmountModal} />
-				{/if}
-				<input
-					type="file"
-					accept={ACCEPTED_MEDIA_TYPES}
-					multiple
-					class="comment-file-input"
-					bind:this={fileInputEl}
-					onchange={handleFileChange}
-					aria-hidden="true"
-					tabindex="-1"
-				/>
-				<ShortTextInput
-					bind:this={textInput}
-					placeholder={effectivePlaceholder}
-					size="medium"
-					{getCurrentPubkey}
-					{searchProfiles}
-					{searchEmojis}
-					autoFocus={true}
-					showActionRow={true}
-					hideTipButton={false}
-					allowEmptySubmit={pendingTipSats != null && pendingTipSats >= 1}
-					onTipTap={handleTipTap}
-					onCameraTap={handleCameraTap}
-					onEmojiTap={handleEmojiTap}
-					onGifTap={() => {}}
-					onAddTap={handleInsertTap}
-					onChevronTap={() => {}}
-					onchange={handleContentChange}
-					onsubmit={handleSubmit}
-				/>
-			</div>
+					{#if pendingTipSats}
+						<TipAmountRow amountSats={pendingTipSats} onedit={openTipAmountModal} />
+					{/if}
+					<input
+						type="file"
+						accept={ACCEPTED_MEDIA_TYPES}
+						multiple
+						class="comment-file-input"
+						bind:this={fileInputEl}
+						onchange={handleFileChange}
+						aria-hidden="true"
+						tabindex="-1"
+					/>
+					<ShortTextInput
+						bind:this={textInput}
+						placeholder={effectivePlaceholder}
+						size="medium"
+						{getCurrentPubkey}
+						{searchProfiles}
+						{searchEmojis}
+						autoFocus={true}
+						showActionRow={true}
+						hideTipButton={false}
+						allowEmptySubmit={pendingTipSats != null && pendingTipSats >= 1}
+						onTipTap={handleTipTap}
+						onCameraTap={handleCameraTap}
+						onEmojiTap={handleEmojiTap}
+						onGifTap={() => {}}
+						onAddTap={handleInsertTap}
+						onChevronTap={() => {}}
+						onchange={handleContentChange}
+						onsubmit={handleSubmit}
+					/>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -505,7 +505,7 @@ const childModalOpen = $derived(
 	.comment-compose-column {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		gap: 0;
 		min-width: 0;
 		width: 100%;
 	}

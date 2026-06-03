@@ -133,7 +133,7 @@
 	);
 	const actionsContentNoun = $derived(
 		ACTIONS_DELETABLE_CONTENT_LABELS[contentType] ??
-			(isZapPreview || contentType === 'zap' ? 'Zap' : 'Comment')
+			(isZapPreview || contentType === 'zap' ? 'Tip' : 'Comment')
 	);
 
 	const displayAuthorLabel = $derived.by(() => {
@@ -224,7 +224,7 @@
 
 	const detailsPublicationLabel = $derived.by(() => {
 		if (isCatalogContent) return contentTypeLabel;
-		return isZapPreview || contentType === 'zap' ? 'Zap receipt' : 'Comment';
+		return isZapPreview || contentType === 'zap' ? 'Tip receipt' : 'Comment';
 	});
 
 	const catalogEventId = $derived.by(() => {
@@ -870,7 +870,7 @@
 	instantTransition={instantDismiss}
 	class="actions-modal {createStackOpen ? 'actions-modal-child-open' : ''}"
 >
-	<div class="am-inner">
+	<div class="am-inner" class:am-inner--main={subPanel === 'main'}>
 		<div class="child-overlay" class:visible={createStackOpen} aria-hidden="true"></div>
 
 		{#if subPanel === 'main'}
@@ -1236,12 +1236,15 @@
 	.am-inner {
 		box-sizing: border-box;
 		min-width: 0;
-		padding: var(--comment-modal-inset);
-		padding-bottom: var(--comment-modal-bottom-inset);
+		padding: 0 var(--comment-modal-inset) var(--comment-modal-bottom-inset);
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
 		position: relative;
+	}
+
+	.am-inner.am-inner--main {
+		padding-top: var(--comment-modal-inset);
 	}
 
 	.child-overlay {
@@ -1601,9 +1604,7 @@
 	}
 
 	.details-modal-inner {
-		padding: 8px 0 16px;
-		max-height: min(70vh, 560px);
-		overflow-y: auto;
+		min-width: 0;
 		box-sizing: border-box;
 	}
 

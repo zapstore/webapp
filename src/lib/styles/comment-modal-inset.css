@@ -31,10 +31,3 @@
 	padding-bottom: 0 !important;
 }
 
-/* Social Modal shells: title + body share the same horizontal gutter */
-:global(.add-modal .modal-title-block),
-:global(.actions-modal .modal-title-block),
-:global(.tip-amount-modal .modal-title-block) {
-	padding-left: var(--comment-modal-inset);
-	padding-right: var(--comment-modal-inset);
-}

@@ -5,7 +5,7 @@
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
 	import { nip19 } from 'nostr-tools';
-	import { ChevronDown } from '$lib/components/icons';
+	import { ChevronDown, Search } from '$lib/components/icons';
 	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
 	import {
 		ZAPSTORE_COMMUNITY_PUBKEY,
@@ -73,6 +73,11 @@
 					label: 'Activity',
 					icon: '/images/emoji/activity.png',
 					href: '/community/activity'
+				},
+				{
+					id: 'search',
+					label: 'Search',
+					href: '/community/search'
 				}
 		]
 	: [
@@ -102,13 +107,15 @@
 	});
 
 	const activeSection = $derived(
-		path.startsWith('/community/forum')
-			? 'forum'
-			: path.startsWith('/community/support')
-				? 'support'
-				: path.startsWith('/community/activity')
-					? 'activity'
-					: defaultSectionId
+		path.startsWith('/community/search')
+			? 'search'
+			: path.startsWith('/community/forum')
+				? 'forum'
+				: path.startsWith('/community/support')
+					? 'support'
+					: path.startsWith('/community/activity')
+						? 'activity'
+						: defaultSectionId
 	);
 	const activeSectionLabel = $derived(
 		SECTIONS.find((s) => s.id === activeSection)?.label ??
@@ -144,6 +151,8 @@
 <svelte:head>
 	{#if path.startsWith('/community/support')}
 		<title>Support — Zapstore</title>
+	{:else if path.startsWith('/community/search')}
+		<title>Search — Zapstore Community</title>
 	{/if}
 </svelte:head>
 
@@ -182,8 +191,11 @@
 							>
 								{#if section.icon}
 									<img src={section.icon} alt="" class="section-item-icon" />
+									{section.label}
+								{:else}
+									<Search variant="outline" size={16} strokeWidth={1.6} color="var(--white33)" />
+									{section.label}
 								{/if}
-						{section.label}
 							</a>
 						{/each}
 					</div>
@@ -212,9 +224,12 @@
 								{#if section.icon}
 									<img src={section.icon} alt="" class="section-icon" />
 								{:else}
-									<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-										<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-									</svg>
+									<Search
+										variant="outline"
+										size={18}
+										strokeWidth={1.6}
+										color={activeSection === section.id ? 'var(--white66)' : 'var(--white33)'}
+									/>
 								{/if}
 							</span>
 							<span class="nav-label">{section.label}</span>

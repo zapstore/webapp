@@ -1,12 +1,13 @@
 import { browser } from '$app/environment';
 import { liveQuery } from 'dexie';
 import { untrack } from 'svelte';
-import { SvelteMap } from 'svelte/reactivity';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { EVENT_KINDS, PROFILE_FETCH_RELAYS } from '$lib/config.js';
 import { isOnline } from '$lib/stores/online.svelte.js';
 import { queryAddressableSocial } from '../storage/social.js';
 import { hydrateFilters } from '../sync/hydrate.js';
 import { subscribeAddressableSocial, subscribeEventZaps } from '../sync/social.js';
+import { markProfilesResolved, mergeResolvedProfileStubs } from '$lib/utils/profile-loading.js';
 
 /**
  * Local-first social query for addressable roots (apps and stacks).
@@ -30,6 +31,8 @@ export function createAddressableSocialQuery(getRoot, options = {}) {
 		profiles: {},
 		profilesLoading: false,
 		missingProfilePubkeys: [],
+		/** Pubkeys we already kicked off a relay profile fetch for (found or not). */
+		profileHydrationAttempted: new SvelteSet(),
 		zapperProfiles: new SvelteMap()
 	});
 
@@ -56,6 +59,7 @@ export function createAddressableSocialQuery(getRoot, options = {}) {
 			state.labelEvents = [];
 			state.profiles = {};
 			state.missingProfilePubkeys = [];
+			state.profileHydrationAttempted.clear();
 			state.zapperProfiles = new SvelteMap();
 			state.commentsLoading = false;
 			state.commentsSyncing = false;
@@ -109,7 +113,7 @@ export function createAddressableSocialQuery(getRoot, options = {}) {
 				state.zapEvents = value.zapEvents;
 				state.labelEntries = value.labelEntries;
 				state.labelEvents = value.labelEvents;
-				state.profiles = value.profiles;
+				state.profiles = mergeResolvedProfileStubs(value.profiles, hydratedProfiles);
 				state.missingProfilePubkeys = value.missingProfilePubkeys ?? [];
 				state.zapperProfiles = value.zapperProfiles;
 				state.commentsLoading = false;
@@ -130,16 +134,30 @@ export function createAddressableSocialQuery(getRoot, options = {}) {
 					}
 
 					const missing = (value.missingProfilePubkeys ?? []).filter(
-						(pubkey) => !hydratedProfiles[pubkey]
+						(pubkey) => !hydratedProfiles[String(pubkey).toLowerCase()]
 					);
 					if (missing.length > 0) {
-						for (const pubkey of missing) hydratedProfiles[pubkey] = true;
+						for (const pubkey of missing) {
+							const pk = String(pubkey).toLowerCase();
+							hydratedProfiles[pk] = true;
+							state.profileHydrationAttempted.add(pk);
+						}
 						hydrateFilters(
 							PROFILE_FETCH_RELAYS,
 							{ kinds: [EVENT_KINDS.PROFILE], authors: missing, limit: missing.length * 2 },
 							{ timeout: options.timeout ?? 5000, feature: 'purpleweb-profiles' }
-						).catch(() => {});
+						)
+							.catch(() => {})
+							.finally(() => {
+								state.profiles = markProfilesResolved(state.profiles, missing);
+							});
 					}
+				} else {
+					const offlineMissing = value.missingProfilePubkeys ?? [];
+					for (const pubkey of offlineMissing) {
+						state.profileHydrationAttempted.add(String(pubkey).toLowerCase());
+					}
+					state.profiles = markProfilesResolved(state.profiles, offlineMissing);
 				}
 			},
 			error(err) {

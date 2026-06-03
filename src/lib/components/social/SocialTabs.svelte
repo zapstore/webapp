@@ -2,7 +2,7 @@
 /**
  * SocialTabs - Tabbed interface for social content
  *
- * Displays tabs for: Comments, Zaps, Labels, Stacks, Details
+ * Displays tabs for: Comments, Tips, Labels, Stacks, Details
  * Only loads content for the currently selected tab.
  *
  * Comments and zaps are provided by parent routes from Dexie-backed local-first queries.
@@ -23,6 +23,8 @@ import RelayLoadingBar from "$lib/components/common/RelayLoadingBar.svelte";
 import CommentFeedComposer from "./CommentFeedComposer.svelte";
 import { Zap } from "$lib/components/icons";
 import { loadSocialDetailsData } from "$lib/purpleweb";
+import { profileDisplayLabel } from "$lib/utils/npub-display.js";
+import { isProfilePicLoading } from "$lib/utils/profile-loading.js";
 let {
     app = {}, stack = null, version = "", publisherProfile: _publisherProfile = null,
     zaps = [], zapperProfiles = new SvelteMap(), className = "",
@@ -31,6 +33,7 @@ let {
     commentsSyncing = false,
     commentsError = "",
     zapsLoading = false, profiles = {}, profilesLoading = false,
+    missingProfilePubkeys = [], profileHydrationAttempted = undefined,
     getAppSlug = () => "", getStackSlug = () => "",
     pubkeyToNpub = () => "", searchProfiles = async () => [],
     searchEmojis = async () => [], signEvent = null, onCommentSubmit, onZapReceived, onZapPending, onZapPendingClear, onGetStarted,
@@ -126,7 +129,7 @@ const openThreadRootId = $derived.by(() => {
 
 const tabs = $derived([
     { id: "comments", label: "Comments" },
-    { id: "zaps", label: "Zaps" },
+    { id: "zaps", label: "Tips" },
     { id: "labels", label: "Labels" },
     ...(showDetailsTab ? [{ id: "details", label: "Details" }] : []),
 ]);
@@ -189,14 +192,6 @@ function safeNpubFromPubkey(pubkey) {
         return "";
     }
 }
-/** Same trimmed npub format as profile page: npub1xxx......yyyyyy */
-function formatNpubDisplay(npubStr) {
-    if (!npubStr || typeof npubStr !== "string") return "";
-    const s = npubStr.trim();
-    if (s.length < 14) return s;
-    const afterPrefix = s.startsWith("npub1") ? s.slice(5, 8) : s.slice(0, 3);
-    return s.startsWith("npub1") ? `npub1${afterPrefix}......${s.slice(-6)}` : `${afterPrefix}......${s.slice(-6)}`;
-}
 function formatSats(amount) {
     if (amount >= 1000000)
         return `${(amount / 1000000).toFixed(1)}M`;
@@ -205,17 +200,22 @@ function formatSats(amount) {
     return amount.toLocaleString();
 }
 function enrichComment(comment) {
-    const profile = profiles[comment.pubkey] ?? zapperProfiles.get(comment.pubkey) ?? undefined;
-    const hasProfile = profile !== undefined && profile !== null;
+    const pk = String(comment.pubkey ?? "").toLowerCase();
+    const profile =
+        profiles[pk] ?? profiles[comment.pubkey] ?? zapperProfiles.get(comment.pubkey) ?? undefined;
     const npub = comment.npub || safeNpubFromPubkey(comment.pubkey);
     return {
         ...comment,
-        displayName: profile?.displayName ||
-            profile?.name ||
-            (npub ? formatNpubDisplay(npub) : "Anonymous"),
+        displayName: profileDisplayLabel(profile, comment.pubkey),
         avatarUrl: profile?.picture ?? null,
         profileUrl: npub ? `/profile/${npub}` : "",
-        profileLoading: profilesLoading && !hasProfile,
+        profileLoading: isProfilePicLoading({
+            profile,
+            pubkey: comment.pubkey,
+            profilesLoading,
+            missingProfilePubkeys,
+            profileHydrationAttempted,
+        }),
     };
 }
 const commentIds = $derived(new SvelteSet(comments.map((c) => (c.id ?? "").toLowerCase())));
@@ -258,9 +258,7 @@ const enrichedZaps = $derived(zaps
     .map((zap) => {
     const profile = zap.senderPubkey ? zapperProfiles.get(zap.senderPubkey) : undefined;
     const senderNpub = safeNpubFromPubkey(zap.senderPubkey);
-    const displayName = profile?.displayName?.trim() ||
-        profile?.name?.trim() ||
-        (senderNpub ? formatNpubDisplay(senderNpub) : "Anonymous");
+    const displayName = profileDisplayLabel(profile, zap.senderPubkey);
     return {
         ...zap,
         type: "zap",
@@ -407,7 +405,7 @@ const zapsByTargetId = $derived.by(() => {
         onclick={() => (activeTab = tab.id)}
       >
         {#if tab.id === "zaps"}
-          <span>Zaps</span>
+          <span>Tips</span>
           <span class="tab-stats">
             {#if zapsLoading}
               <Spinner color="hsl(0 0% 100% / 0.44)" size={14} />
@@ -583,7 +581,7 @@ const zapsByTargetId = $derived.by(() => {
       {#if zapsLoading && enrichedZaps.length === 0}
         <BubbleSkeleton />
       {:else if enrichedZaps.length === 0}
-        <EmptyState message="No zaps yet" minHeight={300} topAlign={true} />
+        <EmptyState message="No tips yet" minHeight={300} topAlign={true} />
       {:else}
         <div class="space-y-4">
           {#each enrichedZaps as zap (zap.id)}

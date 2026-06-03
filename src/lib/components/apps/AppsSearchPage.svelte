@@ -543,9 +543,9 @@
 							{/each}
 						</ul>
 					{:else if showSearchResults && searchParsedApps !== null}
-						<p class="apps-search-empty regular14">
-							No apps found for "{activeSearchQuery}".
-						</p>
+						<div class="apps-search-empty-state" role="status">
+							<p class="apps-search-empty-center-text">No apps found for "{activeSearchQuery}".</p>
+						</div>
 					{/if}
 				</div>
 
@@ -898,6 +898,23 @@
 		color: var(--white66);
 		margin: 0;
 		padding: var(--apps-pad-x);
+	}
+
+	.apps-search-empty-state {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 200px;
+		padding: 24px var(--apps-pad-x);
+		background: transparent;
+	}
+
+	.apps-search-empty-center-text {
+		margin: 0;
+		font-size: 1.5rem;
+		font-weight: 600;
+		color: var(--white16);
+		text-align: center;
 	}
 
 	.apps-search-panel.hidden {

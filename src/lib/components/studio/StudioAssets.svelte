@@ -283,15 +283,11 @@
 		font-size: 12px;
 	}
 
-	/* ── Code modal body — padding matches modal title-block horizontal inset */
 	.code-modal-body {
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		padding: 16px 16px 24px;
-	}
-
-	@media (min-width: 768px) {
-		.code-modal-body { padding: 16px 20px 28px; }
+		padding: 0 var(--comment-modal-inset) var(--comment-modal-bottom-inset);
+		box-sizing: border-box;
 	}
 </style>

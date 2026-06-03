@@ -120,7 +120,7 @@
 		dlCounts.length > 0 ? [{ id: 'dl', name: 'Downloads', icon: '', counts: pad(dlCounts) }] : null
 	);
 	const zapAppData = $derived(
-		zapCounts.length > 0 ? [{ id: 'zap', name: 'Zaps', icon: '', counts: pad(zapCounts) }] : null
+		zapCounts.length > 0 ? [{ id: 'zap', name: 'Tips', icon: '', counts: pad(zapCounts) }] : null
 	);
 	const impAppData = $derived(
 		impCounts.length > 0 ? [{ id: 'imp', name: 'Impressions', icon: '', counts: pad(impCounts) }] : null
@@ -224,7 +224,7 @@
 			{/if}
 		</div>
 		<div class="count-item">
-			<span class="eyebrow-label count-eyebrow">Zaps</span>
+			<span class="eyebrow-label count-eyebrow">Tips</span>
 			<div class="count-value-row">
 				<ZapIcon size={24} color="var(--goldColor66)" strokeWidth={1.4} />
 				{#if zapMetricsLoading}

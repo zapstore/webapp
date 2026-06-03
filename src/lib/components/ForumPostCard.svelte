@@ -9,9 +9,10 @@
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import ShortTextPreview from '$lib/components/common/ShortTextPreview.svelte';
 	import { Zap } from '$lib/components/icons';
+	import { profileDisplayLabel } from '$lib/utils/npub-display.js';
 
 	let {
-		author = { name: '', picture: '', npub: '' },
+		author = { name: null, picture: '', pubkey: '', npub: '' },
 		title = '',
 		content = '',
 		timestamp = '',
@@ -44,7 +45,7 @@
 		return val.toLocaleString();
 	}
 	const displayName = $derived(
-		author.name || (author.npub ? author.npub.slice(0, 12) + '...' : '') || 'Anonymous'
+		profileDisplayLabel({ displayName: author.displayName, name: author.name }, author.pubkey)
 	);
 	const stackProfiles = $derived(
 		(commenters || []).slice(0, 3).map((r) => ({
@@ -92,7 +93,7 @@
 				<ProfilePic
 					pictureUrl={author.picture}
 					name={author.name}
-					pubkey={author.npub}
+					pubkey={author.pubkey || author.npub}
 					size="smMd"
 				/>
 			</div>

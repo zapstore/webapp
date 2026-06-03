@@ -56,7 +56,7 @@
 		}
 	});
 
-	$: visibleApps = isMobile ? allApps.slice(0, 4) : allApps;
+	$: visibleApps = allApps.slice(0, 4);
 
 	function clearFlipTimers() {
 		flipTimers.forEach(clearTimeout);
@@ -235,7 +235,7 @@
 			class="hero-description mx-auto mt-2 sm:mt-8 mb-10"
 			style="color: var(--white66);"
 		>
-			The Open App Store,<br class="sm:hidden" /> where Users meet Builders.
+		Finally, a truly open app store.
 		</p>
 
 		<!-- Browse CTA: stacked app pics + glass pill -->
@@ -311,8 +311,8 @@
 			display: none;
 		}
 		.hero-description {
-			font-size: 24px;
-			line-height: 2.5rem;
+			font-size: 28px;
+			line-height: 2.75rem;
 			margin-bottom: 36px;
 		}
 	}

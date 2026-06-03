@@ -508,8 +508,8 @@
 				<div class="donate-panel-icon donate-panel-icon-zap">
 					<Zap variant="fill" color="url(#donate-gray66-light)" size={DONATE_ICON_SIZE} />
 				</div>
-				<span class="donate-panel-title">Zap The App</span>
-				<span class="donate-panel-desc">Zap the Zapstore app directly</span>
+				<span class="donate-panel-title">Tip The App</span>
+				<span class="donate-panel-desc">Tip the Zapstore app directly</span>
 			</a>
 			<a href={FRAN_PRIMAL_URL} target="_blank" rel="noopener noreferrer" class="donate-panel">
 				<div class="donate-panel-icon donate-panel-icon-send">

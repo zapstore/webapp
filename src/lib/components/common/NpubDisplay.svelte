@@ -3,6 +3,7 @@
  * NpubDisplay - Displays an npub with a colored profile circle
  */
 import { hexToColor } from '$lib/utils/color.js';
+import { formatNpubDisplay } from '$lib/utils/npub-display.js';
 let { npub = '', pubkey = '', size = 'md', truncate = true, className = '' } = $props();
 const dotSizes = {
     sm: 6,
@@ -16,17 +17,7 @@ const fontSizes = {
 };
 const profileColor = $derived(pubkey ? hexToColor(pubkey) : { r: 128, g: 128, b: 128 });
 const profileColorStyle = $derived(`rgb(${profileColor.r}, ${profileColor.g}, ${profileColor.b})`);
-function formatNpub(npubStr, shouldTruncate) {
-    if (!npubStr)
-        return '';
-    if (!shouldTruncate)
-        return npubStr;
-    if (npubStr.length < 14)
-        return npubStr;
-    const afterPrefix = npubStr.startsWith('npub1') ? npubStr.slice(5, 8) : npubStr.slice(0, 3);
-    return `npub1${afterPrefix}......${npubStr.slice(-6)}`;
-}
-const displayNpub = $derived(formatNpub(npub, truncate));
+const displayNpub = $derived(formatNpubDisplay(npub, truncate));
 const dotSize = $derived(dotSizes[size] || dotSizes.md);
 const fontSize = $derived(fontSizes[size] || fontSizes.md);
 </script>

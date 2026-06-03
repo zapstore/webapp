@@ -17,7 +17,7 @@
 		{ name: 'No review process', values: [true, false, false, true] },
 		{ name: 'Any app', values: [true, false, false, true] },
 		{ name: 'User communities', values: [true, false, false, false] },
-		{ name: 'Zaps', values: [true, false, false, false] }
+		{ name: 'Tips', values: [true, false, false, false] }
 	];
 </script>
 

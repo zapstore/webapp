@@ -38,17 +38,13 @@
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
 	import * as nip19 from 'nostr-tools/nip19';
-	/** Never show the literal "Anonymous" — prefer truncated npub when display name is missing. */
+	import { formatNpubFromPubkey, isRealProfileName } from '$lib/utils/npub-display.js';
+	/** Never show generic placeholders — prefer trimmed npub when display name is missing. */
 	function displayNameOrNpubShort(label, pk) {
-		if (label != null && String(label).trim() !== '') return String(label).trim();
-		if (!pk || !String(pk).trim()) return '';
-		try {
-			const enc = nip19.npubEncode(pk);
-			return `npub1${enc.slice(5, 8)}…${enc.slice(-6)}`;
-		} catch {
-			return pk.slice(0, 8);
-		}
+		if (isRealProfileName(label)) return String(label).trim();
+		return formatNpubFromPubkey(pk);
 	}
+	const profilePicName = $derived(isRealProfileName(name) ? String(name).trim() : null);
 	let {
 		pictureUrl = null,
 		name = '',
@@ -874,10 +870,10 @@
 	<div class="thread-root-rail-avatar">
 		{#if profileUrl}
 			<a href={profileUrl} class="thread-root-rail-avatar-link">
-				<ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
+				<ProfilePic {pictureUrl} name={profilePicName} {pubkey} {loading} size="smMd" />
 			</a>
 		{:else}
-			<ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
+			<ProfilePic {pictureUrl} name={profilePicName} {pubkey} {loading} size="smMd" />
 		{/if}
 	</div>
 {/snippet}
@@ -1037,6 +1033,7 @@
 	closeOnBackdropClick={!childModalOpen}
 	lockBodyScroll={modalLockBodyScroll}
 	scopedInPanel={modalScopedInPanel}
+	scrollEdgeFade={false}
 	class="thread-modal {childModalOpen ? 'thread-modal-child-open' : ''}"
 >
 	<div

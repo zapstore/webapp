@@ -92,7 +92,7 @@ const CONTENT_TYPE_LABELS = {
 	profile: "Profile",
 	post: "Post",
 	comment: "Comment",
-	zap: "Zap"
+	zap: "Tip"
 };
 
 const violations = $derived(VIOLATIONS_BY_TYPE[contentType] ?? VIOLATIONS_BY_TYPE.app);

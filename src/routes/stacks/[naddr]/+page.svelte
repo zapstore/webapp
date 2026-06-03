@@ -637,6 +637,8 @@
 								{commentsError}
 								{profiles}
 								{profilesLoading}
+								missingProfilePubkeys={social.missingProfilePubkeys}
+								profileHydrationAttempted={social.profileHydrationAttempted}
 								labelEntries={mergedLabelEntries}
 								{labelsLoading}
 								{searchProfiles}

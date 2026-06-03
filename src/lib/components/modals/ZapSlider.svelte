@@ -386,7 +386,7 @@ export function getSerializedContent() {
       </div>
       {#if isTopZap}
         <div class="top-zap-badge">
-          <span>Top Zap</span>
+          <span>Top Tip</span>
         </div>
       {/if}
     </button>

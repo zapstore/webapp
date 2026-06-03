@@ -5,7 +5,10 @@
  */
 import { browser } from '$app/environment';
 import { untrack } from 'svelte';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { nip19 } from 'nostr-tools';
+import { profileDisplayLabel, profileNameForPic } from '$lib/utils/npub-display.js';
+import { markProfilesResolved } from '$lib/utils/profile-loading.js';
 import {
 	queryEvents,
 	queryEvent,
@@ -40,7 +43,6 @@ import DetailContentActions from '$lib/components/social/DetailContentActions.sv
 import EmptyState from '$lib/components/common/EmptyState.svelte';
 import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
 import MediaLightboxModal from '$lib/components/modals/MediaLightboxModal.svelte';
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 let {
 	post: postProp = null,
@@ -78,7 +80,23 @@ let zaps = $state([]);
 let zapsLoading = $state(false);
 let profiles = $state({});
 let profilesLoading = $state(false);
+/** Pubkeys we already read from Dexie + relay (with or without kind:0). */
+const profileHydrationAttempted = new SvelteSet();
 let zapperProfiles = new SvelteMap();
+const missingProfilePubkeys = $derived.by(() => {
+	const pks = [
+		...new Set(
+			[
+				...(post?.pubkey ? [post.pubkey] : []),
+				...comments.map((c) => c.pubkey),
+				...zaps.map((z) => z.senderPubkey)
+			]
+				.filter(Boolean)
+				.map((pk) => String(pk).toLowerCase())
+		)
+	];
+	return pks.filter((pk) => !profiles[pk]);
+});
 const otherZaps = $derived(
 	zaps.map((z) => {
 		const prof = z.senderPubkey ? zapperProfiles.get(z.senderPubkey) : undefined;
@@ -261,9 +279,8 @@ const communityPubkey = $derived((() => {
 		return d?.type === 'npub' ? d.data : '';
 	} catch { return ''; }
 })());
-const publisherName = $derived(
-	(authorProfile?.displayName ?? authorProfile?.name ?? '').trim() || 'Author'
-);
+const publisherName = $derived(profileDisplayLabel(authorProfile, post?.pubkey));
+const publisherNameForPic = $derived(profileNameForPic(authorProfile));
 const zapTarget = $derived(
 	post && communityPubkey
 		? {
@@ -385,7 +402,13 @@ async function loadForumPostZapsFull(postId, postPubkey) {
 
 /** Kind 0 from IndexedDB — only authors still missing from `profiles`. */
 async function mergeProfilesFromDexie(pubkeys) {
-	const uniq = [...new Set(pubkeys.filter((pk) => typeof pk === 'string' && /^[0-9a-f]{64}$/i.test(pk)))];
+	const uniq = [
+		...new Set(
+			pubkeys
+				.filter((pk) => typeof pk === 'string' && /^[0-9a-f]{64}$/i.test(pk))
+				.map((pk) => pk.toLowerCase())
+		)
+	];
 	const need = uniq.filter((pk) => !profiles[pk]);
 	if (need.length === 0) return;
 	const CHUNK = 40;
@@ -395,10 +418,11 @@ async function mergeProfilesFromDexie(pubkeys) {
 		const chunk = need.slice(i, i + CHUNK);
 		const evs = await queryEvents({ kinds: [0], authors: chunk, limit: chunk.length });
 		for (const ev of evs) {
-			if (!ev?.pubkey || !ev.content) continue;
+			const key = ev.pubkey?.toLowerCase();
+			if (!key || !ev.content) continue;
 			try {
 				const j = JSON.parse(ev.content);
-				patch[ev.pubkey] = {
+				patch[key] = {
 					displayName: j.display_name ?? j.displayName ?? j.name,
 					name: j.name,
 					picture: j.picture
@@ -418,27 +442,37 @@ $effect(() => {
 	if (!pid) return;
 
 	const uniq = [
-		...new Set([...(ppk ? [ppk] : []), ...pars.map((c) => c.pubkey).filter(Boolean)])
+		...new Set(
+			[...(ppk ? [ppk] : []), ...pars.map((c) => c.pubkey).filter(Boolean)].map((pk) =>
+				String(pk).toLowerCase()
+			)
+		)
 	];
-	if (uniq.length === 0) return;
+	const pending = uniq.filter((pk) => !profileHydrationAttempted.has(pk));
+	if (pending.length === 0) return;
 
 	let cancelled = false;
 
 	(async () => {
 		profilesLoading = true;
 		try {
-			await mergeProfilesFromDexie(uniq);
+			await mergeProfilesFromDexie(pending);
 			if (cancelled) return;
-			const missing = uniq.filter((pk) => !profiles[pk]);
+			const missing = pending.filter((pk) => !profiles[pk]);
 			if (missing.length > 0) {
 				const batch = await fetchProfilesBatch(missing, { timeout: 3000 });
 				if (cancelled) return;
 				const next = { ...profiles };
 				for (const [pub, ev] of batch) {
+					const key = String(pub).toLowerCase();
 					if (ev?.content) {
 						try {
 							const j = JSON.parse(ev.content);
-							next[pub] = { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture };
+							next[key] = {
+								displayName: j.display_name ?? j.name,
+								name: j.name,
+								picture: j.picture
+							};
 						} catch {
 							/* skip */
 						}
@@ -447,20 +481,34 @@ $effect(() => {
 				profiles = next;
 			}
 			if (cancelled) return;
-			if (ppk && !authorProfile) {
-				const ev = (await fetchProfilesBatch([ppk], { timeout: 3000 })).get(ppk);
+			const ppkLower = ppk ? String(ppk).toLowerCase() : '';
+			if (ppkLower && !authorProfile) {
+				const ev =
+					profiles[ppkLower] != null
+						? null
+						: (await fetchProfilesBatch([ppkLower], { timeout: 3000 })).get(ppkLower);
 				if (ev?.content) {
 					try {
 						authorProfile = parseProfile(ev);
 					} catch {
 						/* ignore */
 					}
+				} else if (profiles[ppkLower]) {
+					const p = profiles[ppkLower];
+					authorProfile = {
+						displayName: p.displayName ?? p.name,
+						name: p.name,
+						picture: p.picture,
+						pubkey: ppkLower
+					};
 				}
 			}
 		} catch (err) {
 			console.error('[ForumPostDetail] Profile merge failed:', err);
 		} finally {
-			if (!cancelled) profilesLoading = false;
+			for (const pk of pending) profileHydrationAttempted.add(pk);
+			profiles = markProfilesResolved(profiles, pending);
+			profilesLoading = false;
 		}
 	})();
 
@@ -794,6 +842,7 @@ function handleForumBottomBarZap(event) {
 			<DetailHeader
 				publisherPic={authorProfile?.picture}
 				{publisherName}
+				{publisherNameForPic}
 				publisherPubkey={post.pubkey}
 				publisherUrl={npub ? `/profile/${npub}` : '#'}
 				timestamp={post.createdAt}
@@ -880,6 +929,8 @@ function handleForumBottomBarZap(event) {
 						{zapperProfiles}
 						{profiles}
 						{profilesLoading}
+						{missingProfilePubkeys}
+						{profileHydrationAttempted}
 						pubkeyToNpub={(pk) => (pk ? nip19.npubEncode(pk) : '')}
 						{searchProfiles}
 						{searchEmojis}

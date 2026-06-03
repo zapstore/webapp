@@ -36,7 +36,7 @@
 </script>
 
 {#if profileUrl}
-	<a href={profileUrl} class="zap-pill {className}" aria-label="Zap of {amountLabel} sats">
+	<a href={profileUrl} class="zap-pill {className}" aria-label="Tip of {amountLabel} sats">
 		<Zap variant="fill" size={11} color="var(--goldColor)" />
 		<span class="zap-pill-amount medium12">{amountLabel}</span>
 		<span class="zap-pill-avatar">
@@ -44,7 +44,7 @@
 		</span>
 	</a>
 {:else}
-	<span class="zap-pill {className}" aria-label="Zap of {amountLabel} sats">
+	<span class="zap-pill {className}" aria-label="Tip of {amountLabel} sats">
 		<Zap variant="fill" size={11} color="var(--goldColor)" />
 		<span class="zap-pill-amount medium12">{amountLabel}</span>
 		<span class="zap-pill-avatar">

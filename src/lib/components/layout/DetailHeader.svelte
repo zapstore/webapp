@@ -17,6 +17,7 @@ import { nip19 } from 'nostr-tools';
 import { getCurrentPubkey, connect } from '$lib/stores/auth.svelte.js';
 import { createProfileQuery } from '$lib/purpleweb';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
+import { formatNpubDisplay, isRealProfileName } from '$lib/utils/npub-display.js';
 import Timestamp from '$lib/components/common/Timestamp.svelte';
 import { zapstoreProfileStore, ZAPSTORE_PUBKEY, startProfileSearchBackground } from '$lib/services/profile-search';
 import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
@@ -38,16 +39,9 @@ let {
     showBottomBorder = true,
 } = $props();
 const nameForPic = $derived(publisherNameForPic !== undefined ? publisherNameForPic : publisherName);
-function formatNpubDisplay(npubStr) {
-    if (!npubStr || typeof npubStr !== 'string') return '';
-    const s = npubStr.trim();
-    if (s.length < 14) return s;
-    const afterPrefix = s.startsWith('npub1') ? s.slice(5, 8) : s.slice(0, 3);
-    return s.startsWith('npub1') ? `npub1${afterPrefix}......${s.slice(-6)}` : `${afterPrefix}......${s.slice(-6)}`;
-}
 const publisherDisplayName = $derived(
-    publisherName?.trim()
-        ? publisherName
+    isRealProfileName(publisherName)
+        ? String(publisherName).trim()
         : publisherPubkey
             ? formatNpubDisplay(nip19.npubEncode(publisherPubkey))
             : ''

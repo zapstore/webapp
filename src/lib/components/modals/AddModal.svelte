@@ -297,10 +297,6 @@ $effect(() => {
 </Modal>
 
 <style>
-	:global(.add-modal .modal-title-block) {
-		padding-bottom: 14px;
-	}
-
 	:global(.add-modal.modal-fill-height) {
 		height: 50vh;
 		max-height: 50vh;

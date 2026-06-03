@@ -1142,6 +1142,8 @@ let _refreshing = $state(false);
 				{zapsLoading}
 				{profiles}
 				{profilesLoading}
+				missingProfilePubkeys={social.missingProfilePubkeys}
+				profileHydrationAttempted={social.profileHydrationAttempted}
 				{labelEntries}
 				{labelsLoading}
 				{searchProfiles}
