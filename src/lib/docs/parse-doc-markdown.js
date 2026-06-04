@@ -45,6 +45,25 @@ export function parseDocMarkdown(raw) {
 }
 
 /**
+ * Rewrite relative markdown image paths to static URLs under /{contentDir}/.
+ * Mirrors the mdsvex remarkRelativeImagesToStatic plugin (svelte.config.js).
+ *
+ * @param {string} markdown
+ * @param {string} contentDir e.g. `blog/can-nostr-fix-app-distribution`
+ */
+export function resolveContentRelativeImages(markdown, contentDir) {
+	if (!markdown || !contentDir) return markdown;
+	return markdown.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
+		const trimmed = String(url).trim();
+		const isExternal = /^(https?:)?\/\//.test(trimmed);
+		const isRootAbsolute = trimmed.startsWith('/');
+		if (isExternal || isRootAbsolute) return match;
+		const clean = trimmed.replace(/^\.\//, '');
+		return `![${alt}](/${contentDir}/${clean})`;
+	});
+}
+
+/**
  * @param {string} slug Normalized slug (no leading/trailing slashes).
  * @param {Record<string, string>} rawModules import.meta.glob(..., { query: '?raw' })
  */

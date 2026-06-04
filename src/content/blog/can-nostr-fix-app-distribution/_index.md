@@ -80,11 +80,7 @@ Indexing packages for discoverability vastly improves UX and can be performed by
 
 Both the Apple App Store and Google Play Store have their own procedures for reviewing apps before they become available to users. They involve human and automated processes and aim to ensure app quality, security, and compliance with their policies. 
 
-This approach is not foolproof though, some malicious apps can still slip  through the cracks and when it does, it's pretty bad.
-
-![](fakesparrow.png)
-
-![](fakeelectrum.png)
+This approach is not foolproof though, some malicious apps can still slip through the cracks and when it does, it's pretty bad (for example, fake Sparrow or Electrum listings that have appeared on major stores).
 
 Worse yet, they give the illusion of security.
 

@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
-import { parseDocMarkdown } from '$lib/docs/parse-doc-markdown.js';
+import { parseDocMarkdown, resolveContentRelativeImages } from '$lib/docs/parse-doc-markdown.js';
 
 export const prerender = true;
 
@@ -35,11 +35,13 @@ export function load({ params }) {
 		throw error(404, `Blog post not found: ${slug}`);
 	}
 
-	const { metadata, body } = parseDocMarkdown(raw);
+	const { metadata, body: rawBody } = parseDocMarkdown(raw);
 
 	if (!dev && metadata?.draft) {
 		throw error(404, `Blog post not found: ${slug}`);
 	}
+
+	const body = resolveContentRelativeImages(rawBody, `blog/${slug}`);
 
 	return { metadata, body };
 }

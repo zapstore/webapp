@@ -82,7 +82,8 @@ let profiles = $state({});
 let profilesLoading = $state(false);
 /** Pubkeys we already read from Dexie + relay (with or without kind:0). */
 const profileHydrationAttempted = new SvelteSet();
-let zapperProfiles = new SvelteMap();
+/* eslint-disable svelte/no-unnecessary-state-wrap -- $state tracks wholesale SvelteMap replacements */
+let zapperProfiles = $state(new SvelteMap());
 const missingProfilePubkeys = $derived.by(() => {
 	const pks = [
 		...new Set(
