@@ -52,6 +52,12 @@ function isSafeUrl(url) {
 function normalizeWikiSlug(raw) {
     return raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
+
+/** GitHub-style fragment id for markdown headings (prerender + in-page anchors). */
+export function headingAnchorId(text) {
+	if (!text || typeof text !== 'string') return '';
+	return normalizeWikiSlug(text);
+}
 // ── Sanitiser ────────────────────────────────────────────────────────────
 const DANGEROUS_TAG_RE = /<(script|style|iframe|object|embed|form|input|textarea|select|button|applet|base|link|meta)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
 const DANGEROUS_SELF_CLOSING_RE = /<\/?(script|style|iframe|object|embed|form|input|textarea|select|button|applet|base|link|meta)\b[^>]*\/?>/gi;

@@ -13,6 +13,7 @@ import MarkdownInline from './MarkdownInline.svelte';
 import MarkdownBody from './MarkdownBody.svelte';
 import CodeBlock from './CodeBlock.svelte';
 import { highlightCode } from '$lib/utils/highlight.js';
+import { headingAnchorId } from '$lib/utils/markdown.js';
 
 	let {
 		tokens = [],
@@ -64,18 +65,19 @@ import { highlightCode } from '$lib/utils/highlight.js';
 		</div>
 
 	{:else if token.type === 'heading'}
+		{@const hid = headingAnchorId(token.text ?? '')}
 		{#if token.depth === 1}
-			<h1><MarkdownInline tokens={token.tokens ?? []} /></h1>
+			<h1 id={hid || undefined}><MarkdownInline tokens={token.tokens ?? []} /></h1>
 		{:else if token.depth === 2}
-			<h2><MarkdownInline tokens={token.tokens ?? []} /></h2>
+			<h2 id={hid || undefined}><MarkdownInline tokens={token.tokens ?? []} /></h2>
 		{:else if token.depth === 3}
-			<h3><MarkdownInline tokens={token.tokens ?? []} /></h3>
+			<h3 id={hid || undefined}><MarkdownInline tokens={token.tokens ?? []} /></h3>
 		{:else if token.depth === 4}
-			<h4><MarkdownInline tokens={token.tokens ?? []} /></h4>
+			<h4 id={hid || undefined}><MarkdownInline tokens={token.tokens ?? []} /></h4>
 		{:else if token.depth === 5}
-			<h5><MarkdownInline tokens={token.tokens ?? []} /></h5>
+			<h5 id={hid || undefined}><MarkdownInline tokens={token.tokens ?? []} /></h5>
 		{:else}
-			<h6><MarkdownInline tokens={token.tokens ?? []} /></h6>
+			<h6 id={hid || undefined}><MarkdownInline tokens={token.tokens ?? []} /></h6>
 		{/if}
 
 	{:else if token.type === 'hr'}
