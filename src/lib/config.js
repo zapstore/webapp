@@ -10,6 +10,8 @@ export const SITE_TITLE = 'Zapstore — The Open App Store';
 export const SITE_DESCRIPTION =
 	'The open app store where users meet builders. Curated by communities. Android apps.';
 export const SITE_ICON = `${SITE_URL}/zapstore-icon.png`;
+/** Set PUBLIC_PRICING_ENABLED=true at build time to expose /pricing and nav links. */
+export const PRICING_ENABLED = import.meta.env.PUBLIC_PRICING_ENABLED === 'true';
 /** OG/Twitter preview for /docs, /terms, and /assets. */
 export const DOCS_OG_IMAGE = `${SITE_URL}/images/og-docs.png`;
 export const DOCS_OG_IMAGE_ALT = 'Zapstore Docs';

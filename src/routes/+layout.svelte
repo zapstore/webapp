@@ -16,8 +16,7 @@ import {
 	installZapstoreDebugHooks,
 	evictOldEvents
 } from '$lib/purpleweb';
-import { ZAPSTORE_RELAY } from '$lib/config';
-import { IDB_NAME } from '$lib/config';
+import { ZAPSTORE_RELAY, IDB_NAME, PRICING_ENABLED } from '$lib/config';
 import { setBackGoesHomeIfLandedFromOutside, clearBackGoesHome } from '$lib/utils/back.js';
 import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 import { isOnline } from '$lib/stores/online.svelte.js';
@@ -55,7 +54,7 @@ let showFooter = $derived(
 		path === '/apps' ||
 		path === '/developers' ||
 		path === '/enterprise' ||
-		path === '/pricing' ||
+		(PRICING_ENABLED && path === '/pricing') ||
 		path === '/studio' ||
 		path.startsWith('/studio/') ||
 		path === '/blog' ||

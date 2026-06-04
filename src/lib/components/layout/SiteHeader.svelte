@@ -24,7 +24,7 @@
 	import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
 	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED, SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
-	import { SITE_GITHUB } from '$lib/config.js';
+	import { SITE_GITHUB, PRICING_ENABLED } from '$lib/config.js';
 	import { createInboxUnreadQuery, createProfileQuery } from '$lib/purpleweb';
 	import UserInboxPopover from '$lib/components/layout/UserInboxPopover.svelte';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
@@ -76,7 +76,7 @@
 	/** Apps browse/search listing only — not app detail (`/apps/…`) or stacks. */
 	const isAppsActive = $derived($page.url.pathname === '/apps');
 	const isCommunityActive = $derived($page.url.pathname.startsWith('/community'));
-	const isPricingActive = $derived($page.url.pathname.startsWith('/pricing'));
+	const isPricingActive = $derived(PRICING_ENABLED && $page.url.pathname.startsWith('/pricing'));
 	const offline = $derived(browser && !isOnline());
 	// Current user profile (Dexie liveQuery + purpleweb background hydration) for header avatar
 	const currentUserProfileQuery = createProfileQuery(() => pubkey);
@@ -338,9 +338,11 @@
 									</nav>
 								</div>
 
-								<div class="menu-section">
-									<a href="/pricing" class="menu-section-link" onclick={closeMenu}>Pricing</a>
-								</div>
+								{#if PRICING_ENABLED}
+									<div class="menu-section">
+										<a href="/pricing" class="menu-section-link" onclick={closeMenu}>Pricing</a>
+									</div>
+								{/if}
 
 							<div class="menu-section">
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
@@ -560,9 +562,11 @@
 									</nav>
 								</div>
 
-								<div class="menu-section">
-									<a href="/pricing" class="menu-section-link" onclick={closeMenu}>Pricing</a>
-								</div>
+								{#if PRICING_ENABLED}
+									<div class="menu-section">
+										<a href="/pricing" class="menu-section-link" onclick={closeMenu}>Pricing</a>
+									</div>
+								{/if}
 
 							<div class="menu-section">
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
@@ -635,14 +639,16 @@
 							>
 								{primaryDevStudioLabel}
 							</a>
-							<a
-								href="/pricing"
-								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
-								class:landing-nav-studio-selected={isPricingActive}
-								style="color: var(--white66);"
-							>
-								Pricing
-							</a>
+							{#if PRICING_ENABLED}
+								<a
+									href="/pricing"
+									class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+									class:landing-nav-studio-selected={isPricingActive}
+									style="color: var(--white66);"
+								>
+									Pricing
+								</a>
+							{/if}
 							<a
 								href="/community"
 								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
