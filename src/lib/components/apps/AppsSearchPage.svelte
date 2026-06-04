@@ -18,7 +18,7 @@
 	} from '$lib/purpleweb';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { searchApps } from '$lib/purpleweb';
-	import { ZAPSTORE_RELAY, ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
+	import { ZAPSTORE_RELAY, ZAPSTORE_COMMUNITY_PUBKEY, ZAPSTORE_APP_DTAG } from '$lib/config';
 	import { nip19 } from 'nostr-tools';
 	import { isZapstoreCommunityAuthorStack, parseApp, encodeStackNaddr } from '$lib/nostr/models';
 	import { sortAppsRelevanceDeveloperFirst } from '$lib/utils/app-search.js';
@@ -90,7 +90,31 @@
 	let stacksUi = $state({ top: 0, left: 0, right: 0, showLeft: false, showRight: false });
 
 	// appsHasMore / appsLoadingMore: see appsListing above (purpleweb — not legacy nostr store)
-	const apps = $derived(pinZapstoreAppFirst(liveApps ?? []).slice(0, displayAppsLimit));
+	const pinnedLiveApps = $derived(pinZapstoreAppFirst(liveApps ?? []));
+	const zapstoreFeaturedApp = $derived(
+		pinnedLiveApps.find((a) => a.dTag === ZAPSTORE_APP_DTAG) ?? null
+	);
+	const appsWithoutZapstore = $derived(
+		pinnedLiveApps.filter((a) => a.dTag !== ZAPSTORE_APP_DTAG)
+	);
+	const reserveZapstoreSlot = $derived(
+		!zapstoreFeaturedApp && (pinnedLiveApps.length > 0 || appsListing.loading)
+	);
+	const appsForCarousel = $derived.by(() => {
+		/** @type {(import('$lib/nostr/models').App | null)[]} */
+		const merged = [];
+		if (zapstoreFeaturedApp) merged.push(zapstoreFeaturedApp);
+		else if (reserveZapstoreSlot) merged.push(null);
+		const others = appsWithoutZapstore.slice(
+			0,
+			Math.max(0, displayAppsLimit - merged.length)
+		);
+		merged.push(...others);
+		return merged;
+	});
+	const apps = $derived(
+		appsForCarousel.filter((/** @type {import('$lib/nostr/models').App | null} */ a) => a != null)
+	);
 	const communityLiveStacks = $derived(
 		(liveStacks ?? []).filter(({ stack }) => isZapstoreCommunityAuthorStack(stack))
 	);
@@ -98,7 +122,7 @@
 	const communityStacks = $derived(
 		resolvedDisplayStacks.filter((s) => s.pubkey === ZAPSTORE_COMMUNITY_PUBKEY)
 	);
-	const appColumns = $derived(getColumns(apps, APPS_PER_COLUMN));
+	const appColumns = $derived(getColumns(appsForCarousel, APPS_PER_COLUMN));
 	const stackColumns = $derived(getColumns(communityStacks, STACKS_PER_COLUMN));
 
 	const showSearchSkeleton = $derived(
@@ -594,6 +618,7 @@
 					}}
 					{apps}
 					{appColumns}
+					reserveZapstoreSlot={reserveZapstoreSlot}
 					{stackColumns}
 					{stacksSettled}
 					{resolvedDisplayStacks}

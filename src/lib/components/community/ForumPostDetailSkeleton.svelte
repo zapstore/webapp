@@ -1,65 +1,42 @@
 <script lang="js">
-/**
- * ForumPostDetailSkeleton — tasteful shimmer placeholder for an opening forum post.
- * Mirrors the three-zone layout of ForumPostDetail:
- *   1. Header bar  (64 px — avatar, name/timestamp, actions)
- *   2. Content     (title block, body lines — flush under header)
- *   3. Tab strip   (three pill buttons)
- */
-import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
+	/**
+	 * Loading placeholder for forum post detail — mirrors ForumPostDetail zones without
+	 * faux body-text shimmers (SkeletonLoader is for images/titles only per design system).
+	 */
+	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 </script>
 
 <div class="fpd-skeleton" role="status" aria-busy="true" aria-label="Loading post">
 	<span class="sr-only">Loading post…</span>
 
-	<!-- ── Header ─────────────────────────────────────────────────────── -->
 	<div class="sk-header">
-		<!-- Avatar + name / timestamp -->
-		<div class="sk-publisher">
-			<div class="sk-avatar">
+		<div class="sk-avatar">
+			<SkeletonLoader />
+		</div>
+		<div class="sk-header-text">
+			<div class="sk-name-bar">
 				<SkeletonLoader />
 			</div>
-			<div class="sk-pub-text">
-				<div class="sk-name">
-					<SkeletonLoader />
-				</div>
-				<div class="sk-ts">
-					<SkeletonLoader />
-				</div>
-			</div>
-		</div>
-
-		<!-- Catalog label on the right -->
-		<div class="sk-catalog">
-			<SkeletonLoader />
+			<div class="sk-ts-placeholder" aria-hidden="true"></div>
 		</div>
 	</div>
 
-	<!-- ── Content ────────────────────────────────────────────────────── -->
-	<div class="sk-content">
-		<!-- Title -->
-		<div class="sk-title">
-			<SkeletonLoader />
-		</div>
-
-		<!-- Body text lines -->
-		<div class="sk-body">
-			<div class="sk-line" style="width: 90%"><SkeletonLoader /></div>
-			<div class="sk-line" style="width: 76%"><SkeletonLoader /></div>
-			<div class="sk-line" style="width: 56%"><SkeletonLoader /></div>
-		</div>
-
-		<!-- Tab strip -->
-		<div class="sk-tabs">
-			<div class="sk-tab sk-tab-active"><SkeletonLoader /></div>
-			<div class="sk-tab"><SkeletonLoader /></div>
-			<div class="sk-tab"><SkeletonLoader /></div>
+	<div class="sk-scroll">
+		<div class="sk-inner">
+			<div class="sk-title-bar">
+				<SkeletonLoader />
+			</div>
+			<div class="sk-body-placeholder" aria-hidden="true"></div>
+			<div class="sk-tabs" aria-hidden="true">
+				<div class="sk-tab-placeholder sk-tab-placeholder--wide"></div>
+				<div class="sk-tab-placeholder"></div>
+				<div class="sk-tab-placeholder sk-tab-placeholder--mid"></div>
+			</div>
 		</div>
 	</div>
 </div>
 
 <style>
-	/* ── Root ────────────────────────────────────────────────────────────── */
 	.fpd-skeleton {
 		display: flex;
 		flex-direction: column;
@@ -68,13 +45,12 @@ import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 		overflow: hidden;
 	}
 
-	/* ── Header (64 px — mirrors .detail-header) ─────────────────────────── */
 	.sk-header {
 		flex-shrink: 0;
 		height: 64px;
 		display: flex;
 		align-items: center;
-		gap: 12px;
+		gap: 10px;
 		padding: 0 12px;
 		border-bottom: 1px solid var(--shell-border);
 		box-sizing: border-box;
@@ -87,14 +63,6 @@ import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 		}
 	}
 
-	.sk-publisher {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		flex: 1;
-		min-width: 0;
-	}
-
 	.sk-avatar {
 		width: 32px;
 		height: 32px;
@@ -103,98 +71,85 @@ import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 		flex-shrink: 0;
 	}
 
-	.sk-pub-text {
+	.sk-header-text {
 		display: flex;
 		flex-direction: column;
-		gap: 5px;
+		gap: 6px;
+		min-width: 0;
+		flex: 1;
 	}
 
-	.sk-name {
+	.sk-name-bar {
 		width: 108px;
-		height: 11px;
-		border-radius: 9999px;
+		height: 12px;
+		border-radius: 12px;
 		overflow: hidden;
 	}
 
-	.sk-ts {
-		width: 60px;
+	.sk-ts-placeholder {
+		width: 64px;
 		height: 9px;
 		border-radius: 9999px;
-		overflow: hidden;
-		opacity: 0.6;
+		background: var(--white8);
 	}
 
-	.sk-catalog {
-		width: 68px;
-		height: 20px;
-		border-radius: 9999px;
+	.sk-scroll {
+		--page-content-pad-x: 12px;
+		flex: 1;
+		min-height: 0;
 		overflow: hidden;
-		flex-shrink: 0;
-		opacity: 0.5;
 	}
 
-	/* ── Content (mirrors .content-inner padding) ────────────────────────── */
-	.sk-content {
-		margin-top: -4px;
-		padding: 0 12px 0;
+	@media (min-width: 768px) {
+		.sk-scroll {
+			--page-content-pad-x: 20px;
+		}
+	}
+
+	.sk-inner {
+		padding: 0 var(--page-content-pad-x) 16px;
 		display: flex;
 		flex-direction: column;
 		gap: 0;
 	}
 
-	@media (min-width: 768px) {
-		.sk-content {
-			padding-left: 20px;
-			padding-right: 20px;
-		}
-	}
-
-	/* Title — 1.5 rem / 700 / line-height 1.3 → ~30 px actual render height */
-	.sk-title {
+	.sk-title-bar {
 		width: 72%;
 		height: 28px;
-		border-radius: 8px;
+		border-radius: 12px;
 		overflow: hidden;
-		margin-bottom: 18px;
+		margin-bottom: 12px;
 	}
 
-	/* Body lines — 0.9375 rem / line-height 1.6 → ~15 px per line */
-	.sk-body {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-		margin-bottom: 28px;
+	.sk-body-placeholder {
+		width: 100%;
+		height: 72px;
+		border-radius: 12px;
+		background: var(--white8);
+		margin-bottom: 20px;
 	}
 
-	.sk-line {
-		height: 11px;
-		border-radius: 9999px;
-		overflow: hidden;
-		opacity: 0.65;
-	}
-
-	/* Tab strip — 3 pills at 32 px (matches .btn-primary-small / .btn-secondary-small) */
 	.sk-tabs {
 		display: flex;
 		gap: 8px;
 		align-items: center;
 	}
 
-	.sk-tab {
+	.sk-tab-placeholder {
 		height: 32px;
+		width: 70px;
 		border-radius: 9999px;
-		overflow: hidden;
-		opacity: 0.45;
+		background: var(--white8);
+		flex-shrink: 0;
 	}
 
-	/* Widths approximate real tab labels ("Comments" / "Tips" / "Details") */
-	.sk-tab:nth-child(1) { width: 108px; }
-	.sk-tab:nth-child(2) { width: 70px; }
-	.sk-tab:nth-child(3) { width: 80px; }
+	.sk-tab-placeholder--wide {
+		width: 108px;
+		background: var(--white16);
+	}
 
-	/* First tab slightly brighter — represents the active/selected state */
-	.sk-tab-active {
-		opacity: 0.7;
+	.sk-tab-placeholder--mid {
+		width: 80px;
 	}
 
 	.sr-only {

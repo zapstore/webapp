@@ -232,7 +232,7 @@
 		<hr class="hero-divider" />
 
 		<p class="hero-description display-tagline mx-auto mt-2 sm:mt-8 mb-10">
-			Get a truly open app store. Stop missing out.
+			Get a truly open app store.<br class="hero-desc-break" /> Stop missing out.
 		</p>
 
 		<!-- Browse CTA: stacked app pics + glass pill -->
@@ -294,6 +294,16 @@
 		.hero-cta-wrap {
 			order: 4;
 			margin-top: 1.5rem !important;
+		}
+	}
+
+	.hero-desc-break {
+		display: none;
+	}
+
+	@media (max-width: 639px) {
+		.hero-desc-break {
+			display: block;
 		}
 	}
 

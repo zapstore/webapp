@@ -304,11 +304,20 @@
 											/>
 										</a>
 									{:else if !isConnecting}
-										<button type="button" onclick={() => { openSignInModal(); closeMenu(); }} class="btn-primary-small">
+										<button
+											type="button"
+											onclick={() => {
+												openSignInModal();
+												closeMenu();
+											}}
+											class="btn-menu-sign-in"
+										>
 											Sign In
 										</button>
 									{/if}
 								</div>
+
+								<div class="menu-top-divider" aria-hidden="true"></div>
 
 									<div class="menu-section">
 										<button
@@ -348,7 +357,7 @@
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
 								<nav class="menu-subnav">
 									<a href={communityFirstHref} class="menu-sublink medium14 text-white/66" onclick={closeMenu}>{communityFirstLabel}</a>
-									<a href="/community/activity" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Activity</a>
+									<a href="/community/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>User FAQ</a>
 								</nav>
 							</div>
 
@@ -511,7 +520,14 @@
 									</a>
 								<div style="display:flex;align-items:center;gap:16px;flex-shrink:0;">
 									{#if !isConnected && !isConnecting}
-										<button type="button" onclick={() => { openSignInModal(); closeMenu(); }} class="btn-primary-small">
+										<button
+											type="button"
+											onclick={() => {
+												openSignInModal();
+												closeMenu();
+											}}
+											class="btn-menu-sign-in"
+										>
 											Sign In
 										</button>
 									{/if}
@@ -533,6 +549,8 @@
 									</button>
 								</div>
 							</div>
+
+							<div class="menu-top-divider" aria-hidden="true"></div>
 
 								<div class="menu-section">
 									<button
@@ -572,7 +590,7 @@
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
 								<nav class="menu-subnav">
 									<a href={communityFirstHref} class="menu-sublink medium14 text-white/66" onclick={closeMenu}>{communityFirstLabel}</a>
-									<a href="/community/activity" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Activity</a>
+									<a href="/community/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>User FAQ</a>
 								</nav>
 							</div>
 
@@ -1253,6 +1271,35 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 12px;
+	}
+
+	.menu-top-divider {
+		height: 1px;
+		background: var(--white8);
+		margin: 8px 0 12px;
+		flex-shrink: 0;
+	}
+
+	.btn-menu-sign-in {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		height: 32px;
+		padding: 0 14px;
+		border: none;
+		border-radius: 10px;
+		background: var(--white8);
+		color: var(--white66);
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background 0.15s ease, color 0.15s ease;
+		flex-shrink: 0;
+	}
+
+	.btn-menu-sign-in:hover {
+		background: var(--white16);
+		color: var(--white);
 	}
 
 	.menu-logo {

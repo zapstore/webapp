@@ -217,9 +217,19 @@
 						class:apps-browse-grid--stacks={variant === 'stacks'}
 					>
 						{#if variant === 'apps'}
-							{#each panel as app (/** @type {import('$lib/nostr/models').App} */ (app).id)}
-								<li class="apps-browse-grid-item browse-grid-item browse-grid-item--{variant === 'stacks' ? 'stack' : 'app'}">
-									<AppSmallCard {app} href={getAppHref(/** @type {import('$lib/nostr/models').App} */ (app))} />
+							{#each panel as app, ai (`${pi}-${ai}-${app?.id ?? 'reserved'}`)}
+								<li class="apps-browse-grid-item browse-grid-item browse-grid-item--app">
+									{#if app}
+										<AppSmallCard {app} href={getAppHref(app)} />
+									{:else}
+										<div class="carousel-skeleton-app" aria-hidden="true">
+											<div class="carousel-skeleton-app-icon"><SkeletonLoader /></div>
+											<div class="carousel-skeleton-app-lines">
+												<div class="carousel-skeleton-app-name"><SkeletonLoader /></div>
+												<div class="carousel-skeleton-app-desc"></div>
+											</div>
+										</div>
+									{/if}
 								</li>
 							{/each}
 						{:else}

@@ -3,7 +3,14 @@
 	import DocsNavigation from '$lib/components/DocsNavigation.svelte';
 	import { ChevronDown } from '$lib/components/icons';
 
-	let { navigation = [], contentProse = true, contentFlush = false, children } = $props();
+	let {
+		navigation = [],
+		sidebarTitle = 'Docs',
+		showExtraNav = true,
+		contentProse = true,
+		contentFlush = false,
+		children
+	} = $props();
 
 	let mobileMenuOpen = $state(false);
 
@@ -19,7 +26,7 @@
 			if (item.match(currentPath)) return item.label;
 		}
 		const label = findNavTitle(navigation ?? [], currentPath);
-		return label ?? 'Documentation';
+		return label ?? sidebarTitle;
 	});
 
 	function findNavTitle(nodes, path) {
@@ -70,25 +77,27 @@
 			{#if mobileMenuOpen}
 				<div class="mobile-nav-panel" role="dialog" aria-modal="true" aria-label="Documentation navigation">
 					<div class="mobile-nav-content">
-						<h2 class="docs-sidebar-title docs-sidebar-title--mobile">Docs</h2>
+						<h2 class="docs-sidebar-title docs-sidebar-title--mobile">{sidebarTitle}</h2>
 						{#if navigation && navigation.length > 0}
 							<DocsNavigation navigation={navigation} onNavigate={closeMobileMenu} />
 						{:else}
 							<p class="nav-loading">Loading navigation…</p>
 						{/if}
-						<div class="sidebar-more mobile-more">
-							<span class="eyebrow-label more-eyebrow">More</span>
-							{#each extraNavItems as item (item.href)}
-								<a
-									href={item.href}
-									class="extra-nav-link"
-									class:active={isExtraActive(item)}
-									onclick={closeMobileMenu}
-								>
-									{item.label}
-								</a>
-							{/each}
-						</div>
+						{#if showExtraNav}
+							<div class="sidebar-more mobile-more">
+								<span class="eyebrow-label more-eyebrow">More</span>
+								{#each extraNavItems as item (item.href)}
+									<a
+										href={item.href}
+										class="extra-nav-link"
+										class:active={isExtraActive(item)}
+										onclick={closeMobileMenu}
+									>
+										{item.label}
+									</a>
+								{/each}
+							</div>
+						{/if}
 					</div>
 					<button
 						type="button"
@@ -102,21 +111,23 @@
 
 		<aside class="sidebar">
 			<div class="sidebar-main">
-				<h2 class="docs-sidebar-title">Docs</h2>
+				<h2 class="docs-sidebar-title">{sidebarTitle}</h2>
 				{#if navigation && navigation.length > 0}
 					<DocsNavigation navigation={navigation} />
 				{:else}
 					<p class="nav-loading">Loading navigation…</p>
 				{/if}
 			</div>
-			<div class="sidebar-more">
-				<span class="eyebrow-label more-eyebrow">More</span>
-				{#each extraNavItems as item (item.href)}
-					<a href={item.href} class="extra-nav-link" class:active={isExtraActive(item)}>
-						{item.label}
-					</a>
-				{/each}
-			</div>
+			{#if showExtraNav}
+				<div class="sidebar-more">
+					<span class="eyebrow-label more-eyebrow">More</span>
+					{#each extraNavItems as item (item.href)}
+						<a href={item.href} class="extra-nav-link" class:active={isExtraActive(item)}>
+							{item.label}
+						</a>
+					{/each}
+				</div>
+			{/if}
 		</aside>
 
 		<main class="content">

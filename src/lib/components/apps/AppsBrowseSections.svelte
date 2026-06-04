@@ -13,7 +13,8 @@
 	/** @type {{
 	 *   hidden?: boolean,
 	 *   apps?: import('$lib/nostr/models').App[],
-	 *   appColumns?: import('$lib/nostr/models').App[][],
+	 *   appColumns?: (import('$lib/nostr/models').App | null)[][],
+	 *   reserveZapstoreSlot?: boolean,
 	 *   stackColumns?: Record<string, unknown>[][],
 	 *   stacksSettled?: boolean,
 	 *   resolvedDisplayStacks?: Record<string, unknown>[],
@@ -32,6 +33,7 @@
 		hidden = false,
 		apps = [],
 		appColumns = [],
+		reserveZapstoreSlot = false,
 		stackColumns = [],
 		stacksSettled = false,
 		resolvedDisplayStacks = [],
@@ -48,7 +50,7 @@
 	} = $props();
 
 	const browseActive = $derived(!hidden);
-	const appsLoading = $derived(apps.length === 0);
+	const appsLoading = $derived(apps.length === 0 && !reserveZapstoreSlot);
 	const stacksLoading = $derived(resolvedDisplayStacks.length === 0 && !stacksSettled);
 </script>
 

@@ -201,9 +201,27 @@
 								class:active={activeSection === section.id}
 								onclick={closeSectionMenu}
 							>
-								{#if section.icon}
-									<img src={section.icon} alt="" class="section-item-icon" />
-								{/if}
+								<span
+									class="section-item-icon-wrap"
+									class:section-item-icon-wrap--faq={section.id === 'faq'}
+								>
+									{#if section.icon}
+										<img src={section.icon} alt="" class="section-item-icon" />
+									{:else if section.id === 'search'}
+										<Search
+											variant="outline"
+											size={18}
+											strokeWidth={1.6}
+											color={activeSection === section.id ? 'var(--white66)' : 'var(--white33)'}
+										/>
+									{:else if section.id === 'faq'}
+										<span
+											class="section-item-faq-mark"
+											class:active={activeSection === section.id}
+											aria-hidden="true"
+										>?</span>
+									{/if}
+								</span>
 								{section.label}
 							</a>
 						{/each}
@@ -613,6 +631,19 @@
 		object-fit: contain;
 	}
 
+	.section-item-icon-wrap {
+		width: 18px;
+		height: 18px;
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.section-item-icon-wrap--faq {
+		overflow: visible;
+	}
+
 	.section-item-icon {
 		width: 18px;
 		height: 18px;
@@ -623,6 +654,22 @@
 
 	.section-item.active .section-item-icon {
 		opacity: 1;
+	}
+
+	.section-item-faq-mark {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+		font-size: 1.3125rem;
+		font-weight: 700;
+		line-height: 1;
+		color: var(--blurpleColor66);
+	}
+
+	.section-item-faq-mark.active {
+		color: var(--blurpleColor);
 	}
 
 	.migration-badge {

@@ -1,36 +1,12 @@
-import { dev } from '$app/environment';
+import { redirect } from '@sveltejs/kit';
+
 export const prerender = true;
-// Eager load all blog posts at build time - instant lookups
-const modules = import.meta.glob('/src/content/blog/**/*.md', { eager: true });
-export function load() {
-    const posts = [];
-    for (const [path, mod] of Object.entries(modules)) {
-        // Keep: /src/content/blog/<name>.md
-        // Keep: /src/content/blog/<folder>/_index.md
-        const rel = path.replace('/src/content/blog/', '');
-        const parts = rel.split('/');
-        if (parts.length === 1) {
-            // top-level file
-            posts.push({
-                meta: mod.metadata || {},
-                path: rel.replace(/\.md$/, '')
-            });
-        }
-        else if (parts.length === 2 && parts[1] === '_index.md') {
-            // folder index
-            posts.push({
-                meta: mod.metadata || {},
-                path: parts[0] ?? ''
-            });
-        }
-    }
-    // Filter out draft posts in production
-    const filteredPosts = dev ? posts : posts.filter((post) => !post.meta?.draft);
-    // Sort by date (newest first)
-    const sortedPosts = filteredPosts.sort((a, b) => {
-        const ad = a.meta?.date ? new Date(a.meta.date).getTime() : 0;
-        const bd = b.meta?.date ? new Date(b.meta.date).getTime() : 0;
-        return bd - ad;
-    });
-    return { posts: sortedPosts };
+
+/** @param {import('./$types').PageLoadEvent} event */
+export function load({ parent }) {
+	return parent().then(({ navigation }) => {
+		const first = navigation?.[0]?.href;
+		if (first) throw redirect(302, first);
+		return {};
+	});
 }
