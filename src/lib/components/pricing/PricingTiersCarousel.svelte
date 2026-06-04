@@ -1,6 +1,5 @@
 <script lang="js">
 	import '$lib/styles/pricing.css';
-	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import Check from '$lib/components/icons/Check.svelte';
 
 	/** @typedef {{ top: number, left: number, right: number, showLeft: boolean, showRight: boolean }} CarouselUi */
@@ -114,11 +113,7 @@
 	}
 </script>
 
-<div
-	class="pricing-carousel-wrap"
-	bind:this={scrollWrap}
-	use:wheelScroll={{ scrollRoot: '.pricing-carousel-scroll' }}
->
+<div class="pricing-carousel-wrap" bind:this={scrollWrap}>
 	<div
 		class="pricing-carousel-scroll"
 		data-chrome-scroll

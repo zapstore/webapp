@@ -56,6 +56,8 @@
 		outgoing = false,
 		replies = [],
 		threadComments = [],
+		/** Parsed rows for quote UI only (parents not in `threadComments`). */
+		threadQuoteLookup = [],
 		threadZaps = [],
 		authorPubkey = null,
 		className = '',
@@ -379,6 +381,11 @@
 			map.set(c.id, c);
 			map.set(c.id.toLowerCase(), c);
 		}
+		for (const c of threadQuoteLookup) {
+			if (!c?.id) continue;
+			map.set(c.id, c);
+			map.set(c.id.toLowerCase(), c);
+		}
 		return map;
 	});
 	const threadZapById = $derived.by(() => {
@@ -391,6 +398,57 @@
 		}
 		return map;
 	});
+	/**
+	 * Build quote payload for a thread zap / z-wrapper bubble.
+	 * @param {Record<string, unknown> | null | undefined} parent
+	 * @param {Record<string, unknown> | null | undefined} zapReceipt
+	 */
+	function buildZapThreadQuote(parent, zapReceipt) {
+		if (parent) {
+			if (parent.isWrapper) {
+				return {
+					kind: 'wrapper',
+					authorName: displayNameOrNpubShort(
+						/** @type {string} */ (parent.displayName),
+						/** @type {string} */ (parent.pubkey)
+					),
+					authorPubkey: /** @type {string} */ (parent.pubkey),
+					amountSats: /** @type {number} */ (parent.zapAmountSats ?? 0),
+					content: /** @type {string} */ (parent.content ?? ''),
+					emojiTags: /** @type {{ shortcode: string, url: string }[]} */ (parent.emojiTags ?? []),
+					mediaUrls: /** @type {string[]} */ (parent.mediaUrls ?? [])
+				};
+			}
+			return {
+				kind: 'comment',
+				authorName: displayNameOrNpubShort(
+					/** @type {string} */ (parent.displayName),
+					/** @type {string} */ (parent.pubkey)
+				),
+				authorPubkey: /** @type {string} */ (parent.pubkey),
+				content: /** @type {string} */ (parent.content ?? ''),
+				emojiTags: /** @type {{ shortcode: string, url: string }[]} */ (parent.emojiTags ?? []),
+				mediaUrls: /** @type {string[]} */ (parent.mediaUrls ?? [])
+			};
+		}
+		if (zapReceipt) {
+			return {
+				kind: 'receipt',
+				authorName: displayNameOrNpubShort(
+					/** @type {string} */ (zapReceipt.displayName),
+					/** @type {string | null} */ (zapReceipt.senderPubkey ?? zapReceipt.pubkey ?? null)
+				),
+				authorPubkey:
+					/** @type {string | null} */ (zapReceipt.senderPubkey ?? zapReceipt.pubkey ?? null),
+				amountSats: /** @type {number} */ (zapReceipt.amountSats ?? 0),
+				content: /** @type {string} */ (zapReceipt.comment ?? ''),
+				emojiTags: /** @type {{ shortcode: string, url: string }[]} */ (zapReceipt.emojiTags ?? []),
+				mediaUrls: []
+			};
+		}
+		return null;
+	}
+
 	function getContentPreview(comment) {
 		if (comment.content && comment.content.trim()) return comment.content;
 		if (comment.contentHtml) {
@@ -1190,6 +1248,17 @@
 							</div>
 						{:else}
 							{@const zap = item.data}
+							{@const zapSelfId = zap.id ? String(zap.id).toLowerCase() : ''}
+							{@const zapParentId = zap.parentId ? String(zap.parentId).toLowerCase() : ''}
+							{@const zapQuotedParent =
+								zap.parentId && zapParentId !== zapSelfId
+									? (threadById.get(zapParentId) ?? threadById.get(zap.parentId))
+									: null}
+							{@const zapQuotedReceipt =
+								!zapQuotedParent && zap.parentId && zapParentId !== zapSelfId
+									? (threadZapById.get(zapParentId) ?? threadZapById.get(zap.parentId))
+									: null}
+							{@const zapThreadQuote = buildZapThreadQuote(zapQuotedParent, zapQuotedReceipt)}
 							<div class="thread-reply-row" class:desktop-bubble-actions-target={showThreadActions}>
 								<div
 									class="thread-bubble-with-rail"
@@ -1211,8 +1280,9 @@
 											amount={zap.amountSats ?? 0}
 											timestamp={zap.timestamp ?? zap.createdAt}
 											profileUrl={zap.profileUrl}
-											message={zap.comment ?? ''}
+											message={zap.comment ?? zap.content ?? ''}
 											emojiTags={zap.emojiTags ?? []}
+											quote={zapThreadQuote}
 											{resolveMentionLabel}
 											zapsOnThis={zapsByTargetId?.get(String(zap.id ?? '').toLowerCase()) ?? []}
 										/>

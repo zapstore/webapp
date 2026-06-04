@@ -1,21 +1,29 @@
 <script lang="js">
 	import SeoHead from '$lib/components/layout/SeoHead.svelte';
-	import { SITE_URL } from '$lib/config';
+	import DocsPageHeader from '$lib/components/docs/DocsPageHeader.svelte';
+	import {
+		SITE_URL,
+		DOCS_OG_IMAGE,
+		DOCS_OG_IMAGE_ALT,
+		DOCS_OG_IMAGE_WIDTH,
+		DOCS_OG_IMAGE_HEIGHT
+	} from '$lib/config';
 </script>
 
 <SeoHead
 	title="Terms of Service — Zapstore"
 	description="Terms of Service for Zapstore infrastructure services."
 	url="{SITE_URL}/terms"
+	image={DOCS_OG_IMAGE}
+	imageAlt={DOCS_OG_IMAGE_ALT}
+	imageWidth={DOCS_OG_IMAGE_WIDTH}
+	imageHeight={DOCS_OG_IMAGE_HEIGHT}
 />
 
-<article class="terms-body">
-	<header class="terms-header">
-		<h1 class="terms-title">Terms of Service</h1>
-		<p class="terms-effective">Effective: March 2026</p>
-	</header>
+<DocsPageHeader title="Terms of Service">
+	<p class="terms-effective">Effective: March 2026</p>
 
-	<div class="prose">
+	<article class="prose prose-docs max-w-none">
 		<p>
 			These Terms of Service govern your use of the Zapstore infrastructure services operated by
 			the Zapstore team, specifically:
@@ -85,79 +93,28 @@
 			<a href="https://npub.world/npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8" target="_blank" rel="noopener noreferrer">Nostr</a>
 			or via the community channels linked in the footer.
 		</p>
-	</div>
-</article>
+	</article>
+</DocsPageHeader>
 
 <style>
-	.terms-body {
-		max-width: 680px;
-	}
-
-	.terms-header {
-		margin-bottom: 2.5rem;
-	}
-
-	.terms-title {
-		font-size: 2rem;
-		font-weight: 700;
-		color: var(--white);
-		margin: 0 0 0.5rem;
-		line-height: 1.2;
-		letter-spacing: -0.02em;
-	}
-
 	.terms-effective {
-		font-size: 0.875rem;
+		font-size: var(--docs-body-size);
+		line-height: var(--docs-body-leading);
 		color: var(--white33);
-		margin: 0;
+		margin: 0 0 0.875rem;
 	}
 
-	.prose {
-		color: var(--white66);
-		line-height: 1.75;
-		font-size: 1rem;
-	}
-
-	.prose :global(h2) {
-		color: var(--white);
-		font-size: 1.25rem;
-		font-weight: 650;
-		margin-top: 2em;
-		margin-bottom: 0.75em;
-	}
-
-	.prose :global(p) {
-		margin: 0 0 1.25em;
-	}
-
-	.prose :global(ul) {
-		padding-left: 1.5rem;
-		margin: 0 0 1.25em;
-	}
-
-	.prose :global(li) {
-		margin-bottom: 0.5em;
-	}
-
-	.prose :global(a) {
+	:global(.prose.prose-docs a) {
 		color: var(--blurple-bright-0);
 		text-decoration: underline;
 		text-underline-offset: 3px;
 	}
 
-	.prose :global(a:hover) {
+	:global(.prose.prose-docs a:hover) {
 		opacity: 0.85;
 	}
 
-	.prose :global(code) {
-		font-size: 0.875em;
-		background: var(--white8);
-		padding: 2px 6px;
-		border-radius: 5px;
-		color: var(--white);
-	}
-
-	.prose :global(strong) {
+	:global(.prose.prose-docs strong) {
 		color: var(--white);
 		font-weight: 600;
 	}

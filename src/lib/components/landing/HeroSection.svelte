@@ -56,7 +56,7 @@
 		}
 	});
 
-	$: visibleApps = allApps.slice(0, 4);
+	$: visibleApps = isMobile ? allApps.slice(0, 4) : allApps;
 
 	function clearFlipTimers() {
 		flipTimers.forEach(clearTimeout);
@@ -232,7 +232,7 @@
 		<hr class="hero-divider" />
 
 		<p class="hero-description display-tagline mx-auto mt-2 sm:mt-8 mb-10">
-			Try out a truly open app store. Stop missing out.
+			Get a truly open app store. Stop missing out.
 		</p>
 
 		<!-- Browse CTA: stacked app pics + glass pill -->

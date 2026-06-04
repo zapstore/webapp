@@ -9,8 +9,15 @@ import ProfilePic from "$lib/components/common/ProfilePic.svelte";
 import Timestamp from "$lib/components/common/Timestamp.svelte";
 import ShortTextRenderer from "$lib/components/common/ShortTextRenderer.svelte";
 import ZapPillRow from "./ZapPillRow.svelte";
+import QuotedMessage from "./QuotedMessage.svelte";
+import QuotedZapMessage from "./QuotedZapMessage.svelte";
 import { Zap } from "$lib/components/icons";
 let { pictureUrl = null, name = "", pubkey = null, amount = 0, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, message = "", emojiTags = [], resolveMentionLabel, actionRail,
+    /**
+     * Optional quoted parent inside the gold bubble (comment, z-wrapper, or kind-9735).
+     * @type {null | { kind: 'comment' | 'wrapper' | 'receipt', authorName: string, authorPubkey: string | null, amountSats?: number, content?: string, emojiTags?: { shortcode: string, url: string }[], mediaUrls?: string[] }}
+     */
+    quote = null,
     /**
      * Zaps received on this zap (zap-on-zap), displayed as a horizontally-scrolling
      * pill row beneath the content.
@@ -74,6 +81,31 @@ function formatAmount(val) {
         <span class="zap-amount">{formatAmount(amount)}</span>
       </div>
     </div>
+
+    {#if quote}
+      <div class="quote-wrap">
+        {#if quote.kind === 'wrapper' || quote.kind === 'receipt'}
+          <QuotedZapMessage
+            authorName={quote.authorName}
+            authorPubkey={quote.authorPubkey}
+            amountSats={quote.amountSats ?? 0}
+            content={quote.content ?? ''}
+            emojiTags={quote.emojiTags ?? []}
+            mediaUrls={quote.mediaUrls ?? []}
+            {resolveMentionLabel}
+          />
+        {:else}
+          <QuotedMessage
+            authorName={quote.authorName}
+            authorPubkey={quote.authorPubkey}
+            content={quote.content ?? ''}
+            emojiTags={quote.emojiTags ?? []}
+            mediaUrls={quote.mediaUrls ?? []}
+            {resolveMentionLabel}
+          />
+        {/if}
+      </div>
+    {/if}
 
     {#if message}
       <div class="bubble-content">
@@ -167,6 +199,11 @@ function formatAmount(val) {
     justify-content: space-between;
     gap: 16px;
     margin-bottom: 2px;
+  }
+
+  .quote-wrap {
+    margin-top: 4px;
+    margin-bottom: 4px;
   }
 
   .header-left {

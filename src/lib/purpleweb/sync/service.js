@@ -26,6 +26,7 @@ import {
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
 import { APPS_SUBSCRIPTION_LIMIT, STACKS_SUBSCRIPTION_LIMIT } from '$lib/constants';
 import { decodeNaddr } from '$lib/nostr/models.js';
+import { getCommentParentEventId } from '$lib/nostr/thread-discussion.js';
 import { db, putEvents, queryEvents, queryEvent } from '../storage/dexie.js';
 const ZAPSTORE_READ_RELAYS = [ZAPSTORE_RELAY];
 
@@ -2618,9 +2619,8 @@ export async function deleteStack(stackEvent, signEvent) {
  * Parse a comment event.
  */
 export function parseComment(event) {
-	const eTags = event.tags.filter((t) => (t[0] === 'e' || t[0] === 'E') && !!t[1]);
-	const replyTag = eTags.find((t) => t[3] === 'reply');
-	const parentId = (replyTag?.[1] ?? eTags[eTags.length - 1]?.[1]) ?? null;
+	// NIP-22: lowercase `e` is the immediate parent; uppercase `E` is the thread root (not the parent).
+	const parentId = getCommentParentEventId(event);
 
 	const emojiTags = [];
 	for (const tag of event.tags) {

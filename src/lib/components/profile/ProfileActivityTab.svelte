@@ -372,7 +372,8 @@ function resolveMentionLabel(pk) {
 			timestamp={_rootEv.created_at}
 			profileUrl={_authorNpub ? `/profile/${_authorNpub}` : ''}
 			threadComments={thread.selectedThreadComments}
-			threadZaps={[]}
+			threadQuoteLookup={thread.selectedThreadQuoteLookup}
+			threadZaps={thread.selectedThreadZaps}
 			labelCommunityPubkey={_labelCommunityPk}
 			rootContext={_bannerHref
 				? {

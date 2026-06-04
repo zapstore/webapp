@@ -26,10 +26,9 @@
 		</div>
 	</section>
 
-	<section
-		class="docs-get-started-section docs-get-started-section--developers"
-		aria-labelledby="get-started-developer"
-	>
+	<div class="docs-get-started-divider divider" aria-hidden="true"></div>
+
+	<section class="docs-get-started-section" aria-labelledby="get-started-developer">
 		<h2 id="get-started-developer" class="docs-get-started-section-title">Developers</h2>
 		<p class="docs-get-started-text">
 			Publish apps directly to users with <code>zsp</code>. Get insights, monetize honestly, and build
@@ -65,7 +64,11 @@
 		line-height: var(--docs-body-leading);
 		color: var(--white66);
 		margin: 0 0 0.875rem;
-		max-width: 36rem;
+	}
+
+	.docs-get-started-divider {
+		margin: 1.75rem calc(-1 * var(--docs-pad-x, 14px)) var(--docs-header-body-gap, 1rem);
+		width: calc(100% + 2 * var(--docs-pad-x, 14px));
 	}
 
 	.docs-get-started-text :global(code) {
@@ -74,10 +77,6 @@
 		border-radius: 4px;
 		background: var(--white8);
 		color: var(--white);
-	}
-
-	.docs-get-started-section--developers {
-		margin-top: 1.75rem;
 	}
 
 	.docs-get-started-actions {

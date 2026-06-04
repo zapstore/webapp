@@ -48,8 +48,9 @@
 	const appsHasMore = $derived(appsListing.hasMore);
 	const appsLoadingMore = $derived(appsListing.loadingMore);
 
-	let sortDropdownOpen = $state(false);
-	let sortDropdownWrap = $state(/** @type {HTMLDivElement | null} */ (null));
+	const platformFilterLabel = 'Android';
+	let platformDropdownOpen = $state(false);
+	let platformDropdownWrap = $state(/** @type {HTMLDivElement | null} */ (null));
 	let searchParsedApps = $state(/** @type {ReturnType<typeof parseApp>[] | null} */ null);
 	let searchLoading = $state(false);
 	let searchError = $state(/** @type {string|null} */ (null));
@@ -179,20 +180,20 @@
 
 	$effect(() => {
 		if (!browser || showSearchResults) return;
-		sortDropdownOpen = false;
+		platformDropdownOpen = false;
 		const t = window.setTimeout(focusSearchInput, 50);
 		return () => window.clearTimeout(t);
 	});
 
 	$effect(() => {
-		if (showSearchResults) sortDropdownOpen = false;
+		if (showSearchResults) platformDropdownOpen = false;
 	});
 
 	$effect(() => {
-		if (!browser || !sortDropdownOpen || !sortDropdownWrap) return;
+		if (!browser || !platformDropdownOpen || !platformDropdownWrap) return;
 		function handleClick(/** @type {MouseEvent} */ e) {
-			if (sortDropdownWrap && !sortDropdownWrap.contains(/** @type {Node} */ (e.target))) {
-				sortDropdownOpen = false;
+			if (platformDropdownWrap && !platformDropdownWrap.contains(/** @type {Node} */ (e.target))) {
+				platformDropdownOpen = false;
 			}
 		}
 		document.addEventListener('click', handleClick, true);
@@ -468,34 +469,47 @@
 					class="apps-search-toolbar-filters apps-search-controls"
 					class:apps-search-controls--disabled={showSearchSkeleton}
 				>
-					<div class="apps-sort-wrap" bind:this={sortDropdownWrap}>
+					<div class="apps-platform-wrap" bind:this={platformDropdownWrap}>
 						<button
 							type="button"
-							class="forum-all-btn forum-latest-btn apps-sort-trigger"
+							class="forum-all-btn forum-latest-btn apps-platform-trigger"
 							onclick={() => {
-								sortDropdownOpen = !sortDropdownOpen;
+								platformDropdownOpen = !platformDropdownOpen;
 							}}
-							aria-label="Sort order"
-							aria-expanded={sortDropdownOpen}
+							aria-label="Platform filter"
+							aria-expanded={platformDropdownOpen}
 							disabled={showSearchSkeleton}
 						>
-							<span>Relevance</span>
+							<span>{platformFilterLabel}</span>
 							<span class="forum-all-btn-icon">
 								<ChevronDown variant="outline" size={14} strokeWidth={1.4} color="var(--white66)" />
 							</span>
 						</button>
-						{#if sortDropdownOpen}
-							<DropdownMenu class="apps-search-sort-dropdown">
+						{#if platformDropdownOpen}
+							<DropdownMenu class="apps-platform-dropdown">
 								<button
 									type="button"
 									class="dropdown-item dropdown-item--active"
 									role="menuitem"
 									onclick={() => {
-										sortDropdownOpen = false;
+										platformDropdownOpen = false;
 									}}
 								>
-									Relevance
+									Android
 								</button>
+								<div
+									class="dropdown-item dropdown-item--stacked apps-platform-option--inactive"
+									role="menuitem"
+									aria-disabled="true"
+								>
+									<div class="dropdown-item-body">
+										<span class="dropdown-item-title apps-platform-option-name">PWA</span>
+										<span class="apps-platform-coming-soon">
+											<span class="apps-platform-coming-soon-dot" aria-hidden="true"></span>
+											Coming Soon
+										</span>
+									</div>
+								</div>
 							</DropdownMenu>
 						{/if}
 					</div>
@@ -815,7 +829,7 @@
 		pointer-events: none;
 	}
 
-	.apps-sort-wrap {
+	.apps-platform-wrap {
 		position: relative;
 		z-index: 2;
 		flex-shrink: 0;
@@ -859,12 +873,55 @@
 		padding-top: 2px;
 	}
 
-	:global(.apps-search-sort-dropdown) {
+	:global(.apps-platform-dropdown) {
 		position: absolute;
 		top: calc(100% + 6px);
 		right: 0;
 		min-width: 160px;
 		z-index: 50;
+	}
+
+	:global(.apps-platform-dropdown .apps-platform-option--inactive) {
+		cursor: default;
+		pointer-events: none;
+	}
+
+	:global(.apps-platform-dropdown .apps-platform-option--inactive:hover) {
+		background: none;
+	}
+
+	:global(.apps-platform-dropdown .apps-platform-option-name) {
+		color: var(--white66);
+		font-weight: 500;
+	}
+
+	.apps-platform-coming-soon {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: color-mix(in srgb, var(--goldColor) 60%, transparent);
+		line-height: 1.3;
+	}
+
+	.apps-platform-coming-soon-dot {
+		width: 5px;
+		height: 5px;
+		border-radius: 50%;
+		background: var(--goldColor);
+		box-shadow: 0 0 6px color-mix(in srgb, var(--goldColor) 70%, transparent);
+		animation: apps-platform-coming-soon-pulse 1.5s ease-in-out infinite;
+	}
+
+	@keyframes apps-platform-coming-soon-pulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.5;
+		}
 	}
 
 	/* Toolbar already has border-bottom — avoid double line with shared .browse-grid border-top */

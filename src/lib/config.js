@@ -10,6 +10,11 @@ export const SITE_TITLE = 'Zapstore — The Open App Store';
 export const SITE_DESCRIPTION =
 	'The open app store where users meet builders. Curated by communities. Android apps.';
 export const SITE_ICON = `${SITE_URL}/zapstore-icon.png`;
+/** OG/Twitter preview for /docs, /terms, and /assets. */
+export const DOCS_OG_IMAGE = `${SITE_URL}/images/og-docs.png`;
+export const DOCS_OG_IMAGE_ALT = 'Zapstore Docs';
+export const DOCS_OG_IMAGE_WIDTH = 1200;
+export const DOCS_OG_IMAGE_HEIGHT = 630;
 export const SITE_THEME_COLOR = '#7c3aed';
 export const SITE_TWITTER = '@zapstore_';
 export const SITE_GITHUB = 'https://github.com/zapstore/zapstore';
