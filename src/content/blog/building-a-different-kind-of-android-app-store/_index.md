@@ -1,6 +1,6 @@
 ---
 title: Building a different kind of Android app store
-description: 
+description: The Zapstore blog is waking up with posts about app distribution, trust, developer publishing, community curation, and building an open Android app store.
 date: 2026-06-08
 draft: false
 ---
