@@ -13,8 +13,7 @@ export const SITE_ICON = `${SITE_URL}/zapstore-icon.png`;
 /** Set PUBLIC_PRICING_ENABLED=true at build time to expose /pricing and nav links. */
 export const PRICING_ENABLED = import.meta.env.PUBLIC_PRICING_ENABLED === 'true';
 /** OG/Twitter preview for /docs, /terms, and /assets. */
-// Keep as root-absolute so SeoHead can bind to the current origin (prod/staging).
-export const DOCS_OG_IMAGE = `/images/og-docs.png`;
+export const DOCS_OG_IMAGE = `${SITE_URL}/images/og-docs.png`;
 export const DOCS_OG_IMAGE_ALT = 'Zapstore Docs';
 export const DOCS_OG_IMAGE_WIDTH = 1200;
 export const DOCS_OG_IMAGE_HEIGHT = 630;
