@@ -104,7 +104,9 @@ const contentPreview = $derived(
 		padding: 0;
 		margin-left: auto;
 		flex-shrink: 0;
-		background: var(--gray33);
+		background: color-mix(in srgb, var(--gray33) 72%, transparent);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
 		border: none;
 		border-radius: 50%;
 		cursor: pointer;

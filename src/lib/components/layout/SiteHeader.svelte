@@ -343,6 +343,7 @@
 										onclick={closeMenu}>{primaryDevStudioLabel}</a>
 									<nav class="menu-subnav">
 										<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
+										<a href="/docs/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Dev FAQ</a>
 										<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
 									</nav>
 								</div>
@@ -357,6 +358,7 @@
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
 								<nav class="menu-subnav">
 									<a href={communityFirstHref} class="menu-sublink medium14 text-white/66" onclick={closeMenu}>{communityFirstLabel}</a>
+									<a href="/community/blog" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Blog</a>
 									<a href="/community/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>User FAQ</a>
 								</nav>
 							</div>
@@ -364,8 +366,8 @@
 							<div class="menu-section">
 								<span class="menu-section-label">Resources</span>
 								<nav class="menu-subnav">
-									<a href="/blog" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Blog</a>
 									<a href="/enterprise" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Enterprise</a>
+									<a href="/assets" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Assets</a>
 								</nav>
 							</div>
 
@@ -576,6 +578,7 @@
 										onclick={closeMenu}>{primaryDevStudioLabel}</a>
 									<nav class="menu-subnav">
 										<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
+										<a href="/docs/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Dev FAQ</a>
 										<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
 									</nav>
 								</div>
@@ -590,6 +593,7 @@
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
 								<nav class="menu-subnav">
 									<a href={communityFirstHref} class="menu-sublink medium14 text-white/66" onclick={closeMenu}>{communityFirstLabel}</a>
+									<a href="/community/blog" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Blog</a>
 									<a href="/community/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>User FAQ</a>
 								</nav>
 							</div>
@@ -597,8 +601,8 @@
 							<div class="menu-section">
 								<span class="menu-section-label">Resources</span>
 								<nav class="menu-subnav">
-									<a href="/blog" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Blog</a>
 									<a href="/enterprise" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Enterprise</a>
+									<a href="/assets" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Assets</a>
 								</nav>
 							</div>
 

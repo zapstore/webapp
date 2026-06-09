@@ -117,6 +117,13 @@
 					</li>
 					<li>
 						<a
+							href="/docs/faq"
+							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
+							>Dev FAQ</a
+						>
+					</li>
+					<li>
+						<a
 							href="/terms"
 							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
 							><span class="md:hidden">Terms</span><span class="hidden md:inline">Terms of Service</span></a
@@ -138,6 +145,13 @@
 					</li>
 					<li>
 						<a
+							href="/community/blog"
+							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
+							>Blog</a
+						>
+					</li>
+					<li>
+						<a
 							href="/community/faq"
 							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
 							>User FAQ</a
@@ -152,16 +166,17 @@
 				<ul class="space-y-3">
 					<li>
 						<a
-							href="/blog"
+							href="/enterprise"
 							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
-							>Blog</a
+							>Enterprise</a
 						>
 					</li>
 					<li>
 						<a
-					href="/enterprise"
-						class="regular14 text-muted-foreground hover:text-foreground transition-colors"
-						>Enterprise</a>
+							href="/assets"
+							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
+							>Assets</a
+						>
 					</li>
 				</ul>
 			</div>

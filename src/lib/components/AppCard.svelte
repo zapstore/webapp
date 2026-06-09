@@ -82,5 +82,10 @@ const descriptionPlain = $derived(app.description ? markdownToPlainTextLine(app.
     line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 </style>

@@ -2,6 +2,7 @@
 title: Can Nostr fix app distribution?
 date: 2024-01-29
 draft: false
+image: /blog/can-nostr-fix-app-distribution/nostr.png
 ---
 
 _Originally published at [https://stacker.news/items/404908](https://stacker.news/items/404908)_

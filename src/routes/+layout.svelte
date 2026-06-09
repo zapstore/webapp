@@ -57,8 +57,7 @@ let showFooter = $derived(
 		(PRICING_ENABLED && path === '/pricing') ||
 		path === '/studio' ||
 		path.startsWith('/studio/') ||
-		path === '/blog' ||
-		path.startsWith('/blog/')) &&
+		path.startsWith('/community/blog')) &&
 		!showingStudioDashboard &&
 		!isAppsPage
 );

@@ -230,6 +230,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
+		min-width: 0;
+		width: 100%;
 	}
 
 	.stack-name {
@@ -242,6 +244,11 @@
 		line-clamp: 1;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		overflow-wrap: anywhere;
+		word-break: break-word;
 	}
 
 	.stack-description {
@@ -253,6 +260,11 @@
 		line-clamp: 1;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		overflow-wrap: anywhere;
+		word-break: break-word;
 	}
 
 	@media (min-width: 768px) {

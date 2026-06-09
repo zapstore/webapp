@@ -284,6 +284,7 @@
 		margin: 0;
 		width: 100%;
 		min-width: 0;
+		max-width: 100%;
 		font-size: 0.875rem;
 		font-weight: 500;
 		line-height: 1.25;
@@ -293,6 +294,8 @@
 		-webkit-line-clamp: 2;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		overflow-wrap: anywhere;
+		word-break: break-word;
 	}
 
 	@media (min-width: 768px) {

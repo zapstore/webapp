@@ -80,6 +80,12 @@
 					icon: '/images/emoji/activity.png',
 					href: '/community/activity'
 				},
+				{
+					id: 'blog',
+					label: 'Blog',
+					icon: '/images/emoji/article.png',
+					href: '/community/blog'
+				},
 				FAQ_SECTION,
 				{
 					id: 'search',
@@ -119,13 +125,15 @@
 			? 'search'
 			: path.startsWith('/community/faq')
 				? 'faq'
-				: path.startsWith('/community/forum')
-					? 'forum'
-					: path.startsWith('/community/support')
-						? 'support'
-						: path.startsWith('/community/activity')
-							? 'activity'
-							: defaultSectionId
+				: path.startsWith('/community/blog')
+					? 'blog'
+					: path.startsWith('/community/forum')
+						? 'forum'
+						: path.startsWith('/community/support')
+							? 'support'
+							: path.startsWith('/community/activity')
+								? 'activity'
+								: defaultSectionId
 	);
 	const activeSectionLabel = $derived(
 		SECTIONS.find((s) => s.id === activeSection)?.label ??
@@ -156,6 +164,11 @@
 	const isForumDetailPage = $derived(
 		path.startsWith('/community/forum/') && path !== '/community/forum/'
 	);
+	/** Article reading — hide mobile section switcher like forum post detail. */
+	const isBlogDetailPage = $derived(
+		path.startsWith('/community/blog/') && path !== '/community/blog/'
+	);
+	const hideMobileSectionSwitcher = $derived(isForumDetailPage || isBlogDetailPage);
 </script>
 
 <svelte:head>
@@ -165,6 +178,8 @@
 		<title>Search — Zapstore Community</title>
 	{:else if path.startsWith('/community/faq')}
 		<title>User FAQ — Zapstore Community</title>
+	{:else if path === '/community/blog' || path === '/community/blog/'}
+		<title>Blog — Zapstore Community</title>
 	{/if}
 </svelte:head>
 
@@ -175,7 +190,7 @@
 	<div class="dashboard">
 		<!-- Section switcher — mobile only: anchored dropdown below header, does not cover site nav -->
 		<!-- Hidden on forum post detail pages -->
-		{#if !isForumDetailPage}
+		{#if !hideMobileSectionSwitcher}
 		<div class="section-switcher">
 			<button
 				type="button"

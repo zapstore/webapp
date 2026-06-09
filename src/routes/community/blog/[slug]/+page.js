@@ -1,6 +1,8 @@
-import { error, redirect } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { blogPostEntries, loadBlogPost } from '$lib/blog/posts.js';
 
+/** SSR so article HTML and meta are prerendered (parent community layout is client-only). */
+export const ssr = true;
 export const prerender = true;
 
 export function entries() {
@@ -10,8 +12,11 @@ export function entries() {
 /** @param {import('./$types').PageLoadEvent} event */
 export function load({ params }) {
 	const slug = params.slug;
-	if (!loadBlogPost(slug)) {
+	const post = loadBlogPost(slug);
+
+	if (!post) {
 		throw error(404, `Blog post not found: ${slug}`);
 	}
-	throw redirect(308, `/community/blog/${slug}`);
+
+	return post;
 }

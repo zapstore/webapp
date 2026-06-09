@@ -114,7 +114,10 @@
 		signEvent = null,
 		lockBodyScroll = true,
 		zIndex = 55,
-		scopedInPanel = false
+		scopedInPanel = false,
+		/** Blog articles: share sheet only, using a page URL instead of a Nostr event id. */
+		shareOnly = false,
+		sharePageUrl = ''
 	} = $props();
 
 	const effectiveSignEvent = $derived(signEvent ?? authSignEvent);
@@ -275,7 +278,10 @@
 		}
 	});
 
-	const canShare = $derived(Boolean(effectiveTargetEventId));
+	const canShare = $derived(
+		shareOnly ? Boolean(sharePageUrl) : Boolean(effectiveTargetEventId)
+	);
+	const showShareEmbedRow = $derived(Boolean(shareEmbedLink) && !shareOnly);
 	const shareNevent = $derived.by(() => {
 		if (!canShare) return '';
 		try {
@@ -286,6 +292,8 @@
 	});
 	const shareEmbedLink = $derived(shareNevent ? `nostr:${shareNevent}` : '');
 	const shareZapstoreUrl = $derived.by(() => {
+		if (shareOnly && sharePageUrl) return sharePageUrl;
+		if (contentType === 'blog' && sharePageUrl) return sharePageUrl;
 		if (contentType === 'forum' && shareNevent) {
 			return `${SITE_URL}/community/forum/${shareNevent}`;
 		}
@@ -833,6 +841,12 @@
 	});
 
 	$effect(() => {
+		if (open && shareOnly) {
+			subPanel = 'share';
+		}
+	});
+
+	$effect(() => {
 		if (!open) {
 			subPanel = 'main';
 			reportEmbedOpen = false;
@@ -873,7 +887,44 @@
 	<div class="am-inner" class:am-inner--main={subPanel === 'main'}>
 		<div class="child-overlay" class:visible={createStackOpen} aria-hidden="true"></div>
 
-		{#if subPanel === 'main'}
+		{#if shareOnly && subPanel === 'share'}
+			<div class="am-subpanel">
+				<div class="am-share-panel am-subpanel-body">
+					<div class="am-share-row">
+						<div class="am-share-left">
+							<Share variant="outline" size={18} strokeWidth={1.4} color="var(--white66)" />
+							<span class="am-share-label">Zapstore URL</span>
+						</div>
+						<span class="am-share-value" title={shareZapstoreUrl}>{shareZapstoreDisplay}</span>
+						<button
+							type="button"
+							class="am-share-copy-btn"
+							onclick={copyZapstoreUrlToClipboard}
+							disabled={!canShare}
+							aria-label="Copy zapstore URL"
+						>
+							{#if shareUrlCopied}
+								<span class="check-icon">
+									<Check
+										variant="outline"
+										size={14}
+										strokeWidth={2.8}
+										color="var(--blurpleLightColor)"
+									/>
+								</span>
+							{:else}
+								<Copy variant="outline" size={16} color="var(--white66)" />
+							{/if}
+						</button>
+					</div>
+				</div>
+				{#if !canShare}
+					<p class="am-share-hint" role="status">No share URL available</p>
+				{:else if shareFeedback}
+					<p class="am-share-hint" role="status">{shareFeedback}</p>
+				{/if}
+			</div>
+		{:else if subPanel === 'main'}
 			{#if showRootContextRow && rootContext}
 				<div class="am-catalog-root-block">
 					<CommentModalRootRow {rootContext} {version} showConnector={true} />
@@ -1066,6 +1117,7 @@
 		{:else if subPanel === 'share'}
 			<div class="am-subpanel">
 				<div class="am-share-panel am-subpanel-body">
+					{#if showShareEmbedRow}
 					<div class="am-share-row">
 						<div class="am-share-left">
 							<Id variant="outline" size={18} strokeWidth={1.4} color="var(--white66)" />
@@ -1094,6 +1146,7 @@
 						</button>
 					</div>
 					<div class="am-share-divider"></div>
+					{/if}
 					<div class="am-share-row">
 						<div class="am-share-left">
 							<Share variant="outline" size={18} strokeWidth={1.4} color="var(--white66)" />

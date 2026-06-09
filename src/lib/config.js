@@ -12,8 +12,8 @@ export const SITE_DESCRIPTION =
 export const SITE_ICON = `${SITE_URL}/zapstore-icon.png`;
 /** Set PUBLIC_PRICING_ENABLED=true at build time to expose /pricing and nav links. */
 export const PRICING_ENABLED = import.meta.env.PUBLIC_PRICING_ENABLED === 'true';
-/** OG/Twitter preview for /docs, /terms, and /assets. */
-export const DOCS_OG_IMAGE = `${SITE_URL}/images/og-docs.png`;
+/** OG/Twitter preview for /docs, /terms, and /assets. Root-relative so unfurlers resolve per host (staging vs prod). */
+export const DOCS_OG_IMAGE = '/images/og-docs.png';
 export const DOCS_OG_IMAGE_ALT = 'Zapstore Docs';
 export const DOCS_OG_IMAGE_WIDTH = 1200;
 export const DOCS_OG_IMAGE_HEIGHT = 630;

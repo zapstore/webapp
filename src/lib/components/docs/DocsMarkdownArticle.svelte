@@ -81,10 +81,7 @@
 	.docs-markdown-article :global(li) {
 		font-size: var(--docs-body-size);
 		line-height: var(--docs-body-leading);
-		color: var(--white66);
-	}
-	.docs-markdown-article :global(li) {
-		color: var(--white66);
+		color: var(--white80);
 	}
 	.docs-markdown-article :global(strong) {
 		color: var(--white);

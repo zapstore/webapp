@@ -50,7 +50,9 @@
 		if (href === '/apps') return path === '/apps';
 		if (href === '/apps') return path === '/apps' || path.startsWith('/apps/');
 		if (href === '/stacks') return path === '/stacks' || path.startsWith('/stacks/');
-		if (href === '/blog') return path === '/blog' || path.startsWith('/blog/');
+		if (href === '/community/blog') {
+			return path === '/community/blog' || path.startsWith('/community/blog/');
+		}
 		return path === href || path.startsWith(href + '/');
 	}
 </script>
@@ -110,7 +112,7 @@
 						<a href="/community" class="app-sidebar-link" class:active={isActive('/community')}>Community</a>
 					</li>
 					<li>
-						<a href="/blog" class="app-sidebar-link" class:active={isActive('/blog')}>Blog</a>
+						<a href="/community/blog" class="app-sidebar-link" class:active={isActive('/community/blog')}>Blog</a>
 					</li>
 					<li>
 						<a href={SIGNAL_USER_SUPPORT_GROUP_URL} class="app-sidebar-link" target="_blank" rel="noopener noreferrer">User support</a>

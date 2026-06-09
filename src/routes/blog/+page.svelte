@@ -1,1 +1,1 @@
-<!-- Index redirects to newest post via +page.js -->
+<!-- Redirect handled in +page.js -->

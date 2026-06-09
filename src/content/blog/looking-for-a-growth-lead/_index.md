@@ -1,7 +1,7 @@
 ---
 title: Looking for a Community & Growth Lead
 date: 2026-04-11
-draft: false
+draft: true
 ---
 
 Zapstore is a permissionless app store built on Nostr. We're at thousands of daily users and growing fast, but we're still mostly unknown outside the Nostr ecosystem. We need someone to change that.

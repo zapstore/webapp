@@ -34,15 +34,15 @@ let {
 	publishedTime = undefined
 } = $props();
 
-const pageOrigin = $derived($page.url?.origin || SITE_URL);
-const canonicalUrl = $derived(url ?? (pageOrigin + $page.url.pathname));
-const ogImageUrl = $derived(
-	image
-		? image.startsWith('/')
-			? pageOrigin + image
-			: image
-		: null
+/** Prerender uses a fake origin; fall back to SITE_URL for canonical/og:url. */
+const pageOrigin = $derived(
+	$page.url?.origin && !$page.url.origin.includes('sveltekit-prerender')
+		? $page.url.origin
+		: SITE_URL
 );
+const canonicalUrl = $derived(url ?? pageOrigin + $page.url.pathname);
+// Pass image through as-is (absolute or root-relative). Unfurlers resolve `/…` against the page URL.
+const ogImageUrl = $derived(image || null);
 const twitterCard = $derived(image ? 'summary_large_image' : 'summary');
 // Escape `<` so serialized JSON cannot close the JSON-LD script block early (breaks DOM + hydration).
 const jsonldText = $derived(

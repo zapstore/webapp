@@ -37,7 +37,7 @@ import {
 import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
-import DetailHeader from '$lib/components/layout/DetailHeader.svelte';
+import CommunityArticleShell from '$lib/components/community/CommunityArticleShell.svelte';
 import SocialTabs from '$lib/components/social/SocialTabs.svelte';
 import DetailContentActions from '$lib/components/social/DetailContentActions.svelte';
 import EmptyState from '$lib/components/common/EmptyState.svelte';
@@ -839,70 +839,57 @@ function handleForumBottomBarZap(event) {
 	{:else if !post}
 		<EmptyState message="Post not found" minHeight={200} />
 	{:else}
-		<div class="detail-header-wrap">
-			<DetailHeader
-				publisherPic={authorProfile?.picture}
-				{publisherName}
-				{publisherNameForPic}
-				publisherPubkey={post.pubkey}
-				publisherUrl={npub ? `/profile/${npub}` : '#'}
-				timestamp={post.createdAt}
-				{catalogs}
-				catalogText="Zapstore"
-				showPublisher={true}
-				showMenu={false}
-				scrollThreshold={undefined}
-				compactPadding={true}
-				catalogDisplayOnly={true}
-				showBottomBorder={false}
-				bind:getStartedModalOpen
-			>
-				{#snippet detailTrailing()}
-					{#if zapTarget}
-						<DetailContentActions
-							contentType="forum"
-							target={zapTarget}
-							appName={post.title || ''}
-							contentSummary={post.content?.trim?.() || post.title || ''}
-							{publisherName}
-							{searchProfiles}
-							{searchEmojis}
-							{signEvent}
-							getCurrentPubkey={getCurrentPubkey}
-							onCommentSubmit={handleCommentSubmit}
-							{otherZaps}
-							onZapReceived={handleForumBottomBarZap}
-							onZapPending={handleForumZapPending}
-							onZapPendingClear={handleForumZapPendingClear}
-							onLabelPublished={() => {
-								labelFetchNonce += 1;
-							}}
-							onOwnContentDeleted={() => {
-								goto(resolve('/community/forum'));
-							}}
-						/>
-					{/if}
-				{/snippet}
-			</DetailHeader>
-		</div>
+		<CommunityArticleShell
+			publisherPic={authorProfile?.picture}
+			{publisherName}
+			{publisherNameForPic}
+			publisherPubkey={post.pubkey}
+			publisherUrl={npub ? `/profile/${npub}` : '#'}
+			timestamp={post.createdAt}
+		>
+			{#snippet actions()}
+				{#if zapTarget}
+					<DetailContentActions
+						contentType="forum"
+						target={zapTarget}
+						appName={post.title || ''}
+						contentSummary={post.content?.trim?.() || post.title || ''}
+						{publisherName}
+						{searchProfiles}
+						{searchEmojis}
+						{signEvent}
+						getCurrentPubkey={getCurrentPubkey}
+						onCommentSubmit={handleCommentSubmit}
+						{otherZaps}
+						onZapReceived={handleForumBottomBarZap}
+						onZapPending={handleForumZapPending}
+						onZapPendingClear={handleForumZapPendingClear}
+						onLabelPublished={() => {
+							labelFetchNonce += 1;
+						}}
+						onOwnContentDeleted={() => {
+							goto(resolve('/community/forum'));
+						}}
+					/>
+				{/if}
+			{/snippet}
 
-		<div class="content-scroll" data-main-scroll>
-			<div class="content-inner">
+			{#snippet content()}
 				<h1 class="post-title">{post.title}</h1>
-			<div class="description-container">
-				<ShortTextContent
-					content={post.content ?? ''}
-					emojiTags={postEmojiTags}
-					mediaUrls={post.mediaUrls ?? []}
-					onMediaClick={({ url: u, urls: list }) => {
-						const urls = list?.length ? list : (post.mediaUrls ?? []);
-						lightboxUrls = urls;
-						lightboxIndex = Math.max(0, urls.indexOf(u));
-						lightboxOpen = true;
-					}}
-					class="post-detail-body"
-				/>
-			</div>
+				<div class="description-container">
+					<ShortTextContent
+						content={post.content ?? ''}
+						emojiTags={postEmojiTags}
+						mediaUrls={post.mediaUrls ?? []}
+						onMediaClick={({ url: u, urls: list }) => {
+							const urls = list?.length ? list : (post.mediaUrls ?? []);
+							lightboxUrls = urls;
+							lightboxIndex = Math.max(0, urls.indexOf(u));
+							lightboxOpen = true;
+						}}
+						class="post-detail-body"
+					/>
+				</div>
 
 				<div class="social-tabs-wrap">
 					<SocialTabs
@@ -950,8 +937,8 @@ function handleForumBottomBarZap(event) {
 						{labelsLoading}
 					/>
 				</div>
-			</div>
-		</div>
+			{/snippet}
+		</CommunityArticleShell>
 
 	{/if}
 </div>
@@ -966,37 +953,17 @@ function handleForumBottomBarZap(event) {
 		min-height: 0;
 		overflow: hidden;
 	}
-	.detail-header-wrap {
-		flex-shrink: 0;
-	}
-	.content-scroll {
-		--page-content-pad-x: 12px;
-		flex: 1;
-		min-height: 0;
-		overflow-y: auto;
-		margin-top: -4px;
-		padding-top: 0;
-		padding-bottom: 32px;
-	}
-	@media (min-width: 768px) {
-		.content-scroll {
-			--page-content-pad-x: 20px;
-		}
-	}
-	.content-inner {
-		padding: 0 var(--page-content-pad-x) 16px;
-		max-width: 100%;
-	}
 	.post-title {
 		font-size: 1.5rem;
 		font-weight: 700;
-		padding-top: 0;
+		padding: 0 var(--page-content-pad-x, 12px);
 		margin: 0 0 6px;
 		line-height: 1.3;
 		color: var(--white);
 	}
 	.description-container {
 		margin-bottom: 0.5rem;
+		padding: 0 var(--page-content-pad-x, 12px);
 		font-size: 0.9375rem;
 		line-height: 1.6;
 		color: var(--white);
@@ -1012,5 +979,6 @@ function handleForumBottomBarZap(event) {
 	}
 	.social-tabs-wrap {
 		margin-top: 16px;
+		padding: 0 var(--page-content-pad-x, 12px);
 	}
 </style>
