@@ -117,16 +117,16 @@
 					</li>
 					<li>
 						<a
-							href="/docs/faq"
+							href="/terms"
 							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
-							>Dev FAQ</a
+							><span class="md:hidden">Terms</span><span class="hidden md:inline">Terms of Service</span></a
 						>
 					</li>
 					<li>
 						<a
-							href="/terms"
+							href="/docs/faq"
 							class="regular14 text-muted-foreground hover:text-foreground transition-colors"
-							><span class="md:hidden">Terms</span><span class="hidden md:inline">Terms of Service</span></a
+							>Dev FAQ</a
 						>
 					</li>
 				</ul>

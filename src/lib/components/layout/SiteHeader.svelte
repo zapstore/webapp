@@ -343,8 +343,8 @@
 										onclick={closeMenu}>{primaryDevStudioLabel}</a>
 									<nav class="menu-subnav">
 										<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
-										<a href="/docs/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Dev FAQ</a>
 										<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
+										<a href="/docs/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Dev FAQ</a>
 									</nav>
 								</div>
 
@@ -578,8 +578,8 @@
 										onclick={closeMenu}>{primaryDevStudioLabel}</a>
 									<nav class="menu-subnav">
 										<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
-										<a href="/docs/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Dev FAQ</a>
 										<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
+										<a href="/docs/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Dev FAQ</a>
 									</nav>
 								</div>
 
