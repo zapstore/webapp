@@ -137,7 +137,6 @@
 		flex: none;
 		min-height: auto;
 		overflow: visible;
-		padding: 0;
 	}
 
 	/* ── Top bar (non-scrolling, no bg needed — nothing scrolls behind it) ── */
