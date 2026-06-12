@@ -232,7 +232,7 @@
 		<hr class="hero-divider" />
 
 		<p class="hero-description display-tagline mx-auto mt-2 sm:mt-8 mb-10">
-			Get a truly open app store.<br class="hero-desc-break" /> Stop missing out.
+			A truly open app store.<br class="hero-desc-break" /> Available for Android now.
 		</p>
 
 		<!-- Browse CTA: stacked app pics + glass pill -->
