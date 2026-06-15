@@ -1,0 +1,14 @@
+/**
+ * Thread reply rails — L-shape connectors and inline thread spines.
+ * Align vertical stroke center on smMd profile pic center (35px avatar column).
+ */
+:root {
+	--thread-rail-line: 1.5px;
+	--thread-rail-pic: 35px;
+	/* Row inset so a 1.5px spine is centered on the profile pic (not 19px). */
+	--thread-rail-inset: calc(var(--thread-rail-pic) / 2 - var(--thread-rail-line) / 2);
+	/* Horizontal branches start one full stroke width past the spine (no alpha overlap). */
+	--thread-rail-branch-offset: var(--thread-rail-line);
+	/* SVG corner paths use x=1; nudge to align with centered CSS stroke. */
+	--thread-rail-svg-nudge: -0.25px;
+}

@@ -291,9 +291,17 @@ const threadByRootId = $derived.by(() => {
     }
     return map;
 });
-// threadByZapId and threadZapsByZapId have been removed: comment trees hang exclusively
-// from kind-1111 events. Raw kind-9735 root rows (backward-compat fallback) open with
-// empty thread data — their threads were published as z-wrappers and appear in threadByRootId.
+
+/** When exactly one root comment has nested replies, show them inline on detail pages. */
+const singleRootCommentId = $derived.by(() => {
+    const commentRoots = rootCommentsWithReplies.filter((c) => !c.isWrapper);
+    if (commentRoots.length !== 1) return null;
+    const root = commentRoots[0];
+    const thread = threadByRootId.get(root.id) ?? [];
+    if (thread.length <= 1) return null;
+    return root.id;
+});
+
 /** For each root comment in the feed: zaps on any event in that thread. Used when opening the modal for that root comment. */
 const threadZapsByRootId = $derived.by(() => {
     const norm = (id) => (id ?? "").toLowerCase();
@@ -560,6 +568,8 @@ const zapsByTargetId = $derived.by(() => {
                 appIdentifier={app?.dTag}
                 rootContext={resolvedRootContext}
                 {wrapperRoot}
+                inlineThreadReplies={item.id === singleRootCommentId}
+                {contentType}
                 zapsOnThis={zapsByTargetId.get(String(item.id ?? '').toLowerCase()) ?? []}
                 {zapsByTargetId}
                 version={item.version ?? ''}

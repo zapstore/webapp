@@ -40,6 +40,8 @@
 	let zapstoreQrLoaded = false;
 	let step1QrLoaded = false;
 	let step2QrLoaded = false;
+	/** Human-readable APK size from CDN Content-Length (e.g. "4.2 MB"). */
+	let apkSizeLabel = '';
 
 	// iOS waitlist state (only for Zapstore)
 	let iosWaitlistStatus = 'idle';
@@ -60,6 +62,32 @@
 
 	// App info helpers
 	$: appDeepLink = app ? `${SITE_URL}/apps/${app.naddr ?? app.dTag ?? ''}` : '';
+
+	function formatApkSize(bytes) {
+		if (!Number.isFinite(bytes) || bytes <= 0) return '';
+		if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+		if (bytes >= 1_000) return `${Math.round(bytes / 1_000)} KB`;
+		return `${bytes} B`;
+	}
+
+	async function loadApkSize() {
+		try {
+			const response = await fetch(ZAPSTORE_APK_URL, {
+				method: 'HEAD',
+				headers: { 'X-Zapstore-Client': 'web' }
+			});
+			const len = Number(response.headers.get('content-length'));
+			if (Number.isFinite(len) && len > 0) {
+				apkSizeLabel = formatApkSize(len);
+			}
+		} catch {
+			/* size is optional UI polish */
+		}
+	}
+
+	$: if (browser && open && isZapstore && selectedPlatform === 'Android') {
+		if (!apkSizeLabel) void loadApkSize();
+	}
 
 	async function downloadApk() {
 		downloading = true;
@@ -259,9 +287,13 @@
 									</svg>
 									<span class="regular14">Android 10+</span>
 								</span>
-								<span class="regular14" style="color: var(--white33);"
-									><strong>arm64-v8a</strong> only</span
-								>
+								<span class="regular14" style="color: var(--white33);">
+									{#if apkSizeLabel}
+										<strong>{apkSizeLabel}</strong>
+									{:else}
+										<span class="apk-size-loading">…</span>
+									{/if}
+								</span>
 							</div>
 						</div>
 						<!-- Vertical Divider - Only on mobile -->
@@ -287,9 +319,13 @@
 									</svg>
 									<span class="regular14">Android 10+</span>
 								</span>
-								<span class="regular14" style="color: var(--white33);"
-									><strong>arm64-v8a</strong> only</span
-								>
+								<span class="regular14" style="color: var(--white33);">
+									{#if apkSizeLabel}
+										<strong>{apkSizeLabel}</strong>
+									{:else}
+										<span class="apk-size-loading">…</span>
+									{/if}
+								</span>
 							</div>
 
 							<!-- Horizontal Divider - Hidden on mobile -->
@@ -347,9 +383,6 @@
 							class="btn-primary-large w-full disabled:opacity-70 flex items-center justify-center gap-3"
 						>
 							{#if downloading}
-								<div
-									class="animate-spin rounded-full h-5 w-5 border-2 border-primary-foreground border-t-transparent"
-								></div>
 								Downloading...
 							{:else}
 								<Download variant="fill" color="var(--white66)" size={20} />
@@ -798,6 +831,10 @@
 	.download-actions {
 		display: flex;
 		gap: 0.75rem;
+	}
+
+	.apk-size-loading {
+		color: var(--white33);
 	}
 
 	/* Smaller button text on mobile */

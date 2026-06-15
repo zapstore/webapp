@@ -10,6 +10,9 @@ import { browser } from '$app/environment';
 import { onDestroy } from 'svelte';
 import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 import CommentModalRootRow from '$lib/components/social/CommentModalRootRow.svelte';
+import QuotedMessage from '$lib/components/social/QuotedMessage.svelte';
+import QuotedZapMessage from '$lib/components/social/QuotedZapMessage.svelte';
+import { formatNpubFromPubkey, isRealProfileName } from '$lib/utils/npub-display.js';
 import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
 import AddModal from '$lib/components/modals/AddModal.svelte';
 import TipAmountModal from '$lib/components/modals/TipAmountModal.svelte';
@@ -58,6 +61,13 @@ let {
 	signEvent = null,
 	/** Root app/stack/forum row above editor (catalog comments). */
 	rootContext = null,
+	/**
+	 * When set, show a quoted parent above the editor instead of the root badge row
+	 * (inline single-root thread replies on detail pages).
+	 * @type {null | { id?: string, pubkey?: string, displayName?: string, content?: string, emojiTags?: { shortcode: string, url: string }[], mediaUrls?: string[], quotedAsZap?: boolean, amountSats?: number, isWrapper?: boolean }}
+	 */
+	replyTarget = null,
+	resolveMentionLabel = null,
 	version = '',
 	/** Override draft key; defaults to catalog key from target + contentType. */
 	draftKey: draftKeyProp = null,
@@ -80,15 +90,24 @@ const searchProfiles = $derived(
 	searchProfilesProp ?? createSearchProfilesFunction(getCurrentPubkey, () => threadPubkeys)
 );
 const searchEmojis = $derived(searchEmojisProp ?? createSearchEmojisFunction(getCurrentPubkey));
-const effectivePlaceholder = $derived(
-	placeholder ?? `Write to ${recipientName?.trim() || recipientLabel(target)}`
-);
+const effectivePlaceholder = $derived.by(() => {
+	if (placeholder) return placeholder;
+	if (replyTarget) {
+		const label = isRealProfileName(replyTarget.displayName)
+			? String(replyTarget.displayName).trim()
+			: formatNpubFromPubkey(replyTarget.pubkey);
+		return `Write to ${label || 'Creator'}`;
+	}
+	return `Write to ${recipientName?.trim() || recipientLabel(target)}`;
+});
 const showRootRow = $derived(
-	Boolean(rootContext) && ['app', 'stack', 'forum'].includes(contentType)
+	!replyTarget && Boolean(rootContext) && ['app', 'stack', 'forum'].includes(contentType)
 );
-const draftKey = $derived(
-	draftKeyProp ?? catalogCommentDraftKey(contentType, target)
-);
+const draftKey = $derived.by(() => {
+	if (draftKeyProp) return draftKeyProp;
+	if (replyTarget?.id) return `reply-${String(replyTarget.id).toLowerCase()}`;
+	return catalogCommentDraftKey(contentType, target);
+});
 
 let textInput = $state(null);
 let submitting = $state(false);
@@ -233,7 +252,10 @@ async function handleSubmit(event) {
 			emojiTags: event.emojiTags ?? [],
 			mentions: event.mentions ?? [],
 			mediaUrls: event.mediaUrls ?? [],
-			target
+			target,
+			parentId: replyTarget?.id,
+			replyToPubkey: replyTarget?.pubkey ?? target?.pubkey,
+			replyTarget
 		});
 		if (draftKey) clearCommentDraft(draftKey);
 		textInput?.clear?.();
@@ -368,6 +390,32 @@ const childModalOpen = $derived(
 					<CommentModalRootRow {rootContext} {version} showConnector={true} />
 				{/if}
 				<div class="input-container">
+					{#if replyTarget}
+						<div class="reply-quote-inset">
+							{#if replyTarget.quotedAsZap === true}
+								<QuotedZapMessage
+									authorName={isRealProfileName(replyTarget.displayName)
+										? String(replyTarget.displayName).trim()
+										: formatNpubFromPubkey(replyTarget.pubkey)}
+									authorPubkey={replyTarget.pubkey ?? null}
+									amountSats={replyTarget.amountSats ?? 0}
+									content={replyTarget.content ?? ''}
+									emojiTags={replyTarget.emojiTags ?? []}
+									mediaUrls={replyTarget.mediaUrls ?? []}
+									{resolveMentionLabel}
+								/>
+							{:else}
+								<QuotedMessage
+									authorName={replyTarget.displayName || 'Anonymous'}
+									authorPubkey={replyTarget.pubkey ?? null}
+									content={replyTarget.content ?? ''}
+									emojiTags={replyTarget.emojiTags ?? []}
+									mediaUrls={replyTarget.mediaUrls ?? []}
+									{resolveMentionLabel}
+								/>
+							{/if}
+						</div>
+					{/if}
 					{#if pendingTipSats}
 						<TipAmountRow amountSats={pendingTipSats} onedit={openTipAmountModal} />
 					{/if}
@@ -543,6 +591,12 @@ const childModalOpen = $derived(
 		border-radius: var(--radius-16);
 		border: 0.33px solid var(--white33);
 		width: 100%;
+	}
+
+	.reply-quote-inset {
+		padding: 8px 8px 0;
+		box-sizing: border-box;
+		min-width: 0;
 	}
 
 	.comment-file-input {

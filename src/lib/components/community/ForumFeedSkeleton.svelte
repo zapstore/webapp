@@ -13,6 +13,7 @@
 	 * They are solid/non-shimmering — just the characteristic label shape in a muted fill.
 	 */
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
+	import '$lib/styles/thread-rail.css';
 
 	let { rows = 6 } = $props();
 
@@ -164,7 +165,7 @@
 
 	/* Mirrors .connector-vertical-only */
 	.sk-v-line {
-		width: 1.5px;
+		width: var(--thread-rail-line);
 		flex: 1;
 		min-height: 8px;
 		background: var(--white16);
@@ -262,8 +263,8 @@
 	.sk-reply-row {
 		display: flex;
 		align-items: flex-end;
-		margin-left: 17px;
-		width: calc(100% - 17px);
+		margin-left: var(--thread-rail-inset);
+		width: calc(100% - var(--thread-rail-inset));
 	}
 
 	/* Mirrors .connector-column */
@@ -277,7 +278,7 @@
 	}
 
 	.sk-connector-v {
-		width: 1.5px;
+		width: var(--thread-rail-line);
 		height: 12px;
 		background: var(--white16);
 	}
@@ -292,6 +293,7 @@
 		width: 100%;
 		height: 100%;
 		display: block;
+		transform: translateX(var(--thread-rail-svg-nudge));
 	}
 
 	/* Commenter avatar circles — sm ProfilePic = 28px, overlapping with -8px margin */

@@ -8,6 +8,7 @@
 	import ProfilePicStack from '$lib/components/common/ProfilePicStack.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import ShortTextPreview from '$lib/components/common/ShortTextPreview.svelte';
+	import '$lib/styles/thread-rail.css';
 	import { Zap } from '$lib/components/icons';
 	import { profileDisplayLabel } from '$lib/utils/npub-display.js';
 
@@ -239,7 +240,7 @@
 	}
 
 	.connector-vertical-only {
-		width: 1.5px;
+		width: var(--thread-rail-line);
 		flex: 1;
 		min-height: 8px;
 		background: var(--white16);
@@ -367,8 +368,8 @@
 	.reply-row {
 		display: flex;
 		align-items: flex-end;
-		margin-left: 17px;
-		width: calc(100% - 17px);
+		margin-left: var(--thread-rail-inset);
+		width: calc(100% - var(--thread-rail-inset));
 	}
 
 	.connector-column {
@@ -381,7 +382,7 @@
 	}
 
 	.connector-vertical {
-		width: 1.5px;
+		width: var(--thread-rail-line);
 		height: 12px;
 		background: var(--white16);
 		margin-left: 0;
@@ -397,6 +398,7 @@
 		width: 100%;
 		height: 100%;
 		display: block;
+		transform: translateX(var(--thread-rail-svg-nudge));
 	}
 
 	.repliers-row {
