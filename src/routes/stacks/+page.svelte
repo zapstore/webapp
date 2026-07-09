@@ -1,38 +1,77 @@
 <script lang="js">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import SeoHead from '$lib/components/layout/SeoHead.svelte';
 	import { SITE_URL } from '$lib/config';
 	import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 	import AppStackCard from '$lib/components/cards/AppStackCard.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
-	import { createStacksListingQuery, stackListingPreviewKey } from '$lib/purpleweb';
-	import { getCached, setCached } from '$lib/stores/query-cache.js';
+	import { createProfilesQuery, createStacksListingQuery } from '$lib/purpleweb';
+	import { STACKS_BROWSE_INITIAL } from '$lib/constants';
 	import { nip19 } from 'nostr-tools';
-	import { fetchProfilesBatch } from '$lib/purpleweb';
-	import { parseProfile, encodeStackNaddr } from '$lib/nostr/models';
+	import { encodeStackNaddr } from '$lib/nostr/models';
 	import '$lib/styles/browse-grid.css';
 
 	const SCROLL_THRESHOLD = 800;
 	const SKELETON_COUNT = 8;
+	const RENDER_BATCH = STACKS_BROWSE_INITIAL;
 
 	let { data } = $props();
 
-	// Local-first stacks listing via purpleweb. Owns liveQuery, SSR seed,
-	// back-nav cache, pagination state, and `loadMore`.
-	const listing = createStacksListingQuery(() => ({ seedEvents: data.seedEvents ?? [] }));
+	const listing = createStacksListingQuery(() => ({
+		seedEvents: data.seedEvents ?? [],
+		browseAll: true
+	}));
 	const liveStacks = $derived(listing.items);
 	const hasMore = $derived(listing.hasMore);
 	const loadingMore = $derived(listing.loadingMore);
 
-	// Resolved stacks with creator profiles
-	// Initialize from cache so back navigation shows content instantly.
-	let resolvedStacks = $state(getCached('stacks:resolved') ?? []);
-	let loading = $state(!getCached('stacks:resolved'));
-	let resolvedStackKeys = $state('');
+	const creatorPubkeys = $derived(
+		[...new Set((liveStacks ?? []).map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk)))]
+	);
+	const creatorProfiles = createProfilesQuery(() => creatorPubkeys);
+
+	let displayLimit = $state(RENDER_BATCH);
+
+	const stackCards = $derived.by(() => {
+		void creatorProfiles.profileMap;
+		return (liveStacks ?? []).map(({ stack, apps: stackApps }) => {
+			let creator = undefined;
+			if (isHexPubkey(stack.pubkey)) {
+				const profile = creatorProfiles.profiles[stack.pubkey.toLowerCase()];
+				if (profile) {
+					creator = {
+						name: profile.displayName || profile.name,
+						picture: profile.picture,
+						pubkey: stack.pubkey,
+						npub: safeNpub(stack.pubkey)
+					};
+				}
+			}
+			return {
+				name: stack.title,
+				description: stack.description,
+				apps: stackApps,
+				creator,
+				pubkey: stack.pubkey,
+				dTag: stack.dTag
+			};
+		});
+	});
+
+	const visibleCards = $derived(stackCards.slice(0, displayLimit));
+	const canRevealMore = $derived(displayLimit < stackCards.length);
+
+	const showSkeleton = $derived(
+		stackCards.length === 0 &&
+			(listing.loading || (listing.hasMore && !loadingMore))
+	);
+	const showEmpty = $derived(
+		!showSkeleton && stackCards.length === 0 && !listing.hasMore && !loadingMore
+	);
 
 	const stacksGridTwoCol = $derived(
-		loading && resolvedStacks.length === 0 ? SKELETON_COUNT > 1 : resolvedStacks.length > 1
+		showSkeleton ? SKELETON_COUNT > 1 : visibleCards.length > 1
 	);
 
 	function isHexPubkey(value) {
@@ -66,156 +105,63 @@
 		return naddr ? `/stacks/${naddr}` : '#';
 	}
 
-	// Fetch creator profiles when liveQuery stacks change
-	async function resolveCreators(stacksWithApps) {
-		if (!browser) return;
-		if (stacksWithApps.length === 0) {
-			loading = false;
+	function revealMoreCards() {
+		if (canRevealMore) {
+			displayLimit = Math.min(displayLimit + RENDER_BATCH, stackCards.length);
 			return;
 		}
-		loading = true;
-
-		// Sync preview apps immediately when Dexie backfill lands; profiles follow async.
-		resolvedStacks = stacksWithApps.map(({ stack, apps: stackApps }) => {
-			const prev = resolvedStacks.find((s) => s.pubkey === stack.pubkey && s.dTag === stack.dTag);
-			return {
-				name: stack.title,
-				description: stack.description,
-				apps: stackApps,
-				creator: prev?.creator,
-				pubkey: stack.pubkey,
-				dTag: stack.dTag
-			};
-		});
-		setCached('stacks:resolved', resolvedStacks);
-
-		try {
-			const creatorPubkeys = [
-				...new Set(stacksWithApps.map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk)))
-			];
-			const creatorEvents = await fetchProfilesBatch(creatorPubkeys);
-			resolvedStacks = stacksWithApps.map(({ stack, apps: stackApps }) => {
-				let creator = undefined;
-				if (isHexPubkey(stack.pubkey)) {
-					const profileEvent = creatorEvents.get(stack.pubkey);
-					if (profileEvent) {
-						const profile = parseProfile(profileEvent);
-						creator = {
-							name: profile.displayName || profile.name,
-							picture: profile.picture,
-							pubkey: stack.pubkey,
-							npub: safeNpub(stack.pubkey)
-						};
-					}
-				}
-				return {
-					name: stack.title,
-					description: stack.description,
-					apps: stackApps,
-					creator,
-					pubkey: stack.pubkey,
-					dTag: stack.dTag
-				};
-			});
-			setCached('stacks:resolved', resolvedStacks);
-		} catch (err) {
-			console.error('Error resolving stacks:', err);
-		} finally {
-			loading = false;
-		}
+		if (hasMore && !loadingMore) listing.loadMore();
 	}
 
-	// Re-resolve creators when liveQuery stacks change
-	$effect(() => {
-		if (!browser) return;
-		const items = liveStacks;
-		if (!items) return;
-		const key = stackListingPreviewKey(items);
-		if (key !== resolvedStackKeys) {
-			resolvedStackKeys = key;
-			resolveCreators(items);
-		}
-	});
-
-	let scrollContainer = null;
-
-	// Infinite scroll
 	function shouldLoadMore() {
 		if (!browser) return false;
-		const el = scrollContainer;
-		if (!el) return false;
-		return el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD;
+		const scrollTop = window.scrollY || document.documentElement.scrollTop;
+		const scrollHeight = document.documentElement.scrollHeight;
+		const clientHeight = window.innerHeight;
+		return scrollHeight - scrollTop - clientHeight < SCROLL_THRESHOLD;
 	}
 
 	function handleScroll() {
-		if (hasMore && !loadingMore && shouldLoadMore()) {
-			listing.loadMore();
-		}
+		if (!shouldLoadMore()) return;
+		revealMoreCards();
 	}
 
 	onMount(async () => {
 		if (!browser) return;
-		// On a cold cache (no SSR seed, e.g. client-side nav) prime the first
-		// page from relays. Seeded loads handle themselves via the listing
-		// query's seed-persist path.
-		if ((!data.seedEvents || data.seedEvents.length === 0) && navigator.onLine) {
+		if (stackCards.length === 0 && hasMore && navigator.onLine) {
 			await listing.loadMore();
 		}
-		// Use the app shell's scroll container, fall back to window
-		scrollContainer = document.querySelector('[data-scroll-container]') ?? window;
-		scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+		window.addEventListener('scroll', handleScroll, { passive: true });
+		return () => window.removeEventListener('scroll', handleScroll);
 	});
-
-	onDestroy(() => {
-		if (browser) {
-			scrollContainer?.removeEventListener('scroll', handleScroll);
-		}
-	});
-
 </script>
 
 <SeoHead
-	title="App Stacks — Zapstore"
-	description="Browse curated app collections on Zapstore"
+	title="Stacks | Zapstore"
+	description="Browse curated app collections, or create and share your own stacks."
 	url="{SITE_URL}/stacks"
 />
 
 <section class="stacks-page">
 	<div class="stacks-page-outer container mx-auto px-0 sm:px-6 lg:px-8">
 		<div class="stacks-page-frame">
-			<div class="stacks-page-header">
+			<header class="stacks-page-header">
 				<SectionHeader title="Stacks" />
-			</div>
+				<p class="stacks-intro">
+					Curated collections of apps. Browse what others have shared, or create and share your own.
+				</p>
+			</header>
 
-			{#if loading && resolvedStacks.length === 0}
-				<ul
-					class="browse-grid"
-					class:browse-grid--two-col={stacksGridTwoCol}
-					role="list"
-					aria-hidden="true"
-				>
-					{#each Array(SKELETON_COUNT) as _, i (i)}
-						<li class="browse-grid-item">
-							<div class="stacks-browse-skeleton">
-								<div class="stacks-browse-skeleton-grid"><SkeletonLoader /></div>
-								<div class="stacks-browse-skeleton-info">
-									<div class="stacks-browse-skeleton-name"><SkeletonLoader /></div>
-									<div class="stacks-browse-skeleton-line"></div>
-								</div>
-							</div>
-						</li>
-					{/each}
-				</ul>
-			{:else if resolvedStacks.length > 0}
-				<ul class="browse-grid" class:browse-grid--two-col={stacksGridTwoCol} role="list">
-					{#each resolvedStacks as stack (`${stack.pubkey}:${stack.dTag}`)}
-						<li class="browse-grid-item">
-							<AppStackCard {stack} href={getStackUrl(stack)} />
-						</li>
-					{/each}
-					{#if loadingMore}
-						{#each Array(4) as _, i (`more-${i}`)}
-							<li class="browse-grid-item" aria-hidden="true">
+			<div class="stacks-page-body">
+				{#if showSkeleton}
+					<ul
+						class="browse-grid"
+						class:browse-grid--two-col={stacksGridTwoCol}
+						role="list"
+						aria-hidden="true"
+					>
+						{#each Array(SKELETON_COUNT) as _, i (i)}
+							<li class="browse-grid-item">
 								<div class="stacks-browse-skeleton">
 									<div class="stacks-browse-skeleton-grid"><SkeletonLoader /></div>
 									<div class="stacks-browse-skeleton-info">
@@ -225,35 +171,58 @@
 								</div>
 							</li>
 						{/each}
-					{/if}
-				</ul>
+					</ul>
+				{:else if visibleCards.length > 0}
+					<ul class="browse-grid" class:browse-grid--two-col={stacksGridTwoCol} role="list">
+						{#each visibleCards as stack (`${stack.pubkey}:${stack.dTag}`)}
+							<li class="browse-grid-item">
+								<AppStackCard {stack} href={getStackUrl(stack)} />
+							</li>
+						{/each}
+						{#if loadingMore}
+							{#each Array(4) as _, i (`more-${i}`)}
+								<li class="browse-grid-item" aria-hidden="true">
+									<div class="stacks-browse-skeleton">
+										<div class="stacks-browse-skeleton-grid"><SkeletonLoader /></div>
+										<div class="stacks-browse-skeleton-info">
+											<div class="stacks-browse-skeleton-name"><SkeletonLoader /></div>
+											<div class="stacks-browse-skeleton-line"></div>
+										</div>
+									</div>
+								</li>
+							{/each}
+						{/if}
+					</ul>
 
-				{#if !hasMore}
-					<p class="stacks-end-message">You've reached the end</p>
+					{#if !hasMore && !canRevealMore}
+						<p class="stacks-end-message">You've reached the end</p>
+					{/if}
+				{:else if showEmpty}
+					<div class="stacks-empty-state">
+						<p class="text-muted-foreground">
+							No app stacks found yet. Create one in the Zapstore app!
+						</p>
+					</div>
 				{/if}
-			{:else}
-				<div class="stacks-empty-state">
-					<p class="text-muted-foreground">
-						No app stacks found yet. Create one in the Zapstore app!
-					</p>
-				</div>
-			{/if}
+			</div>
 		</div>
 	</div>
 </section>
 
 <style>
 	.stacks-page {
-		min-height: 100vh;
+		min-height: calc(100dvh - 64px);
 	}
 
 	.stacks-page-outer {
-		padding-top: 24px;
-		padding-bottom: 24px;
+		position: relative;
 	}
 
 	.stacks-page-frame {
 		--stacks-pad-x: 14px;
+		display: flex;
+		flex-direction: column;
+		min-height: calc(100dvh - 64px);
 		border-left: 1px solid var(--shell-border);
 		border-right: 1px solid var(--shell-border);
 		margin-left: -16px;
@@ -262,7 +231,7 @@
 
 	@media (min-width: 768px) {
 		.stacks-page-frame {
-			--stacks-pad-x: 16px;
+			--stacks-pad-x: 20px;
 		}
 	}
 
@@ -282,10 +251,28 @@
 		}
 	}
 
+	.stacks-page-header {
+		flex-shrink: 0;
+		padding: var(--stacks-pad-x);
+		padding-bottom: 12px;
+		border-bottom: 1px solid var(--shell-border);
+	}
+
 	.stacks-page-header :global(.section-header) {
-		padding-left: var(--stacks-pad-x);
-		padding-right: var(--stacks-pad-x);
-		margin-bottom: 12px;
+		padding: 0;
+		margin-bottom: 8px;
+	}
+
+	.stacks-intro {
+		margin: 0;
+		font-size: 0.875rem;
+		line-height: 1.5;
+		color: var(--white66);
+		max-width: 42rem;
+	}
+
+	.stacks-page-frame :global(.browse-grid) {
+		border-top: none;
 	}
 
 	.stacks-end-message {

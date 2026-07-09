@@ -6,7 +6,7 @@
  * Offline: no server round-trip needed, page renders from local data.
  */
 import { browser } from '$app/environment';
-import { STACKS_PAGE_SIZE } from '$lib/constants';
+import { STACKS_BROWSE_INITIAL } from '$lib/constants';
 
 export const prerender = false;
 
@@ -14,6 +14,6 @@ export const load = async () => {
 	if (browser) return { seedEvents: [] };
 
 	const { fetchStacks } = await import('$lib/purpleweb/server.js');
-	const seedEvents = await fetchStacks(STACKS_PAGE_SIZE);
+	const seedEvents = await fetchStacks(STACKS_BROWSE_INITIAL);
 	return { seedEvents };
 };

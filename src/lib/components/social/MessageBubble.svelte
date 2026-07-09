@@ -15,6 +15,7 @@ import Timestamp from "$lib/components/common/Timestamp.svelte";
 import ZapPillRow from "./ZapPillRow.svelte";
 import { Loader2 } from "lucide-svelte";
 import { hexToColor, stringToColor, getProfileTextColor, rgbToCssString, } from "$lib/utils/color.js";
+import { isRealProfileName } from "$lib/utils/npub-display.js";
 let { pictureUrl = null, name = "", pubkey = null, timestamp = null, profileUrl = "", className = "", loading = false, pending = false, light = false, outgoing = false, version = "", children, headerActions, actionRail,
     /**
      * Zaps received on this comment, displayed as a horizontally-scrolling
@@ -33,6 +34,8 @@ function formatNpubDisplay(npubStr) {
 const displayName = $derived(
     name?.trim() ? name : (pubkey ? formatNpubDisplay(nip19.npubEncode(pubkey)) : "")
 );
+/** ProfilePic `name` only for real kind:0 names — npub labels use the user icon. */
+const profilePicName = $derived(isRealProfileName(name) ? String(name).trim() : null);
 let isDarkMode = $state(true);
 onMount(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -60,10 +63,10 @@ const nameColorStyle = $derived(rgbToCssString(textColor));
     <div class="profile-column">
       {#if profileUrl}
         <a href={profileUrl} class="profile-link">
-          <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
+          <ProfilePic {pictureUrl} name={profilePicName} {pubkey} {loading} size="smMd" />
         </a>
       {:else}
-        <ProfilePic {pictureUrl} {name} {pubkey} {loading} size="smMd" />
+        <ProfilePic {pictureUrl} name={profilePicName} {pubkey} {loading} size="smMd" />
       {/if}
     </div>
   {/if}

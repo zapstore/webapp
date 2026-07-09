@@ -1,23 +1,17 @@
-import { error } from '@sveltejs/kit';
-import { dev } from '$app/environment';
+import { error, redirect } from '@sveltejs/kit';
+import { blogPostEntries, loadBlogPost } from '$lib/blog/posts.js';
+
 export const prerender = true;
-// Eager load all blog posts at build time - instant lookups
-const modules = import.meta.glob('/src/content/blog/**/*.md', { eager: true });
+
+export function entries() {
+	return blogPostEntries();
+}
+
+/** @param {import('./$types').PageLoadEvent} event */
 export function load({ params }) {
-    const slug = params.slug;
-    // Support top-level files `slug.md` and folder `_index.md` at `slug/_index.md`
-    const targetTopLevel = `/src/content/blog/${slug}.md`;
-    const targetFolderIndex = `/src/content/blog/${slug}/_index.md`;
-    const post = modules[targetTopLevel] || modules[targetFolderIndex];
-    if (!post) {
-        throw error(404, `Blog post not found: ${slug}`);
-    }
-    // Block access to draft posts in production
-    if (!dev && post.metadata?.draft) {
-        throw error(404, `Blog post not found: ${slug}`);
-    }
-    return {
-        content: post.default,
-        metadata: post.metadata || {}
-    };
+	const slug = params.slug;
+	if (!loadBlogPost(slug)) {
+		throw error(404, `Blog post not found: ${slug}`);
+	}
+	throw redirect(308, `/community/blog/${slug}`);
 }

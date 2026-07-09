@@ -291,7 +291,7 @@ $effect(() => {
   }
 
   .divider {
-    height: 1.4px;
+    height: 1px;
     background-color: var(--white11);
     width: 100%;
   }

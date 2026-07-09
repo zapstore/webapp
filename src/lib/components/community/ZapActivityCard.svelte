@@ -79,7 +79,7 @@
 			if (pendingRootKind === 'forum') return 'Loading Publication…';
 			return 'Loading…';
 		}
-		return 'Zap';
+		return 'Tip';
 	});
 	const isStackRoot = $derived(
 		deletedRootKind === 'stack' || rootEvent?.kind === EVENT_KINDS.APP_STACK
@@ -319,7 +319,6 @@
 			<div class="bubble-action-rail-host">
 					<CommentBubbleActionRail
 						onReply={() => feedActions?.onReply?.()}
-						onZap={() => feedActions?.onZap?.()}
 						onOptions={() => feedActions?.onOptions?.()}
 					/>
 				</div>

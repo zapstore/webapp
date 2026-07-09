@@ -1,14 +1,14 @@
 <script lang="js">
 /**
  * Desktop-only horizontal action row beside comment/zap bubbles (hover to show).
+ * Reply + Options only — zaps are composed via the comment modal Tip button.
  */
-import { Reply, Zap, Options } from "$lib/components/icons";
+import { Reply, Options } from "$lib/components/icons";
 const white33 = "var(--white33)";
 let {
     onReply = () => {},
-    onZap = () => {},
     onOptions = () => {},
-    /** When true, only the Options button is shown (Reply and Zap are hidden). */
+    /** When true, only the Options button is shown (Reply is hidden). */
     optionsOnly = false,
 } = $props();
 function stop(e) {
@@ -20,9 +20,6 @@ function stop(e) {
   {#if !optionsOnly}
   <button type="button" class="rail-btn" aria-label="Reply" onclick={(e) => { stop(e); onReply(); }}>
     <Reply variant="outline" size={14} strokeWidth={1.4} color={white33} />
-  </button>
-  <button type="button" class="rail-btn" aria-label="Zap" onclick={(e) => { stop(e); onZap(); }}>
-    <Zap variant="fill" size={14} color={white33} />
   </button>
   {/if}
   <button type="button" class="rail-btn" aria-label="More options" onclick={(e) => { stop(e); onOptions(); }}>

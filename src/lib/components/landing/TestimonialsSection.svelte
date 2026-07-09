@@ -18,6 +18,9 @@
 	/** @type {TestimonialItem[]} */
 	export let testimonials = [];
 
+	/** True while client-side profile hydration is still in flight */
+	export let profilesLoading = false;
+
 	$: visibleTestimonials = testimonials;
 
 	/** @type {HTMLDivElement | undefined} */
@@ -269,6 +272,7 @@
 										name={getDisplayName(testimonial)}
 										pubkey={testimonial.pubkey}
 										size="md"
+										loading={profilesLoading && !getPictureUrl(testimonial)}
 									/>
 
 									<div class="flex-1 min-w-0 flex items-center justify-between gap-2">

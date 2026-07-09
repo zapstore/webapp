@@ -24,8 +24,9 @@ import {
 } from '$lib/config';
 
 const subId = (feature) => `${SUB_PREFIX}${feature}-${Math.floor(Math.random() * 1e9)}`;
-import { APPS_POLL_LIMIT, STACKS_POLL_LIMIT } from '$lib/constants';
+import { APPS_SUBSCRIPTION_LIMIT, STACKS_SUBSCRIPTION_LIMIT } from '$lib/constants';
 import { decodeNaddr } from '$lib/nostr/models.js';
+import { getCommentParentEventId } from '$lib/nostr/thread-discussion.js';
 import { db, putEvents, queryEvents, queryEvent } from '../storage/dexie.js';
 const ZAPSTORE_READ_RELAYS = [ZAPSTORE_RELAY];
 
@@ -129,6 +130,8 @@ let catalogRestartTimer = null;
 /** @type {ReturnType<typeof setTimeout> | null} */
 let inboxRestartTimer = null;
 let relayRecoveryInitialized = false;
+let relayRecoveryOnlineHandler = null;
+let relayRecoveryVisibilityHandler = null;
 
 const SUBSCRIPTION_RESTART_DEBOUNCE_MS = 500;
 
@@ -257,9 +260,9 @@ function openCatalogSubscriptions() {
 	const subParams = createPersistentSubCallbacks('Catalog live', handleCatalogSubUnexpectedClose);
 
 	// Separate subscriptions per filter (subscribeMany takes a single filter)
-	// Limits = POLL_LIMIT (3 × page size) — load-more handles deeper data
+	// Limits cap initial backfill — load-more handles deeper data.
 	activeSubscriptions.push(
-		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: APPS_POLL_LIMIT }, { ...subParams, id: subId('apps') })
+		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP], ...PLATFORM_FILTER, limit: APPS_SUBSCRIPTION_LIMIT }, { ...subParams, id: subId('apps') })
 	);
 	// Releases: needed for app detail pages + liveQuery reactivity
 	// since:now — live sub only needs future events; also raises relay specificity score to 3
@@ -268,7 +271,7 @@ function openCatalogSubscriptions() {
 	);
 	// Stacks
 	activeSubscriptions.push(
-		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER, limit: STACKS_POLL_LIMIT }, { ...subParams, id: subId('stacks') })
+		p.subscribeMany([ZAPSTORE_RELAY], { kinds: [EVENT_KINDS.APP_STACK], ...PLATFORM_FILTER, limit: STACKS_SUBSCRIPTION_LIMIT }, { ...subParams, id: subId('stacks') })
 	);
 	// NIP-09 deletions for apps and stacks — live updates only (past deletions handled by syncDeletions)
 	activeSubscriptions.push(
@@ -316,18 +319,20 @@ export function initRelayRecovery() {
 	if (typeof window === 'undefined' || relayRecoveryInitialized) return;
 	relayRecoveryInitialized = true;
 
-	window.addEventListener('online', () => {
+	relayRecoveryOnlineHandler = () => {
 		ensureLiveSubscriptions();
 		const pk = inboxLivePubkey;
 		if (pk) ensureUserInboxLiveUpdates(pk);
-	});
+	};
+	window.addEventListener('online', relayRecoveryOnlineHandler);
 
-	document.addEventListener('visibilitychange', () => {
+	relayRecoveryVisibilityHandler = () => {
 		if (document.visibilityState !== 'visible') return;
 		ensureLiveSubscriptions();
 		const pk = inboxLivePubkey;
 		if (pk) ensureUserInboxLiveUpdates(pk);
-	});
+	};
+	document.addEventListener('visibilitychange', relayRecoveryVisibilityHandler);
 }
 
 /** @type {Array<{ close: (reason?: string) => void }>} */
@@ -433,6 +438,11 @@ function openInboxSubscriptions(pubkey) {
  */
 export function startUserInboxLiveUpdates(pubkey) {
 	if (typeof window === 'undefined' || !pubkey) return;
+	if (typeof navigator !== 'undefined' && !navigator.onLine) {
+		inboxLivePubkey = pubkey;
+		inboxSubscribersNeedRestart = true;
+		return;
+	}
 	if (
 		inboxLivePubkey === pubkey &&
 		activeInboxSubscriptions.length > 0 &&
@@ -697,12 +707,13 @@ export function subscribeZapReceiptsForEventIds(eventIds, options = {}) {
  *
  * @param {string[]} relayUrls
  * @param {object | object[]} filter
- * @param {{ timeout?: number, signal?: AbortSignal }} options
+ * @param {{ timeout?: number, signal?: AbortSignal, feature?: string, immediateFlush?: boolean, onFinish?: ({ completed: boolean, events: import('nostr-tools').Event[] }) => void }} options
  * @returns {Promise<import('nostr-tools').Event[]>}
  */
 export async function fetchFromRelays(relayUrls, filter, options = {}) {
-	const { timeout = 5000, signal, feature = 'q', immediateFlush = false } = options;
+	const { timeout = 5000, signal, feature = 'q', immediateFlush = false, onFinish } = options;
 	if (signal?.aborted) return [];
+	if (typeof navigator !== 'undefined' && !navigator.onLine) return [];
 
 	const filterList = /** @type {object[]} */ (
 		Array.isArray(filter) &&
@@ -743,6 +754,8 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 			return persistChain;
 		};
 
+		let completedByEose = false;
+
 		const finish = async () => {
 			if (settled) return;
 			settled = true;
@@ -760,6 +773,7 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 					console.warn('[Zapstore] fetchFromRelays returned 0 events', { feature, filterList, relays: relayUrls });
 				}
 			}
+			onFinish?.({ completed: completedByEose, events });
 			resolve(events);
 		};
 
@@ -773,7 +787,12 @@ export async function fetchFromRelays(relayUrls, filter, options = {}) {
 				if (immediateFlush || pendingPersist.length >= STREAM_PERSIST_BATCH) void queuePersist();
 			},
 			oneose() {
-				if (!eoseTimer) eoseTimer = setTimeout(finish, EOSE_GRACE_MS);
+				if (!eoseTimer) {
+					eoseTimer = setTimeout(() => {
+						completedByEose = true;
+						finish();
+					}, EOSE_GRACE_MS);
+				}
 			},
 			onclose() {
 				if (!settled) finish();
@@ -829,7 +848,7 @@ export async function searchApps(relays, query, options = {}) {
 			try { sub?.close(); } catch { /* noop */ }
 			searchPool.close(relays);
 			if (events.length > 0) {
-				await putEvents(events).catch((err) =>
+				void putEvents(events).catch((err) =>
 					console.error('[Search] Failed to persist events:', err)
 				);
 			}
@@ -892,7 +911,7 @@ export async function searchForumComments(relays, query, options = {}) {
 			try { sub?.close(); } catch { /* noop */ }
 			searchPool.close(relays);
 			if (events.length > 0) {
-				await putEvents(events).catch((err) =>
+				void putEvents(events).catch((err) =>
 					console.error('[ForumCommentSearch] Failed to persist events:', err)
 				);
 			}
@@ -955,7 +974,7 @@ export async function searchForumPosts(relays, communityPubkeyHex, query, option
 			try { sub?.close(); } catch { /* noop */ }
 			searchPool.close(relays);
 			if (events.length > 0) {
-				await putEvents(events).catch((err) =>
+				void putEvents(events).catch((err) =>
 					console.error('[ForumSearch] Failed to persist events:', err)
 				);
 			}
@@ -1451,6 +1470,9 @@ export async function fetchKind9735MatchingRefs(relayUrls, spec, options = {}) {
 /** Cap merged publish list so NIP-65 lists cannot fan out unbounded. */
 const MAX_COMMENT_PUBLISH_RELAYS = 24;
 
+/** Bootstrap kind 10002 when missing locally — catalog + profile indexer only (no social fan-out). */
+const NIP65_BOOTSTRAP_RELAYS = [...new Set([ZAPSTORE_RELAY, ...PROFILE_FETCH_RELAYS])];
+
 /**
  * NIP-65 kind 10002: `r` tags with optional third field — skip `read`-only relays for publish.
  * @param {import('nostr-tools').Event | null | undefined} event
@@ -1499,20 +1521,73 @@ function parseNip65ReadRelayUrls(event) {
  * @param {string} pubkey - hex pubkey of the recipient
  * @returns {Promise<string[]>}
  */
+/**
+ * Kind 10002 for a pubkey — Dexie first, then {@link NIP65_BOOTSTRAP_RELAYS}. Persists on fetch.
+ * @param {string} pubkey
+ * @returns {Promise<import('nostr-tools').Event | null>}
+ */
+async function fetchRelayListEvent(pubkey) {
+	const pk = pubkey.trim().toLowerCase();
+	if (!/^[a-f0-9]{64}$/.test(pk)) return null;
+	let ev = await queryEvent({ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 });
+	if (!ev) {
+		const arr = await fetchFromRelays(
+			NIP65_BOOTSTRAP_RELAYS,
+			{ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 },
+			{ timeout: 4000, feature: 'nip65-relay-list' }
+		);
+		ev = arr[0];
+		if (ev) await putEvents([ev]).catch(() => {});
+	}
+	return ev ?? null;
+}
+
+/**
+ * NIP-65 write relays (outbox) for the signed-in user — kind 10002, then NIP-07 `getRelays()` when available.
+ * @param {string} signerPubkey
+ * @returns {Promise<string[]>}
+ */
+async function resolveSignerWriteRelayUrls(signerPubkey) {
+	if (!signerPubkey || typeof window === 'undefined') return [];
+	const ordered = [];
+	const seen = new Set();
+	/** @param {string} u */
+	function add(u) {
+		if (!u || typeof u !== 'string') return;
+		const n = u.trim();
+		if (!n || seen.has(n)) return;
+		seen.add(n);
+		ordered.push(n);
+	}
+
+	try {
+		const ev = await fetchRelayListEvent(signerPubkey);
+		if (ev) for (const u of parseNip65WriteRelayUrls(ev)) add(u);
+	} catch {
+		/* NIP-65 optional */
+	}
+
+	try {
+		const getRelays = globalThis.nostr?.getRelays;
+		if (typeof getRelays === 'function') {
+			const policy = await getRelays.call(globalThis.nostr);
+			if (policy && typeof policy === 'object') {
+				for (const [url, perms] of Object.entries(policy)) {
+					if (perms && typeof perms === 'object' && perms.write) add(url);
+				}
+			}
+		}
+	} catch {
+		/* extension may not implement getRelays */
+	}
+
+	return ordered;
+}
+
 export async function fetchRecipientInboxRelayUrls(pubkey) {
 	if (!pubkey || typeof window === 'undefined') return [];
 	try {
-		const pk = pubkey.trim().toLowerCase();
-		let ev = await queryEvent({ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 });
-		if (!ev) {
-			const arr = await fetchFromRelays(
-				[ZAPSTORE_RELAY],
-				{ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 },
-				{ timeout: 4000, feature: 'nip65-recipient-inbox' }
-			);
-			ev = arr[0];
-			if (ev) await putEvents([ev]).catch(() => {});
-		}
+		const ev = await fetchRelayListEvent(pubkey);
 		return parseNip65ReadRelayUrls(ev).slice(0, MAX_RECIPIENT_INBOX_RELAYS);
 	} catch {
 		return [];
@@ -1542,26 +1617,49 @@ async function buildCommentPublishRelayUrls(signerPubkey, relayExtras) {
 	for (const u of COMMENT_PUBLISH_RELAYS) add(u);
 	if (Array.isArray(relayExtras)) for (const u of relayExtras) add(u);
 
-	if (signerPubkey && typeof window !== 'undefined') {
-		try {
-			const pk = signerPubkey.trim().toLowerCase();
-			let ev = await queryEvent({ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 });
-			if (!ev) {
-				const arr = await fetchFromRelays(
-					[ZAPSTORE_RELAY],
-					{ kinds: [EVENT_KINDS.RELAY_LIST], authors: [pk], limit: 1 },
-					{ timeout: 4000, feature: 'nip65-comment-publish' }
-				);
-				ev = arr[0];
-				if (ev) await putEvents([ev]).catch(() => {});
-			}
-			if (ev) for (const u of parseNip65WriteRelayUrls(ev)) add(u);
-		} catch {
-			/* keep core publish targets */
-		}
-	}
+	const writeRelays = await resolveSignerWriteRelayUrls(signerPubkey);
+	for (const u of writeRelays) add(u);
 
 	return ordered.slice(0, MAX_COMMENT_PUBLISH_RELAYS);
+}
+
+/**
+ * Publish a signed catalog/social event: await Zapstore, persist to Dexie, then fan out to signer
+ * outbox (NIP-65 write) and optional recipient inbox without blocking the caller.
+ *
+ * @param {import('nostr-tools').Event} signed
+ * @param {{ relayExtras?: string[] | null, recipientPubkey?: string | null }} [options]
+ * @throws {Error} When Zapstore rejects the event
+ */
+async function publishSignedCatalogEvent(signed, options = {}) {
+	const { relayExtras = null, recipientPubkey = null } = options;
+	const p = getPool();
+	const [relayUrls, recipientInboxUrls] = await Promise.all([
+		buildCommentPublishRelayUrls(signed.pubkey, relayExtras),
+		recipientPubkey ? fetchRecipientInboxRelayUrls(recipientPubkey) : Promise.resolve([])
+	]);
+	const primarySet = new Set(COMMENT_PUBLISH_RELAYS);
+	let primaryRelays = relayUrls.filter((u) => primarySet.has(u));
+	if (primaryRelays.length === 0) primaryRelays = [...COMMENT_PUBLISH_RELAYS];
+	const secondaryRelays = relayUrls.filter((u) => !primarySet.has(u));
+
+	const publishResults = await Promise.allSettled(p.publish(primaryRelays, signed));
+	const zapstoreIdx = primaryRelays.indexOf(ZAPSTORE_RELAY);
+	const zapstoreResult = zapstoreIdx >= 0 ? publishResults[zapstoreIdx] : null;
+	if (zapstoreResult?.status === 'rejected') {
+		const reason = zapstoreResult.reason;
+		const msg = typeof reason === 'string' ? reason : reason?.message ?? 'unknown error';
+		throw new Error(`Zapstore relay rejected the event: ${msg}`);
+	}
+
+	await putEvents([signed]);
+
+	const allRelaysSet = new Set(relayUrls);
+	const inboxOnly = recipientInboxUrls.filter((u) => !allRelaysSet.has(u));
+	const allSecondary = [...secondaryRelays, ...inboxOnly];
+	if (allSecondary.length > 0) {
+		void Promise.allSettled(p.publish(allSecondary, signed)).catch(() => {});
+	}
 }
 
 /**
@@ -1964,34 +2062,16 @@ export async function publishComment(content, target, signEvent, emojiTags, pare
 	};
 
 	const signed = await signEvent(template);
-	const p = getPool();
-	const [relayUrls, recipientInboxUrls] = await Promise.all([
-		buildCommentPublishRelayUrls(signed.pubkey, relays),
-		fetchRecipientInboxRelayUrls(target.pubkey)
-	]);
-	const primarySet = new Set(COMMENT_PUBLISH_RELAYS);
-	let primaryRelays = relayUrls.filter((u) => primarySet.has(u));
-	if (primaryRelays.length === 0) primaryRelays = [...COMMENT_PUBLISH_RELAYS];
-	const secondaryRelays = relayUrls.filter((u) => !primarySet.has(u));
-
-	// Await catalog relay — spinner clears here; secondary relays are best-effort.
-	const publishResults = await Promise.allSettled(p.publish(primaryRelays, signed));
-	// Only surface an error if Zapstore specifically rejected — other relay failures are silent.
-	const zapstoreIdx = primaryRelays.indexOf(ZAPSTORE_RELAY);
-	const zapstoreResult = zapstoreIdx >= 0 ? publishResults[zapstoreIdx] : null;
-	if (zapstoreResult?.status === 'rejected') {
-		const reason = zapstoreResult.reason;
-		const msg = typeof reason === 'string' ? reason : reason?.message ?? 'unknown error';
-		throw new Error(`Zapstore relay rejected the comment: ${msg}`);
-	}
-
-	await putEvents([signed]);
-
-	const allRelaysSet = new Set(relayUrls);
-	const inboxOnly = recipientInboxUrls.filter((u) => !allRelaysSet.has(u));
-	const allSecondary = [...secondaryRelays, ...inboxOnly];
-	if (allSecondary.length > 0) {
-		void Promise.allSettled(p.publish(allSecondary, signed)).catch(() => {});
+	try {
+		await publishSignedCatalogEvent(signed, {
+			relayExtras: relays,
+			recipientPubkey: target.pubkey
+		});
+	} catch (err) {
+		if (err instanceof Error && err.message.includes('Zapstore relay rejected the event')) {
+			throw new Error(err.message.replace('the event', 'the comment'));
+		}
+		throw err;
 	}
 
 	return signed;
@@ -2195,14 +2275,7 @@ export async function publishDeletionRequest(signEvent, opts) {
 	};
 	const signed = await signEvent(template);
 	await publishToRelays(relayUrls, signed);
-	// Don't store the kind 5 in Dexie — only the relay needs it. Removing the target id
-	// from local cache is what reactively updates the UI; keeping the deletion request
-	// would just bloat IndexedDB.
-	try {
-		await db.events.delete(id);
-	} catch (dexieErr) {
-		console.error('[publishDeletionRequest] Dexie delete failed:', dexieErr);
-	}
+	await putEvents([signed]);
 	return signed;
 }
 
@@ -2262,8 +2335,7 @@ export async function publishStack(name, description, apps, signEvent, labels = 
 	};
 
 	const signed = await signEvent(template);
-	const p = getPool();
-	await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
+	await publishToRelays(DEFAULT_CATALOG_RELAYS, signed);
 	await putEvents([signed]);
 
 	return signed;
@@ -2330,14 +2402,7 @@ export async function updateStackApps(stackEvent, app, action, signEvent) {
 	}
 	if (!signed?.id) throw new Error('Signing failed - no valid event returned');
 
-	const p = getPool();
-	try {
-		const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-		const failed = results.filter(r => r.status === 'rejected');
-		if (failed.length > 0) console.warn('[updateStackApps] some publishes failed:', failed.map(f => f.reason));
-	} catch (pubErr) {
-		console.error('[updateStackApps] publish failed:', pubErr);
-	}
+	await publishToRelays(DEFAULT_CATALOG_RELAYS, signed);
 
 	try {
 		await putEvents([signed]);
@@ -2414,14 +2479,7 @@ export async function updateStack(stackEvent, newName, newDescription, newApps, 
 	}
 	if (!signed?.id) throw new Error('Signing failed - no valid event returned');
 
-	const p = getPool();
-	try {
-		const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-		const failed = results.filter(r => r.status === 'rejected');
-		if (failed.length > 0) console.warn('[updateStack] some publishes failed:', failed.map(f => f.reason));
-	} catch (pubErr) {
-		console.error('[updateStack] publish failed:', pubErr);
-	}
+	await publishToRelays(DEFAULT_CATALOG_RELAYS, signed);
 
 	try {
 		await putEvents([signed]);
@@ -2508,14 +2566,7 @@ export async function updateAppMetadata(appEvent, updates, signEvent) {
 	}
 	if (!signed?.id) throw new Error('Signing failed - no valid event returned');
 
-	const p = getPool();
-	try {
-		const results = await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-		const failed = results.filter((r) => r.status === 'rejected');
-		if (failed.length > 0) console.warn('[updateAppMetadata] some publishes failed:', failed.map((f) => f.reason));
-	} catch (pubErr) {
-		console.error('[updateAppMetadata] publish failed:', pubErr);
-	}
+	await publishToRelays(DEFAULT_CATALOG_RELAYS, signed);
 
 	try {
 		await putEvents([signed]);
@@ -2558,18 +2609,8 @@ export async function deleteStack(stackEvent, signEvent) {
 	}
 	if (!signed?.id) throw new Error('Signing failed - no valid event returned');
 
-	const p = getPool();
-	try {
-		await Promise.allSettled(p.publish(DEFAULT_CATALOG_RELAYS, signed));
-	} catch (pubErr) {
-		console.error('[deleteStack] publish failed:', pubErr);
-	}
-
-	try {
-		await db.events.delete(stackEvent.id);
-	} catch (dexieErr) {
-		console.error('[deleteStack] Dexie delete failed:', dexieErr);
-	}
+	await publishToRelays(DEFAULT_CATALOG_RELAYS, signed);
+	await putEvents([signed]);
 
 	return signed;
 }
@@ -2578,9 +2619,8 @@ export async function deleteStack(stackEvent, signEvent) {
  * Parse a comment event.
  */
 export function parseComment(event) {
-	const eTags = event.tags.filter((t) => (t[0] === 'e' || t[0] === 'E') && !!t[1]);
-	const replyTag = eTags.find((t) => t[3] === 'reply');
-	const parentId = (replyTag?.[1] ?? eTags[eTags.length - 1]?.[1]) ?? null;
+	// NIP-22: lowercase `e` is the immediate parent; uppercase `E` is the thread root (not the parent).
+	const parentId = getCommentParentEventId(event);
 
 	const emojiTags = [];
 	for (const tag of event.tags) {
@@ -2737,6 +2777,9 @@ export function parseZapFromCommentWrapper(event) {
  *   • `['z', <zapReceiptId>, ZAPSTORE_RELAY, <amountSats>, 'sats']`
  *   • `emoji` tags propagated from the original zap-request
  *
+ * **Publish targets:** Same as {@link publishComment} — catalog relay awaited, signer outbox and
+ * recipient inbox ({@link root} pubkey) published in the background.
+ *
  * @param {{
  *   zapReceiptId: string,
  *   amountSats: number,
@@ -2825,13 +2868,16 @@ export async function publishZapCommentWrapper(params, signEvent) {
 	const signed = await signEvent(template);
 	if (!signed?.id) throw new Error('Failed to sign zap wrapper comment');
 
-	const targetRelays =
-		Array.isArray(relays) && relays.length > 0 ? relays : [...COMMENT_PUBLISH_RELAYS];
+	// Await Zapstore only; outbox + recipient inbox are best-effort (same as publishComment).
+	try {
+		await publishSignedCatalogEvent(signed, {
+			relayExtras: relays,
+			recipientPubkey: root.pubkey
+		});
+	} catch (err) {
+		console.warn('[zap] z-wrapper Zapstore publish failed:', err);
+	}
 
-	const p = getPool();
-	// Best-effort; never block the UI on redundant relay targets.
-	void Promise.allSettled(p.publish(targetRelays, signed)).catch(() => {});
-	await putEvents([signed]);
 	return signed;
 }
 
@@ -2864,8 +2910,17 @@ export async function syncDeletions(relayUrls) {
 	});
 	if (since !== undefined) filter.since = since;
 
-	await fetchFromRelays(relayUrls, filter, { timeout: 5000, feature: 'deletions' });
-	localStorage.setItem(DELETION_CHECK_KEY, String(now));
+	let completed = false;
+	await fetchFromRelays(relayUrls, filter, {
+		timeout: 5000,
+		feature: 'deletions',
+		onFinish(result) {
+			completed = !!result.completed;
+		}
+	});
+	if (completed) {
+		localStorage.setItem(DELETION_CHECK_KEY, String(now));
+	}
 }
 
 /**
@@ -2873,6 +2928,14 @@ export async function syncDeletions(relayUrls) {
  */
 export function cleanup() {
 	stopLiveSubscriptions();
+	if (typeof window !== 'undefined' && relayRecoveryOnlineHandler) {
+		window.removeEventListener('online', relayRecoveryOnlineHandler);
+		relayRecoveryOnlineHandler = null;
+	}
+	if (typeof document !== 'undefined' && relayRecoveryVisibilityHandler) {
+		document.removeEventListener('visibilitychange', relayRecoveryVisibilityHandler);
+		relayRecoveryVisibilityHandler = null;
+	}
 	if (pool) {
 		pool.close([...new Set([ZAPSTORE_RELAY, VERTEXLAB_RELAY])]);
 		pool = null;

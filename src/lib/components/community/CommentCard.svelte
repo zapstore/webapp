@@ -3,7 +3,6 @@
  * CommentCard — Activity feed card for kind:1111 comments.
  * Same layout as chateau: emoji badge + root label, avatar, bubble with optional quoted reply.
  */
-import { nip19 } from 'nostr-tools';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import AppPic from '$lib/components/common/AppPic.svelte';
 import Timestamp from '$lib/components/common/Timestamp.svelte';
@@ -18,6 +17,7 @@ import { EVENT_KINDS } from '$lib/config.js';
 import { getEventOneliner } from '$lib/nostr/models.js';
 import { hexToColor, getProfileTextColor, rgbToCssString } from '$lib/utils/color.js';
 import { onMount } from 'svelte';
+import { profileDisplayLabel, profileNameForPic } from '$lib/utils/npub-display.js';
 
 let {
 	/** @type {import('nostr-tools').NostrEvent} */
@@ -124,26 +124,11 @@ const mediaUrls = $derived(
 	(event?.tags ?? []).filter((t) => t[0] === 'media' && t[1]).map((t) => t[1])
 );
 
-function formatNpub(pk) {
-	if (!pk) return '';
-	try {
-		const enc = nip19.npubEncode(pk);
-		return `npub1${enc.slice(5, 8)}…${enc.slice(-6)}`;
-	} catch {
-		return pk.slice(0, 8) + '…';
-	}
-}
-
-const displayName = $derived(
-	authorProfile?.name?.trim() ||
-		authorProfile?.displayName?.trim() ||
-		(event?.pubkey ? formatNpub(event.pubkey) : '')
-);
+const displayName = $derived(profileDisplayLabel(authorProfile, event?.pubkey));
+const profilePicName = $derived(profileNameForPic(authorProfile));
 
 const parentDisplayName = $derived(
-	parentCommentAuthor?.name?.trim() ||
-		parentCommentAuthor?.displayName?.trim() ||
-		(parentComment?.pubkey ? formatNpub(parentComment.pubkey) : '')
+	profileDisplayLabel(parentCommentAuthor, parentComment?.pubkey)
 );
 
 const parentEmojiTags = $derived(
@@ -176,9 +161,7 @@ const parentZapAmountSats = $derived.by(() => {
 });
 
 const zapQuoteAuthorName = $derived(
-	parentZapperAuthor?.name?.trim() ||
-		parentZapperAuthor?.displayName?.trim() ||
-		(parentZapParsed?.senderPubkey ? formatNpub(parentZapParsed.senderPubkey) : 'Anonymous')
+	profileDisplayLabel(parentZapperAuthor, parentZapParsed?.senderPubkey)
 );
 
 let isDarkMode = $state(true);
@@ -239,7 +222,7 @@ const contentText = $derived(event?.content ?? '');
 				<a href={profileUrl} class="avatar-link">
 					<ProfilePic
 						pictureUrl={authorProfile?.picture ?? null}
-						name={authorProfile?.name ?? null}
+						name={profilePicName}
 						pubkey={event?.pubkey ?? null}
 						size="smMd"
 					/>
@@ -247,7 +230,7 @@ const contentText = $derived(event?.content ?? '');
 			{:else}
 				<ProfilePic
 					pictureUrl={authorProfile?.picture ?? null}
-					name={authorProfile?.name ?? null}
+					name={profilePicName}
 					pubkey={event?.pubkey ?? null}
 					size="smMd"
 				/>
@@ -313,7 +296,7 @@ const contentText = $derived(event?.content ?? '');
 							<div class="quote-wrap">
 								{#if parentComment && parentIsZWrapper}
 									<QuotedZapMessage
-										authorName={parentDisplayName || 'Anonymous'}
+										authorName={parentDisplayName}
 										authorPubkey={parentComment?.pubkey ?? null}
 										amountSats={parentZapAmountSats}
 										content={parentComment.content ?? ''}
@@ -323,7 +306,7 @@ const contentText = $derived(event?.content ?? '');
 									/>
 								{:else if parentComment}
 									<QuotedMessage
-										authorName={parentDisplayName || 'Anonymous'}
+										authorName={parentDisplayName}
 										authorPubkey={parentComment?.pubkey ?? null}
 										content={parentComment.content ?? ''}
 										emojiTags={parentEmojiTags}
@@ -359,7 +342,6 @@ const contentText = $derived(event?.content ?? '');
 				<div class="bubble-action-rail-host">
 					<CommentBubbleActionRail
 						onReply={() => feedActions?.onReply?.()}
-						onZap={() => feedActions?.onZap?.()}
 						onOptions={() => feedActions?.onOptions?.()}
 					/>
 				</div>
@@ -381,7 +363,7 @@ const contentText = $derived(event?.content ?? '');
 					<div class="quote-wrap">
 						{#if parentComment && parentIsZWrapper}
 							<QuotedZapMessage
-								authorName={parentDisplayName || 'Anonymous'}
+								authorName={parentDisplayName}
 								authorPubkey={parentComment?.pubkey ?? null}
 								amountSats={parentZapAmountSats}
 								content={parentComment.content ?? ''}
@@ -391,7 +373,7 @@ const contentText = $derived(event?.content ?? '');
 							/>
 						{:else if parentComment}
 							<QuotedMessage
-								authorName={parentDisplayName || 'Anonymous'}
+								authorName={parentDisplayName}
 								authorPubkey={parentComment?.pubkey ?? null}
 								content={parentComment.content ?? ''}
 								emojiTags={parentEmojiTags}

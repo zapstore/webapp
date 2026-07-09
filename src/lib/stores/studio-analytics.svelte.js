@@ -17,9 +17,9 @@
  *    `loadAppSeriesIfNeeded(pubkey, dTag)` fetches just that app's series and caches
  *    by `(pubkey, dTag)`. No effect on the signer's own series cache.
  *
- * Not responsible for: fetching apps (the layout still resolves `userApps`),
- * mutating Dexie (analytics live entirely in the relay), or zaps relay reads —
- * `loadZapAppData` continues to talk to relays, this store just memoises the result.
+ * Not responsible for: fetching apps (the layout still resolves `userApps`) or
+ * Nostr zap reads; `loadZapAppData` lives behind the purpleweb boundary and this
+ * store just memoises the result.
  */
 import {
 	MAX_TIMEFRAME_DAYS,
@@ -31,7 +31,7 @@ import {
 	loadImpressionAppData,
 	loadPlatformBreakdown
 } from '$lib/studio/analytics-http.js';
-import { loadZapAppData } from '$lib/studio/zap-series.js';
+import { loadZapAppData } from '$lib/purpleweb';
 
 /** @typedef {{ id: string, name: string, icon: string }} StudioApp */
 /** @typedef {{ id: string, name: string, icon: string, counts: number[] }} AppSeries */

@@ -196,7 +196,7 @@ export function createAppDetailQuery(getInput, options = {}) {
 			//    liveQuery emits, because we need the URL pointer or seed dTag.
 			const lookup = appLookup(appid, input.seedApp);
 			if (lookup.filter) {
-				hydrateOnce(`app:${appid}`, DEFAULT_CATALOG_RELAYS, lookup.filter, 'purpleweb-app-detail');
+				hydrateOnce(`app:${appid}`, DEFAULT_CATALOG_RELAYS, lookup.filter, 'app-detail');
 			}
 
 			// 2..4 require the parsed app — only fire after liveQuery resolves.
@@ -217,7 +217,7 @@ export function createAppDetailQuery(getInput, options = {}) {
 					{ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], limit: 50 },
 					{ kinds: [EVENT_KINDS.RELEASE], '#i': [app.dTag], limit: 50 }
 				],
-				'purpleweb-app-releases'
+				'releases'
 			);
 
 			const artifactIds = value?.latestRelease?.artifacts?.filter(isHexId) ?? [];

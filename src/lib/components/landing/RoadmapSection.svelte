@@ -3,56 +3,63 @@
 	import LandingSectionTitle from './LandingSectionTitle.svelte';
 	import TaskBox from '$lib/components/common/TaskBox.svelte';
 
-	// Sample tasks with different statuses and estimated delivery
+	// Roadmap tasks ordered by status (closed → inReview → inProgress → open)
 	const tasks = [
 		{
 			id: 1,
-			title: 'iOS App Release',
-			description: 'Launch Zapstore on iOS with full feature parity',
-			status: 'open',
-			eta: 'Q3 2026'
+			title: 'Android App 1.0',
+			description: 'Stable Android release',
+			status: 'closed',
+			eta: 'COMPLETED'
 		},
 		{
 			id: 2,
-			title: 'Developer Analytics',
-			description: 'Insights dashboard for app publishers',
-			status: 'inProgress',
-			eta: 'NEXT 3 MONTHS'
+			title: 'App Stacks',
+			description: 'Curated app lists',
+			status: 'closed',
+			eta: 'COMPLETED'
 		},
 		{
 			id: 3,
-			title: 'Zapstore Studio',
-			description: 'Tools for building and publishing apps on Zapstore',
-			status: 'inProgress',
-			eta: 'NEXT 3 MONTHS'
+			title: 'Developer Analytics',
+			description: 'Publisher insights',
+			status: 'closed',
+			eta: 'COMPLETED'
 		},
 		{
 			id: 4,
 			title: 'Web App',
-			description: 'Build out social features on web',
-			status: 'inReview',
-			eta: 'NEXT 2 MONTHS'
+			description: 'Social features on web',
+			status: 'closed',
+			eta: 'COMPLETED'
 		},
 		{
 			id: 5,
 			title: 'Decentralize Catalogs',
-			description: 'Let users browse and create any app catalog',
-			status: 'inReview',
-			eta: 'NEXT 2 MONTHS'
+			description: 'Open catalogs with communities',
+			status: 'inProgress',
+			eta: 'NEXT MONTH'
 		},
 		{
 			id: 6,
-			title: 'App Stacks',
-			description: 'Let users curate lists of apps',
-			status: 'closed',
-			eta: 'COMPLETED'
+			title: 'Mobile Revamp',
+			description: 'Social, onboarding, theming',
+			status: 'inReview',
+			eta: 'NEXT QUARTER'
 		},
 		{
 			id: 7,
-			title: 'Android App 1.0',
-			description: 'Finalize stable version of the mobile app on Android',
-			status: 'closed',
-			eta: 'COMPLETED'
+			title: 'PWAs',
+			description: 'Installable web apps',
+			status: 'open',
+			eta: 'Q3 2026'
+		},
+		{
+			id: 8,
+			title: 'iOS App',
+			description: 'Full iOS release',
+			status: 'open',
+			eta: 'Q3 2026'
 		}
 	];
 	/** @typedef {'closed'|'inReview'|'inProgress'|'open'} TaskStatus */
@@ -68,27 +75,42 @@
 
 	/** @type {HTMLDivElement | null} */
 	let scrollContainer = null;
-	let initialScrollSet = false;
+
+	/** @param {HTMLElement | null} container */
+	function setInitialScrollPosition(container) {
+		if (!container) return;
+
+		const isMobile = window.matchMedia('(max-width: 767px)').matches;
+		const headerTitle = container.closest('section')?.querySelector('.section-title');
+		const cards = container.querySelectorAll('.task-card');
+
+		let targetIndex = sortedTasks.findIndex((t) => t.status === 'inProgress');
+		if (targetIndex === -1) targetIndex = sortedTasks.findIndex((t) => t.status !== 'closed');
+		const targetCard = cards[targetIndex];
+		if (!headerTitle || !targetCard) return;
+
+		if (isMobile) {
+			const alignDelta =
+				/** @type {HTMLElement} */ (targetCard).getBoundingClientRect().left -
+				headerTitle.getBoundingClientRect().left;
+			container.scrollLeft = Math.max(0, container.scrollLeft + alignDelta);
+			return;
+		}
+
+		// Desktop: peek the last completed card on the left
+		const closedTasks = sortedTasks.filter((t) => t.status === 'closed').length;
+		if (closedTasks > 0) {
+			const cardWidth = 300;
+			const gap = 24;
+			container.scrollLeft = Math.max(0, (closedTasks - 1) * (cardWidth + gap) + cardWidth - 80);
+		}
+	}
 
 	onMount(() => {
-		// Set initial scroll position to show last done task partially visible on the left
-		if (scrollContainer && !initialScrollSet) {
-			// Small delay to ensure layout is complete
-			setTimeout(() => {
-				// Calculate how much to scroll to show part of the last done task
-				const closedTasks = tasks.filter((t) => t.status === 'closed').length;
-				if (closedTasks > 0) {
-					// Scroll to show most of the first non-closed task, with closed partially visible
-					const cardWidth = 320; // Approximate card width
-					const gap = 24;
-					// Show about 80px of the last closed task
-					const scrollTo = Math.max(0, (closedTasks - 1) * (cardWidth + gap) + cardWidth - 80);
-					const container = scrollContainer;
-					if (container) container.scrollLeft = scrollTo;
-				}
-				initialScrollSet = true;
-			}, 100);
-		}
+		if (!scrollContainer) return;
+
+		const run = () => setInitialScrollPosition(scrollContainer);
+		requestAnimationFrame(() => requestAnimationFrame(run));
 	});
 </script>
 
@@ -115,7 +137,7 @@
 		<!-- Scrolling container -->
 		<div
 			bind:this={scrollContainer}
-			class="flex gap-6 px-4 md:px-32 py-2 overflow-x-auto scrollbar-hide relative z-10"
+			class="flex gap-6 px-6 md:px-32 py-2 overflow-x-auto scrollbar-hide relative z-10"
 		>
 			{#each sortedTasks as task (task.id)}
 				<div class="task-card flex-shrink-0">

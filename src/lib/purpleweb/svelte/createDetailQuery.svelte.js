@@ -136,7 +136,8 @@ export function createDetailQuery(config) {
 		// Initial hydration runs before liveQuery emits — kicks off the
 		// "fetch what we don't have yet" path keyed on input alone.
 		try {
-			hydrate?.({ input, value: /** @type {any} */ (state), hydrateOnce });
+			const snapshot = untrack(() => ({ ...state }));
+			hydrate?.({ input, value: /** @type {any} */ (snapshot), hydrateOnce });
 		} catch (err) {
 			console.error(`[${featurePrefix}] initial hydrate failed:`, err);
 		}

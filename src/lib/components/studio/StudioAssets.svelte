@@ -137,7 +137,6 @@
 		flex: none;
 		min-height: auto;
 		overflow: visible;
-		padding: 0;
 	}
 
 	/* ── Top bar (non-scrolling, no bg needed — nothing scrolls behind it) ── */
@@ -182,7 +181,7 @@
 	/* ── Panel ────────────────────────────────────────────────────────────── */
 	.asset-panel {
 		background: var(--gray33);
-		border: 1.4px solid var(--shell-border);
+		border: 1px solid var(--shell-border);
 		border-radius: 16px;
 		overflow: hidden;
 	}
@@ -208,7 +207,7 @@
 
 	@media (min-width: 560px) {
 		.asset-cell-media {
-			border-right: 1.4px solid var(--shell-border);
+			border-right: 1px solid var(--shell-border);
 		}
 		.asset-cell-info {
 			flex: 1.618;
@@ -217,7 +216,7 @@
 
 	@media (max-width: 559px) {
 		.asset-cell-media {
-			border-bottom: 1.4px solid var(--shell-border);
+			border-bottom: 1px solid var(--shell-border);
 		}
 	}
 
@@ -283,15 +282,11 @@
 		font-size: 12px;
 	}
 
-	/* ── Code modal body — padding matches modal title-block horizontal inset */
 	.code-modal-body {
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		padding: 16px 16px 24px;
-	}
-
-	@media (min-width: 768px) {
-		.code-modal-body { padding: 16px 20px 28px; }
+		padding: 0 var(--comment-modal-inset) var(--comment-modal-bottom-inset);
+		box-sizing: border-box;
 	}
 </style>

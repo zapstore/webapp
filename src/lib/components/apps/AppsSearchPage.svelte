@@ -12,18 +12,20 @@
 	import { APP_SEARCH_HIT_SKELETON_VARIANT_COUNT } from '$lib/components/cards/app-search-hit-skeleton-presets.js';
 	import {
 		createAppsListingQuery,
+		createProfilesQuery,
 		createStacksListingQuery,
 		stackListingPreviewKey
 	} from '$lib/purpleweb';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
-	import { searchApps, fetchProfilesBatch } from '$lib/purpleweb';
-	import { ZAPSTORE_RELAY, ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
+	import { searchApps } from '$lib/purpleweb';
+	import { ZAPSTORE_RELAY, ZAPSTORE_COMMUNITY_PUBKEY, ZAPSTORE_APP_DTAG } from '$lib/config';
 	import { nip19 } from 'nostr-tools';
-	import { isZapstoreCommunityAuthorStack, parseApp, parseProfile, encodeStackNaddr } from '$lib/nostr/models';
+	import { isZapstoreCommunityAuthorStack, parseApp, encodeStackNaddr } from '$lib/nostr/models';
 	import { sortAppsRelevanceDeveloperFirst } from '$lib/utils/app-search.js';
 	import { isOnline } from '$lib/stores/online.svelte.js';
 	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 	import { DISCOVER_APPS_INITIAL, DISCOVER_STACKS_INITIAL } from '$lib/constants';
+	import { pinZapstoreAppFirst } from '$lib/utils/featured-apps.js';
 	import '$lib/styles/browse-grid.css';
 
 	const APPS_SEARCH_SKELETON_ROW_COUNT = APP_SEARCH_HIT_SKELETON_VARIANT_COUNT * 3;
@@ -46,10 +48,10 @@
 	const appsHasMore = $derived(appsListing.hasMore);
 	const appsLoadingMore = $derived(appsListing.loadingMore);
 
-	let sortDropdownOpen = $state(false);
-	let sortDropdownWrap = $state(/** @type {HTMLDivElement | null} */ (null));
+	const platformFilterLabel = 'Android';
+	let platformDropdownOpen = $state(false);
+	let platformDropdownWrap = $state(/** @type {HTMLDivElement | null} */ (null));
 	let searchParsedApps = $state(/** @type {ReturnType<typeof parseApp>[] | null} */ null);
-	let searchProfileByLc = $state(/** @type {Record<string, ReturnType<typeof parseProfile> | null>} */ ({}));
 	let searchLoading = $state(false);
 	let searchError = $state(/** @type {string|null} */ (null));
 	let lastSyncedUrlQ = $state('');
@@ -70,6 +72,15 @@
 	let resolvedDisplayStacks = $state(getCached('apps:resolvedStacks') ?? []);
 	let stacksSettled = $state((getCached('apps:resolvedStacks') ?? []).length > 0);
 	let resolvedStackKeys = $state('');
+	let resolvedDisplayStacksKey = $state('');
+	const stackCreatorPubkeys = $derived(
+		[
+			...new Set(
+				(stacksListing.items ?? []).map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk))
+			)
+		]
+	);
+	const stackCreatorProfiles = createProfilesQuery(() => stackCreatorPubkeys);
 
 	/** @type {{ scroll: (direction: number) => void } | null} */
 	let releasesCarousel = $state(null);
@@ -79,7 +90,31 @@
 	let stacksUi = $state({ top: 0, left: 0, right: 0, showLeft: false, showRight: false });
 
 	// appsHasMore / appsLoadingMore: see appsListing above (purpleweb — not legacy nostr store)
-	const apps = $derived((liveApps ?? []).slice(0, displayAppsLimit));
+	const pinnedLiveApps = $derived(pinZapstoreAppFirst(liveApps ?? []));
+	const zapstoreFeaturedApp = $derived(
+		pinnedLiveApps.find((a) => a.dTag === ZAPSTORE_APP_DTAG) ?? null
+	);
+	const appsWithoutZapstore = $derived(
+		pinnedLiveApps.filter((a) => a.dTag !== ZAPSTORE_APP_DTAG)
+	);
+	const reserveZapstoreSlot = $derived(
+		!zapstoreFeaturedApp && (pinnedLiveApps.length > 0 || appsListing.loading)
+	);
+	const appsForCarousel = $derived.by(() => {
+		/** @type {(import('$lib/nostr/models').App | null)[]} */
+		const merged = [];
+		if (zapstoreFeaturedApp) merged.push(zapstoreFeaturedApp);
+		else if (reserveZapstoreSlot) merged.push(null);
+		const others = appsWithoutZapstore.slice(
+			0,
+			Math.max(0, displayAppsLimit - merged.length)
+		);
+		merged.push(...others);
+		return merged;
+	});
+	const apps = $derived(
+		appsForCarousel.filter((/** @type {import('$lib/nostr/models').App | null} */ a) => a != null)
+	);
 	const communityLiveStacks = $derived(
 		(liveStacks ?? []).filter(({ stack }) => isZapstoreCommunityAuthorStack(stack))
 	);
@@ -87,7 +122,7 @@
 	const communityStacks = $derived(
 		resolvedDisplayStacks.filter((s) => s.pubkey === ZAPSTORE_COMMUNITY_PUBKEY)
 	);
-	const appColumns = $derived(getColumns(apps, APPS_PER_COLUMN));
+	const appColumns = $derived(getColumns(appsForCarousel, APPS_PER_COLUMN));
 	const stackColumns = $derived(getColumns(communityStacks, STACKS_PER_COLUMN));
 
 	const showSearchSkeleton = $derived(
@@ -162,21 +197,27 @@
 	});
 
 	$effect(() => {
+		if (!browser || rawStacks.length === 0) return;
+		void stackCreatorProfiles.profileMap;
+		resolveCreatorsForStacks(rawStacks);
+	});
+
+	$effect(() => {
 		if (!browser || showSearchResults) return;
-		sortDropdownOpen = false;
+		platformDropdownOpen = false;
 		const t = window.setTimeout(focusSearchInput, 50);
 		return () => window.clearTimeout(t);
 	});
 
 	$effect(() => {
-		if (showSearchResults) sortDropdownOpen = false;
+		if (showSearchResults) platformDropdownOpen = false;
 	});
 
 	$effect(() => {
-		if (!browser || !sortDropdownOpen || !sortDropdownWrap) return;
+		if (!browser || !platformDropdownOpen || !platformDropdownWrap) return;
 		function handleClick(/** @type {MouseEvent} */ e) {
-			if (sortDropdownWrap && !sortDropdownWrap.contains(/** @type {Node} */ (e.target))) {
-				sortDropdownOpen = false;
+			if (platformDropdownWrap && !platformDropdownWrap.contains(/** @type {Node} */ (e.target))) {
+				platformDropdownOpen = false;
 			}
 		}
 		document.addEventListener('click', handleClick, true);
@@ -188,6 +229,18 @@
 		const apps = searchParsedApps;
 		if (apps === null) return null;
 		return sortAppsRelevanceDeveloperFirst(apps);
+	});
+	const searchProfilePubkeys = $derived(
+		orderedApps ? [...new Set(orderedApps.map((app) => app.pubkey).filter(Boolean))] : []
+	);
+	const searchProfiles = createProfilesQuery(() => searchProfilePubkeys);
+	const searchProfileByLc = $derived.by(() => {
+		const out = /** @type {Record<string, unknown | null>} */ ({});
+		for (const pk of searchProfilePubkeys) {
+			out[String(pk).trim().toLowerCase()] =
+				searchProfiles.profiles[String(pk).trim().toLowerCase()] ?? null;
+		}
+		return out;
 	});
 
 	const resultRows = $derived.by(() => {
@@ -227,13 +280,11 @@
 		if (!q) {
 			searchLoading = false;
 			searchParsedApps = null;
-			searchProfileByLc = {};
 			return;
 		}
 
 		searchLoading = true;
 		searchParsedApps = null;
-		searchProfileByLc = {};
 
 		if (!isOnline()) {
 			searchLoading = false;
@@ -253,22 +304,11 @@
 					});
 					if (aborted || ac.signal.aborted) return;
 					const apps = events.map(parseApp);
-					const pubs = [...new Set(apps.map((a) => a.pubkey))];
-					const rawProfiles = await fetchProfilesBatch(pubs, { signal: ac.signal });
-					if (aborted || ac.signal.aborted) return;
-					const byLc = /** @type {Record<string, ReturnType<typeof parseProfile> | null>} */ ({});
-					for (const [pk, ev] of rawProfiles) {
-						byLc[String(pk).trim().toLowerCase()] = parseProfile(ev);
-					}
-					searchProfileByLc = Object.fromEntries(
-						pubs.map((pk) => [String(pk).trim().toLowerCase(), byLc[String(pk).trim().toLowerCase()] ?? null])
-					);
 					searchParsedApps = apps;
 				} catch {
 					if (!aborted && !ac.signal.aborted) {
 						searchError = 'Search failed. Try again.';
 						searchParsedApps = [];
-						searchProfileByLc = {};
 					}
 				} finally {
 					if (!aborted && !ac.signal.aborted) searchLoading = false;
@@ -351,59 +391,60 @@
 		return naddr ? `/stacks/${naddr}` : '#';
 	}
 
-	async function resolveCreatorsForStacks(stacksWithApps) {
-		if (!browser || stacksWithApps.length === 0) return;
-
-		// Sync preview apps immediately when Dexie backfill lands; profiles follow async.
-		resolvedDisplayStacks = stacksWithApps.map(({ stack, apps: stackApps }) => {
-			const prev = resolvedDisplayStacks.find(
-				(s) => s.pubkey === stack.pubkey && s.dTag === stack.dTag
-			);
+	function rowsForStacks(stacksWithApps) {
+		return stacksWithApps.map(({ stack, apps: stackApps }) => {
+			let creator = undefined;
+			if (isHexPubkey(stack.pubkey)) {
+				const profile = stackCreatorProfiles.profiles[stack.pubkey.toLowerCase()];
+				if (profile) {
+					creator = {
+						name: profile.displayName || profile.name,
+						picture: profile.picture,
+						pubkey: stack.pubkey,
+						npub: safeNpub(stack.pubkey)
+					};
+				}
+			}
 			return {
 				name: stack.title,
 				description: stack.description,
 				apps: stackApps,
-				creator: prev?.creator,
+				creator,
 				pubkey: stack.pubkey,
 				dTag: stack.dTag
 			};
 		});
-		setCached('apps:resolvedStacks', resolvedDisplayStacks);
+	}
 
-		try {
-			const creatorPubkeys = [
-				...new Set(stacksWithApps.map((s) => s.stack.pubkey).filter((pk) => isHexPubkey(pk)))
-			];
-			const creatorEvents = await fetchProfilesBatch(creatorPubkeys);
-			resolvedDisplayStacks = stacksWithApps.map(({ stack, apps: stackApps }) => {
-				let creator = undefined;
-				if (isHexPubkey(stack.pubkey)) {
-					const profileEvent = creatorEvents.get(stack.pubkey);
-					if (profileEvent) {
-						const profile = parseProfile(profileEvent);
-						creator = {
-							name: profile.displayName || profile.name,
-							picture: profile.picture,
-							pubkey: stack.pubkey,
-							npub: safeNpub(stack.pubkey)
-						};
-					}
-				}
-				return {
-					name: stack.title,
-					description: stack.description,
-					apps: stackApps,
-					creator,
-					pubkey: stack.pubkey,
-					dTag: stack.dTag
-				};
-			});
-			setCached('apps:resolvedStacks', resolvedDisplayStacks);
-		} catch (err) {
-			console.error('[AppsPage] Error resolving stack creators:', err);
-		} finally {
-			stacksSettled = true;
-		}
+	function resolvedStacksKey(rows) {
+		return rows
+			.map((row) => {
+				const appsKey = (row.apps ?? [])
+					.map((app) => app.id ?? app.dTag ?? app.name ?? '')
+					.join(',');
+				return [
+					row.pubkey ?? '',
+					row.dTag ?? '',
+					row.name ?? '',
+					row.description ?? '',
+					appsKey,
+					row.creator?.name ?? '',
+					row.creator?.picture ?? '',
+					row.creator?.npub ?? ''
+				].join(':');
+			})
+			.join('|');
+	}
+
+	function resolveCreatorsForStacks(stacksWithApps) {
+		if (!browser || stacksWithApps.length === 0) return;
+		const nextRows = rowsForStacks(stacksWithApps);
+		const nextKey = resolvedStacksKey(nextRows);
+		if (stacksSettled && nextKey === resolvedDisplayStacksKey) return;
+		resolvedDisplayStacksKey = nextKey;
+		resolvedDisplayStacks = nextRows;
+		setCached('apps:resolvedStacks', nextRows);
+		stacksSettled = true;
 	}
 
 	onMount(async () => {
@@ -452,34 +493,47 @@
 					class="apps-search-toolbar-filters apps-search-controls"
 					class:apps-search-controls--disabled={showSearchSkeleton}
 				>
-					<div class="apps-sort-wrap" bind:this={sortDropdownWrap}>
+					<div class="apps-platform-wrap" bind:this={platformDropdownWrap}>
 						<button
 							type="button"
-							class="forum-all-btn forum-latest-btn apps-sort-trigger"
+							class="forum-all-btn forum-latest-btn apps-platform-trigger"
 							onclick={() => {
-								sortDropdownOpen = !sortDropdownOpen;
+								platformDropdownOpen = !platformDropdownOpen;
 							}}
-							aria-label="Sort order"
-							aria-expanded={sortDropdownOpen}
+							aria-label="Platform filter"
+							aria-expanded={platformDropdownOpen}
 							disabled={showSearchSkeleton}
 						>
-							<span>Relevance</span>
+							<span>{platformFilterLabel}</span>
 							<span class="forum-all-btn-icon">
 								<ChevronDown variant="outline" size={14} strokeWidth={1.4} color="var(--white66)" />
 							</span>
 						</button>
-						{#if sortDropdownOpen}
-							<DropdownMenu class="apps-search-sort-dropdown">
+						{#if platformDropdownOpen}
+							<DropdownMenu class="apps-platform-dropdown">
 								<button
 									type="button"
 									class="dropdown-item dropdown-item--active"
 									role="menuitem"
 									onclick={() => {
-										sortDropdownOpen = false;
+										platformDropdownOpen = false;
 									}}
 								>
-									Relevance
+									Android
 								</button>
+								<div
+									class="dropdown-item dropdown-item--stacked apps-platform-option--inactive"
+									role="menuitem"
+									aria-disabled="true"
+								>
+									<div class="dropdown-item-body">
+										<span class="dropdown-item-title apps-platform-option-name">PWA</span>
+										<span class="apps-platform-coming-soon">
+											<span class="apps-platform-coming-soon-dot" aria-hidden="true"></span>
+											Coming Soon
+										</span>
+									</div>
+								</div>
 							</DropdownMenu>
 						{/if}
 					</div>
@@ -528,9 +582,9 @@
 							{/each}
 						</ul>
 					{:else if showSearchResults && searchParsedApps !== null}
-						<p class="apps-search-empty regular14">
-							No apps found for "{activeSearchQuery}".
-						</p>
+						<div class="apps-search-empty-state" role="status">
+							<p class="apps-search-empty-center-text">No apps found for "{activeSearchQuery}".</p>
+						</div>
 					{/if}
 				</div>
 
@@ -564,6 +618,7 @@
 					}}
 					{apps}
 					{appColumns}
+					reserveZapstoreSlot={reserveZapstoreSlot}
 					{stackColumns}
 					{stacksSettled}
 					{resolvedDisplayStacks}
@@ -590,7 +645,7 @@
 							class="screenshots-btn screenshots-btn-left"
 							style="left: {releasesUi.left}px"
 							onclick={() => releasesCarousel?.scroll(-1)}
-							aria-label="Scroll releases left"
+							aria-label="Scroll featured apps left"
 						>
 							<ChevronLeft size={14} strokeWidth={1.4} color="var(--white66)" />
 						</button>
@@ -601,7 +656,7 @@
 							class="screenshots-btn screenshots-btn-right"
 							style="right: {releasesUi.right}px"
 							onclick={() => releasesCarousel?.scroll(1)}
-							aria-label="Scroll releases right"
+							aria-label="Scroll featured apps right"
 						>
 							<ChevronRight size={14} strokeWidth={1.4} color="var(--white66)" />
 						</button>
@@ -799,7 +854,7 @@
 		pointer-events: none;
 	}
 
-	.apps-sort-wrap {
+	.apps-platform-wrap {
 		position: relative;
 		z-index: 2;
 		flex-shrink: 0;
@@ -843,12 +898,55 @@
 		padding-top: 2px;
 	}
 
-	:global(.apps-search-sort-dropdown) {
+	:global(.apps-platform-dropdown) {
 		position: absolute;
 		top: calc(100% + 6px);
 		right: 0;
 		min-width: 160px;
 		z-index: 50;
+	}
+
+	:global(.apps-platform-dropdown .apps-platform-option--inactive) {
+		cursor: default;
+		pointer-events: none;
+	}
+
+	:global(.apps-platform-dropdown .apps-platform-option--inactive:hover) {
+		background: none;
+	}
+
+	:global(.apps-platform-dropdown .apps-platform-option-name) {
+		color: var(--white66);
+		font-weight: 500;
+	}
+
+	.apps-platform-coming-soon {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: color-mix(in srgb, var(--goldColor) 60%, transparent);
+		line-height: 1.3;
+	}
+
+	.apps-platform-coming-soon-dot {
+		width: 5px;
+		height: 5px;
+		border-radius: 50%;
+		background: var(--goldColor);
+		box-shadow: 0 0 6px color-mix(in srgb, var(--goldColor) 70%, transparent);
+		animation: apps-platform-coming-soon-pulse 1.5s ease-in-out infinite;
+	}
+
+	@keyframes apps-platform-coming-soon-pulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.5;
+		}
 	}
 
 	/* Toolbar already has border-bottom — avoid double line with shared .browse-grid border-top */
@@ -883,6 +981,23 @@
 		color: var(--white66);
 		margin: 0;
 		padding: var(--apps-pad-x);
+	}
+
+	.apps-search-empty-state {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 200px;
+		padding: 24px var(--apps-pad-x);
+		background: transparent;
+	}
+
+	.apps-search-empty-center-text {
+		margin: 0;
+		font-size: 1.5rem;
+		font-weight: 600;
+		color: var(--white16);
+		text-align: center;
 	}
 
 	.apps-search-panel.hidden {

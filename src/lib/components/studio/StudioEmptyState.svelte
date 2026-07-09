@@ -139,7 +139,7 @@
 		gap: 0.9rem;
 		margin: 0 -1.25rem;
 		padding: 1.1rem 1.25rem 0.85rem;
-		border-bottom: 1.4px solid var(--shell-border);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	.qs-emoji {
@@ -162,7 +162,7 @@
 		gap: 0.75rem;
 		margin: 0 -1.25rem;
 		padding: 0.8rem 1.25rem;
-		border-bottom: 1.4px solid var(--shell-border);
+		border-bottom: 1px solid var(--shell-border);
 		text-decoration: none;
 		color: inherit;
 	}

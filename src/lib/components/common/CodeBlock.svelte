@@ -5,9 +5,20 @@
  */
 import { Copy, Check } from '$lib/components/icons';
 
-let { code = '', html = '', language = '', background = 'gray33' } = $props();
+let {
+	code = '',
+	html = '',
+	language = '',
+	background = 'gray33',
+	showCopy = true,
+	showLanguage = true
+} = $props();
 
 const blockBgClass = $derived(background === 'black33' ? 'code-block-black33' : 'code-block-gray33');
+
+	const hljsLangClass = $derived(
+		language ? `language-${language.toLowerCase()}` : ''
+	);
 
 let copied = $state(false);
 
@@ -22,26 +33,28 @@ async function handleCopy() {
 }
 </script>
 
-<div class="code-block {blockBgClass}">
-	<button type="button" class="code-copy-btn" onclick={handleCopy} aria-label="Copy code">
-		{#if copied}
-			<span class="check-icon">
-				<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
-			</span>
-		{:else}
-			<Copy variant="outline" size={16} color="var(--white66)" />
-		{/if}
-	</button>
+<div class="code-block {blockBgClass}" class:code-block--no-copy={!showCopy}>
+	{#if showCopy}
+		<button type="button" class="code-copy-btn" onclick={handleCopy} aria-label="Copy code">
+			{#if copied}
+				<span class="check-icon">
+					<Check variant="outline" size={14} strokeWidth={2.8} color="var(--blurpleLightColor)" />
+				</span>
+			{:else}
+				<Copy variant="outline" size={16} color="var(--white66)" />
+			{/if}
+		</button>
+	{/if}
 	<div class="code-inner">
-		{#if language}
+		{#if showLanguage && language}
 			<span class="eyebrow-label code-language">{language}</span>
 		{/if}
 		<div class="code-scroll">
 			{#if html}
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-				<pre><code>{@html html}</code></pre>
+				<pre><code class="hljs {hljsLangClass}">{@html html}</code></pre>
 			{:else}
-				<pre><code>{code}</code></pre>
+				<pre><code class="hljs {hljsLangClass}">{code}</code></pre>
 			{/if}
 		</div>
 	</div>
@@ -58,6 +71,11 @@ async function handleCopy() {
 		/* copy btn is 32px + 8px top + 8px bottom — guarantee it never clips */
 		min-height: 48px;
 		text-align: left;
+	}
+
+	.code-block--no-copy {
+		min-height: 0;
+		padding: 6px 10px;
 	}
 
 	.code-inner {

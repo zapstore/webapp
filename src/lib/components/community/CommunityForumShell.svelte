@@ -39,14 +39,13 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	import { getCached, setCached } from '$lib/stores/query-cache.js';
 	import { goto } from '$app/navigation';
 	import ForumPostCard from '$lib/components/ForumPostCard.svelte';
+	import { profileNameForPic } from '$lib/utils/npub-display.js';
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
-	import CommunityBottomBar from '$lib/components/community/CommunityBottomBar.svelte';
 	import ForumPostModal from '$lib/components/modals/ForumPostModal.svelte';
-	import ForumSearchModal from '$lib/components/modals/ForumSearchModal.svelte';
 	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 	import ForumFeedSkeleton from '$lib/components/community/ForumFeedSkeleton.svelte';
 	import Label from '$lib/components/common/Label.svelte';
-	import { ChevronDown } from '$lib/components/icons';
+	import { ChevronDown, Plus } from '$lib/components/icons';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 
@@ -81,7 +80,6 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	/** True after the first commentCountsQuery emission — drives ForumPostCard skeleton state. */
 	let commentCountsSettled = $state(false);
 	let addPostModalOpen = $state(false);
-	let searchModalOpen = $state(false);
 	let getStartedModalOpen = $state(false);
 	/** Shown when a post was saved locally but relay publish failed (so other browsers won't see it) */
 	let publishError = $state('');
@@ -481,6 +479,14 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	}).catch(() => {});
 	}
 
+	function openNewPost() {
+		if (isSignedIn) {
+			addPostModalOpen = true;
+		} else {
+			getStartedModalOpen = true;
+		}
+	}
+
 	onMount(() => {
 		if (!browser) return;
 		forumReady = true;
@@ -580,8 +586,10 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 				{@const postCommenters = commentersByPostId.get(post.id)}
 				<ForumPostCard
 					author={{
-						name: authorProfile?.displayName ?? authorProfile?.name,
+						name: profileNameForPic(authorProfile),
+						displayName: authorProfile?.displayName,
 						picture: authorProfile?.picture,
+						pubkey: post.pubkey,
 						npub: (() => {
 							try {
 								return nip19.npubEncode(post.pubkey);
@@ -615,15 +623,16 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	</div>
 </div>
 
-<CommunityBottomBar
-	showFeedBar={true}
-	selectedSection="forum"
-	modalOpen={addPostModalOpen || searchModalOpen}
-	{isSignedIn}
-	onAdd={() => { addPostModalOpen = true; }}
-	onSearch={() => { searchModalOpen = true; }}
-	onGetStarted={() => { getStartedModalOpen = true; }}
-/>
+{#if isForumFeedRoute}
+<div
+	class="forum-fab-wrap"
+	class:modal-open={addPostModalOpen}
+>
+	<button type="button" class="forum-fab" onclick={openNewPost} aria-label="New Post">
+		<Plus variant="outline" size={22} strokeWidth={2.4} color="var(--whiteEnforced)" />
+	</button>
+</div>
+{/if}
 
 <ForumPostModal
 	bind:isOpen={addPostModalOpen}
@@ -633,14 +642,6 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	onsubmit={handleForumPostSubmit}
 	onclose={() => {
 		addPostModalOpen = false;
-	}}
-/>
-
-<ForumSearchModal
-	bind:isOpen={searchModalOpen}
-	communityPubkeyHex={COMMUNITY_PUBKEY}
-	onclose={() => {
-		searchModalOpen = false;
 	}}
 />
 
@@ -768,7 +769,63 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		overflow-y: auto;
 		overflow-x: hidden;
 		-webkit-overflow-scrolling: touch;
-		padding-bottom: 100px;
+		padding-bottom: 72px;
+	}
+
+	.forum-fab-wrap {
+		position: fixed;
+		right: 16px;
+		bottom: max(16px, env(safe-area-inset-bottom, 0px));
+		z-index: 40;
+		pointer-events: none;
+		transition:
+			transform 0.25s cubic-bezier(0.33, 1, 0.68, 1),
+			opacity 0.2s ease;
+	}
+
+	.forum-fab-wrap.modal-open {
+		transform: translateY(calc(100% + 24px));
+		opacity: 0;
+	}
+
+	.forum-fab {
+		pointer-events: auto;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 48px;
+		height: 48px;
+		padding: 0;
+		border: none;
+		border-radius: 50%;
+		background: var(--gradient-blurple);
+		cursor: pointer;
+		color: var(--whiteEnforced);
+		box-shadow: 0 4px 24px color-mix(in srgb, var(--black) 50%, transparent);
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
+	}
+
+	.forum-fab:hover {
+		transform: scale(1.04);
+		box-shadow:
+			0 0 20px color-mix(in srgb, var(--blurpleColor) 40%, transparent),
+			0 10px 40px -20px color-mix(in srgb, var(--blurpleColor) 60%, transparent);
+	}
+
+	.forum-fab:active {
+		transform: scale(0.96);
+	}
+
+	@media (min-width: 768px) {
+		.forum-fab-wrap {
+			right: 24px;
+			bottom: max(24px, env(safe-area-inset-bottom, 0px));
+		}
+
+		.forum-fab {
+			width: 52px;
+			height: 52px;
+		}
 	}
 
 	:global(.forum-sort-dropdown) {

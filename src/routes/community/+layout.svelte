@@ -5,7 +5,7 @@
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
 	import { nip19 } from 'nostr-tools';
-	import { ChevronDown } from '$lib/components/icons';
+	import { ChevronDown, Search } from '$lib/components/icons';
 	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED } from '$lib/constants.js';
 	import {
 		ZAPSTORE_COMMUNITY_PUBKEY,
@@ -13,7 +13,7 @@
 		EVENT_KINDS,
 		FORUM_RELAY
 	} from '$lib/config.js';
-	import { fetchFromRelays, queryEvents, putEvents } from '$lib/purpleweb';
+	import { loadZapstoreCommunityEvent } from '$lib/purpleweb';
 	import CommunityForumShell from '$lib/components/community/CommunityForumShell.svelte';
 	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
@@ -46,20 +46,7 @@
 
 		(async () => {
 			try {
-				let [ev] = await queryEvents({
-					kinds: [EVENT_KINDS.COMMUNITY],
-					authors: [ZAPSTORE_COMMUNITY_PUBKEY],
-					limit: 1
-				});
-				if (!ev) {
-					const evs = await fetchFromRelays(
-						[FORUM_RELAY],
-						{ kinds: [EVENT_KINDS.COMMUNITY], authors: [ZAPSTORE_COMMUNITY_PUBKEY], limit: 1 },
-						{ timeout: 5000, feature: 'community-details' }
-					);
-					ev = evs[0] ?? null;
-					if (ev) await putEvents([ev]);
-				}
+				const ev = await loadZapstoreCommunityEvent();
 				if (!cancelled) communityEvent = ev ?? null;
 			} catch (e) {
 				console.warn('[Community] Details modal load failed:', e);
@@ -75,7 +62,7 @@
 
 	const FAQ_SECTION = {
 		id: 'faq',
-		label: 'FAQ',
+		label: 'User FAQ',
 		href: '/community/faq'
 	};
 
@@ -93,7 +80,18 @@
 					icon: '/images/emoji/activity.png',
 					href: '/community/activity'
 				},
-				FAQ_SECTION
+				{
+					id: 'blog',
+					label: 'Blog',
+					icon: '/images/emoji/article.png',
+					href: '/community/blog'
+				},
+				FAQ_SECTION,
+				{
+					id: 'search',
+					label: 'Search',
+					href: '/community/search'
+				}
 			]
 		: [
 				{
@@ -123,15 +121,19 @@
 	});
 
 	const activeSection = $derived(
-		path.startsWith('/community/forum')
-			? 'forum'
-			: path.startsWith('/community/support')
-				? 'support'
-				: path.startsWith('/community/activity')
-					? 'activity'
-					: path.startsWith('/community/faq')
-						? 'faq'
-						: defaultSectionId
+		path.startsWith('/community/search')
+			? 'search'
+			: path.startsWith('/community/faq')
+				? 'faq'
+				: path.startsWith('/community/blog')
+					? 'blog'
+					: path.startsWith('/community/forum')
+						? 'forum'
+						: path.startsWith('/community/support')
+							? 'support'
+							: path.startsWith('/community/activity')
+								? 'activity'
+								: defaultSectionId
 	);
 	const activeSectionLabel = $derived(
 		SECTIONS.find((s) => s.id === activeSection)?.label ??
@@ -162,13 +164,22 @@
 	const isForumDetailPage = $derived(
 		path.startsWith('/community/forum/') && path !== '/community/forum/'
 	);
+	/** Article reading — hide mobile section switcher like forum post detail. */
+	const isBlogDetailPage = $derived(
+		path.startsWith('/community/blog/') && path !== '/community/blog/'
+	);
+	const hideMobileSectionSwitcher = $derived(isForumDetailPage || isBlogDetailPage);
 </script>
 
 <svelte:head>
 	{#if path.startsWith('/community/support')}
 		<title>Support — Zapstore</title>
+	{:else if path.startsWith('/community/search')}
+		<title>Search — Zapstore Community</title>
 	{:else if path.startsWith('/community/faq')}
-		<title>FAQ — Zapstore</title>
+		<title>User FAQ — Zapstore Community</title>
+	{:else if path === '/community/blog' || path === '/community/blog/'}
+		<title>Blog — Zapstore Community</title>
 	{/if}
 </svelte:head>
 
@@ -179,7 +190,7 @@
 	<div class="dashboard">
 		<!-- Section switcher — mobile only: anchored dropdown below header, does not cover site nav -->
 		<!-- Hidden on forum post detail pages -->
-		{#if !isForumDetailPage}
+		{#if !hideMobileSectionSwitcher}
 		<div class="section-switcher">
 			<button
 				type="button"
@@ -205,10 +216,28 @@
 								class:active={activeSection === section.id}
 								onclick={closeSectionMenu}
 							>
-								{#if section.icon}
-									<img src={section.icon} alt="" class="section-item-icon" />
-								{/if}
-						{section.label}
+								<span
+									class="section-item-icon-wrap"
+									class:section-item-icon-wrap--faq={section.id === 'faq'}
+								>
+									{#if section.icon}
+										<img src={section.icon} alt="" class="section-item-icon" />
+									{:else if section.id === 'search'}
+										<Search
+											variant="outline"
+											size={18}
+											strokeWidth={1.6}
+											color={activeSection === section.id ? 'var(--white66)' : 'var(--white33)'}
+										/>
+									{:else if section.id === 'faq'}
+										<span
+											class="section-item-faq-mark"
+											class:active={activeSection === section.id}
+											aria-hidden="true"
+										>?</span>
+									{/if}
+								</span>
+								{section.label}
 							</a>
 						{/each}
 					</div>
@@ -233,13 +262,26 @@
 							class="nav-item"
 							class:active={activeSection === section.id}
 						>
-							<span class="icon-wrap" class:icon-emoji={!!section.icon}>
+							<span
+								class="icon-wrap"
+								class:icon-emoji={!!section.icon}
+								class:icon-wrap-faq={section.id === 'faq'}
+							>
 								{#if section.icon}
 									<img src={section.icon} alt="" class="section-icon" />
-								{:else}
-									<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-										<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-									</svg>
+								{:else if section.id === 'search'}
+									<Search
+										variant="outline"
+										size={18}
+										strokeWidth={1.6}
+										color={activeSection === section.id ? 'var(--white66)' : 'var(--white33)'}
+									/>
+								{:else if section.id === 'faq'}
+									<span
+										class="nav-faq-mark"
+										class:active={activeSection === section.id}
+										aria-hidden="true"
+									>?</span>
 								{/if}
 							</span>
 							<span class="nav-label">{section.label}</span>
@@ -570,6 +612,26 @@
 		justify-content: center;
 	}
 
+	.icon-wrap-faq {
+		overflow: visible;
+	}
+
+	.icon-wrap-faq .nav-faq-mark {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+		font-size: 1.3125rem;
+		font-weight: 700;
+		line-height: 1;
+		color: var(--blurpleColor66);
+	}
+
+	.icon-wrap-faq .nav-faq-mark.active {
+		color: var(--blurpleColor);
+	}
+
 	.icon-wrap.icon-emoji {
 		opacity: 0.66;
 	}
@@ -584,6 +646,19 @@
 		object-fit: contain;
 	}
 
+	.section-item-icon-wrap {
+		width: 18px;
+		height: 18px;
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.section-item-icon-wrap--faq {
+		overflow: visible;
+	}
+
 	.section-item-icon {
 		width: 18px;
 		height: 18px;
@@ -594,6 +669,22 @@
 
 	.section-item.active .section-item-icon {
 		opacity: 1;
+	}
+
+	.section-item-faq-mark {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+		font-size: 1.3125rem;
+		font-weight: 700;
+		line-height: 1;
+		color: var(--blurpleColor66);
+	}
+
+	.section-item-faq-mark.active {
+		color: var(--blurpleColor);
 	}
 
 	.migration-badge {

@@ -3,7 +3,14 @@
 	import DocsNavigation from '$lib/components/DocsNavigation.svelte';
 	import { ChevronDown } from '$lib/components/icons';
 
-	let { navigation = [], contentProse = true, children } = $props();
+	let {
+		navigation = [],
+		sidebarTitle = 'Docs',
+		showExtraNav = true,
+		contentProse = true,
+		contentFlush = false,
+		children
+	} = $props();
 
 	let mobileMenuOpen = $state(false);
 
@@ -19,7 +26,7 @@
 			if (item.match(currentPath)) return item.label;
 		}
 		const label = findNavTitle(navigation ?? [], currentPath);
-		return label ?? 'Documentation';
+		return label ?? sidebarTitle;
 	});
 
 	function findNavTitle(nodes, path) {
@@ -53,7 +60,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="dashboard-outer container mx-auto px-0 sm:px-6 lg:px-8">
-	<div class="dashboard">
+	<div class="dashboard docs-content">
 		<div class="mobile-nav">
 			<button
 				type="button"
@@ -70,25 +77,27 @@
 			{#if mobileMenuOpen}
 				<div class="mobile-nav-panel" role="dialog" aria-modal="true" aria-label="Documentation navigation">
 					<div class="mobile-nav-content">
-						<span class="eyebrow-label docs-eyebrow">Docs</span>
+						<h2 class="docs-sidebar-title docs-sidebar-title--mobile">{sidebarTitle}</h2>
 						{#if navigation && navigation.length > 0}
 							<DocsNavigation navigation={navigation} onNavigate={closeMobileMenu} />
 						{:else}
 							<p class="nav-loading">Loading navigation…</p>
 						{/if}
-						<div class="sidebar-more mobile-more">
-							<span class="eyebrow-label more-eyebrow">More</span>
-							{#each extraNavItems as item (item.href)}
-								<a
-									href={item.href}
-									class="extra-nav-link"
-									class:active={isExtraActive(item)}
-									onclick={closeMobileMenu}
-								>
-									{item.label}
-								</a>
-							{/each}
-						</div>
+						{#if showExtraNav}
+							<div class="sidebar-more mobile-more">
+								<span class="eyebrow-label more-eyebrow">More</span>
+								{#each extraNavItems as item (item.href)}
+									<a
+										href={item.href}
+										class="extra-nav-link"
+										class:active={isExtraActive(item)}
+										onclick={closeMobileMenu}
+									>
+										{item.label}
+									</a>
+								{/each}
+							</div>
+						{/if}
 					</div>
 					<button
 						type="button"
@@ -102,25 +111,31 @@
 
 		<aside class="sidebar">
 			<div class="sidebar-main">
-				<span class="eyebrow-label docs-eyebrow">Docs</span>
+				<h2 class="docs-sidebar-title">{sidebarTitle}</h2>
 				{#if navigation && navigation.length > 0}
 					<DocsNavigation navigation={navigation} />
 				{:else}
 					<p class="nav-loading">Loading navigation…</p>
 				{/if}
 			</div>
-			<div class="sidebar-more">
-				<span class="eyebrow-label more-eyebrow">More</span>
-				{#each extraNavItems as item (item.href)}
-					<a href={item.href} class="extra-nav-link" class:active={isExtraActive(item)}>
-						{item.label}
-					</a>
-				{/each}
-			</div>
+			{#if showExtraNav}
+				<div class="sidebar-more">
+					<span class="eyebrow-label more-eyebrow">More</span>
+					{#each extraNavItems as item (item.href)}
+						<a href={item.href} class="extra-nav-link" class:active={isExtraActive(item)}>
+							{item.label}
+						</a>
+					{/each}
+				</div>
+			{/if}
 		</aside>
 
 		<main class="content">
-			<div class="content-inner max-w-none" class:prose={contentProse}>
+			<div
+				class="content-inner docs-content max-w-none"
+				class:prose={contentProse}
+				class:content-inner-flush={contentFlush}
+			>
 				{@render children()}
 			</div>
 		</main>
@@ -267,7 +282,27 @@
 		overflow: hidden;
 	}
 
-	.docs-eyebrow,
+	.docs-sidebar-title {
+		font-size: var(--docs-page-title-size, 1.375rem);
+		font-weight: 650;
+		letter-spacing: -0.02em;
+		line-height: 1.2;
+		color: var(--white);
+		margin: 0 0 calc(0.5rem + 2px);
+		padding: 6px 10px 0;
+	}
+
+	.docs-sidebar-title--mobile {
+		display: block;
+		margin-bottom: calc(0.5rem + 2px);
+	}
+
+	@media (min-width: 768px) {
+		.docs-sidebar-title {
+			font-size: var(--docs-page-title-size-md, 1.5rem);
+		}
+	}
+
 	.more-eyebrow {
 		display: block;
 		padding: 0 10px;
@@ -336,17 +371,28 @@
 		}
 	}
 
+	.content-inner.docs-content {
+		--docs-pad-x: 14px;
+	}
+
+	@media (min-width: 768px) {
+		.content-inner.docs-content {
+			--docs-pad-x: 20px;
+		}
+	}
+
 	.content-inner {
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
-		padding: 1.5rem 1rem 2rem;
+		padding: var(--docs-content-pad-top, var(--docs-pad-x, 14px)) var(--docs-pad-x, 14px) 2rem;
 	}
 
-	@media (min-width: 768px) {
-		.content-inner {
-			padding: 2rem 2rem 3rem;
-		}
+	.content-inner.content-inner-flush {
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
 	}
 
 	.nav-loading {

@@ -3,4 +3,5 @@ export { default as OnboardingBuildingModal } from "./OnboardingBuildingModal.sv
 export { default as SpinKeyModal } from "./SpinKeyModal.svelte";
 export { default as CommentModal } from "./CommentModal.svelte";
 export { default as ZapModal } from "./ZapModal.svelte";
+export { default as TipAmountModal } from "./TipAmountModal.svelte";
 export { default as ZapSliderModal } from "./ZapSliderModal.svelte";

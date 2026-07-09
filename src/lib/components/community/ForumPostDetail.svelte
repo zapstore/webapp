@@ -5,7 +5,10 @@
  */
 import { browser } from '$app/environment';
 import { untrack } from 'svelte';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { nip19 } from 'nostr-tools';
+import { profileDisplayLabel, profileNameForPic } from '$lib/utils/npub-display.js';
+import { markProfilesResolved } from '$lib/utils/profile-loading.js';
 import {
 	queryEvents,
 	queryEvent,
@@ -34,18 +37,17 @@ import {
 import { getIsSignedIn, getCurrentPubkey, signEvent } from '$lib/stores/auth.svelte.js';
 import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
 import { createSearchEmojisFunction } from '$lib/services/emoji-search.js';
-import DetailHeader from '$lib/components/layout/DetailHeader.svelte';
+import CommunityArticleShell from '$lib/components/community/CommunityArticleShell.svelte';
 import SocialTabs from '$lib/components/social/SocialTabs.svelte';
-import BottomBar from '$lib/components/social/BottomBar.svelte';
+import DetailContentActions from '$lib/components/social/DetailContentActions.svelte';
 import EmptyState from '$lib/components/common/EmptyState.svelte';
 import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
 import MediaLightboxModal from '$lib/components/modals/MediaLightboxModal.svelte';
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 let {
 	post: postProp = null,
 	relays = [],
-	onBack = () => {},
+	onBack: _onBack = () => {},
 	getStartedModalOpen = $bindable(false),
 	/** When set (e.g. from Activity ?comment=id), SocialTabs opens the thread modal that contains this comment */
 	openCommentId = null
@@ -78,7 +80,24 @@ let zaps = $state([]);
 let zapsLoading = $state(false);
 let profiles = $state({});
 let profilesLoading = $state(false);
-let zapperProfiles = new SvelteMap();
+/** Pubkeys we already read from Dexie + relay (with or without kind:0). */
+const profileHydrationAttempted = new SvelteSet();
+/* eslint-disable svelte/no-unnecessary-state-wrap -- $state tracks wholesale SvelteMap replacements */
+let zapperProfiles = $state(new SvelteMap());
+const missingProfilePubkeys = $derived.by(() => {
+	const pks = [
+		...new Set(
+			[
+				...(post?.pubkey ? [post.pubkey] : []),
+				...comments.map((c) => c.pubkey),
+				...zaps.map((z) => z.senderPubkey)
+			]
+				.filter(Boolean)
+				.map((pk) => String(pk).toLowerCase())
+		)
+	];
+	return pks.filter((pk) => !profiles[pk]);
+});
 const otherZaps = $derived(
 	zaps.map((z) => {
 		const prof = z.senderPubkey ? zapperProfiles.get(z.senderPubkey) : undefined;
@@ -261,9 +280,8 @@ const communityPubkey = $derived((() => {
 		return d?.type === 'npub' ? d.data : '';
 	} catch { return ''; }
 })());
-const publisherName = $derived(
-	(authorProfile?.displayName ?? authorProfile?.name ?? '').trim() || 'Author'
-);
+const publisherName = $derived(profileDisplayLabel(authorProfile, post?.pubkey));
+const publisherNameForPic = $derived(profileNameForPic(authorProfile));
 const zapTarget = $derived(
 	post && communityPubkey
 		? {
@@ -275,6 +293,18 @@ const zapTarget = $derived(
 			}
 		: null
 );
+/** Comment composer target — always available when post exists (zap tip still needs communityPubkey on target when present). */
+const commentTarget = $derived(
+	post
+		? {
+				name: publisherName,
+				pubkey: post.pubkey,
+				id: post.id,
+				pictureUrl: authorProfile?.picture,
+				...(communityPubkey ? { communityPubkey } : {})
+			}
+		: null
+);
 const searchProfiles = $derived(
 	createSearchProfilesFunction(
 		() => getCurrentPubkey(),
@@ -282,11 +312,20 @@ const searchProfiles = $derived(
 	)
 );
 const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
-const catalogs = $derived(communityPubkey ? [{ name: 'Zapstore', pictureUrl: undefined, pubkey: communityPubkey }] : []);
 const postEmojiTags = $derived(
 	post?.emojiTags ?? (rawPostEvent?.tags ?? [])
 		.filter((t) => t[0] === 'emoji' && t[1] && t[2])
 		.map((t) => ({ shortcode: t[1], url: t[2] }))
+);
+const forumRootContext = $derived(
+	post
+		? {
+				label: (post.title ?? '').trim() || 'Forum Post',
+				iconUrl: postEmojiTags[0]?.url ?? null,
+				href: postNevent ? `/community/forum/${postNevent}` : null,
+				isForum: true
+			}
+		: null
 );
 
 function parseZapRows(events, postId) {
@@ -363,7 +402,13 @@ async function loadForumPostZapsFull(postId, postPubkey) {
 
 /** Kind 0 from IndexedDB — only authors still missing from `profiles`. */
 async function mergeProfilesFromDexie(pubkeys) {
-	const uniq = [...new Set(pubkeys.filter((pk) => typeof pk === 'string' && /^[0-9a-f]{64}$/i.test(pk)))];
+	const uniq = [
+		...new Set(
+			pubkeys
+				.filter((pk) => typeof pk === 'string' && /^[0-9a-f]{64}$/i.test(pk))
+				.map((pk) => pk.toLowerCase())
+		)
+	];
 	const need = uniq.filter((pk) => !profiles[pk]);
 	if (need.length === 0) return;
 	const CHUNK = 40;
@@ -373,10 +418,11 @@ async function mergeProfilesFromDexie(pubkeys) {
 		const chunk = need.slice(i, i + CHUNK);
 		const evs = await queryEvents({ kinds: [0], authors: chunk, limit: chunk.length });
 		for (const ev of evs) {
-			if (!ev?.pubkey || !ev.content) continue;
+			const key = ev.pubkey?.toLowerCase();
+			if (!key || !ev.content) continue;
 			try {
 				const j = JSON.parse(ev.content);
-				patch[ev.pubkey] = {
+				patch[key] = {
 					displayName: j.display_name ?? j.displayName ?? j.name,
 					name: j.name,
 					picture: j.picture
@@ -396,27 +442,37 @@ $effect(() => {
 	if (!pid) return;
 
 	const uniq = [
-		...new Set([...(ppk ? [ppk] : []), ...pars.map((c) => c.pubkey).filter(Boolean)])
+		...new Set(
+			[...(ppk ? [ppk] : []), ...pars.map((c) => c.pubkey).filter(Boolean)].map((pk) =>
+				String(pk).toLowerCase()
+			)
+		)
 	];
-	if (uniq.length === 0) return;
+	const pending = uniq.filter((pk) => !profileHydrationAttempted.has(pk));
+	if (pending.length === 0) return;
 
 	let cancelled = false;
 
 	(async () => {
 		profilesLoading = true;
 		try {
-			await mergeProfilesFromDexie(uniq);
+			await mergeProfilesFromDexie(pending);
 			if (cancelled) return;
-			const missing = uniq.filter((pk) => !profiles[pk]);
+			const missing = pending.filter((pk) => !profiles[pk]);
 			if (missing.length > 0) {
 				const batch = await fetchProfilesBatch(missing, { timeout: 3000 });
 				if (cancelled) return;
 				const next = { ...profiles };
 				for (const [pub, ev] of batch) {
+					const key = String(pub).toLowerCase();
 					if (ev?.content) {
 						try {
 							const j = JSON.parse(ev.content);
-							next[pub] = { displayName: j.display_name ?? j.name, name: j.name, picture: j.picture };
+							next[key] = {
+								displayName: j.display_name ?? j.name,
+								name: j.name,
+								picture: j.picture
+							};
 						} catch {
 							/* skip */
 						}
@@ -425,20 +481,34 @@ $effect(() => {
 				profiles = next;
 			}
 			if (cancelled) return;
-			if (ppk && !authorProfile) {
-				const ev = (await fetchProfilesBatch([ppk], { timeout: 3000 })).get(ppk);
+			const ppkLower = ppk ? String(ppk).toLowerCase() : '';
+			if (ppkLower && !authorProfile) {
+				const ev =
+					profiles[ppkLower] != null
+						? null
+						: (await fetchProfilesBatch([ppkLower], { timeout: 3000 })).get(ppkLower);
 				if (ev?.content) {
 					try {
 						authorProfile = parseProfile(ev);
 					} catch {
 						/* ignore */
 					}
+				} else if (profiles[ppkLower]) {
+					const p = profiles[ppkLower];
+					authorProfile = {
+						displayName: p.displayName ?? p.name,
+						name: p.name,
+						picture: p.picture,
+						pubkey: ppkLower
+					};
 				}
 			}
 		} catch (err) {
 			console.error('[ForumPostDetail] Profile merge failed:', err);
 		} finally {
-			if (!cancelled) profilesLoading = false;
+			for (const pk of pending) profileHydrationAttempted.add(pk);
+			profiles = markProfilesResolved(profiles, pending);
+			profilesLoading = false;
 		}
 	})();
 
@@ -768,47 +838,62 @@ function handleForumBottomBarZap(event) {
 	{:else if !post}
 		<EmptyState message="Post not found" minHeight={200} />
 	{:else}
-		<div class="detail-header-wrap">
-			<DetailHeader
-				publisherPic={authorProfile?.picture}
-				{publisherName}
-				publisherPubkey={post.pubkey}
-				publisherUrl={npub ? `/profile/${npub}` : '#'}
-				timestamp={post.createdAt}
-				{catalogs}
-				catalogText="Zapstore"
-				showPublisher={true}
-				showMenu={false}
-				showBackButton={true}
-				{onBack}
-				scrollThreshold={undefined}
-				compactPadding={true}
-				catalogDisplayOnly={true}
-				bind:getStartedModalOpen
-			/>
-		</div>
+		<CommunityArticleShell
+			publisherPic={authorProfile?.picture}
+			{publisherName}
+			{publisherNameForPic}
+			publisherPubkey={post.pubkey}
+			publisherUrl={npub ? `/profile/${npub}` : '#'}
+			timestamp={post.createdAt}
+		>
+			{#snippet actions()}
+				{#if zapTarget}
+					<DetailContentActions
+						contentType="forum"
+						target={zapTarget}
+						appName={post.title || ''}
+						contentSummary={post.content?.trim?.() || post.title || ''}
+						{publisherName}
+						{searchProfiles}
+						{searchEmojis}
+						{signEvent}
+						getCurrentPubkey={getCurrentPubkey}
+						onCommentSubmit={handleCommentSubmit}
+						{otherZaps}
+						onZapReceived={handleForumBottomBarZap}
+						onZapPending={handleForumZapPending}
+						onZapPendingClear={handleForumZapPendingClear}
+						onLabelPublished={() => {
+							labelFetchNonce += 1;
+						}}
+						onOwnContentDeleted={() => {
+							goto(resolve('/community/forum'));
+						}}
+					/>
+				{/if}
+			{/snippet}
 
-		<div class="content-scroll" data-main-scroll>
-			<div class="content-inner">
+			{#snippet content()}
 				<h1 class="post-title">{post.title}</h1>
-			<div class="description-container">
-				<ShortTextContent
-					content={post.content ?? ''}
-					emojiTags={postEmojiTags}
-					mediaUrls={post.mediaUrls ?? []}
-					onMediaClick={({ url: u, urls: list }) => {
-						const urls = list?.length ? list : (post.mediaUrls ?? []);
-						lightboxUrls = urls;
-						lightboxIndex = Math.max(0, urls.indexOf(u));
-						lightboxOpen = true;
-					}}
-					class="post-detail-body"
-				/>
-			</div>
+				<div class="description-container">
+					<ShortTextContent
+						content={post.content ?? ''}
+						emojiTags={postEmojiTags}
+						mediaUrls={post.mediaUrls ?? []}
+						onMediaClick={({ url: u, urls: list }) => {
+							const urls = list?.length ? list : (post.mediaUrls ?? []);
+							lightboxUrls = urls;
+							lightboxIndex = Math.max(0, urls.indexOf(u));
+							lightboxOpen = true;
+						}}
+						class="post-detail-body"
+					/>
+				</div>
 
 				<div class="social-tabs-wrap">
 					<SocialTabs
 						app={{}}
+						rootContext={forumRootContext}
 						includeReceiptZapsInCommentsFeed={false}
 						mainEventIds={[post.id]}
 						openCommentId={openCommentId}
@@ -831,6 +916,8 @@ function handleForumBottomBarZap(event) {
 						{zapperProfiles}
 						{profiles}
 						{profilesLoading}
+						{missingProfilePubkeys}
+						{profileHydrationAttempted}
 						pubkeyToNpub={(pk) => (pk ? nip19.npubEncode(pk) : '')}
 						{searchProfiles}
 						{searchEmojis}
@@ -839,40 +926,19 @@ function handleForumBottomBarZap(event) {
 						onZapPendingClear={handleForumZapPendingClear}
 						onZapReceived={handleForumBottomBarZap}
 						onGetStarted={() => (getStartedModalOpen = true)}
+						commentTarget={commentTarget}
+						commentRecipientName={publisherName}
+						contentType="forum"
+						{otherZaps}
+						isSignedIn={getIsSignedIn()}
+						getCurrentPubkey={getCurrentPubkey}
 						{labelEntries}
 						{labelsLoading}
 					/>
 				</div>
-			</div>
-		</div>
+			{/snippet}
+		</CommunityArticleShell>
 
-	{#if post && zapTarget}
-		<BottomBar
-			publisherName={publisherName}
-			contentType="forum"
-			{zapTarget}
-			{otherZaps}
-			isSignedIn={getIsSignedIn()}
-			isMember={true}
-			onJoinRequired={() => {}}
-			onGetStarted={() => { getStartedModalOpen = true; }}
-			getCurrentPubkey={getCurrentPubkey}
-			signEvent={signEvent}
-			{searchProfiles}
-			{searchEmojis}
-			oncommentSubmit={handleCommentSubmit}
-			onzapReceived={handleForumBottomBarZap}
-			onZapPending={handleForumZapPending}
-			onZapPendingClear={handleForumZapPendingClear}
-			onoptions={() => {}}
-			onLabelPublished={() => {
-				labelFetchNonce += 1;
-			}}
-			onOwnContentDeleted={() => {
-				goto(resolve('/community/forum'));
-			}}
-		/>
-	{/if}
 	{/if}
 </div>
 
@@ -886,36 +952,17 @@ function handleForumBottomBarZap(event) {
 		min-height: 0;
 		overflow: hidden;
 	}
-	.detail-header-wrap {
-		flex-shrink: 0;
-	}
-	.content-scroll {
-		--page-content-pad-x: 12px;
-		flex: 1;
-		min-height: 0;
-		overflow-y: auto;
-		padding-top: 16px;
-		padding-bottom: 120px;
-	}
-	@media (min-width: 768px) {
-		.content-scroll {
-			--page-content-pad-x: 16px;
-		}
-	}
-	.content-inner {
-		padding: 0 var(--page-content-pad-x) 16px;
-		max-width: 100%;
-	}
 	.post-title {
 		font-size: 1.5rem;
 		font-weight: 700;
-		padding-top: 0;
+		padding: 0 var(--page-content-pad-x, 12px);
 		margin: 0 0 6px;
 		line-height: 1.3;
 		color: var(--white);
 	}
 	.description-container {
 		margin-bottom: 0.5rem;
+		padding: 0 var(--page-content-pad-x, 12px);
 		font-size: 0.9375rem;
 		line-height: 1.6;
 		color: var(--white);
@@ -931,5 +978,6 @@ function handleForumBottomBarZap(event) {
 	}
 	.social-tabs-wrap {
 		margin-top: 16px;
+		padding: 0 var(--page-content-pad-x, 12px);
 	}
 </style>

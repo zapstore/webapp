@@ -1,22 +1,12 @@
 import { SITE_URL } from '$lib/config';
+import { listBlogPosts } from '$lib/blog/posts.js';
 
 export const prerender = true;
 
-const blogModules = import.meta.glob('/src/content/blog/**/*.md', { eager: true });
 const docsModules = import.meta.glob('/src/content/docs/**/*.md', { eager: true });
 
 function getBlogSlugs() {
-	const slugs = [];
-	for (const [path, mod] of Object.entries(blogModules)) {
-		const rel = path.replace('/src/content/blog/', '');
-		const parts = rel.split('/');
-		if (parts[0] && (parts[0].endsWith('.md') || parts.length === 1)) {
-			slugs.push({ slug: parts[0].replace('.md', ''), date: mod.metadata?.date });
-		} else if (parts.length === 2 && parts[1] === '_index.md') {
-			slugs.push({ slug: parts[0], date: mod.metadata?.date });
-		}
-	}
-	return slugs;
+	return listBlogPosts().map(({ slug, date }) => ({ slug, date }));
 }
 
 function getDocsSlugs() {
@@ -40,7 +30,7 @@ const STATIC_ROUTES = [
 	{ path: '/community/forum', priority: '0.7', changefreq: 'daily' },
 	{ path: '/community/support', priority: '0.5', changefreq: 'monthly' },
 	{ path: '/community/faq', priority: '0.7', changefreq: 'monthly' },
-	{ path: '/blog', priority: '0.7', changefreq: 'weekly' },
+	{ path: '/community/blog', priority: '0.7', changefreq: 'weekly' },
 	{ path: '/docs', priority: '0.8', changefreq: 'weekly' },
 	{ path: '/assets', priority: '0.5', changefreq: 'yearly' },
 	{ path: '/studio', priority: '0.6', changefreq: 'monthly' },
@@ -59,7 +49,7 @@ export function GET() {
 			lastmod: undefined
 		})),
 		...blogSlugs.map(({ slug, date }) => ({
-			loc: `${SITE_URL}/blog/${slug}`,
+			loc: `${SITE_URL}/community/blog/${slug}`,
 			changefreq: 'yearly',
 			priority: '0.6',
 			lastmod: date ? new Date(date).toISOString().split('T')[0] : undefined

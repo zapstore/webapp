@@ -1,0 +1,27 @@
+/* Shared pricing page typography — keep to title (18/20 semibold) + body (14 regular). */
+.pricing-text-title {
+	font-size: 18px;
+	font-weight: 600;
+	line-height: 1.65;
+	color: var(--white);
+}
+
+@media (min-width: 768px) {
+	.pricing-text-title {
+		font-size: 20px;
+	}
+}
+
+.pricing-text-body {
+	font-size: 14px;
+	font-weight: 400;
+	line-height: 1.65;
+	color: var(--white66);
+}
+
+.pricing-tier-name--pro {
+	background: var(--gradient-blurple-light);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}

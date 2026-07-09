@@ -10,21 +10,20 @@ import { startProfileSearchBackground } from '$lib/services/profile-search';
 import {
 	startLiveSubscriptions,
 	stopLiveSubscriptions,
-	ensureLiveSubscriptions,
 	stopUserInboxLiveUpdates,
 	ensureUserInboxLiveUpdates,
 	syncDeletions,
 	installZapstoreDebugHooks,
 	evictOldEvents
 } from '$lib/purpleweb';
-import { ZAPSTORE_RELAY } from '$lib/config';
-import { IDB_NAME } from '$lib/config';
+import { ZAPSTORE_RELAY, IDB_NAME, PRICING_ENABLED } from '$lib/config';
 import { setBackGoesHomeIfLandedFromOutside, clearBackGoesHome } from '$lib/utils/back.js';
 import { getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 import { isOnline } from '$lib/stores/online.svelte.js';
 import SiteHeader from '$lib/components/layout/SiteHeader.svelte';
 import Footer from '$lib/components/layout/Footer.svelte';
 import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
+import CommentShortcutListener from '$lib/keyboard/CommentShortcutListener.svelte';
 import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
 import '../app.css';
 let { children } = $props();
@@ -41,10 +40,10 @@ const appOnline = $derived(browser && isOnline());
 $effect(() => {
 	if (!browser) return;
 	if (!appOnline) {
-		stopUserInboxLiveUpdates();
+		stopLiveSubscriptions();
 		return;
 	}
-	ensureLiveSubscriptions();
+	startLiveSubscriptions();
 	const pk = signedInPubkey;
 	if (pk) ensureUserInboxLiveUpdates(pk);
 	return () => stopUserInboxLiveUpdates();
@@ -55,10 +54,10 @@ let showFooter = $derived(
 		path === '/apps' ||
 		path === '/developers' ||
 		path === '/enterprise' ||
+		(PRICING_ENABLED && path === '/pricing') ||
 		path === '/studio' ||
 		path.startsWith('/studio/') ||
-		path === '/blog' ||
-		path.startsWith('/blog/')) &&
+		path.startsWith('/community/blog')) &&
 		!showingStudioDashboard &&
 		!isAppsPage
 );
@@ -71,14 +70,14 @@ onMount(() => {
         void (async () => {
             await restoreNostrConnectSession();
             if (cancelled) return;
-            startLiveSubscriptions();
+            if (isOnline()) startLiveSubscriptions();
             installZapstoreDebugHooks();
             if (import.meta.env.DEV) {
                 console.info(
                     '[Zapstore] Nostr client started. For relay/Dexie logs: localStorage.setItem("zapstore_debug","1"); location.reload() — then check [Zapstore] lines and globalThis.__zapstore'
                 );
             }
-            syncDeletions([ZAPSTORE_RELAY]);
+            if (isOnline()) syncDeletions([ZAPSTORE_RELAY]);
             evictOldEvents();
             startProfileSearchBackground();
             initCatalogs();
@@ -159,6 +158,7 @@ async function _clearAllLocalCaches() {
 
 	<div class="relative z-10 app-root-inner">
 		<NavigationProgress />
+		<CommentShortcutListener />
 
 		<SiteHeader variant="landing" />
 

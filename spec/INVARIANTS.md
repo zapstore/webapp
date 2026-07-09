@@ -12,9 +12,9 @@ See `QUALITY_BAR.md` for best practices that involve judgment.
 
 These are the most critical invariants. Local-first is not optional.
 
-- **UI NEVER waits for network** — always render from local data first.
-- **Dexie (IndexedDB) is the source of truth** for the client UI. All data writes go to Dexie; liveQuery handles reactivity.
-- **All events → Dexie → liveQuery → UI** — regardless of source (server seed, relay stream, one-shot fetch). There is no other data path.
+- **UI NEVER waits for network for local-first surfaces** — always render browse/detail/social/profile UI from local data first. Explicit user-initiated relay search is the exception: it is network-bound and must show a loading state.
+- **Dexie (IndexedDB) is the source of truth** for the client UI. All non-search display data writes go to Dexie; liveQuery handles reactivity.
+- **All non-search display events → Dexie → liveQuery → UI** — regardless of source (server seed, relay stream, one-shot hydration). There is no other display path for browse/detail/social/profile/community/studio data.
 - **Offline mode is fully functional** — the app works fully offline; all cached data and routes remain accessible without network.
 - **Online status determines fetch behavior** — skip relay connections when offline.
 - Network failures degrade gracefully with clear feedback (offline banner).
@@ -22,10 +22,11 @@ These are the most critical invariants. Local-first is not optional.
 
 ## Data Flow
 
-- **Server polls, client streams.** The server polls two catalog relays every 60 seconds to maintain its seed data cache. The client maintains persistent relay connections for live updates.
-- **NIP-01 filters are the universal query language.** The same filter objects are used to query relays, the server cache, and IndexedDB. No custom query APIs.
-- **`queryEvents(filter)` is the single client-side query primitive.** All data queries — inside liveQuery, for one-shot reads, for relationship resolution — go through this function (directly or via purpleweb/storage helpers). No raw Dexie `.where()` chains in application code.
-- **No REST API for catalog data refresh.** The client gets live catalog data from relay connections, not from server API endpoints. Catalog seed data is delivered via universal `+page.js` loads during SSR. REST endpoints exist only for non-catalog concerns (file upload, studio analytics, redirects).
+- **No polling anywhere.** Server-side seed loads use bounded one-shot relay queries; client refresh uses persistent subscriptions or explicit one-shot hydration. Repeated timers that poll relays are a bug on both server and client.
+- **NIP-01 filters are the universal query language.** The same filter objects are used to query relays, SSR seed loads, and IndexedDB. No custom query APIs.
+- **`queryEvents(filter)` is the single client-side query primitive.** Client-side Nostr event reads — inside liveQuery, for one-shot reads, for relationship resolution — go through this function inside purpleweb/storage helpers. No raw Dexie `.where()` chains in application code.
+- **purpleweb is the relay-data boundary.** Pages/components/stores/services do not import relay/storage internals, call relay primitives directly, or render relay hydration results directly. Relay-backed UI data goes through exported purpleweb helpers, except search results which intentionally render the live relay response as-is.
+- **No REST API for relay/catalog refresh.** The client gets relay-backed data from relay connections, not from server API endpoints. Catalog seed data is delivered via universal `+page.js` loads during SSR. REST endpoints exist only for non-relay concerns (file upload, studio HTTP analytics/backends, redirects).
 
 ## Performance
 
@@ -39,9 +40,9 @@ These are the most critical invariants. Local-first is not optional.
 
 - Prerendered content displays immediately; relay connections provide live updates in the background.
 - All one-shot relay queries must have a timeout (default 5 seconds).
-- **EOSE + 300ms rule:** One-shot relay subscriptions (search, load-more, social) must resolve at first EOSE + 300ms grace period, or timeout fallback (default 5s). This prevents hanging on slow relays while still collecting late-arriving events. Never wait indefinitely.
+- **EOSE + 300ms rule:** One-shot relay subscriptions (search, load-more, social/profile/community/studio hydration) must resolve at first EOSE + 300ms grace period, or timeout fallback (default 5s). This prevents hanging on slow relays while still collecting late-arriving events. Never wait indefinitely.
 - **Persistent relay subscriptions** stay open after EOSE for live updates. Events are buffered (100ms) and batch-written to Dexie. **All subscriptions MUST include `limit`** to cap the initial backfill — UI loads progressively via pagination/load-more. Unbounded subscriptions are a bug.
-- **No N+1 queries.** Never issue a query inside a loop. Collect all keys first, issue one batch query, then distribute results in memory. This applies to relay subscriptions, server cache queries, and Dexie `queryEvents` calls. Each relay round-trip or IndexedDB transaction has per-call overhead.
+- **No N+1 queries.** Never issue a query inside a loop. Collect all keys first, issue one batch query, then distribute results in memory. This applies to relay subscriptions, SSR seed queries, and Dexie `queryEvents` calls. Each relay round-trip or IndexedDB transaction has per-call overhead.
 - Fresh data is written to Dexie; liveQuery updates UI reactively without blocking.
 
 ## IndexedDB Indices
@@ -67,8 +68,10 @@ These are the most critical invariants. Local-first is not optional.
 ## Search
 
 - Search is ALWAYS a live relay query (NIP-50 full-text search) — never pre-rendered or from local cache.
+- Search results MUST render the relay response as-is. Persist search hits to Dexie for back-navigation/cache benefit, but do not wait for Dexie/liveQuery before showing the returned results.
+- The direct-render exception applies only to explicit user-initiated search result lists. Profile enrichment, mentions, social threads, app/stack details, studio screens, and modal lookups still render from Dexie/liveQuery through purpleweb helpers.
 - Search MUST show a loading spinner while querying.
-- Search queries use NIP-50 via the client-side relay pool (direct to catalog relays).
+- Search queries use NIP-50 via purpleweb relay search helpers.
 - Search results are written to Dexie for back-navigation only.
 
 ## UI Safety
@@ -85,7 +88,6 @@ These are the most critical invariants. Local-first is not optional.
 - Dexie liveQuery subscriptions, relay connections, and any abort controllers must be cleaned up on component destroy.
 - All promises must handle rejection (no unhandled promise rejections).
 - Concurrent requests must be deduplicated where appropriate.
-- **Server-side polling is intentional** — the server polls relays on a 60-second interval. This is the designed data refresh mechanism, not an anti-pattern. Client-side UI polling remains prohibited.
 
 ## Security
 
@@ -115,7 +117,7 @@ These are the most critical invariants. Local-first is not optional.
 ## Prerendering
 
 - **Static/marketing pages** (blog, docs, terms, enterprise) are prerendered at build time via SvelteKit. Prerendered HTML must be valid and complete.
-- **Catalog pages** (`/apps`, `/stacks`, detail pages, profiles) use runtime SSR with `prerender = false` — they are not prerendered at build time. First-visit content comes from the server cache seed embedded in the SSR response.
+- **Catalog pages** (`/apps`, `/stacks`, detail pages, profiles) use runtime SSR with `prerender = false` — they are not prerendered at build time. First-visit content comes from bounded SSR relay seed queries embedded in the response.
 - **Client-only sections** (studio signed-in dashboard) use `ssr = false` and are not prerendered.
 - Build failures must not deploy broken pages.
 

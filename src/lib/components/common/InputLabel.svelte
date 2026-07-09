@@ -338,7 +338,7 @@
 	}
 
 	.divider {
-		width: 1.4px;
+		width: 1px;
 		height: 100%;
 		margin-left: 8px;
 		background-color: var(--white8);

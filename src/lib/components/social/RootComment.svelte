@@ -5,45 +5,47 @@
 	 */
 	import MessageBubble from './MessageBubble.svelte';
 	import ThreadComment from './ThreadComment.svelte';
+	import ThreadRootEvent from './ThreadRootEvent.svelte';
+	import ThreadRootBadge from './ThreadRootBadge.svelte';
 	import ZapBubble from './ZapBubble.svelte';
 	import ZapPillRow from './ZapPillRow.svelte';
 	import ThreadZap from './ThreadZap.svelte';
 	import QuotedMessage from './QuotedMessage.svelte';
 	import QuotedZapMessage from './QuotedZapMessage.svelte';
-	import CommentActionsModal from './CommentActionsModal.svelte';
+	import ActionsModal from '$lib/components/modals/ActionsModal.svelte';
+	import CommentModal from '$lib/components/modals/CommentModal.svelte';
 	import CommentBubbleActionRail from './CommentBubbleActionRail.svelte';
 	import ShortTextContent from '$lib/components/common/ShortTextContent.svelte';
 	import ProfilePicStack from '$lib/components/common/ProfilePicStack.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
 	import MediaLightboxModal from '$lib/components/modals/MediaLightboxModal.svelte';
-	import EmptyState from '$lib/components/common/EmptyState.svelte';
-	import DeletedRootBadge from '$lib/components/community/DeletedRootBadge.svelte';
-	import ActivityStackMiniBadge from '$lib/components/community/ActivityStackMiniBadge.svelte';
+	import '$lib/styles/comment-modal-inset.css';
+	import '$lib/styles/profile-section-empty.css';
+	import '$lib/styles/thread-rail.css';
+	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import InputButton from '$lib/components/common/InputButton.svelte';
 	import ShortTextInput from '$lib/components/common/ShortTextInput.svelte';
 	import EmojiPickerModal from '$lib/components/modals/EmojiPickerModal.svelte';
 	import AddModal from '$lib/components/modals/AddModal.svelte';
+	import TipAmountModal from '$lib/components/modals/TipAmountModal.svelte';
+	import TipAmountRow from '$lib/components/social/TipAmountRow.svelte';
 	import ZapSliderModal from '$lib/components/modals/ZapSliderModal.svelte';
-	import { Zap, Reply, Options } from '$lib/components/icons';
+	import { Reply, Options } from '$lib/components/icons';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import { getIsSignedIn, getCurrentPubkey } from '$lib/stores/auth.svelte.js';
 	import { uploadFileToNostrBuild, ACCEPTED_MEDIA_TYPES } from '$lib/services/upload-nostr-build';
 	import { createSearchProfilesFunction } from '$lib/services/profile-search.js';
+	import { registerCommentCompose } from '$lib/keyboard/shortcuts.js';
 	import { EVENT_KINDS } from '$lib/config.js';
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
-	import * as nip19 from 'nostr-tools/nip19';
-	/** Never show the literal "Anonymous" — prefer truncated npub when display name is missing. */
+	import { formatNpubFromPubkey, isRealProfileName } from '$lib/utils/npub-display.js';
+	/** Never show generic placeholders — prefer trimmed npub when display name is missing. */
 	function displayNameOrNpubShort(label, pk) {
-		if (label != null && String(label).trim() !== '') return String(label).trim();
-		if (!pk || !String(pk).trim()) return '';
-		try {
-			const enc = nip19.npubEncode(pk);
-			return `npub1${enc.slice(5, 8)}…${enc.slice(-6)}`;
-		} catch {
-			return pk.slice(0, 8);
-		}
+		if (isRealProfileName(label)) return String(label).trim();
+		return formatNpubFromPubkey(pk);
 	}
+	const profilePicName = $derived(isRealProfileName(name) ? String(name).trim() : null);
 	let {
 		pictureUrl = null,
 		name = '',
@@ -55,6 +57,8 @@
 		outgoing = false,
 		replies = [],
 		threadComments = [],
+		/** Parsed rows for quote UI only (parents not in `threadComments`). */
+		threadQuoteLookup = [],
 		threadZaps = [],
 		authorPubkey = null,
 		className = '',
@@ -134,6 +138,13 @@
 		labelCommunityPubkey = null,
 		/** When false, skip document body scroll lock (e.g. thread inside header notifications). */
 		modalLockBodyScroll = true,
+		/**
+		 * Detail-page single-root mode: show nested replies inline (straight rail) instead of
+		 * the L-shape profile stack that opens the thread modal.
+		 */
+		inlineThreadReplies = false,
+		/** Catalog content type for inline reply composer (`app` | `stack` | `forum`). */
+		contentType = 'app',
 		/** Base z-index for the thread Modal; child sheets stack above. */
 		modalZIndex = 50,
 		/**
@@ -213,8 +224,13 @@
 	}
 	let modalOpen = $state(false);
 	let zapModalOpen = $state(false);
-	/** Preset sats when opening {@link ZapSliderModal} from CommentActionsModal chips */
+	let tipAmountModalOpen = $state(false);
+	/** Preset sats when opening {@link ZapSliderModal} */
 	let zapPresetSats = $state(/** @type {number | null} */ (null));
+	/** Tip amount chosen in {@link TipAmountModal}, shown above the reply editor until send. */
+	let pendingTipSats = $state(/** @type {number | null} */ (null));
+	/** @type {{ amount: number, message?: string, emojiTags?: { shortcode: string, url: string }[], mentions?: string[] } | null} */
+	let immediateZap = $state(null);
 	let commentExpanded = $state(false);
 	/** When set, we're replying to this comment (show QuotedMessage above input) */
 	let replyingToComment = $state(null);
@@ -226,6 +242,17 @@
 	let insertModalOpen = $state(false);
 	/** @type {HTMLInputElement | null} */
 	let replyFileInputEl = $state(null);
+	/** @type {HTMLDivElement | null} */
+	let threadScrollEl = $state(null);
+	let threadScrollTopFade = $state(false);
+
+	function syncThreadScrollEdgeFade() {
+		threadScrollTopFade = (threadScrollEl?.scrollTop ?? 0) > 4;
+	}
+
+	function handleThreadScroll() {
+		syncThreadScrollEdgeFade();
+	}
 	function handleReplyCameraTap() {
 		replyFileInputEl?.click();
 	}
@@ -275,9 +302,18 @@
 	let actionsModalTarget = $state(null);
 	let actionsModalOpen = $state(false);
 	let actionsNestedOpen = $state(false);
+	let inlineComposerOpen = $state(false);
+	let inlineComposerInstantOpen = $state(false);
+	/** @type {null | Record<string, unknown>} */
+	let inlineReplyTarget = $state(null);
 	/** True when any modal is open on top of the thread (Zap, Comment/Zap options, emoji, insert) – drives overlay + scale animation */
 	const childModalOpen = $derived(
-		zapModalOpen || actionsModalOpen || actionsNestedOpen || emojiPickerOpen || insertModalOpen
+		zapModalOpen ||
+			tipAmountModalOpen ||
+			actionsModalOpen ||
+			actionsNestedOpen ||
+			emojiPickerOpen ||
+			insertModalOpen
 	);
 	// Replies only: threadComments excluding the root itself (threadComments includes root as first element)
 	const threadReplies = $derived(threadComments.filter((c) => c.id !== id));
@@ -301,6 +337,7 @@
 		return list;
 	});
 	const hasReplies = $derived(uniqueRepliers.length > 0);
+	const showInlineThreadFeed = $derived(inlineThreadReplies && hasReplies);
 	const _featuredReplier = $derived(uniqueRepliers[0]);
 	const _otherRepliersCount = $derived(uniqueRepliers.length - 1);
 	const displayedRepliers = $derived(uniqueRepliers.slice(0, 3));
@@ -357,6 +394,11 @@
 			map.set(c.id, c);
 			map.set(c.id.toLowerCase(), c);
 		}
+		for (const c of threadQuoteLookup) {
+			if (!c?.id) continue;
+			map.set(c.id, c);
+			map.set(c.id.toLowerCase(), c);
+		}
 		return map;
 	});
 	const threadZapById = $derived.by(() => {
@@ -369,6 +411,57 @@
 		}
 		return map;
 	});
+	/**
+	 * Build quote payload for a thread zap / z-wrapper bubble.
+	 * @param {Record<string, unknown> | null | undefined} parent
+	 * @param {Record<string, unknown> | null | undefined} zapReceipt
+	 */
+	function buildZapThreadQuote(parent, zapReceipt) {
+		if (parent) {
+			if (parent.isWrapper) {
+				return {
+					kind: 'wrapper',
+					authorName: displayNameOrNpubShort(
+						/** @type {string} */ (parent.displayName),
+						/** @type {string} */ (parent.pubkey)
+					),
+					authorPubkey: /** @type {string} */ (parent.pubkey),
+					amountSats: /** @type {number} */ (parent.zapAmountSats ?? 0),
+					content: /** @type {string} */ (parent.content ?? ''),
+					emojiTags: /** @type {{ shortcode: string, url: string }[]} */ (parent.emojiTags ?? []),
+					mediaUrls: /** @type {string[]} */ (parent.mediaUrls ?? [])
+				};
+			}
+			return {
+				kind: 'comment',
+				authorName: displayNameOrNpubShort(
+					/** @type {string} */ (parent.displayName),
+					/** @type {string} */ (parent.pubkey)
+				),
+				authorPubkey: /** @type {string} */ (parent.pubkey),
+				content: /** @type {string} */ (parent.content ?? ''),
+				emojiTags: /** @type {{ shortcode: string, url: string }[]} */ (parent.emojiTags ?? []),
+				mediaUrls: /** @type {string[]} */ (parent.mediaUrls ?? [])
+			};
+		}
+		if (zapReceipt) {
+			return {
+				kind: 'receipt',
+				authorName: displayNameOrNpubShort(
+					/** @type {string} */ (zapReceipt.displayName),
+					/** @type {string | null} */ (zapReceipt.senderPubkey ?? zapReceipt.pubkey ?? null)
+				),
+				authorPubkey:
+					/** @type {string | null} */ (zapReceipt.senderPubkey ?? zapReceipt.pubkey ?? null),
+				amountSats: /** @type {number} */ (zapReceipt.amountSats ?? 0),
+				content: /** @type {string} */ (zapReceipt.comment ?? ''),
+				emojiTags: /** @type {{ shortcode: string, url: string }[]} */ (zapReceipt.emojiTags ?? []),
+				mediaUrls: []
+			};
+		}
+		return null;
+	}
+
 	function getContentPreview(comment) {
 		if (comment.content && comment.content.trim()) return comment.content;
 		if (comment.contentHtml) {
@@ -438,11 +531,119 @@
 			root: wrapperRoot
 		};
 	});
-	/** Show Zap + Comment (or "Get started to comment" for guests) in thread modal when we have handlers and a root id. */
+	/** Show Comment in thread modal footer when we have handlers and a root id. */
 	const showThreadActions = $derived(
 		(onReplySubmit != null || onZapReceived != null || onGetStarted != null) &&
 			(id != null || pubkey != null)
 	);
+
+	/** Root app/stack/forum context for the thread modal header — from explicit prop or app detail fields. */
+	const effectiveRootContext = $derived.by(() => {
+		if (rootContext) return rootContext;
+		const label = String(appName ?? '').trim();
+		const iconUrl = appIconUrl ?? null;
+		const identifier = appIdentifier ?? null;
+		if (!label && !iconUrl) return null;
+		return {
+			label: label || 'App',
+			iconUrl,
+			href: null,
+			isStack: false,
+			isApp: true,
+			identifier
+		};
+	});
+
+	const composerContentType = $derived.by(() => {
+		if (contentType === 'stack' || effectiveRootContext?.isStack) return 'stack';
+		if (contentType === 'forum') return 'forum';
+		return 'app';
+	});
+	const inlineComposerTarget = $derived.by(() => {
+		if (inlineReplyTarget) {
+			const t = /** @type {Record<string, unknown>} */ (inlineReplyTarget);
+			const pk = String(t.pubkey ?? t.senderPubkey ?? '').trim();
+			return {
+				name: t.displayName != null ? String(t.displayName) : undefined,
+				pubkey: pk || undefined
+			};
+		}
+		return { name: name || undefined, pubkey: pubkey ?? undefined };
+	});
+	const showRootOptions = $derived(showThreadActions || showOptionsOnly);
+	function openInlineReplyComposer(/** @type {Record<string, unknown> | null} */ target, { instant = false } = {}) {
+		inlineReplyTarget = target;
+		inlineComposerInstantOpen = instant;
+		inlineComposerOpen = true;
+	}
+	function closeInlineComposer() {
+		inlineComposerOpen = false;
+		inlineReplyTarget = null;
+		inlineComposerInstantOpen = false;
+	}
+	function handleInlineComposerSubmit(event) {
+		if (!onReplySubmit) return;
+		const parentId = inlineReplyTarget ? String(inlineReplyTarget.id ?? '') : id;
+		/** @type {number} */
+		let parentKind = EVENT_KINDS.COMMENT;
+		if (!inlineReplyTarget) {
+			if (isZapRoot && !isZapWrapper) parentKind = EVENT_KINDS.ZAP_RECEIPT;
+		} else if (inlineReplyTarget.quotedAsZap === true) {
+			parentKind = inlineReplyTarget.isWrapper ? EVENT_KINDS.COMMENT : EVENT_KINDS.ZAP_RECEIPT;
+		}
+		onReplySubmit({
+			text: event.text,
+			emojiTags: event.emojiTags,
+			mentions: event.mentions,
+			mediaUrls: event.mediaUrls,
+			parentId,
+			replyToPubkey: inlineReplyTarget?.pubkey ?? pubkey ?? undefined,
+			parentKind
+		});
+		closeInlineComposer();
+	}
+	function onFeedBubbleClick(e, target) {
+		if (!showThreadActions) return;
+		const t = e.target;
+		if (t instanceof Element && t.closest("a, button, input, [contenteditable='true']")) return;
+		if ((window.getSelection()?.toString().length ?? 0) > 0) return;
+		e.preventDefault();
+		e.stopPropagation();
+		openActionsModal(target);
+	}
+	function onFeedBubbleKeydown(e, target) {
+		if (e.key !== 'Enter' && e.key !== ' ') return;
+		if (!showThreadActions) return;
+		e.preventDefault();
+		e.stopPropagation();
+		openActionsModal(target);
+	}
+	function handleFeedRailReply(target) {
+		if (inlineThreadReplies) {
+			if (target === 'root' || target == null) openInlineReplyComposer(null);
+			else if (isActionsTargetThreadZap(target))
+				openInlineReplyComposer({ ...target, quotedAsZap: true });
+			else openInlineReplyComposer(target);
+			return;
+		}
+		if (target === 'root' || target == null) handleReply();
+		else if (isActionsTargetThreadZap(target)) openReplyToZap(target);
+		else openReplyToComment(target);
+	}
+	function onRootFeedClick() {
+		if (typeof window !== 'undefined' && (window.getSelection()?.toString().length ?? 0) > 0)
+			return;
+		if (inlineThreadReplies) {
+			openActionsModal('root');
+			return;
+		}
+		openThread();
+	}
+	function onRootFeedKeydown(/** @type {KeyboardEvent} */ e) {
+		if (e.key !== 'Enter' && e.key !== ' ') return;
+		e.preventDefault();
+		onRootFeedClick();
+	}
 	function openActionsModal(target) {
 		actionsModalTarget = target;
 		actionsModalOpen = true;
@@ -467,26 +668,24 @@
 		e.stopPropagation();
 		openActionsModal(target);
 	}
-	function onRootCommentKeydown(/** @type {KeyboardEvent} */ e) {
-		if (e.key !== 'Enter' && e.key !== ' ') return;
-		e.preventDefault();
-		openThread();
-	}
 	/** Thread feed zap rows carry `senderPubkey` + `amountSats`; comments use `pubkey` and no amount. */
 	function isActionsTargetThreadZap(t) {
 		return Boolean(t && typeof t === 'object' && 'senderPubkey' in t && 'amountSats' in t);
 	}
 	function actionsModalOnComment() {
+		if (inlineThreadReplies) {
+			if (actionsModalTarget === 'root') openInlineReplyComposer(null, { instant: true });
+			else if (isActionsTargetThreadZap(actionsModalTarget))
+				openInlineReplyComposer({ ...actionsModalTarget, quotedAsZap: true }, { instant: true });
+			else if (actionsModalTarget && typeof actionsModalTarget === 'object')
+				openInlineReplyComposer(actionsModalTarget, { instant: true });
+			return;
+		}
 		modalOpen = true;
 		if (actionsModalTarget === 'root') handleReply();
 		else if (isActionsTargetThreadZap(actionsModalTarget)) openReplyToZap(actionsModalTarget);
 		else if (actionsModalTarget && typeof actionsModalTarget === 'object')
 			openReplyToComment(actionsModalTarget);
-	}
-	function actionsModalOnZap() {
-		zapPresetSats = null;
-		if (actionsModalTarget === 'root') handleZap();
-		else if (actionsModalTarget) handleZapComment(actionsModalTarget);
 	}
 	function openReplyToZap(zap) {
 		replyingToComment = {
@@ -511,13 +710,28 @@
 			return;
 		modalOpen = true;
 	}
-	function handleZap() {
+	function handleTipTap() {
 		zapPresetSats = null;
-		zapModalOpen = true;
+		prepareZapTargetForTip(replyingToComment);
+		tipAmountModalOpen = true;
+	}
+
+	function openTipAmountModal() {
+		prepareZapTargetForTip(replyingToComment);
+		tipAmountModalOpen = true;
+	}
+
+	function handleTipAmountConfirm(/** @type {{ amount: number }} */ event) {
+		pendingTipSats = event.amount;
 	}
 	function handleReply() {
 		replyingToComment = null;
 		commentExpanded = true;
+	}
+
+	function activateThreadReply() {
+		if (!commentExpanded) handleReply();
+		else replyInput?.focus?.();
 	}
 	function openReplyToComment(comment) {
 		replyingToComment = comment;
@@ -526,15 +740,20 @@
 	function closeReply() {
 		commentExpanded = false;
 		replyingToComment = null;
+		pendingTipSats = null;
 	}
-	/** Zap target: e-tag = comment or zap receipt id; p-tag = Lightning recipient (zapper when zapping a zap, comment author when zapping a comment). No a-tag so wallet sees a standard profile/event zap (p+e only). */
-	function handleZapComment(commentOrZap) {
+	/** Set zap target override for thread-level tips (reply composer or feed zap icon). */
+	function prepareZapTargetForTip(/** @type {typeof replyingToComment} */ commentOrZap) {
+		if (!commentOrZap) {
+			zapTargetOverride = null;
+			return;
+		}
 		const isZap = 'senderPubkey' in commentOrZap;
 		const recipientPubkey = isZap ? (commentOrZap.senderPubkey ?? '') : (commentOrZap.pubkey ?? '');
-		if (!recipientPubkey) return;
-		// Parent kind for NIP-22 wrapper:
-		//   • Real kind 9735 zap (root-level zap, not isWrapper) → 9735
-		//   • Comment (kind 1111) or z-wrapper kind 1111 → 1111
+		if (!recipientPubkey) {
+			zapTargetOverride = null;
+			return;
+		}
 		const isRealReceipt = isZap && commentOrZap.isWrapper !== true;
 		const parentKind = isRealReceipt ? EVENT_KINDS.ZAP_RECEIPT : EVENT_KINDS.COMMENT;
 		zapTargetOverride = {
@@ -545,27 +764,45 @@
 			aTag: undefined,
 			parentKind
 		};
-		zapModalOpen = true;
 	}
-	/** Quick zap amount from actions sheet chips — same target as full zap, keeps {@link zapPresetSats}. */
-	function handleActionsZapPreset(sats) {
-		zapPresetSats = sats;
-		if (actionsModalTarget === 'root') {
-			zapTargetOverride = null;
-			zapModalOpen = true;
-		} else if (actionsModalTarget) {
-			handleZapComment(actionsModalTarget);
-		}
+	/** Zap target: e-tag = comment or zap receipt id; p-tag = Lightning recipient (zapper when zapping a zap, comment author when zapping a comment). No a-tag so wallet sees a standard profile/event zap (p+e only). */
+	function handleZapComment(commentOrZap) {
+		prepareZapTargetForTip(commentOrZap);
+		if (!zapTargetOverride?.pubkey) return;
+		zapModalOpen = true;
 	}
 	function handleZapClose(event) {
 		zapModalOpen = false;
 		zapTargetOverride = null;
 		zapPresetSats = null;
-		if (event.success) onZapReceived?.({ zapReceipt: {} });
+		immediateZap = null;
+		if (event?.success) {
+			onZapReceived?.({ zapReceipt: {} });
+			closeReply();
+		}
 		if (openZapOnMount) onModalClose?.();
 	}
 	async function handleReplySubmit(event) {
 		if (submitting || !id) return;
+		const hasText = Boolean(event.text?.trim());
+		const hasTip = pendingTipSats != null && pendingTipSats >= 1;
+		if (!hasText && !hasTip) return;
+
+		if (hasTip) {
+			prepareZapTargetForTip(replyingToComment);
+			if (!zapTarget?.pubkey) return;
+			immediateZap = {
+				amount: pendingTipSats,
+				message: event.text ?? '',
+				emojiTags: event.emojiTags ?? [],
+				mentions: event.mentions ?? []
+			};
+			pendingTipSats = null;
+			replyInput?.clear?.();
+			zapModalOpen = true;
+			return;
+		}
+
 		const parentId = replyingToComment ? replyingToComment.id : id;
 		/** @type {number} */
 		let parentKind = EVENT_KINDS.COMMENT;
@@ -606,6 +843,11 @@
 			return () => clearTimeout(t);
 		}
 	});
+
+	$effect(() => {
+		if (!modalOpen || !showThreadActions || !getIsSignedIn()) return;
+		return registerCommentCompose(activateThreadReply, { priority: 25 });
+	});
 	$effect(() => {
 		if (!commentExpanded) {
 			emojiPickerOpen = false;
@@ -613,11 +855,21 @@
 		}
 	});
 	$effect(() => {
+		modalOpen;
+		feedItems.length;
+		commentExpanded;
+		tick().then(() => syncThreadScrollEdgeFade());
+	});
+	$effect(() => {
 		if (openThreadOnMount) {
-			modalOpen = true;
+			if (!inlineThreadReplies) modalOpen = true;
 			if (openReplyOnMount) {
-				commentExpanded = true;
-				replyingToComment = initialReplyTarget ?? null;
+				if (inlineThreadReplies) {
+					openInlineReplyComposer(initialReplyTarget ?? null);
+				} else {
+					commentExpanded = true;
+					replyingToComment = initialReplyTarget ?? null;
+				}
 			}
 		}
 	});
@@ -654,7 +906,7 @@
 		if (actionsModalOpen) {
 			_didOpenStandaloneActions = true;
 		} else if (_didOpenStandaloneActions) {
-			if (modalOpen || zapModalOpen || actionsNestedOpen || emojiPickerOpen || insertModalOpen)
+			if (modalOpen || zapModalOpen || tipAmountModalOpen || actionsNestedOpen || emojiPickerOpen || insertModalOpen)
 				return;
 			_didOpenStandaloneActions = false;
 			onModalClose?.();
@@ -695,8 +947,10 @@
 		return isActionsTargetThreadZap(actionsModalTarget);
 	});
 
-	/** Thread modal + root ⋯: actions sheet without Comment/Zap sections. */
-	const actionsModalCompact = $derived(showOptionsOnly || (modalOpen && actionsModalTarget === 'root'));
+	const actionsModalContentType = $derived.by(() => {
+		if (actionsModalIsZapPreview) return 'zap';
+		return 'comment';
+	});
 
 	/** Thread visible first, then actions (legacy bundled open). */
 	let didApplyBundledActions = $state(false);
@@ -749,12 +1003,11 @@
 {#snippet feedDesktopRail()}
 	<CommentBubbleActionRail
 		onReply={() => {
-			modalOpen = true;
-			handleReply();
-		}}
-		onZap={() => {
-			modalOpen = true;
-			handleZap();
+			if (inlineThreadReplies) openInlineReplyComposer(null);
+			else {
+				modalOpen = true;
+				handleReply();
+			}
 		}}
 		onOptions={() => {
 			openActionsModal('root');
@@ -769,14 +1022,90 @@
 	/>
 {/snippet}
 
+{#snippet threadRootHeaderActions()}
+	<button
+		type="button"
+		class="thread-root-options-btn"
+		aria-label="More options"
+		onclick={(e) => {
+			e.stopPropagation();
+			handleOptions();
+		}}
+	>
+		<Options variant="fill" size={14} color="var(--white33)" />
+	</button>
+{/snippet}
+
+{#snippet threadRootRailAvatar()}
+	<div class="thread-root-rail-avatar">
+		{#if profileUrl}
+			<a href={profileUrl} class="thread-root-rail-avatar-link">
+				<ProfilePic {pictureUrl} name={profilePicName} {pubkey} {loading} size="smMd" />
+			</a>
+		{:else}
+			<ProfilePic {pictureUrl} name={profilePicName} {pubkey} {loading} size="smMd" />
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet threadRootBubble()}
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<div
+		class="thread-bubble-click-wrap"
+		class:clickable={showThreadActions}
+		role={showThreadActions ? 'button' : undefined}
+		tabindex={showThreadActions ? 0 : undefined}
+		onclick={showThreadActions ? (e) => onBubbleClick(e, 'root') : undefined}
+		onkeydown={showThreadActions ? (e) => onBubbleKeydown(e, 'root') : undefined}
+	>
+		{#if isZapRoot}
+			<ThreadZap
+				{name}
+				{pubkey}
+				amount={zapAmount}
+				{timestamp}
+				{profileUrl}
+				{pending}
+				content={content ?? ''}
+				{emojiTags}
+				{resolveMentionLabel}
+				headerActions={showRootOptions ? threadRootHeaderActions : undefined}
+			/>
+		{:else}
+			<ThreadComment
+				{name}
+				{pubkey}
+				{timestamp}
+				{profileUrl}
+				{pending}
+				headerActions={showRootOptions ? threadRootHeaderActions : undefined}
+			>
+				{#if (content !== undefined && content !== null) || (mediaUrls?.length ?? 0) > 0}
+					<ShortTextContent
+						content={content ?? ''}
+						emojiTags={emojiTags ?? []}
+						mediaUrls={mediaUrls ?? []}
+						{resolveMentionLabel}
+						onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
+						class="root-comment-body"
+						disableTruncation={true}
+					/>
+				{:else}
+					{@render children?.()}
+				{/if}
+			</ThreadComment>
+		{/if}
+	</div>
+{/snippet}
+
 {#if !hideRoot}
 	<div
 		class="root-comment {className}"
 		class:desktop-bubble-actions-target={showThreadActions || showOptionsOnly}
 		role="button"
 		tabindex="0"
-		onclick={showOptionsOnly ? undefined : openThread}
-		onkeydown={showOptionsOnly ? undefined : onRootCommentKeydown}
+		onclick={showOptionsOnly ? undefined : onRootFeedClick}
+		onkeydown={showOptionsOnly ? undefined : onRootFeedKeydown}
 	>
 		{#if isZapRoot}
 			<ZapBubble
@@ -823,7 +1152,7 @@
 			</MessageBubble>
 		{/if}
 
-		{#if hasReplies}
+		{#if hasReplies && !showInlineThreadFeed}
 			<div
 				class="reply-indicator"
 				role="button"
@@ -859,6 +1188,182 @@
 					/>
 				</div>
 			</div>
+		{:else if showInlineThreadFeed}
+			<div class="inline-thread" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+				{#each feedItems as item, itemIndex (item.type === 'zap' ? `zap-${item.data.id}` : item.data.id)}
+					<div
+						class="inline-thread-row"
+						class:desktop-bubble-actions-target={showThreadActions}
+					>
+						<div class="inline-thread-connector" aria-hidden="true">
+							{#if itemIndex === feedItems.length - 1}
+								<div class="inline-thread-elbow">
+									<svg viewBox="0 0 27 16" fill="none">
+										<path
+											d="M1 0 A 15 15 0 0 0 16 15 L27 15"
+											stroke="var(--white16)"
+											stroke-width="1.5"
+											fill="none"
+											stroke-linecap="round"
+										/>
+									</svg>
+								</div>
+							{:else}
+								<div class="inline-thread-branch"></div>
+							{/if}
+						</div>
+						<div class="inline-thread-content">
+							{#if item.type === 'comment'}
+								{@const reply = item.data}
+								{@const pid = reply.parentId ? String(reply.parentId).toLowerCase() : ''}
+								{@const idNorm = id ? String(id).toLowerCase() : ''}
+								{@const quotedParent =
+									reply.parentId && pid !== idNorm
+										? (threadById.get(pid) ?? threadById.get(reply.parentId))
+										: null}
+								{@const quotedZap =
+									!quotedParent && reply.parentId && pid !== idNorm
+										? (threadZapById.get(pid) ?? threadZapById.get(reply.parentId))
+										: null}
+								<div
+									class="thread-bubble-with-rail"
+									class:thread-bubble-with-rail--solo={!showThreadActions}
+								>
+									<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+									<div
+										class="thread-bubble-click-wrap thread-bubble-with-rail__main"
+										class:clickable={showThreadActions}
+										role={showThreadActions ? 'button' : undefined}
+										tabindex={showThreadActions ? 0 : undefined}
+										onclick={showThreadActions ? (e) => onFeedBubbleClick(e, reply) : undefined}
+										onkeydown={showThreadActions ? (e) => onFeedBubbleKeydown(e, reply) : undefined}
+									>
+										<MessageBubble
+											pictureUrl={reply.avatarUrl}
+											name={reply.displayName}
+											pubkey={reply.pubkey}
+											timestamp={reply.createdAt}
+											profileUrl={reply.profileUrl}
+											loading={reply.profileLoading}
+											light={true}
+											zapsOnThis={zapsByTargetId?.get(String(reply.id ?? '').toLowerCase()) ?? []}
+										>
+											{#if quotedParent && quotedParent.isWrapper}
+												<QuotedZapMessage
+													authorName={displayNameOrNpubShort(
+														quotedParent.displayName,
+														quotedParent.pubkey
+													)}
+													authorPubkey={quotedParent.pubkey}
+													amountSats={quotedParent.zapAmountSats ?? 0}
+													content={quotedParent.content ?? ''}
+													emojiTags={quotedParent.emojiTags ?? []}
+													mediaUrls={quotedParent.mediaUrls ?? []}
+													{resolveMentionLabel}
+												/>
+											{:else if quotedParent}
+												<QuotedMessage
+													authorName={displayNameOrNpubShort(
+														quotedParent.displayName,
+														quotedParent.pubkey
+													)}
+													authorPubkey={quotedParent.pubkey}
+													content={quotedParent.content ?? ''}
+													emojiTags={quotedParent.emojiTags ?? []}
+													mediaUrls={quotedParent.mediaUrls ?? []}
+													{resolveMentionLabel}
+												/>
+											{:else if quotedZap}
+												<QuotedZapMessage
+													authorName={displayNameOrNpubShort(
+														quotedZap.displayName,
+														quotedZap.senderPubkey ?? quotedZap.pubkey ?? null
+													)}
+													authorPubkey={quotedZap.senderPubkey ?? quotedZap.pubkey ?? null}
+													amountSats={quotedZap.amountSats ?? 0}
+													content={quotedZap.comment ?? ''}
+													emojiTags={quotedZap.emojiTags ?? []}
+													mediaUrls={[]}
+													{resolveMentionLabel}
+												/>
+											{/if}
+											{#if (reply.content !== undefined && reply.content !== null) || (reply.mediaUrls?.length ?? 0) > 0}
+												<ShortTextContent
+													content={reply.content ?? ''}
+													emojiTags={reply.emojiTags ?? []}
+													mediaUrls={reply.mediaUrls ?? []}
+													{resolveMentionLabel}
+													onMediaClick={({ url: u, type: t, urls: list }) =>
+														openLightbox(u, t, list)}
+													class="reply-comment-body"
+													forceExpanded={expandCommentId != null && reply.id === expandCommentId}
+												/>
+											{:else}
+												<!-- eslint-disable-next-line svelte/no-at-html-tags -- from parseComment(): escaped text + <br> only; no raw author tags -->
+												{@html reply.contentHtml ||
+													"<p class='text-muted-foreground italic'>No content</p>"}
+											{/if}
+										</MessageBubble>
+									</div>
+									{#if showThreadActions}
+										<CommentBubbleActionRail
+											onReply={() => handleFeedRailReply(reply)}
+											onOptions={() => openActionsModal(reply)}
+										/>
+									{/if}
+								</div>
+							{:else}
+								{@const zap = item.data}
+								{@const zapSelfId = zap.id ? String(zap.id).toLowerCase() : ''}
+								{@const zapParentId = zap.parentId ? String(zap.parentId).toLowerCase() : ''}
+								{@const zapQuotedParent =
+									zap.parentId && zapParentId !== zapSelfId
+										? (threadById.get(zapParentId) ?? threadById.get(zap.parentId))
+										: null}
+								{@const zapQuotedReceipt =
+									!zapQuotedParent && zap.parentId && zapParentId !== zapSelfId
+										? (threadZapById.get(zapParentId) ?? threadZapById.get(zap.parentId))
+										: null}
+								{@const zapThreadQuote = buildZapThreadQuote(zapQuotedParent, zapQuotedReceipt)}
+								<div
+									class="thread-bubble-with-rail"
+									class:thread-bubble-with-rail--solo={!showThreadActions}
+								>
+									<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+									<div
+										class="thread-bubble-click-wrap thread-bubble-with-rail__main"
+										class:clickable={showThreadActions}
+										role={showThreadActions ? 'button' : undefined}
+										tabindex={showThreadActions ? 0 : undefined}
+										onclick={showThreadActions ? (e) => onFeedBubbleClick(e, zap) : undefined}
+										onkeydown={showThreadActions ? (e) => onFeedBubbleKeydown(e, zap) : undefined}
+									>
+										<ZapBubble
+											pictureUrl={zap.avatarUrl}
+											name={zap.displayName}
+											pubkey={zap.senderPubkey ?? zap.pubkey}
+											amount={zap.amountSats ?? 0}
+											timestamp={zap.timestamp ?? zap.createdAt}
+											profileUrl={zap.profileUrl}
+											message={zap.comment ?? zap.content ?? ''}
+											emojiTags={zap.emojiTags ?? []}
+											quote={zapThreadQuote}
+											{resolveMentionLabel}
+											zapsOnThis={zapsByTargetId?.get(String(zap.id ?? '').toLowerCase()) ?? []}
+										/>
+									</div>
+									{#if showThreadActions}
+										<CommentBubbleActionRail
+											onReply={() => handleFeedRailReply(zap)}
+											onOptions={() => openActionsModal(zap)}
+										/>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/each}
+			</div>
 		{/if}
 	</div>
 {/if}
@@ -870,98 +1375,51 @@
 	fillHeight={true}
 	wide={true}
 	zIndex={modalZIndex}
+	closeOnEscape={!childModalOpen}
+	closeOnBackdropClick={!childModalOpen}
 	lockBodyScroll={modalLockBodyScroll}
 	scopedInPanel={modalScopedInPanel}
+	scrollEdgeFade={false}
 	class="thread-modal {childModalOpen ? 'thread-modal-child-open' : ''}"
 >
-	<div class="thread-content-wrap">
-		<div class="thread-content">
-			{#if rootContext}
-				{#if rootContext.deleted || !String(rootContext.href ?? '').trim()}
-					<div class="thread-root-context thread-root-context--deleted" role="status">
-						<DeletedRootBadge />
-						<span class="thread-root-context-label">{rootContext.label}</span>
-					</div>
-				{:else}
-					<a href={rootContext.href} class="thread-root-context" onclick={handleRootContextNav}>
-						{#if rootContext.isStack}
-							<span class="thread-root-context-stack-badge" aria-hidden="true">
-								<ActivityStackMiniBadge />
-							</span>
-						{:else if rootContext.iconUrl}
-							<img src={rootContext.iconUrl} alt="" class="thread-root-context-icon" />
+	<div
+		class="thread-content-wrap"
+		class:thread-content-wrap--has-footer={showThreadActions && getIsSignedIn()}
+		class:thread-content-wrap--top-fade={threadScrollTopFade}
+	>
+		<div class="thread-scroll-host">
+			<div
+				class="thread-scroll"
+				bind:this={threadScrollEl}
+				onscroll={handleThreadScroll}
+			>
+			<div class="thread-content">
+			<div class="thread-root-block">
+				<div class="thread-root-unified">
+					<div class="thread-root-rail">
+						{#if effectiveRootContext}
+							<ThreadRootBadge
+								context={effectiveRootContext}
+								{appIconUrl}
+								{appName}
+								{appIdentifier}
+							/>
+							<div class="thread-root-rail-line" aria-hidden="true"></div>
 						{/if}
-						<span class="thread-root-context-label">{rootContext.label}</span>
-						<svg
-							class="thread-root-context-chevron"
-							width="21"
-							height="21"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
-						>
-							<polyline points="9 18 15 12 9 6"></polyline>
-						</svg>
-					</a>
-				{/if}
-			{/if}
-			<div class="thread-root">
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-				<div
-					class="thread-bubble-click-wrap"
-					class:clickable={showThreadActions}
-					role={showThreadActions ? 'button' : undefined}
-					tabindex={showThreadActions ? 0 : undefined}
-					onclick={showThreadActions ? (e) => onBubbleClick(e, 'root') : undefined}
-					onkeydown={showThreadActions ? (e) => onBubbleKeydown(e, 'root') : undefined}
-				>
-					{#if isZapRoot}
-						<ThreadZap
-							{pictureUrl}
-							{name}
-							{pubkey}
-							amount={zapAmount}
-							{timestamp}
-							{profileUrl}
-							{version}
-							{pending}
-							content={content ?? ''}
-							{emojiTags}
-							{resolveMentionLabel}
-						/>
-					{:else}
-						<ThreadComment
-							{appIconUrl}
-							{appName}
-							{appIdentifier}
-							{version}
-							{pictureUrl}
-							{name}
-							{pubkey}
-							{timestamp}
-							{profileUrl}
-							{loading}
-							{pending}
-						>
-							{#if (content !== undefined && content !== null) || (mediaUrls?.length ?? 0) > 0}
-								<ShortTextContent
-									content={content ?? ''}
-									emojiTags={emojiTags ?? []}
-									mediaUrls={mediaUrls ?? []}
-									{resolveMentionLabel}
-									onMediaClick={({ url: u, type: t, urls: list }) => openLightbox(u, t, list)}
-									class="root-comment-body"
-									disableTruncation={true}
-								/>
-							{:else}
-								{@render children?.()}
-							{/if}
-						</ThreadComment>
-					{/if}
+						{@render threadRootRailAvatar()}
+					</div>
+					<div class="thread-root-unified-main">
+						{#if effectiveRootContext}
+							<ThreadRootEvent
+								context={effectiveRootContext}
+								{version}
+								onNavigate={handleRootContextNav}
+							/>
+						{/if}
+						<div class="thread-root" class:thread-root--with-context={!!effectiveRootContext}>
+							{@render threadRootBubble()}
+						</div>
+					</div>
 				</div>
 			</div>
 
@@ -971,8 +1429,6 @@
 					<ZapPillRow zaps={zapsOnThis} />
 				</div>
 			{/if}
-
-			<div class="thread-divider"></div>
 
 			<div class="thread-replies">
 				{#if feedItems.length > 0}
@@ -1073,7 +1529,6 @@
 									{#if showThreadActions}
 										<CommentBubbleActionRail
 											onReply={() => openReplyToComment(reply)}
-											onZap={() => handleZapComment(reply)}
 											onOptions={() => openActionsModal(reply)}
 										/>
 									{/if}
@@ -1081,6 +1536,17 @@
 							</div>
 						{:else}
 							{@const zap = item.data}
+							{@const zapSelfId = zap.id ? String(zap.id).toLowerCase() : ''}
+							{@const zapParentId = zap.parentId ? String(zap.parentId).toLowerCase() : ''}
+							{@const zapQuotedParent =
+								zap.parentId && zapParentId !== zapSelfId
+									? (threadById.get(zapParentId) ?? threadById.get(zap.parentId))
+									: null}
+							{@const zapQuotedReceipt =
+								!zapQuotedParent && zap.parentId && zapParentId !== zapSelfId
+									? (threadZapById.get(zapParentId) ?? threadZapById.get(zap.parentId))
+									: null}
+							{@const zapThreadQuote = buildZapThreadQuote(zapQuotedParent, zapQuotedReceipt)}
 							<div class="thread-reply-row" class:desktop-bubble-actions-target={showThreadActions}>
 								<div
 									class="thread-bubble-with-rail"
@@ -1102,8 +1568,9 @@
 											amount={zap.amountSats ?? 0}
 											timestamp={zap.timestamp ?? zap.createdAt}
 											profileUrl={zap.profileUrl}
-											message={zap.comment ?? ''}
+											message={zap.comment ?? zap.content ?? ''}
 											emojiTags={zap.emojiTags ?? []}
+											quote={zapThreadQuote}
 											{resolveMentionLabel}
 											zapsOnThis={zapsByTargetId?.get(String(zap.id ?? '').toLowerCase()) ?? []}
 										/>
@@ -1111,7 +1578,6 @@
 									{#if showThreadActions}
 										<CommentBubbleActionRail
 											onReply={() => openReplyToZap(zap)}
-											onZap={() => handleZapComment(zap)}
 											onOptions={() => openActionsModal(zap)}
 										/>
 									{/if}
@@ -1120,46 +1586,23 @@
 						{/if}
 					{/each}
 				{:else}
-					<EmptyState message="No comments yet" compact />
+					<p class="profile-section-empty profile-section-empty--thread" role="status">No comments yet</p>
 				{/if}
 			</div>
 		</div>
-	</div>
+		</div>
+		</div>
 
-	{#snippet footer()}
 		{#if showThreadActions && getIsSignedIn()}
 			<div class="thread-footer-wrap">
 				<div class="thread-bottom-bar" class:expanded={commentExpanded}>
 					{#if !commentExpanded}
-						<div class="thread-bottom-bar-content">
-							<button type="button" class="btn-primary-large zap-button" onclick={handleZap}>
-								<Zap variant="fill" size={18} color="var(--whiteEnforced)" />
-								<span>Zap</span>
-							</button>
-
-							{#if getIsSignedIn()}
-								<InputButton placeholder="Comment" onclick={handleReply}>
-									{#snippet icon()}
-										<Reply variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
-									{/snippet}
-								</InputButton>
-							{:else}
-								<button
-									type="button"
-									class="thread-get-started-comment-btn"
-									onclick={() => onGetStarted?.()}
-								>
-									<span class="get-started-text">Sign in to comment</span>
-								</button>
-							{/if}
-
-							<button
-								type="button"
-								class="btn-secondary-large btn-secondary-dark options-button"
-								onclick={handleOptions}
-							>
-								<Options variant="fill" size={20} color="var(--white33)" />
-							</button>
+						<div class="thread-bottom-bar-content thread-bottom-bar-content--comment-only">
+							<InputButton placeholder="Comment" onclick={handleReply}>
+								{#snippet icon()}
+									<Reply variant="outline" size={18} strokeWidth={1.4} color="var(--white33)" />
+								{/snippet}
+							</InputButton>
 						</div>
 					{:else}
 						<div class="thread-reply-form">
@@ -1179,11 +1622,13 @@
 									placeholder={threadReplyPlaceholder}
 									size="medium"
 									{getCurrentPubkey}
-								searchProfiles={_threadSearchProfiles}
-								{searchEmojis}
-								autoFocus={true}
-								showActionRow={true}
-								onClose={closeReply}
+									searchProfiles={_threadSearchProfiles}
+									{searchEmojis}
+									autoFocus={true}
+									showActionRow={true}
+									allowEmptySubmit={pendingTipSats != null && pendingTipSats >= 1}
+									onTipTap={handleTipTap}
+									onClose={closeReply}
 									onCameraTap={handleReplyCameraTap}
 									onEmojiTap={handleEmojiTap}
 									onGifTap={() => {}}
@@ -1219,6 +1664,11 @@
 												{/if}
 											</div>
 										{/if}
+										{#if pendingTipSats}
+											<div class="thread-reply-tip-inset">
+												<TipAmountRow amountSats={pendingTipSats} onedit={openTipAmountModal} />
+											</div>
+										{/if}
 									{/snippet}
 								</ShortTextInput>
 							</div>
@@ -1227,17 +1677,17 @@
 				</div>
 			</div>
 		{/if}
-	{/snippet}
+	</div>
 </Modal>
 
-<CommentActionsModal
+<ActionsModal
 	bind:open={actionsModalOpen}
 	bind:nestedChildOpen={actionsNestedOpen}
-	sheetBackdrop={!modalOpen}
+	sheetBackdrop={true}
 	lockBodyScroll={modalLockBodyScroll}
 	scopedInPanel={modalScopedInPanel}
 	zIndex={modalZIndex + 5}
-	compactMode={actionsModalCompact}
+	contentType={actionsModalContentType}
 	authorName={actionsModalTarget === 'root'
 		? displayNameOrNpubShort(name, pubkey)
 		: displayNameOrNpubShort(
@@ -1279,10 +1729,46 @@
 	{labelCommunityPubkey}
 	searchProfiles={_threadSearchProfiles}
 	{searchEmojis}
+	getCurrentPubkey={getCurrentPubkey}
 	signEvent={showOptionsOnly ? null : signEvent}
 	onComment={actionsModalOnComment}
-	onZap={actionsModalOnZap}
-	onZapPreset={handleActionsZapPreset}
+/>
+
+{#if inlineThreadReplies}
+	<CommentModal
+		bind:isOpen={inlineComposerOpen}
+		target={inlineComposerTarget}
+		replyTarget={inlineReplyTarget}
+		rootContext={inlineReplyTarget ? null : effectiveRootContext}
+		contentType={composerContentType}
+		{version}
+		recipientName={displayNameOrNpubShort(name, pubkey)}
+		threadPubkeys={_threadParticipantPubkeys}
+		instantOpen={inlineComposerInstantOpen}
+		{resolveMentionLabel}
+		{getCurrentPubkey}
+		searchProfiles={_threadSearchProfiles}
+		{searchEmojis}
+		{signEvent}
+		onsubmit={handleInlineComposerSubmit}
+		onzapReceived={onZapReceived}
+		{onZapPending}
+		{onZapPendingClear}
+		onclose={closeInlineComposer}
+	/>
+{/if}
+
+<TipAmountModal
+	bind:isOpen={tipAmountModalOpen}
+	target={zapTarget}
+	publisherName={displayNameOrNpubShort(zapTarget?.name ?? name, zapTarget?.pubkey ?? pubkey)}
+	contentType="comment"
+	presetAmount={pendingTipSats}
+	nestedModal={modalOpen}
+	lockBodyScroll={modalLockBodyScroll}
+	scopedInPanel={modalScopedInPanel}
+	zIndex={modalZIndex + 10}
+	onconfirm={handleTipAmountConfirm}
 />
 
 <ZapSliderModal
@@ -1296,6 +1782,10 @@
 	scopedInPanel={modalScopedInPanel}
 	zIndex={modalZIndex + 10}
 	presetZapSats={zapPresetSats}
+	{immediateZap}
+	onImmediateZapClear={() => {
+		immediateZap = null;
+	}}
 	wrapperParent={zapWrapperParent}
 	searchProfiles={_threadSearchProfiles}
 	{searchEmojis}
@@ -1308,6 +1798,7 @@
 <EmojiPickerModal
 	bind:isOpen={emojiPickerOpen}
 	{getCurrentPubkey}
+	zIndex={modalZIndex + 15}
 	onSelectEmoji={handleEmojiSelect}
 	onclose={() => {
 		emojiPickerOpen = false;
@@ -1315,9 +1806,13 @@
 />
 
 <AddModal
-	title="Add App"
+	title="Add an App"
 	bind:isOpen={insertModalOpen}
 	{getCurrentPubkey}
+	nestedModal={modalOpen}
+	lockBodyScroll={modalLockBodyScroll}
+	scopedInPanel={modalScopedInPanel}
+	zIndex={modalZIndex + 10}
 	onAdd={handleAddNostrRef}
 	onclose={() => {
 		insertModalOpen = false;
@@ -1341,8 +1836,8 @@
 	.reply-indicator {
 		display: flex;
 		align-items: flex-end;
-		margin-left: 19px;
-		width: calc(100% - 19px);
+		margin-left: var(--thread-rail-inset);
+		width: calc(100% - var(--thread-rail-inset));
 	}
 
 	.connector-column {
@@ -1355,10 +1850,10 @@
 	}
 
 	.connector-vertical {
-		width: 1.5px;
+		width: var(--thread-rail-line);
 		height: 12px;
 		background: var(--white16);
-		margin-left: 0.25px;
+		margin-left: 0;
 	}
 
 	.connector-corner {
@@ -1370,6 +1865,7 @@
 		width: 100%;
 		height: 100%;
 		display: block;
+		transform: translateX(var(--thread-rail-svg-nudge));
 	}
 
 	.repliers-row {
@@ -1380,12 +1876,145 @@
 		min-width: 0;
 	}
 
+	.inline-thread {
+		--inline-thread-pic-size: var(--thread-rail-pic);
+		--inline-thread-gap: 12px;
+		--inline-thread-root-gap: 12px;
+		display: flex;
+		flex-direction: column;
+		gap: var(--inline-thread-gap);
+		margin-left: var(--thread-rail-inset);
+		width: calc(100% - var(--thread-rail-inset));
+		margin-top: var(--inline-thread-root-gap);
+		position: relative;
+	}
+
+	/*
+	 * Continuous vertical spine — stops at the top of the last L (no tail below the corner).
+	 * Middle rows use straight horizontal branches at avatar center.
+	 */
+	.inline-thread::before {
+		content: '';
+		position: absolute;
+		left: 0;
+		top: calc(-1 * var(--inline-thread-root-gap));
+		bottom: calc(var(--inline-thread-pic-size) / 2 - 1px + 16px);
+		width: var(--thread-rail-line);
+		background: var(--white16);
+		pointer-events: none;
+	}
+
+	.inline-thread-row {
+		display: flex;
+		align-items: flex-end;
+		min-width: 0;
+		position: relative;
+		z-index: 1;
+	}
+
+	.inline-thread-connector {
+		width: 27px;
+		flex-shrink: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		justify-content: flex-end;
+		align-self: stretch;
+		padding-bottom: calc(var(--inline-thread-pic-size) / 2 - 1px);
+		box-sizing: border-box;
+	}
+
+	/* T-junction: horizontal stub — offset past spine so alpha does not stack at the joint */
+	.inline-thread-branch {
+		width: calc(27px - var(--thread-rail-branch-offset));
+		height: var(--thread-rail-line);
+		margin-left: var(--thread-rail-branch-offset);
+		flex-shrink: 0;
+		background: var(--white16);
+	}
+
+	/* Last reply only: rounded L into the profile pic */
+	.inline-thread-elbow {
+		width: 27px;
+		height: 16px;
+		flex-shrink: 0;
+	}
+
+	.inline-thread-elbow svg {
+		width: 100%;
+		height: 100%;
+		display: block;
+		transform: translateX(var(--thread-rail-svg-nudge));
+	}
+
+	.inline-thread-content {
+		flex: 1;
+		min-width: 0;
+	}
+
 	.thread-content-wrap {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	/* Top edge mask when scrolled — on viewport host (mask on scroll breaks ProfilePic layers). */
+	.thread-content-wrap--top-fade:not(.thread-content-wrap--has-footer) .thread-scroll-host {
+		mask-image: linear-gradient(to bottom, transparent 0, black 40px, black 100%);
+		-webkit-mask-image: linear-gradient(to bottom, transparent 0, black 40px, black 100%);
+	}
+
+	/* Bottom edge mask above comment bar — matches --comment-modal-inset */
+	.thread-content-wrap--has-footer:not(.thread-content-wrap--top-fade) .thread-scroll-host {
+		mask-image: linear-gradient(to bottom, black 0, black calc(100% - var(--comment-modal-inset)), transparent 100%);
+		-webkit-mask-image: linear-gradient(to bottom, black 0, black calc(100% - var(--comment-modal-inset)), transparent 100%);
+	}
+
+	.thread-content-wrap--has-footer.thread-content-wrap--top-fade .thread-scroll-host {
+		mask-image: linear-gradient(
+			to bottom,
+			transparent 0,
+			black 40px,
+			black calc(100% - var(--comment-modal-inset)),
+			transparent 100%
+		);
+		-webkit-mask-image: linear-gradient(
+			to bottom,
+			transparent 0,
+			black 40px,
+			black calc(100% - var(--comment-modal-inset)),
+			transparent 100%
+		);
+	}
+
+	.thread-scroll-host {
 		position: relative;
 		flex: 1;
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
+		mask-size: 100% 100%;
+		mask-repeat: no-repeat;
+		-webkit-mask-size: 100% 100%;
+		-webkit-mask-repeat: no-repeat;
+	}
+
+	.thread-scroll {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		scrollbar-width: thin;
+		scrollbar-color: var(--white16) transparent;
+	}
+
+	/* backdrop-filter on ProfilePic escapes mask when applied to the scroller — disable in feed */
+	.thread-scroll-host :global(.profile-pic-inner) {
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
 	}
 
 	/**
@@ -1408,10 +2037,16 @@
 		opacity: 1;
 	}
 
-	:global(.thread-modal .modal-content),
-	:global(.thread-modal > .thread-footer-wrap) {
+	:global(.thread-modal.modal-fill-height .modal-content) {
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+	}
+
+	:global(.thread-modal.modal-bottom .modal-content) {
 		position: relative;
 		z-index: 0;
+		padding-bottom: 0 !important;
 	}
 
 	/* Whole thread modal scales and moves down when Zap or options modal opens (class is on Modal’s container) */
@@ -1422,85 +2057,108 @@
 	}
 
 	.thread-footer-wrap {
-		position: relative;
 		flex-shrink: 0;
+		padding: 0 var(--comment-modal-inset) var(--comment-modal-bottom-inset);
+		background: transparent;
+	}
+
+	.thread-footer-wrap .thread-bottom-bar {
+		background: transparent;
 	}
 
 	.thread-content {
 		display: flex;
 		flex-direction: column;
-		flex: 1;
-		min-height: 0;
 	}
 
-	.thread-root-context {
+	.thread-root-block {
 		display: flex;
-		align-items: center;
-		gap: 10px;
-		padding: 16px 16px 12px;
-		border-bottom: 1px solid var(--shell-border);
-		text-decoration: none;
-		color: var(--white66);
-		font-size: 0.8125rem;
-		font-weight: 500;
-		transition:
-			background 0.15s,
-			color 0.15s;
+		flex-direction: column;
 		flex-shrink: 0;
 	}
 
-	.thread-root-context:hover {
-		background: color-mix(in srgb, var(--white) 2.5%, transparent);
-	}
-
-	.thread-root-context--deleted {
-		cursor: default;
-		color: var(--white33);
-	}
-
-	.thread-root-context--deleted:hover {
-		background: transparent;
-	}
-
-	.thread-root-context-icon {
-		width: 18px;
-		height: 18px;
-		border-radius: 4px;
-		object-fit: cover;
-		flex-shrink: 0;
-	}
-
-	/* Mini stack grid (28px) scaled to align with 18px icons in this row */
-	.thread-root-context-stack-badge {
-		flex-shrink: 0;
-		width: 18px;
-		height: 18px;
+	.thread-root-unified {
 		display: flex;
+		align-items: flex-start;
+		gap: 12px;
+		padding: var(--comment-modal-inset) var(--comment-modal-inset) 0;
+	}
+
+	.thread-root-rail {
+		width: 36px;
+		flex-shrink: 0;
+		display: flex;
+		flex-direction: column;
 		align-items: center;
-		justify-content: center;
+		align-self: flex-start;
 	}
 
-	.thread-root-context-stack-badge :global(.stack-mini-badge) {
-		transform: scale(calc(18 / 28));
-		transform-origin: center center;
+	.thread-root-rail-line {
+		width: 2px;
+		height: 12px;
+		flex-shrink: 0;
+		background: var(--white16);
 	}
 
-	.thread-root-context-label {
+	.thread-root-rail-avatar {
+		flex-shrink: 0;
+		line-height: 0;
+	}
+
+	.thread-root-rail-avatar-link {
+		display: block;
+		line-height: 0;
+		transition: opacity 0.15s ease;
+	}
+
+	.thread-root-rail-avatar-link:hover {
+		opacity: 0.8;
+	}
+
+	.thread-root-unified-main {
 		flex: 1;
 		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.thread-root-context-chevron {
-		flex-shrink: 0;
-		opacity: 0.5;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.thread-root {
-		padding: 16px;
-		padding-bottom: 12px;
+		padding: 0 0 12px;
+		min-width: 0;
+	}
+
+	.thread-root :global(.author-top) {
+		padding-top: 5px;
+	}
+
+	.thread-root :global(.thread-comment),
+	.thread-root :global(.thread-zap) {
+		gap: 4px;
+	}
+
+	.thread-root-options-btn {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		width: 16px;
+		height: 14px;
+		padding: 0;
+		margin: 0;
+		border: none;
+		border-radius: 0;
+		background: transparent;
+		color: inherit;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+
+	.thread-root-options-btn:hover {
+		opacity: 0.75;
+	}
+
+	.thread-root-options-btn:focus-visible {
+		outline: 2px solid var(--blurpleColor);
+		outline-offset: 2px;
 	}
 
 	.thread-bubble-click-wrap {
@@ -1539,20 +2197,21 @@
 	}
 
 	.thread-divider {
-		height: 1.4px;
+		height: 1px;
 		background-color: var(--white11);
 		margin: 0;
 	}
 
 	.thread-pills {
-		padding: 6px 16px 12px;
+		padding: 6px var(--comment-modal-inset) 12px;
 	}
 
 	.thread-replies {
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		padding: 12px 16px 16px;
+		padding: var(--comment-modal-inset) var(--comment-modal-inset) var(--comment-modal-inset);
+		border-top: 1.4px solid var(--white11);
 	}
 
 	.thread-reply-row {
@@ -1561,23 +2220,27 @@
 	}
 
 	.thread-bottom-bar {
-		background: var(--gray66);
-		border-top: 0.33px solid var(--white16);
-		padding: 16px 6px 16px 16px;
-		max-height: 88px;
+		border-top: none;
+		padding: 0;
+		max-height: 56px;
 		overflow: hidden;
 		transition: max-height 0.3s cubic-bezier(0.33, 1, 0.68, 1);
 	}
 
 	.thread-bottom-bar.expanded {
 		max-height: 50vh;
-		padding: 12px;
+		padding: 0;
 	}
 
 	.thread-bottom-bar-content {
 		display: flex;
 		align-items: center;
 		gap: 12px;
+	}
+
+	.thread-bottom-bar-content--comment-only :global(.input-button) {
+		flex: 1;
+		min-width: 0;
 	}
 
 	.thread-reply-form {
@@ -1592,6 +2255,16 @@
 		padding-left: 4px;
 		box-sizing: border-box;
 		min-width: 0;
+	}
+
+	/* Full-bleed tip row inside above-editor; tight to quote above, breathing room below divider */
+	.thread-reply-tip-inset {
+		margin: 0 -8px;
+		padding-bottom: 6px;
+	}
+
+	.thread-reply-tip-inset:not(:first-child) {
+		margin-top: -2px;
 	}
 
 	.thread-reply-input-wrap {
@@ -1610,75 +2283,9 @@
 		pointer-events: none;
 	}
 
-	.zap-button {
-		gap: 8px;
-		padding: 0 20px 0 14px;
-		flex-shrink: 0;
-	}
-
-	/* Same look as Comment InputButton: border, bg, height, radius */
-	.thread-get-started-comment-btn {
-		display: flex;
-		align-items: center;
-		flex: 1;
-		min-width: 0;
-		height: 42px;
-		padding: 0 16px;
-		background-color: var(--black33);
-		border-radius: 16px;
-		border: 0.33px solid var(--white33);
-		cursor: pointer;
-		justify-content: flex-start;
-	}
-	.thread-get-started-comment-btn .get-started-text {
-		color: var(--white33);
-		font-size: 16px;
-		font-weight: 500;
-	}
 	@media (max-width: 767px) {
-		.thread-get-started-comment-btn {
-			height: 38px;
-		}
-		.thread-get-started-comment-btn .get-started-text {
-			font-size: 14px;
-		}
-	}
-
-	.options-button {
-		width: 42px;
-		padding: 0;
-		flex-shrink: 0;
-		background: transparent !important;
-		border: none !important;
-		margin-left: -12px;
-	}
-
-	.options-button :global(svg) {
-		width: 24px;
-		height: 24px;
-	}
-
-	@media (max-width: 767px) {
-		.options-button {
-			width: 38px;
-		}
-
-		.zap-button span {
-			font-size: 14px;
-		}
-
 		.thread-bottom-bar.expanded {
-			padding: 16px;
-		}
-	}
-
-	@media (min-width: 768px) {
-		.thread-bottom-bar {
-			padding: 12px 2px 12px 12px;
-		}
-
-		.thread-bottom-bar.expanded {
-			padding: 12px;
+			padding: 0;
 		}
 	}
 </style>

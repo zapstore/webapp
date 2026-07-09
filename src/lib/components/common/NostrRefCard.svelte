@@ -4,9 +4,9 @@
  * Supports app naddr, stack naddr, other addressable kinds, and forum/comment nevent cards.
  */
 import { onMount } from 'svelte';
-import { queryEvent, parseComment, resolveAppEventForNaddr, resolveStackEventForNaddr } from '$lib/purpleweb';
+import { loadEventWithAuthorProfile, parseComment, resolveAppEventForNaddr, resolveStackEventForNaddr } from '$lib/purpleweb';
 import { nip19 } from 'nostr-tools';
-import { decodeNaddr, parseApp, parseAppStack, parseForumPost, parseProfile } from '$lib/nostr/models';
+import { decodeNaddr, parseApp, parseAppStack, parseForumPost } from '$lib/nostr/models';
 import { EVENT_KINDS } from '$lib/config';
 import Nostr from '$lib/components/icons/Nostr.svelte';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
@@ -68,12 +68,10 @@ onMount(() => {
 		if (decoded.type === 'nevent' || decoded.type === 'note') {
 			const id = decoded.type === 'nevent' ? decoded.data.id : decoded.data;
 			if (!id) return;
-			const event = await queryEvent({ ids: [id], limit: 1 });
+			const { event, profile } = await loadEventWithAuthorProfile(id);
 			if (cancelled || !event) return;
 			refEvent = event;
-
-			const profileEvent = await queryEvent({ kinds: [EVENT_KINDS.PROFILE], authors: [event.pubkey], limit: 1 });
-			if (!cancelled && profileEvent) authorProfile = parseProfile(profileEvent);
+			if (!cancelled && profile) authorProfile = profile;
 		}
 	})();
 

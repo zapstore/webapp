@@ -83,10 +83,11 @@ async function backfillPreviewApps(refs) {
 }
 
 /**
- * @param {{ communityOnly?: boolean }} [input]
+ * @param {{ communityOnly?: boolean, browseAll?: boolean }} [input]
  */
 async function loadStacks(input = {}) {
 	const communityOnly = !!input.communityOnly;
+	const browseAll = !!input.browseAll;
 	const stackFilter = { kinds: [EVENT_KINDS.APP_STACK] };
 	if (communityOnly) stackFilter.authors = [ZAPSTORE_COMMUNITY_PUBKEY];
 	if (platformTag) stackFilter['#f'] = [platformTag];
@@ -142,17 +143,13 @@ async function loadStacks(input = {}) {
 		backfillPreviewApps(pendingRefs).catch(() => {});
 	}
 
-	// /apps: always show Zapstore community stacks (icons fill in when backfill lands).
+	// /apps community carousel: always show community stacks (icons fill in when backfill lands).
 	if (communityOnly) return result;
 
-	// /stacks browse: hide stacks with nothing to show until preview resolves.
-	return result.filter(({ stack, apps }) => {
-		if (apps.length > 0) return true;
-		const previewRefs = (stack.appRefs ?? [])
-			.filter((r) => r.kind === EVENT_KINDS.APP)
-			.slice(0, 4);
-		return previewRefs.some((r) => fetchedPreviewKeys.has(`${r.pubkey}:${r.identifier}`));
-	});
+	// /stacks browse: show all public stacks; preview icons fill in via Dexie backfill.
+	if (browseAll) return result;
+
+	return result;
 }
 
 /**
@@ -192,8 +189,9 @@ export function stackListingPreviewKey(items) {
  * @param {() => { seedEvents?: import('nostr-tools').Event[], communityOnly?: boolean }} [getInput]
  */
 export function createStacksListingQuery(getInput) {
+	const initialInput = getInput?.() ?? {};
 	const state = createListingQuery({
-		cacheKey: 'stacks',
+		cacheKey: initialInput.communityOnly ? 'stacks:community' : 'stacks:all',
 		load: (input) => loadStacks(input ?? {}),
 		getInput,
 		getSeedEvents: (input) => publicStackEvents(input?.seedEvents ?? []),
@@ -223,6 +221,17 @@ export function createStacksListingQuery(getInput) {
 						limit: 48
 					},
 					'purpleweb-stacks-listing-community-hydrate'
+				);
+			} else if (input?.browseAll) {
+				hydrateOnce(
+					'stacks-all-catalog',
+					[ZAPSTORE_RELAY],
+					{
+						kinds: [EVENT_KINDS.APP_STACK],
+						...(platformTag ? { '#f': [platformTag] } : {}),
+						limit: 48
+					},
+					'purpleweb-stacks-listing-all-hydrate'
 				);
 			}
 		},

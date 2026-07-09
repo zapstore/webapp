@@ -48,9 +48,9 @@
 		</div>
 	{:else if rows.length === 0}
 		<p class="platform-empty">
-			No platform data for this range. Subscription IDs must start with <code>web-</code> or
-			<code>app-</code>; downloads require the <code>X-Zapstore-Client</code> header on Blossom
-			fetches.
+			No platform data for this range. App detail subscription IDs must use the <code>web-app-detail</code>
+			prefix; downloads require <code>X-Zapstore-Client</code> and
+			<code>X-Zapstore-Download-Type</code> headers on Blossom fetches.
 		</p>
 	{:else}
 		<ul class="platform-list">

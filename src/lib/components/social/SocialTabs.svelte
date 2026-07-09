@@ -2,7 +2,7 @@
 /**
  * SocialTabs - Tabbed interface for social content
  *
- * Displays tabs for: Comments, Zaps, Labels, Stacks, Details
+ * Displays tabs for: Comments, Tips, Labels, Stacks, Details
  * Only loads content for the currently selected tab.
  *
  * Comments and zaps are provided by parent routes from Dexie-backed local-first queries.
@@ -15,15 +15,16 @@ import ZapBubble from "./ZapBubble.svelte";
 import BubbleSkeleton from "./BubbleSkeleton.svelte";
 import DetailsTab from "./DetailsTab.svelte";
 import EmptyState from "$lib/components/common/EmptyState.svelte";
+import "$lib/styles/profile-section-empty.css";
 import Spinner from "$lib/components/common/Spinner.svelte";
 import Label from "$lib/components/common/Label.svelte";
 import ProfilePicStack from "$lib/components/common/ProfilePicStack.svelte";
 import RelayLoadingBar from "$lib/components/common/RelayLoadingBar.svelte";
+import CommentFeedComposer from "./CommentFeedComposer.svelte";
 import { Zap } from "$lib/components/icons";
-import { queryEvent, queryEvents } from "$lib/purpleweb";
-import { parseRelease } from "$lib/nostr";
-import { EVENT_KINDS, PLATFORM_FILTER } from "$lib/config";
-import { nip19 } from "nostr-tools";
+import { loadSocialDetailsData } from "$lib/purpleweb";
+import { profileDisplayLabel } from "$lib/utils/npub-display.js";
+import { isProfilePicLoading } from "$lib/utils/profile-loading.js";
 let {
     app = {}, stack = null, version = "", publisherProfile: _publisherProfile = null,
     zaps = [], zapperProfiles = new SvelteMap(), className = "",
@@ -32,6 +33,7 @@ let {
     commentsSyncing = false,
     commentsError = "",
     zapsLoading = false, profiles = {}, profilesLoading = false,
+    missingProfilePubkeys = [], profileHydrationAttempted = undefined,
     getAppSlug = () => "", getStackSlug = () => "",
     pubkeyToNpub = () => "", searchProfiles = async () => [],
     searchEmojis = async () => [], signEvent = null, onCommentSubmit, onZapReceived, onZapPending, onZapPendingClear, onGetStarted,
@@ -69,7 +71,46 @@ let {
     includeReceiptZapsInCommentsFeed = true,
     /** Full-width divider under tab pills; spans `--page-content-pad-x` breakout when set on an ancestor. */
     showTabDivider = true,
+    /** Root-level comment/zap target (app, stack, or forum post). Enables composer above comments feed. */
+    commentTarget = null,
+    commentRecipientName = '',
+    contentType = 'app',
+    otherZaps = [],
+    isSignedIn = true,
+    getCurrentPubkey = () => null,
+    /**
+     * Optional root context for thread modals (forum posts, etc.). When omitted, derived from stack/app.
+     * @type {{ label: string, iconUrl?: string | null, href?: string | null, deleted?: boolean, isStack?: boolean, isApp?: boolean, identifier?: string | null } | null}
+     */
+    rootContext = null,
 } = $props();
+
+/** Root event row in opened comment threads — unified across app, stack, and forum detail pages. */
+const resolvedRootContext = $derived.by(() => {
+    if (rootContext) return rootContext;
+    if (stack?.pubkey && stack?.dTag) {
+        const slug = getStackSlug?.(stack.pubkey, stack.dTag);
+        const label = String(stack.title ?? stack.name ?? "").trim() || "Stack";
+        return {
+            label,
+            iconUrl: stack.image ?? stack.picture ?? null,
+            href: slug ? `/stacks/${slug}` : null,
+            isStack: true,
+        };
+    }
+    const appLabel = String(app?.name ?? "").trim();
+    if (appLabel || app?.icon) {
+        const slug = app?.pubkey && app?.dTag ? getAppSlug?.(app.pubkey, app.dTag) : "";
+        return {
+            label: appLabel || app.dTag || "App",
+            iconUrl: app.icon ?? null,
+            href: slug ? `/apps/${slug}` : null,
+            isApp: true,
+            identifier: app.dTag ?? null,
+        };
+    }
+    return null;
+});
 
 /** Root comment id whose thread contains openCommentId; used to open that thread modal on load */
 const openThreadRootId = $derived.by(() => {
@@ -88,7 +129,7 @@ const openThreadRootId = $derived.by(() => {
 
 const tabs = $derived([
     { id: "comments", label: "Comments" },
-    { id: "zaps", label: "Zaps" },
+    { id: "zaps", label: "Tips" },
     { id: "labels", label: "Labels" },
     ...(showDetailsTab ? [{ id: "details", label: "Details" }] : []),
 ]);
@@ -105,21 +146,8 @@ $effect(() => {
         autoFetchedDetails = null;
         return;
     }
-    const target = stack ?? app;
-    if (!target?.pubkey || !target?.dTag) {
-        autoFetchedDetails = null;
-        return;
-    }
-    // Always fetch from Dexie — no rawEvent embedded in models
-    const kind = stack ? EVENT_KINDS.APP_STACK : EVENT_KINDS.APP;
-    const filter = {
-        kinds: [kind],
-        authors: [target.pubkey],
-        "#d": [target.dTag],
-        ...(kind === EVENT_KINDS.APP ? PLATFORM_FILTER : {}),
-    };
-    queryEvent(filter).then((fromStore) => {
-        autoFetchedDetails = fromStore ?? null;
+    loadSocialDetailsData({ app, stack, includeReleases: false }).then(({ rawEvent }) => {
+        autoFetchedDetails = rawEvent ?? null;
     });
 });
 /** Resolved details data: explicit prop wins over Dexie auto-fetch. */
@@ -131,29 +159,8 @@ $effect(() => {
         autoFetchedReleases = [];
         return;
     }
-    const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-    Promise.all([
-        queryEvents({ kinds: [EVENT_KINDS.RELEASE], "#a": [aTagValue], limit: 50 }),
-        queryEvents({ kinds: [EVENT_KINDS.RELEASE], "#i": [app.dTag], limit: 50 }),
-    ]).then(([byA, byI]) => {
-        const seen = new SvelteSet();
-        const merged = [];
-        for (const e of [...byA, ...byI]) {
-            if (!seen.has(e.id)) { seen.add(e.id); merged.push(e); }
-        }
-        merged.sort((a, b) => b.created_at - a.created_at);
-        autoFetchedReleases = merged.slice(0, 50).map((e) => {
-            const parsed = parseRelease(e);
-            let naddr = '';
-            try {
-                naddr = nip19.naddrEncode({
-                    kind: EVENT_KINDS.RELEASE,
-                    pubkey: e.pubkey,
-                    identifier: parsed.dTag,
-                });
-            } catch { /* ignore encoding errors */ }
-            return { ...parsed, naddr, rawEvent: e };
-        });
+    loadSocialDetailsData({ app, stack: null, includeReleases: true }).then(({ releases }) => {
+        autoFetchedReleases = releases;
     });
 });
 const totalZapAmount = $derived(zaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0));
@@ -185,14 +192,6 @@ function safeNpubFromPubkey(pubkey) {
         return "";
     }
 }
-/** Same trimmed npub format as profile page: npub1xxx......yyyyyy */
-function formatNpubDisplay(npubStr) {
-    if (!npubStr || typeof npubStr !== "string") return "";
-    const s = npubStr.trim();
-    if (s.length < 14) return s;
-    const afterPrefix = s.startsWith("npub1") ? s.slice(5, 8) : s.slice(0, 3);
-    return s.startsWith("npub1") ? `npub1${afterPrefix}......${s.slice(-6)}` : `${afterPrefix}......${s.slice(-6)}`;
-}
 function formatSats(amount) {
     if (amount >= 1000000)
         return `${(amount / 1000000).toFixed(1)}M`;
@@ -201,17 +200,22 @@ function formatSats(amount) {
     return amount.toLocaleString();
 }
 function enrichComment(comment) {
-    const profile = profiles[comment.pubkey] ?? zapperProfiles.get(comment.pubkey) ?? undefined;
-    const hasProfile = profile !== undefined && profile !== null;
+    const pk = String(comment.pubkey ?? "").toLowerCase();
+    const profile =
+        profiles[pk] ?? profiles[comment.pubkey] ?? zapperProfiles.get(comment.pubkey) ?? undefined;
     const npub = comment.npub || safeNpubFromPubkey(comment.pubkey);
     return {
         ...comment,
-        displayName: profile?.displayName ||
-            profile?.name ||
-            (npub ? formatNpubDisplay(npub) : "Anonymous"),
+        displayName: profileDisplayLabel(profile, comment.pubkey),
         avatarUrl: profile?.picture ?? null,
         profileUrl: npub ? `/profile/${npub}` : "",
-        profileLoading: profilesLoading && !hasProfile,
+        profileLoading: isProfilePicLoading({
+            profile,
+            pubkey: comment.pubkey,
+            profilesLoading,
+            missingProfilePubkeys,
+            profileHydrationAttempted,
+        }),
     };
 }
 const commentIds = $derived(new SvelteSet(comments.map((c) => (c.id ?? "").toLowerCase())));
@@ -254,9 +258,7 @@ const enrichedZaps = $derived(zaps
     .map((zap) => {
     const profile = zap.senderPubkey ? zapperProfiles.get(zap.senderPubkey) : undefined;
     const senderNpub = safeNpubFromPubkey(zap.senderPubkey);
-    const displayName = profile?.displayName?.trim() ||
-        profile?.name?.trim() ||
-        (senderNpub ? formatNpubDisplay(senderNpub) : "Anonymous");
+    const displayName = profileDisplayLabel(profile, zap.senderPubkey);
     return {
         ...zap,
         type: "zap",
@@ -289,9 +291,17 @@ const threadByRootId = $derived.by(() => {
     }
     return map;
 });
-// threadByZapId and threadZapsByZapId have been removed: comment trees hang exclusively
-// from kind-1111 events. Raw kind-9735 root rows (backward-compat fallback) open with
-// empty thread data — their threads were published as z-wrappers and appear in threadByRootId.
+
+/** When exactly one root comment has nested replies, show them inline on detail pages. */
+const singleRootCommentId = $derived.by(() => {
+    const commentRoots = rootCommentsWithReplies.filter((c) => !c.isWrapper);
+    if (commentRoots.length !== 1) return null;
+    const root = commentRoots[0];
+    const thread = threadByRootId.get(root.id) ?? [];
+    if (thread.length <= 1) return null;
+    return root.id;
+});
+
 /** For each root comment in the feed: zaps on any event in that thread. Used when opening the modal for that root comment. */
 const threadZapsByRootId = $derived.by(() => {
     const norm = (id) => (id ?? "").toLowerCase();
@@ -403,7 +413,7 @@ const zapsByTargetId = $derived.by(() => {
         onclick={() => (activeTab = tab.id)}
       >
         {#if tab.id === "zaps"}
-          <span>Zaps</span>
+          <span>Tips</span>
           <span class="tab-stats">
             {#if zapsLoading}
               <Spinner color="hsl(0 0% 100% / 0.44)" size={14} />
@@ -449,6 +459,26 @@ const zapsByTargetId = $derived.by(() => {
 
   <div class="tab-content">
     {#if activeTab === "comments"}
+      {#if commentTarget && isSignedIn}
+        <CommentFeedComposer
+          target={commentTarget}
+          recipientName={commentRecipientName}
+          {contentType}
+          rootContext={resolvedRootContext}
+          {version}
+          {otherZaps}
+          {isSignedIn}
+          {getCurrentPubkey}
+          {searchProfiles}
+          {searchEmojis}
+          {signEvent}
+          onCommentSubmit={onCommentSubmit}
+          {onZapReceived}
+          {onZapPending}
+          {onZapPendingClear}
+        />
+      {/if}
+
       {#if commentsError}
         <div class="mb-4 flex items-start gap-2 rounded border border-destructive/40 bg-destructive/10 p-3 regular14 text-destructive">
           <AlertCircle class="h-4 w-4 mt-0.5" />
@@ -459,7 +489,7 @@ const zapsByTargetId = $derived.by(() => {
       {#if commentsLoading && combinedFeed.length === 0}
         <BubbleSkeleton />
       {:else if combinedFeed.length === 0 && comments.length === 0}
-        <EmptyState message="No comments yet" minHeight={300} topAlign={true} />
+        <p class="profile-section-empty profile-section-empty--no-top-border profile-section-empty--no-bottom-border" role="status">No comments yet</p>
       {:else if combinedFeed.length === 0}
         <BubbleSkeleton />
       {:else}
@@ -487,6 +517,7 @@ const zapsByTargetId = $derived.by(() => {
                 appIconUrl={app?.icon}
                 appName={app?.name}
                 appIdentifier={app?.dTag}
+                rootContext={resolvedRootContext}
                 wrapperRoot={item.isWrapper ? wrapperRoot : null}
                 zapsOnThis={zapsByTargetId.get(String(item.id ?? '').toLowerCase()) ?? []}
                 {zapsByTargetId}
@@ -535,7 +566,10 @@ const zapsByTargetId = $derived.by(() => {
                 appIconUrl={app?.icon}
                 appName={app?.name}
                 appIdentifier={app?.dTag}
+                rootContext={resolvedRootContext}
                 {wrapperRoot}
+                inlineThreadReplies={item.id === singleRootCommentId}
+                {contentType}
                 zapsOnThis={zapsByTargetId.get(String(item.id ?? '').toLowerCase()) ?? []}
                 {zapsByTargetId}
                 version={item.version ?? ''}
@@ -557,7 +591,7 @@ const zapsByTargetId = $derived.by(() => {
       {#if zapsLoading && enrichedZaps.length === 0}
         <BubbleSkeleton />
       {:else if enrichedZaps.length === 0}
-        <EmptyState message="No zaps yet" minHeight={300} topAlign={true} />
+        <EmptyState message="No tips yet" minHeight={300} topAlign={true} />
       {:else}
         <div class="space-y-4">
           {#each enrichedZaps as zap (zap.id)}
@@ -647,8 +681,8 @@ const zapsByTargetId = $derived.by(() => {
    */
   .social-tabs-tab-divider {
     flex-shrink: 0;
-    height: 1.4px;
-		margin-top: 16px;
+    height: 1px;
+    margin-top: 16px;
     margin-bottom: 0;
     margin-left: calc(-1 * var(--page-content-pad-x, 0px));
     margin-right: calc(-1 * var(--page-content-pad-x, 0px));

@@ -32,7 +32,8 @@ function sortCommentsNewestFirst(events) {
 }
 
 /**
- * Profile Activity — one-shot Dexie read + batched enrichment, minimal reactivity.
+ * Profile Activity — Dexie liveQuery + batched enrichment. Relay reads only
+ * hydrate Dexie; UI updates from local data.
  *
  * @param {() => string | null | undefined} getPubkey
  */
@@ -72,6 +73,8 @@ export function createProfileActivityQuery(getPubkey) {
 	const parentFetchAttempted = new Set();
 	let enrichFlight = /** @type {Promise<void> | null} */ (null);
 	let relayRootsFlight = /** @type {Promise<void> | null} */ (null);
+	let commentsKey = '';
+	let activeGeneration = 0;
 
 	const displayedComments = $derived(state.comments.slice(0, state.visibleLimit));
 	const displayedCount = $derived(
@@ -126,6 +129,7 @@ export function createProfileActivityQuery(getPubkey) {
 		parentFetchAttempted.clear();
 		enrichFlight = null;
 		relayRootsFlight = null;
+		commentsKey = '';
 	}
 
 	async function readCommentsFromDexie() {
@@ -158,7 +162,7 @@ export function createProfileActivityQuery(getPubkey) {
 		});
 	}
 
-	async function enrichComments(/** @type {import('nostr-tools').NostrEvent[]} */ evts) {
+	async function enrichComments(/** @type {import('nostr-tools').NostrEvent[]} */ evts, generation = activeGeneration) {
 		if (!browser || evts.length === 0) return;
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- batch workspace
 		const addrRootByATag = new Map();
@@ -167,6 +171,7 @@ export function createProfileActivityQuery(getPubkey) {
 		}
 		await batchResolveAddrRootsFromDexie(evts, addrRootByATag);
 		const forumRootById = await batchResolveForumRootsByIdFromDexie(evts);
+		if (generation !== activeGeneration) return;
 		applyRootMaps(addrRootByATag, forumRootById, evts);
 
 		/** @type {{ commentId: string, parentId: string }[]} */
@@ -203,6 +208,7 @@ export function createProfileActivityQuery(getPubkey) {
 					...(await queryEvents({ ids: missing, limit: missing.length }))
 				];
 			}
+			if (generation !== activeGeneration) return;
 			const byId = new SvelteMap();
 			for (const e of found) {
 				if (!e?.id) continue;
@@ -260,7 +266,7 @@ export function createProfileActivityQuery(getPubkey) {
 		return () => sub.unsubscribe();
 	});
 
-	async function fetchMissingRootsOnce(/** @type {import('nostr-tools').NostrEvent[]} */ evts) {
+	async function fetchMissingRootsOnce(/** @type {import('nostr-tools').NostrEvent[]} */ evts, generation = activeGeneration) {
 		if (!browser || !isOnline() || evts.length === 0 || relayRootsFlight) return relayRootsFlight;
 		relayRootsFlight = (async () => {
 			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- snapshot
@@ -286,7 +292,8 @@ export function createProfileActivityQuery(getPubkey) {
 			}
 			if (jobs.length > 0) {
 				await Promise.all(jobs);
-				await enrichComments(evts);
+				if (generation !== activeGeneration) return;
+				await enrichComments(evts, generation);
 			}
 		})().finally(() => {
 			relayRootsFlight = null;
@@ -294,19 +301,20 @@ export function createProfileActivityQuery(getPubkey) {
 		return relayRootsFlight;
 	}
 
-	function runEnrichmentOnce() {
+	function runEnrichmentOnce(generation = activeGeneration) {
 		if (enrichFlight || state.enrichmentDone || state.comments.length === 0) return enrichFlight;
 		enrichFlight = (async () => {
-			await enrichComments(state.comments);
+			await enrichComments(state.comments, generation);
+			if (generation !== activeGeneration) return;
 			state.enrichmentDone = true;
-			void fetchMissingRootsOnce(state.comments);
+			void fetchMissingRootsOnce(state.comments, generation);
 		})().finally(() => {
 			enrichFlight = null;
 		});
 		return enrichFlight;
 	}
 
-	async function loadInitial() {
+	async function loadInitial(generation = activeGeneration) {
 		const pubkey = getPubkey();
 		if (!browser || !pubkey) {
 			state.loading = false;
@@ -314,12 +322,6 @@ export function createProfileActivityQuery(getPubkey) {
 		}
 		state.error = '';
 		try {
-			const local = await readCommentsFromDexie();
-			if (local.length > 0) {
-				state.comments = local;
-				state.loading = false;
-				runEnrichmentOnce();
-			}
 			if (isOnline()) {
 				state.syncing = true;
 				const fetched = await hydrateFilters(
@@ -327,31 +329,30 @@ export function createProfileActivityQuery(getPubkey) {
 					{ kinds: [EVENT_KINDS.COMMENT], authors: [pubkey], limit: RELAY_PAGE },
 					{ timeout: 7000, feature: 'profile-activity-seed' }
 				);
+				if (generation !== activeGeneration) return;
 				if (fetched.length < RELAY_PAGE) state.relayExhausted = true;
 				rootsReadyForDeletedTimer = true;
 			}
-			const fresh = await readCommentsFromDexie();
-			if (fresh.length > 0) {
-				state.comments = fresh;
-				state.enrichmentDone = false;
-				runEnrichmentOnce();
-			}
 		} catch (e) {
+			if (generation !== activeGeneration) return;
 			console.error('[profile-activity] load failed', e);
 			state.error = 'Could not load activity.';
 		} finally {
-			state.syncing = false;
-			state.loading = false;
+			if (generation === activeGeneration) {
+				state.syncing = false;
+				state.loading = false;
+			}
 		}
 	}
 
-	async function fetchOlderFromRelay() {
+	async function fetchOlderFromRelay(generation = activeGeneration) {
 		const pubkey = getPubkey();
 		if (!browser || !pubkey || state.loadingMore || state.relayExhausted) return;
 		const oldest = state.comments.at(-1);
 		if (!oldest) return;
 
 		state.loadingMore = true;
+		const prevLen = state.comments.length;
 		try {
 			await hydrateFilters(
 				[ZAPSTORE_RELAY],
@@ -363,25 +364,29 @@ export function createProfileActivityQuery(getPubkey) {
 				},
 				{ timeout: 7000, feature: 'profile-activity-more' }
 			);
+			if (generation !== activeGeneration) return;
 			const fresh = await readCommentsFromDexie();
-			if (fresh.length <= state.comments.length) {
+			if (generation !== activeGeneration) return;
+			if (fresh.length <= prevLen) {
 				state.relayExhausted = true;
 				state.pendingRevealTarget = 0;
 			} else {
-				const prevLen = state.comments.length;
 				state.comments = fresh;
 				const added = fresh.slice(prevLen);
-				if (added.length > 0) await enrichComments(added);
+				if (added.length > 0) await enrichComments(added, generation);
 				state.visibleLimit = Math.min(
 					MAX_VISIBLE,
 					Math.max(state.visibleLimit, Math.min(state.pendingRevealTarget, fresh.length))
 				);
-				void fetchMissingRootsOnce(state.comments);
+				void fetchMissingRootsOnce(state.comments, generation);
 			}
 		} catch (e) {
+			if (generation !== activeGeneration) return;
 			console.error('[profile-activity] load-more failed', e);
 		} finally {
-			state.loadingMore = false;
+			if (generation === activeGeneration) {
+				state.loadingMore = false;
+			}
 		}
 	}
 
@@ -423,8 +428,31 @@ export function createProfileActivityQuery(getPubkey) {
 			return;
 		}
 		resetForPubkey();
-		void loadInitial();
+		const generation = ++activeGeneration;
+		let cancelled = false;
+		const sub = liveQuery(() => readCommentsFromDexie()).subscribe({
+			next(comments) {
+				if (cancelled || generation !== activeGeneration) return;
+				const nextKey = comments.map((e) => e.id).join(':');
+				if (nextKey !== commentsKey) {
+					commentsKey = nextKey;
+					state.comments = comments;
+					state.enrichmentDone = false;
+					if (comments.length > 0) runEnrichmentOnce(generation);
+				}
+				state.loading = false;
+				state.error = '';
+			},
+			error(err) {
+				if (cancelled || generation !== activeGeneration) return;
+				console.error('[profile-activity] live query failed', err);
+				state.loading = false;
+				state.error = 'Could not read activity.';
+			}
+		});
+		void loadInitial(generation);
 		const armDeleted = setTimeout(() => {
+			if (generation !== activeGeneration) return;
 			rootsReadyForDeletedTimer = true;
 			if (state.comments.length === 0) return;
 			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- snapshot
@@ -440,7 +468,12 @@ export function createProfileActivityQuery(getPubkey) {
 				readyForDeletedTimer: true
 			});
 		}, 4000);
-		return () => clearTimeout(armDeleted);
+		return () => {
+			cancelled = true;
+			if (generation === activeGeneration) activeGeneration += 1;
+			sub.unsubscribe();
+			clearTimeout(armDeleted);
+		};
 	});
 
 	return {

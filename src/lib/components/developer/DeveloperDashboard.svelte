@@ -283,7 +283,7 @@ let zapsChartWidth = $state(400);
             <div class="chart-panel">
               <div class="chart-header">
                 <div class="chart-header-left">
-                  <span class="chart-title">Zaps</span>
+                  <span class="chart-title">Tips</span>
                   <button type="button" class="period-dropdown">
                     <span>Last 30 days</span>
                     <ChevronDown variant="outline" size={12} color="var(--white33)" />

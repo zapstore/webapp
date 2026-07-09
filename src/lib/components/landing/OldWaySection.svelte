@@ -12,7 +12,7 @@
 	const cards = [
 		{
 			playstorePanel: true,
-			alt: 'Play Store showing no results for Syncthing',
+			alt: 'Play Store showing no results for NewPipe',
 			title: 'A handful of companies decide',
 			description:
 				'They stand between you and the developer. What you can install is their call — no explanation, no appeal when an app disappears.'
@@ -85,12 +85,12 @@
 	}
 
 	// ── Play Store fake UI animation ─────────────────────────────
-	// Sequence: Syncthing(noresults) → backspace → NewPipe → backspace → Raya Games
-	//   Desktop: noresults 500ms → advance (no backspace)
-	//   Mobile:  noresults 500ms → backspace → advance
+	// Sequence: NewPipe(noresults) → backspace → Syncthing → backspace → Raya Games
+	//   Desktop: noresults → advance after Raya Games
+	//   Mobile:  loops back to NewPipe after Raya Games
 	/** @type {'noresults' | 'typing' | 'deleting' | 'clearing'} */
 	let psState = 'noresults';
-	let psQuery = 'Syncthing';
+	let psQuery = 'NewPipe';
 	/** @type {ReturnType<typeof setTimeout> | null} */
 	let psAnimTimer = null;
 
@@ -100,7 +100,7 @@
 
 	function startPsAnim() {
 		clearPsTimer();
-		psQuery = 'Syncthing';
+		psQuery = 'NewPipe';
 		psState = 'noresults';
 		psAnimTimer = setTimeout(psDelete, 3000);
 	}
@@ -142,23 +142,23 @@
 	// Step callbacks — each is a named function so stopPsAnim cleanly cancels mid-chain
 
 	function psDelete() {
-		psBackspace(() => psType('NewPipe', 0, psAfterNewPipe));
+		psBackspace(() => psType('Syncthing', 0, psAfterSyncthing));
 	}
 
-	function psAfterNewPipe() {
-		psAnimTimer = setTimeout(psDeleteNewPipe, 3000);
+	function psAfterSyncthing() {
+		psAnimTimer = setTimeout(psDeleteSyncthing, 3000);
 	}
 
-	function psDeleteNewPipe() {
+	function psDeleteSyncthing() {
 		psBackspace(() => psType('Raya Games', 0, psAfterRayaGames));
 	}
 
 	function psAfterRayaGames() {
-		// Desktop: advance after 2200ms. Mobile: shorter delay, then backspace → type Syncthing → loop
+		// Desktop: advance after 2200ms. Mobile: shorter delay, then backspace → type NewPipe → loop
 		const rayaDisplayMs = isMobile ? 700 : 2200;
 		psAnimTimer = setTimeout(() => {
 			if (isMobile) {
-				psBackspace(() => psType('Syncthing', 0, psLoopOnMobile));
+				psBackspace(() => psType('NewPipe', 0, psLoopOnMobile));
 			} else {
 				advance();
 			}
@@ -871,4 +871,4 @@
 		min-height: unset;
 	}
 </style>
-                                                                                                                                                                                                     
+

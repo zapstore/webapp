@@ -16,8 +16,12 @@ let {
 	isOpen = $bindable(false),
 	getCurrentPubkey = () => null,
 	onSelectEmoji = /** @type {((e: { shortcode: string; url: string; source: string }) => void) | undefined} */ (undefined),
-	onclose = () => {}
+	onclose = () => {},
+	/** Sheet z-index; overlay is one below. Must exceed parent comment/thread sheet. */
+	zIndex = 110
 } = $props();
+
+const overlayZIndex = $derived(zIndex - 1);
 
 /** @type {{ shortcode: string; url: string; source: string }[]} */
 let customEmojis = $state([]);
@@ -83,10 +87,11 @@ function handleOverlayClick(/** @type {MouseEvent} */ e) {
 }
 
 function handleKeydown(/** @type {KeyboardEvent} */ e) {
-	if (e.key === 'Escape') {
-		isOpen = false;
-		onclose?.();
-	}
+	if (!isOpen || e.key !== 'Escape') return;
+	isOpen = false;
+	onclose?.();
+	e.preventDefault();
+	e.stopPropagation();
 }
 </script>
 
@@ -97,11 +102,20 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		type="button"
 		class="picker-overlay"
 		aria-label="Close emoji picker"
+		style="z-index: {overlayZIndex};"
 		onclick={handleOverlayClick}
 	></button>
 
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="picker-wrapper" role="dialog" aria-modal="true" aria-label="Pick an emoji" tabindex="-1" onclick={(e) => e.stopPropagation()}>
+	<div
+		class="picker-wrapper"
+		role="dialog"
+		aria-modal="true"
+		aria-label="Pick an emoji"
+		tabindex="-1"
+		style="z-index: {zIndex};"
+		onclick={(e) => e.stopPropagation()}
+	>
 		<div class="picker-sheet" transition:fly={{ y: 80, duration: 200, easing: cubicOut }}>
 			<div class="picker-search-row">
 				<div class="picker-search-inner">
@@ -148,7 +162,6 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 	.picker-overlay {
 		position: fixed;
 		inset: 0;
-		z-index: 109;
 		background: transparent;
 		border: none;
 		margin: 0;
@@ -164,7 +177,6 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		bottom: 0;
 		left: 0;
 		right: 0;
-		z-index: 110;
 		display: flex;
 		justify-content: center;
 		pointer-events: none;
@@ -175,7 +187,7 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 		max-width: 100%;
 		margin: 0;
 		background: var(--gray66);
-		border-radius: var(--radius-32) var(--radius-32) 0 0;
+		border-radius: var(--modal-sheet-radius) var(--modal-sheet-radius) 0 0;
 		border: 0.33px solid var(--white8);
 		border-bottom: none;
 		padding: 12px 12px 0;
@@ -189,9 +201,9 @@ function handleKeydown(/** @type {KeyboardEvent} */ e) {
 
 	@media (min-width: 768px) {
 		.picker-sheet {
-			max-width: 560px;
+			max-width: var(--modal-max-width-wide);
 			margin-bottom: 16px;
-			border-radius: 24px;
+			border-radius: var(--modal-sheet-radius);
 			border-bottom: 0.33px solid var(--white8);
 		}
 	}

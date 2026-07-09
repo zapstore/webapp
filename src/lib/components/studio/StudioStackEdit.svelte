@@ -6,7 +6,6 @@
 	 * saved together with name/description via the main Save button.
 	 * Same pattern as StudioAppEdit (no immediate relay publishing).
 	 */
-	import BackButton from '$lib/components/common/BackButton.svelte';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import InputLabel from '$lib/components/common/InputLabel.svelte';
 	import Label from '$lib/components/common/Label.svelte';
@@ -213,12 +212,16 @@
 	<div class="edit-wrap">
 		<!-- ── Sticky top bar ───────────────────────────────────────────────── -->
 		<div class="edit-topbar">
-			<BackButton {onBack} />
-			<span class="edit-topbar-title">{isCreate ? 'New Stack' : 'Edit Your Stack'}</span>
+			<span class="edit-topbar-title semibold16">{isCreate ? 'New Stack' : 'Edit Your Stack'}</span>
 			<div class="topbar-actions">
+				{#if isCreate}
+					<button type="button" class="btn-secondary-xs btn-secondary-light topbar-cancel-btn" onclick={onBack}>
+						Cancel
+					</button>
+				{/if}
 				{#if !isCreate && stack?.pubkey && stack?.dTag}
 					<a
-						class="btn-secondary-xs btn-secondary-light topbar-view-btn"
+						class="btn-secondary-xs btn-secondary-light topbar-secondary-btn"
 						href="/stacks/{encodeStackNaddr(stack.pubkey, stack.dTag)}"
 					>
 						View
@@ -253,7 +256,7 @@
 						maxlength="80"
 						autocomplete="off"
 					/>
-					<div class="form-divider"></div>
+					<hr class="divider" />
 					<textarea
 						class="form-input form-textarea"
 						bind:value={editDescription}
@@ -267,9 +270,6 @@
 					<p class="save-error">{saveError}</p>
 				{/if}
 			</section>
-
-			<!-- ── Full-width divider ────────────────────────────────────────── -->
-			<div class="full-divider" aria-hidden="true"></div>
 
 			<!-- ── APPS ─────────────────────────────────────────────────────── -->
 			<section class="edit-section">
@@ -318,9 +318,6 @@
 				</div>
 			</section>
 
-			<!-- ── Full-width divider ────────────────────────────────────────── -->
-			<div class="full-divider" aria-hidden="true"></div>
-
 			<!-- ── LABELS ────────────────────────────────────────────────────── -->
 			<section class="edit-section">
 				<span class="eyebrow-label section-eyebrow">Labels</span>
@@ -349,12 +346,7 @@
 				</div>
 			</section>
 
-			{#if isCreate}
-				<div class="full-divider" aria-hidden="true"></div>
-			{:else}
-				<!-- ── Full-width divider ────────────────────────────────────────── -->
-				<div class="full-divider" aria-hidden="true"></div>
-
+			{#if !isCreate}
 				<!-- ── DANGER ZONE ─────────────────────────────────────────────── -->
 				<section class="edit-section danger-section">
 					<span class="eyebrow-label section-eyebrow">Danger zone</span>
@@ -372,8 +364,6 @@
 						<p class="save-error">{deleteError}</p>
 					{/if}
 				</section>
-
-				<div class="full-divider" aria-hidden="true"></div>
 			{/if}
 		</div>
 
@@ -405,7 +395,7 @@
 		align-items: center;
 		gap: 10px;
 		padding: 10px 12px;
-		border-bottom: 1.4px solid var(--shell-border);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	@media (min-width: 768px) {
@@ -416,8 +406,6 @@
 
 	.edit-topbar-title {
 		flex: 1;
-		font-size: 15px;
-		font-weight: 500;
 		color: var(--white);
 		white-space: nowrap;
 		overflow: hidden;
@@ -435,7 +423,11 @@
 		flex-shrink: 0;
 	}
 
-	.topbar-view-btn {
+	.topbar-cancel-btn {
+		color: var(--white66);
+	}
+
+	.topbar-secondary-btn {
 		text-decoration: none;
 		color: var(--white66);
 	}
@@ -467,12 +459,8 @@
 		color: var(--white33);
 	}
 
-	/* ── Full-width divider ── */
-	.full-divider {
-		width: 100%;
-		height: 1.4px;
-		background: var(--shell-border);
-		flex-shrink: 0;
+	.edit-body > .edit-section + .edit-section {
+		border-top: 1px solid var(--shell-border);
 	}
 
 	/* ── Form box ── */
@@ -481,9 +469,13 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--gray33);
-		border: 0.33px solid var(--white33);
+		border: 0.33px solid var(--white16);
 		border-radius: 16px;
 		overflow: hidden;
+	}
+
+	.form-box :global(.divider) {
+		flex-shrink: 0;
 	}
 
 	.form-input {
@@ -518,13 +510,6 @@
 		min-height: 72px;
 		display: block;
 		overflow-y: auto;
-	}
-
-	.form-divider {
-		width: 100%;
-		height: 1.4px;
-		background: var(--white8);
-		flex-shrink: 0;
 	}
 
 	/* ── Apps list ── */
@@ -582,7 +567,7 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 12px 12px;
-		border-bottom: 1px solid var(--white8);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	.app-row:last-child {

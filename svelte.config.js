@@ -73,6 +73,16 @@ const config = {
 		paths: {
 			assets: process.env.PUBLIC_ASSET_BASE || ''
 		},
+		prerender: {
+			handleHttpError: ({ status, path }) => {
+				// Blog co-located images: add files under static/blog/<slug>/ when referenced in markdown.
+				if (status === 404 && /^\/blog\/[^/]+\.(png|jpe?g|gif|webp|svg)$/i.test(path)) {
+					console.warn(`[prerender] missing blog asset (ignored): ${path}`);
+					return;
+				}
+				throw new Error(`${status} ${path}`);
+			}
+		},
 		alias: {
 			$lib: './src/lib',
 			$components: './src/lib/components',

@@ -29,7 +29,8 @@
 	import {
 		collectCommentsUnderParent,
 		collectZapReceiptsUnderZap,
-		findEnclosingZapReceiptForComment
+		findEnclosingZapReceiptForComment,
+		isKind1111ZapWrapper
 	} from '$lib/nostr/zap-thread.js';
 	import { parseApp } from '$lib/nostr/models';
 	import { EVENT_KINDS, ZAPSTORE_RELAY, PROFILE_FETCH_RELAYS, commentZapRelayReadSince } from '$lib/config';
@@ -464,9 +465,12 @@
 
 		(async () => {
 			const zmap = activityZapMap;
-			const encZap = await findEnclosingZapReceiptForComment(commentEv, cmap, zmap, (id) =>
-				queryEvent({ ids: [id] }).catch(() => null)
-			);
+			const wrapperComment = isKind1111ZapWrapper(commentEv);
+			const encZap = wrapperComment
+				? null
+				: await findEnclosingZapReceiptForComment(commentEv, cmap, zmap, (id) =>
+						queryEvent({ ids: [id] }).catch(() => null)
+					);
 			if (gen !== threadLoadGen) return;
 
 			if (encZap) {
@@ -547,6 +551,10 @@
 	}
 
 	function openZapThread(zapEvent, withReply = false, opts = {}) {
+		if (isKind1111ZapWrapper(zapEvent)) {
+			openThread(zapEvent, withReply, opts);
+			return;
+		}
 		const aRoot = appATagFromZapEvent(zapEvent);
 		if (!aRoot) return;
 
@@ -1157,7 +1165,9 @@
 				? {
 						label: _appMeta?.name ?? _appDTag,
 						iconUrl: _appMeta?.icon ?? null,
-						href: _appNaddr ? `/apps/${_appNaddr}` : ''
+						href: _appNaddr ? `/apps/${_appNaddr}` : '',
+						isApp: true,
+						identifier: _appMeta?.id ?? _appDTag ?? null
 					}
 				: null}
 			onModalClose={() => {
@@ -1243,7 +1253,9 @@
 				? {
 						label: _appMetaZ?.name ?? _appDTagZ,
 						iconUrl: _appMetaZ?.icon ?? null,
-						href: _appNaddrZ ? `/apps/${_appNaddrZ}` : ''
+						href: _appNaddrZ ? `/apps/${_appNaddrZ}` : '',
+						isApp: true,
+						identifier: _appMetaZ?.id ?? _appDTagZ ?? null
 					}
 				: null}
 			onModalClose={() => {

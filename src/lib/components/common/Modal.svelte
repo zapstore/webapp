@@ -14,6 +14,7 @@ import { fade, fly } from "svelte/transition";
 import { cubicOut } from "svelte/easing";
 import { browser } from "$app/environment";
 import { onDestroy } from "svelte";
+import "$lib/styles/comment-modal-inset.css";
 let { open = $bindable(false), ariaLabel = "Modal dialog", ariaLabelledby = null, align = "center", zIndex = 100, maxWidth = "max-w-lg", wide = false, class: className = "", maxHeight = 80, fillHeight = false, closeOnBackdropClick = true, closeOnEscape = true, noBackdrop = false, title = "", description = "", closeButtonMobile = false,
 /** Tighter padding under title/description (e.g. Sign In matching Donate-style density). */
 compactTitleSpacing = false,
@@ -26,11 +27,41 @@ lockBodyScroll = true,
 scopedInPanel = false,
 /** Extra cap for scoped sheets: min(available space, this many vh). */
 scopedPanelMaxVh = 90,
+/** Skip backdrop/sheet motion (e.g. swap to CommentModal without overlay flash). */
+instantTransition = false,
+/**
+ * Fade top/bottom edges of scrollable `.modal-content` when overflow is clipped.
+ * Off for thread modal (RootComment) which uses its own scroll-host masks.
+ */
+scrollEdgeFade = true,
 children, footer, } = $props();
 let modalElement = $state(null);
+/** @type {HTMLDivElement | null} */
+let modalContentEl = $state(null);
+let scrollFadeTop = $state(false);
+let scrollFadeBottom = $state(false);
 let _isBottomAligned = $state(false);
 let isMobile = $state(false);
-const effectiveMaxWidth = $derived(wide ? "modal-wide" : maxWidth);
+const SCROLL_FADE_THRESHOLD = 4;
+function syncScrollEdgeFade() {
+    if (!scrollEdgeFade || !modalContentEl) {
+        scrollFadeTop = false;
+        scrollFadeBottom = false;
+        return;
+    }
+    const { scrollTop, scrollHeight, clientHeight } = modalContentEl;
+    scrollFadeTop = scrollTop > SCROLL_FADE_THRESHOLD;
+    scrollFadeBottom =
+        scrollTop + clientHeight < scrollHeight - SCROLL_FADE_THRESHOLD;
+}
+function handleModalContentScroll() {
+    syncScrollEdgeFade();
+}
+const modalWidthClass = $derived.by(() => {
+    if (wide) return "modal-max-wide";
+    if (maxWidth === "max-w-xl") return "modal-max-xl";
+    return "modal-max-default";
+});
 const actualAlignment = $derived(align === "top"
     ? "top"
     : align === "bottom" || isMobile
@@ -98,6 +129,17 @@ $effect(() => {
 onDestroy(() => {
     if (_scrollLockHeld) releaseBodyScrollLock();
 });
+$effect(() => {
+    if (!browser || !open || !scrollEdgeFade)
+        return;
+    void modalContentEl;
+    const el = modalContentEl;
+    const run = () => syncScrollEdgeFade();
+    queueMicrotask(run);
+    const ro = el ? new ResizeObserver(run) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+});
 function handleBackdropClick(e) {
     if (closeOnBackdropClick && e.target === e.currentTarget) {
         open = false;
@@ -127,7 +169,7 @@ function handleResize() {
     class:items-center={actualAlignment === "center"}
     class:items-end={actualAlignment === "bottom"}
     style="z-index: {zIndex};"
-    transition:fade={{ duration: 200 }}
+    transition:fade={{ duration: instantTransition ? 0 : 200 }}
     onclick={handleBackdropClick}
     role="dialog"
     aria-modal="true"
@@ -138,7 +180,7 @@ function handleResize() {
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
       bind:this={modalElement}
-      class="modal-container relative w-full {effectiveMaxWidth} {className} border-subtle overflow-hidden backdrop-blur-lg"
+      class="modal-container relative w-full {modalWidthClass} {className} border-subtle overflow-hidden backdrop-blur-lg"
       class:modal-top={actualAlignment === "top"}
       class:modal-center={actualAlignment === "center"}
       class:modal-bottom={actualAlignment === "bottom"}
@@ -149,7 +191,7 @@ function handleResize() {
         : ""}"
       transition:fly={{
         y: actualAlignment === "bottom" ? 50 : actualAlignment === "top" ? -50 : 0,
-        duration: 200,
+        duration: instantTransition ? 0 : 200,
         easing: cubicOut,
       }}
       onclick={(e) => e.stopPropagation()}
@@ -157,7 +199,14 @@ function handleResize() {
       role="document"
       tabindex="-1"
     >
-      <div class="modal-content">
+      <div
+        class="modal-content"
+        class:modal-content--scroll-edge-fade={scrollEdgeFade}
+        class:modal-content--fade-top={scrollEdgeFade && scrollFadeTop}
+        class:modal-content--fade-bottom={scrollEdgeFade && scrollFadeBottom}
+        bind:this={modalContentEl}
+        onscroll={scrollEdgeFade ? handleModalContentScroll : undefined}
+      >
         {#if title}
           <div class="modal-title-block" class:modal-title-block--compact={compactTitleSpacing}>
             <h2 class="modal-title modal-heading">{title}</h2>
@@ -205,7 +254,7 @@ function handleResize() {
   .modal-top {
     margin: 0;
     margin-bottom: auto;
-    border-radius: 0 0 var(--radius-32) var(--radius-32);
+    border-radius: 0 0 var(--modal-sheet-radius) var(--modal-sheet-radius);
     max-height: var(--modal-max-height);
     background: var(--gray66);
     border: 0.33px solid var(--white8);
@@ -214,7 +263,8 @@ function handleResize() {
 
   .modal-center {
     margin: 1rem;
-    border-radius: var(--radius-32);
+    border-radius: var(--modal-center-radius);
+    /* Center sheets hug content; cap at viewport only (maxHeight prop is for bottom/top sheets). */
     max-height: calc(100vh - 2rem);
     background: var(--gray66);
     border: 0.33px solid var(--white8);
@@ -223,7 +273,7 @@ function handleResize() {
   .modal-bottom {
     margin: 0;
     padding: 0;
-    border-radius: var(--radius-32) var(--radius-32) 0 0;
+    border-radius: var(--modal-sheet-radius) var(--modal-sheet-radius) 0 0;
     max-height: var(--modal-max-height);
     background: var(--gray66);
     border: 0.33px solid var(--white8);
@@ -239,13 +289,13 @@ function handleResize() {
   @media (min-width: 768px) {
     .modal-bottom {
       margin-bottom: 16px;
-      border-radius: 24px;
+      border-radius: var(--modal-sheet-radius);
       border-bottom: 0.33px solid var(--white8);
     }
 
     .modal-bottom.modal-scoped-in-panel {
       margin-bottom: 0 !important;
-      border-radius: 24px;
+      border-radius: var(--modal-sheet-radius);
       border-bottom: 0.33px solid var(--white8);
     }
   }
@@ -256,7 +306,7 @@ function handleResize() {
       calc(var(--modal-scoped-panel-vh, 90) * 1vh)
     );
     margin-bottom: 0;
-    border-radius: 24px;
+    border-radius: var(--modal-sheet-radius);
     border-bottom: 0.33px solid var(--white8);
   }
 
@@ -301,57 +351,43 @@ function handleResize() {
     padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 
-  .modal-wide {
+  .modal-container {
     max-width: 100%;
   }
 
   @media (min-width: 768px) {
-    .modal-wide {
-      max-width: 560px;
+    .modal-container.modal-max-default {
+      max-width: var(--modal-max-width-default);
+    }
+
+    .modal-container.modal-max-wide {
+      max-width: var(--modal-max-width-wide);
+    }
+
+    .modal-container.modal-max-xl {
+      max-width: var(--modal-max-width-xl);
     }
   }
 
   .modal-title-block {
-    flex-shrink: 0;
-    padding: 32px 16px 0;
+    padding: calc(var(--comment-modal-inset) + 6px) var(--comment-modal-inset) var(--comment-modal-inset);
   }
   .modal-title {
     margin: 0;
   }
   .modal-title-block:has(.modal-description) .modal-title {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
   .modal-description {
-    margin: 0 0 8px 0;
+    margin: 0;
     font-size: 0.9375rem;
     text-align: center;
     color: var(--white66);
   }
-  @media (min-width: 768px) {
-    .modal-title-block {
-      padding: 28px 20px 0;
-    }
-    .modal-title-block:has(.modal-description) .modal-description {
-      margin-bottom: 10px;
-    }
-  }
 
-  .modal-title-block.modal-title-block--compact {
-    padding: 16px 16px 0;
-  }
-  .modal-title-block--compact:has(.modal-description) .modal-title {
+  /* Sign In and other dense headers — same inset, slightly tighter title/description gap */
+  .modal-title-block.modal-title-block--compact:has(.modal-description) .modal-title {
     margin-bottom: 6px;
-  }
-  .modal-title-block--compact:has(.modal-description) .modal-description {
-    margin: 0 0 2px 0;
-  }
-  @media (min-width: 768px) {
-    .modal-title-block.modal-title-block--compact {
-      padding: 16px 20px 0;
-    }
-    .modal-title-block--compact:has(.modal-description) .modal-description {
-      margin: 0 0 4px 0;
-    }
   }
 
   .modal-mobile-close-wrap {
@@ -385,6 +421,69 @@ function handleResize() {
     max-height: inherit;
     scrollbar-width: thin;
     scrollbar-color: var(--white16) transparent;
+  }
+
+  /* Scroll edge fade — same pattern as thread modal (RootComment .thread-scroll-host) */
+  .modal-content--scroll-edge-fade {
+    --modal-scroll-fade-top: 40px;
+    --modal-scroll-fade-bottom: 40px;
+    mask-size: 100% 100%;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+  }
+
+  .modal-content--scroll-edge-fade.modal-content--fade-top:not(.modal-content--fade-bottom) {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      black var(--modal-scroll-fade-top),
+      black 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      black var(--modal-scroll-fade-top),
+      black 100%
+    );
+  }
+
+  .modal-content--scroll-edge-fade.modal-content--fade-bottom:not(.modal-content--fade-top) {
+    mask-image: linear-gradient(
+      to bottom,
+      black 0,
+      black calc(100% - var(--modal-scroll-fade-bottom)),
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      black 0,
+      black calc(100% - var(--modal-scroll-fade-bottom)),
+      transparent 100%
+    );
+  }
+
+  .modal-content--scroll-edge-fade.modal-content--fade-top.modal-content--fade-bottom {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      black var(--modal-scroll-fade-top),
+      black calc(100% - var(--modal-scroll-fade-bottom)),
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      black var(--modal-scroll-fade-top),
+      black calc(100% - var(--modal-scroll-fade-bottom)),
+      transparent 100%
+    );
+  }
+
+  /* backdrop-filter on ProfilePic escapes mask when applied inside the scroller */
+  .modal-content--scroll-edge-fade :global(.profile-pic-inner) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .modal-content::-webkit-scrollbar {

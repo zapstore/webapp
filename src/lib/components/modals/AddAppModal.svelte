@@ -12,7 +12,7 @@
 </script>
 
 <AddModal
-	title="Add App"
+	title="Add an App"
 	actionLabel="Add"
 	bind:isOpen
 	{getCurrentPubkey}

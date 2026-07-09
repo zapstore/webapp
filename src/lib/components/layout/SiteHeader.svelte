@@ -17,7 +17,6 @@
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
 	import { getCurrentPubkey, getIsConnecting, signOut } from '$lib/stores/auth.svelte.js';
-	import { parseProfile } from '$lib/nostr/models';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 	import SignInModal from '$lib/components/modals/SignInModal.svelte';
@@ -25,8 +24,8 @@
 	import SpinKeyModal from '$lib/components/modals/SpinKeyModal.svelte';
 	import DownloadModal from '$lib/components/common/DownloadModal.svelte';
 	import { COMMUNITY_FORUM_AND_ACTIVITY_ENABLED, SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
-	import { SITE_GITHUB, EVENT_KINDS } from '$lib/config.js';
-	import { liveQuery, queryEvent, queryEvents, parseZapReceipt, fetchProfile } from '$lib/purpleweb';
+	import { SITE_GITHUB, PRICING_ENABLED } from '$lib/config.js';
+	import { createInboxUnreadQuery, createProfileQuery } from '$lib/purpleweb';
 	import UserInboxPopover from '$lib/components/layout/UserInboxPopover.svelte';
 	import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 	import {
@@ -56,8 +55,6 @@
 	let onboardingProfileName = $state('');
 	let signInModalOpen = $state(false);
 	let inboxOpen = $state(false);
-	/** Boolean only — never show a numeric badge on the inbox icon. */
-	let headerInboxShowDot = $state(false);
 	// Reactive auth state
 	const pubkey = $derived(getCurrentPubkey());
 	const profileHref = $derived(pubkey ? '/profile/' + nip19.npubEncode(pubkey) : '#');
@@ -79,9 +76,22 @@
 	/** Apps browse/search listing only — not app detail (`/apps/…`) or stacks. */
 	const isAppsActive = $derived($page.url.pathname === '/apps');
 	const isCommunityActive = $derived($page.url.pathname.startsWith('/community'));
+	const isPricingActive = $derived(PRICING_ENABLED && $page.url.pathname.startsWith('/pricing'));
 	const offline = $derived(browser && !isOnline());
-	// Current user profile (local-first: EventStore then background fetch) for header avatar
-	let currentUserProfile = $state(null);
+	// Current user profile (Dexie liveQuery + purpleweb background hydration) for header avatar
+	const currentUserProfileQuery = createProfileQuery(() => pubkey);
+	const currentUserProfile = $derived.by(() => {
+		const p = currentUserProfileQuery.profile;
+		return p ? { picture: p.picture ?? '', name: p.displayName ?? p.name ?? '' } : null;
+	});
+	const inboxUnread = createInboxUnreadQuery(
+		() => pubkey,
+		() => inboxSeenSignal.count,
+		getInboxHeaderOpenedAtSec,
+		readInboxSeenIds
+	);
+	/** Boolean only — never show a numeric badge on the inbox icon. */
+	const headerInboxShowDot = $derived(inboxUnread.hasUnread);
 	// Close Studio/Developers dropdown when landing on the respective page
 	$effect(() => {
 		const p = $page.url.pathname;
@@ -90,64 +100,6 @@
 		}
 	});
 	$effect(() => {
-		if (!browser || !pubkey) {
-			headerInboxShowDot = false;
-			return;
-		}
-		void inboxSeenSignal.count;
-		const obs = liveQuery(async () => {
-			const [c, z] = await Promise.all([
-				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#p': [pubkey], limit: 250 }),
-				queryEvents({ kinds: [EVENT_KINDS.ZAP_RECEIPT], '#p': [pubkey], limit: 250 })
-			]);
-			const headerOpenedAt = getInboxHeaderOpenedAtSec(pubkey);
-			const seen = readInboxSeenIds(pubkey);
-			let n = 0;
-			if (headerOpenedAt != null) {
-				for (const ev of c) {
-					if (ev.pubkey === pubkey) continue;
-					if (ev.created_at > headerOpenedAt) n++;
-				}
-				for (const ev of z) {
-					if (!ev.tags?.some((t) => t[0] === 'p' && t[1] === pubkey)) continue;
-					try {
-						const p = parseZapReceipt(ev);
-						if (p.senderPubkey === pubkey) continue;
-						if (ev.created_at > headerOpenedAt) n++;
-					} catch {
-						/* skip */
-					}
-				}
-			} else {
-				for (const ev of c) {
-					if (ev.pubkey === pubkey) continue;
-					if (!seen.has(ev.id)) n++;
-				}
-				for (const ev of z) {
-					if (!ev.tags?.some((t) => t[0] === 'p' && t[1] === pubkey)) continue;
-					try {
-						const p = parseZapReceipt(ev);
-						if (p.senderPubkey === pubkey) continue;
-						if (!seen.has(ev.id)) n++;
-					} catch {
-						/* skip */
-					}
-				}
-			}
-			return n;
-		});
-		const sub = obs.subscribe({
-			next: (v) => {
-				headerInboxShowDot = (v ?? 0) > 0;
-			},
-			error: () => {
-				headerInboxShowDot = false;
-			}
-		});
-		return () => sub.unsubscribe();
-	});
-
-	$effect(() => {
 		if (!browser) return;
 		const link = document.querySelector("link[rel='icon']");
 		if (link) {
@@ -155,42 +107,6 @@
 		}
 	});
 
-	$effect(() => {
-		const pk = getCurrentPubkey();
-		if (!pk) {
-			currentUserProfile = null;
-			return;
-		}
-		// queryEvent is async (Dexie) — check local cache first, then fetch from relays
-		queryEvent({ kinds: [0], authors: [pk], limit: 1 }).then((ev) => {
-			if (ev?.content) {
-				try {
-					const p = parseProfile(ev);
-					currentUserProfile = {
-						picture: p.picture ?? '',
-						name: p.displayName ?? p.name ?? ''
-					};
-				} catch {
-					currentUserProfile = null;
-				}
-			} else {
-				currentUserProfile = null;
-			}
-		});
-		fetchProfile(pk).then((e) => {
-			if (e?.content) {
-				try {
-					const p = parseProfile(e);
-					currentUserProfile = {
-						picture: p.picture ?? '',
-						name: p.displayName ?? p.name ?? ''
-					};
-				} catch {
-					// keep existing
-				}
-			}
-		});
-	});
 	function handleClickOutside(event) {
 		const target = event.target;
 		if (dropdownOpen && !target.closest('.profile-dropdown')) {
@@ -302,13 +218,13 @@
 <header
 	class={cn(
 		'header fixed top-0 left-0 right-0 transition-all duration-300 overflow-visible',
-		menuOpen ? 'z-[200]' : 'z-50',
+		menuOpen || inboxOpen ? 'z-[200]' : 'z-50',
 		scrolled
 			? 'bg-background/60 border-b border-shell'
 			: 'bg-transparent border-b border-shell'
 	)}
 >
-	<nav class={cn('container mx-auto h-full', 'px-3 sm:px-6 lg:px-8')}>
+	<nav class={cn('container mx-auto h-full', 'px-3 sm:px-6 md:px-[29px] lg:px-[37px]')}>
 		<div class="flex items-center justify-between h-full">
 			<!-- Left: Logo (landing: + menu icon on mobile) or Back + Page Title (browse/studio) -->
 			<div class="flex items-center flex-shrink-0">
@@ -388,11 +304,20 @@
 											/>
 										</a>
 									{:else if !isConnecting}
-										<button type="button" onclick={() => { openSignInModal(); closeMenu(); }} class="btn-primary-small">
+										<button
+											type="button"
+											onclick={() => {
+												openSignInModal();
+												closeMenu();
+											}}
+											class="btn-menu-sign-in"
+										>
 											Sign In
 										</button>
 									{/if}
 								</div>
+
+								<div class="menu-top-divider" aria-hidden="true"></div>
 
 									<div class="menu-section">
 										<button
@@ -419,22 +344,30 @@
 									<nav class="menu-subnav">
 										<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
 										<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
+										<a href="/docs/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Dev FAQ</a>
 									</nav>
 								</div>
+
+								{#if PRICING_ENABLED}
+									<div class="menu-section">
+										<a href="/pricing" class="menu-section-link" onclick={closeMenu}>Pricing</a>
+									</div>
+								{/if}
 
 							<div class="menu-section">
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
 								<nav class="menu-subnav">
 									<a href={communityFirstHref} class="menu-sublink medium14 text-white/66" onclick={closeMenu}>{communityFirstLabel}</a>
-									<a href="/community/activity" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Activity</a>
+									<a href="/community/blog" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Blog</a>
+									<a href="/community/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>User FAQ</a>
 								</nav>
 							</div>
 
 							<div class="menu-section">
 								<span class="menu-section-label">Resources</span>
 								<nav class="menu-subnav">
-									<a href="/blog" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Blog</a>
 									<a href="/enterprise" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Enterprise</a>
+									<a href="/assets" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Assets</a>
 								</nav>
 							</div>
 
@@ -589,7 +522,14 @@
 									</a>
 								<div style="display:flex;align-items:center;gap:16px;flex-shrink:0;">
 									{#if !isConnected && !isConnecting}
-										<button type="button" onclick={() => { openSignInModal(); closeMenu(); }} class="btn-primary-small">
+										<button
+											type="button"
+											onclick={() => {
+												openSignInModal();
+												closeMenu();
+											}}
+											class="btn-menu-sign-in"
+										>
 											Sign In
 										</button>
 									{/if}
@@ -611,6 +551,8 @@
 									</button>
 								</div>
 							</div>
+
+							<div class="menu-top-divider" aria-hidden="true"></div>
 
 								<div class="menu-section">
 									<button
@@ -637,22 +579,30 @@
 									<nav class="menu-subnav">
 										<a href="/docs/publish" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Docs</a>
 										<a href="/terms" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Terms</a>
+										<a href="/docs/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Dev FAQ</a>
 									</nav>
 								</div>
+
+								{#if PRICING_ENABLED}
+									<div class="menu-section">
+										<a href="/pricing" class="menu-section-link" onclick={closeMenu}>Pricing</a>
+									</div>
+								{/if}
 
 							<div class="menu-section">
 								<a href="/community" class="menu-section-link" onclick={closeMenu}>Community</a>
 								<nav class="menu-subnav">
 									<a href={communityFirstHref} class="menu-sublink medium14 text-white/66" onclick={closeMenu}>{communityFirstLabel}</a>
-									<a href="/community/activity" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Activity</a>
+									<a href="/community/blog" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Blog</a>
+									<a href="/community/faq" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>User FAQ</a>
 								</nav>
 							</div>
 
 							<div class="menu-section">
 								<span class="menu-section-label">Resources</span>
 								<nav class="menu-subnav">
-									<a href="/blog" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Blog</a>
 									<a href="/enterprise" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Enterprise</a>
+									<a href="/assets" class="menu-sublink medium14 text-white/66" onclick={closeMenu}>Assets</a>
 								</nav>
 							</div>
 
@@ -711,6 +661,16 @@
 							>
 								{primaryDevStudioLabel}
 							</a>
+							{#if PRICING_ENABLED}
+								<a
+									href="/pricing"
+									class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
+									class:landing-nav-studio-selected={isPricingActive}
+									style="color: var(--white66);"
+								>
+									Pricing
+								</a>
+							{/if}
 							<a
 								href="/community"
 								class="landing-nav-btn medium14 transition-colors border-none bg-transparent cursor-pointer py-2 px-4 no-underline block rounded-[12px]"
@@ -1317,6 +1277,35 @@
 		gap: 12px;
 	}
 
+	.menu-top-divider {
+		height: 1px;
+		background: var(--white8);
+		margin: 8px 0 12px;
+		flex-shrink: 0;
+	}
+
+	.btn-menu-sign-in {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		height: 32px;
+		padding: 0 14px;
+		border: none;
+		border-radius: 10px;
+		background: var(--white8);
+		color: var(--white66);
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background 0.15s ease, color 0.15s ease;
+		flex-shrink: 0;
+	}
+
+	.btn-menu-sign-in:hover {
+		background: var(--white16);
+		color: var(--white);
+	}
+
 	.menu-logo {
 		display: flex;
 		align-items: center;
@@ -1422,7 +1411,7 @@
 	}
 
 	.menu-divider {
-		height: 1.4px;
+		height: 1px;
 		background-color: var(--white11);
 		margin: 6px 0;
 	}
@@ -1545,7 +1534,7 @@
 		-webkit-backdrop-filter: blur(24px);
 		border: 0.33px solid var(--white16);
 		border-radius: 16px;
-		border-top: 1.4px solid var(--white11);
+		border-top: 1px solid var(--white11);
 	}
 
 	.landing-nav-panel-centered {

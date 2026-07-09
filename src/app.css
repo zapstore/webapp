@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./lib/styles/comment-modal-inset.css";
 
 /* ========================================
    FONT FACE DECLARATIONS
@@ -66,6 +67,7 @@
 
   /* White variants - opacity baked into color definition */
   --white: #FFFFFF;
+  --white80: #FFFFFFCC;
   --white66: #FFFFFFA8;
   --white33: #FFFFFF54;
   --white16: #FFFFFF29;
@@ -129,12 +131,15 @@
   --radius-16: 16px;
   --radius-24: 24px;
   --radius-32: 32px;
+  /* Modal shells (Modal.svelte + custom bottom/center sheets) — same on mobile and desktop */
+  --modal-sheet-radius: 28px;
+  --modal-center-radius: 36px;
   /* Default radius token (used by Tailwind lg) */
   --radius: var(--radius-16);
 
   /* Standardized border widths */
   --border-thick: 2.8px;   /* For prominent borders */
-  --border-base: 1.4px;    /* For standard borders (replaces most 1px) */
+  --border-base: 1px;      /* Dividers, grid lines, shell borders (--shell-border) */
   --border-subtle: 0.33px; /* For very subtle borders */
 
   /* Overlay backdrop color (for modals, dialogs, etc.) */
@@ -338,6 +343,7 @@
 
   /* White variants - opacity baked into color definition */
   --white: #FFFFFF;
+  --white80: #FFFFFFCC;
   --white66: #FFFFFFA8;
   --white33: #FFFFFF54;
   --white16: #FFFFFF29;
@@ -1486,7 +1492,7 @@ h5, h6 {
 /* Modal container width: slightly wider than the inner search on >= sm */
 @media (min-width: 640px) {
   .search-modal-width {
-    width: 584px; /* 560px search + ~24px visual breathing room */
+    width: calc(var(--modal-max-width-wide) + 24px);
   }
 }
 
@@ -1498,7 +1504,7 @@ h5, h6 {
   }
 
   .search-bar-width {
-    width: 560px;
+    width: var(--modal-max-width-wide);
   }
 }
 
@@ -1849,7 +1855,7 @@ h5, h6 {
   margin-bottom: 1.25rem;
   font-size: 1.125rem;
   line-height: 1.75;
-  color: var(--white66);
+  color: var(--white80);
 }
 
 .prose ul {
@@ -1869,7 +1875,7 @@ h5, h6 {
 .prose li {
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
-  color: var(--white66);
+  color: var(--white80);
   padding-left: 0.375rem;
 }
 
@@ -1958,6 +1964,165 @@ h5, h6 {
   margin: 3rem 0;
 }
 
+/* Docs articles + FAQ pages (aligned with app body scale) */
+.docs-content {
+  --docs-page-title-size: 1.5rem;
+  --docs-page-title-size-md: 1.625rem;
+  --docs-body-size: 1.0625rem;
+  --docs-body-leading: 1.6;
+  --docs-h2-size: 1.25rem;
+  --docs-h3-size: 1.125rem;
+  --docs-h4-size: 1.0625rem;
+  --docs-content-pad-top: 14px;
+  --docs-header-body-gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .docs-content {
+    /* Align with sidebar: 12px sidebar pad + 6px title pad-top */
+    --docs-content-pad-top: 18px;
+  }
+}
+
+.prose.prose-docs {
+  line-height: var(--docs-body-leading);
+}
+
+/* Page titles on docs articles (match FAQ / Get started) */
+.prose.prose-docs h1.docs-page-title,
+.docs-content .docs-page-title {
+  font-size: var(--docs-page-title-size);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--white);
+  margin: 0;
+}
+
+.prose.prose-docs h1 {
+  font-size: var(--docs-page-title-size);
+  line-height: 1.2;
+  margin-bottom: 1.25rem;
+}
+
+.prose.prose-docs h2 {
+  font-size: var(--docs-h2-size);
+  line-height: 1.3;
+  margin-top: 2rem;
+  margin-bottom: 0.875rem;
+}
+
+.prose.prose-docs h3 {
+  font-size: var(--docs-h3-size);
+  line-height: 1.35;
+  margin-top: 1.5rem;
+  margin-bottom: 0.625rem;
+}
+
+.prose.prose-docs h4 {
+  font-size: var(--docs-h4-size);
+  line-height: 1.4;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose.prose-docs p {
+  font-size: var(--docs-body-size);
+  line-height: var(--docs-body-leading);
+  margin-top: 0.875rem;
+  margin-bottom: 0.875rem;
+  color: var(--white80);
+}
+
+.prose.prose-docs ul,
+.prose.prose-docs ol {
+  font-size: var(--docs-body-size);
+  line-height: var(--docs-body-leading);
+  margin-top: 0.875rem;
+  margin-bottom: 0.875rem;
+  padding-left: 1.375rem;
+}
+
+.prose.prose-docs li {
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+  color: var(--white80);
+}
+
+.prose.prose-docs blockquote {
+  font-size: var(--docs-body-size);
+  line-height: var(--docs-body-leading);
+  margin: 1rem 0;
+}
+
+.prose.prose-docs .table-wrap {
+  margin: 1.25rem 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose.prose-docs .table-wrap table {
+  font-size: var(--docs-body-size);
+  margin: 0;
+}
+
+.prose.prose-docs .table-wrap th,
+.prose.prose-docs .table-wrap td {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--white16);
+}
+
+.prose.prose-docs .table-wrap th {
+  background-color: var(--gray);
+  font-weight: 600;
+  color: var(--white);
+}
+
+.prose.prose-docs .table-wrap td {
+  color: var(--white);
+}
+
+/* Inline code only — not fenced CodeBlock / hljs */
+.prose.prose-docs :not(.code-block-wrap) code {
+  background-color: var(--gray);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family: var(--font-mono);
+  color: var(--white);
+}
+
+.prose.prose-docs .code-block-wrap pre,
+.prose.prose-docs .code-block-wrap code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.prose.prose-docs .code-block-wrap code .hljs-keyword,
+.prose.prose-docs .code-block-wrap code .hljs-built_in {
+  color: var(--blurpleLightColor);
+}
+
+.prose.prose-docs hr {
+  margin: 1.75rem 0;
+}
+
+@media (min-width: 768px) {
+  .prose.prose-docs h1.docs-page-title,
+  .docs-content .docs-page-title {
+    font-size: var(--docs-page-title-size-md);
+  }
+
+  .prose.prose-docs h1 {
+    font-size: var(--docs-page-title-size-md);
+  }
+}
+
 /* ========================================
    SCROLLBAR STYLES
    ======================================== */
@@ -1990,16 +2155,35 @@ h5, h6 {
 }
 
 /* ========================================
+   MODAL / SHEET WIDTH (desktop bottom sheets)
+   ======================================== */
+
+:root {
+  /* Default Modal `max-w-lg` (32rem) and `wide` sheets (560px) share one bump at 1600px. */
+  --modal-max-width-default: 32rem;
+  --modal-max-width-wide: 560px;
+  --modal-max-width-xl: 36rem;
+}
+
+@media (min-width: 1600px) {
+  :root {
+    --modal-max-width-default: 40rem; /* 512px + 128px */
+    --modal-max-width-wide: 688px; /* 560px + 128px */
+    --modal-max-width-xl: 44rem; /* 576px + 128px */
+  }
+}
+
+/* ========================================
    CONTAINER CONSTRAINTS
    ======================================== */
 
 /* Full width below large (1024px) - no max-width constraint */
-/* Laptop / MacBook Air: 1100px from 1024px; extra-wide monitors: +240px from 1600px */
+/* Laptop / MacBook Air: 1100px from 1024px; extra-wide monitors: +160px from 1600px */
 @media (min-width: 1024px) {
   .container { max-width: 1100px; }
 }
 @media (min-width: 1600px) {
-  .container { max-width: 1340px; }
+  .container { max-width: 1260px; }
 }
 
 /* Developer marketing inner columns (SignedSection, StudioTools, OpenProtocols) */
@@ -2010,7 +2194,7 @@ h5, h6 {
 }
 @media (min-width: 1600px) {
   .developer-marketing-inner {
-    max-width: 1240px;
+    max-width: 1160px;
   }
 }
 
@@ -2018,7 +2202,8 @@ h5, h6 {
    CODE DEMO STYLES
    ======================================== */
 
-.code-block {
+/* Legacy demo snippet — not the CodeBlock component */
+.code-demo-pre {
   background-color: var(--gray66);
   border: 1px solid var(--white16);
   border-radius: 0.75rem;
@@ -2105,22 +2290,23 @@ a, button {
 }
 
 /* Spin animation for loading states */
+
 /* ========================================
-   DIVIDERS - Thin separators for UI elements
+   DIVIDER UTILITIES
    ======================================== */
 
-/* Horizontal divider - use for separating content sections */
+/* Standard horizontal divider — content separation, tab underlines, feed rows */
 .divider {
   width: 100%;
-  height: 0.33px;
+  height: 1px;
   background-color: var(--shell-border);
   border: none;
   margin: 0;
 }
 
-/* Vertical divider - use for separating inline elements */
+/* Vertical divider — grid columns, inline separators */
 .divider-vertical {
-  width: 0.33px;
+  width: 1px;
   height: 100%;
   background-color: var(--shell-border);
   border: none;
@@ -2157,24 +2343,6 @@ a, button {
   animation: shimmer 1.5s infinite;
 }
 
-
-/* ========================================
-   DIVIDER UTILITIES
-   ======================================== */
-
-/* Standard horizontal divider - use for content separation */
-.divider {
-  width: 100%;
-  height: 1.4px;
-  background-color: var(--shell-border);
-}
-
-/* Vertical divider - use for inline separators */
-.divider-vertical {
-  width: 1.4px;
-  height: 100%;
-  background-color: var(--shell-border);
-}
 
 /* Section title with gradient */
 .section-title-gradient {

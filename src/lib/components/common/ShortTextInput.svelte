@@ -15,9 +15,9 @@ import { NostrRefBlockExtension } from "$lib/tiptap/nostr-ref-block.js";
 import { hexToColor, rgbToCssString, getProfileTextColor } from "$lib/utils/color.js";
 import { getEmojiSearch } from "$lib/services/emoji-search.js";
 import * as nip19 from "nostr-tools/nip19";
-import { Camera, EmojiFill, Plus, Send, ChevronDown, Cross } from "$lib/components/icons";
+import { Camera, EmojiFill, Plus, Send, ChevronDown, Cross, Zap } from "$lib/components/icons";
 import { SvelteSet } from "svelte/reactivity";
-let { placeholder = "Write something...", searchProfiles = async () => [], searchEmojis = async () => [], getCurrentPubkey = () => null, autoFocus = false, size = "small", className = "", showActionRow = true, onCameraTap = () => { }, onEmojiTap = () => { }, onAddTap = () => { }, onChevronTap: _onChevronTap = () => { }, onchange, onsubmit, allowEmptySubmit = false, onClose, showCloseWhen = 'always', aboveEditor, } = $props();
+let { placeholder = "Write something...", searchProfiles = async () => [], searchEmojis = async () => [], getCurrentPubkey = () => null, autoFocus = false, size = "small", className = "", showActionRow = true, hideTipButton = false, onTipTap = () => { }, onCameraTap = () => { }, onEmojiTap = () => { }, onAddTap = () => { }, onChevronTap: _onChevronTap = () => { }, onchange, onsubmit, allowEmptySubmit = false, onClose, showCloseWhen = 'always', aboveEditor, } = $props();
 /** Getters so suggestion plugins always receive current search functions (called when editor is created in onMount). */
 function getSearchProfiles() { return searchProfiles; }
 function getSearchEmojis() { return searchEmojis; }
@@ -745,6 +745,17 @@ onDestroy(() => {
 export function clear() {
     clearContent();
 }
+/** Snapshot for in-memory comment drafts (TipTap JSON). */
+export function getEditorJson() {
+    return editor?.getJSON() ?? null;
+}
+/** Restore a draft snapshot; no-op until editor is mounted. */
+export function setEditorJson(json) {
+    if (!editor || !json) return;
+    editor.commands.setContent(json);
+    hasContent = !editor.isEmpty;
+    checkScrollable();
+}
 export function focus() {
     focusEditor();
 }
@@ -842,6 +853,11 @@ export { getContent, getSerializedContent, isEmpty };
   {#if showActionRow}
     <div class="action-row">
       <div class="action-buttons-left">
+        {#if !hideTipButton}
+          <button type="button" class="action-btn" onclick={onTipTap} aria-label="Add a tip">
+            <Zap variant="fill" color="var(--white33)" size={18} />
+          </button>
+        {/if}
         <button type="button" class="action-btn" onclick={onCameraTap} aria-label="Add photo">
           <Camera variant="fill" color="var(--white33)" size={20} />
         </button>

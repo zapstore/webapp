@@ -142,10 +142,46 @@ Special exceptions: `.split-button-*`, `.search-bar-btn`, `.profile-avatar-btn`
 
 Panels and panel-like containers have NO border.
 
-## Dividers
+## Modals (`Modal.svelte` and custom sheets)
 
-- Thickness: `1.4px` (never 1px) — Color: `white11` (never white16)
+Corner radii are **the same on mobile and desktop** — use tokens from `src/app.css`, not ad-hoc values.
+
+| Token | Value | Use |
+|-------|--------|-----|
+| `--modal-sheet-radius` | `28px` | Bottom/top sheets (`Modal` align bottom/top), `CommentModal`, `BottomBar`, `ActionsModal` stack sheets, emoji picker, etc. |
+| `--modal-center-radius` | `36px` | Centered `Modal` dialogs (e.g. download, edit forms) |
+
+**Rules:**
+- Mobile bottom sheets flush to the viewport: round the **top** corners with `--modal-sheet-radius` only; bottom edge stays square.
+- Desktop floating bottom sheets: `--modal-sheet-radius` on **all** corners, with `margin-bottom: 16px` (except inbox popover scoped sheets, which stay flush to the panel).
+- Custom sheets that duplicate `Modal` chrome must use the same tokens — do not use `--radius-32` / `24px` for modal shells.
+
+## Social interaction modals
+
+Commenting, zapping, thread replies, and related compose surfaces share one **outer gutter** system. Import `src/lib/styles/comment-modal-inset.css` and use the tokens — do not hardcode ad-hoc padding.
+
+| Token | Value |
+|-------|--------|
+| `--comment-modal-inset` | `14px` — left/right/top gutter around sheet content (all breakpoints) |
+| `--comment-modal-bottom-inset` | `14px` on desktop; on mobile (`<768px`), `14px + env(safe-area-inset-bottom)` |
+
+**Where this applies:** `CommentModal`, `RootComment` thread modal (including inbox popover / scoped panel), `ActionsModal` body (`.am-inner`), nested Add/Tip/Zap sheets, and any new comment or zap compose surface.
+
+**Rules:**
+- **14px** horizontal (and top, where the sheet body starts) between the gray modal edge and content — including thread reply lists in open comment modals.
+- **Never** add padding inside black33 composer shells (`ShortTextInput`, `InputButton`, editor action rows) to fake this gutter; only the sheet/footer wrapper provides it.
+- **Mobile only:** add device safe-area to bottom inset via `--comment-modal-bottom-inset` — never stack safe-area on desktop.
+- Nested `Modal` children (Add an App, Add a Tip, zap slider) must not stack extra `modal-content` bottom padding; the inner content wrapper owns `--comment-modal-bottom-inset`.
+- Thread modals must **not** add extra `modal-content` bottom padding; the footer/sheet inset is the single source of truth.
+- Thread empty states use flat `profile-section-empty--thread` (no panel background or rounded corners).
+
+## Dividers & grid lines
+
+- Thickness: **`1px`** — use for horizontal/vertical dividers, feed row separators, page-frame grid lines, tab underlines
+- Color: **`--shell-border`** (`white11`) — never `white16` for dividers
+- Token: `--border-base` (1px) for divider/grid border-width
 - Classes: `.divider` (horizontal), `.divider-vertical`
+- Icon outline strokes stay **`1.4px`** (see `DESIGN_COMPONENTS.md`) — do not apply divider thickness to SVG strokes
 
 ## Responsive Sizing
 

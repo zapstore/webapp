@@ -2,10 +2,9 @@
 import { onMount } from 'svelte';
 import { browser } from '$app/environment';
 import { ReleaseCard } from '$lib/components';
-import { queryEvent } from '$lib/purpleweb';
-import { parseRelease } from '$lib/nostr';
-import { EVENT_KINDS, PLATFORM_FILTER } from '$lib/config';
+import { loadSocialDetailsData } from '$lib/purpleweb';
 import { renderMarkdown } from '$lib/utils/markdown';
+import { downloadFromBlossomCdn } from '$lib/utils/blossom-download.js';
 import { ChevronDown, ChevronRight } from '$lib/components/icons';
 import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 
@@ -31,11 +30,8 @@ onMount(async () => {
     if (!browser || !app)
         return;
     latestRelease = initialRelease ?? null;
-    const aTagValue = `${EVENT_KINDS.APP}:${app.pubkey}:${app.dTag}`;
-    const cachedRelease = await queryEvent({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], ...PLATFORM_FILTER });
-    if (cachedRelease) {
-        latestRelease = parseRelease(cachedRelease);
-    }
+    const { releases } = await loadSocialDetailsData({ app, includeReleases: true });
+    if (releases[0]) latestRelease = releases[0];
 });
 
 $effect(() => {
@@ -49,29 +45,11 @@ $effect(() => {
 	return () => document.removeEventListener('click', handleClick, true);
 });
 
-/**
- * Fetch an APK from the Blossom CDN with the X-Zapstore-Client header so the
- * relay backend can record this download as originating from the web client.
- * Falls back to a plain navigation if fetch fails (e.g. large file / CORS edge).
- * @param {string} url
- */
+/** @param {string} url */
 async function handleDirectDownload(url) {
 	downloadDropdownOpen = false;
 	const filename = url.split('/').pop() || 'app.apk';
-	try {
-		const response = await fetch(url, { headers: { 'X-Zapstore-Client': 'web' } });
-		const blob = await response.blob();
-		const objectUrl = window.URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = objectUrl;
-		a.download = filename;
-		document.body.appendChild(a);
-		a.click();
-		window.URL.revokeObjectURL(objectUrl);
-		document.body.removeChild(a);
-	} catch {
-		window.location.href = url;
-	}
+	await downloadFromBlossomCdn(url, filename);
 }
 </script>
 

@@ -26,7 +26,7 @@ function profileRecipientLabel(/** @type {{ name?: string | null, pubkey?: strin
     }
     return "Creator";
 }
-let { profile = null, initialValue = 100, otherZaps = [], message = $bindable(""), searchProfiles = async () => [], searchEmojis = async () => [], placeholder = undefined, onvalueChanged, onsendZap, } = $props();
+let { profile = null, initialValue = 100, otherZaps = [], message = $bindable(""), searchProfiles = async () => [], searchEmojis = async () => [], placeholder = undefined, amountOnly = false, onvalueChanged, onsendZap, } = $props();
 const effectivePlaceholder = $derived(placeholder ?? `Write to ${profileRecipientLabel(profile)}`);
 let shortTextInput = $state(null);
 let amountInputElement = $state(null);
@@ -386,31 +386,34 @@ export function getSerializedContent() {
       </div>
       {#if isTopZap}
         <div class="top-zap-badge">
-          <span>Top Zap</span>
+          <span>Top Tip</span>
         </div>
       {/if}
     </button>
 
-    <div class="divider"></div>
+    {#if !amountOnly}
+      <div class="divider"></div>
 
-    <ShortTextInput
-      bind:this={shortTextInput}
-      placeholder={effectivePlaceholder}
-      {searchProfiles}
-      {searchEmojis}
-      size="small"
-      showActionRow={true}
-      showCloseWhen="focusedOrContent"
-      onCameraTap={() => {}}
-      onEmojiTap={() => {}}
-      onGifTap={() => {}}
-      onAddTap={() => {}}
-      onChevronTap={() => {}}
-      allowEmptySubmit={true}
-      onsubmit={handleCommentSubmit}
-      onchange={({ content }) => (message = content)}
-      onClose={handleCommentClose}
-    />
+      <ShortTextInput
+        bind:this={shortTextInput}
+        placeholder={effectivePlaceholder}
+        {searchProfiles}
+        {searchEmojis}
+        size="small"
+        showActionRow={true}
+        hideTipButton={true}
+        showCloseWhen="focusedOrContent"
+        onCameraTap={() => {}}
+        onEmojiTap={() => {}}
+        onGifTap={() => {}}
+        onAddTap={() => {}}
+        onChevronTap={() => {}}
+        allowEmptySubmit={true}
+        onsubmit={handleCommentSubmit}
+        onchange={({ content }) => (message = content)}
+        onClose={handleCommentClose}
+      />
+    {/if}
   </div>
 
   <svg width="0" height="0" style="position: absolute;">
@@ -575,7 +578,7 @@ export function getSerializedContent() {
     background-clip: text;
   }
   .divider {
-    height: 1.4px;
+    height: 1px;
     background: var(--white8);
     margin: 0;
   }

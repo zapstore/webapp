@@ -6,8 +6,17 @@ import { nip19 } from 'nostr-tools';
 // Site identity — single source of truth for all meta tags, manifest, JSON-LD, llms.txt
 export const SITE_URL = 'https://zapstore.dev';
 export const SITE_NAME = 'Zapstore';
-export const SITE_DESCRIPTION = 'Discover apps on Nostr. Open source, decentralized app store.';
+export const SITE_TITLE = 'Zapstore — The Open App Store';
+export const SITE_DESCRIPTION =
+	'The open app store where users meet builders. Curated by communities. Android apps.';
 export const SITE_ICON = `${SITE_URL}/zapstore-icon.png`;
+/** Set PUBLIC_PRICING_ENABLED=true at build time to expose /pricing and nav links. */
+export const PRICING_ENABLED = import.meta.env.PUBLIC_PRICING_ENABLED === 'true';
+/** OG/Twitter preview for /docs, /terms, and /assets. Root-relative so unfurlers resolve per host (staging vs prod). */
+export const DOCS_OG_IMAGE = '/images/og-docs.png';
+export const DOCS_OG_IMAGE_ALT = 'Zapstore Docs';
+export const DOCS_OG_IMAGE_WIDTH = 1200;
+export const DOCS_OG_IMAGE_HEIGHT = 630;
 export const SITE_THEME_COLOR = '#7c3aed';
 export const SITE_TWITTER = '@zapstore_';
 export const SITE_GITHUB = 'https://github.com/zapstore/zapstore';
@@ -15,6 +24,11 @@ export const SITE_GITHUB = 'https://github.com/zapstore/zapstore';
 export const ZAPSTORE_RELAY = 'wss://relay.zapstore.dev';
 /** Zapstore Blossom CDN — same as zsp `BLOSSOM_URL` default; kind 24242 auth + PUT `/upload`. */
 export const ZAPSTORE_BLOSSOM_URL = 'https://cdn.zapstore.dev';
+/** Blossom fetch headers so relay analytics can attribute web APK downloads. */
+export const ZAPSTORE_BLOSSOM_DOWNLOAD_HEADERS = {
+	'X-Zapstore-Client': 'web',
+	'X-Zapstore-Download-Type': 'install'
+};
 // Profile indexer relay — kind 0 (+ NIP-50 profile search). Not for catalog/comments/zaps reads.
 export const VERTEXLAB_RELAY = 'wss://relay.vertexlab.io';
 /** One-shot fetches for kind 0 by author / profile batch only. */
@@ -51,6 +65,8 @@ export const EVENT_KINDS = {
 export const ZAPSTORE_NPUB = 'npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8';
 /** Hex form of {@link ZAPSTORE_NPUB} — author of indexer-catalog kind 32267 events used for indexer-access lookups. */
 export const ZAPSTORE_INDEXER_PUBKEY = /** @type {string} */ (nip19.decode(ZAPSTORE_NPUB).data);
+/** Official Zapstore Android app — pinned first on /apps Featured. */
+export const ZAPSTORE_APP_DTAG = 'dev.zapstore.app';
 // Hex pubkey for the zapstore community — used in h/p tags on public stacks and forum posts.
 export const ZAPSTORE_COMMUNITY_NPUB = 'npub14nl2afh9zsswsp5043zxe2w304afaa496gxe8z2w2rlw84ys92zqlnjx5u';
 export const ZAPSTORE_COMMUNITY_PUBKEY = /** @type {string} */ (nip19.decode(ZAPSTORE_COMMUNITY_NPUB).data);

@@ -1,6 +1,4 @@
 <script lang="js">
-import { onMount } from 'svelte';
-import { browser } from '$app/environment';
 import DownloadModal from '$lib/components/common/DownloadModal.svelte';
 import HeroSection from '$lib/components/landing/HeroSection.svelte';
 import GetTheAppSection from '$lib/components/landing/GetTheAppSection.svelte';
@@ -12,10 +10,9 @@ import ReleaseYourAppsSection from '$lib/components/landing/ReleaseYourAppsSecti
 import WithZapstoreSection from '$lib/components/landing/WithZapstoreSection.svelte';
 import RoadmapSection from '$lib/components/landing/RoadmapSection.svelte';
 import TeamSection from '$lib/components/landing/TeamSection.svelte';
-import { SvelteMap } from 'svelte/reactivity';
-import { fetchProfilesBatch } from '$lib/purpleweb';
+import { createProfilesQuery } from '$lib/purpleweb';
 import SeoHead from '$lib/components/layout/SeoHead.svelte';
-import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_ICON, SITE_GITHUB } from '$lib/config';
+import { SITE_URL, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION, SITE_ICON, SITE_GITHUB } from '$lib/config';
 import { assets } from '$app/paths';
 
 /** Preload Zapstore download modal hero so opening the dialog does not shift layout. */
@@ -37,6 +34,7 @@ const homeJsonLd = {
 			'@id': `${SITE_URL}/#website`,
 			url: SITE_URL,
 			name: SITE_NAME,
+			alternateName: 'The Open App Store',
 			description: SITE_DESCRIPTION,
 			publisher: { '@id': `${SITE_URL}/#organization` },
 			potentialAction: {
@@ -49,51 +47,22 @@ const homeJsonLd = {
 };
 let { data } = $props();
 const initialTestimonials = $derived(data?.testimonials ?? []);
-let testimonials = $state([]);
+const testimonialPubkeys = $derived(
+	[...new Set(initialTestimonials.map((t) => t.pubkey).filter(Boolean))]
+);
+const testimonialProfiles = createProfilesQuery(() => testimonialPubkeys);
+const testimonials = $derived(
+	initialTestimonials.map((t) => ({
+		...t,
+		profile: testimonialProfiles.profiles[t.pubkey] ?? t.profile
+	}))
+);
 let showDownloadModal = $state(false);
-if (browser) {
-    onMount(async () => {
-        const raw = Array.isArray(initialTestimonials) ? initialTestimonials : [];
-        testimonials = raw;
-        if (raw.length === 0)
-            return;
-        const profilesByPubkey = new SvelteMap();
-        const pubkeys = [...new Set(raw.map((t) => t.pubkey).filter(Boolean))].slice(0, 30);
-        const fetched = await fetchProfilesBatch(pubkeys);
-        for (const pubkey of pubkeys) {
-            const event = fetched.get(pubkey);
-            if (!event?.content)
-                continue;
-            try {
-                const content = JSON.parse(event.content);
-                profilesByPubkey.set(pubkey, {
-                    displayName: content.display_name ?? content.name,
-                    name: content.name,
-                    picture: content.picture,
-                    nip05: content.nip05
-                });
-            }
-            catch {
-                /* ignore malformed profile content */
-            }
-        }
-        testimonials = raw.map((t) => ({
-            ...t,
-            profile: profilesByPubkey.get(t.pubkey) ?? t.profile
-        }));
-    });
-}
-$effect(() => {
-    if (!browser)
-        return;
-    if (testimonials.length > 0)
-        return;
-    if (initialTestimonials.length > 0)
-        testimonials = initialTestimonials;
-});
 </script>
 
 <SeoHead
+	title={SITE_TITLE}
+	description={SITE_DESCRIPTION}
 	url={SITE_URL}
 	image="{SITE_URL}/images/og-landing.png"
 	imageWidth={1200}
@@ -127,7 +96,7 @@ $effect(() => {
 <ReleaseYourAppsSection />
 
 <!-- Testimonials Section -->
-<TestimonialsSection {testimonials} />
+<TestimonialsSection {testimonials} profilesLoading={testimonialProfiles.loading} />
 
 <!-- Zap The App Section (commented out for now) -->
 <!-- <ZapTheAppSection /> -->

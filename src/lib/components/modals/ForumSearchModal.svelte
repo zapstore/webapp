@@ -422,7 +422,7 @@ import { Reply } from '$lib/components/icons';
 		max-width: 100%;
 		margin: 0;
 		background: var(--gray66);
-		border-radius: var(--radius-32) var(--radius-32) 0 0;
+		border-radius: var(--modal-sheet-radius) var(--modal-sheet-radius) 0 0;
 		border: 0.33px solid var(--white8);
 		border-bottom: none;
 		padding: 16px;
@@ -432,13 +432,14 @@ import { Reply } from '$lib/components/icons';
 		display: flex;
 		flex-direction: column;
 		height: 45vh;
+		overscroll-behavior: contain;
 	}
 
 	@media (min-width: 768px) {
 		.forum-search-sheet {
-			max-width: 560px;
+			max-width: var(--modal-max-width-wide);
 			margin-bottom: 16px;
-			border-radius: 24px;
+			border-radius: var(--modal-sheet-radius);
 			border-bottom: 0.33px solid var(--white8);
 			padding: 12px;
 			height: 60vh;
@@ -501,6 +502,7 @@ import { Reply } from '$lib/components/icons';
 		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
+		overscroll-behavior: contain;
 		scrollbar-width: thin;
 		scrollbar-color: var(--white33) transparent;
 	}

@@ -21,7 +21,7 @@ export const COMMUNITY_FAQ_SECTIONS = [
 			{
 				id: 'install',
 				question: 'How do I install Zapstore?',
-				answer: `<p>Download the APK from <a href="https://zapstore.dev">zapstore.dev</a>. Android may ask you to allow installation from unknown sources once. That is normal for apps outside Google Play.</p>
+				answer: `<p><a href="#" data-faq-download="zapstore">Download the APK</a>. Android may ask you to allow installation from unknown sources once. That is normal for apps outside Google Play.</p>
 <p>After install, open Zapstore and update it from the app when a new version is offered. Staying on a recent build avoids many catalog and update issues.</p>`
 			},
 			{
@@ -33,7 +33,7 @@ export const COMMUNITY_FAQ_SECTIONS = [
 				id: 'need-nostr',
 				question: 'Do I need a Nostr account to use Zapstore?',
 				answer: `<p>You can browse and install apps without signing in.</p>
-<p>A Nostr account (for example via Amber) unlocks backup of your app list, zapping developers, seeing recommendations from people you follow, and fuller Web of Trust signals. For most regular use, signing in is worth it.</p>`
+<p>A Nostr account (for example via Amber) unlocks backup of your app list, tipping developers, seeing recommendations from people you follow, and fuller Web of Trust signals. For most regular use, signing in is worth it.</p>`
 			}
 		]
 	},
@@ -124,10 +124,10 @@ export const COMMUNITY_FAQ_SECTIONS = [
 				answer: `<p>Not as a main feature yet. Pinning an older release (for compatibility with self-hosted servers, for example) is a frequent request and is in development. Track updates on GitHub or ask in support.</p>`
 			},
 			{
-				id: 'zaps',
-				question: 'Can I zap (tip) developers directly from Zapstore?',
-				answer: `<p>Yes, when the developer’s profile supports it. Connect a Lightning wallet via NWC (Alby Hub, Zeus, Minibits, and others), then zap from the app page.</p>
-<p>Failed zaps are usually wallet or NWC configuration issues. Try refreshing your connection string in the wallet app.</p>`
+				id: 'tips',
+				question: 'Can I tip developers directly from Zapstore?',
+				answer: `<p>Yes, when the developer’s profile supports it. Connect a Lightning wallet via NWC (Alby Hub, Zeus, Minibits, and others), then send a tip from the app page.</p>
+<p>Failed tips are usually wallet or NWC configuration issues. Try refreshing your connection string in the wallet app.</p>`
 			},
 			{
 				id: 'tor',
@@ -156,7 +156,7 @@ export const COMMUNITY_FAQ_SECTIONS = [
 				question: 'An app says "no longer available." What do I do?',
 				answer: `<p>This usually means you are on an <strong>old Zapstore build</strong> that cannot read the current catalog.</p>
 <p>If Zapstore still opens: open the <strong>Updates</strong> tab and look for Zapstore there, or check the top of <strong>Discover</strong> (latest releases), open the Zapstore entry, and tap <strong>Update</strong>. On some older versions you may need to search for Zapstore and open its app page before an update appears.</p>
-<p>If other apps still show the same error or you cannot update in-app, install the latest APK from <a href="https://zapstore.dev">zapstore.dev</a>. That is the most reliable fix.</p>`
+<p>If other apps still show the same error or you cannot update in-app, <a href="#" data-faq-download="zapstore">install the latest APK</a>. That is the most reliable fix.</p>`
 			},
 			{
 				id: 'cert-mismatch',
@@ -194,13 +194,13 @@ export const COMMUNITY_FAQ_SECTIONS = [
 			{
 				id: 'support-zapstore',
 				question: 'Can I support Zapstore financially?',
-				answer: `<p>You can zap us directly from the <a href="/apps/dev.zapstore.app">Zapstore app page</a>. Grant funding also supports ongoing work. Community input shapes future monetization ideas.</p>`
+				answer: `<p>You can tip us directly from the <a href="/apps/dev.zapstore.app">Zapstore app page</a>. Grant funding also supports ongoing work. Community input shapes future monetization ideas.</p>`
 			},
 			{
 				id: 'get-help',
 				question: 'How do I report a problem or get more help?',
 				answer: `<p>Join <a href="/community/support">user or developer support on Signal</a>, post on the <a href="/community/forum">forum</a> when available, or open an issue on <a href="https://github.com/zapstore/zapstore/issues" target="_blank" rel="noopener noreferrer">GitHub</a>. Include Zapstore version, Android version, device model, and what you already tried (such as clearing local storage).</p>
-<p>Publishing an app? See the <a href="/docs/faq">Developer FAQ</a>.</p>`
+<p>Publishing an app? See the <a href="/docs/faq">Developer FAQ</a>.</p>` 
 			}
 		]
 	}

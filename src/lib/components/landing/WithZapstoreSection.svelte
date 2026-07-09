@@ -223,7 +223,7 @@
 				<span class="fake-tab-count">121</span>
 			</div>
 			<div class="fake-tab-inactive">
-				<span>Zaps</span>
+				<span>Tips</span>
 				<span class="fake-tab-count">
 					<svg width="10" height="10" viewBox="0 0 19 32" fill="none"
 						><path

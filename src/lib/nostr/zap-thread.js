@@ -6,6 +6,20 @@ import { parseZapReceipt } from '$lib/purpleweb';
 import { getCommentParentEventId } from './thread-discussion.js';
 
 /**
+ * True when a kind-1111 event is a NIP-22 "zap wrapper" (`z` tag attests a kind-9735 receipt).
+ * Wrappers belong in the comment thread (gold bubble + optional quote), not as a zap-root modal.
+ *
+ * @param {import('nostr-tools').NostrEvent | null | undefined} event
+ */
+export function isKind1111ZapWrapper(event) {
+	if (!event || event.kind !== EVENT_KINDS.COMMENT) return false;
+	const zTag = (event.tags ?? []).find((t) => t[0] === 'z' && typeof t[1] === 'string' && t[1]);
+	if (!zTag) return false;
+	const id = String(zTag[1]).trim().toLowerCase();
+	return /^[a-f0-9]{64}$/.test(id);
+}
+
+/**
  * Walk up kind-1111 parent chain (`e` tag). If any direct parent is a zap receipt (9735), return it.
  * Used when opening a thread from inbox/activity: comments under a zap must use the zap modal, not the app/forum root.
  *

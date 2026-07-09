@@ -6,6 +6,8 @@
  * behavior. `[data-sidebar-scroll]` regions never chain scroll to main content.
  * `[data-chrome-scroll]` horizontal strips (e.g. forum category labels) defer to
  * `wheelScroll` until their horizontal scroll reaches an edge.
+ * Open modals (`[aria-modal="true"]`) and modal backdrops (`.bg-overlay`) never
+ * chain vertical scroll to the main pane.
  *
  * @param {HTMLElement} node — Root shell (e.g. `.app-detail-page`, `.dashboard-outer`)
  * @param {{ scrollSelector?: string }} [params]
@@ -125,6 +127,23 @@ export function wheelScrollPassthrough(node, params = {}) {
 		if (!(target instanceof Element)) return;
 
 		if (target.closest('textarea, select[size], [contenteditable="true"]')) return;
+
+		const modalEl = target.closest('[aria-modal="true"]');
+		if (modalEl instanceof HTMLElement && node.contains(modalEl)) {
+			let walk = target instanceof Element ? target : null;
+			while (walk && walk !== modalEl) {
+				if (walk instanceof HTMLElement && canScrollY(walk, dy)) return;
+				walk = walk.parentElement;
+			}
+			if (dy !== 0) e.preventDefault();
+			return;
+		}
+
+		const overlayEl = target.closest('.bg-overlay');
+		if (overlayEl instanceof HTMLElement && node.contains(overlayEl)) {
+			if (dy !== 0) e.preventDefault();
+			return;
+		}
 
 		const sidebarEl = target.closest('[data-sidebar-scroll]');
 		if (sidebarEl && node.contains(sidebarEl)) {

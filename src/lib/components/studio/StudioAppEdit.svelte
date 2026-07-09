@@ -4,13 +4,12 @@
  *
  * Replaces the StudioAppDetail content area; scrolls inside .detail-scroll.
  * Layout:
- *   - Sticky top bar: BackButton + "Edit Your App" + Save
+ *   - Sticky top bar: "Edit Your App" + Save
  *   - GENERAL section: eyebrow + (AppPic with camera btn) + form box (name / desc / website)
  *   - Full-width divider
  *   - IMAGES section: eyebrow + screenshots row (Add Image card + existing with ✕)
  */
 import { SvelteSet } from 'svelte/reactivity';
-import BackButton from '$lib/components/common/BackButton.svelte';
 import AppPic from '$lib/components/common/AppPic.svelte';
 import Modal from '$lib/components/common/Modal.svelte';
 import InputLabel from '$lib/components/common/InputLabel.svelte';
@@ -24,7 +23,7 @@ import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS } from '$lib/config.js';
 
 let {
 	app = null,
-	onBack = () => {},
+	onBack: _onBack = () => {},
 	onSaved = (_updated) => {},
 	onDeleted = (/** @type {string} */ _deletedEventId) => {}
 } = $props();
@@ -265,16 +264,17 @@ async function handleConfirmDelete() {
 
 	<!-- ── Sticky top bar ───────────────────────────────────────────────── -->
 	<div class="edit-topbar">
-		<BackButton onBack={onBack} />
-		<span class="edit-topbar-title">Edit Your App</span>
-		<button
-			type="button"
-			class="btn-primary-small edit-save-btn"
-			onclick={handleSave}
-			disabled={saving}
-		>
-			{saving ? 'Saving…' : 'Save'}
-		</button>
+		<span class="edit-topbar-title semibold16">Edit Your App</span>
+		<div class="topbar-actions">
+			<button
+				type="button"
+				class="btn-primary-small edit-save-btn"
+				onclick={handleSave}
+				disabled={saving}
+			>
+				{saving ? 'Saving…' : 'Save'}
+			</button>
+		</div>
 	</div>
 
 	<div class="edit-body">
@@ -324,7 +324,7 @@ async function handleConfirmDelete() {
 						maxlength="60"
 						autocomplete="off"
 					/>
-					<div class="form-divider"></div>
+					<hr class="divider" />
 					<textarea
 						class="form-input form-textarea"
 						bind:value={editDescription}
@@ -332,7 +332,7 @@ async function handleConfirmDelete() {
 						rows="3"
 						autocomplete="off"
 					></textarea>
-					<div class="form-divider"></div>
+					<hr class="divider" />
 					<div class="form-row-website">
 						<Link variant="outline" size={15} strokeWidth={1.4} color="var(--white33)" />
 						<input
@@ -347,9 +347,6 @@ async function handleConfirmDelete() {
 
 			</div>
 		</section>
-
-		<!-- ── Full-width divider ────────────────────────────────────────── -->
-		<div class="full-divider" aria-hidden="true"></div>
 
 		<!-- ── IMAGES ───────────────────────────────────────────────────── -->
 		<section class="edit-section">
@@ -435,9 +432,6 @@ async function handleConfirmDelete() {
 			{/if}
 		</section>
 
-		<!-- ── Divider under IMAGES ──────────────────────────────────────── -->
-		<div class="full-divider" aria-hidden="true"></div>
-
 		<!-- ── LABELS ──────────────────────────────────────────────────── -->
 		<section class="edit-section">
 			<span class="eyebrow-label section-eyebrow">Labels</span>
@@ -465,9 +459,6 @@ async function handleConfirmDelete() {
 			</div>
 		</section>
 
-		<!-- ── Divider under LABELS ──────────────────────────────────────── -->
-		<div class="full-divider" aria-hidden="true"></div>
-
 		<!-- ── DANGER ZONE ─────────────────────────────────────────────── -->
 		<section class="edit-section danger-section">
 			<span class="eyebrow-label section-eyebrow">Danger zone</span>
@@ -485,8 +476,6 @@ async function handleConfirmDelete() {
 				<p class="save-error">{deleteError}</p>
 			{/if}
 		</section>
-
-		<div class="full-divider" aria-hidden="true"></div>
 
 	</div>
 </div>
@@ -543,7 +532,7 @@ async function handleConfirmDelete() {
 		align-items: center;
 		gap: 10px;
 		padding: 10px 12px;
-		border-bottom: 1.4px solid var(--shell-border);
+		border-bottom: 1px solid var(--shell-border);
 	}
 
 	@media (min-width: 768px) {
@@ -554,8 +543,6 @@ async function handleConfirmDelete() {
 
 	.edit-topbar-title {
 		flex: 1;
-		font-size: 15px;
-		font-weight: 500;
 		color: var(--white);
 		white-space: nowrap;
 		overflow: hidden;
@@ -563,6 +550,13 @@ async function handleConfirmDelete() {
 	}
 
 	.edit-save-btn {
+		flex-shrink: 0;
+	}
+
+	.topbar-actions {
+		display: flex;
+		align-items: center;
+		gap: 16px;
 		flex-shrink: 0;
 	}
 
@@ -593,12 +587,8 @@ async function handleConfirmDelete() {
 		color: var(--white33);
 	}
 
-	/* ── Full-width divider (bleeds to container edges) ── */
-	.full-divider {
-		width: 100%;
-		height: 1.4px;
-		background: var(--shell-border);
-		flex-shrink: 0;
+	.edit-body > .edit-section + .edit-section {
+		border-top: 1px solid var(--shell-border);
 	}
 
 	/* ── GENERAL row: icon + form box ── */
@@ -671,9 +661,13 @@ async function handleConfirmDelete() {
 		display: flex;
 		flex-direction: column;
 		background: var(--gray33);
-		border: 0.33px solid var(--white33);
+		border: 0.33px solid var(--white16);
 		border-radius: 16px;
 		overflow: hidden;
+	}
+
+	.form-box :global(.divider) {
+		flex-shrink: 0;
 	}
 
 	.form-input {
@@ -726,13 +720,6 @@ async function handleConfirmDelete() {
 		font-size: 14px;
 		font-weight: 400;
 		padding-left: 0;
-	}
-
-	.form-divider {
-		width: 100%;
-		height: 1.4px;
-		background: var(--white8);
-		flex-shrink: 0;
 	}
 
 	/* ── Screenshots ── */

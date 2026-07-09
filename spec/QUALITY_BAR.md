@@ -40,10 +40,10 @@ Episodic state (decisions, in-progress work, learnings, bugfixes) lives in Engra
 
 ### Data Layer (`src/lib/stores/` and `src/lib/purpleweb/`)
 
-- Store and purpleweb state must be derivable from Dexie (IndexedDB) via liveQuery.
+- Store and purpleweb state for relay-backed UI data must be derivable from Dexie (IndexedDB) via liveQuery, except explicit user-initiated search result lists.
 - liveQuery subscriptions must clean up on component destroy (`$effect` return or equivalent).
 - Loading/error states must be explicit.
-- Prefer purpleweb query helpers for new page data on catalog detail and social surfaces; extend existing store patterns for listings until migrated.
+- Use purpleweb helpers for relay-backed page, component, modal, community, studio, profile, and social data. Components/stores/services should not own relay fetching or purpleweb storage/sync internals.
 - Purpleweb hydration errors on user-initiated actions must be surfaced; background sync failures may degrade silently only when cached local data is already shown.
 
 ### Nostr Layer (`src/lib/nostr/`)
@@ -56,6 +56,7 @@ Episodic state (decisions, in-progress work, learnings, bugfixes) lives in Engra
 
 - Components must handle loading, empty, error, and success states.
 - SSR-incompatible code must be guarded with `onMount` or `browser` checks.
+- Components describe UI intent and consume stores/purpleweb helpers; they do not call relay primitives or raw Dexie queries directly.
 - Accessibility basics must be maintained (semantic HTML, focus management).
 
 ## Implementation Expectations

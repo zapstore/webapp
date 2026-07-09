@@ -6,14 +6,27 @@
  * @type {{ tokens: import('marked').Token[] }}
  */
 import MarkdownInline from './MarkdownInline.svelte';
+import MediaBlock from './MediaBlock.svelte';
 
-let { tokens = [] } = $props();
+let {
+	tokens = [],
+	onMediaClick = null,
+	mediaUrls = []
+} = $props();
+
+/** @param {{ url: string, type?: string }} detail */
+function handleMediaClick(detail) {
+	onMediaClick?.({
+		url: detail.url,
+		urls: mediaUrls.length ? mediaUrls : [detail.url]
+	});
+}
 </script>
 
 {#each tokens as token, i (i)}
 	{#if token.type === 'text'}
 		{#if token.tokens?.length}
-			<MarkdownInline tokens={token.tokens} />
+			<MarkdownInline tokens={token.tokens} {onMediaClick} {mediaUrls} />
 		{:else}
 			{token.text}
 		{/if}
@@ -22,13 +35,13 @@ let { tokens = [] } = $props();
 		{token.text}
 
 	{:else if token.type === 'strong'}
-		<strong><MarkdownInline tokens={token.tokens ?? []} /></strong>
+		<strong><MarkdownInline tokens={token.tokens ?? []} {onMediaClick} {mediaUrls} /></strong>
 
 	{:else if token.type === 'em'}
-		<em><MarkdownInline tokens={token.tokens ?? []} /></em>
+		<em><MarkdownInline tokens={token.tokens ?? []} {onMediaClick} {mediaUrls} /></em>
 
 	{:else if token.type === 'del'}
-		<del><MarkdownInline tokens={token.tokens ?? []} /></del>
+		<del><MarkdownInline tokens={token.tokens ?? []} {onMediaClick} {mediaUrls} /></del>
 
 	{:else if token.type === 'codespan'}
 		<code>{token.text}</code>
@@ -39,16 +52,22 @@ let { tokens = [] } = $props();
 	{:else if token.type === 'link'}
 		{#if token.href?.startsWith('/')}
 			<a href={token.href} title={token.title ?? undefined}>
-				<MarkdownInline tokens={token.tokens ?? []} />
+				<MarkdownInline tokens={token.tokens ?? []} {onMediaClick} {mediaUrls} />
 			</a>
 		{:else}
 			<a href={token.href} title={token.title ?? undefined} target="_blank" rel="noopener noreferrer">
-				<MarkdownInline tokens={token.tokens ?? []} />
+				<MarkdownInline tokens={token.tokens ?? []} {onMediaClick} {mediaUrls} />
 			</a>
 		{/if}
 
 	{:else if token.type === 'image'}
-		<img src={token.href} alt={token.text} title={token.title ?? undefined} loading="lazy" />
+		{#if onMediaClick}
+			<span class="markdown-media-inline">
+				<MediaBlock url={token.href} onClick={handleMediaClick} />
+			</span>
+		{:else}
+			<img src={token.href} alt={token.text} title={token.title ?? undefined} loading="lazy" />
+		{/if}
 
 	{:else if token.type === 'html'}
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -63,9 +82,13 @@ let { tokens = [] } = $props();
 	a {
 		color: var(--blurpleLightColor);
 		text-decoration: none;
+		transition: color 0.2s ease;
 	}
+
 	a:hover {
+		color: color-mix(in srgb, var(--blurpleLightColor) 90%, transparent);
 		text-decoration: underline;
+		text-underline-offset: 3px;
 	}
 	code {
 		background: var(--gray33);
@@ -79,5 +102,12 @@ let { tokens = [] } = $props();
 	}
 	img {
 		max-width: 100%;
+	}
+
+	.markdown-media-inline {
+		display: inline-block;
+		vertical-align: top;
+		max-width: 100%;
+		margin: 0.25rem 0;
 	}
 </style>

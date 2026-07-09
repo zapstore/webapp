@@ -1,7 +1,7 @@
 <script lang="js">
 import { browser } from '$app/environment';
 import SeoHead from '$lib/components/layout/SeoHead.svelte';
-import { fetchProfile, createProfileDetailQuery } from '$lib/purpleweb';
+import { createProfileDetailQuery, createProfilesQuery } from '$lib/purpleweb';
 import { encodeStackNaddr } from '$lib/nostr';
 import { SITE_URL } from '$lib/config';
 import { nip19 } from 'nostr-tools';
@@ -45,7 +45,6 @@ const stacksLoading = $derived(resolvedStacks.length === 0 && detail.loading);
 let detailsModalOpen = $state(false);
 let activityMounted = $state(false);
 let activitySentinel = $state(/** @type {HTMLElement | null} */ (null));
-let mentionProfiles = $state({});
 let appsCarousel = $state(/** @type {{ scroll: (direction: number) => void } | null} */ (null));
 let stacksCarousel = $state(/** @type {{ scroll: (direction: number) => void } | null} */ (null));
 let appsCarouselUi = $state(
@@ -73,35 +72,20 @@ const profileNameForPic = $derived(profile?.displayName || profile?.name || null
 const profilePictureUrl = $derived(profile?.picture ?? '');
 const _isConnected = $derived(getCurrentPubkey() !== null);
 
-async function loadMentionProfiles(about) {
-	const segments = parseShortText({ text: about, emojiTags: [] });
-	const pubkeys = [...new Set(segments.filter((s) => s.type === 'mention').map((s) => s.pubkey))];
-	if (pubkeys.length === 0) return;
-	const results = await Promise.all(
-		pubkeys.map(async (pk) => {
-			try {
-				const event = await fetchProfile(pk);
-				if (event?.content) {
-					const c = JSON.parse(event.content);
-					const name = c.display_name || c.name;
-					if (name) return [pk, name];
-				}
-			} catch {
-				/* ignore */
-			}
-			return null;
-		})
-	);
-	const next = {};
-	for (const result of results) {
-		if (result) next[result[0]] = result[1];
-	}
-	if (Object.keys(next).length > 0) mentionProfiles = { ...mentionProfiles, ...next };
-}
-
-$effect(() => {
+const mentionPubkeys = $derived.by(() => {
 	const about = profile?.about?.trim();
-	if (about && browser) loadMentionProfiles(about);
+	if (!about) return [];
+	const segments = parseShortText({ text: about, emojiTags: [] });
+	return [...new Set(segments.filter((s) => s.type === 'mention').map((s) => s.pubkey))];
+});
+const mentionProfileQuery = createProfilesQuery(() => mentionPubkeys);
+const mentionProfiles = $derived.by(() => {
+	const labels = {};
+	for (const [pk, profile] of Object.entries(mentionProfileQuery.profiles)) {
+		const name = profile?.displayName || profile?.name;
+		if (name) labels[pk] = name;
+	}
+	return labels;
 });
 
 /** Reset lazy activity when navigating to another profile. */

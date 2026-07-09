@@ -1,6 +1,7 @@
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-import { EVENT_KINDS, PLATFORM_FILTER, ZAPSTORE_RELAY } from '$lib/config.js';
+import { EVENT_KINDS, PLATFORM_FILTER, ZAPSTORE_APP_DTAG, ZAPSTORE_RELAY } from '$lib/config.js';
 import { APPS_PAGE_SIZE } from '$lib/constants.js';
+import { pinZapstoreAppFirst } from '$lib/utils/featured-apps.js';
 import { queryEvents } from '../storage/dexie.js';
 import { parseApp } from '$lib/nostr/models.js';
 import { fetchFromRelays } from '../sync/service.js';
@@ -24,9 +25,29 @@ function getReleaseIdentifier(event) {
 }
 
 /**
+ * @param {{ pubkey?: string, tags?: string[][] }} event
+ */
+function getReleaseAppKey(event) {
+	const aTag = event.tags?.find(
+		(t) =>
+			(t[0] === 'a' || t[0] === 'A') &&
+			typeof t[1] === 'string' &&
+			t[1].startsWith(`${EVENT_KINDS.APP}:`)
+	)?.[1];
+	if (aTag) {
+		const [, pubkey, ...identifierParts] = aTag.split(':');
+		const identifier = identifierParts.join(':');
+		if (pubkey && identifier) return `${pubkey}:${identifier}`;
+	}
+
+	const identifier = getReleaseIdentifier(event);
+	return identifier && event.pubkey ? `${event.pubkey}:${identifier}` : null;
+}
+
+/**
  * Dexie read for the apps listing: latest app per (pubkey, dTag), ordered by
- * `created_at` DESC. The server seeds apps in release-recency order, so the
- * initial sort already reflects that ranking.
+ * latest release when release events are available. Falls back to app
+ * `created_at` for cold/offline caches that only have app metadata.
  */
 async function loadApps() {
 	const filter = { kinds: [EVENT_KINDS.APP] };
@@ -44,9 +65,34 @@ async function loadApps() {
 		}
 	}
 
-	return [...byKey.values()]
-		.sort((a, b) => b.created_at - a.created_at)
+	const releaseFilter = { kinds: [EVENT_KINDS.RELEASE], limit: Math.max(APPS_PAGE_SIZE * 4, 100) };
+	if (platformTag) releaseFilter['#f'] = [platformTag];
+	const releases = await queryEvents(releaseFilter);
+	const releaseRankByKey = new SvelteMap();
+	let rank = 0;
+	for (const release of releases) {
+		const key = getReleaseAppKey(release);
+		if (!key || releaseRankByKey.has(key)) continue;
+		releaseRankByKey.set(key, {
+			rank: rank++,
+			created_at: release.created_at ?? 0
+		});
+	}
+
+	const sorted = [...byKey.values()]
+		.sort((a, b) => {
+			const aDTag = a.tags?.find((t) => t[0] === 'd')?.[1];
+			const bDTag = b.tags?.find((t) => t[0] === 'd')?.[1];
+			const aRelease = aDTag ? releaseRankByKey.get(`${a.pubkey}:${aDTag}`) : null;
+			const bRelease = bDTag ? releaseRankByKey.get(`${b.pubkey}:${bDTag}`) : null;
+			if (aRelease && bRelease) return aRelease.rank - bRelease.rank;
+			if (aRelease) return -1;
+			if (bRelease) return 1;
+			return b.created_at - a.created_at;
+		})
 		.map(parseApp);
+
+	return pinZapstoreAppFirst(sorted);
 }
 
 /**
@@ -64,7 +110,20 @@ export function createAppsListingQuery(getInput) {
 		load: loadApps,
 		getInput,
 		getSeedEvents: (input) => input?.seedEvents,
-		featurePrefix: 'purpleweb-apps-listing'
+		featurePrefix: 'purpleweb-apps-listing',
+		hydrate: ({ hydrateOnce }) => {
+			hydrateOnce(
+				'zapstore-featured',
+				[ZAPSTORE_RELAY],
+				{
+					kinds: [EVENT_KINDS.APP],
+					'#d': [ZAPSTORE_APP_DTAG],
+					...PLATFORM_FILTER,
+					limit: 1
+				},
+				'purpleweb-apps-zapstore-featured'
+			);
+		}
 	});
 
 	/**

@@ -11,7 +11,7 @@
  *
  * Active when:
  * - Fine pointer (mouse / trackpad), or viewport ≥768px (fallback)
- * - Pointer is inside the bound element
+ * - Wheel event target is inside the bound element (or scrollRoot host)
  * - The scroller has horizontal overflow
  *
  * @param {HTMLElement} node
@@ -63,16 +63,6 @@ export function wheelScroll(node, params = {}) {
 			? params.scrollRoot
 			: null;
 
-	let isHovering = false;
-
-	function onPointerEnter() {
-		isHovering = true;
-	}
-
-	function onPointerLeave() {
-		isHovering = false;
-	}
-
 	/** @returns {HTMLElement | null} */
 	function getScroller() {
 		if (scrollRoot) {
@@ -85,7 +75,8 @@ export function wheelScroll(node, params = {}) {
 	/** @param {WheelEvent} e */
 	function onWheel(e) {
 		if (!shouldActivate()) return;
-		if (!isHovering) return;
+		const target = e.target;
+		if (!(target instanceof Node) || !node.contains(target)) return;
 
 		const scroller = getScroller();
 		if (!scroller) return;
@@ -111,14 +102,10 @@ export function wheelScroll(node, params = {}) {
 		scroller.scrollLeft = next;
 	}
 
-	node.addEventListener('pointerenter', onPointerEnter);
-	node.addEventListener('pointerleave', onPointerLeave);
 	node.addEventListener('wheel', onWheel, { passive: false });
 
 	return {
 		destroy() {
-			node.removeEventListener('pointerenter', onPointerEnter);
-			node.removeEventListener('pointerleave', onPointerLeave);
 			node.removeEventListener('wheel', onWheel);
 		}
 	};

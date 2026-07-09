@@ -15,9 +15,9 @@ import { handleBack } from '$lib/utils/back.js';
 import { cn } from '$lib/utils';
 import { nip19 } from 'nostr-tools';
 import { getCurrentPubkey, connect } from '$lib/stores/auth.svelte.js';
-import { queryEvent, fetchProfile } from '$lib/purpleweb';
-import { parseProfile } from '$lib/nostr/models';
+import { createProfileQuery } from '$lib/purpleweb';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
+import { formatNpubDisplay, isRealProfileName } from '$lib/utils/npub-display.js';
 import Timestamp from '$lib/components/common/Timestamp.svelte';
 import { zapstoreProfileStore, ZAPSTORE_PUBKEY, startProfileSearchBackground } from '$lib/services/profile-search';
 import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
@@ -32,20 +32,16 @@ let {
     title = '',            // page variant: header title
     showBack: _showBack = false,      // page variant: show back button
     rightContent,          // page variant: optional snippet rendered right of title
+    detailTrailing,        // detail variant: optional snippet rendered before timestamp
     publisherPic = null, publisherName = null, publisherNameForPic = undefined, publisherPubkey = null, publisherUrl = '#', timestamp = null, catalogs = [], catalogText: _catalogText = 'In Zapstore', showPublisher = true, scrollThreshold, getStartedModalOpen = $bindable(false),
-    showBackButton = false, onBack, compactPadding = false, catalogDisplayOnly: _catalogDisplayOnly = false
+    showBackButton = false, onBack, compactPadding = false, catalogDisplayOnly: _catalogDisplayOnly = false,
+    /** When false, omits the bottom shell border under the header row (e.g. forum post detail). */
+    showBottomBorder = true,
 } = $props();
 const nameForPic = $derived(publisherNameForPic !== undefined ? publisherNameForPic : publisherName);
-function formatNpubDisplay(npubStr) {
-    if (!npubStr || typeof npubStr !== 'string') return '';
-    const s = npubStr.trim();
-    if (s.length < 14) return s;
-    const afterPrefix = s.startsWith('npub1') ? s.slice(5, 8) : s.slice(0, 3);
-    return s.startsWith('npub1') ? `npub1${afterPrefix}......${s.slice(-6)}` : `${afterPrefix}......${s.slice(-6)}`;
-}
 const publisherDisplayName = $derived(
-    publisherName?.trim()
-        ? publisherName
+    isRealProfileName(publisherName)
+        ? String(publisherName).trim()
         : publisherPubkey
             ? formatNpubDisplay(nip19.npubEncode(publisherPubkey))
             : ''
@@ -78,44 +74,11 @@ let onboardingProfileName = $state('');
 const pubkey = $derived(getCurrentPubkey());
 const _profileHref = $derived(pubkey ? '/profile/' + nip19.npubEncode(pubkey) : '#');
 const isConnected = $derived(pubkey !== null);
-// Current user profile (local-first: EventStore then background fetch) for menu avatar
-let _currentUserProfile = $state(null);
-$effect(() => {
-    const pk = getCurrentPubkey();
-    if (!pk) {
-        _currentUserProfile = null;
-        return;
-    }
-    queryEvent({ kinds: [0], authors: [pk], limit: 1 }).then((ev) => {
-        if (ev?.content) {
-            try {
-                const p = parseProfile(ev);
-                _currentUserProfile = {
-                    picture: p.picture ?? '',
-                    name: p.displayName ?? p.name ?? ''
-                };
-            }
-            catch {
-                _currentUserProfile = null;
-            }
-        } else {
-            _currentUserProfile = null;
-        }
-    }).catch(() => { _currentUserProfile = null; });
-    fetchProfile(pk).then((e) => {
-        if (e?.content) {
-            try {
-                const p = parseProfile(e);
-                _currentUserProfile = {
-                    picture: p.picture ?? '',
-                    name: p.displayName ?? p.name ?? ''
-                };
-            }
-            catch {
-                // keep existing
-            }
-        }
-    });
+// Current user profile (Dexie liveQuery + purpleweb background hydration) for menu avatar
+const currentUserProfileQuery = createProfileQuery(() => pubkey);
+const _currentUserProfile = $derived.by(() => {
+    const p = currentUserProfileQuery.profile;
+    return p ? { picture: p.picture ?? '', name: p.displayName ?? p.name ?? '' } : null;
 });
 function handleClickOutside(event) {
     const target = event.target;
@@ -301,15 +264,18 @@ async function _handleSignIn() {
 		'detail-header sticky top-0 left-0 right-0 w-full z-50 transition-all duration-300',
 		!headerVisible && 'detail-header-hidden',
 		scrolled
-			? 'bg-background/60 border-b border-shell'
-			: 'bg-transparent border-b border-shell'
+			? 'bg-background/60'
+			: 'bg-transparent',
+		showBottomBorder ? 'border-b border-shell' : ''
 	)}
 >
 	<nav class={cn('w-full h-full', compactPadding ? 'nav-compact' : 'px-4 sm:px-6 md:px-[38px]')}>
 		<div class="flex items-center justify-between gap-3 h-full">
 			<!-- Left: Back button (when showBackButton) + Publisher info -->
 		<div class="flex items-center gap-2 min-w-0 flex-1">
-			<BackButton onBack={effectiveBackHandler} />
+			{#if showBackButton}
+				<BackButton onBack={effectiveBackHandler} />
+			{/if}
 
 			{#if showPublisher}
 					<!-- Publisher link -->
@@ -321,19 +287,24 @@ async function _handleSignIn() {
 							pictureUrl={publisherPic}
 							name={nameForPic}
 							pubkey={publisherPubkey}
-							size="sm"
+							size="bubble"
 						/>
 						<span class="publisher-name">
-							By {publisherDisplayName}
+							{publisherDisplayName}
 						</span>
 					</a>
 				{/if}
 			</div>
 
-			<!-- Right: timestamp (catalog ProfilePicStack commented out for now) -->
-			{#if timestamp}
-				<Timestamp {timestamp} size="xs" className="publisher-timestamp" />
-			{/if}
+			<!-- Right: optional actions + timestamp -->
+			<div class="detail-header-trailing">
+				{#if timestamp}
+					<Timestamp {timestamp} size="xs" className="publisher-timestamp" />
+				{/if}
+				{#if detailTrailing}
+					{@render detailTrailing()}
+				{/if}
+			</div>
 			<!-- Catalog ProfilePicStack commented out for now
 			{#if catalogs.length > 0}
 				<div class="catalog-dropdown-wrap" bind:this={catalogDropdownContainer} class:catalog-display-only={_catalogDisplayOnly}>
@@ -365,7 +336,7 @@ async function _handleSignIn() {
 ></div>
 
 <!-- Floating back button (same position as header) when header is hidden due to scrollThreshold -->
-{#if scrollThreshold != null && !headerVisible}
+{#if showBackButton && scrollThreshold != null && !headerVisible}
 	<div class="floating-menu-bar" role="banner">
 		<nav class="floating-menu-nav">
 			<BackButton onBack={effectiveBackHandler} />
@@ -478,12 +449,19 @@ async function _handleSignIn() {
 	}
 
 	/* ── Detail variant ────────────────────────────────────────────────────── */
-	/* Compact nav: 16px horizontal padding (forum post detail, etc.) */
+	/* Compact nav: forum post detail — matches app/stack detail-pad-x (12px mobile, 20px desktop) */
 	nav.nav-compact {
 		width: 100%;
 		box-sizing: border-box;
-		padding-left: 16px;
-		padding-right: 16px;
+		padding-left: 12px;
+		padding-right: 12px;
+	}
+
+	@media (min-width: 768px) {
+		nav.nav-compact {
+			padding-left: 20px;
+			padding-right: 20px;
+		}
 	}
 	/* Fixed header height - exactly 64px to match main header */
 	:global(.detail-header) {
@@ -744,7 +722,7 @@ async function _handleSignIn() {
 
 	/* Menu divider */
 	.menu-divider {
-		height: 1.4px;
+		height: 1px;
 		background-color: var(--white11);
 		margin: 12px 0;
 	}
@@ -817,6 +795,13 @@ async function _handleSignIn() {
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.detail-header-trailing {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		flex-shrink: 0;
 	}
 
 	:global(.publisher-timestamp) {

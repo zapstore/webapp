@@ -1,6 +1,6 @@
 <script lang="js">
 import { page } from '$app/stores';
-import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_ICON, SITE_TWITTER } from '$lib/config';
+import { SITE_URL, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION, SITE_ICON, SITE_TWITTER } from '$lib/config';
 
 /**
  * @typedef {Object} Props
@@ -20,7 +20,7 @@ import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_ICON, SITE_TWITTER } from '
 
 /** @type {Props} */
 let {
-	title = SITE_NAME,
+	title = SITE_TITLE,
 	description = SITE_DESCRIPTION,
 	image = SITE_ICON,
 	imageAlt = undefined,
@@ -34,7 +34,15 @@ let {
 	publishedTime = undefined
 } = $props();
 
-const canonicalUrl = $derived(url ?? (SITE_URL + $page.url.pathname));
+/** Prerender uses a fake origin; fall back to SITE_URL for canonical/og:url. */
+const pageOrigin = $derived(
+	$page.url?.origin && !$page.url.origin.includes('sveltekit-prerender')
+		? $page.url.origin
+		: SITE_URL
+);
+const canonicalUrl = $derived(url ?? pageOrigin + $page.url.pathname);
+// Pass image through as-is (absolute or root-relative). Unfurlers resolve `/…` against the page URL.
+const ogImageUrl = $derived(image || null);
 const twitterCard = $derived(image ? 'summary_large_image' : 'summary');
 // Escape `<` so serialized JSON cannot close the JSON-LD script block early (breaks DOM + hydration).
 const jsonldText = $derived(
@@ -52,8 +60,8 @@ const jsonldText = $derived(
 	<meta property="og:url" content={canonicalUrl} />
 	<meta property="og:title" content={title} />
 	<meta property="og:description" content={description} />
-	{#if image}
-		<meta property="og:image" content={image} />
+	{#if ogImageUrl}
+		<meta property="og:image" content={ogImageUrl} />
 		{#if imageAlt}
 			<meta property="og:image:alt" content={imageAlt} />
 		{/if}
@@ -69,8 +77,8 @@ const jsonldText = $derived(
 	<meta name="twitter:site" content={SITE_TWITTER} />
 	<meta name="twitter:title" content={title} />
 	<meta name="twitter:description" content={description} />
-	{#if image}
-		<meta name="twitter:image" content={image} />
+	{#if ogImageUrl}
+		<meta name="twitter:image" content={ogImageUrl} />
 		{#if imageAlt}
 			<meta name="twitter:image:alt" content={imageAlt} />
 		{/if}

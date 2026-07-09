@@ -15,6 +15,7 @@
 	import AppPic from './AppPic.svelte';
 	import Modal from './Modal.svelte';
 	import SkeletonLoader from './SkeletonLoader.svelte';
+	import { downloadFromBlossomCdn } from '$lib/utils/blossom-download.js';
 	/** @typedef {import("$lib/nostr/models").App} AppModel */
 
 	/** @type {boolean} */
@@ -40,6 +41,8 @@
 	let zapstoreQrLoaded = false;
 	let step1QrLoaded = false;
 	let step2QrLoaded = false;
+	/** Human-readable APK size from CDN Content-Length (e.g. "4.2 MB"). */
+	let apkSizeLabel = '';
 
 	// iOS waitlist state (only for Zapstore)
 	let iosWaitlistStatus = 'idle';
@@ -61,21 +64,41 @@
 	// App info helpers
 	$: appDeepLink = app ? `${SITE_URL}/apps/${app.naddr ?? app.dTag ?? ''}` : '';
 
+	function formatApkSize(bytes) {
+		if (!Number.isFinite(bytes) || bytes <= 0) return '';
+		if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+		if (bytes >= 1_000) return `${Math.round(bytes / 1_000)} KB`;
+		return `${bytes} B`;
+	}
+
+	async function loadApkSize() {
+		try {
+			const response = await fetch(ZAPSTORE_APK_URL, {
+				method: 'HEAD'
+			});
+			const len = Number(response.headers.get('content-length'));
+			return Number.isFinite(len) && len > 0 ? formatApkSize(len) : '';
+		} catch {
+			/* size is optional UI polish */
+		}
+		return '';
+	}
+
+	$effect(() => {
+		if (!browser || !open || !isZapstore || selectedPlatform !== 'Android' || apkSizeLabel) return;
+		let cancelled = false;
+		loadApkSize().then((label) => {
+			if (!cancelled && label) apkSizeLabel = label;
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
 	async function downloadApk() {
 		downloading = true;
 		try {
-			const response = await fetch(ZAPSTORE_APK_URL, { headers: { 'X-Zapstore-Client': 'web' } });
-			const blob = await response.blob();
-			const url = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = ZAPSTORE_APK_FILENAME;
-			document.body.appendChild(a);
-			a.click();
-			window.URL.revokeObjectURL(url);
-			document.body.removeChild(a);
-		} catch {
-			window.location.href = ZAPSTORE_APK_URL;
+			await downloadFromBlossomCdn(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
 		} finally {
 			downloading = false;
 		}
@@ -84,18 +107,7 @@
 	async function downloadZapstoreStep1() {
 		step1Downloading = true;
 		try {
-			const response = await fetch(ZAPSTORE_APK_URL, { headers: { 'X-Zapstore-Client': 'web' } });
-			const blob = await response.blob();
-			const url = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = ZAPSTORE_APK_FILENAME;
-			document.body.appendChild(a);
-			a.click();
-			window.URL.revokeObjectURL(url);
-			document.body.removeChild(a);
-		} catch {
-			window.location.href = ZAPSTORE_APK_URL;
+			await downloadFromBlossomCdn(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
 		} finally {
 			step1Downloading = false;
 		}
@@ -165,8 +177,7 @@
 	bind:open
 	ariaLabel="Download {isZapstore ? 'Zapstore' : app?.name || 'App'}"
 	maxWidth="max-w-lg"
-	maxHeight={90}
-	class={isZapstore ? 'download-modal-bg' : ''}
+	class={isZapstore ? 'download-modal download-modal-bg' : ''}
 >
 	{#if isZapstore}
 		<!-- Zapstore: Fancy header image -->
@@ -175,7 +186,7 @@
 			alt="Download Zapstore"
 			width={DOWNLOAD_HERO_WIDTH}
 			height={DOWNLOAD_HERO_HEIGHT}
-			class="w-full h-auto object-cover"
+			class="download-hero-img w-full h-auto object-cover"
 			loading="eager"
 			fetchpriority="high"
 			decoding="sync"
@@ -241,7 +252,7 @@
 						</div>
 						<!-- Vertical Divider - Hidden on mobile -->
 						<div
-							class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"
+							class="hidden md:block w-px flex-shrink-0 self-stretch"
 							style="background-color: var(--white16);"
 						></div>
 						<!-- Left Column (Android info) - Only on mobile -->
@@ -260,14 +271,18 @@
 									</svg>
 									<span class="regular14">Android 10+</span>
 								</span>
-								<span class="regular14" style="color: var(--white33);"
-									><strong>arm64-v8a</strong> only</span
-								>
+								<span class="regular14" style="color: var(--white33);">
+									{#if apkSizeLabel}
+										<strong>{apkSizeLabel}</strong>
+									{:else}
+										<span class="apk-size-loading">…</span>
+									{/if}
+								</span>
 							</div>
 						</div>
 						<!-- Vertical Divider - Only on mobile -->
 						<div
-							class="md:hidden w-[1.4px] flex-shrink-0 self-stretch"
+							class="md:hidden w-px flex-shrink-0 self-stretch"
 							style="background-color: var(--white16);"
 						></div>
 						<div class="flex-1 flex flex-col">
@@ -288,14 +303,18 @@
 									</svg>
 									<span class="regular14">Android 10+</span>
 								</span>
-								<span class="regular14" style="color: var(--white33);"
-									><strong>arm64-v8a</strong> only</span
-								>
+								<span class="regular14" style="color: var(--white33);">
+									{#if apkSizeLabel}
+										<strong>{apkSizeLabel}</strong>
+									{:else}
+										<span class="apk-size-loading">…</span>
+									{/if}
+								</span>
 							</div>
 
 							<!-- Horizontal Divider - Hidden on mobile -->
 							<div
-								class="hidden md:block w-full h-[1.4px] flex-shrink-0"
+								class="hidden md:block w-full h-px flex-shrink-0"
 								style="background-color: var(--white16);"
 							></div>
 
@@ -317,7 +336,7 @@
 
 							<!-- Horizontal Divider -->
 							<div
-								class="w-full h-[1.4px] flex-shrink-0"
+								class="w-full h-px flex-shrink-0"
 								style="background-color: var(--white16);"
 							></div>
 
@@ -348,9 +367,6 @@
 							class="btn-primary-large w-full disabled:opacity-70 flex items-center justify-center gap-3"
 						>
 							{#if downloading}
-								<div
-									class="animate-spin rounded-full h-5 w-5 border-2 border-primary-foreground border-t-transparent"
-								></div>
 								Downloading...
 							{:else}
 								<Download variant="fill" color="var(--white66)" size={20} />
@@ -459,7 +475,7 @@
 						</div>
 					</div>
 					<div
-						class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"
+						class="hidden md:block w-px flex-shrink-0 self-stretch"
 						style="background-color: var(--white16);"
 					></div>
 					<div class="flex-1 flex flex-col justify-start pl-5 pr-4 py-4">
@@ -515,7 +531,7 @@
 						</div>
 					</div>
 					<div
-						class="hidden md:block w-[1.4px] flex-shrink-0 self-stretch"
+						class="hidden md:block w-px flex-shrink-0 self-stretch"
 						style="background-color: var(--white16);"
 					></div>
 					<div class="flex-1 flex flex-col justify-start pl-5 pr-4 py-4">
@@ -654,6 +670,19 @@
 		background: linear-gradient(to bottom, var(--black66), var(--gray66)) !important;
 	}
 
+	.download-hero-img {
+		width: 100%;
+		height: auto;
+		object-fit: cover;
+	}
+
+	/* ≥1600px modal is wider — cap hero at intrinsic height so the sheet does not balloon */
+	@media (min-width: 1600px) {
+		.download-hero-img {
+			max-height: 636px;
+		}
+	}
+
 	/* Zapstore content overlap with image - less overlap on smaller screens */
 	.zapstore-content {
 		margin-top: -300px;
@@ -706,7 +735,7 @@
 		align-items: center;
 		gap: 10px;
 		padding: 12px 16px;
-		border-bottom: 1.4px solid var(--white16);
+		border-bottom: 1px solid var(--white16);
 	}
 
 	.step-num {
@@ -786,6 +815,10 @@
 	.download-actions {
 		display: flex;
 		gap: 0.75rem;
+	}
+
+	.apk-size-loading {
+		color: var(--white33);
 	}
 
 	/* Smaller button text on mobile */

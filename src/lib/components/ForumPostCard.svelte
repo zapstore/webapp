@@ -8,10 +8,12 @@
 	import ProfilePicStack from '$lib/components/common/ProfilePicStack.svelte';
 	import SkeletonLoader from '$lib/components/common/SkeletonLoader.svelte';
 	import ShortTextPreview from '$lib/components/common/ShortTextPreview.svelte';
+	import '$lib/styles/thread-rail.css';
 	import { Zap } from '$lib/components/icons';
+	import { profileDisplayLabel } from '$lib/utils/npub-display.js';
 
 	let {
-		author = { name: '', picture: '', npub: '' },
+		author = { name: null, picture: '', pubkey: '', npub: '' },
 		title = '',
 		content = '',
 		timestamp = '',
@@ -44,7 +46,7 @@
 		return val.toLocaleString();
 	}
 	const displayName = $derived(
-		author.name || (author.npub ? author.npub.slice(0, 12) + '...' : '') || 'Anonymous'
+		profileDisplayLabel({ displayName: author.displayName, name: author.name }, author.pubkey)
 	);
 	const stackProfiles = $derived(
 		(commenters || []).slice(0, 3).map((r) => ({
@@ -92,7 +94,7 @@
 				<ProfilePic
 					pictureUrl={author.picture}
 					name={author.name}
-					pubkey={author.npub}
+					pubkey={author.pubkey || author.npub}
 					size="smMd"
 				/>
 			</div>
@@ -202,7 +204,7 @@
 		background: transparent;
 		border: none;
 		border-radius: 0;
-		border-bottom: 1.4px solid var(--shell-border);
+		border-bottom: 1px solid var(--shell-border);
 		cursor: pointer;
 		overflow: visible;
 		padding: 16px;
@@ -238,7 +240,7 @@
 	}
 
 	.connector-vertical-only {
-		width: 1.5px;
+		width: var(--thread-rail-line);
 		flex: 1;
 		min-height: 8px;
 		background: var(--white16);
@@ -366,8 +368,8 @@
 	.reply-row {
 		display: flex;
 		align-items: flex-end;
-		margin-left: 17px;
-		width: calc(100% - 17px);
+		margin-left: var(--thread-rail-inset);
+		width: calc(100% - var(--thread-rail-inset));
 	}
 
 	.connector-column {
@@ -380,7 +382,7 @@
 	}
 
 	.connector-vertical {
-		width: 1.5px;
+		width: var(--thread-rail-line);
 		height: 12px;
 		background: var(--white16);
 		margin-left: 0;
@@ -396,6 +398,7 @@
 		width: 100%;
 		height: 100%;
 		display: block;
+		transform: translateX(var(--thread-rail-svg-nudge));
 	}
 
 	.repliers-row {

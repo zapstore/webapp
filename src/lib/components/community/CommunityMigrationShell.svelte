@@ -18,6 +18,18 @@
 	import { ZAPSTORE_RELAY, DEFAULT_CATALOG_RELAYS, EVENT_KINDS, PLATFORM_FILTER } from '$lib/config.js';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import CodeBlock from '$lib/components/common/CodeBlock.svelte';
+	import { highlightCode } from '$lib/utils/highlight.js';
+
+	const ZSP_INSTALL_CMD = 'go install github.com/zapstore/zsp@latest';
+
+	/** @type {string} */
+	let zspInstallHtml = $state('');
+
+	$effect(() => {
+		highlightCode(ZSP_INSTALL_CMD, 'bash').then((html) => {
+			zspInstallHtml = html;
+		});
+	});
 	import Check from '$lib/components/icons/Check.svelte';
 	import ActivityStackMiniBadge from '$lib/components/community/ActivityStackMiniBadge.svelte';
 
@@ -320,7 +332,12 @@
 				<p class="zsp-text">
 					Use <strong>zsp</strong> — the Zapstore CLI — to publish future releases.
 				</p>
-				<CodeBlock code="go install github.com/zapstore/zsp@latest" background="black33" />
+				<CodeBlock
+					code={ZSP_INSTALL_CMD}
+					html={zspInstallHtml}
+					background="black33"
+					showLanguage={false}
+				/>
 				<a href="/docs/publish" class="btn-secondary-small">Read the publishing docs</a>
 			</div>
 		</div>
@@ -337,7 +354,12 @@
 				<p class="zsp-text">
 					Use <strong>zsp</strong> — the Zapstore CLI — to publish future releases.
 				</p>
-				<CodeBlock code="go install github.com/zapstore/zsp@latest" background="black33" />
+				<CodeBlock
+					code={ZSP_INSTALL_CMD}
+					html={zspInstallHtml}
+					background="black33"
+					showLanguage={false}
+				/>
 				<a href="/docs/publish" class="btn-secondary-small">Read the publishing docs</a>
 			</div>
 		</div>
@@ -537,7 +559,12 @@
 				<p class="zsp-text">
 					Use <strong>zsp</strong> — the Zapstore CLI — to publish future releases.
 				</p>
-				<CodeBlock code="go install github.com/zapstore/zsp@latest" background="black33" />
+				<CodeBlock
+					code={ZSP_INSTALL_CMD}
+					html={zspInstallHtml}
+					background="black33"
+					showLanguage={false}
+				/>
 				<a href="/docs/publish" class="btn-secondary-small">Read the publishing docs</a>
 			</div>
 		</div>
@@ -561,7 +588,7 @@
 
 	.nothing-zsp {
 		width: 100%;
-		max-width: 560px;
+		max-width: var(--modal-max-width-wide);
 		margin-top: 8px;
 	}
 
@@ -820,7 +847,7 @@
 
 	.success-state .zsp-section {
 		margin-top: 32px;
-		max-width: 560px;
+		max-width: var(--modal-max-width-wide);
 		width: 100%;
 	}
 

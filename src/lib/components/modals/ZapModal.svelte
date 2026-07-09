@@ -40,7 +40,7 @@ async function handleZap() {
         close();
     }
     catch (err) {
-        error = err instanceof Error ? err.message : "Zap failed";
+        error = err instanceof Error ? err.message : "Tip failed";
     }
     finally {
         loading = false;
@@ -48,7 +48,7 @@ async function handleZap() {
 }
 </script>
 
-<Modal bind:open={isOpen} ariaLabel="Send a zap">
+<Modal bind:open={isOpen} ariaLabel="Send a tip">
   <div class="zap-modal-content">
     {#if error}
       <p class="error-message">{error}</p>
@@ -122,7 +122,7 @@ async function handleZap() {
         onclick={handleZap}
       >
         <Zap variant="fill" size={18} color="var(--whiteEnforced)" />
-        {loading ? "Sending…" : `Zap ${zapValue.toLocaleString()} sats`}
+        {loading ? "Sending…" : `Tip ${zapValue.toLocaleString()} sats`}
       </button>
     {/if}
   </div>

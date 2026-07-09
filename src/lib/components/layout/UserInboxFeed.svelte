@@ -9,6 +9,8 @@
 	let {
 		pubkey = null,
 		inboxActive = false,
+		/** Header popover only: thread sheets flush to panel bottom on desktop. Studio /studio/inbox keeps floating sheets. */
+		inboxPopover = false,
 		shellRef = $bindable(/** @type {CommunityActivityShell | null} */ (null))
 	} = $props();
 
@@ -30,6 +32,7 @@
 			bind:this={shellRef}
 			inboxUserPubkey={pubkey}
 			inboxEmbed
+			{inboxPopover}
 			{inboxActive}
 			onRelayLoadingChange={handleRelayLoadingChange}
 		/>

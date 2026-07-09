@@ -231,11 +231,8 @@
 
 		<hr class="hero-divider" />
 
-		<p
-			class="hero-description mx-auto mt-2 sm:mt-8 mb-10"
-			style="color: var(--white66);"
-		>
-			<span class="sm:hidden">Published by their developers.<br /> Curated by communities.</span><span class="hidden sm:inline">Published by developers. Curated by communities.</span>
+		<p class="hero-description display-tagline mx-auto mt-2 sm:mt-8 mb-10">
+			A truly open app store.<br class="hero-desc-break" /> Available for Android now.
 		</p>
 
 		<!-- Browse CTA: stacked app pics + glass pill -->
@@ -274,7 +271,7 @@
 </section>
 
 <style>
-	/* Mobile only: flex for reorder, full-width divider, description under CTA */
+	/* Mobile only: flex for reorder, full-width divider, description above CTA */
 	@media (max-width: 639px) {
 		.hero-content {
 			display: flex;
@@ -289,20 +286,25 @@
 			margin-top: 1.5rem;
 			margin-bottom: 0;
 		}
-		.hero-cta-wrap {
+		.hero-description {
 			order: 3;
-			margin-top: 3.25rem !important;
+			margin-top: 1.5rem !important;
+			margin-bottom: 0 !important;
 		}
-	.hero-description {
-		order: 4;
-		margin-top: 1.5rem !important;
-		margin-bottom: 0 !important;
-	}
+		.hero-cta-wrap {
+			order: 4;
+			margin-top: 1.5rem !important;
+		}
 	}
 
-	.hero-description {
-		font-size: 20px;
-		line-height: 2.25rem;
+	.hero-desc-break {
+		display: none;
+	}
+
+	@media (max-width: 639px) {
+		.hero-desc-break {
+			display: block;
+		}
 	}
 
 	/* Desktop: hide divider, natural order */
@@ -311,8 +313,6 @@
 			display: none;
 		}
 		.hero-description {
-			font-size: 24px;
-			line-height: 2.5rem;
 			margin-bottom: 36px;
 		}
 	}
