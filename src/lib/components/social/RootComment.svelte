@@ -39,7 +39,6 @@
 	import { EVENT_KINDS } from '$lib/config.js';
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
-	import * as nip19 from 'nostr-tools/nip19';
 	import { formatNpubFromPubkey, isRealProfileName } from '$lib/utils/npub-display.js';
 	/** Never show generic placeholders — prefer trimmed npub when display name is missing. */
 	function displayNameOrNpubShort(label, pk) {
@@ -668,9 +667,6 @@
 		e.preventDefault();
 		e.stopPropagation();
 		openActionsModal(target);
-	}
-	function onRootCommentKeydown(/** @type {KeyboardEvent} */ e) {
-		onRootFeedKeydown(e);
 	}
 	/** Thread feed zap rows carry `senderPubkey` + `amountSats`; comments use `pubkey` and no amount. */
 	function isActionsTargetThreadZap(t) {

@@ -3,7 +3,6 @@
  * CommentCard — Activity feed card for kind:1111 comments.
  * Same layout as chateau: emoji badge + root label, avatar, bubble with optional quoted reply.
  */
-import { nip19 } from 'nostr-tools';
 import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import AppPic from '$lib/components/common/AppPic.svelte';
 import Timestamp from '$lib/components/common/Timestamp.svelte';

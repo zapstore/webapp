@@ -3,6 +3,7 @@
 	 * Community forum search — full page with apps-style search field and card results.
 	 */
 	import { onMount } from 'svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { browser } from '$app/environment';
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -83,11 +84,11 @@
 	/** @type {import('$lib/community/forum-search.js').ForumSearchResult[]} */
 	let searchResults = $state([]);
 	/** @type {Map<string, { displayName?: string, name?: string, picture?: string, pubkey?: string }>} */
-	let profilesByPubkey = $state(new Map());
-	let parentByCommentId = $state(new Map());
-	let parentAuthorByCommentId = $state(new Map());
-	let parentZapParsedByCommentId = $state(new Map());
-	let parentZapperAuthorByCommentId = $state(new Map());
+	let profilesByPubkey = new SvelteMap();
+	let parentByCommentId = new SvelteMap();
+	let parentAuthorByCommentId = new SvelteMap();
+	let parentZapParsedByCommentId = new SvelteMap();
+	let parentZapperAuthorByCommentId = new SvelteMap();
 	let urlSyncGen = 0;
 	let filterDropdownOpen = $state(false);
 	let filterDropdownWrap = $state(/** @type {HTMLDivElement | null} */ (null));
@@ -103,10 +104,15 @@
 	let threadModalExpandCommentId = $state(/** @type {string | null} */ (null));
 	let initialReplyTargetForModal = $state(/** @type {any} */ (null));
 	/** @type {Map<string, { displayName?: string, name?: string, picture?: string | null }>} */
-	let threadProfiles = $state(new Map());
+	let threadProfiles = new SvelteMap();
 	let threadOpenReply = $state(false);
 	let threadOpenActions = $state(false);
 	let threadLoadGen = 0;
+
+	function replaceMap(target, source) {
+		target.clear();
+		for (const [key, value] of source) target.set(key, value);
+	}
 
 	const searchProfiles = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
 	const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
@@ -170,7 +176,7 @@
 			searchResults = [];
 			searchLoading = false;
 			relaySearchLoading = false;
-			profilesByPubkey = new Map();
+			profilesByPubkey.clear();
 			return;
 		}
 
@@ -227,19 +233,19 @@
 
 	$effect(() => {
 		if (!browser || !hasQuery) {
-			parentByCommentId = new Map();
-			parentAuthorByCommentId = new Map();
-			parentZapParsedByCommentId = new Map();
-			parentZapperAuthorByCommentId = new Map();
+			parentByCommentId.clear();
+			parentAuthorByCommentId.clear();
+			parentZapParsedByCommentId.clear();
+			parentZapperAuthorByCommentId.clear();
 			return;
 		}
 
 		const commentRows = filteredSearchResults.filter((r) => r.type === 'comment');
 		if (commentRows.length === 0) {
-			parentByCommentId = new Map();
-			parentAuthorByCommentId = new Map();
-			parentZapParsedByCommentId = new Map();
-			parentZapperAuthorByCommentId = new Map();
+			parentByCommentId.clear();
+			parentAuthorByCommentId.clear();
+			parentZapParsedByCommentId.clear();
+			parentZapperAuthorByCommentId.clear();
 			return;
 		}
 
@@ -256,16 +262,16 @@
 
 			const parentEvents = await queryEvents({ ids: uniqParentIds, limit: uniqParentIds.length });
 			if (cancelled) return;
-			const parentEventById = new Map(
+			const parentEventById = new SvelteMap(
 				parentEvents.map((ev) => [String(ev.id ?? '').toLowerCase(), ev]).filter((x) => x[0])
 			);
 
-			const nextParentByCommentId = new Map();
-			const nextParentAuthorByCommentId = new Map();
-			const nextParentZapParsedByCommentId = new Map();
-			const nextParentZapperAuthorByCommentId = new Map();
-			const authorPubkeys = new Set();
-			const zapperPubkeys = new Set();
+			const nextParentByCommentId = new SvelteMap();
+			const nextParentAuthorByCommentId = new SvelteMap();
+			const nextParentZapParsedByCommentId = new SvelteMap();
+			const nextParentZapperAuthorByCommentId = new SvelteMap();
+			const authorPubkeys = new SvelteSet();
+			const zapperPubkeys = new SvelteSet();
 
 			for (const row of commentRows) {
 				const commentId = String(row.event.id ?? '').toLowerCase();
@@ -294,7 +300,7 @@
 			if (profileKeys.length > 0) {
 				const batch = await fetchProfilesBatch(profileKeys);
 				if (cancelled) return;
-				const byPk = new Map();
+				const byPk = new SvelteMap();
 				for (const [pk, ev] of batch) {
 					const p = ev ? parseProfile(ev) : null;
 					const pkNorm = normalizePubkey(pk);
@@ -324,10 +330,10 @@
 				}
 			}
 
-			parentByCommentId = nextParentByCommentId;
-			parentAuthorByCommentId = nextParentAuthorByCommentId;
-			parentZapParsedByCommentId = nextParentZapParsedByCommentId;
-			parentZapperAuthorByCommentId = nextParentZapperAuthorByCommentId;
+			replaceMap(parentByCommentId, nextParentByCommentId);
+			replaceMap(parentAuthorByCommentId, nextParentAuthorByCommentId);
+			replaceMap(parentZapParsedByCommentId, nextParentZapParsedByCommentId);
+			replaceMap(parentZapperAuthorByCommentId, nextParentZapperAuthorByCommentId);
 		})();
 
 		return () => {
@@ -340,11 +346,11 @@
 		const hydrated = Object.create(null);
 		const sub = searchProfilesQuery.subscribe({
 			next: ({ profiles, missingProfilePubkeys }) => {
-				const next = new Map();
+				const next = new SvelteMap();
 				for (const [pk, p] of Object.entries(profiles ?? {})) {
 					if (p) next.set(String(pk).toLowerCase(), p);
 				}
-				profilesByPubkey = next;
+				replaceMap(profilesByPubkey, next);
 
 				if (!isOnline()) return;
 				const missing = (missingProfilePubkeys ?? []).filter((pk) => !hydrated[pk]);
@@ -646,7 +652,7 @@
 				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#E': [rootId], limit: 400 }),
 				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#e': [rootId], limit: 400 })
 			]);
-			const seen = new Set();
+			const seen = new SvelteSet();
 			for (const ev of [...lower, ...upper]) {
 				if (!seen.has(ev.id)) {
 					seen.add(ev.id);
@@ -661,7 +667,7 @@
 				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#A': [rootATag], limit: 500 }),
 				queryEvents({ kinds: [EVENT_KINDS.COMMENT], '#a': [rootATag], limit: 500 })
 			]);
-			const seen = new Set();
+			const seen = new SvelteSet();
 			for (const ev of [...lower, ...upper]) {
 				if (!seen.has(ev.id)) {
 					seen.add(ev.id);
@@ -670,7 +676,7 @@
 			}
 		}
 		if (pool.length === 0 || gen !== threadLoadGen) return;
-		const cmap = new Map(pool.map((e) => [e.id.toLowerCase(), e]));
+		const cmap = new SvelteMap(pool.map((e) => [e.id.toLowerCase(), e]));
 		let rootCommentId = null;
 		if (root?.kind === EVENT_KINDS.FORUM_POST && rootId) {
 			rootCommentId = await resolveForumDiscussionRootCommentId(commentEv, rootId, cmap, (id) =>
@@ -696,7 +702,7 @@
 		}
 		const subtree = collectCommentSubtree(rootCommentId, pool);
 		const pubkeys = [...new Set(subtree.map((c) => c.pubkey).filter(Boolean))];
-		const profileMap = new Map();
+		const profileMap = new SvelteMap();
 		if (pubkeys.length > 0) {
 			const profs = await fetchProfilesBatch(pubkeys).catch(() => new Map());
 			for (const [pk, ev] of profs) {
@@ -711,7 +717,7 @@
 			}
 		}
 		if (gen !== threadLoadGen) return;
-		threadProfiles = profileMap;
+		replaceMap(threadProfiles, profileMap);
 		const enriched = subtree
 			.map((ev) => enrichCommentEvent(ev, profileMap))
 			.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
@@ -927,7 +933,7 @@
 										appBadge={feedAddrBadge}
 										rootBadgeSkeleton={false}
 										deletedRootKind={deletedRootKindFor(result.rootEvent)}
-										profileUrl={''}
+										profileUrl=""
 										resolveMentionLabel={(pk) =>
 											profilesByPubkey.get(normalizePubkey(pk))?.displayName ??
 											profilesByPubkey.get(normalizePubkey(pk))?.name ??

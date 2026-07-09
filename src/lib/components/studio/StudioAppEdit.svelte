@@ -23,7 +23,7 @@ import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS } from '$lib/config.js';
 
 let {
 	app = null,
-	onBack = () => {},
+	onBack: _onBack = () => {},
 	onSaved = (_updated) => {},
 	onDeleted = (/** @type {string} */ _deletedEventId) => {}
 } = $props();

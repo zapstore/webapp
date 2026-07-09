@@ -47,7 +47,7 @@ import MediaLightboxModal from '$lib/components/modals/MediaLightboxModal.svelte
 let {
 	post: postProp = null,
 	relays = [],
-	onBack = () => {},
+	onBack: _onBack = () => {},
 	getStartedModalOpen = $bindable(false),
 	/** When set (e.g. from Activity ?comment=id), SocialTabs opens the thread modal that contains this comment */
 	openCommentId = null
@@ -312,7 +312,6 @@ const searchProfiles = $derived(
 	)
 );
 const searchEmojis = $derived(createSearchEmojisFunction(() => getCurrentPubkey()));
-const catalogs = $derived(communityPubkey ? [{ name: 'Zapstore', pictureUrl: undefined, pubkey: communityPubkey }] : []);
 const postEmojiTags = $derived(
 	post?.emojiTags ?? (rawPostEvent?.tags ?? [])
 		.filter((t) => t[0] === 'emoji' && t[1] && t[2])

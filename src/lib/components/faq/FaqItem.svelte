@@ -1,8 +1,11 @@
 <script lang="js">
+	import { sanitizeHtml } from '$lib/utils/markdown.js';
+
 	/** @type {{ id: string, question: string, answer: string }} */
 	let { id, question, answer } = $props();
 
 	let detailsEl = $state(/** @type {HTMLDetailsElement | null} */ (null));
+	const sanitizedAnswer = $derived(sanitizeHtml(answer));
 
 	function onToggle() {
 		if (!detailsEl) return;
@@ -32,7 +35,8 @@
 		</span>
 	</summary>
 	<div class="faq-body" role="region">
-		<div class="faq-a">{@html answer}</div>
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		<div class="faq-a">{@html sanitizedAnswer}</div>
 	</div>
 </details>
 

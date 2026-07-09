@@ -1,5 +1,4 @@
 <script lang="js">
-	import { page } from '$app/stores';
 	import SeoHead from '$lib/components/layout/SeoHead.svelte';
 	import DocsMarkdownArticle from '$lib/components/docs/DocsMarkdownArticle.svelte';
 	import {

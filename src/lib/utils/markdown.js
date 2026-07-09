@@ -64,7 +64,7 @@ const DANGEROUS_SELF_CLOSING_RE = /<\/?(script|style|iframe|object|embed|form|in
 const EVENT_HANDLER_RE = /\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 // Match entire href attribute whose value starts with javascript:
 const JAVASCRIPT_URL_RE = /href\s*=\s*(?:"[^"]*javascript\s*:[^"]*"|'[^']*javascript\s*:[^']*'|javascript\s*:[^\s>]*)/gi;
-function sanitizeHtml(html) {
+export function sanitizeHtml(html) {
     // 1. Remove dangerous tags (with content)
     html = html.replace(DANGEROUS_TAG_RE, '');
     // 2. Remove any remaining dangerous opening / self-closing tags

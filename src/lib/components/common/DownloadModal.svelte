@@ -74,21 +74,26 @@
 	async function loadApkSize() {
 		try {
 			const response = await fetch(ZAPSTORE_APK_URL, {
-				method: 'HEAD',
-				headers: { 'X-Zapstore-Client': 'web' }
+				method: 'HEAD'
 			});
 			const len = Number(response.headers.get('content-length'));
-			if (Number.isFinite(len) && len > 0) {
-				apkSizeLabel = formatApkSize(len);
-			}
+			return Number.isFinite(len) && len > 0 ? formatApkSize(len) : '';
 		} catch {
 			/* size is optional UI polish */
 		}
+		return '';
 	}
 
-	$: if (browser && open && isZapstore && selectedPlatform === 'Android') {
-		if (!apkSizeLabel) void loadApkSize();
-	}
+	$effect(() => {
+		if (!browser || !open || !isZapstore || selectedPlatform !== 'Android' || apkSizeLabel) return;
+		let cancelled = false;
+		loadApkSize().then((label) => {
+			if (!cancelled && label) apkSizeLabel = label;
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	async function downloadApk() {
 		downloading = true;
