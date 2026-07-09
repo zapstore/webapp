@@ -24,6 +24,11 @@ export const SITE_GITHUB = 'https://github.com/zapstore/zapstore';
 export const ZAPSTORE_RELAY = 'wss://relay.zapstore.dev';
 /** Zapstore Blossom CDN — same as zsp `BLOSSOM_URL` default; kind 24242 auth + PUT `/upload`. */
 export const ZAPSTORE_BLOSSOM_URL = 'https://cdn.zapstore.dev';
+/** Blossom fetch headers so relay analytics can attribute web APK downloads. */
+export const ZAPSTORE_BLOSSOM_DOWNLOAD_HEADERS = {
+	'X-Zapstore-Client': 'web',
+	'X-Zapstore-Download-Type': 'install'
+};
 // Profile indexer relay — kind 0 (+ NIP-50 profile search). Not for catalog/comments/zaps reads.
 export const VERTEXLAB_RELAY = 'wss://relay.vertexlab.io';
 /** One-shot fetches for kind 0 by author / profile batch only. */

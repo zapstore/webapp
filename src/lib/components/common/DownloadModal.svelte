@@ -15,6 +15,7 @@
 	import AppPic from './AppPic.svelte';
 	import Modal from './Modal.svelte';
 	import SkeletonLoader from './SkeletonLoader.svelte';
+	import { downloadFromBlossomCdn } from '$lib/utils/blossom-download.js';
 	/** @typedef {import("$lib/nostr/models").App} AppModel */
 
 	/** @type {boolean} */
@@ -92,18 +93,7 @@
 	async function downloadApk() {
 		downloading = true;
 		try {
-			const response = await fetch(ZAPSTORE_APK_URL, { headers: { 'X-Zapstore-Client': 'web' } });
-			const blob = await response.blob();
-			const url = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = ZAPSTORE_APK_FILENAME;
-			document.body.appendChild(a);
-			a.click();
-			window.URL.revokeObjectURL(url);
-			document.body.removeChild(a);
-		} catch {
-			window.location.href = ZAPSTORE_APK_URL;
+			await downloadFromBlossomCdn(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
 		} finally {
 			downloading = false;
 		}
@@ -112,18 +102,7 @@
 	async function downloadZapstoreStep1() {
 		step1Downloading = true;
 		try {
-			const response = await fetch(ZAPSTORE_APK_URL, { headers: { 'X-Zapstore-Client': 'web' } });
-			const blob = await response.blob();
-			const url = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = ZAPSTORE_APK_FILENAME;
-			document.body.appendChild(a);
-			a.click();
-			window.URL.revokeObjectURL(url);
-			document.body.removeChild(a);
-		} catch {
-			window.location.href = ZAPSTORE_APK_URL;
+			await downloadFromBlossomCdn(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
 		} finally {
 			step1Downloading = false;
 		}

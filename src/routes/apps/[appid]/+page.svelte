@@ -14,6 +14,7 @@
 	import { EVENT_KINDS } from '$lib/config';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
+	import { downloadFromBlossomCdn } from '$lib/utils/blossom-download.js';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import { SocialTabs, DetailContentActions } from '$lib/components/social';
@@ -235,29 +236,11 @@ let _refreshing = $state(false);
 		return () => document.removeEventListener('click', handleClick, true);
 	});
 
-	/**
-	 * Fetch an APK from the Blossom CDN with the X-Zapstore-Client header so the
-	 * relay backend records this download as originating from the web client.
-	 * Falls back to a plain navigation if fetch fails.
-	 * @param {string} url
-	 */
+	/** @param {string} url */
 	async function handleDirectDownload(url) {
 		downloadDropdownOpen = false;
 		const filename = url.split('/').pop() || 'app.apk';
-		try {
-			const response = await fetch(url, { headers: { 'X-Zapstore-Client': 'web' } });
-			const blob = await response.blob();
-			const objectUrl = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = objectUrl;
-			a.download = filename;
-			document.body.appendChild(a);
-			a.click();
-			window.URL.revokeObjectURL(objectUrl);
-			document.body.removeChild(a);
-		} catch {
-			window.location.href = url;
-		}
+		await downloadFromBlossomCdn(url, filename);
 	}
 
 	function handleSpinComplete() {
