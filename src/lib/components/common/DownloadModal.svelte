@@ -18,14 +18,8 @@
 	import { downloadFromBlossomCdn } from '$lib/utils/blossom-download.js';
 	/** @typedef {import("$lib/nostr/models").App} AppModel */
 
-	/** @type {boolean} */
-	export let open = false;
-
-	/** @type {AppModel|null} - App data (required for non-Zapstore apps) */
-	export let app = null;
-
-	/** @type {boolean} - Whether this is the Zapstore app itself */
-	export let isZapstore = false;
+	/** @type {{ open?: boolean, app?: AppModel|null, isZapstore?: boolean }} */
+	let { open = $bindable(false), app = null, isZapstore = false } = $props();
 
 	// Platform options for Zapstore
 	const zapstorePlatforms = ['Android', 'iOS'];
@@ -62,7 +56,7 @@
 	const APK_CERT_HASH = '99e33b0c2d07e75fcd9df7e40e886646ff667e3aa6648e1a1160b036cf2b9320';
 
 	// App info helpers
-	$: appDeepLink = app ? `${SITE_URL}/apps/${app.naddr ?? app.dTag ?? ''}` : '';
+	let appDeepLink = $derived(app ? `${SITE_URL}/apps/${app.naddr ?? app.dTag ?? ''}` : '');
 
 	function formatApkSize(bytes) {
 		if (!Number.isFinite(bytes) || bytes <= 0) return '';
