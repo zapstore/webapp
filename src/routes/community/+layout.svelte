@@ -73,6 +73,12 @@
 
 	let { children } = $props();
 
+	const FAQ_SECTION = {
+		id: 'faq',
+		label: 'FAQ',
+		href: '/community/faq'
+	};
+
 	const SECTIONS = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED
 		? [
 				{
@@ -86,16 +92,18 @@
 					label: 'Activity',
 					icon: '/images/emoji/activity.png',
 					href: '/community/activity'
-				}
-		]
-	: [
-			{
-				id: 'support',
-				label: 'Support',
-				icon: '/images/emoji/activity.png',
-				href: '/community/support'
-			}
-		];
+				},
+				FAQ_SECTION
+			]
+		: [
+				{
+					id: 'support',
+					label: 'Support',
+					icon: '/images/emoji/activity.png',
+					href: '/community/support'
+				},
+				FAQ_SECTION
+			];
 
 	const defaultSectionId = COMMUNITY_FORUM_AND_ACTIVITY_ENABLED ? 'forum' : 'support';
 
@@ -121,7 +129,9 @@
 				? 'support'
 				: path.startsWith('/community/activity')
 					? 'activity'
-					: defaultSectionId
+					: path.startsWith('/community/faq')
+						? 'faq'
+						: defaultSectionId
 	);
 	const activeSectionLabel = $derived(
 		SECTIONS.find((s) => s.id === activeSection)?.label ??
@@ -157,6 +167,8 @@
 <svelte:head>
 	{#if path.startsWith('/community/support')}
 		<title>Support — Zapstore</title>
+	{:else if path.startsWith('/community/faq')}
+		<title>FAQ — Zapstore</title>
 	{/if}
 </svelte:head>
 
