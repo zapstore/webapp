@@ -281,7 +281,6 @@
 	const canShare = $derived(
 		shareOnly ? Boolean(sharePageUrl) : Boolean(effectiveTargetEventId)
 	);
-	const showShareEmbedRow = $derived(Boolean(shareEmbedLink) && !shareOnly);
 	const shareNevent = $derived.by(() => {
 		if (!canShare) return '';
 		try {
@@ -291,6 +290,7 @@
 		}
 	});
 	const shareEmbedLink = $derived(shareNevent ? `nostr:${shareNevent}` : '');
+	const showShareEmbedRow = $derived(Boolean(shareEmbedLink) && !shareOnly);
 	const shareZapstoreUrl = $derived.by(() => {
 		if (shareOnly && sharePageUrl) return sharePageUrl;
 		if (contentType === 'blog' && sharePageUrl) return sharePageUrl;

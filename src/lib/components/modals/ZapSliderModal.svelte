@@ -97,11 +97,7 @@ const qrCodeUrl = $derived(invoice
     ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&bgcolor=ffffff&color=000000&data=${encodeURIComponent("lightning:" + invoice.toUpperCase())}`
     : null);
 const modalStepTitle = $derived(step === 'slider' ? 'Tip' : step === 'invoice' ? 'Invoice' : step === 'success' ? 'Success' : '');
-const modalStepDescription = $derived(step === 'slider' ? zapDescription() : '');
-const targetProfile = $derived(target
-    ? { pictureUrl: target.pictureUrl, name: target.name, pubkey: target.pubkey }
-    : null);
-const zapDescription = $derived(() => {
+const zapDescription = $derived.by(() => {
     const authorName = publisherName || "Creator";
     switch (contentType) {
         case "app": return `${authorName} for publishing ${target?.name ?? "this app"}`;
@@ -111,6 +107,10 @@ const zapDescription = $derived(() => {
         default: return authorName;
     }
 });
+const modalStepDescription = $derived(step === 'slider' ? zapDescription : '');
+const targetProfile = $derived(target
+    ? { pictureUrl: target.pictureUrl, name: target.name, pubkey: target.pubkey }
+    : null);
 function cleanup() {
     if (unsubscribe) {
         unsubscribe();
