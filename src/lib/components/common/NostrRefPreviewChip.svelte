@@ -7,6 +7,7 @@ import { decodeNaddr, parseApp, parseAppStack } from '$lib/nostr/models';
 import { resolveAppEventForNaddr, resolveStackEventForNaddr } from '$lib/purpleweb';
 import { EVENT_KINDS } from '$lib/config';
 import Nostr from '$lib/components/icons/Nostr.svelte';
+import { getCdnImageUrl } from '$lib/utils/image-url.js';
 
 let {
 	/** Bech32 naddr or full "nostr:naddr1..." */
@@ -56,7 +57,7 @@ $effect(() => {
 	{#if embedKind === 'app'}
 		<span class="preview-nostr-ref-icon-wrap">
 			{#if app?.icon}
-				<img src={app.icon} alt="" loading="lazy" class="preview-nostr-ref-img" />
+				<img src={getCdnImageUrl(app.icon, 'icon')} alt="" loading="lazy" class="preview-nostr-ref-img" />
 			{:else if app?.name || app?.dTag}
 				<span class="preview-nostr-ref-initial"
 					>{(app?.name || app?.dTag || '?').trim()[0]?.toUpperCase() ?? '?'}</span

@@ -35,6 +35,7 @@
 	import { SITE_URL, SITE_ICON } from '$lib/config';
 	import Timestamp from '$lib/components/common/Timestamp.svelte';
 	import { stripUrlForDisplay } from '$lib/utils/url.js';
+	import { getCdnImageUrl } from '$lib/utils/image-url.js';
 	import {
 		Copy,
 		Check,
@@ -919,7 +920,7 @@ let _refreshing = $state(false);
 									</div>
 								{/if}
 								<img
-									src={image}
+									src={getCdnImageUrl(image, 'thumbsm')}
 									alt="Screenshot {index + 1}"
 									class="screenshot-img"
 									class:loaded={thumbsLoaded.has(index)}
@@ -1264,7 +1265,7 @@ let _refreshing = $state(false);
 							</div>
 						{/if}
 						<img
-							src={app.images[currentImageIndex]}
+							src={getCdnImageUrl(app.images[currentImageIndex], 'thumblg')}
 							alt="Screenshot {currentImageIndex + 1}"
 							class="carousel-image"
 							class:loaded={carouselImageLoaded}

@@ -1,12 +1,13 @@
 <script lang="js">
 import { markdownToPlainTextLine } from '$lib/utils/markdown';
+import { getCdnImageUrl } from '$lib/utils/image-url.js';
 let { app } = $props();
 const descriptionPlain = $derived(app.description ? markdownToPlainTextLine(app.description) : '');
 </script>
 
 <a href="/apps/{app.dTag}" class="app-card" data-sveltekit-preload-data="hover">
   {#if app.icon}
-    <img src={app.icon} alt={app.name} class="app-icon" decoding="async" />
+    <img src={getCdnImageUrl(app.icon, 'icon')} alt={app.name} class="app-icon" decoding="async" />
   {:else}
     <div class="app-icon placeholder">
       <span>{app.name.charAt(0).toUpperCase()}</span>

@@ -17,6 +17,7 @@
 	import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
 	import { SITE_URL } from '$lib/config';
 	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
+	import { getCdnImageUrl } from '$lib/utils/image-url.js';
 
 	let { children } = $props();
 
@@ -310,7 +311,7 @@
 									onclick={() => navTo(`/studio/apps/${encodeURIComponent(app.id)}`)}
 								>
 									<span class="icon-wrap">
-										<img src={app.icon} alt={app.name} class="app-img" loading="lazy" />
+										<img src={getCdnImageUrl(app.icon, 'icon')} alt={app.name} class="app-img" loading="lazy" />
 									</span>
 									<span class="nav-label">{app.name}</span>
 								</button>
@@ -441,7 +442,7 @@
 							onclick={() => goto(`/studio/apps/${encodeURIComponent(app.id)}`)}
 						>
 							<span class="icon-wrap">
-								<img src={app.icon} alt={app.name} class="app-img" loading="lazy" />
+								<img src={getCdnImageUrl(app.icon, 'icon')} alt={app.name} class="app-img" loading="lazy" />
 							</span>
 							<span class="nav-label">{app.name}</span>
 						</button>

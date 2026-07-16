@@ -20,6 +20,7 @@ import { parseApp } from '$lib/nostr';
 import { signEvent } from '$lib/stores/auth.svelte.js';
 import { uploadFileToZapstoreCdn } from '$lib/services/upload-nostr-build.js';
 import { EVENT_KINDS, DEFAULT_CATALOG_RELAYS } from '$lib/config.js';
+import { getCdnImageUrl } from '$lib/utils/image-url.js';
 
 let {
 	app = null,
@@ -368,7 +369,7 @@ async function handleConfirmDelete() {
 						>
 							<div class="screenshot-img-wrap">
 								<img
-									src={img.url}
+									src={getCdnImageUrl(img.url, 'thumbsm')}
 									alt="Screenshot"
 									class="screenshot-img"
 									class:pending={img.pending}

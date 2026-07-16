@@ -5,6 +5,7 @@ import { ReleaseCard } from '$lib/components';
 import { loadSocialDetailsData } from '$lib/purpleweb';
 import { renderMarkdown } from '$lib/utils/markdown';
 import { downloadFromBlossomCdn } from '$lib/utils/blossom-download.js';
+import { getCdnImageUrl } from '$lib/utils/image-url.js';
 import { ChevronDown, ChevronRight } from '$lib/components/icons';
 import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
 
@@ -56,7 +57,7 @@ async function handleDirectDownload(url) {
 <article class="app-detail">
 	<header class="app-header">
 		{#if app.icon}
-			<img src={app.icon} alt={app.name} class="app-icon" decoding="async" />
+			<img src={getCdnImageUrl(app.icon, 'icon')} alt={app.name} class="app-icon" decoding="async" />
 		{:else}
 			<div class="app-icon placeholder">
 				<span>{app.name.charAt(0).toUpperCase()}</span>
@@ -158,7 +159,7 @@ async function handleDirectDownload(url) {
 			<h2>Screenshots</h2>
 			<div class="screenshots-scroll">
 				{#each app.images as image, i (i)}
-					<img src={image} alt="Screenshot" class="screenshot" decoding="async" />
+					<img src={getCdnImageUrl(image, 'thumbsm')} alt="Screenshot" class="screenshot" decoding="async" />
 				{/each}
 			</div>
 		</section>

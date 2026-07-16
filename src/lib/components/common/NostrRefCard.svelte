@@ -13,6 +13,7 @@ import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 import Timestamp from '$lib/components/common/Timestamp.svelte';
 import ShortTextPreview from '$lib/components/common/ShortTextPreview.svelte';
 import { hexToColor, getProfileTextColor, rgbToCssString } from '$lib/utils/color.js';
+import { getCdnImageUrl } from '$lib/utils/image-url.js';
 
 let {
 	/** Bech32 naddr/nevent/note or full nostr:* URI */
@@ -199,7 +200,7 @@ function stopCardEventBubble(e) {
 					{#if app}
 						<div class="nostr-ref-card-pic">
 							{#if app.icon}
-								<img src={app.icon} alt="" loading="lazy" />
+								<img src={getCdnImageUrl(app.icon, 'icon')} alt="" loading="lazy" />
 							{:else}
 								<span class="nostr-ref-card-initial">{ (app.name || app.dTag || '?').trim()[0]?.toUpperCase() ?? '?' }</span>
 							{/if}

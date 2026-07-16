@@ -1,5 +1,6 @@
 <script>
 	import { stringToColor } from '$lib/utils/color.js';
+	import { getCdnImageUrl } from '$lib/utils/image-url.js';
 	import SkeletonLoader from './SkeletonLoader.svelte';
 
 	/**
@@ -75,7 +76,10 @@
 	let imageError = false;
 
 	// Reactive computations
-	$: resolvedIconUrl = typeof iconUrl === 'string' ? iconUrl.trim() : (iconUrl ?? null);
+	$: resolvedIconUrl = getCdnImageUrl(
+		typeof iconUrl === 'string' ? iconUrl.trim() : (iconUrl ?? null),
+		'icon'
+	);
 	$: resolvedSize = sizeMap[size] || sizeMap.md;
 	$: borderRadius = getBorderRadius(resolvedSize);
 	$: fontSize = Math.round(resolvedSize * fontSizeRatio);
