@@ -7,12 +7,15 @@
 		rgbToCssString
 	} from '$lib/utils/color.js';
 	import { nip19 } from 'nostr-tools';
+	import { getProfileCdnUrl } from '$lib/utils/image-url.js';
 	import SkeletonLoader from './SkeletonLoader.svelte';
 
 	/**
 	 * ProfilePic - A profile picture component with fallback states
 	 *
 	 * Displays a profile image with:
+	 * - CDN pubkey avatar first (`cdn.zapstore.dev/p/{pubkey}.webp`)
+	 * - Kind-0 picture URL fallback on CDN 404
 	 * - Circular shape with thin outline
 	 * - Loading skeleton while image loads
 	 * - Colored initial letter fallback when no image
@@ -79,13 +82,48 @@
 
 	// Image loading state
 	let imageLoaded = false;
+	/** When true, CDN pubkey URL failed — use kind-0 picture instead */
+	let useKind0Fallback = false;
+	/** When true, both CDN and kind-0 failed (or no URL) */
 	let imageError = false;
+	/** Last source key used to reset load state */
+	let lastSourceKey = '';
+
+	/**
+	 * Resolve hex pubkey from hex or npub input.
+	 * @param {string|null|undefined} pubkeyVal
+	 * @returns {string|null}
+	 */
+	function resolveHexPubkey(pubkeyVal) {
+		if (!pubkeyVal || !String(pubkeyVal).trim()) return null;
+		const raw = String(pubkeyVal).trim();
+		if (raw.toLowerCase().startsWith('npub')) {
+			try {
+				const decoded = nip19.decode(raw);
+				if (decoded && decoded.type === 'npub' && typeof decoded.data === 'string') {
+					return decoded.data;
+				}
+			} catch {
+				return null;
+			}
+			return null;
+		}
+		if (/^[0-9a-fA-F]{64}$/.test(raw)) return raw.toLowerCase();
+		return null;
+	}
 
 	// Reactive computations
-	$: resolvedPictureUrl = typeof pictureUrl === 'string' ? pictureUrl.trim() : (pictureUrl ?? null);
+	$: resolvedPictureUrl =
+		typeof pictureUrl === 'string' ? pictureUrl.trim() : (pictureUrl ?? null);
 	$: resolvedSize = sizeMap[size] || sizeMap.md;
 	$: fontSize = Math.round(resolvedSize * fontSizeRatio);
-	$: hasValidUrl = resolvedPictureUrl && resolvedPictureUrl.trim().length > 0;
+	$: hexPubkey = resolveHexPubkey(pubkey);
+	$: tiny = resolvedSize < 48;
+	$: cdnUrl = getProfileCdnUrl(hexPubkey, { tiny });
+	$: kind0Url =
+		resolvedPictureUrl && resolvedPictureUrl.length > 0 ? resolvedPictureUrl : null;
+	$: activeUrl = !useKind0Fallback && cdnUrl ? cdnUrl : kind0Url;
+	$: hasValidUrl = !!(activeUrl && activeUrl.trim().length > 0);
 	$: showImage = hasValidUrl && !imageError;
 
 	// Generate profile color from pubkey or name
@@ -136,15 +174,24 @@
 		imageLoaded = true;
 	}
 
-	// Handle image error
+	// Handle image error — CDN first, then kind-0, then placeholder
 	function handleImageError() {
+		if (!useKind0Fallback && cdnUrl && kind0Url && kind0Url !== cdnUrl) {
+			useKind0Fallback = true;
+			imageLoaded = false;
+			imageError = false;
+			return;
+		}
 		imageError = true;
 	}
 
-	// Reset states when URL changes
-	$: if (resolvedPictureUrl) {
+	// Reset states when identity / picture source changes
+	$: sourceKey = `${hexPubkey ?? ''}|${kind0Url ?? ''}|${tiny ? '1' : '0'}`;
+	$: if (sourceKey !== lastSourceKey) {
+		lastSourceKey = sourceKey;
 		imageLoaded = false;
 		imageError = false;
+		useKind0Fallback = false;
 	}
 
 </script>
@@ -180,7 +227,7 @@
 				</div>
 			{/if}
 			<img
-				src={resolvedPictureUrl}
+				src={activeUrl}
 				alt={name ? `${name}'s avatar` : 'Profile avatar'}
 				class="profile-image"
 				class:loaded={imageLoaded}
