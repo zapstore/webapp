@@ -4,7 +4,7 @@ const CDN_HOST = 'cdn.zapstore.dev';
  * Add a CDN image variant only for Zapstore's CDN.
  *
  * @param {string|null|undefined} imageUrl
- * @param {'icon'|'thumbsm'|'thumblg'} variant
+ * @param {'icon'|'iconsm'|'thumbsm'|'thumblg'} variant
  * @returns {string|null|undefined}
  */
 export function getCdnImageUrl(imageUrl, variant) {

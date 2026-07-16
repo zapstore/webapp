@@ -6,6 +6,9 @@ describe('getCdnImageUrl', () => {
 		expect(getCdnImageUrl('https://cdn.zapstore.dev/file.png', 'icon')).toBe(
 			'https://cdn.zapstore.dev/file.png?class=icon'
 		);
+		expect(getCdnImageUrl('https://cdn.zapstore.dev/file.png', 'iconsm')).toBe(
+			'https://cdn.zapstore.dev/file.png?class=iconsm'
+		);
 	});
 
 	it('preserves existing query parameters', () => {

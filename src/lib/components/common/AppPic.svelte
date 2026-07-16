@@ -45,6 +45,9 @@
 	/** @type {boolean} - Whether to show blurred background for transparent icons */
 	export let fillBackground = true;
 
+	/** @type {'icon'|'iconsm'} - CDN image class for Zapstore CDN URLs */
+	export let cdnClass = 'icon';
+
 	// Size mappings (in pixels) - matching Flutter sizes; `xxs` for 28px activity / inbox badges
 	const sizeMap = {
 		xxs: 28,
@@ -78,7 +81,7 @@
 	// Reactive computations
 	$: resolvedIconUrl = getCdnImageUrl(
 		typeof iconUrl === 'string' ? iconUrl.trim() : (iconUrl ?? null),
-		'icon'
+		cdnClass
 	);
 	$: resolvedSize = sizeMap[size] || sizeMap.md;
 	$: borderRadius = getBorderRadius(resolvedSize);

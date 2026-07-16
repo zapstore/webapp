@@ -87,7 +87,7 @@
 			{#each gridApps as app, i (i)}
 				<div class="icon-slot">
 					{#if app}
-						<AppPic iconUrl={app.icon} name={app.name} identifier={app.dTag} size="xs" />
+						<AppPic iconUrl={app.icon} name={app.name} identifier={app.dTag} size="xs" cdnClass="iconsm" />
 					{:else}
 						<div class="empty-slot"></div>
 					{/if}
@@ -100,7 +100,7 @@
 			{#each gridApps as app, i (i)}
 				<div class="icon-slot">
 					{#if app}
-						<AppPic iconUrl={app.icon} name={app.name} identifier={app.dTag} size="sm" />
+						<AppPic iconUrl={app.icon} name={app.name} identifier={app.dTag} size="sm" cdnClass="iconsm" />
 					{:else}
 						<div class="empty-slot"></div>
 					{/if}
