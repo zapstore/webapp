@@ -14,7 +14,7 @@
 	 * ProfilePic - A profile picture component with fallback states
 	 *
 	 * Displays a profile image with:
-	 * - CDN pubkey avatar first (`cdn.zapstore.dev/p/{pubkey}.webp`)
+	 * - CDN pubkey avatar first (`cdn.zapstore.dev/{pubkey}.profile.webp`)
 	 * - Kind-0 picture URL fallback on CDN 404
 	 * - Circular shape with thin outline
 	 * - Loading skeleton while image loads

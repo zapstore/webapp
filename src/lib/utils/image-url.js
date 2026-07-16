@@ -33,7 +33,7 @@ export function getProfileCdnUrl(pubkey, { tiny = false } = {}) {
 	const hex = pubkey.trim();
 	if (!HEX_PUBKEY_RE.test(hex)) return null;
 
-	const url = `https://${CDN_HOST}/p/${hex.toLowerCase()}.webp`;
+	const url = `https://${CDN_HOST}/${hex.toLowerCase()}.profile.webp`;
 	if (!tiny) return url;
 	return getCdnImageUrl(url, 'iconsm') ?? url;
 }

@@ -29,12 +29,12 @@ describe('getProfileCdnUrl', () => {
 	const pubkey = '3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c1eb8ce57016d6d';
 
 	it('builds the 256px CDN profile URL', () => {
-		expect(getProfileCdnUrl(pubkey)).toBe(`https://cdn.zapstore.dev/p/${pubkey}.webp`);
+		expect(getProfileCdnUrl(pubkey)).toBe(`https://cdn.zapstore.dev/${pubkey}.profile.webp`);
 	});
 
 	it('adds iconsm for tiny avatars', () => {
 		expect(getProfileCdnUrl(pubkey, { tiny: true })).toBe(
-			`https://cdn.zapstore.dev/p/${pubkey}.webp?class=iconsm`
+			`https://cdn.zapstore.dev/${pubkey}.profile.webp?class=iconsm`
 		);
 	});
 
