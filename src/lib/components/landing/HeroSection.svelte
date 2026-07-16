@@ -34,11 +34,11 @@
 	let flipTimers = [];
 
 	const allApps = [
-		{ src: '/images/parallax-apps/zapstore.png', name: 'Zapstore' },
-		{ src: '/images/parallax-apps/organic-maps.png', name: 'Organic Maps' },
-		{ src: '/images/parallax-apps/mulvad.png', name: 'Mullvad' },
-		{ src: '/images/parallax-apps/newpipe.png', name: 'NewPipe' },
-		{ src: '/images/parallax-apps/antennapod.png', name: 'AntennaPod' }
+		{ src: '/images/parallax-apps/zapstore.webp', name: 'Zapstore' },
+		{ src: '/images/parallax-apps/organic-maps.webp', name: 'Organic Maps' },
+		{ src: '/images/parallax-apps/mulvad.webp', name: 'Mullvad' },
+		{ src: '/images/parallax-apps/newpipe.webp', name: 'NewPipe' },
+		{ src: '/images/parallax-apps/antennapod.webp', name: 'AntennaPod' }
 	];
 
 	onMount(async () => {
