@@ -31,8 +31,8 @@ export const ZAPSTORE_BLOSSOM_DOWNLOAD_HEADERS = {
 };
 // Profile indexer relay — kind 0 (+ NIP-50 profile search). Not for catalog/comments/zaps reads.
 export const VERTEXLAB_RELAY = 'wss://relay.vertexlab.io';
-/** One-shot fetches for kind 0 by author / profile batch only. */
-export const PROFILE_FETCH_RELAYS = [VERTEXLAB_RELAY];
+/** One-shot fetches for kind 0 by author / profile batch only. Zapstore first, Vertex as secondary. */
+export const PROFILE_FETCH_RELAYS = [ZAPSTORE_RELAY, VERTEXLAB_RELAY];
 /** Default publish targets for apps, stacks, releases, migrations, studio. */
 export const DEFAULT_CATALOG_RELAYS = [ZAPSTORE_RELAY];
 // Relay subscription timeout (ms after first EOSE)

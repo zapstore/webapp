@@ -1,5 +1,5 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import {
 		hexToColor,
 		stringToColor,
@@ -10,14 +10,17 @@
 	import { getProfileCdnUrl } from '$lib/utils/image-url.js';
 	import SkeletonLoader from './SkeletonLoader.svelte';
 
+	/** Max wait on CDN before falling back to kind-0 picture (ms). */
+	const CDN_FALLBACK_TIMEOUT_MS = 1200;
+
 	/**
 	 * ProfilePic - A profile picture component with fallback states
 	 *
 	 * Displays a profile image with:
 	 * - CDN pubkey avatar first (`cdn.zapstore.dev/{pubkey}.profile.webp`)
-	 * - Kind-0 picture URL fallback on CDN 404
+	 * - Kind-0 picture URL fallback on CDN error or after ~1.2s timeout
 	 * - Circular shape with thin outline
-	 * - Loading skeleton while image loads
+	 * - Loading skeleton while image loads (handles SW/cache sync completes)
 	 * - Colored initial letter fallback when no image
 	 * - Icon fallback when no name/pubkey available
 	 *
@@ -88,6 +91,8 @@
 	let imageError = false;
 	/** Last source key used to reset load state */
 	let lastSourceKey = '';
+	/** @type {ReturnType<typeof setTimeout> | null} */
+	let cdnFallbackTimer = null;
 
 	/**
 	 * Resolve hex pubkey from hex or npub input.
@@ -169,20 +174,43 @@
 	$: textColor = getProfileTextColor(profileColor, isDarkMode);
 	$: textColorStyle = rgbToCssString(textColor);
 
+	function clearCdnFallbackTimer() {
+		if (cdnFallbackTimer != null) {
+			clearTimeout(cdnFallbackTimer);
+			cdnFallbackTimer = null;
+		}
+	}
+
+	/** SW/cache-first images often complete before load listeners attach. */
+	/** @param {HTMLImageElement} img */
+	function checkIfCached(img) {
+		if (img.complete && img.naturalHeight !== 0) {
+			imageLoaded = true;
+			clearCdnFallbackTimer();
+		}
+		return {};
+	}
+
 	// Handle image load
 	function handleImageLoad() {
 		imageLoaded = true;
+		clearCdnFallbackTimer();
+	}
+
+	function fallBackFromCdn() {
+		if (useKind0Fallback || !cdnUrl || !kind0Url || kind0Url === cdnUrl) return false;
+		useKind0Fallback = true;
+		imageLoaded = false;
+		imageError = false;
+		clearCdnFallbackTimer();
+		return true;
 	}
 
 	// Handle image error — CDN first, then kind-0, then placeholder
 	function handleImageError() {
-		if (!useKind0Fallback && cdnUrl && kind0Url && kind0Url !== cdnUrl) {
-			useKind0Fallback = true;
-			imageLoaded = false;
-			imageError = false;
-			return;
-		}
+		if (fallBackFromCdn()) return;
 		imageError = true;
+		clearCdnFallbackTimer();
 	}
 
 	// Reset states when identity / picture source changes
@@ -192,7 +220,22 @@
 		imageLoaded = false;
 		imageError = false;
 		useKind0Fallback = false;
+		clearCdnFallbackTimer();
 	}
+
+	// Time-box CDN wait so a slow/hanging CDN does not leave the skeleton forever
+	$: if (!useKind0Fallback && cdnUrl && !imageLoaded && !imageError) {
+		clearCdnFallbackTimer();
+		cdnFallbackTimer = setTimeout(() => {
+			cdnFallbackTimer = null;
+			if (imageLoaded || useKind0Fallback || imageError) return;
+			if (!fallBackFromCdn()) imageError = true;
+		}, CDN_FALLBACK_TIMEOUT_MS);
+	} else if (imageLoaded || useKind0Fallback || imageError) {
+		clearCdnFallbackTimer();
+	}
+
+	onDestroy(clearCdnFallbackTimer);
 
 </script>
 
@@ -234,6 +277,7 @@
 				loading="lazy"
 				on:load={handleImageLoad}
 				on:error={handleImageError}
+				use:checkIfCached
 			/>
 		{:else if loading}
 			<!-- External loading state (profile data being fetched) -->

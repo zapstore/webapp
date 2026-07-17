@@ -94,12 +94,9 @@ sw.addEventListener('fetch', (event) => {
                 return response;
             })
                 .catch(() => {
-                // Return a transparent 1x1 pixel for failed image requests
-                return new Response(new Uint8Array([
-                    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x21,
-                    0xf9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00,
-                    0x01, 0x00, 0x00, 0x02, 0x01, 0x00, 0x00
-                ]), { headers: { 'Content-Type': 'image/gif' } });
+                // Fail the request so <img onerror> can run fallbacks (e.g. ProfilePic → kind-0).
+                // A fake 200 GIF would mark the image "loaded" and block those fallbacks.
+                return new Response('', { status: 504, statusText: 'Gateway Timeout' });
             });
         }));
         return;
