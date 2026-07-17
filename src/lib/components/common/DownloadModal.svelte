@@ -20,18 +20,18 @@
 	/** @type {{ open?: boolean, app?: AppModel|null, isZapstore?: boolean }} */
 	let { open = $bindable(false), app = null, isZapstore = false } = $props();
 
-	let showVerifyOverlay = false;
-	let isAndroid = browser && /android/i.test(navigator.userAgent);
-	let verifyTab = isAndroid ? 'mobile' : 'desktop';
-	let downloading = false;
-	let step1Downloading = false;
-	let linkCopied = false;
+	let showVerifyOverlay = $state(false);
+	const isAndroid = browser && /android/i.test(navigator.userAgent);
+	let verifyTab = $state(/** @type {'desktop' | 'mobile'} */ (isAndroid ? 'mobile' : 'desktop'));
+	let downloading = $state(false);
+	let step1Downloading = $state(false);
+	let linkCopied = $state(false);
 
-	let zapstoreQrLoaded = false;
-	let step1QrLoaded = false;
-	let step2QrLoaded = false;
+	let zapstoreQrLoaded = $state(false);
+	let step1QrLoaded = $state(false);
+	let step2QrLoaded = $state(false);
 	/** Human-readable APK size from CDN Content-Length (e.g. "4.2 MB"). */
-	let apkSizeLabel = '';
+	let apkSizeLabel = $state('');
 
 	// Zapstore-specific constants
 	const ZAPSTORE_APK_FILENAME = 'zapstore-1.1.0.apk';
@@ -240,7 +240,7 @@
 							<button
 								type="button"
 								class="flex items-center gap-2 regular14 text-muted-foreground hover:text-foreground transition-colors pl-6 pr-4 py-4 cursor-pointer"
-								on:click={() => (showVerifyOverlay = true)}
+								onclick={() => (showVerifyOverlay = true)}
 							>
 								<span>Verify APK</span>
 								<ChevronRight
@@ -443,7 +443,7 @@
 				<button
 					type="button"
 					class="text-muted-foreground hover:text-foreground transition-colors"
-					on:click={() => (showVerifyOverlay = false)}
+					onclick={() => (showVerifyOverlay = false)}
 				>
 					✕
 				</button>
@@ -458,7 +458,7 @@
 						'desktop'
 							? 'text-foreground bg-white/5'
 							: 'text-muted-foreground hover:text-foreground'}"
-						on:click={() => (verifyTab = 'desktop')}
+						onclick={() => (verifyTab = 'desktop')}
 					>
 						<Monitor class="w-3.5 h-3.5" />
 						Desktop
@@ -469,7 +469,7 @@
 						'mobile'
 							? 'text-foreground bg-white/5'
 							: 'text-muted-foreground hover:text-foreground'}"
-						on:click={() => (verifyTab = 'mobile')}
+						onclick={() => (verifyTab = 'mobile')}
 					>
 						<Smartphone class="w-3.5 h-3.5" />
 						Mobile
