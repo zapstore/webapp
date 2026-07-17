@@ -14,7 +14,7 @@
 	import { EVENT_KINDS } from '$lib/config';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
 	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
-	import { downloadFromBlossomCdn } from '$lib/utils/blossom-download.js';
+	import { apkFilenameFromName, downloadFromBlossomCdn } from '$lib/utils/blossom-download.js';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
 	import { SocialTabs, DetailContentActions } from '$lib/components/social';
@@ -238,10 +238,9 @@ let _refreshing = $state(false);
 	});
 
 	/** @param {string} url */
-	async function handleDirectDownload(url) {
+	function handleDirectDownload(url) {
 		downloadDropdownOpen = false;
-		const filename = url.split('/').pop() || 'app.apk';
-		await downloadFromBlossomCdn(url, filename);
+		downloadFromBlossomCdn(url, apkFilenameFromName(app?.name));
 	}
 
 	function handleSpinComplete() {

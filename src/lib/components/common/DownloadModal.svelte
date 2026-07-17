@@ -6,12 +6,11 @@
 	 * For Zapstore itself (isZapstore=true), shows the fancy promotional header.
 	 * For other apps, shows a standard download modal with app icon.
 	 */
-	import { Monitor, Smartphone, ArrowRight, Copy } from 'lucide-svelte';
+	import { Monitor, Smartphone, Copy } from 'lucide-svelte';
 	import { Download, ChevronRight } from '$lib/components/icons';
 	import { assets } from '$app/paths';
 	import { SITE_URL } from '$lib/config';
 	import { browser } from '$app/environment';
-	import PlatformSelector from './PlatformSelector.svelte';
 	import AppPic from './AppPic.svelte';
 	import Modal from './Modal.svelte';
 	import SkeletonLoader from './SkeletonLoader.svelte';
@@ -21,10 +20,6 @@
 	/** @type {{ open?: boolean, app?: AppModel|null, isZapstore?: boolean }} */
 	let { open = $bindable(false), app = null, isZapstore = false } = $props();
 
-	// Platform options for Zapstore
-	const zapstorePlatforms = ['Android', 'iOS'];
-
-	let selectedPlatform = 'Android';
 	let showVerifyOverlay = false;
 	let isAndroid = browser && /android/i.test(navigator.userAgent);
 	let verifyTab = isAndroid ? 'mobile' : 'desktop';
@@ -37,13 +32,6 @@
 	let step2QrLoaded = false;
 	/** Human-readable APK size from CDN Content-Length (e.g. "4.2 MB"). */
 	let apkSizeLabel = '';
-
-	// iOS waitlist state (only for Zapstore)
-	let iosWaitlistStatus = 'idle';
-	let iosWaitlistMessage = '';
-	let iosSubmitting = false;
-	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-	const npubRegex = /^npub1[ac-hj-np-z0-9]{58}$/i;
 
 	// Zapstore-specific constants
 	const ZAPSTORE_APK_FILENAME = 'zapstore-1.1.0.apk';
@@ -79,7 +67,7 @@
 	}
 
 	$effect(() => {
-		if (!browser || !open || !isZapstore || selectedPlatform !== 'Android' || apkSizeLabel) return;
+		if (!browser || !open || !isZapstore || apkSizeLabel) return;
 		let cancelled = false;
 		loadApkSize().then((label) => {
 			if (!cancelled && label) apkSizeLabel = label;
@@ -89,22 +77,16 @@
 		};
 	});
 
-	async function downloadApk() {
+	function downloadApk() {
 		downloading = true;
-		try {
-			await downloadFromBlossomCdn(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
-		} finally {
-			downloading = false;
-		}
+		downloadFromBlossomCdn(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
+		downloading = false;
 	}
 
-	async function downloadZapstoreStep1() {
+	function downloadZapstoreStep1() {
 		step1Downloading = true;
-		try {
-			await downloadFromBlossomCdn(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
-		} finally {
-			step1Downloading = false;
-		}
+		downloadFromBlossomCdn(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
+		step1Downloading = false;
 	}
 
 	async function copyDownloadLink() {
@@ -116,53 +98,6 @@
 			setTimeout(() => (linkCopied = false), 2000);
 		} catch (err) {
 			console.error('Failed to copy:', err);
-		}
-	}
-
-	/** @param {SubmitEvent} event */
-	async function handleIosWaitlistSubmit(event) {
-		event.preventDefault();
-		const form = /** @type {HTMLFormElement} */ (event.currentTarget);
-		const formData = new FormData(form);
-		const contact = formData.get('contact')?.toString().trim();
-
-		if (!contact) {
-			iosWaitlistStatus = 'error';
-			iosWaitlistMessage = 'Please enter an email or npub.';
-			return;
-		}
-
-		if (!emailRegex.test(contact) && !npubRegex.test(contact)) {
-			iosWaitlistStatus = 'error';
-			iosWaitlistMessage = 'Enter a valid email or Nostr npub (starts with npub1).';
-			return;
-		}
-
-		iosSubmitting = true;
-		iosWaitlistStatus = 'idle';
-		iosWaitlistMessage = '';
-
-		try {
-			const response = await fetch('https://formspree.io/f/mldqprpn', {
-				method: 'POST',
-				headers: {
-					Accept: 'application/json'
-				},
-				body: formData
-			});
-
-			if (!response.ok) {
-				throw new Error('Request failed');
-			}
-
-			iosWaitlistStatus = 'success';
-			iosWaitlistMessage = "Thanks! We'll share more as soon as it's ready.";
-			form.reset();
-		} catch {
-			iosWaitlistStatus = 'error';
-			iosWaitlistMessage = 'Something went wrong. Please try again.';
-		} finally {
-			iosSubmitting = false;
 		}
 	}
 </script>
@@ -188,21 +123,10 @@
 		<div class="zapstore-content p-4 md:p-6 relative">
 			<h2 class="modal-title modal-heading mb-6">Download Zapstore</h2>
 
-			<!-- Platform Selector -->
-			<div class="mb-6">
-				<PlatformSelector
-					platforms={zapstorePlatforms}
-					{selectedPlatform}
-					onSelect={(/** @type {string} */ platform) => (selectedPlatform = platform)}
-				/>
-			</div>
-
-			<!-- Platform-specific content for Zapstore -->
-			{#if selectedPlatform === 'Android'}
-				<div class="space-y-5">
-					<div
-						class="flex items-stretch rounded-xl bg-white/5 border border-border/30 overflow-hidden"
-					>
+			<div class="space-y-5">
+				<div
+					class="flex items-stretch rounded-xl bg-white/5 border border-border/30 overflow-hidden"
+				>
 						<!-- QR Code - Hidden on mobile -->
 						<div class="hidden md:flex flex-col items-center gap-3 p-4">
 							<div class="relative w-36 h-36 flex-shrink-0">
@@ -353,66 +277,22 @@
 						</div>
 					</div>
 
-					<div class="download-actions">
-						<button
-							type="button"
-							on:click={downloadApk}
-							disabled={downloading}
-							class="btn-primary-large w-full disabled:opacity-70 flex items-center justify-center gap-3"
-						>
-							{#if downloading}
-								Downloading...
-							{:else}
-								<Download variant="fill" color="var(--white66)" size={20} />
-								Download Android App
-							{/if}
-						</button>
-					</div>
-				</div>
-			{:else if selectedPlatform === 'iOS'}
-				<div class="space-y-5">
-					<p class="regular14 text-muted-foreground">
-						We're designing Zapstore iOS to bypass the App Store and deliver an even better UX. <strong
-							>It will require an Apple Developer Account ($100/yr) and a monthly fee</strong
-						>. Drop an email or npub and we'll share more as it gets ready.
-					</p>
-					<form class="space-y-3" on:submit|preventDefault={handleIosWaitlistSubmit}>
-						<label class="sr-only" for="ios-contact">Email or npub</label>
-						<input
-							id="ios-contact"
-							name="contact"
-							type="text"
-							inputmode="text"
-							autocomplete="off"
-							placeholder="you@example.com or npub1..."
-							class="w-full rounded-lg border border-border bg-background px-4 py-3 regular14 text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/40 transition-colors"
-						/>
-						<button
-							type="submit"
-							class="btn-primary-large group w-full disabled:opacity-70 disabled:cursor-not-allowed"
-							disabled={iosSubmitting}
-						>
-							{#if iosSubmitting}
-								Submitting...
-							{:else}
-								Notify me
-							{/if}
-							<ArrowRight class="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-						</button>
-						{#if iosWaitlistStatus === 'error'}
-							<p class="regular14 text-rose-400">{iosWaitlistMessage}</p>
-						{:else if iosWaitlistStatus === 'success'}
-							<p class="regular14 text-emerald-400">{iosWaitlistMessage}</p>
+				<div class="download-actions">
+					<button
+						type="button"
+						on:click={downloadApk}
+						disabled={downloading}
+						class="btn-primary-large w-full disabled:opacity-70 flex items-center justify-center gap-3"
+					>
+						{#if downloading}
+							Downloading...
+						{:else}
+							<Download variant="fill" color="var(--white66)" size={20} />
+							Download Android App
 						{/if}
-					</form>
+					</button>
 				</div>
-			{:else}
-				<div class="text-center py-8">
-					<p class="text-muted-foreground">
-						{selectedPlatform} downloads coming soon!
-					</p>
-				</div>
-			{/if}
+			</div>
 		</div>
 	{:else}
 		<!-- Other apps: Two-step download flow -->

@@ -1,25 +1,54 @@
-import { ZAPSTORE_BLOSSOM_DOWNLOAD_HEADERS } from '$lib/config.js';
-
 /**
  * Download a file from the Blossom CDN with Zapstore analytics headers.
- * Falls back to navigation if fetch fails — browsers cannot attach custom headers on navigation.
+ *
+ * Uses a same-origin proxy so the browser starts the download immediately and
+ * saves a human filename (never the content-addressed hash from the CDN URL).
  *
  * @param {string} url
  * @param {string} filename
  */
-export async function downloadFromBlossomCdn(url, filename) {
-	try {
-		const response = await fetch(url, { headers: ZAPSTORE_BLOSSOM_DOWNLOAD_HEADERS });
-		const blob = await response.blob();
-		const objectUrl = window.URL.createObjectURL(blob);
-		const anchor = document.createElement('a');
-		anchor.href = objectUrl;
-		anchor.download = filename;
-		document.body.appendChild(anchor);
-		anchor.click();
-		window.URL.revokeObjectURL(objectUrl);
-		document.body.removeChild(anchor);
-	} catch {
-		window.location.href = url;
+export function downloadFromBlossomCdn(url, filename) {
+	const safeName = sanitizeApkFilename(filename);
+	const proxyUrl =
+		`/api/download?url=${encodeURIComponent(url)}` +
+		`&filename=${encodeURIComponent(safeName)}`;
+
+	const anchor = document.createElement('a');
+	anchor.href = proxyUrl;
+	anchor.download = safeName;
+	anchor.rel = 'noopener';
+	document.body.appendChild(anchor);
+	anchor.click();
+	document.body.removeChild(anchor);
+}
+
+/**
+ * Build a safe APK filename from an app display name.
+ * Never returns a content-hash name.
+ *
+ * @param {string | null | undefined} name
+ * @param {string} [fallback='app']
+ * @returns {string}
+ */
+export function apkFilenameFromName(name, fallback = 'app') {
+	return sanitizeApkFilename(name?.trim() || fallback);
+}
+
+/**
+ * @param {string} name
+ * @returns {string}
+ */
+function sanitizeApkFilename(name) {
+	const cleaned = String(name || '')
+		.replace(/[/\\?%*:|"<>]/g, '-')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.replace(/^\.+/, '');
+	const base = cleaned.split(/[/\\]/).pop() || '';
+	const withoutApk = base.replace(/\.apk$/i, '');
+	// Reject content-addressed hashes (64 hex chars).
+	if (!withoutApk || /^[a-f0-9]{64}$/i.test(withoutApk)) {
+		return 'app.apk';
 	}
+	return `${withoutApk}.apk`;
 }

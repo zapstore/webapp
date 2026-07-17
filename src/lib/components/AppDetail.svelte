@@ -4,7 +4,7 @@ import { browser } from '$app/environment';
 import { ReleaseCard } from '$lib/components';
 import { loadSocialDetailsData } from '$lib/purpleweb';
 import { renderMarkdown } from '$lib/utils/markdown';
-import { downloadFromBlossomCdn } from '$lib/utils/blossom-download.js';
+import { apkFilenameFromName, downloadFromBlossomCdn } from '$lib/utils/blossom-download.js';
 import { getCdnImageUrl } from '$lib/utils/image-url.js';
 import { ChevronDown, ChevronRight } from '$lib/components/icons';
 import DropdownMenu from '$lib/components/common/DropdownMenu.svelte';
@@ -47,10 +47,9 @@ $effect(() => {
 });
 
 /** @param {string} url */
-async function handleDirectDownload(url) {
+function handleDirectDownload(url) {
 	downloadDropdownOpen = false;
-	const filename = url.split('/').pop() || 'app.apk';
-	await downloadFromBlossomCdn(url, filename);
+	downloadFromBlossomCdn(url, apkFilenameFromName(app?.name));
 }
 </script>
 
