@@ -140,13 +140,13 @@
 									alt="QR code to download Zapstore"
 									class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"
 									loading="lazy"
-									on:load={() => (zapstoreQrLoaded = true)}
+									onload={() => (zapstoreQrLoaded = true)}
 								/>
 							</div>
 							<button
 								type="button"
 								class="flex items-center gap-2 regular14 text-muted-foreground hover:text-foreground transition-colors"
-								on:click={copyDownloadLink}
+								onclick={copyDownloadLink}
 							>
 								<span>Download Link</span>
 								{#if linkCopied}
@@ -280,7 +280,7 @@
 				<div class="download-actions">
 					<button
 						type="button"
-						on:click={downloadApk}
+						onclick={downloadApk}
 						disabled={downloading}
 						class="btn-primary-large w-full disabled:opacity-70 flex items-center justify-center gap-3"
 					>
@@ -324,7 +324,7 @@
 						type="button"
 						disabled={step1Downloading}
 						class="btn-primary-small step-action-btn ml-auto flex-shrink-0 whitespace-nowrap disabled:opacity-70"
-						on:click={downloadZapstoreStep1}
+						onclick={downloadZapstoreStep1}
 						>{step1Downloading ? 'Downloading…' : 'Download'}</button
 					>
 				</div>
@@ -344,7 +344,7 @@
 								alt="QR code to download Zapstore"
 								class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"
 								loading="lazy"
-								on:load={() => (step1QrLoaded = true)}
+								onload={() => (step1QrLoaded = true)}
 							/>
 						</div>
 					</div>
@@ -400,7 +400,7 @@
 								alt="QR code to open {app?.name} in Zapstore"
 								class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"
 								loading="lazy"
-								on:load={() => (step2QrLoaded = true)}
+								onload={() => (step2QrLoaded = true)}
 							/>
 						</div>
 					</div>
