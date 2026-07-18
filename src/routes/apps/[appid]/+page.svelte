@@ -13,7 +13,6 @@
 	import { nip19 } from 'nostr-tools';
 	import { EVENT_KINDS } from '$lib/config';
 	import { wheelScroll } from '$lib/actions/wheelScroll.js';
-	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 	import { apkFilenameFromName, downloadFromBlossomCdn } from '$lib/utils/blossom-download.js';
 	import AppPic from '$lib/components/common/AppPic.svelte';
 	import ProfilePic from '$lib/components/common/ProfilePic.svelte';
@@ -153,15 +152,14 @@ let _refreshing = $state(false);
 		if (!wrap || !app?.images?.length) return;
 		const frame = wrap.closest('.app-detail-frame');
 		updateScreenshotsControlsPosition();
-		const scrollEl = wrap.closest('.app-detail-scroll');
 		const observer = new ResizeObserver(updateScreenshotsControlsPosition);
 		observer.observe(wrap);
 		if (frame) observer.observe(frame);
-		scrollEl?.addEventListener('scroll', updateScreenshotsControlsPosition, { passive: true });
+		window.addEventListener('scroll', updateScreenshotsControlsPosition, { passive: true });
 		window.addEventListener('resize', updateScreenshotsControlsPosition);
 		return () => {
 			observer.disconnect();
-			scrollEl?.removeEventListener('scroll', updateScreenshotsControlsPosition);
+			window.removeEventListener('scroll', updateScreenshotsControlsPosition);
 			window.removeEventListener('resize', updateScreenshotsControlsPosition);
 		};
 	});
@@ -537,7 +535,7 @@ let _refreshing = $state(false);
 {#if error}
 	<ZappyError message="this app wasn't found." />
 {:else if app}
-	<div class="app-detail-page" use:wheelScrollPassthrough>
+	<div class="app-detail-page">
 	<div class="app-detail-outer container mx-auto px-0 sm:px-6 lg:px-8">
 		<div class="app-detail-frame">
 			<div class="app-detail-scroll" data-main-scroll>

@@ -1,26 +1,19 @@
 /**
  * Shared bordered detail column (app detail, stack detail, etc.).
  * Import in route/components that use this shell.
+ * Vertical scroll is document-level; SiteHeader stays fixed.
  */
 .app-detail-page {
 	display: flex;
 	flex-direction: column;
 	flex: 1;
-	min-height: 0;
-	height: calc(100dvh - 64px);
-}
-
-:global(main.main-content:has(.app-detail-page)) {
-	display: flex;
-	flex-direction: column;
-	min-height: 0;
+	min-height: calc(100dvh - 64px);
 }
 
 .app-detail-outer {
 	display: flex;
 	flex-direction: column;
 	flex: 1;
-	min-height: 0;
 	position: relative;
 }
 
@@ -28,12 +21,11 @@
 	display: flex;
 	flex-direction: column;
 	flex: 1;
-	min-height: 0;
 	border-left: 1px solid var(--shell-border);
 	border-right: 1px solid var(--shell-border);
 	margin-left: -16px;
 	margin-right: -16px;
-	overflow: hidden;
+	overflow-x: hidden;
 }
 
 @media (max-width: 639px) {
@@ -56,10 +48,7 @@
 	--detail-pad-x: 12px;
 	--page-content-pad-x: var(--detail-pad-x);
 	flex: 1;
-	min-height: 0;
 	overflow-x: hidden;
-	overflow-y: auto;
-	-webkit-overflow-scrolling: touch;
 	padding-left: var(--detail-pad-x);
 	padding-right: var(--detail-pad-x);
 	padding-top: 1rem;

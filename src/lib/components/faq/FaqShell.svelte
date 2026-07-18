@@ -42,10 +42,7 @@
 <style>
 	.faq-scroll {
 		flex: 1;
-		min-height: 0;
 		overflow-x: hidden;
-		overflow-y: auto;
-		-webkit-overflow-scrolling: touch;
 	}
 
 	.faq-root {

@@ -5,7 +5,6 @@ import { createProfileDetailQuery, createProfilesQuery } from '$lib/purpleweb';
 import { encodeStackNaddr } from '$lib/nostr';
 import { SITE_URL } from '$lib/config';
 import { nip19 } from 'nostr-tools';
-import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 import SectionHeader from '$lib/components/cards/SectionHeader.svelte';
 import '$lib/styles/bordered-detail-column.css';
 import { parseShortText } from '$lib/utils/short-text-parser.js';
@@ -169,7 +168,7 @@ function getStackUrl(stack) {
 		</div>
 	</div>
 {:else}
-	<div class="app-detail-page" use:wheelScrollPassthrough>
+	<div class="app-detail-page">
 		<div class="app-detail-outer container mx-auto px-0 sm:px-6 lg:px-8">
 			<div class="app-detail-frame">
 				<div class="app-detail-scroll profile-detail-scroll" data-main-scroll>

@@ -145,16 +145,11 @@
 
 	$effect(() => {
 		if (!active) return;
-		const wrap = scrollWrap;
-		if (!wrap) return;
-		const scrollParent = wrap.closest(
-			'.apps-search-results-scroll, .app-detail-scroll, .profile-detail-scroll'
-		);
 		const onLayout = () => scheduleSync();
-		scrollParent?.addEventListener('scroll', onLayout, { passive: true });
+		window.addEventListener('scroll', onLayout, { passive: true });
 		window.addEventListener('resize', onLayout);
 		return () => {
-			scrollParent?.removeEventListener('scroll', onLayout);
+			window.removeEventListener('scroll', onLayout);
 			window.removeEventListener('resize', onLayout);
 		};
 	});

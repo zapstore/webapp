@@ -119,11 +119,9 @@
 </Modal>
 
 <style>
-	/* ── Outer wrapper (no scroll — only body scrolls) ─────────────────────── */
+	/* ── Outer wrapper ─────────────────────────────────────────────────────── */
 	.assets-scroll {
 		flex: 1;
-		min-height: 0;
-		overflow: hidden;
 		display: flex;
 		flex-direction: column;
 	}
@@ -139,7 +137,7 @@
 		overflow: visible;
 	}
 
-	/* ── Top bar (non-scrolling, no bg needed — nothing scrolls behind it) ── */
+	/* ── Top bar (sticky under SiteHeader) ── */
 	.assets-topbar {
 		flex-shrink: 0;
 		display: flex;
@@ -147,6 +145,10 @@
 		gap: 10px;
 		padding: 10px 12px;
 		border-bottom: 1px solid var(--shell-border);
+		position: sticky;
+		top: 64px;
+		z-index: 2;
+		background-color: var(--background);
 	}
 
 	@media (min-width: 768px) {
@@ -163,11 +165,9 @@
 		text-overflow: ellipsis;
 	}
 
-	/* ── Body (independent scroll container) ──────────────────────────────── */
+	/* ── Body ─────────────────────────────────────────────────────────────── */
 	.assets-body {
 		flex: 1;
-		min-height: 0;
-		overflow-y: auto;
 		padding: 20px 20px 48px;
 		display: flex;
 		flex-direction: column;

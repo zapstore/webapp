@@ -23,7 +23,6 @@
 	import { isZapstoreCommunityAuthorStack, parseApp, encodeStackNaddr } from '$lib/nostr/models';
 	import { sortAppsRelevanceDeveloperFirst } from '$lib/utils/app-search.js';
 	import { isOnline } from '$lib/stores/online.svelte.js';
-	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 	import { DISCOVER_APPS_INITIAL, DISCOVER_STACKS_INITIAL } from '$lib/constants';
 	import { pinZapstoreAppFirst } from '$lib/utils/featured-apps.js';
 	import '$lib/styles/browse-grid.css';
@@ -461,7 +460,7 @@
 	});
 </script>
 
-<section class="apps-page" use:wheelScrollPassthrough>
+<section class="apps-page">
 	<div class="apps-search-outer container mx-auto px-0 sm:px-6 lg:px-8">
 		<div class="apps-search-frame">
 			<div class="apps-search-toolbar">
@@ -702,9 +701,7 @@
 		display: flex;
 		flex-direction: column;
 		min-height: calc(100dvh - 64px);
-		height: calc(100dvh - 64px);
 		overflow-x: visible;
-		overflow-y: hidden;
 	}
 
 	.apps-search-outer {
@@ -712,7 +709,6 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		min-height: 0;
 	}
 
 	.apps-search-frame {
@@ -720,7 +716,6 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		min-height: 0;
 		border-left: 1px solid var(--shell-border);
 		border-right: 1px solid var(--shell-border);
 		margin-left: -16px;
@@ -757,6 +752,8 @@
 		padding: 0;
 		border-bottom: 1px solid var(--shell-border);
 		background-color: var(--background);
+		position: sticky;
+		top: 64px;
 		z-index: 2;
 	}
 
@@ -786,10 +783,7 @@
 
 	.apps-search-results-scroll {
 		flex: 1;
-		min-height: 0;
 		overflow-x: hidden;
-		overflow-y: auto;
-		-webkit-overflow-scrolling: touch;
 	}
 
 	.apps-search-field-wrap {

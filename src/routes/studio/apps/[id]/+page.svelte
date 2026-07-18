@@ -199,10 +199,7 @@ const studio = ctx ?? { userApps: [], adminAccess: false, studioPubkey: null };
 	.detail-scroll {
 		flex: 1;
 		min-width: 0;
-		min-height: 0;
 		overflow-x: hidden;
-		overflow-y: auto;
-		-webkit-overflow-scrolling: touch;
 		display: flex;
 		flex-direction: column;
 	}

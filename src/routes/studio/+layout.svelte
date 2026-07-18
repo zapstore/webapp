@@ -16,7 +16,6 @@
 	import { loadIfNeeded as loadStudioAnalytics, resetStudioAnalytics } from '$lib/stores/studio-analytics.svelte.js';
 	import { SHOW_STUDIO_SIGNED_IN_DASHBOARD } from '$lib/constants.js';
 	import { SITE_URL } from '$lib/config';
-	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 	import { getCdnImageUrl } from '$lib/utils/image-url.js';
 
 	let { children } = $props();
@@ -232,7 +231,7 @@
 </svelte:head>
 
 {#if showDashboard}
-	<div class="dashboard-page-shell" use:wheelScrollPassthrough>
+	<div class="dashboard-page-shell">
 	<div class="dashboard-outer container mx-auto px-0 sm:px-6 lg:px-8">
 		<div class="dashboard">
 
@@ -525,15 +524,8 @@
 
 
 <style>
-	:global(main.main-content:has(.dashboard-page-shell)) {
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-	}
-
 	.dashboard-page-shell {
 		flex: 1;
-		min-height: 0;
 		width: 100%;
 		min-height: calc(100dvh - 64px);
 		display: flex;
@@ -542,9 +534,8 @@
 
 	.dashboard {
 		display: flex;
-		height: calc(100dvh - 64px);
-		min-height: 0;
-		overflow: hidden;
+		align-items: flex-start;
+		min-height: calc(100dvh - 64px);
 		border-left: 1px solid var(--shell-border);
 		border-right: 1px solid var(--shell-border);
 		margin-left: -16px;
@@ -574,8 +565,15 @@
 		padding: 12px;
 		display: flex;
 		flex-direction: column;
-		min-height: 0;
-		overflow: hidden;
+		position: sticky;
+		top: 64px;
+		align-self: flex-start;
+		height: calc(100dvh - 64px);
+		max-height: calc(100dvh - 64px);
+		overflow-x: hidden;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	.sidebar-nav {
@@ -634,10 +632,8 @@
 	.sidebar-mid {
 		flex: 1;
 		min-height: 0;
-		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
-		overscroll-behavior: contain;
 	}
 
 	.apps-section-head {
@@ -722,13 +718,10 @@
 	.content {
 		flex: 1;
 		min-width: 0;
-		min-height: 0;
-		overflow: hidden;
 		display: flex;
 		flex-direction: column;
 		border-left: 1px solid var(--shell-border);
 		position: relative;
-		transform: translateZ(0);
 	}
 
 	/* ── Mobile nav ───────────────────────────────────────────────────────── */

@@ -145,9 +145,8 @@
 <style>
 	.dashboard {
 		display: flex;
-		height: calc(100dvh - 64px);
-		min-height: 0;
-		overflow: hidden;
+		align-items: flex-start;
+		min-height: calc(100dvh - 64px);
 		border-left: 1px solid var(--shell-border);
 		border-right: 1px solid var(--shell-border);
 		margin-left: -16px;
@@ -264,8 +263,15 @@
 		padding: 12px;
 		display: flex;
 		flex-direction: column;
-		min-height: 0;
-		overflow: hidden;
+		position: sticky;
+		top: 64px;
+		align-self: flex-start;
+		height: calc(100dvh - 64px);
+		max-height: calc(100dvh - 64px);
+		overflow-x: hidden;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	@media (max-width: 767px) {
@@ -279,7 +285,6 @@
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
 	}
 
 	.docs-sidebar-title {
@@ -359,10 +364,8 @@
 	.content {
 		flex: 1;
 		min-width: 0;
-		min-height: 0;
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
 	}
 
 	@media (min-width: 768px) {
@@ -383,8 +386,7 @@
 
 	.content-inner {
 		flex: 1;
-		min-height: 0;
-		overflow-y: auto;
+		overflow-x: hidden;
 		padding: var(--docs-content-pad-top, var(--docs-pad-x, 14px)) var(--docs-pad-x, 14px) 2rem;
 	}
 
@@ -392,7 +394,6 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		min-height: 0;
 	}
 
 	.nav-loading {

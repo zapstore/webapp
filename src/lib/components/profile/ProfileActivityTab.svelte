@@ -45,42 +45,30 @@ let loadSentinel = $state(/** @type {HTMLElement | null} */ (null));
 const LOAD_MARGIN_PX = 240;
 const PUMP_MAX = 12;
 
-/** @param {Element | null | undefined} scrollRoot */
-function getScrollRoot(scrollRoot) {
-	if (scrollRoot instanceof HTMLElement) return scrollRoot;
-	if (typeof document === 'undefined') return null;
-	const el = document.querySelector('.profile-detail-scroll[data-main-scroll]');
-	return el instanceof HTMLElement ? el : null;
+function isNearScrollEnd() {
+	if (typeof document === 'undefined') return false;
+	const doc = document.documentElement;
+	return window.scrollY + window.innerHeight >= doc.scrollHeight - LOAD_MARGIN_PX;
 }
 
-/** @param {HTMLElement} scrollRoot */
-function isNearScrollEnd(scrollRoot) {
-	return (
-		scrollRoot.scrollTop + scrollRoot.clientHeight >= scrollRoot.scrollHeight - LOAD_MARGIN_PX
-	);
-}
-
-/** True when the sentinel sits inside the scrollport. */
-function isSentinelInScrollView(el, scrollRoot, marginPx = LOAD_MARGIN_PX) {
-	if (!el || !(scrollRoot instanceof HTMLElement)) return false;
-	const rootRect = scrollRoot.getBoundingClientRect();
+/** True when the sentinel sits inside the viewport. */
+function isSentinelInScrollView(el, marginPx = LOAD_MARGIN_PX) {
+	if (!el || typeof window === 'undefined') return false;
 	const elRect = el.getBoundingClientRect();
-	return elRect.top <= rootRect.bottom + marginPx && elRect.bottom >= rootRect.top - marginPx;
+	return elRect.top <= window.innerHeight + marginPx && elRect.bottom >= -marginPx;
 }
 
-/** @param {HTMLElement} scrollRoot */
-function shouldLoadMore(scrollRoot) {
-	if (isNearScrollEnd(scrollRoot)) return true;
+function shouldLoadMore() {
+	if (isNearScrollEnd()) return true;
 	const el = loadSentinel;
-	return el ? isSentinelInScrollView(el, scrollRoot, LOAD_MARGIN_PX) : false;
+	return el ? isSentinelInScrollView(el, LOAD_MARGIN_PX) : false;
 }
 
-/** @param {HTMLElement} scrollRoot */
-async function pumpLoadMore(scrollRoot) {
+async function pumpLoadMore() {
 	for (let i = 0; i < PUMP_MAX; i++) {
 		if (!activity.likelyHasMore || activity.loading) return;
 		await tick();
-		if (!shouldLoadMore(scrollRoot)) return;
+		if (!shouldLoadMore()) return;
 		const prevShown = activity.displayedComments.length;
 		activity.loadMoreVisible();
 		await tick();
@@ -89,11 +77,10 @@ async function pumpLoadMore(scrollRoot) {
 	}
 }
 
-/** @param {HTMLElement} scrollRoot */
-function onScrollNearEnd(scrollRoot) {
+function onScrollNearEnd() {
 	if (!activity.likelyHasMore || activity.loading) return;
-	if (!shouldLoadMore(scrollRoot)) return;
-	void pumpLoadMore(scrollRoot);
+	if (!shouldLoadMore()) return;
+	void pumpLoadMore();
 }
 
 const searchProfilesFn = $derived(createSearchProfilesFunction(() => getCurrentPubkey()));
@@ -152,23 +139,20 @@ $effect(() => {
 	void loadSentinel;
 	void activity.displayedComments.length;
 
-	const scrollRoot = getScrollRoot(loadSentinel?.closest('[data-main-scroll]'));
-	if (!scrollRoot) return;
-
 	let scrollRaf = 0;
 	const onScroll = () => {
 		if (scrollRaf) return;
 		scrollRaf = requestAnimationFrame(() => {
 			scrollRaf = 0;
-			onScrollNearEnd(scrollRoot);
+			onScrollNearEnd();
 		});
 	};
 
-	scrollRoot.addEventListener('scroll', onScroll, { passive: true });
-	queueMicrotask(() => onScrollNearEnd(scrollRoot));
+	window.addEventListener('scroll', onScroll, { passive: true });
+	queueMicrotask(() => onScrollNearEnd());
 
 	return () => {
-		scrollRoot.removeEventListener('scroll', onScroll);
+		window.removeEventListener('scroll', onScroll);
 		if (scrollRaf) cancelAnimationFrame(scrollRaf);
 	};
 });

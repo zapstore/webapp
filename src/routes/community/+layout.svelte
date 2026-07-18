@@ -17,7 +17,6 @@
 	import CommunityForumShell from '$lib/components/community/CommunityForumShell.svelte';
 	import CommunityActivityShell from '$lib/components/community/CommunityActivityShell.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
-	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 	import DetailsTab from '$lib/components/social/DetailsTab.svelte';
 
 	let detailsModalOpen = $state(false);
@@ -185,7 +184,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="dashboard-page-shell" use:wheelScrollPassthrough>
+<div class="dashboard-page-shell">
 <div class="dashboard-outer container mx-auto px-0 sm:px-6 lg:px-8">
 	<div class="dashboard">
 		<!-- Section switcher — mobile only: anchored dropdown below header, does not cover site nav -->
@@ -372,15 +371,8 @@
 </div>
 
 <style>
-	:global(main.main-content:has(.dashboard-page-shell)) {
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-	}
-
 	.dashboard-page-shell {
 		flex: 1;
-		min-height: 0;
 		width: 100%;
 		min-height: calc(100dvh - 64px);
 		display: flex;
@@ -389,9 +381,8 @@
 
 	.dashboard {
 		display: flex;
-		height: calc(100dvh - 64px);
-		min-height: 0;
-		overflow: hidden;
+		align-items: flex-start;
+		min-height: calc(100dvh - 64px);
 		border-left: 1px solid var(--shell-border);
 		border-right: 1px solid var(--shell-border);
 		margin-left: -16px;
@@ -528,17 +519,21 @@
 		padding: 12px;
 		display: flex;
 		flex-direction: column;
-		min-height: 0;
-		overflow: hidden;
+		position: sticky;
+		top: 64px;
+		align-self: flex-start;
+		height: calc(100dvh - 64px);
+		max-height: calc(100dvh - 64px);
+		overflow-x: hidden;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	.sidebar-scroll {
 		flex: 1;
 		min-height: 0;
-		overflow-y: auto;
 		overflow-x: hidden;
-		overscroll-behavior: contain;
-		-webkit-overflow-scrolling: touch;
 	}
 
 	@media (max-width: 767px) {
@@ -709,25 +704,22 @@
 
 	.right-page-viewport {
 		position: relative;
-		transform: translateZ(0);
 		flex: 1;
-		min-height: 0;
+		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
 	}
 
 	.community-shell-panel {
 		display: flex;
-		flex: 1;
-		min-height: 0;
 		flex-direction: column;
-		overflow: hidden;
-		/* Keep scroll position when switching to post detail (display:none resets scrollTop). */
+		/* Keep mounted when inactive so feed state survives post detail navigation. */
 		visibility: hidden;
 		position: absolute;
 		inset: 0;
 		width: 100%;
+		height: 0;
+		overflow: hidden;
 		pointer-events: none;
 		z-index: 0;
 	}
@@ -735,16 +727,17 @@
 	.community-shell-panel--active {
 		visibility: visible;
 		position: relative;
+		inset: auto;
+		height: auto;
+		overflow: visible;
 		pointer-events: auto;
 		z-index: 1;
 	}
 
 	.community-route-outlet {
 		flex: 1;
-		min-height: 0;
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
 		position: relative;
 		z-index: 2;
 	}
@@ -759,17 +752,11 @@
 		display: flex;
 		flex-direction: column;
 		border-left: 1px solid var(--shell-border);
-		min-height: 0;
 	}
 
 	@media (max-width: 767px) {
 		.content {
 			border-left: none;
-		}
-
-		.right-page-viewport {
-			/* Match studio: mobile thread modals must cover the full screen (section switcher is z-90). */
-			transform: none;
 		}
 	}
 

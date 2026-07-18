@@ -381,14 +381,11 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		height: 100%;
-		min-height: 100%;
-		overflow: hidden;
 		position: relative;
 		isolation: isolate;
 	}
 
-	/* ── Top bar ── */
+	/* ── Top bar (sticky under SiteHeader) ── */
 	.edit-topbar {
 		flex-shrink: 0;
 		display: flex;
@@ -396,6 +393,10 @@
 		gap: 10px;
 		padding: 10px 12px;
 		border-bottom: 1px solid var(--shell-border);
+		position: sticky;
+		top: 64px;
+		z-index: 2;
+		background-color: var(--background);
 	}
 
 	@media (min-width: 768px) {
@@ -435,8 +436,6 @@
 	/* ── Body ── */
 	.edit-body {
 		flex: 1;
-		min-height: 0;
-		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
 	}

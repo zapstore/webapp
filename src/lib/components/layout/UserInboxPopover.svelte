@@ -188,7 +188,9 @@
 		z-index: 200;
 		width: min(480px, calc(100vw - 24px));
 		max-height: min(90vh, calc(100dvh - 16px));
-		overflow: visible;
+		/* Bound height so the feed flex child can scroll; visible was letting content spill. */
+		overflow: hidden;
+		min-height: 0;
 		border: 0.33px solid var(--white16);
 		border-radius: 24px 8px 24px 24px;
 		--inbox-modal-top-reserve: 20%;

@@ -89,8 +89,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	let forumFeedLimit = $state(45);
 	const FORUM_FEED_CAP = 320;
 
-	/** Scroll container — saved before leaving feed, restored on return. */
-	let forumListViewport = $state(/** @type {HTMLDivElement | null} */ (null));
+	/** Window scroll — saved before leaving feed, restored on return. */
 	let savedFeedScrollTop = $state(/** @type {number} */ (getCached('forum_feed_scroll') ?? 0));
 	let pendingScrollRestore = $state(false);
 	let restoreInFlight = false;
@@ -105,19 +104,19 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	}
 
 	function captureFeedScroll() {
-		if (!forumListViewport) return;
-		persistFeedScroll(forumListViewport.scrollTop);
+		if (!browser) return;
+		persistFeedScroll(window.scrollY);
 	}
 
 	function onFeedScroll() {
-		if (!isForumFeedRoute || !forumListViewport) return;
-		persistFeedScroll(forumListViewport.scrollTop);
+		if (!isForumFeedRoute || !browser) return;
+		persistFeedScroll(window.scrollY);
 	}
 
 	async function restoreFeedScroll() {
-		if (restoreInFlight) return;
+		if (restoreInFlight || !browser) return;
 		const top = savedFeedScrollTop || getCached('forum_feed_scroll') || 0;
-		if (top <= 0 || !forumListViewport || !isForumFeedRoute) {
+		if (top <= 0 || !isForumFeedRoute) {
 			pendingScrollRestore = false;
 			return;
 		}
@@ -126,9 +125,9 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 			for (let i = 0; i < 12; i++) {
 				await tick();
 				await new Promise((r) => requestAnimationFrame(r));
-				if (!forumListViewport || !isForumFeedRoute) return;
-				forumListViewport.scrollTop = top;
-				if (Math.abs(forumListViewport.scrollTop - top) <= 3) {
+				if (!isForumFeedRoute) return;
+				window.scrollTo(0, top);
+				if (Math.abs(window.scrollY - top) <= 3) {
 					pendingScrollRestore = false;
 					return;
 				}
@@ -140,7 +139,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 	}
 
 	beforeNavigate(({ from }) => {
-		if (!browser || !forumListViewport || !from) return;
+		if (!browser || !from) return;
 		if (isForumFeedPath(from.url.pathname)) captureFeedScroll();
 	});
 
@@ -368,7 +367,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 
 	/** Retry scroll restore after feed becomes visible and card layout settles. */
 	$effect(() => {
-		if (!pendingScrollRestore || !isForumFeedRoute || !forumListViewport) return;
+		if (!pendingScrollRestore || !isForumFeedRoute) return;
 		void filteredPosts.length;
 		void commentCountsSettled;
 		void restoreFeedScroll();
@@ -494,6 +493,12 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		const p = window.location.pathname;
 		if (p === '/community/forum' || p === '/community/forum/') void syncForumFromRelay();
 	});
+
+	$effect(() => {
+		if (!browser || !isForumFeedRoute) return;
+		window.addEventListener('scroll', onFeedScroll, { passive: true });
+		return () => window.removeEventListener('scroll', onFeedScroll);
+	});
 </script>
 
 <div class="forum-page-wrap">
@@ -559,12 +564,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 			<button type="button" class="forum-publish-error-dismiss" onclick={() => (publishError = '')} aria-label="Dismiss">×</button>
 		</div>
 	{/if}
-	<div
-		class="forum-list-viewport"
-		data-main-scroll
-		bind:this={forumListViewport}
-		onscroll={onFeedScroll}
-	>
+	<div class="forum-list-viewport" data-main-scroll>
 	<div class="forum-list">
 		{#if (!forumReady || postsLoading) && posts.length === 0}
 			<ForumFeedSkeleton rows={6} />
@@ -653,21 +653,19 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		min-height: 0;
 		background: var(--black);
 	}
 
 	.panel-content {
 		flex: 1;
-		min-height: 0;
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
 	}
 
 	.forum-feed-header {
 		flex-shrink: 0;
-		position: relative;
+		position: sticky;
+		top: 64px;
 		z-index: 20;
 		overflow: visible;
 		background: var(--black);
@@ -765,10 +763,7 @@ import RelayLoadingBar from '$lib/components/common/RelayLoadingBar.svelte';
 
 	.forum-list-viewport {
 		flex: 1;
-		min-height: 0;
-		overflow-y: auto;
 		overflow-x: hidden;
-		-webkit-overflow-scrolling: touch;
 		padding-bottom: 72px;
 	}
 

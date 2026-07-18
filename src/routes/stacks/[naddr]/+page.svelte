@@ -43,7 +43,6 @@
 	import GetStartedModal from '$lib/components/modals/GetStartedModal.svelte';
 	import OnboardingBuildingModal from '$lib/components/modals/OnboardingBuildingModal.svelte';
 	import Pen from '$lib/components/icons/Pen.svelte';
-	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
 	import '$lib/styles/bordered-detail-column.css';
 	let { data } = $props();
 	const stackNaddr = $derived($page.params.naddr ?? '');
@@ -448,7 +447,7 @@
 		<ZappyError message="this stack wasn't found." />
 	</section>
 {:else}
-	<div class="app-detail-page" use:wheelScrollPassthrough>
+	<div class="app-detail-page">
 		<div class="app-detail-outer container mx-auto px-0 sm:px-6 lg:px-8">
 			<div class="app-detail-frame">
 				<div class="app-detail-scroll stack-detail-scroll" data-main-scroll>

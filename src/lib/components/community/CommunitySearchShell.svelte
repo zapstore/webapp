@@ -60,8 +60,6 @@
 	import CommentCard from '$lib/components/community/CommentCard.svelte';
 	import ForumFeedSkeleton from '$lib/components/community/ForumFeedSkeleton.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
-	import { wheelScrollPassthrough } from '$lib/actions/wheelScrollPassthrough.js';
-
 	const COMMUNITY_PUBKEY = (() => {
 		try {
 			const d = nip19.decode(ZAPSTORE_COMMUNITY_NPUB);
@@ -774,7 +772,7 @@
 	});
 </script>
 
-<div class="community-search-root" use:wheelScrollPassthrough>
+<div class="community-search-root">
 	<header class="community-search-toolbar">
 		<div class="community-search-toolbar-query">
 				<form class="community-search-field-wrap" onsubmit={submitSearch}>
@@ -1043,7 +1041,6 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		min-height: 0;
 		background: transparent;
 	}
 
@@ -1061,6 +1058,9 @@
 		padding: 0;
 		border-bottom: 1px solid var(--shell-border);
 		background-color: var(--background);
+		position: sticky;
+		top: 64px;
+		z-index: 2;
 	}
 
 	.community-search-toolbar-query,
@@ -1139,10 +1139,7 @@
 
 	.community-search-results-scroll {
 		flex: 1;
-		min-height: 0;
 		overflow-x: hidden;
-		overflow-y: auto;
-		-webkit-overflow-scrolling: touch;
 	}
 
 	.community-search-results-list {

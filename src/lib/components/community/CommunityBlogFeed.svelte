@@ -50,10 +50,7 @@
 <style>
 	.forum-list-viewport {
 		flex: 1;
-		min-height: 0;
-		overflow-y: auto;
 		overflow-x: hidden;
-		-webkit-overflow-scrolling: touch;
 	}
 
 	.forum-list {

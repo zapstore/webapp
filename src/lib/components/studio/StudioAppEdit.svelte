@@ -521,12 +521,9 @@ async function handleConfirmDelete() {
 	.edit-wrap {
 		display: flex;
 		flex-direction: column;
-		height: 100%;
-		min-height: 0;
-		overflow: hidden;
 	}
 
-	/* ── Top bar (non-scrolling, no bg needed — nothing scrolls behind it) ── */
+	/* ── Top bar (sticky under SiteHeader) ── */
 	.edit-topbar {
 		flex-shrink: 0;
 		display: flex;
@@ -534,6 +531,10 @@ async function handleConfirmDelete() {
 		gap: 10px;
 		padding: 10px 12px;
 		border-bottom: 1px solid var(--shell-border);
+		position: sticky;
+		top: 64px;
+		z-index: 2;
+		background-color: var(--background);
 	}
 
 	@media (min-width: 768px) {
@@ -561,11 +562,9 @@ async function handleConfirmDelete() {
 		flex-shrink: 0;
 	}
 
-	/* ── Body: independent scroll container under the topbar ── */
+	/* ── Body ── */
 	.edit-body {
 		flex: 1;
-		min-height: 0;
-		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
 	}

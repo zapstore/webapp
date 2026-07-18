@@ -2435,7 +2435,11 @@
 </script>
 
 <div class="community-shell-root">
-	<div class="community-shell-scroll" class:activity-inbox-scroll={inboxEmbed}>
+	<div
+		class="community-shell-scroll"
+		class:activity-inbox-scroll={inboxEmbed}
+		class:activity-inbox-scroll--popover={inboxEmbed && inboxPopover}
+	>
 		<div
 			class="panel-content activity-panel"
 			class:activity-panel--inbox={inboxEmbed}
@@ -3040,11 +3044,16 @@
 <style>
 	.community-shell-root {
 		flex: 1;
-		min-height: 0;
 		min-width: 0;
 		width: 100%;
 		display: flex;
 		flex-direction: column;
+	}
+
+	/* Header popover only: stay within the panel’s max-height so the feed scrolls. */
+	.community-shell-root:has(.activity-inbox-scroll--popover) {
+		min-height: 0;
+		overflow: hidden;
 	}
 
 	/* Non-inbox: pass-through so .panel-content stays the flex child of the page */
@@ -3052,19 +3061,23 @@
 		display: contents;
 	}
 
+	/* Full-page studio inbox uses document scroll; header popover keeps an inner scroller. */
 	.activity-inbox-scroll {
 		flex: 1;
+		overflow-x: hidden;
+	}
+
+	.activity-inbox-scroll--popover {
 		min-height: 0;
 		overflow-y: auto;
-		overflow-x: hidden;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior: contain;
 	}
 
 	.panel-content {
 		flex: 1;
-		min-height: 0;
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
 	}
 
 	.panel-content.activity-panel--inbox {
@@ -3074,7 +3087,7 @@
 	}
 
 	.activity-panel {
-		overflow-y: auto;
+		overflow-x: hidden;
 	}
 
 	.activity-panel--inbox {

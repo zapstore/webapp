@@ -61,8 +61,6 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		min-height: 0;
-		overflow: hidden;
 	}
 
 	@media (min-width: 768px) {
@@ -90,11 +88,7 @@
 
 	.content-scroll {
 		flex: 1;
-		min-height: 0;
-		overflow-y: auto;
 		overflow-x: hidden;
-		overscroll-behavior: contain;
-		-webkit-overflow-scrolling: touch;
 		padding-bottom: 32px;
 	}
 

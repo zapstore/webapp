@@ -71,10 +71,7 @@ function getStackEditUrl(stack) {
 	.stacks-scroll {
 		flex: 1;
 		min-width: 0;
-		min-height: 0;
 		overflow-x: hidden;
-		overflow-y: auto;
-		-webkit-overflow-scrolling: touch;
 	}
 
 	.stacks-content {
