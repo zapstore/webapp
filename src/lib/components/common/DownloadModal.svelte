@@ -14,7 +14,7 @@
 	import AppPic from './AppPic.svelte';
 	import Modal from './Modal.svelte';
 	import SkeletonLoader from './SkeletonLoader.svelte';
-	import { downloadFromBlossomCdn } from '$lib/utils/blossom-download.js';
+	import { blossomDownloadProxyUrl } from '$lib/utils/blossom-download.js';
 	/** @typedef {import("$lib/nostr/models").App} AppModel */
 
 	/** @type {{ open?: boolean, app?: AppModel|null, isZapstore?: boolean }} */
@@ -23,8 +23,6 @@
 	let showVerifyOverlay = $state(false);
 	const isAndroid = browser && /android/i.test(navigator.userAgent);
 	let verifyTab = $state(/** @type {'desktop' | 'mobile'} */ (isAndroid ? 'mobile' : 'desktop'));
-	let downloading = $state(false);
-	let step1Downloading = $state(false);
 	let linkCopied = $state(false);
 
 	let zapstoreQrLoaded = $state(false);
@@ -33,14 +31,18 @@
 	/** Human-readable APK size from CDN Content-Length (e.g. "4.2 MB"). */
 	let apkSizeLabel = $state('');
 
-	// Zapstore-specific constants
-	const ZAPSTORE_APK_FILENAME = 'zapstore-1.1.1.apk';
-	const ZAPSTORE_APK_URL =
-		'https://cdn.zapstore.dev/96846060af9f9fcc09ceb1ac07e58a1a77d715c5d0f89b3f14e2632fba2505e2.apk';
+	// Zapstore-specific constants — bump version + hash together on each release
+	const ZAPSTORE_APK_VERSION = '1.1.1';
+	const ZAPSTORE_APK_SHA256 = '96846060af9f9fcc09ceb1ac07e58a1a77d715c5d0f89b3f14e2632fba2505e2';
+	const ZAPSTORE_APK_FILENAME = `zapstore-${ZAPSTORE_APK_VERSION}.apk`;
+	const ZAPSTORE_APK_URL = `https://cdn.zapstore.dev/${ZAPSTORE_APK_SHA256}.apk`;
+	/** Same-origin proxy: immediate download + Content-Disposition filename. */
+	const ZAPSTORE_DOWNLOAD_HREF = blossomDownloadProxyUrl(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
+	const ZAPSTORE_DOWNLOAD_ABSOLUTE = new URL(ZAPSTORE_DOWNLOAD_HREF, SITE_URL).href;
 	/** Intrinsic size of static/images/download-image.png — reserves layout before decode. */
 	const DOWNLOAD_HERO_WIDTH = 512;
 	const DOWNLOAD_HERO_HEIGHT = 636;
-	const ANDROID_APK_SHA256 = '96846060af9f9fcc09ceb1ac07e58a1a77d715c5d0f89b3f14e2632fba2505e2';
+	const ANDROID_APK_SHA256 = ZAPSTORE_APK_SHA256;
 	const APK_CERT_HASH = '99e33b0c2d07e75fcd9df7e40e886646ff667e3aa6648e1a1160b036cf2b9320';
 
 	// App info helpers
@@ -78,38 +80,12 @@
 	});
 
 	async function copyDownloadLink() {
-		const urlToCopy = ZAPSTORE_APK_URL;
-		if (!urlToCopy) return;
 		try {
-			await navigator.clipboard.writeText(urlToCopy);
+			await navigator.clipboard.writeText(ZAPSTORE_DOWNLOAD_ABSOLUTE);
 			linkCopied = true;
 			setTimeout(() => (linkCopied = false), 2000);
 		} catch (err) {
 			console.error('Failed to copy:', err);
-		}
-	}
-
-	async function downloadApk() {
-		if (downloading) return;
-		downloading = true;
-		try {
-			await downloadFromBlossomCdn(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
-		} catch (err) {
-			console.error('Download failed:', err);
-		} finally {
-			downloading = false;
-		}
-	}
-
-	async function downloadZapstoreStep1() {
-		if (step1Downloading) return;
-		step1Downloading = true;
-		try {
-			await downloadFromBlossomCdn(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
-		} catch (err) {
-			console.error('Download failed:', err);
-		} finally {
-			step1Downloading = false;
 		}
 	}
 </script>
@@ -290,19 +266,16 @@
 					</div>
 
 				<div class="download-actions">
-					<button
-						type="button"
-						onclick={downloadApk}
-						disabled={downloading}
-						class="btn-primary-large w-full disabled:opacity-70 flex items-center justify-center gap-3"
+					<a
+						href={ZAPSTORE_DOWNLOAD_HREF}
+						download={ZAPSTORE_APK_FILENAME}
+						data-sveltekit-reload
+						class="btn-primary-large w-full flex items-center justify-center gap-3"
+						rel="noopener"
 					>
-						{#if downloading}
-							Downloading…
-						{:else}
-							<Download variant="fill" color="var(--white66)" size={20} />
-							Download Android App
-						{/if}
-					</button>
+						<Download variant="fill" color="var(--white66)" size={20} />
+						Download Android App
+					</a>
 				</div>
 			</div>
 		</div>
@@ -332,12 +305,13 @@
 				<div class="step-card-header">
 					<span class="step-num">1</span>
 					<span class="step-card-title semibold16">Download Zapstore</span>
-					<button
-						type="button"
-						disabled={step1Downloading}
-						class="btn-primary-small step-action-btn ml-auto flex-shrink-0 whitespace-nowrap disabled:opacity-70"
-						onclick={downloadZapstoreStep1}
-						>{step1Downloading ? 'Downloading…' : 'Download'}</button
+					<a
+						href={ZAPSTORE_DOWNLOAD_HREF}
+						download={ZAPSTORE_APK_FILENAME}
+						data-sveltekit-reload
+						class="btn-primary-small step-action-btn ml-auto flex-shrink-0 whitespace-nowrap"
+						rel="noopener"
+						>Download</a
 					>
 				</div>
 				<!-- QR + description -->
@@ -351,7 +325,7 @@
 							{/if}
 							<img
 								src="https://api.qrserver.com/v1/create-qr-code/?size=144x144&bgcolor=ffffff&color=000000&data={encodeURIComponent(
-									ZAPSTORE_APK_URL
+									ZAPSTORE_DOWNLOAD_ABSOLUTE
 								)}"
 								alt="QR code to download Zapstore"
 								class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"
@@ -705,6 +679,11 @@
 	.download-actions {
 		display: flex;
 		gap: 0.75rem;
+	}
+
+	.download-actions a,
+	a.step-action-btn {
+		text-decoration: none;
 	}
 
 	.apk-size-loading {

@@ -1,13 +1,15 @@
 /**
- * Download a file from the Blossom CDN with Zapstore analytics headers.
+ * Same-origin Blossom CDN download links.
  *
- * Goes through the same-origin `/api/download` proxy so:
- * - analytics headers are attached server-side
- * - the browser saves a human filename (never the CDN content hash)
+ * `/api/download` streams the APK with Content-Disposition so the browser
+ * saves a human name (e.g. zapstore-1.1.1.apk), never the content hash.
+ * Analytics headers are attached server-side.
  *
- * Uses fetch → blob → object URL (not a navigation). Navigating to the proxy
- * is broken while a service worker handles the request as a document load
- * (Accept: text/html): Chrome drops Content-Disposition: attachment with no UI.
+ * Callers should use a real `<a href>` (or location.assign) so the browser
+ * starts the download immediately — no fetch→blob wait.
+ *
+ * The service worker must not intercept `/api/*` (see service-worker.js);
+ * Chrome silently drops attachment downloads when a SW handles them as navigations.
  */
 
 /**
@@ -24,33 +26,13 @@ export function blossomDownloadProxyUrl(url, filename) {
 }
 
 /**
+ * Trigger an immediate browser download via the proxy URL.
+ *
  * @param {string} url
  * @param {string} filename
- * @returns {Promise<void>}
  */
-export async function downloadFromBlossomCdn(url, filename) {
-	const safeName = sanitizeApkFilename(filename);
-	const proxyUrl = blossomDownloadProxyUrl(url, safeName);
-
-	const response = await fetch(proxyUrl);
-	if (!response.ok) {
-		throw new Error(`Download failed (${response.status})`);
-	}
-
-	const blob = await response.blob();
-	const objectUrl = URL.createObjectURL(blob);
-	const anchor = document.createElement('a');
-	anchor.href = objectUrl;
-	anchor.download = safeName;
-	anchor.rel = 'noopener';
-	document.body.appendChild(anchor);
-	anchor.click();
-
-	// Keep the node/URL alive until the browser has started the save.
-	setTimeout(() => {
-		URL.revokeObjectURL(objectUrl);
-		anchor.remove();
-	}, 2000);
+export function downloadFromBlossomCdn(url, filename) {
+	window.location.assign(blossomDownloadProxyUrl(url, filename));
 }
 
 /**
