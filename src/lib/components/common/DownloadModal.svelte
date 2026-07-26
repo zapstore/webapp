@@ -14,6 +14,7 @@
 	import AppPic from './AppPic.svelte';
 	import Modal from './Modal.svelte';
 	import SkeletonLoader from './SkeletonLoader.svelte';
+	import { blossomDownloadProxyUrl } from '$lib/utils/blossom-download.js';
 	/** @typedef {import("$lib/nostr/models").App} AppModel */
 
 	/** @type {{ open?: boolean, app?: AppModel|null, isZapstore?: boolean }} */
@@ -34,10 +35,15 @@
 	const ZAPSTORE_APK_VERSION = '1.1.1';
 	const ZAPSTORE_APK_SHA256 = '96846060af9f9fcc09ceb1ac07e58a1a77d715c5d0f89b3f14e2632fba2505e2';
 	const ZAPSTORE_APK_FILENAME = `zapstore-${ZAPSTORE_APK_VERSION}.apk`;
-	/** Direct GitHub release asset — Content-Disposition already names it zapstore-$v.apk */
-	const ZAPSTORE_DOWNLOAD_HREF = `https://github.com/zapstore/zapstore/releases/download/${ZAPSTORE_APK_VERSION}/${ZAPSTORE_APK_FILENAME}`;
-	/** Blossom CDN copy — used for size probe + sha256 verify only */
 	const ZAPSTORE_APK_URL = `https://cdn.zapstore.dev/${ZAPSTORE_APK_SHA256}.apk`;
+	/**
+	 * Same-origin attachment download (not GitHub, not target=_blank).
+	 * Firefox often opens cross-site GitHub release URLs without saving until reload;
+	 * a same-origin Content-Disposition response triggers the save immediately and
+	 * keeps Blossom analytics headers.
+	 */
+	const ZAPSTORE_DOWNLOAD_HREF = blossomDownloadProxyUrl(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
+	const ZAPSTORE_DOWNLOAD_ABSOLUTE = new URL(ZAPSTORE_DOWNLOAD_HREF, SITE_URL).href;
 	/** Intrinsic size of static/images/download-image.png — reserves layout before decode. */
 	const DOWNLOAD_HERO_WIDTH = 512;
 	const DOWNLOAD_HERO_HEIGHT = 636;
@@ -80,7 +86,7 @@
 
 	async function copyDownloadLink() {
 		try {
-			await navigator.clipboard.writeText(ZAPSTORE_DOWNLOAD_HREF);
+			await navigator.clipboard.writeText(ZAPSTORE_DOWNLOAD_ABSOLUTE);
 			linkCopied = true;
 			setTimeout(() => (linkCopied = false), 2000);
 		} catch (err) {
@@ -267,9 +273,9 @@
 				<div class="download-actions">
 					<a
 						href={ZAPSTORE_DOWNLOAD_HREF}
+						download={ZAPSTORE_APK_FILENAME}
+						data-sveltekit-reload
 						class="btn-primary-large w-full flex items-center justify-center gap-3"
-						target="_blank"
-						rel="noopener noreferrer"
 					>
 						<Download variant="fill" color="var(--white66)" size={20} />
 						Download Android App
@@ -305,9 +311,9 @@
 					<span class="step-card-title semibold16">Download Zapstore</span>
 					<a
 						href={ZAPSTORE_DOWNLOAD_HREF}
+						download={ZAPSTORE_APK_FILENAME}
+						data-sveltekit-reload
 						class="btn-primary-small step-action-btn ml-auto flex-shrink-0 whitespace-nowrap"
-						target="_blank"
-						rel="noopener noreferrer"
 						>Download</a
 					>
 				</div>
@@ -322,7 +328,7 @@
 							{/if}
 							<img
 								src="https://api.qrserver.com/v1/create-qr-code/?size=144x144&bgcolor=ffffff&color=000000&data={encodeURIComponent(
-									ZAPSTORE_DOWNLOAD_HREF
+									ZAPSTORE_DOWNLOAD_ABSOLUTE
 								)}"
 								alt="QR code to download Zapstore"
 								class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"

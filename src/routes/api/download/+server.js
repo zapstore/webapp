@@ -69,10 +69,8 @@ export async function GET({ url }) {
 	}
 
 	const headers = new Headers();
-	headers.set(
-		'Content-Type',
-		upstream.headers.get('Content-Type') || 'application/vnd.android.package-archive'
-	);
+	// Force APK type — Firefox is unreliable with application/octet-stream attachments.
+	headers.set('Content-Type', 'application/vnd.android.package-archive');
 	headers.set('Content-Disposition', contentDisposition(filename));
 	headers.set('Cache-Control', 'no-store');
 	const length = upstream.headers.get('Content-Length');
