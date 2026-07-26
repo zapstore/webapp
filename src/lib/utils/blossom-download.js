@@ -4,22 +4,31 @@
  * Uses a same-origin proxy so the browser starts the download immediately and
  * saves a human filename (never the content-addressed hash from the CDN URL).
  *
+ * Navigation to the proxy is intentional: the response is
+ * `Content-Disposition: attachment`, so the page stays put and the file saves.
+ * A programmatic `<a download>` + immediate remove is unreliable across browsers
+ * (download is cancelled when the node is torn down).
+ */
+
+/**
+ * @param {string} url
+ * @param {string} filename
+ * @returns {string}
+ */
+export function blossomDownloadProxyUrl(url, filename) {
+	const safeName = sanitizeApkFilename(filename);
+	return (
+		`/api/download?url=${encodeURIComponent(url)}` +
+		`&filename=${encodeURIComponent(safeName)}`
+	);
+}
+
+/**
  * @param {string} url
  * @param {string} filename
  */
 export function downloadFromBlossomCdn(url, filename) {
-	const safeName = sanitizeApkFilename(filename);
-	const proxyUrl =
-		`/api/download?url=${encodeURIComponent(url)}` +
-		`&filename=${encodeURIComponent(safeName)}`;
-
-	const anchor = document.createElement('a');
-	anchor.href = proxyUrl;
-	anchor.download = safeName;
-	anchor.rel = 'noopener';
-	document.body.appendChild(anchor);
-	anchor.click();
-	document.body.removeChild(anchor);
+	window.location.assign(blossomDownloadProxyUrl(url, filename));
 }
 
 /**

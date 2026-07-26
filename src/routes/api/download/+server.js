@@ -2,7 +2,7 @@
  * GET /api/download — Same-origin Blossom CDN download proxy.
  *
  * Streams the file with Content-Disposition so the browser saves a human
- * filename (e.g. zapstore-1.1.0.apk) instead of the content-addressed hash.
+ * filename (e.g. zapstore-1.1.1.apk) instead of the content-addressed hash.
  * Analytics headers are attached server-side.
  */
 import { error } from '@sveltejs/kit';
