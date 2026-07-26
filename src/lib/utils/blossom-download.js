@@ -1,13 +1,13 @@
 /**
  * Download a file from the Blossom CDN with Zapstore analytics headers.
  *
- * Uses a same-origin proxy so the browser starts the download immediately and
- * saves a human filename (never the content-addressed hash from the CDN URL).
+ * Goes through the same-origin `/api/download` proxy so:
+ * - analytics headers are attached server-side
+ * - the browser saves a human filename (never the CDN content hash)
  *
- * Navigation to the proxy is intentional: the response is
- * `Content-Disposition: attachment`, so the page stays put and the file saves.
- * A programmatic `<a download>` + immediate remove is unreliable across browsers
- * (download is cancelled when the node is torn down).
+ * Uses fetch → blob → object URL (not a navigation). Navigating to the proxy
+ * is broken while a service worker handles the request as a document load
+ * (Accept: text/html): Chrome drops Content-Disposition: attachment with no UI.
  */
 
 /**
@@ -26,9 +26,31 @@ export function blossomDownloadProxyUrl(url, filename) {
 /**
  * @param {string} url
  * @param {string} filename
+ * @returns {Promise<void>}
  */
-export function downloadFromBlossomCdn(url, filename) {
-	window.location.assign(blossomDownloadProxyUrl(url, filename));
+export async function downloadFromBlossomCdn(url, filename) {
+	const safeName = sanitizeApkFilename(filename);
+	const proxyUrl = blossomDownloadProxyUrl(url, safeName);
+
+	const response = await fetch(proxyUrl);
+	if (!response.ok) {
+		throw new Error(`Download failed (${response.status})`);
+	}
+
+	const blob = await response.blob();
+	const objectUrl = URL.createObjectURL(blob);
+	const anchor = document.createElement('a');
+	anchor.href = objectUrl;
+	anchor.download = safeName;
+	anchor.rel = 'noopener';
+	document.body.appendChild(anchor);
+	anchor.click();
+
+	// Keep the node/URL alive until the browser has started the save.
+	setTimeout(() => {
+		URL.revokeObjectURL(objectUrl);
+		anchor.remove();
+	}, 2000);
 }
 
 /**

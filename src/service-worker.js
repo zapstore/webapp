@@ -73,6 +73,11 @@ sw.addEventListener('fetch', (event) => {
     // Skip WebSocket requests
     if (url.protocol === 'wss:' || url.protocol === 'ws:')
         return;
+    // Never intercept API routes. `/api/download` returns Content-Disposition:
+    // attachment — when a SW handles that as a navigation (Accept: text/html),
+    // Chrome drops the download with no UI and no console error.
+    if (url.pathname.startsWith('/api/'))
+        return;
     // Handle external images: cache-first for instant loading
     if (url.origin !== sw.location.origin && isImageRequest(event.request)) {
         event.respondWith(caches.match(event.request).then((cached) => {
@@ -115,8 +120,10 @@ sw.addEventListener('fetch', (event) => {
     if (event.request.headers.get('accept')?.includes('text/html')) {
         event.respondWith(fetch(event.request)
             .then((response) => {
-            // Cache successful responses
-            if (response.ok) {
+            // Only cache real HTML documents — never APKs/API bodies that
+            // happened to arrive on a navigation Accept: text/html request.
+            const contentType = response.headers.get('content-type') || '';
+            if (response.ok && contentType.includes('text/html')) {
                 const clone = response.clone();
                 caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
             }
