@@ -24,6 +24,8 @@ export const SITE_GITHUB = 'https://github.com/zapstore/zapstore';
 export const ZAPSTORE_RELAY = 'wss://relay.zapstore.dev';
 /** Zapstore Blossom CDN — same as zsp `BLOSSOM_URL` default; kind 24242 auth + PUT `/upload`. */
 export const ZAPSTORE_BLOSSOM_URL = 'https://cdn.zapstore.dev';
+/** Latest Zapstore APK — CDN resolves release, sets Content-Disposition + X-Zapstore-* headers. */
+export const ZAPSTORE_LATEST_APK_URL = `${ZAPSTORE_BLOSSOM_URL}/download-latest`;
 /** Blossom fetch headers so relay analytics can attribute web APK downloads. */
 export const ZAPSTORE_BLOSSOM_DOWNLOAD_HEADERS = {
 	'X-Zapstore-Client': 'web',

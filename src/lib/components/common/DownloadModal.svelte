@@ -9,12 +9,12 @@
 	import { Monitor, Smartphone, Copy } from 'lucide-svelte';
 	import { Download, ChevronRight } from '$lib/components/icons';
 	import { assets } from '$app/paths';
-	import { SITE_URL } from '$lib/config';
+	import { SITE_URL, ZAPSTORE_LATEST_APK_URL } from '$lib/config';
 	import { browser } from '$app/environment';
 	import AppPic from './AppPic.svelte';
 	import Modal from './Modal.svelte';
 	import SkeletonLoader from './SkeletonLoader.svelte';
-	import { blossomDownloadProxyUrl } from '$lib/utils/blossom-download.js';
+	import { fetchZapstoreLatestApk } from '$lib/utils/blossom-download.js';
 	/** @typedef {import("$lib/nostr/models").App} AppModel */
 
 	/** @type {{ open?: boolean, app?: AppModel|null, isZapstore?: boolean }} */
@@ -28,26 +28,22 @@
 	let zapstoreQrLoaded = $state(false);
 	let step1QrLoaded = $state(false);
 	let step2QrLoaded = $state(false);
+	/** @type {string} */
+	let apkVersion = $state('');
+	/** @type {string} */
+	let apkSha256 = $state('');
+	/** @type {string} */
+	let apkFilename = $state('zapstore.apk');
 	/** Human-readable APK size from CDN Content-Length (e.g. "4.2 MB"). */
 	let apkSizeLabel = $state('');
+	let apkMetaError = $state(false);
 
-	// Zapstore-specific constants — bump version + sha256 together on each release
-	const ZAPSTORE_APK_VERSION = '1.1.1';
-	const ZAPSTORE_APK_SHA256 = '96846060af9f9fcc09ceb1ac07e58a1a77d715c5d0f89b3f14e2632fba2505e2';
-	const ZAPSTORE_APK_FILENAME = `zapstore-${ZAPSTORE_APK_VERSION}.apk`;
-	const ZAPSTORE_APK_URL = `https://cdn.zapstore.dev/${ZAPSTORE_APK_SHA256}.apk`;
-	/**
-	 * Same-origin attachment download (not GitHub, not target=_blank).
-	 * Firefox often opens cross-site GitHub release URLs without saving until reload;
-	 * a same-origin Content-Disposition response triggers the save immediately and
-	 * keeps Blossom analytics headers.
-	 */
-	const ZAPSTORE_DOWNLOAD_HREF = blossomDownloadProxyUrl(ZAPSTORE_APK_URL, ZAPSTORE_APK_FILENAME);
-	const ZAPSTORE_DOWNLOAD_ABSOLUTE = new URL(ZAPSTORE_DOWNLOAD_HREF, SITE_URL).href;
+	/** CDN resolves latest release + Content-Disposition filename + analytics headers. */
+	const ZAPSTORE_DOWNLOAD_HREF = ZAPSTORE_LATEST_APK_URL;
 	/** Intrinsic size of static/images/download-image.png — reserves layout before decode. */
 	const DOWNLOAD_HERO_WIDTH = 512;
 	const DOWNLOAD_HERO_HEIGHT = 636;
-	const ANDROID_APK_SHA256 = ZAPSTORE_APK_SHA256;
+	/** Signing certificate hash (not release-specific). */
 	const APK_CERT_HASH = '99e33b0c2d07e75fcd9df7e40e886646ff667e3aa6648e1a1160b036cf2b9320';
 
 	// App info helpers
@@ -60,33 +56,31 @@
 		return `${bytes} B`;
 	}
 
-	async function loadApkSize() {
-		try {
-			const response = await fetch(ZAPSTORE_APK_URL, {
-				method: 'HEAD'
-			});
-			const len = Number(response.headers.get('content-length'));
-			return Number.isFinite(len) && len > 0 ? formatApkSize(len) : '';
-		} catch {
-			/* size is optional UI polish */
-		}
-		return '';
-	}
-
 	$effect(() => {
-		if (!browser || !open || !isZapstore || apkSizeLabel) return;
-		let cancelled = false;
-		loadApkSize().then((label) => {
-			if (!cancelled && label) apkSizeLabel = label;
-		});
+		// Both Zapstore modal and other-app step 1 need latest APK meta.
+		if (!browser || !open || apkVersion) return;
+		const controller = new AbortController();
+		apkMetaError = false;
+		fetchZapstoreLatestApk(controller.signal)
+			.then((meta) => {
+				apkVersion = meta.version;
+				apkSha256 = meta.sha256;
+				apkFilename = meta.filename;
+				apkSizeLabel = meta.bytes ? formatApkSize(meta.bytes) : '';
+			})
+			.catch((err) => {
+				if (controller.signal.aborted) return;
+				console.error('Failed to load Zapstore APK metadata:', err);
+				apkMetaError = true;
+			});
 		return () => {
-			cancelled = true;
+			controller.abort();
 		};
 	});
 
 	async function copyDownloadLink() {
 		try {
-			await navigator.clipboard.writeText(ZAPSTORE_DOWNLOAD_ABSOLUTE);
+			await navigator.clipboard.writeText(ZAPSTORE_DOWNLOAD_HREF);
 			linkCopied = true;
 			setTimeout(() => (linkCopied = false), 2000);
 		} catch (err) {
@@ -129,7 +123,9 @@
 									</div>
 								{/if}
 								<img
-									src={`${assets}/images/qr.png`}
+									src="https://api.qrserver.com/v1/create-qr-code/?size=144x144&bgcolor=ffffff&color=000000&data={encodeURIComponent(
+										ZAPSTORE_DOWNLOAD_HREF
+									)}"
 									alt="QR code to download Zapstore"
 									class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"
 									loading="lazy"
@@ -183,8 +179,13 @@
 									<span class="regular14">Android 10+</span>
 								</span>
 								<span class="regular14" style="color: var(--white33);">
-									{#if apkSizeLabel}
-										<strong>{apkSizeLabel}</strong>
+									{#if apkVersion}
+										<strong>v{apkVersion}</strong>
+										{#if apkSizeLabel}
+											· {apkSizeLabel}
+										{/if}
+									{:else if apkMetaError}
+										<span>Version unavailable</span>
 									{:else}
 										<span class="apk-size-loading">…</span>
 									{/if}
@@ -215,8 +216,13 @@
 									<span class="regular14">Android 10+</span>
 								</span>
 								<span class="regular14" style="color: var(--white33);">
-									{#if apkSizeLabel}
-										<strong>{apkSizeLabel}</strong>
+									{#if apkVersion}
+										<strong>v{apkVersion}</strong>
+										{#if apkSizeLabel}
+											· {apkSizeLabel}
+										{/if}
+									{:else if apkMetaError}
+										<span>Version unavailable</span>
 									{:else}
 										<span class="apk-size-loading">…</span>
 									{/if}
@@ -273,8 +279,7 @@
 				<div class="download-actions">
 					<a
 						href={ZAPSTORE_DOWNLOAD_HREF}
-						download={ZAPSTORE_APK_FILENAME}
-						data-sveltekit-reload
+						rel="noopener noreferrer"
 						class="btn-primary-large w-full flex items-center justify-center gap-3"
 					>
 						<Download variant="fill" color="var(--white66)" size={20} />
@@ -311,8 +316,7 @@
 					<span class="step-card-title semibold16">Download Zapstore</span>
 					<a
 						href={ZAPSTORE_DOWNLOAD_HREF}
-						download={ZAPSTORE_APK_FILENAME}
-						data-sveltekit-reload
+						rel="noopener noreferrer"
 						class="btn-primary-small step-action-btn ml-auto flex-shrink-0 whitespace-nowrap"
 						>Download</a
 					>
@@ -328,7 +332,7 @@
 							{/if}
 							<img
 								src="https://api.qrserver.com/v1/create-qr-code/?size=144x144&bgcolor=ffffff&color=000000&data={encodeURIComponent(
-									ZAPSTORE_DOWNLOAD_ABSOLUTE
+									ZAPSTORE_DOWNLOAD_HREF
 								)}"
 								alt="QR code to download Zapstore"
 								class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"
@@ -472,13 +476,19 @@
 						<div
 							class="font-mono regular12 text-muted-foreground bg-muted/30 p-2.5 rounded-lg border border-border/30 mb-3"
 						>
-							shasum -a 256 {ZAPSTORE_APK_FILENAME}
+							shasum -a 256 {apkFilename}
 						</div>
 						<p class="regular12 text-muted-foreground mb-1.5">Should equal:</p>
 						<div
 							class="font-mono text-[11px] text-muted-foreground break-all bg-muted/30 p-2.5 rounded-lg border border-border/30 mb-3"
 						>
-							{ANDROID_APK_SHA256}
+							{#if apkSha256}
+								{apkSha256}
+							{:else if apkMetaError}
+								Hash unavailable
+							{:else}
+								…
+							{/if}
 						</div>
 						<p class="text-[11px] text-muted-foreground/70">
 							Always check the hash in

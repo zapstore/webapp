@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { apkFilenameFromName, blossomDownloadProxyUrl } from './blossom-download.js';
+import { describe, expect, it, vi, afterEach } from 'vitest';
+import {
+	apkFilenameFromName,
+	blossomDownloadProxyUrl,
+	fetchZapstoreLatestApk,
+	parseZapstoreLatestHeaders
+} from './blossom-download.js';
 
 describe('blossomDownloadProxyUrl', () => {
 	it('builds a same-origin proxy URL with human filename', () => {
@@ -27,5 +32,69 @@ describe('apkFilenameFromName', () => {
 		expect(
 			apkFilenameFromName('96846060af9f9fcc09ceb1ac07e58a1a77d715c5d0f89b3f14e2632fba2505e2')
 		).toBe('app.apk');
+	});
+});
+
+describe('parseZapstoreLatestHeaders', () => {
+	it('reads version, hash, filename, and size from CDN headers', () => {
+		const headers = new Headers({
+			'x-zapstore-version': '1.1.1',
+			'x-zapstore-sha256': '96846060AF9F9FCC09CEB1AC07E58A1A77D715C5D0F89B3F14E2632FBA2505E2',
+			'content-disposition': 'attachment; filename="zapstore-1.1.1.apk"',
+			'content-length': '16811285'
+		});
+		expect(parseZapstoreLatestHeaders(headers)).toEqual({
+			version: '1.1.1',
+			sha256: '96846060af9f9fcc09ceb1ac07e58a1a77d715c5d0f89b3f14e2632fba2505e2',
+			filename: 'zapstore-1.1.1.apk',
+			bytes: 16811285
+		});
+	});
+
+	it('falls back to zapstore-$v.apk when Disposition is missing', () => {
+		const headers = new Headers({
+			'x-zapstore-version': '2.0.0',
+			'x-zapstore-sha256': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+		});
+		expect(parseZapstoreLatestHeaders(headers).filename).toBe('zapstore-2.0.0.apk');
+	});
+
+	it('rejects incomplete metadata', () => {
+		expect(() => parseZapstoreLatestHeaders(new Headers())).toThrow(/Incomplete/);
+	});
+});
+
+describe('fetchZapstoreLatestApk', () => {
+	const originalFetch = globalThis.fetch;
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	it('HEADs CDN download-latest and returns parsed metadata', async () => {
+		const fetchMock = vi.fn(async () =>
+			new Response(null, {
+				status: 200,
+				headers: {
+					'x-zapstore-version': '1.1.1',
+					'x-zapstore-sha256': '96846060af9f9fcc09ceb1ac07e58a1a77d715c5d0f89b3f14e2632fba2505e2',
+					'content-disposition': 'attachment; filename="zapstore-1.1.1.apk"',
+					'content-length': '16811285'
+				}
+			})
+		);
+		globalThis.fetch = fetchMock;
+
+		await expect(fetchZapstoreLatestApk()).resolves.toEqual({
+			version: '1.1.1',
+			sha256: '96846060af9f9fcc09ceb1ac07e58a1a77d715c5d0f89b3f14e2632fba2505e2',
+			filename: 'zapstore-1.1.1.apk',
+			bytes: 16811285,
+			url: 'https://cdn.zapstore.dev/download-latest'
+		});
+		expect(fetchMock).toHaveBeenCalledWith('https://cdn.zapstore.dev/download-latest', {
+			method: 'HEAD',
+			signal: undefined
+		});
 	});
 });
