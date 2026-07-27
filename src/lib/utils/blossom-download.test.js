@@ -36,7 +36,7 @@ describe('apkFilenameFromName', () => {
 });
 
 describe('parseZapstoreLatestHeaders', () => {
-	it('reads version, hash, and size from CDN headers', () => {
+	it('reads version, hash, and size from download-latest headers', () => {
 		const headers = new Headers({
 			'x-zapstore-version': '1.1.1',
 			'x-zapstore-sha256': '96846060AF9F9FCC09CEB1AC07E58A1A77D715C5D0F89B3F14E2632FBA2505E2',
@@ -61,7 +61,7 @@ describe('fetchZapstoreLatestApk', () => {
 		globalThis.fetch = originalFetch;
 	});
 
-	it('HEADs CDN download-latest and returns parsed metadata', async () => {
+	it('HEADs same-origin download-latest and returns parsed metadata', async () => {
 		const fetchMock = vi.fn(async () =>
 			new Response(null, {
 				status: 200,
@@ -79,7 +79,7 @@ describe('fetchZapstoreLatestApk', () => {
 			sha256: '96846060af9f9fcc09ceb1ac07e58a1a77d715c5d0f89b3f14e2632fba2505e2',
 			bytes: 16811285
 		});
-		expect(fetchMock).toHaveBeenCalledWith('https://cdn.zapstore.dev/download-latest', {
+		expect(fetchMock).toHaveBeenCalledWith('/download-latest', {
 			method: 'HEAD',
 			signal: undefined
 		});

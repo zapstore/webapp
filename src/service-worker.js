@@ -73,10 +73,10 @@ sw.addEventListener('fetch', (event) => {
     // Skip WebSocket requests
     if (url.protocol === 'wss:' || url.protocol === 'ws:')
         return;
-    // Never intercept API routes. `/api/download` returns Content-Disposition:
+    // Never intercept download/API attachment routes. Content-Disposition:
     // attachment — when a SW handles that as a navigation (Accept: text/html),
     // Chrome drops the download with no UI and no console error.
-    if (url.pathname.startsWith('/api/'))
+    if (url.pathname.startsWith('/api/') || url.pathname === '/download-latest')
         return;
     // Handle external images: cache-first for instant loading
     if (url.origin !== sw.location.origin && isImageRequest(event.request)) {

@@ -1,11 +1,12 @@
 /**
  * Blossom CDN download helpers.
  *
- * Zapstore APK: direct CDN `/download-latest` (HEAD for version/hash/size; GET to save).
+ * Zapstore APK: same-origin `/download-latest` (HEAD for version/hash/size; GET to save).
  * Other apps: same-origin `/api/download` for human filenames + analytics headers.
  *
  * Prefer `<a href>` / location.assign over fetch→blob. Do not let the service
- * worker intercept `/api/*` (breaks Content-Disposition downloads in Chrome).
+ * worker intercept `/api/*` or `/download-latest` (breaks Content-Disposition
+ * downloads in Chrome).
  */
 import { ZAPSTORE_LATEST_APK_URL } from '$lib/config.js';
 

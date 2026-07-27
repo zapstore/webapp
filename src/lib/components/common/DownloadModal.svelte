@@ -9,7 +9,7 @@
 	import { Monitor, Smartphone, Copy } from 'lucide-svelte';
 	import { Download, ChevronRight } from '$lib/components/icons';
 	import { assets } from '$app/paths';
-	import { SITE_URL, ZAPSTORE_LATEST_APK_URL } from '$lib/config';
+	import { SITE_URL, ZAPSTORE_LATEST_APK_SHARE_URL, ZAPSTORE_LATEST_APK_URL } from '$lib/config';
 	import { browser } from '$app/environment';
 	import AppPic from './AppPic.svelte';
 	import Modal from './Modal.svelte';
@@ -32,7 +32,7 @@
 	let apkVersion = $state('');
 	/** @type {string} */
 	let apkSha256 = $state('');
-	/** Human-readable APK size from CDN Content-Length (e.g. "4.2 MB"). */
+	/** Human-readable APK size from Content-Length (e.g. "4.2 MB"). */
 	let apkSizeLabel = $state('');
 	let apkMetaError = $state(false);
 	let apkFilename = $derived(apkVersion ? `zapstore-${apkVersion}.apk` : 'zapstore.apk');
@@ -74,7 +74,7 @@
 
 	async function copyDownloadLink() {
 		try {
-			await navigator.clipboard.writeText(ZAPSTORE_LATEST_APK_URL);
+			await navigator.clipboard.writeText(ZAPSTORE_LATEST_APK_SHARE_URL);
 			linkCopied = true;
 			setTimeout(() => (linkCopied = false), 2000);
 		} catch (err) {
@@ -118,7 +118,7 @@
 								{/if}
 								<img
 									src="https://api.qrserver.com/v1/create-qr-code/?size=144x144&bgcolor=ffffff&color=000000&data={encodeURIComponent(
-										ZAPSTORE_LATEST_APK_URL
+										ZAPSTORE_LATEST_APK_SHARE_URL
 									)}"
 									alt="QR code to download Zapstore"
 									class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"
@@ -323,7 +323,7 @@
 							{/if}
 							<img
 								src="https://api.qrserver.com/v1/create-qr-code/?size=144x144&bgcolor=ffffff&color=000000&data={encodeURIComponent(
-									ZAPSTORE_LATEST_APK_URL
+									ZAPSTORE_LATEST_APK_SHARE_URL
 								)}"
 								alt="QR code to download Zapstore"
 								class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"

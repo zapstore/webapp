@@ -3,7 +3,7 @@
  *
  * Streams the blob with Content-Disposition so the browser saves a human
  * filename instead of the content-addressed hash. Analytics headers are
- * attached server-side. (Zapstore's own APK uses CDN `/download-latest`.)
+ * attached server-side. (Zapstore's own APK uses same-origin `/download-latest`.)
  */
 import { error } from '@sveltejs/kit';
 import { ZAPSTORE_BLOSSOM_DOWNLOAD_HEADERS, ZAPSTORE_BLOSSOM_URL } from '$lib/config.js';

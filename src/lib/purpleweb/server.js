@@ -23,7 +23,8 @@ import {
 	ZAPSTORE_APP_DTAG,
 	ZAPSTORE_COMMUNITY_NPUB,
 	ZAPSTORE_COMMUNITY_PUBKEY,
-	ZAPSTORE_COMMUNITY_RELAY
+	ZAPSTORE_COMMUNITY_RELAY,
+	ZAPSTORE_INDEXER_PUBKEY
 } from '$lib/config';
 import { APPS_PAGE_SIZE } from '$lib/constants';
 
@@ -234,6 +235,39 @@ export async function fetchApp(pubkey, identifier) {
 	]);
 
 	return { app, seedEvents };
+}
+
+/**
+ * Latest Zapstore Android APK asset (kind 3063) from the indexer.
+ * Newest-first via relay limit; returns null when none found.
+ *
+ * @returns {Promise<{ hash: string, version: string } | null>}
+ */
+export async function fetchLatestZapstoreAsset() {
+	const events = await queryRelay(
+		[RELAY],
+		{
+			kinds: [EVENT_KINDS.ASSET],
+			authors: [ZAPSTORE_INDEXER_PUBKEY],
+			'#i': [ZAPSTORE_APP_DTAG],
+			limit: 1
+		},
+		3000
+	);
+
+	if (events.length === 0) return null;
+
+	const tags = events[0]?.tags;
+	if (!Array.isArray(tags)) return null;
+
+	const hash = tags.find((t) => t[0] === 'x' && typeof t[1] === 'string')?.[1]?.trim().toLowerCase();
+	const version = tags.find((t) => t[0] === 'version' && typeof t[1] === 'string')?.[1]?.trim();
+
+	if (!hash || !/^[a-f0-9]{64}$/.test(hash) || !version) {
+		return null;
+	}
+
+	return { hash, version };
 }
 
 /**
