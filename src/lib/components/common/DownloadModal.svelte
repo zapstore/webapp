@@ -32,21 +32,17 @@
 	let apkVersion = $state('');
 	/** @type {string} */
 	let apkSha256 = $state('');
-	/** @type {string} */
-	let apkFilename = $state('zapstore.apk');
 	/** Human-readable APK size from CDN Content-Length (e.g. "4.2 MB"). */
 	let apkSizeLabel = $state('');
 	let apkMetaError = $state(false);
+	let apkFilename = $derived(apkVersion ? `zapstore-${apkVersion}.apk` : 'zapstore.apk');
 
-	/** CDN resolves latest release + Content-Disposition filename + analytics headers. */
-	const ZAPSTORE_DOWNLOAD_HREF = ZAPSTORE_LATEST_APK_URL;
 	/** Intrinsic size of static/images/download-image.png — reserves layout before decode. */
 	const DOWNLOAD_HERO_WIDTH = 512;
 	const DOWNLOAD_HERO_HEIGHT = 636;
 	/** Signing certificate hash (not release-specific). */
 	const APK_CERT_HASH = '99e33b0c2d07e75fcd9df7e40e886646ff667e3aa6648e1a1160b036cf2b9320';
 
-	// App info helpers
 	let appDeepLink = $derived(app ? `${SITE_URL}/apps/${app.naddr ?? app.dTag ?? ''}` : '');
 
 	function formatApkSize(bytes) {
@@ -57,7 +53,6 @@
 	}
 
 	$effect(() => {
-		// Both Zapstore modal and other-app step 1 need latest APK meta.
 		if (!browser || !open || apkVersion) return;
 		const controller = new AbortController();
 		apkMetaError = false;
@@ -65,7 +60,6 @@
 			.then((meta) => {
 				apkVersion = meta.version;
 				apkSha256 = meta.sha256;
-				apkFilename = meta.filename;
 				apkSizeLabel = meta.bytes ? formatApkSize(meta.bytes) : '';
 			})
 			.catch((err) => {
@@ -80,7 +74,7 @@
 
 	async function copyDownloadLink() {
 		try {
-			await navigator.clipboard.writeText(ZAPSTORE_DOWNLOAD_HREF);
+			await navigator.clipboard.writeText(ZAPSTORE_LATEST_APK_URL);
 			linkCopied = true;
 			setTimeout(() => (linkCopied = false), 2000);
 		} catch (err) {
@@ -124,7 +118,7 @@
 								{/if}
 								<img
 									src="https://api.qrserver.com/v1/create-qr-code/?size=144x144&bgcolor=ffffff&color=000000&data={encodeURIComponent(
-										ZAPSTORE_DOWNLOAD_HREF
+										ZAPSTORE_LATEST_APK_URL
 									)}"
 									alt="QR code to download Zapstore"
 									class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"
@@ -278,8 +272,7 @@
 
 				<div class="download-actions">
 					<a
-						href={ZAPSTORE_DOWNLOAD_HREF}
-						rel="noopener noreferrer"
+						href={ZAPSTORE_LATEST_APK_URL}
 						class="btn-primary-large w-full flex items-center justify-center gap-3"
 					>
 						<Download variant="fill" color="var(--white66)" size={20} />
@@ -298,7 +291,6 @@
 			<h2 class="modal-title modal-heading mb-4">
 				Download {app?.name || 'App'}
 			</h2>
-			<!-- <p class="app-modal-description">With Zapstore for reliable, secure updates</p> -->
 
 			<!-- Platform selector -->
 			<div class="mb-3">
@@ -315,8 +307,7 @@
 					<span class="step-num">1</span>
 					<span class="step-card-title semibold16">Download Zapstore</span>
 					<a
-						href={ZAPSTORE_DOWNLOAD_HREF}
-						rel="noopener noreferrer"
+						href={ZAPSTORE_LATEST_APK_URL}
 						class="btn-primary-small step-action-btn ml-auto flex-shrink-0 whitespace-nowrap"
 						>Download</a
 					>
@@ -332,7 +323,7 @@
 							{/if}
 							<img
 								src="https://api.qrserver.com/v1/create-qr-code/?size=144x144&bgcolor=ffffff&color=000000&data={encodeURIComponent(
-									ZAPSTORE_DOWNLOAD_HREF
+									ZAPSTORE_LATEST_APK_URL
 								)}"
 								alt="QR code to download Zapstore"
 								class="w-36 h-36 rounded-md border border-border/40 bg-white p-1"

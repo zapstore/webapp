@@ -1,9 +1,9 @@
 /**
- * GET /api/download — Same-origin Blossom CDN download proxy.
+ * GET /api/download — Same-origin Blossom CDN download proxy for catalog apps.
  *
- * Streams the file with Content-Disposition so the browser saves a human
- * filename (e.g. zapstore-1.1.1.apk) instead of the content-addressed hash.
- * Analytics headers are attached server-side.
+ * Streams the blob with Content-Disposition so the browser saves a human
+ * filename instead of the content-addressed hash. Analytics headers are
+ * attached server-side. (Zapstore's own APK uses CDN `/download-latest`.)
  */
 import { error } from '@sveltejs/kit';
 import { ZAPSTORE_BLOSSOM_DOWNLOAD_HEADERS, ZAPSTORE_BLOSSOM_URL } from '$lib/config.js';
