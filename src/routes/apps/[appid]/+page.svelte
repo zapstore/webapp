@@ -2535,6 +2535,13 @@ let _refreshing = $state(false);
 		mask-image: linear-gradient(to bottom, black 0, black 58%, transparent 100%);
 	}
 
+	/* Keep links inside collapsed notes clickable — the clamp/fade still applies and the
+	   "Read more" button stays above them (z-index 1). Matches .description-container,
+	   which does not disable pointer events when collapsed. */
+	.release-notes-text.collapsed :global(a) {
+		pointer-events: auto;
+	}
+
 	.release-notes {
 		font-size: 0.875rem;
 		line-height: 1.5;

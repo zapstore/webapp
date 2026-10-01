@@ -6,6 +6,7 @@
  */
 import { nip19 } from 'nostr-tools';
 import { EVENT_KINDS, ZAPSTORE_COMMUNITY_PUBKEY } from '$lib/config';
+import { renderMarkdown } from '$lib/utils/markdown.js';
 // =============================================================================
 // Parsers
 // =============================================================================
@@ -79,7 +80,9 @@ export function parseRelease(event) {
         version,
         releaseNotes: notes,
         notes,
-        notesHtml: notes ? `<p>${notes.replace(/\n/g, '</p><p>')}</p>` : undefined,
+        // Rendered through the shared markdown path so links become real anchors and
+        // remote content is sanitised (see $lib/utils/markdown.js).
+        notesHtml: notes ? renderMarkdown(notes) : undefined,
         artifacts: event.tags.filter((t) => t[0] === 'e' || t[0] === 'E').map((t) => t[1]),
         createdAt: event.created_at,
         url
