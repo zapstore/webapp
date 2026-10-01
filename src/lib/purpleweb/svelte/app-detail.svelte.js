@@ -8,6 +8,7 @@ import {
 import { queryEvent, queryEvents } from '../storage/dexie.js';
 import { decodeNaddr, parseApp, parseProfile, parseRelease } from '$lib/nostr/models.js';
 import { createDetailQuery } from './createDetailQuery.svelte.js';
+import { collapseReleaseEvents } from './release-events.js';
 
 /**
  * @param {unknown} value
@@ -130,7 +131,13 @@ async function loadAppDetail(input) {
 		queryEvents({ kinds: [EVENT_KINDS.RELEASE], '#a': [aTagValue], limit: 50 }),
 		queryEvents({ kinds: [EVENT_KINDS.RELEASE], '#i': [app.dTag], limit: 50 })
 	]);
-	const releaseEvents = dedupeNewest([...byATag, ...byITag]).slice(0, 50);
+	// The catalog relay mirrors releases under its own key, so the same release
+	// address can arrive from both the `#a` and `#i` queries. Collapse to one
+	// event per address, preferring the app author's own copy.
+	const releaseEvents = collapseReleaseEvents(
+		dedupeNewest([...byATag, ...byITag]),
+		app.pubkey
+	).slice(0, 50);
 	const releases = releaseEvents.map(parseRelease);
 	const latestRelease = releases[0] ?? null;
 	const artifactIds = latestRelease?.artifacts?.filter(isHexId) ?? [];
